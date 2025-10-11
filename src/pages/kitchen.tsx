@@ -16,9 +16,12 @@ export default function KitchenPage() {
       {
         id: "ORD-001",
         quoteId: "Q-001",
+        client: "Sarah Johnson",
         clientName: "Sarah Johnson",
         eventDate: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().split("T")[0],
         venue: "Grand Palace Hotel",
+        location: "123 Main St, Cape Town",
         eventLocation: "123 Main St, Cape Town",
         guestCount: 150,
         menuItems: [
@@ -59,6 +62,7 @@ export default function KitchenPage() {
         equipmentItems: [],
         kitchenInstructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
         status: "pending",
+        total: 37500,
         createdAt: new Date().toISOString(),
       },
     ];
