@@ -48,3 +48,13 @@ export interface Notification {
   read: boolean;
   orderId: string;
 }
+
+export interface GPSLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: string;
+  speed?: number;
+  altitude?: number;
+  heading?: number;
+}

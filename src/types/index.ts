@@ -54,11 +54,15 @@ export interface Ingredient {
 export interface EquipmentItem {
   id: string;
   name: string;
-  category: "chafing" | "serving" | "utensil" | "other";
+  category: "chafing" | "serving" | "utensil" | "cutlery" | "crockery" | "other";
   quantity: number;
   available: number;
   condition: "excellent" | "good" | "fair" | "poor";
   rentalPrice: number;
+  requiresCleaning?: boolean;
+  cleaningTimeHours?: number;
+  lastCleaned?: string;
+  nextAvailableAt?: string;
 }
 
 export interface Order {
@@ -66,12 +70,13 @@ export interface Order {
   quoteId: string;
   clientName: string;
   eventDate: string;
+  venue: string;
   eventLocation: string;
   guestCount: number;
   menuItems: MenuItem[];
   equipmentItems: EquipmentItem[];
   kitchenInstructions: string;
-  status: "pending" | "in_preparation" | "ready" | "delivered" | "completed";
+  status: "pending" | "in_preparation" | "ready" | "in_progress" | "delivered" | "completed";
   assignedDriver?: string;
   deliveryTime?: string;
   createdAt: string;
@@ -145,4 +150,30 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+}
+
+export interface CleaningSchedule {
+  id: string;
+  orderId: string;
+  equipmentItems: EquipmentItem[];
+  returnedAt?: string;
+  cleaningStartedAt?: string;
+  estimatedCleaningHours: number;
+  availableAt: string;
+  status: "pending_return" | "in_cleaning" | "cleaned" | "available";
+  assignedTo?: string;
+  notes?: string;
+}
+
+export interface EquipmentInventory {
+  id: string;
+  name: string;
+  category: "cutlery" | "crockery" | "chafing" | "serving" | "other";
+  totalQuantity: number;
+  availableQuantity: number;
+  inUseQuantity: number;
+  cleaningQuantity: number;
+  damagedQuantity: number;
+  defaultCleaningTimeHours: number;
+  lastUpdated: string;
 }
