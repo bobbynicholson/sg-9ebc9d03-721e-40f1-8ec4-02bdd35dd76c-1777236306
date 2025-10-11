@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,11 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ShoppingCart,
+  Sparkles,
+  UserCircle,
+  Shield
 } from "lucide-react";
 import { NotificationCenter } from "@/components/tracking/NotificationCenter";
 
@@ -46,7 +51,7 @@ export default function HomePage() {
     },
     { 
       label: "Monthly Revenue", 
-      value: "$45.2K", 
+      value: "R 245K", 
       icon: TrendingUp, 
       color: "from-orange-500 to-red-500",
       bgColor: "bg-orange-100",
@@ -54,62 +59,105 @@ export default function HomePage() {
     },
   ];
 
-  const quickActions = [
+  const adminActions = [
     { 
       title: "Lead Management", 
-      description: "View and manage incoming leads",
+      description: "Capture and manage incoming leads",
       icon: Users, 
       href: "/leads",
       color: "from-blue-500 to-cyan-500"
     },
     { 
       title: "Create Quote", 
-      description: "Generate new catering quotes",
+      description: "Generate professional catering quotes",
       icon: FileText, 
       href: "/quotes/new",
       color: "from-purple-500 to-pink-500"
     },
     { 
       title: "Event Calendar", 
-      description: "View scheduled events and bookings",
+      description: "View all scheduled events",
       icon: Calendar, 
       href: "/calendar",
       color: "from-green-500 to-emerald-500"
     },
     { 
-      title: "Kitchen Orders", 
-      description: "Manage kitchen preparation",
-      icon: ChefHat, 
+      title: "All Quotes", 
+      description: "Manage quote pipeline",
+      icon: ClipboardList, 
+      href: "/quotes",
+      color: "from-violet-500 to-purple-500"
+    },
+    { 
+      title: "Orders Management", 
+      description: "Track confirmed orders",
+      icon: Package, 
       href: "/orders",
       color: "from-orange-500 to-red-500"
     },
     { 
-      title: "Inventory", 
-      description: "Track stock and equipment",
+      title: "Inventory & Equipment", 
+      description: "Manage stock and equipment",
       icon: Package, 
       href: "/inventory",
       color: "from-indigo-500 to-purple-500"
     },
     { 
-      title: "Driver Portal", 
-      description: "Delivery job management",
+      title: "Driver Management", 
+      description: "Oversee delivery team",
       icon: Truck, 
       href: "/drivers",
       color: "from-teal-500 to-cyan-500"
     },
     { 
-      title: "Payments", 
-      description: "Invoice and payment tracking",
-      icon: DollarSign, 
-      href: "/payments",
-      color: "from-pink-500 to-rose-500"
+      title: "Admin Tracking", 
+      description: "Monitor all active deliveries",
+      icon: Shield, 
+      href: "/tracking/admin",
+      color: "from-slate-500 to-slate-600"
     },
-    { 
-      title: "All Quotes", 
-      description: "View and manage all quotes",
-      icon: ClipboardList, 
-      href: "/quotes",
-      color: "from-violet-500 to-purple-500"
+  ];
+
+  const teamPortals = [
+    {
+      title: "Kitchen Team Portal",
+      description: "View orders, manage prep schedules",
+      icon: ChefHat,
+      href: "/kitchen",
+      color: "from-red-500 to-orange-500",
+      badge: "Staff"
+    },
+    {
+      title: "Cleaning Team Portal",
+      description: "Track equipment cleaning schedules",
+      icon: Sparkles,
+      href: "/cleaning",
+      color: "from-blue-500 to-cyan-500",
+      badge: "Staff"
+    },
+    {
+      title: "Shopping Team Portal",
+      description: "Manage ingredient purchases",
+      icon: ShoppingCart,
+      href: "/shopping",
+      color: "from-green-500 to-emerald-500",
+      badge: "Staff"
+    },
+    {
+      title: "Driver Portal",
+      description: "Accept jobs and track deliveries",
+      icon: Truck,
+      href: "/tracking/driver",
+      color: "from-purple-500 to-pink-500",
+      badge: "Driver"
+    },
+    {
+      title: "Client Portal",
+      description: "Track your event orders",
+      icon: UserCircle,
+      href: "/client-portal",
+      color: "from-indigo-500 to-blue-500",
+      badge: "Client"
     },
   ];
 
@@ -168,12 +216,14 @@ export default function HomePage() {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
                 Catering Management Platform
               </h1>
-              <p className="text-slate-600">Streamline your catering operations from lead to delivery</p>
+              <p className="text-slate-600">Complete solution for South African catering businesses</p>
             </div>
-            <Badge className="px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              System Active
-            </Badge>
+            <div className="flex gap-3">
+              <Badge className="px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                All Systems Active
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -196,28 +246,59 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quickActions.map((action, index) => (
-                <Link key={index} href={action.href}>
-                  <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 group cursor-pointer h-full">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className={`p-3 bg-gradient-to-br ${action.color} rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>
-                          <action.icon className="w-6 h-6 text-white" />
+          <div className="lg:col-span-2 space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Admin Dashboard</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {adminActions.map((action, index) => (
+                  <Link key={index} href={action.href}>
+                    <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 group cursor-pointer h-full">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className={`p-3 bg-gradient-to-br ${action.color} rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>
+                            <action.icon className="w-6 h-6 text-white" />
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-purple-600 transition-colors">
-                        {action.title}
-                      </h3>
-                      <p className="text-sm text-slate-600">{action.description}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                      </CardHeader>
+                      <CardContent>
+                        <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-purple-600 transition-colors">
+                          {action.title}
+                        </h3>
+                        <p className="text-sm text-slate-600">{action.description}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-slate-900">Team Portals</h2>
+                <Badge className="bg-purple-100 text-purple-700">Role-Based Access</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {teamPortals.map((portal, index) => (
+                  <Link key={index} href={portal.href}>
+                    <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 group cursor-pointer h-full">
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                          <div className={`p-4 bg-gradient-to-br ${portal.color} rounded-2xl shadow-lg group-hover:scale-110 transition-transform`}>
+                            <portal.icon className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <Badge className="mb-2 bg-slate-100 text-slate-700">{portal.badge}</Badge>
+                            <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-purple-600 transition-colors">
+                              {portal.title}
+                            </h3>
+                            <p className="text-xs text-slate-600">{portal.description}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -253,16 +334,16 @@ export default function HomePage() {
                   <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Payment Gateway</span>
-                  <Badge className="bg-green-100 text-green-700 border-green-200">Connected</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Kitchen Sync</span>
+                  <span className="text-slate-600">GPS Tracking</span>
                   <Badge className="bg-green-100 text-green-700 border-green-200">Online</Badge>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Driver App</span>
+                  <span className="text-slate-600">Equipment Calc</span>
                   <Badge className="bg-green-100 text-green-700 border-green-200">Running</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Auto Cleaning</span>
+                  <Badge className="bg-green-100 text-green-700 border-green-200">Enabled</Badge>
                 </div>
               </CardContent>
             </Card>
@@ -273,12 +354,14 @@ export default function HomePage() {
           <CardContent className="py-8 px-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-bold mb-2">Need Help Getting Started?</h3>
-                <p className="text-purple-100">Check out our comprehensive guide to manage your catering business</p>
+                <h3 className="text-2xl font-bold mb-2">Built for South African Catering Excellence</h3>
+                <p className="text-purple-100">From lead capture to delivery tracking - everything you need to run a profitable catering business</p>
               </div>
-              <Button variant="secondary" size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
-                View Guide
-              </Button>
+              <Link href="/auth/register">
+                <Button variant="secondary" size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
+                  Get Started
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
