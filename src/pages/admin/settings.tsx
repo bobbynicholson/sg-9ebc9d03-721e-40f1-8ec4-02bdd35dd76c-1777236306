@@ -155,15 +155,51 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
               </div>
-              <Link href="/admin/regions">
-                <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
-                  Manage Regions
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/admin/order-assignments">
-                <Button size="lg" variant="outline" className="bg-white/80 hover:bg-white">
-                  Assign Orders
+              <div className="flex flex-col gap-3">
+                <Link href="/admin/regions">
+                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                    Manage Regions
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/admin/order-assignments">
+                  <Button size="lg" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
+                    Assign Orders
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 text-white">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <DollarSign className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">Payment Processing</h3>
+                  <p className="text-green-100">
+                    Connect multiple payment gateways for South African and international transactions. Accept card payments seamlessly.
+                  </p>
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="text-sm">PayFast, Yoco, Peach</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      <span className="text-sm">Stripe, PayPal, Square</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Link href="/admin/payment-gateways">
+                <Button size="lg" className="bg-white text-green-600 hover:bg-green-50">
+                  Configure Payments
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>

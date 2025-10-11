@@ -8,10 +8,15 @@ import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck } from "luci
 import Link from "next/link";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
 import { Footer } from "@/components/Footer";
+import { PaymentService } from "@/lib/paymentService";
+import { CreditCard, DollarSign } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("active");
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
     const mockOrders: Order[] = [
@@ -130,6 +135,41 @@ export default function ClientPortalPage() {
   const activeOrders = orders.filter((o) => ["confirmed", "preparing", "ready"].includes(o.status));
   const completedOrders = orders.filter((o) => ["delivered", "completed"].includes(o.status));
 
+  const handlePayment = async (order: Order) => {
+    setProcessingPayment(order.id);
+    setPaymentError(null);
+
+    try {
+      const result = await PaymentService.initiatePayment({
+        orderId: order.id,
+        amount: order.totalAmount,
+        currency: "ZAR",
+        customerEmail: "client@example.com",
+        customerName: order.clientName,
+        description: `Payment for ${order.venue} event`,
+        metadata: {
+          quoteId: order.quoteId,
+          eventDate: order.eventDate,
+          venue: order.venue
+        }
+      });
+
+      if (result.success && result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+      } else {
+        setPaymentError(result.errorMessage || "Payment processing failed");
+      }
+    } catch (error) {
+      setPaymentError("Unable to process payment. Please try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
+
+  const needsPayment = (order: Order) => {
+    return order.status === "pending" || order.status === "confirmed";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -149,6 +189,12 @@ export default function ClientPortalPage() {
             </Button>
           </Link>
         </div>
+
+        {paymentError && (
+          <Alert variant="destructive">
+            <AlertDescription>{paymentError}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-0 shadow-lg">
@@ -262,6 +308,32 @@ export default function ClientPortalPage() {
                         </span>
                       </div>
                     </div>
+
+                    {needsPayment(order) && (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <DollarSign className="w-4 h-4 text-yellow-600" />
+                          <span className="text-sm font-medium text-yellow-900">Payment Required</span>
+                        </div>
+                        <p className="text-xs text-yellow-700 mb-3">
+                          Complete payment to confirm your booking and reserve your event date
+                        </p>
+                        <Button 
+                          onClick={() => handlePayment(order)}
+                          disabled={processingPayment === order.id}
+                          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                        >
+                          {processingPayment === order.id ? (
+                            <>Processing...</>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Pay R{order.totalAmount?.toLocaleString()}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
                       <Link href={`/tracking/client?orderId=${order.id}`} className="flex-1">

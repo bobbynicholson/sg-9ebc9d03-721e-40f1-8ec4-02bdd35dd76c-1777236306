@@ -32,7 +32,8 @@ import {
   PieChart,
   MapPin,
   Bell,
-  MousePointer
+  MousePointer,
+  CreditCard
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 
@@ -133,7 +134,7 @@ export default function HomePage() {
     },
     {
       title: "Payment Processing",
-      description: "Automatic payment tracking and reconciliation",
+      description: "Multiple payment gateways with automatic reconciliation",
       icon: DollarSign
     },
     {
@@ -183,6 +184,18 @@ export default function HomePage() {
     { value: "80%", label: "Fewer Admin Calls", icon: Bell },
     { value: "15-25%", label: "Margin Increase", icon: TrendingUp },
     { value: "3x", label: "Repeat Bookings", icon: RefreshCw }
+  ];
+
+  const adminQuickLinks = [
+    { href: "/leads", label: "Lead Management", icon: Users },
+    { href: "/quotes", label: "Quotes", icon: FileText },
+    { href: "/orders", label: "Orders", icon: Package },
+    { href: "/calendar", label: "Calendar", icon: Calendar },
+    { href: "/inventory", label: "Inventory", icon: Package },
+    { href: "/drivers", label: "Drivers", icon: Truck },
+    { href: "/admin/payment-gateways", label: "Payment Gateways", icon: CreditCard },
+    { href: "/admin/regions", label: "Regional Operations", icon: MapPin },
+    { href: "/admin/settings", label: "Settings", icon: Settings }
   ];
 
   return (
@@ -344,7 +357,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
             {features.map((feature, index) => (
               <div key={index} className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all group">
                 <div className="inline-flex p-3 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl mb-4 group-hover:scale-110 transition-transform">
@@ -354,6 +367,20 @@ export default function HomePage() {
                 <p className="text-sm text-slate-600">{feature.description}</p>
               </div>
             ))}
+          </div>
+
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <h3 className="text-2xl font-bold text-slate-900 mb-6 text-center">Quick Access</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {adminQuickLinks.map((link, index) => (
+                <Link key={index} href={link.href}>
+                  <Button variant="outline" className="w-full h-full flex flex-col gap-2 p-4 hover:bg-purple-50 hover:border-purple-300">
+                    <link.icon className="w-5 h-5" />
+                    <span className="text-xs text-center">{link.label}</span>
+                  </Button>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
 
