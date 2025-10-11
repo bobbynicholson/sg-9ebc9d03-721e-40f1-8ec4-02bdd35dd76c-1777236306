@@ -59,6 +59,7 @@ export interface EquipmentItem {
   available: number;
   condition: "excellent" | "good" | "fair" | "poor";
   rentalPrice: number;
+  pricePerItem?: number;
   requiresCleaning?: boolean;
   cleaningTimeHours?: number;
   lastCleaned?: string;
@@ -76,7 +77,8 @@ export interface Order {
   menuItems: MenuItem[];
   equipmentItems: EquipmentItem[];
   kitchenInstructions: string;
-  status: "pending" | "in_preparation" | "ready" | "in_progress" | "delivered" | "completed";
+  status: "pending" | "confirmed" | "in_preparation" | "preparing" | "ready" | "in_progress" | "delivered" | "completed";
+  totalAmount?: number;
   assignedDriver?: string;
   deliveryTime?: string;
   createdAt: string;
@@ -143,7 +145,7 @@ export interface Payment {
   reconciled: boolean;
 }
 
-export type UserRole = "admin" | "kitchen" | "buyer" | "driver" | "client";
+export type UserRole = "admin" | "kitchen" | "buyer" | "driver" | "client" | "cleaning";
 
 export interface User {
   id: string;
