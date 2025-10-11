@@ -127,15 +127,19 @@ export interface EquipmentItem {
 export interface Order {
   id: string;
   quoteId: string;
+  client: string;
   clientName: string;
   eventDate: string;
+  date: string;
   venue: string;
+  location: string;
   eventLocation: string;
   guestCount: number;
   menuItems: MenuItem[];
   equipmentItems: EquipmentItem[];
   kitchenInstructions: string;
   status: "pending" | "confirmed" | "in_preparation" | "preparing" | "ready" | "in_progress" | "delivered" | "completed";
+  total: number;
   totalAmount?: number;
   assignedDriver?: string;
   deliveryTime?: string;

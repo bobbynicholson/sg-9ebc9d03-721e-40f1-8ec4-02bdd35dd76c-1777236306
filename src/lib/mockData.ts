@@ -78,9 +78,12 @@ export const mockOrders: Order[] = [
   {
     id: "ORD-001",
     quoteId: "Q-001",
+    client: "Sarah Johnson",
     clientName: "Sarah Johnson",
     eventDate: "2024-02-15",
+    date: "2024-02-15",
     venue: "Grand Palace Hotel",
+    location: "123 Main St, Cape Town",
     eventLocation: "123 Main St, Cape Town",
     guestCount: 150,
     menuItems: [
@@ -109,6 +112,8 @@ export const mockOrders: Order[] = [
     ],
     kitchenInstructions: "Prepare 2 hours before event",
     status: "pending",
+    total: 37500,
+    totalAmount: 37500,
     createdAt: new Date().toISOString(),
   },
 ];
