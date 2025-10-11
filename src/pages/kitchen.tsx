@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Order, Ingredient } from "@/types";
 import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -301,6 +301,8 @@ export default function KitchenPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <Footer />
     </div>
   );
 }

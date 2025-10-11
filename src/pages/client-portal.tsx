@@ -7,6 +7,7 @@ import { Order } from "@/types";
 import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck } from "lucide-react";
 import Link from "next/link";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
+import { Footer } from "@/components/Footer";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -329,6 +330,8 @@ export default function ClientPortalPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <Footer />
     </div>
   );
 }

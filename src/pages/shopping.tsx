@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 interface ShoppingItem {
   id: string;
@@ -302,6 +302,8 @@ export default function ShoppingPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Footer />
     </div>
   );
 }

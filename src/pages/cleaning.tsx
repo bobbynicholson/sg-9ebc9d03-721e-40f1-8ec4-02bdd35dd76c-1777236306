@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EquipmentInventory } from "@/types";
 import { Sparkles, Clock, CheckCircle, AlertCircle, Package } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 export default function CleaningPage() {
   const [equipment, setEquipment] = useState<EquipmentInventory[]>([]);
@@ -375,6 +375,8 @@ export default function CleaningPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Footer />
     </div>
   );
 }
