@@ -220,9 +220,11 @@ export default function DriversPage() {
                         <span>{job.guestCount} guests</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" className="w-full">
-                          View Details
-                        </Button>
+                        <Link href={`/tracking/driver?orderId=${job.id}`}>
+                          <Button variant="outline" className="w-full">
+                            Start Tracking
+                          </Button>
+                        </Link>
                         <Button 
                           className="w-full bg-green-600 hover:bg-green-700"
                           onClick={() => handleCompleteJob(job.id)}
