@@ -45,6 +45,7 @@ export interface MenuItem {
 export interface Ingredient {
   id: string;
   name: string;
+  quantity: number;
   quantityNeeded: number;
   unit: string;
   category: "fresh" | "staple" | "frozen";
