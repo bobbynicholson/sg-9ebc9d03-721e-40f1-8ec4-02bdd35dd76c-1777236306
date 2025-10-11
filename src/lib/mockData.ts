@@ -76,18 +76,41 @@ export const mockQuotes: Quote[] = [
 
 export const mockOrders: Order[] = [
   {
-    id: "O001",
-    quoteId: "Q001",
-    clientName: "Michael Chen",
-    eventDate: "2025-11-20",
-    eventLocation: "Convention Center, Downtown",
-    guestCount: 75,
-    menuItems: mockQuotes[0].menuItems,
-    equipmentItems: mockQuotes[0].equipmentItems,
-    kitchenInstructions: "Prepare day before, reheat on-site",
+    id: "ORD-001",
+    quoteId: "Q-001",
+    clientName: "Sarah Johnson",
+    eventDate: "2024-02-15",
+    venue: "Grand Palace Hotel",
+    eventLocation: "123 Main St, Cape Town",
+    guestCount: 150,
+    menuItems: [
+      {
+        id: "m1",
+        name: "Braai Platter",
+        category: "main",
+        pricePerPerson: 250,
+        quantity: 150,
+        ingredients: [
+          { id: "i1", name: "Beef", quantity: 30, quantityNeeded: 30, unit: "kg", category: "fresh" },
+          { id: "i2", name: "Chicken", quantity: 25, quantityNeeded: 25, unit: "kg", category: "fresh" },
+        ],
+      },
+    ],
+    equipmentItems: [
+      {
+        id: "e1",
+        name: "Chafing Dish",
+        category: "chafing",
+        quantity: 10,
+        available: 8,
+        condition: "excellent",
+        rentalPrice: 50,
+      },
+    ],
+    kitchenInstructions: "Prepare 2 hours before event",
     status: "pending",
-    createdAt: "2025-10-11T08:00:00Z"
-  }
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 export const mockInventory: InventoryItem[] = [
