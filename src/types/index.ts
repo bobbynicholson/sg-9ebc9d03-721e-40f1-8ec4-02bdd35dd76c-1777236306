@@ -51,6 +51,64 @@ export interface Ingredient {
   category: "fresh" | "staple" | "frozen";
 }
 
+export interface SupplierPrice {
+  supplierId: string;
+  supplierName: string;
+  price: number;
+  lastUpdated: string;
+  minimumOrder?: number;
+  deliveryTime?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: "fresh_produce" | "staples" | "frozen" | "equipment" | "dairy" | "meat" | "vegetables" | "spices" | "beverages" | "bakery";
+  currentStock: number;
+  unit: string;
+  minimumStock: number;
+  lastRestocked: string;
+  supplier?: string;
+  supplierPrices?: SupplierPrice[];
+  averageCost?: number;
+  reorderPoint?: number;
+}
+
+export interface ReceiptItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  supplier: string;
+  category?: string;
+}
+
+export interface ScannedReceipt {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  items: ReceiptItem[];
+  totalAmount: number;
+  receiptDate: string;
+  scannedAt: string;
+  status: "pending" | "processed" | "rejected";
+}
+
+export interface SupplierComparison {
+  itemId: string;
+  itemName: string;
+  suppliers: {
+    name: string;
+    price: number;
+    lastUpdated: string;
+    savings?: number;
+    recommended?: boolean;
+  }[];
+  bestPrice: number;
+  averagePrice: number;
+  potentialSavings: number;
+}
+
 export interface EquipmentItem {
   id: string;
   name: string;
@@ -82,17 +140,6 @@ export interface Order {
   assignedDriver?: string;
   deliveryTime?: string;
   createdAt: string;
-}
-
-export interface InventoryItem {
-  id: string;
-  name: string;
-  category: "fresh_produce" | "staples" | "frozen" | "equipment";
-  currentStock: number;
-  unit: string;
-  minimumStock: number;
-  lastRestocked: string;
-  supplier?: string;
 }
 
 export interface ShoppingList {
@@ -163,13 +210,16 @@ export interface Payment {
   reconciled: boolean;
 }
 
-export type UserRole = "admin" | "kitchen" | "buyer" | "driver" | "client" | "cleaning";
+export type UserRole = "admin" | "kitchen" | "buyer" | "driver" | "client" | "cleaning" | "shopping";
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: UserRole[];
+  primaryRole: UserRole;
+  assignedBy?: string;
+  createdAt: string;
 }
 
 export interface CleaningSchedule {
