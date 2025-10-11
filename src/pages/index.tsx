@@ -19,7 +19,8 @@ import {
   Sparkles,
   UserCircle,
   Shield,
-  Mail
+  Mail,
+  Settings
 } from "lucide-react";
 import { NotificationCenter } from "@/components/tracking/NotificationCenter";
 
@@ -122,6 +123,13 @@ export default function HomePage() {
       icon: Mail, 
       href: "/admin/email-templates",
       color: "from-pink-500 to-rose-500"
+    },
+    { 
+      title: "System Settings", 
+      description: "Configure platform preferences",
+      icon: Settings, 
+      href: "/admin/settings",
+      color: "from-slate-500 to-slate-600"
     },
   ];
 
