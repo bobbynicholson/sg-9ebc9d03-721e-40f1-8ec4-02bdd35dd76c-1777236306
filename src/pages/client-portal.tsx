@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Order } from "@/types";
 import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck } from "lucide-react";
 import Link from "next/link";
+import { ComplaintPortal } from "@/components/ComplaintPortal";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -192,6 +192,7 @@ export default function ClientPortalPage() {
             <TabsTrigger value="active">Active Orders</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
+            <TabsTrigger value="complaints">Complaints</TabsTrigger>
           </TabsList>
 
           <TabsContent value="active" className="space-y-4">
@@ -321,6 +322,10 @@ export default function ClientPortalPage() {
                 </Card>
               ))
             )}
+          </TabsContent>
+
+          <TabsContent value="complaints">
+            <ComplaintPortal />
           </TabsContent>
         </Tabs>
       </div>

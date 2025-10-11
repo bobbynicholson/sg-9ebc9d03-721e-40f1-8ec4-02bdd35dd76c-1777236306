@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,8 @@ import {
   ShoppingCart,
   Sparkles,
   UserCircle,
-  Shield
+  Shield,
+  Mail
 } from "lucide-react";
 import { NotificationCenter } from "@/components/tracking/NotificationCenter";
 
@@ -115,6 +115,13 @@ export default function HomePage() {
       icon: Shield, 
       href: "/tracking/admin",
       color: "from-slate-500 to-slate-600"
+    },
+    { 
+      title: "Email Templates", 
+      description: "Customize automated emails",
+      icon: Mail, 
+      href: "/admin/email-templates",
+      color: "from-pink-500 to-rose-500"
     },
   ];
 
