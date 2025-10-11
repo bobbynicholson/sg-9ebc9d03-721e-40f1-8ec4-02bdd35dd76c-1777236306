@@ -121,6 +121,24 @@ export interface Driver {
   availableJobs: string[];
   assignedJobs: string[];
   completedJobs: number;
+  hourlyRate?: number;
+  perKmRate?: number;
+  totalEarnings?: number;
+  pendingPayment?: number;
+}
+
+export interface DriverEarnings {
+  driverId: string;
+  jobId: string;
+  startTime?: string;
+  endTime?: string;
+  totalHours?: number;
+  totalKm?: number;
+  hourlyEarnings: number;
+  kmEarnings: number;
+  totalAmount: number;
+  status: "active" | "completed" | "paid";
+  paidAt?: string;
 }
 
 export interface Delivery {
