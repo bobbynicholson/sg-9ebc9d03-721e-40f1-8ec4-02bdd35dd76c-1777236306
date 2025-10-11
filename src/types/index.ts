@@ -72,6 +72,11 @@ export interface InventoryItem {
   supplierPrices?: SupplierPrice[];
   averageCost?: number;
   reorderPoint?: number;
+  shelfLifeDays?: number;
+  purchaseDate?: string;
+  expiryDate?: string;
+  expiryStatus?: "fresh" | "warning" | "critical" | "expired";
+  daysUntilExpiry?: number;
 }
 
 export interface ReceiptItem {
@@ -226,6 +231,8 @@ export interface User {
   createdAt: string;
   phone?: string;
   status: "active" | "inactive";
+  currency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
+  preferredCurrency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
 }
 
 export interface CleaningSchedule {
