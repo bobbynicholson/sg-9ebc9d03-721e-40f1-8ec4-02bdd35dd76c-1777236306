@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,19 +13,60 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Users
+  Users,
+  AlertTriangle,
+  Package
 } from "lucide-react";
-import { Quote } from "@/types";
+import { Quote, InventoryItem } from "@/types";
 import { Footer } from "@/components/Footer";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
     const acceptedOrders = storedQuotes.filter((q: Quote) => q.status === "accepted");
     setOrders(acceptedOrders);
+    
+    const storedInventory = JSON.parse(localStorage.getItem("inventory") || "[]");
+    setInventory(storedInventory);
   }, []);
+
+  const deductStockForOrder = (order: Quote) => {
+    const updatedInventory = [...inventory];
+    let stockDeducted = false;
+    
+    order.menuItems.forEach(menuItem => {
+      menuItem.ingredients.forEach(ingredient => {
+        const totalNeeded = ingredient.quantity * menuItem.quantity;
+        const inventoryItem = updatedInventory.find(
+          item => item.name.toLowerCase() === ingredient.name.toLowerCase()
+        );
+        
+        if (inventoryItem && inventoryItem.currentStock >= totalNeeded) {
+          inventoryItem.currentStock -= totalNeeded;
+          stockDeducted = true;
+        }
+      });
+    });
+    
+    if (stockDeducted) {
+      setInventory(updatedInventory);
+      localStorage.setItem("inventory", JSON.stringify(updatedInventory));
+      
+      const updatedOrders = orders.map(o => 
+        o.id === order.id ? { ...o, stockDeducted: true } : o
+      );
+      setOrders(updatedOrders);
+      
+      const allQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
+      const updatedQuotes = allQuotes.map((q: Quote) =>
+        q.id === order.id ? { ...q, stockDeducted: true } : q
+      );
+      localStorage.setItem("quotes", JSON.stringify(updatedQuotes));
+    }
+  };
 
   const upcomingOrders = orders
     .filter(order => new Date(order.eventDate) >= new Date())
@@ -35,27 +77,43 @@ export default function OrdersPage() {
     .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
 
   const getOrderIngredients = (order: Quote) => {
-    const allIngredients: { [key: string]: number } = {};
+    const allIngredients: { [key: string]: { quantity: number; inStock: boolean } } = {};
     
     order.menuItems.forEach(item => {
       item.ingredients.forEach(ingredient => {
+        const totalNeeded = ingredient.quantity * item.quantity;
+        const inventoryItem = inventory.find(
+          inv => inv.name.toLowerCase() === ingredient.name.toLowerCase()
+        );
+        
         if (allIngredients[ingredient.name]) {
-          allIngredients[ingredient.name] += ingredient.quantity * item.quantity;
+          allIngredients[ingredient.name].quantity += totalNeeded;
         } else {
-          allIngredients[ingredient.name] = ingredient.quantity * item.quantity;
+          allIngredients[ingredient.name] = {
+            quantity: totalNeeded,
+            inStock: inventoryItem ? inventoryItem.currentStock >= totalNeeded : false
+          };
         }
       });
     });
 
-    return Object.entries(allIngredients).map(([name, quantity]) => ({
+    return Object.entries(allIngredients).map(([name, data]) => ({
       name,
-      quantity,
+      quantity: data.quantity,
+      inStock: data.inStock,
       unit: "units"
     }));
   };
 
+  const checkStockAvailability = (order: Quote) => {
+    const ingredients = getOrderIngredients(order);
+    return ingredients.every(ing => ing.inStock);
+  };
+
   const OrderCard = ({ order }: { order: Quote }) => {
     const ingredients = getOrderIngredients(order);
+    const hasStock = checkStockAvailability(order);
+    const stockAlreadyDeducted = (order as any).stockDeducted || false;
     const daysUntil = Math.ceil(
       (new Date(order.eventDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -70,6 +128,22 @@ export default function OrdersPage() {
                 {daysUntil >= 0 && daysUntil <= 7 && (
                   <Badge className="bg-orange-100 text-orange-700 border-orange-200">
                     {daysUntil === 0 ? "Today" : `${daysUntil} days`}
+                  </Badge>
+                )}
+                {stockAlreadyDeducted ? (
+                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                    <CheckCircle className="w-3 h-3 mr-1" />
+                    Stock Deducted
+                  </Badge>
+                ) : !hasStock ? (
+                  <Badge className="bg-red-100 text-red-700 border-red-200">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Low Stock
+                  </Badge>
+                ) : (
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                    <Package className="w-3 h-3 mr-1" />
+                    Stock Available
                   </Badge>
                 )}
               </div>
@@ -109,14 +183,22 @@ export default function OrdersPage() {
               </div>
 
               {ingredients.length > 0 && (
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className={`rounded-lg p-4 ${!hasStock && !stockAlreadyDeducted ? 'bg-red-50 border border-red-200' : 'bg-blue-50'}`}>
                   <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                     <ShoppingCart className="w-4 h-4" />
                     Required Ingredients
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
                     {ingredients.slice(0, 6).map((ingredient, idx) => (
-                      <div key={idx} className="text-sm text-slate-600">
+                      <div 
+                        key={idx} 
+                        className={`text-sm flex items-center gap-1 ${
+                          !ingredient.inStock && !stockAlreadyDeducted ? 'text-red-600 font-medium' : 'text-slate-600'
+                        }`}
+                      >
+                        {!ingredient.inStock && !stockAlreadyDeducted && (
+                          <AlertTriangle className="w-3 h-3" />
+                        )}
                         • {ingredient.name}: {ingredient.quantity} {ingredient.unit}
                       </div>
                     ))}
@@ -132,16 +214,37 @@ export default function OrdersPage() {
 
             <div className="ml-4 space-y-2">
               <Link href={`/orders/${order.id}`}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full">
                   View Details
                 </Button>
               </Link>
+              {!stockAlreadyDeducted && hasStock && (
+                <Button 
+                  size="sm" 
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  onClick={() => deductStockForOrder(order)}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Deduct Stock
+                </Button>
+              )}
+              {!stockAlreadyDeducted && !hasStock && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                  disabled
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Insufficient Stock
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Complete
+                Complete Order
               </Button>
             </div>
           </div>
@@ -169,7 +272,7 @@ export default function OrdersPage() {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                 Order Management
               </h1>
-              <p className="text-slate-600 mt-1">Kitchen orders and logistics</p>
+              <p className="text-slate-600 mt-1">Manage orders and track inventory deduction</p>
             </div>
           </div>
         </div>
@@ -194,6 +297,22 @@ export default function OrdersPage() {
             </CardContent>
           </Card>
         </div>
+
+        {upcomingOrders.some(order => !checkStockAvailability(order) && !(order as any).stockDeducted) && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-red-900 mb-1">Stock Alert</h3>
+                  <p className="text-sm text-red-700">
+                    Some orders have insufficient stock. Please restock inventory or scan receipts to update stock levels.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="upcoming" className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2">
