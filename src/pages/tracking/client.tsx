@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import { Notification } from "@/types/tracking";
+import { Footer } from "@/components/Footer";
 
 export default function ClientTrackingPage() {
   const router = useRouter();
@@ -164,6 +165,8 @@ export default function ClientTrackingPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

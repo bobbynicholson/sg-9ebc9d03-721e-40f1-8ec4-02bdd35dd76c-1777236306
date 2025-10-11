@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { DriverGPSTracker } from "@/components/tracking/DriverGPSTracker";
 import { DeliveryStatus } from "@/types/tracking";
+import { Footer } from "@/components/Footer";
 
 export default function DriverTrackingPage() {
   const router = useRouter();
@@ -173,6 +174,8 @@ export default function DriverTrackingPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }
