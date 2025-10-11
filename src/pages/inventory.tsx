@@ -35,12 +35,12 @@ export default function InventoryPage() {
     ];
 
     const mockEquipment: EquipmentItem[] = [
-      { id: "E001", name: "Chafing Dishes", quantity: 15, available: 12, condition: "good" },
-      { id: "E002", name: "Serving Platters", quantity: 50, available: 45, condition: "good" },
-      { id: "E003", name: "Chef Knives", quantity: 20, available: 18, condition: "excellent" },
-      { id: "E004", name: "Chafing Fuel", quantity: 100, available: 85, condition: "good" },
-      { id: "E005", name: "Table Linens", quantity: 30, available: 25, condition: "fair" },
-      { id: "E006", name: "Serving Utensils", quantity: 60, available: 55, condition: "good" },
+      { id: "E001", name: "Chafing Dishes", category: "chafing", quantity: 15, available: 12, condition: "good", rentalPrice: 25 },
+      { id: "E002", name: "Serving Platters", category: "serving", quantity: 50, available: 45, condition: "good", rentalPrice: 15 },
+      { id: "E003", name: "Chef Knives", category: "utensil", quantity: 20, available: 18, condition: "excellent", rentalPrice: 10 },
+      { id: "E004", name: "Chafing Fuel", category: "other", quantity: 100, available: 85, condition: "good", rentalPrice: 5 },
+      { id: "E005", name: "Table Linens", category: "other", quantity: 30, available: 25, condition: "fair", rentalPrice: 8 },
+      { id: "E006", name: "Serving Utensils", category: "utensil", quantity: 60, available: 55, condition: "good", rentalPrice: 12 },
     ];
 
     setIngredients(mockIngredients);
