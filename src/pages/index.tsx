@@ -16,6 +16,7 @@ import {
   CheckCircle,
   AlertCircle
 } from "lucide-react";
+import { NotificationCenter } from "@/components/tracking/NotificationCenter";
 
 export default function HomePage() {
   const stats = [
@@ -220,25 +221,29 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Recent Activity</h2>
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-b-0 last:pb-0">
-                    <div className={`p-2 rounded-lg ${getStatusColor(activity.status)}`}>
-                      {getActivityIcon(activity.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900 mb-1">{activity.message}</p>
-                      <p className="text-xs text-slate-500">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+            <NotificationCenter />
 
-            <Card className="mt-6 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-4">Recent Activity</h2>
+              <Card className="border-0 shadow-lg">
+                <CardContent className="pt-6 space-y-4">
+                  {recentActivity.map((activity, index) => (
+                    <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-b-0 last:pb-0">
+                      <div className={`p-2 rounded-lg ${getStatusColor(activity.status)}`}>
+                        {getActivityIcon(activity.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-900 mb-1">{activity.message}</p>
+                        <p className="text-xs text-slate-500">{activity.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
               <CardHeader>
                 <CardTitle className="text-lg">System Status</CardTitle>
               </CardHeader>
