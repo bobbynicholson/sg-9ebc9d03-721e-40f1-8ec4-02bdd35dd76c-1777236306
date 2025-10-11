@@ -357,6 +357,102 @@ export default function HomePage() {
           </div>
         </div>
 
+        <div className="relative py-20 px-8 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-3xl shadow-2xl mb-20 overflow-hidden">
+          <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))] bg-[size:40px_40px]" />
+          
+          <div className="relative max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <Badge className="mb-6 px-4 py-2 bg-purple-500/20 text-purple-200 border-purple-400/30 text-sm">
+                Enterprise-Ready Scaling
+              </Badge>
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                Scale Across Provinces with One-Click Franchise Setup
+              </h2>
+              <p className="text-xl text-slate-300">
+                Ready to expand? Launch new regional operations instantly while head office manages all sales
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8 mb-12">
+              <Card className="border-0 bg-white/10 backdrop-blur-sm">
+                <CardContent className="pt-8">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+                      <Globe className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-2">Centralized Sales, Decentralized Fulfillment</h3>
+                      <p className="text-slate-300">
+                        Head office handles all quotes and bookings. Each region operates independently with their own kitchen, drivers, and inventory.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/10 backdrop-blur-sm">
+                <CardContent className="pt-8">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
+                      <Target className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-2">Instant Regional Setup</h3>
+                      <p className="text-slate-300">
+                        Click a button, fill in details, and launch a new region in minutes. Each gets their own admin portal, staff management, and operations.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/10 backdrop-blur-sm">
+                <CardContent className="pt-8">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+                      <BarChart3 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-2">Consolidated Analytics</h3>
+                      <p className="text-slate-300">
+                        View performance across all regions from one dashboard. Track orders, revenue, staff, and inventory company-wide.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-white/10 backdrop-blur-sm">
+                <CardContent className="pt-8">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl">
+                      <MousePointer className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-2">Intelligent Order Assignment</h3>
+                      <p className="text-slate-300">
+                        Head office assigns orders to regions based on location and capacity. Each region sees only their assigned work.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="text-center">
+              <p className="text-lg text-slate-300 mb-6">
+                Perfect for franchising, multi-location operations, or expanding into new markets across South Africa
+              </p>
+              <Link href="/auth/register">
+                <Button size="lg" className="bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg shadow-xl">
+                  Explore Multi-Region Setup
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-8 mb-20">
           <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
             <CardContent className="pt-8 pb-8 text-center">

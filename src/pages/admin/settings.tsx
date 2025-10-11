@@ -16,7 +16,10 @@ import {
   Truck,
   ChefHat,
   Save,
-  CheckCircle
+  CheckCircle,
+  Globe,
+  Building2,
+  ArrowRight
 } from "lucide-react";
 import {
   Select,
@@ -123,6 +126,50 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white">
+          <CardContent className="pt-6 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <Globe className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">Scale Across Regions</h3>
+                  <p className="text-purple-100">
+                    Launch franchises and regional operations in new provinces. Head office manages sales while regions handle fulfillment.
+                  </p>
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      <span className="text-sm">Independent Kitchens</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4" />
+                      <span className="text-sm">Regional Drivers</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ChefHat className="w-4 h-4" />
+                      <span className="text-sm">Local Teams</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Link href="/admin/regions">
+                <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
+                  Manage Regions
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+              <Link href="/admin/order-assignments">
+                <Button size="lg" variant="outline" className="bg-white/80 hover:bg-white">
+                  Assign Orders
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="company" className="space-y-6">
           <TabsList className="grid w-full grid-cols-7">
