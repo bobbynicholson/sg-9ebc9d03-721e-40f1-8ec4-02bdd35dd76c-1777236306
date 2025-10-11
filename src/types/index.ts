@@ -220,6 +220,8 @@ export interface User {
   primaryRole: UserRole;
   assignedBy?: string;
   createdAt: string;
+  phone?: string;
+  status: "active" | "inactive";
 }
 
 export interface CleaningSchedule {
