@@ -259,3 +259,40 @@ export interface GPSLocation {
   altitude?: number;
   heading?: number;
 }
+
+export interface AfterSalesEmail {
+  id: string;
+  sequence: 1 | 2 | 3 | 4 | 5 | 6;
+  monthsAfterEvent: 2 | 4 | 6 | 8 | 10 | 12;
+  subject: string;
+  body: string;
+  callToAction: string;
+  isActive: boolean;
+  lastEdited: string;
+  editedBy?: string;
+}
+
+export interface AfterSalesSchedule {
+  id: string;
+  orderId: string;
+  clientName: string;
+  clientEmail: string;
+  eventDate: string;
+  emailsSent: number[];
+  nextEmailDue?: string;
+  nextEmailSequence?: number;
+  status: "active" | "completed" | "paused";
+  createdAt: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  category: "quote" | "follow_up" | "payment" | "reminder" | "thank_you" | "after_sales" | "review";
+  name: string;
+  subject: string;
+  body: string;
+  variables: string[];
+  isActive: boolean;
+  lastEdited: string;
+  sequence?: number;
+}
