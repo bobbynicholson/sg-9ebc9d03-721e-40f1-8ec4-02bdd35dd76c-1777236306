@@ -112,6 +112,13 @@ export default function HomePage() {
       color: "from-teal-500 to-cyan-500"
     },
     { 
+      title: "User Management", 
+      description: "Assign roles and manage access",
+      icon: Users, 
+      href: "/admin/users",
+      color: "from-blue-600 to-indigo-600"
+    },
+    { 
       title: "Admin Tracking", 
       description: "Monitor all active deliveries",
       icon: Shield, 
