@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { 
   Package,
   ArrowLeft,
@@ -18,12 +18,17 @@ import {
   TrendingUp,
   DollarSign,
   Camera,
-  BarChart3
+  BarChart3,
+  Calendar,
+  Clock,
+  AlertCircle
 } from "lucide-react";
 import { InventoryItem, SupplierComparison, ScannedReceipt } from "@/types";
 import { Footer } from "@/components/Footer";
 import { ReceiptScanner } from "@/components/ReceiptScanner";
 import { fullStarterInventory } from "@/lib/starterInventory";
+import { calculateExpiryStatus, getExpiryAlerts, getExpiryStatusConfig } from "@/lib/expiryUtils";
+import { getUserCurrency, formatCurrency } from "@/lib/currencyUtils";
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -31,14 +36,51 @@ export default function InventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showScanner, setShowScanner] = useState(false);
   const [supplierComparisons, setSupplierComparisons] = useState<SupplierComparison[]>([]);
+  const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    category: "fresh_produce",
+    currentStock: 0,
+    unit: "kg",
+    minimumStock: 0,
+    shelfLifeDays: 0,
+    purchaseDate: new Date().toISOString().split("T")[0]
+  });
+
+  const userCurrency = getUserCurrency();
 
   useEffect(() => {
     const stored = localStorage.getItem("inventory");
     if (stored) {
-      setInventory(JSON.parse(stored));
+      const inventoryData = JSON.parse(stored);
+      const updatedInventory = inventoryData.map((item: InventoryItem) => {
+        if (item.shelfLifeDays && item.purchaseDate) {
+          const expiryInfo = calculateExpiryStatus(item);
+          return {
+            ...item,
+            expiryStatus: expiryInfo.status,
+            daysUntilExpiry: expiryInfo.daysUntilExpiry,
+            expiryDate: expiryInfo.expiryDate
+          };
+        }
+        return item;
+      });
+      setInventory(updatedInventory);
     } else {
-      setInventory(fullStarterInventory);
-      localStorage.setItem("inventory", JSON.stringify(fullStarterInventory));
+      const initialInventory = fullStarterInventory.map(item => {
+        if (item.shelfLifeDays && item.purchaseDate) {
+          const expiryInfo = calculateExpiryStatus(item);
+          return {
+            ...item,
+            expiryStatus: expiryInfo.status,
+            daysUntilExpiry: expiryInfo.daysUntilExpiry,
+            expiryDate: expiryInfo.expiryDate
+          };
+        }
+        return item;
+      });
+      setInventory(initialInventory);
+      localStorage.setItem("inventory", JSON.stringify(initialInventory));
     }
     generateSupplierComparisons();
   }, []);
@@ -77,6 +119,42 @@ export default function InventoryPage() {
     setSupplierComparisons(comparisons);
   };
 
+  const handleAddItem = () => {
+    const item: InventoryItem = {
+      id: `INV-${Date.now()}`,
+      name: newItem.name,
+      category: newItem.category as any,
+      currentStock: newItem.currentStock,
+      unit: newItem.unit,
+      minimumStock: newItem.minimumStock,
+      lastRestocked: new Date().toISOString().split("T")[0],
+      shelfLifeDays: newItem.shelfLifeDays || undefined,
+      purchaseDate: newItem.purchaseDate || undefined
+    };
+
+    if (item.shelfLifeDays && item.purchaseDate) {
+      const expiryInfo = calculateExpiryStatus(item);
+      item.expiryStatus = expiryInfo.status;
+      item.daysUntilExpiry = expiryInfo.daysUntilExpiry;
+      item.expiryDate = expiryInfo.expiryDate;
+    }
+
+    const updatedInventory = [...inventory, item];
+    setInventory(updatedInventory);
+    localStorage.setItem("inventory", JSON.stringify(updatedInventory));
+    
+    setNewItem({
+      name: "",
+      category: "fresh_produce",
+      currentStock: 0,
+      unit: "kg",
+      minimumStock: 0,
+      shelfLifeDays: 0,
+      purchaseDate: new Date().toISOString().split("T")[0]
+    });
+    setShowAddItemForm(false);
+  };
+
   const handleReceiptProcessed = (receipt: ScannedReceipt) => {
     if (receipt.status === "processed") {
       const updatedInventory = [...inventory];
@@ -89,6 +167,14 @@ export default function InventoryPage() {
         if (existingItem) {
           existingItem.currentStock += receiptItem.quantity;
           existingItem.lastRestocked = receipt.receiptDate;
+          existingItem.purchaseDate = receipt.receiptDate;
+          
+          if (existingItem.shelfLifeDays) {
+            const expiryInfo = calculateExpiryStatus(existingItem);
+            existingItem.expiryStatus = expiryInfo.status;
+            existingItem.daysUntilExpiry = expiryInfo.daysUntilExpiry;
+            existingItem.expiryDate = expiryInfo.expiryDate;
+          }
           
           if (existingItem.supplierPrices) {
             const existingSupplier = existingItem.supplierPrices.find(
@@ -134,6 +220,8 @@ export default function InventoryPage() {
     return { label: "In Stock", color: "bg-green-100 text-green-700 border-green-200" };
   };
 
+  const expiryAlerts = getExpiryAlerts(inventory);
+
   const categories = [
     { value: "all", label: "All Items" },
     { value: "meat", label: "Meat & Seafood" },
@@ -155,6 +243,8 @@ export default function InventoryPage() {
     (sum, comp) => sum + comp.potentialSavings, 0
   );
 
+  const totalExpiryAlerts = expiryAlerts.expired.length + expiryAlerts.critical.length + expiryAlerts.warning.length;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -175,7 +265,7 @@ export default function InventoryPage() {
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                   Inventory Management
                 </h1>
-                <p className="text-slate-600 mt-1">Track stock levels and optimize purchasing</p>
+                <p className="text-slate-600 mt-1">Track stock levels, expiry dates, and optimize purchasing</p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -187,7 +277,10 @@ export default function InventoryPage() {
                 <Camera className="w-4 h-4 mr-2" />
                 Scan Receipt
               </Button>
-              <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
+              <Button 
+                onClick={() => setShowAddItemForm(!showAddItemForm)}
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Item
               </Button>
@@ -222,10 +315,10 @@ export default function InventoryPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Inventory Value</p>
-                  <p className="text-2xl font-bold text-green-600">R{totalInventoryValue.toFixed(0)}</p>
+                  <p className="text-sm text-slate-600 mb-1">Expiry Alerts</p>
+                  <p className="text-2xl font-bold text-red-600">{totalExpiryAlerts}</p>
                 </div>
-                <DollarSign className="w-8 h-8 text-green-600" />
+                <Clock className="w-8 h-8 text-red-600" />
               </div>
             </CardContent>
           </Card>
@@ -233,19 +326,130 @@ export default function InventoryPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 mb-1">Savings Available</p>
-                  <p className="text-2xl font-bold text-purple-600">R{totalSavingsOpportunity.toFixed(0)}</p>
+                  <p className="text-sm text-slate-600 mb-1">Inventory Value</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(totalInventoryValue, userCurrency)}</p>
                 </div>
-                <TrendingDown className="w-8 h-8 text-purple-600" />
+                <DollarSign className="w-8 h-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {showAddItemForm && (
+          <Card className="mb-6 border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle>Add New Inventory Item</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Item Name</Label>
+                  <Input
+                    value={newItem.name}
+                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                    placeholder="e.g., Chicken Breast"
+                  />
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-slate-200"
+                    value={newItem.category}
+                    onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                  >
+                    {categories.filter(c => c.value !== "all").map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Current Stock</Label>
+                  <Input
+                    type="number"
+                    value={newItem.currentStock}
+                    onChange={(e) => setNewItem({ ...newItem, currentStock: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <Label>Unit</Label>
+                  <Input
+                    value={newItem.unit}
+                    onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                    placeholder="kg, units, liters, etc."
+                  />
+                </div>
+                <div>
+                  <Label>Minimum Stock Level</Label>
+                  <Input
+                    type="number"
+                    value={newItem.minimumStock}
+                    onChange={(e) => setNewItem({ ...newItem, minimumStock: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <Label>Shelf Life (Days)</Label>
+                  <Input
+                    type="number"
+                    value={newItem.shelfLifeDays}
+                    onChange={(e) => setNewItem({ ...newItem, shelfLifeDays: parseInt(e.target.value) || 0 })}
+                    placeholder="Leave 0 if not applicable"
+                  />
+                </div>
+                <div>
+                  <Label>Purchase Date</Label>
+                  <Input
+                    type="date"
+                    value={newItem.purchaseDate}
+                    onChange={(e) => setNewItem({ ...newItem, purchaseDate: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button onClick={handleAddItem} className="bg-gradient-to-r from-blue-600 to-cyan-600">
+                  Add Item
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddItemForm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {showScanner && (
           <div className="mb-6">
             <ReceiptScanner onReceiptProcessed={handleReceiptProcessed} />
           </div>
+        )}
+
+        {totalExpiryAlerts > 0 && (
+          <Card className="mb-6 border-red-200 bg-red-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-900 mb-2">Product Expiry Alerts</h3>
+                  <div className="space-y-1 text-sm">
+                    {expiryAlerts.expired.length > 0 && (
+                      <p className="text-red-700">
+                        <strong>{expiryAlerts.expired.length}</strong> item(s) have expired and must be discarded
+                      </p>
+                    )}
+                    {expiryAlerts.critical.length > 0 && (
+                      <p className="text-orange-700">
+                        <strong>{expiryAlerts.critical.length}</strong> item(s) expiring within 2 days
+                      </p>
+                    )}
+                    {expiryAlerts.warning.length > 0 && (
+                      <p className="text-yellow-700">
+                        <strong>{expiryAlerts.warning.length}</strong> item(s) expiring within 7 days
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {getLowStockItems().length > 0 && (
@@ -306,19 +510,29 @@ export default function InventoryPage() {
                   ? Math.min(...item.supplierPrices.map(sp => sp.price))
                   : item.averageCost || 0;
                 
+                const hasExpiry = item.shelfLifeDays && item.purchaseDate;
+                const expiryConfig = hasExpiry && item.expiryStatus 
+                  ? getExpiryStatusConfig(item.expiryStatus) 
+                  : null;
+                
                 return (
                   <Card key={item.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <h3 className="text-lg font-semibold text-slate-900">{item.name}</h3>
                             <Badge className={status.color}>{status.label}</Badge>
                             <Badge variant="outline" className="capitalize">
                               {item.category.replace("_", " ")}
                             </Badge>
+                            {expiryConfig && (
+                              <Badge className={expiryConfig.color}>
+                                {expiryConfig.icon} {expiryConfig.label}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center gap-6 text-sm text-slate-600 mb-2">
+                          <div className="flex items-center gap-6 text-sm text-slate-600 mb-2 flex-wrap">
                             <div className="flex items-center gap-2">
                               <Package className="w-4 h-4" />
                               <span>
@@ -329,11 +543,29 @@ export default function InventoryPage() {
                               <TrendingDown className="w-4 h-4" />
                               <span>Min: {item.minimumStock} {item.unit}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4" />
-                              <span>Best Price: R{bestPrice.toFixed(2)}</span>
-                            </div>
+                            {bestPrice > 0 && (
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="w-4 h-4" />
+                                <span>Best Price: {formatCurrency(bestPrice, userCurrency)}</span>
+                              </div>
+                            )}
+                            {hasExpiry && item.daysUntilExpiry !== undefined && (
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>
+                                  {item.daysUntilExpiry < 0 
+                                    ? `Expired ${Math.abs(item.daysUntilExpiry)} days ago`
+                                    : `${item.daysUntilExpiry} days until expiry`
+                                  }
+                                </span>
+                              </div>
+                            )}
                           </div>
+                          {hasExpiry && item.expiryDate && (
+                            <div className="text-xs text-slate-500 mb-1">
+                              Purchase: {item.purchaseDate} | Expires: {item.expiryDate} ({item.shelfLifeDays} day shelf life)
+                            </div>
+                          )}
                           {item.supplierPrices && item.supplierPrices.length > 1 && (
                             <div className="text-xs text-blue-600 flex items-center gap-1">
                               <TrendingUp className="w-3 h-3" />
@@ -367,7 +599,7 @@ export default function InventoryPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-slate-600 mb-4">
-                  Switch to recommended suppliers to save up to R{totalSavingsOpportunity.toFixed(2)} on these items
+                  Switch to recommended suppliers to save up to {formatCurrency(totalSavingsOpportunity, userCurrency)} on these items
                 </p>
               </CardContent>
             </Card>
@@ -379,7 +611,7 @@ export default function InventoryPage() {
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold text-slate-900 mb-1">{comparison.itemName}</h3>
                       <p className="text-sm text-slate-600">
-                        Potential savings: <span className="font-semibold text-green-600">R{comparison.potentialSavings.toFixed(2)}</span> per unit
+                        Potential savings: <span className="font-semibold text-green-600">{formatCurrency(comparison.potentialSavings, userCurrency)}</span> per unit
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -404,9 +636,9 @@ export default function InventoryPage() {
                             )}
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold text-slate-900">R{supplier.price.toFixed(2)}</p>
+                            <p className="text-lg font-bold text-slate-900">{formatCurrency(supplier.price, userCurrency)}</p>
                             {supplier.savings > 0 && (
-                              <p className="text-xs text-red-600">+R{supplier.savings.toFixed(2)}</p>
+                              <p className="text-xs text-red-600">+{formatCurrency(supplier.savings, userCurrency)}</p>
                             )}
                           </div>
                         </div>
@@ -448,6 +680,40 @@ export default function InventoryPage() {
                       <span className="text-slate-600">Critical</span>
                       <Badge className="bg-red-100 text-red-700 border-red-200">
                         {inventory.filter(i => i.currentStock <= i.minimumStock * 0.5).length} items
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-lg">Expiry Status Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Expired Items</span>
+                      <Badge className="bg-red-100 text-red-700 border-red-200">
+                        {expiryAlerts.expired.length} items
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Critical (2 days)</span>
+                      <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                        {expiryAlerts.critical.length} items
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Warning (7 days)</span>
+                      <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">
+                        {expiryAlerts.warning.length} items
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-600">Fresh Products</span>
+                      <Badge className="bg-green-100 text-green-700 border-green-200">
+                        {inventory.filter(i => i.expiryStatus === "fresh" || !i.expiryStatus).length} items
                       </Badge>
                     </div>
                   </div>
