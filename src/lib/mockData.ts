@@ -59,6 +59,8 @@ export const mockQuotes: Quote[] = [
         name: "Chafing Dish",
         category: "chafing",
         quantity: 4,
+        available: 4,
+        condition: "good",
         rentalPrice: 25
       }
     ],

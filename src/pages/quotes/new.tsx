@@ -47,6 +47,8 @@ export default function NewQuotePage() {
       name: "",
       category: "chafing",
       quantity: 0,
+      available: 0,
+      condition: "good",
       rentalPrice: 0
     }
   ]);
@@ -94,6 +96,8 @@ export default function NewQuotePage() {
       name: "",
       category: "chafing",
       quantity: 0,
+      available: 0,
+      condition: "good",
       rentalPrice: 0
     }]);
   };
