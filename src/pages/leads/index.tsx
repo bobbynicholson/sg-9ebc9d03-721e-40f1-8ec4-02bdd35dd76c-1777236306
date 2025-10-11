@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { mockLeads } from "@/lib/mockData";
 import { Lead } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>(mockLeads);
@@ -209,6 +209,8 @@ export default function LeadsPage() {
           )}
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -17,6 +16,7 @@ import {
   Calculator
 } from "lucide-react";
 import { MenuItem, EquipmentItem } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function NewQuotePage() {
   const router = useRouter();
@@ -428,6 +428,8 @@ export default function NewQuotePage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

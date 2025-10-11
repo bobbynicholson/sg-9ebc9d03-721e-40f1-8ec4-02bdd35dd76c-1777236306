@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import {
   Send
 } from "lucide-react";
 import { Quote } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -182,6 +182,8 @@ export default function QuotesPage() {
           )}
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

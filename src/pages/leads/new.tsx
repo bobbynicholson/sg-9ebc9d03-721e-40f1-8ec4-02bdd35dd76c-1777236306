@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -17,6 +16,7 @@ import {
   DollarSign,
   UserPlus
 } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 export default function NewLeadPage() {
   const router = useRouter();
@@ -250,6 +250,8 @@ export default function NewLeadPage() {
           </div>
         </form>
       </div>
+      
+      <Footer />
     </div>
   );
 }
