@@ -56,6 +56,8 @@ export interface EquipmentItem {
   name: string;
   category: "chafing" | "serving" | "utensil" | "other";
   quantity: number;
+  available: number;
+  condition: "excellent" | "good" | "fair" | "poor";
   rentalPrice: number;
 }
 
