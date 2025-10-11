@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Calendar, Mail, Clock, Edit, Save, X, AlertCircle, CheckCircle, TrendingUp } from "lucide-react";
 import { defaultAfterSalesTemplates, interpolateEmailTemplate, getEmailVariables } from "@/lib/afterSalesTemplates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import Footer from "@/components/Footer";
+import { Footer } from "@/components/Footer";
 
 interface EmailTemplate {
   id: string;

@@ -24,7 +24,7 @@ import {
   type ScheduledEmail
 } from "@/lib/afterSalesAutomation";
 import { defaultAfterSalesTemplates } from "@/lib/afterSalesTemplates";
-import Footer from "@/components/Footer";
+import { Footer } from "@/components/Footer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function EmailAutomationDashboard() {
