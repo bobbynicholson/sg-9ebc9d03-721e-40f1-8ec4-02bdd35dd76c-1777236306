@@ -49,7 +49,7 @@ export const mockQuotes: Quote[] = [
         pricePerPerson: 8,
         quantity: 75,
         ingredients: [
-          { id: "I001", name: "Chicken Breast", quantityNeeded: 10, unit: "kg", category: "fresh" }
+          { id: "I001", name: "Chicken Breast", quantity: 10, quantityNeeded: 10, unit: "kg", category: "fresh" }
         ]
       }
     ],
