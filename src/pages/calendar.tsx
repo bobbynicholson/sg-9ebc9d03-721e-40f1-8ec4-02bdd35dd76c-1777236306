@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +13,7 @@ import {
   Clock
 } from "lucide-react";
 import { Quote } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -271,6 +271,8 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +15,7 @@ import {
   Users
 } from "lucide-react";
 import { Quote } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
@@ -240,6 +240,8 @@ export default function OrdersPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <Footer />
     </div>
   );
 }

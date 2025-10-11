@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { Quote } from "@/types";
 import { DriverEarnings } from "@/components/DriverEarnings";
+import { Footer } from "@/components/Footer";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
@@ -365,6 +365,8 @@ export default function DriversPage() {
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }

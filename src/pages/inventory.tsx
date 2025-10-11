@@ -16,6 +16,7 @@ import {
   Trash2
 } from "lucide-react";
 import { Ingredient, EquipmentItem } from "@/types";
+import { Footer } from "@/components/Footer";
 
 export default function InventoryPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -257,6 +258,8 @@ export default function InventoryPage() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      <Footer />
     </div>
   );
 }
