@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +35,23 @@ export default function LoginPage() {
   const [role, setRole] = useState<UserRole | "">("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useState(() => {
+    if (router.query.portal) {
+      const portalMap: Record<string, UserRole> = {
+        admin: "admin",
+        driver: "driver",
+        kitchen: "kitchen",
+        cleaning: "cleaning",
+        shopping: "buyer",
+        client: "client"
+      };
+      const mappedRole = portalMap[router.query.portal as string];
+      if (mappedRole) {
+        setRole(mappedRole);
+      }
+    }
+  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

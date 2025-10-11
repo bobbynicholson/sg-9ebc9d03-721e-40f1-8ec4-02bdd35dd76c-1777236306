@@ -23,6 +23,7 @@ import {
   Settings
 } from "lucide-react";
 import { NotificationCenter } from "@/components/tracking/NotificationCenter";
+import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
   const stats = [
@@ -370,7 +371,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-bold mb-2">Built for South African Catering Excellence</h3>
-                <p className="text-purple-100">From lead capture to delivery tracking - everything you need to run a profitable catering business</p>
+                <p className="text-purple-100">From lead capture to delivery tracking, everything you need to run a profitable catering business</p>
               </div>
               <Link href="/auth/register">
                 <Button variant="secondary" size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
@@ -381,6 +382,8 @@ export default function HomePage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Footer />
     </div>
   );
 }
