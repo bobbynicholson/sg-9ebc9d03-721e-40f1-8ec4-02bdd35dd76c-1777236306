@@ -91,7 +91,8 @@ export function Header() {
         { name: "GPS Tracking", href: "/features/gps-tracking", icon: MapPin, description: "Real-time delivery location tracking" },
         { name: "Email Automation", href: "/features/email-automation", icon: Mail, description: "Smart follow-ups and nurture campaigns" },
         { name: "Payment Processing", href: "/features#payments", icon: DollarSign, description: "Secure online payment collection" },
-        { name: "Multi-Region Support", href: "/features#multi-region", icon: Globe, description: "Scale across multiple locations" }
+        { name: "Multi-Region Support", href: "/features#multi-region", icon: Globe, description: "Scale across multiple locations" },
+        { name: "Integrations", href: "/integrations", icon: Zap, description: "Connect Xero, WhatsApp, Google Maps & more" }
       ]
     },
     {
