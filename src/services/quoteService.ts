@@ -131,5 +131,67 @@ export const quoteService = {
     await this.updateQuote(quoteId, { status: "accepted", accepted_at: new Date().toISOString() });
 
     return data;
+  },
+
+  async convertToOrder(quoteId: string): Promise<any> {
+    const { data: quote } = await supabase
+      .from("quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .single();
+
+    if (!quote) {
+      throw new Error("Quote not found");
+    }
+
+    const orderData = {
+      user_id: quote.user_id,
+      region_id: quote.region_id,
+      quote_id: quoteId,
+      order_number: `ORD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+      client_name: quote.client_name,
+      client_email: quote.client_email,
+      client_phone: quote.client_phone,
+      event_date: quote.event_date,
+      event_time: quote.event_time,
+      venue_address: quote.venue_address,
+      venue_lat: null,
+      venue_lng: null,
+      guest_count: quote.guest_count,
+      menu_items: quote.menu_items,
+      equipment_items: quote.equipment_items,
+      subtotal: quote.subtotal,
+      tax: quote.tax,
+      total_amount: quote.total,
+      amount_paid: 0,
+      balance_due: quote.total,
+      payment_status: "pending",
+      status: "pending",
+      special_requests: quote.special_requests,
+      internal_notes: null,
+      requires_waiter: false,
+      waiter_duration_hours: null,
+      waiter_hourly_rate: null,
+      waiter_total_fee: null,
+      equipment_return_method: "later_collection"
+    };
+
+    const { data: order, error } = await supabase
+      .from("orders")
+      .insert([orderData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error converting quote to order:", error);
+      throw error;
+    }
+
+    await supabase
+      .from("quotes")
+      .update({ status: "converted", converted_to_order_id: order.id })
+      .eq("id", quoteId);
+
+    return order;
   }
 };

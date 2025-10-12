@@ -276,7 +276,7 @@ export const driverService = {
     return data;
   },
 
-  async getChecklistStatus(assignmentId: string): Promise<DriverAssignment | null> {
+  async getChecklistStatus(assignmentId: string): Promise<Partial<DriverAssignment> | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
       .select("checklist_cutlery_confirmed, checklist_crockery_confirmed, checklist_food_verified, departure_confirmed, departure_confirmed_at, checklist_completed_at")
