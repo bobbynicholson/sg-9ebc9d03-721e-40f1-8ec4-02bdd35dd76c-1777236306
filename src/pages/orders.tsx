@@ -20,6 +20,7 @@ import { Quote, InventoryItem } from "@/types";
 import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
+import { InvoiceGenerator } from "@/components/InvoiceGenerator";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
@@ -277,6 +278,15 @@ export default function OrdersPage() {
                   View Details
                 </Button>
               </Link>
+              
+              <div className="pt-2">
+                <InvoiceGenerator
+                  orderId={order.id}
+                  orderNumber={order.id.substring(0, 8).toUpperCase()}
+                  customerEmail={order.email}
+                />
+              </div>
+              
               {!stockAlreadyDeducted && hasStock && (
                 <Button 
                   size="sm" 
