@@ -72,6 +72,59 @@ export type Database = {
           },
         ]
       }
+      after_sales_emails: {
+        Row: {
+          body: string
+          created_at: string | null
+          email_number: number
+          error_message: string | null
+          id: string
+          order_id: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string | null
+          subject: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          email_number: number
+          error_message?: string | null
+          id?: string
+          order_id: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          email_number?: number
+          error_message?: string | null
+          id?: string
+          order_id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "after_sales_emails_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       complaints: {
         Row: {
           assigned_to: string | null
@@ -920,6 +973,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_gateways: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          credentials: Json | null
+          gateway_name: string
+          gateway_type: string
+          id: string
+          is_active: boolean | null
+          is_test_mode: boolean | null
+          supported_currencies: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          credentials?: Json | null
+          gateway_name: string
+          gateway_type: string
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          supported_currencies?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          credentials?: Json | null
+          gateway_name?: string
+          gateway_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_test_mode?: boolean | null
+          supported_currencies?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       payments: {
         Row: {
