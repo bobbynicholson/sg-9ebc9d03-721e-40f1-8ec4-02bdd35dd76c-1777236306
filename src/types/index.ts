@@ -178,6 +178,8 @@ export interface Order {
   waiterHourlyRate?: number;
   waiterTotalFee?: number;
   equipmentReturnMethod?: "waiter_return" | "later_collection";
+  delivery_rate_per_km?: number;
+  waiter_service_required?: boolean;
 }
 
 export interface OrderModification {
@@ -418,4 +420,13 @@ export interface WaiterServiceConfig {
     2: number;
     3: number;
   };
+}
+
+interface EmailVariables {
+  clientName?: string;
+  eventDate?: string;
+  quoteNumber?: string;
+  orderNumber?: string; // Added this
+  currency?: string;
+  totalAmount?: string;
 }
