@@ -12,6 +12,7 @@ import { PaymentService } from "@/lib/paymentService";
 import { CreditCard, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { JobProgressTracker } from "@/components/JobProgressTracker";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -261,92 +262,113 @@ export default function ClientPortalPage() {
               </Card>
             ) : (
               activeOrders.map((order) => (
-                <Card key={order.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {getStatusIcon(order.status)}
-                        <div>
-                          <CardTitle className="text-xl">{order.venue}</CardTitle>
-                          <p className="text-sm text-slate-600 mt-1">Order #{order.id}</p>
-                        </div>
-                      </div>
-                      <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-slate-500" />
-                        <div>
-                          <p className="text-xs text-slate-500">Event Date</p>
-                          <p className="text-sm font-medium">
-                            {new Date(order.eventDate).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-slate-500" />
-                        <div>
-                          <p className="text-xs text-slate-500">Guests</p>
-                          <p className="text-sm font-medium">{order.guestCount}</p>
-                        </div>
-                      </div>
-                    </div>
+                <div key={order.id} className="space-y-4">
+                  {/* Job Progress Tracker */}
+                  <JobProgressTracker
+                    currentStatus={order.status}
+                    orderData={{
+                      quote_sent: order.createdAt,
+                      quote_accepted: order.status !== "pending" ? order.createdAt : undefined,
+                      payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
+                      kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
+                      driver_assigned: ["ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
+                      in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
+                      delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
+                      equipment_returned: order.status === "completed" ? order.createdAt : undefined,
+                    }}
+                    clientName={order.clientName}
+                    eventDate={order.eventDate}
+                    orderNumber={order.id}
+                  />
 
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-slate-500 mt-1" />
-                      <div>
-                        <p className="text-xs text-slate-500">Location</p>
-                        <p className="text-sm font-medium">{order.eventLocation}</p>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t">
+                  {/* Order Details Card */}
+                  <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-600">Total Amount</span>
-                        <span className="text-lg font-bold text-slate-900">
-                          R{order.totalAmount?.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {needsPayment(order) && (
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="w-4 h-4 text-yellow-600" />
-                          <span className="text-sm font-medium text-yellow-900">Payment Required</span>
+                        <div className="flex items-center gap-3">
+                          {getStatusIcon(order.status)}
+                          <div>
+                            <CardTitle className="text-xl">{order.venue}</CardTitle>
+                            <p className="text-sm text-slate-600 mt-1">Order #{order.id}</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-yellow-700 mb-3">
-                          Complete payment to confirm your booking and reserve your event date
-                        </p>
-                        <Button 
-                          onClick={() => handlePayment(order)}
-                          disabled={processingPayment === order.id}
-                          className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                        >
-                          {processingPayment === order.id ? (
-                            <>Processing...</>
-                          ) : (
-                            <>
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Pay R{order.totalAmount?.toLocaleString()}
-                            </>
-                          )}
-                        </Button>
+                        <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                       </div>
-                    )}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-slate-500" />
+                          <div>
+                            <p className="text-xs text-slate-500">Event Date</p>
+                            <p className="text-sm font-medium">
+                              {new Date(order.eventDate).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-slate-500" />
+                          <div>
+                            <p className="text-xs text-slate-500">Guests</p>
+                            <p className="text-sm font-medium">{order.guestCount}</p>
+                          </div>
+                        </div>
+                      </div>
 
-                    <div className="flex gap-2">
-                      <Link href={`/tracking/client?orderId=${order.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full">
-                          Track Delivery
-                        </Button>
-                      </Link>
-                      <Button className="flex-1">View Details</Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-slate-500 mt-1" />
+                        <div>
+                          <p className="text-xs text-slate-500">Location</p>
+                          <p className="text-sm font-medium">{order.eventLocation}</p>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-600">Total Amount</span>
+                          <span className="text-lg font-bold text-slate-900">
+                            R{order.totalAmount?.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {needsPayment(order) && (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <DollarSign className="w-4 h-4 text-yellow-600" />
+                            <span className="text-sm font-medium text-yellow-900">Payment Required</span>
+                          </div>
+                          <p className="text-xs text-yellow-700 mb-3">
+                            Complete payment to confirm your booking and reserve your event date
+                          </p>
+                          <Button 
+                            onClick={() => handlePayment(order)}
+                            disabled={processingPayment === order.id}
+                            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                          >
+                            {processingPayment === order.id ? (
+                              <>Processing...</>
+                            ) : (
+                              <>
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                Pay R{order.totalAmount?.toLocaleString()}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Link href={`/tracking/client?orderId=${order.id}`} className="flex-1">
+                          <Button variant="outline" className="w-full">
+                            Track Delivery
+                          </Button>
+                        </Link>
+                        <Button className="flex-1">View Details</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               ))
             )}
           </TabsContent>
