@@ -360,22 +360,32 @@ export default function HomePage() {
                 The complete operating system for profitable, scalable catering businesses
               </p>
               <p className="text-lg text-slate-600 mb-8 max-w-3xl mx-auto">
-                  Connect your entire team, automate operations, track everything in real-time, and finally build a business that runs without you being there 24/7.
-                </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-                <Link href="/auth/register">
-                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
+                Connect your entire team, automate operations, track everything in real-time, and finally build a business that runs without you being there 24/7.
+              </p>
+              
+              {/* Mobile-Optimized CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center mb-8 px-4 sm:px-0">
+                <Link href="/auth/register" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 h-14 sm:h-12 text-lg hover:shadow-2xl transition-all hover:scale-105"
+                  >
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/pricing">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50">
+                <Link href="/pricing" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="w-full sm:w-auto px-8 h-14 sm:h-12 text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50"
+                  >
                     View Pricing
                   </Button>
                 </Link>
               </div>
-              <p className="text-sm text-slate-500">
+              
+              <p className="text-sm text-slate-500 px-4">
                 No credit card required • Cancel anytime • Setup in under 3 hours
               </p>
             </div>
@@ -514,9 +524,12 @@ export default function HomePage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/auth/register">
-                    <Button size="lg" className="bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg shadow-xl">
+                <div className="mt-10 flex flex-col gap-4 px-4 sm:px-0">
+                  <Link href="/auth/register" className="w-full sm:w-auto sm:mx-auto">
+                    <Button 
+                      size="lg" 
+                      className="w-full sm:w-auto bg-white text-purple-900 hover:bg-purple-50 px-8 h-14 sm:h-12 text-lg shadow-xl"
+                    >
                       Join the Movement
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
@@ -729,12 +742,16 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div className="text-center mt-12">
+          <div className="text-center mt-12 px-4">
             <p className="text-lg text-slate-600 mb-6">
               Still have questions? We're here to help.
             </p>
-            <Link href="/contact">
-              <Button size="lg" variant="outline" className="border-2 border-purple-300 hover:bg-purple-50">
+            <Link href="/contact" className="w-full sm:w-auto inline-block">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full sm:w-auto border-2 border-purple-300 hover:bg-purple-50 h-12 px-8"
+              >
                 Contact Support
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
@@ -787,50 +804,63 @@ export default function HomePage() {
           </div>
         </div>
 
-        <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white overflow-hidden mx-4 my-16">
-          <CardContent className="py-16 px-8">
-            <div className="max-w-4xl mx-auto text-center">
-              <h2 className="text-3xl md:text-5xl font-bold mb-6">
-                Stop Losing Money. Start Growing Today.
-              </h2>
-              <p className="text-xl text-purple-100 mb-8 leading-relaxed max-w-3xl mx-auto">
-                Join forward-thinking catering businesses across South Africa who are finally running 
-                profitable, scalable operations without being trapped in their business.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link href="/auth/register">
-                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
-                    Start Your Free Trial
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </Link>
-                <Link href="/pricing">
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-10 py-6 text-lg">
-                    View Pricing Plans
-                  </Button>
-                </Link>
+        {/* Mobile-Optimized Final CTA */}
+        <div className="mx-4 my-16">
+          <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white overflow-hidden">
+            <CardContent className="py-12 sm:py-16 px-4 sm:px-8">
+              <div className="max-w-4xl mx-auto text-center">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 leading-tight">
+                  Stop Losing Money. Start Growing Today.
+                </h2>
+                <p className="text-lg sm:text-xl text-purple-100 mb-8 leading-relaxed max-w-3xl mx-auto">
+                  Join forward-thinking catering businesses across South Africa who are finally running 
+                  profitable, scalable operations without being trapped in their business.
+                </p>
+                
+                {/* Mobile-Optimized Final CTA Buttons */}
+                <div className="flex flex-col gap-4 mb-8">
+                  <Link href="/auth/register" className="w-full">
+                    <Button 
+                      size="lg" 
+                      className="w-full bg-white text-purple-600 hover:bg-purple-50 px-10 h-14 sm:h-12 text-lg shadow-2xl hover:scale-105 transition-all"
+                    >
+                      Start Your Free Trial
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                  <Link href="/pricing" className="w-full">
+                    <Button 
+                      size="lg" 
+                      variant="outline" 
+                      className="w-full border-2 border-white text-white hover:bg-white/10 px-10 h-14 sm:h-12 text-lg"
+                    >
+                      View Pricing Plans
+                    </Button>
+                  </Link>
+                </div>
+                
+                <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-purple-200 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>No credit card required</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>Cancel anytime</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>Setup in under 3 hours</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>Dedicated support included</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-wrap justify-center gap-6 text-purple-200 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>No credit card required</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Cancel anytime</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Setup in under 3 hours</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Dedicated support included</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         <Footer />
       </div>
