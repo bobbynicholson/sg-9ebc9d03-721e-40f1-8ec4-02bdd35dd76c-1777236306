@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, Json } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
 
 export type Notification = Tables<"notifications">;
 
@@ -75,18 +75,16 @@ export const notificationService = {
   ): Promise<Notification | null> {
     const { data, error } = await supabase
       .from("notifications")
-      .insert([
-        {
-          user_id: userId,
-          recipient_id: recipientId,
-          notification_type: notification.type,
-          title: notification.title,
-          message: notification.message,
-          link: notification.link,
-          priority: notification.priority || "normal",
-          metadata: (notification.metadata || {}) as Json
-        }
-      ])
+      .insert({
+        user_id: userId,
+        recipient_id: recipientId,
+        notification_type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link || null,
+        priority: notification.priority || "normal",
+        metadata: (notification.metadata || {}) as unknown as never
+      })
       .select()
       .single();
 
