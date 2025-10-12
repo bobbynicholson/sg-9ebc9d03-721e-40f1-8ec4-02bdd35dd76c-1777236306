@@ -103,7 +103,8 @@ export default function FeaturesPage() {
         "Track conversion rates in real-time"
       ],
       gradient: "from-blue-500 to-cyan-500",
-      impact: "2-2.5x higher conversion (industry data)"
+      impact: "2-2.5x higher conversion (industry data)",
+      link: "/features/lead-management"
     },
     {
       icon: FileText,
@@ -117,7 +118,8 @@ export default function FeaturesPage() {
         "Multi-region view"
       ],
       gradient: "from-purple-500 to-pink-500",
-      impact: "Zero double-bookings"
+      impact: "Zero double-bookings",
+      link: null
     },
     {
       icon: Package,
@@ -131,7 +133,8 @@ export default function FeaturesPage() {
         "Cleaning schedule integration"
       ],
       gradient: "from-green-500 to-emerald-500",
-      impact: "45-50% reduction in waste"
+      impact: "45-50% reduction in waste",
+      link: "/features/inventory-management"
     },
     {
       icon: Globe,
@@ -145,7 +148,8 @@ export default function FeaturesPage() {
         "Company-wide reporting"
       ],
       gradient: "from-indigo-500 to-purple-500",
-      impact: "Unlimited scalability"
+      impact: "Unlimited scalability",
+      link: null
     },
     {
       icon: MapPin,
@@ -159,7 +163,8 @@ export default function FeaturesPage() {
         "Estimated arrival times"
       ],
       gradient: "from-red-500 to-orange-500",
-      impact: "65-70% fewer tracking calls"
+      impact: "65-70% fewer tracking calls",
+      link: "/features/gps-tracking"
     },
     {
       icon: DollarSign,
@@ -173,7 +178,8 @@ export default function FeaturesPage() {
         "One-click payment processing"
       ],
       gradient: "from-yellow-500 to-amber-500",
-      impact: "100% payment transparency"
+      impact: "100% payment transparency",
+      link: null
     },
     {
       icon: ChefHat,
@@ -187,7 +193,8 @@ export default function FeaturesPage() {
         "Waste reduction analytics"
       ],
       gradient: "from-pink-500 to-rose-500",
-      impact: "30-35% faster prep times"
+      impact: "30-35% faster prep times",
+      link: "/features/kitchen-management"
     },
     {
       icon: ShoppingCart,
@@ -201,7 +208,8 @@ export default function FeaturesPage() {
         "Cost optimization recommendations"
       ],
       gradient: "from-cyan-500 to-blue-500",
-      impact: "10-12% cost savings potential"
+      impact: "10-12% cost savings potential",
+      link: null
     },
     {
       icon: Sparkles,
@@ -215,7 +223,8 @@ export default function FeaturesPage() {
         "Equipment reservation system"
       ],
       gradient: "from-teal-500 to-cyan-500",
-      impact: "Zero equipment conflicts"
+      impact: "Zero equipment conflicts",
+      link: null
     },
     {
       icon: Shield,
@@ -229,7 +238,8 @@ export default function FeaturesPage() {
         "Feedback and complaint system"
       ],
       gradient: "from-violet-500 to-purple-500",
-      impact: "75-80% reduction in admin calls"
+      impact: "75-80% reduction in admin calls",
+      link: null
     },
     {
       icon: Mail,
@@ -243,7 +253,8 @@ export default function FeaturesPage() {
         "Fully customizable templates"
       ],
       gradient: "from-orange-500 to-red-500",
-      impact: "2-2.5x repeat booking rate"
+      impact: "2-2.5x repeat booking rate",
+      link: "/features/email-automation"
     },
     {
       icon: CreditCard,
@@ -257,7 +268,8 @@ export default function FeaturesPage() {
         "Multiple payment methods"
       ],
       gradient: "from-emerald-500 to-green-500",
-      impact: "Instant payment processing"
+      impact: "Instant payment processing",
+      link: null
     },
     {
       icon: Globe,
@@ -271,7 +283,8 @@ export default function FeaturesPage() {
         "International expansion ready"
       ],
       gradient: "from-blue-500 to-indigo-500",
-      impact: "Global reach, local feel"
+      impact: "Global reach, local feel",
+      link: null
     },
     {
       icon: FileText,
@@ -285,7 +298,8 @@ export default function FeaturesPage() {
         "SEO optimization tools"
       ],
       gradient: "from-pink-500 to-purple-500",
-      impact: "Organic lead generation"
+      impact: "Organic lead generation",
+      link: null
     },
     {
       icon: Settings,
@@ -299,7 +313,8 @@ export default function FeaturesPage() {
         "Security compliance"
       ],
       gradient: "from-slate-500 to-gray-600",
-      impact: "Enterprise-grade security"
+      impact: "Enterprise-grade security",
+      link: null
     }
   ];
 
@@ -460,9 +475,22 @@ export default function FeaturesPage() {
                           ))}
                         </ul>
                       </div>
-                      <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm mt-4">
-                        Impact: {feature.impact}
-                      </Badge>
+                      <div className="space-y-3">
+                        <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm w-full justify-center">
+                          Impact: {feature.impact}
+                        </Badge>
+                        {feature.link && (
+                          <Link href={feature.link}>
+                            <Button 
+                              className="w-full bg-white/90 hover:bg-white text-slate-900 font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                              size="lg"
+                            >
+                              Learn More
+                              <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
