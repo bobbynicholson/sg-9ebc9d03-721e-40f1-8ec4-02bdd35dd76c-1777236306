@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Calendar, Clock, Search, TrendingUp, DollarSign, Users, Zap } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import Head from "next/head";
 
 interface BlogPost {
   id: string;
@@ -200,158 +201,201 @@ export default function BlogPage() {
     }
   ];
 
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "CaterOS Catering Business Blog",
+    "description": "Expert insights on automation, profitability, and growth for South African catering businesses",
+    "url": "https://cateros.co.za/blog",
+    "publisher": {
+      "@type": "Organization",
+      "name": "CaterOS",
+      "url": "https://cateros.co.za"
+    }
+  };
+
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": blogPosts.slice(0, 10).map((post, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "url": `https://cateros.co.za/blog/${post.slug}`,
+      "name": post.title,
+      "description": post.excerpt
+    }))
+  };
+
   const categories = ["All", "Cost Management", "Automation", "Profitability", "Operations", "Sales", "Technology", "Growth"];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Link href="/">
-          <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
+    <>
+      <Head>
+        <title>Catering Business Blog - CaterOS</title>
+        <meta name="description" content="Expert insights on automation, profitability, and growth for South African catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
+        <meta name="keywords" content="catering business tips, catering automation, increase catering profits, catering operations, catering business growth" />
+        <link rel="canonical" href="https://cateros.co.za/blog" />
+        
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+        />
+      </Head>
 
-        <div className="mb-12">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-            Catering Business Blog
-          </h1>
-          <p className="text-xl text-slate-600 max-w-3xl">
-            Expert insights on automation, profitability, and growth for South African catering businesses
-          </p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <Link href="/">
+            <Button variant="ghost" className="mb-4">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
-          <div className="lg:col-span-3">
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input 
-                  placeholder="Search articles..." 
-                  className="pl-10 h-12"
-                />
+          <div className="mb-12">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+              Catering Business Blog
+            </h1>
+            <p className="text-xl text-slate-600 max-w-3xl">
+              Expert insights on automation, profitability, and growth for South African catering businesses
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+            <div className="lg:col-span-3">
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <Input 
+                    placeholder="Search articles..." 
+                    className="pl-10 h-12"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="flex gap-2 mb-8 flex-wrap">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                >
-                  {category}
-                </Button>
-              ))}
+              <div className="flex gap-2 mb-8 flex-wrap">
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {blogPosts.map((post) => (
+                    <Link href={`/blog/${post.slug}`} key={post.id}>
+                      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                        <CardHeader>
+                          <Badge variant="secondary" className="w-fit mb-2">
+                            {post.category}
+                          </Badge>
+                          <CardTitle className="text-xl hover:text-orange-600 transition-colors">
+                            {post.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-gray-600 mb-4">{post.excerpt}</p>
+                          <div className="flex items-center justify-between text-sm text-gray-500">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              {new Date(post.date).toLocaleDateString("en-ZA")}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              {post.readTime}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {blogPosts.map((post) => (
-                  <Link href={`/blog/${post.slug}`} key={post.id}>
-                    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader>
-                        <Badge variant="secondary" className="w-fit mb-2">
-                          {post.category}
-                        </Badge>
-                        <CardTitle className="text-xl hover:text-orange-600 transition-colors">
-                          {post.title}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-gray-600 mb-4">{post.excerpt}</p>
-                        <div className="flex items-center justify-between text-sm text-gray-500">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            {new Date(post.date).toLocaleDateString("en-ZA")}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            {post.readTime}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader>
+                  <CardTitle className="text-lg">Popular Topics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">Cost Reduction</span>
+                    <Badge className="bg-purple-100 text-purple-700">12 posts</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">Automation</span>
+                    <Badge className="bg-blue-100 text-blue-700">8 posts</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">Profitability</span>
+                    <Badge className="bg-green-100 text-green-700">10 posts</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">Operations</span>
+                    <Badge className="bg-orange-100 text-orange-700">15 posts</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Most Read
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
+                      How to Reduce Costs by 40%
+                    </h4>
+                    <p className="text-xs text-slate-600">2.4k reads</p>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
+                      Automation Complete Guide
+                    </h4>
+                    <p className="text-xs text-slate-600">1.8k reads</p>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
+                      Increasing Profit Margins
+                    </h4>
+                    <p className="text-xs text-slate-600">1.5k reads</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
+                <CardHeader>
+                  <CardTitle className="text-lg">Newsletter</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-slate-600">
+                    Get weekly tips on catering business automation and profitability
+                  </p>
+                  <Input placeholder="Your email" type="email" />
+                  <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
+                    Subscribe
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </div>
-
-          <div className="space-y-6">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
-              <CardHeader>
-                <CardTitle className="text-lg">Popular Topics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">Cost Reduction</span>
-                  <Badge className="bg-purple-100 text-purple-700">12 posts</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">Automation</span>
-                  <Badge className="bg-blue-100 text-blue-700">8 posts</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">Profitability</span>
-                  <Badge className="bg-green-100 text-green-700">10 posts</Badge>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">Operations</span>
-                  <Badge className="bg-orange-100 text-orange-700">15 posts</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Most Read
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                    How to Reduce Costs by 40%
-                  </h4>
-                  <p className="text-xs text-slate-600">2.4k reads</p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                    Automation Complete Guide
-                  </h4>
-                  <p className="text-xs text-slate-600">1.8k reads</p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                    Increasing Profit Margins
-                  </h4>
-                  <p className="text-xs text-slate-600">1.5k reads</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
-              <CardHeader>
-                <CardTitle className="text-lg">Newsletter</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-slate-600">
-                  Get weekly tips on catering business automation and profitability
-                </p>
-                <Input placeholder="Your email" type="email" />
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
-                  Subscribe
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </div>
+        
+        <Footer />
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 }

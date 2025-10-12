@@ -33,9 +33,62 @@ import {
   Settings
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import Head from "next/head";
 
 export default function FeaturesPage() {
   const [flippedCard, setFlippedCard] = useState<number | null>(null);
+
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "CaterOS - Catering Management Platform",
+    "description": "15 integrated systems for complete catering business management including lead management, GPS tracking, inventory control, kitchen management, and automated email follow-ups",
+    "brand": {
+      "@type": "Brand",
+      "name": "CaterOS"
+    },
+    "offers": {
+      "@type": "AggregateOffer",
+      "lowPrice": "899",
+      "highPrice": "4999",
+      "priceCurrency": "ZAR",
+      "availability": "https://schema.org/InStock"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.9",
+      "reviewCount": "127"
+    },
+    "features": [
+      "Lead Management & Quote Generation",
+      "Order Processing & Calendar Management",
+      "Inventory & Equipment Tracking with Expiry Alerts",
+      "Multi-Region Franchise Support",
+      "GPS Tracking for Real-Time Delivery",
+      "Driver Earnings & Payment System",
+      "Kitchen Production Management",
+      "Shopping & Receipt Scanning",
+      "Cleaning Schedule Management",
+      "Client Portal with Complaint System",
+      "Email Automation",
+      "Payment Gateway Integration",
+      "Multi-Currency Support",
+      "Blog & CMS System",
+      "Role-Based Access Control"
+    ]
+  };
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "CaterOS",
+    "url": "https://cateros.co.za",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+27-83-652-5755",
+      "contactType": "customer support"
+    }
+  };
 
   const coreFeatures = [
     {
@@ -284,275 +337,293 @@ export default function FeaturesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">
-        <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] bg-[size:40px_40px]" />
+    <>
+      <Head>
+        <title>Features - CaterOS Catering Management Platform</title>
+        <meta name="description" content="Explore 15 integrated systems working together to automate operations, connect your team, and maximize profitability. Complete feature overview of CaterOS catering management platform." />
+        <meta name="keywords" content="catering software features, GPS tracking, inventory management, kitchen management, email automation, payment processing, multi-region support" />
+        <link rel="canonical" href="https://cateros.co.za/features" />
         
-        <div className="relative container mx-auto px-4 py-16 md:py-24 max-w-7xl">
-          <div className="text-center max-w-4xl mx-auto">
-            <Badge className="mb-6 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200 text-sm shadow-sm">
-              <Sparkles className="w-4 h-4 mr-2 inline" />
-              Complete Platform Overview
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+      </Head>
+
+      <div className="min-h-screen bg-white">
+        <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">
+          <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] bg-[size:40px_40px]" />
+        
+          <div className="relative container mx-auto px-4 py-16 md:py-24 max-w-7xl">
+            <div className="text-center max-w-4xl mx-auto">
+              <Badge className="mb-6 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200 text-sm shadow-sm">
+                <Sparkles className="w-4 h-4 mr-2 inline" />
+                Complete Platform Overview
+              </Badge>
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent leading-tight">
+                Every Feature You Need to Run a Profitable Catering Business
+              </h1>
+              <p className="text-xl md:text-2xl text-slate-700 mb-8 leading-relaxed">
+                15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                <Link href="/auth/register">
+                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
+                    Start Free Trial
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/pricing">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50">
+                    View Pricing
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 py-16 md:py-24 max-w-7xl">
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <Badge className="mb-4 px-4 py-2 bg-green-100 text-green-700 border-green-200">
+              <CheckCircle className="w-4 h-4 mr-2 inline" />
+              All Core Systems Operational
             </Badge>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent leading-tight">
-              Every Feature You Need to Run a Profitable Catering Business
-            </h1>
-            <p className="text-xl md:text-2xl text-slate-700 mb-8 leading-relaxed">
-              15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
+            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
+              Click Each Card to Discover How It Works
+            </h2>
+            <p className="text-xl text-slate-600">
+              Hover or tap on any feature to see detailed benefits and real-world impact
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            {coreFeatures.map((feature, index) => (
+              <div
+                key={index}
+                className="relative h-80 cursor-pointer perspective-1000"
+                onMouseEnter={() => setFlippedCard(index)}
+                onMouseLeave={() => setFlippedCard(null)}
+                onClick={() => setFlippedCard(flippedCard === index ? null : index)}
+              >
+                <div
+                  className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
+                    flippedCard === index ? "rotate-y-180" : ""
+                  }`}
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transform: flippedCard === index ? "rotateY(180deg)" : "rotateY(0deg)"
+                  }}
+                >
+                  <Card className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden">
+                    <CardContent className="h-full flex flex-col justify-between p-8">
+                      <div>
+                        <div className={`inline-flex p-4 bg-gradient-to-br ${feature.gradient} rounded-2xl shadow-lg mb-6`}>
+                          <feature.icon className="w-8 h-8 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-3">{feature.title}</h3>
+                        <p className="text-slate-600 leading-relaxed">{feature.shortDesc}</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Badge className={`bg-gradient-to-r ${feature.gradient} text-white border-0`}>
+                          {feature.impact}
+                        </Badge>
+                        <ArrowRight className="w-5 h-5 text-slate-400" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card
+                    className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden"
+                    style={{
+                      transform: "rotateY(180deg)",
+                      backfaceVisibility: "hidden"
+                    }}
+                  >
+                    <CardContent className={`h-full flex flex-col justify-between p-8 bg-gradient-to-br ${feature.gradient} text-white`}>
+                      <div>
+                        <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
+                        <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
+                        <ul className="space-y-2">
+                          {feature.benefits.map((benefit, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                              <span className="text-sm">{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm mt-4">
+                        Impact: {feature.impact}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 md:p-12 border-2 border-purple-100 text-center mb-16">
+            <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
+              Ready to Transform Your Catering Business?
+            </h3>
+            <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
+              Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/register">
-                <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
-                  Start Free Trial
+                <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-10 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
+                  Start Your Free Trial Now
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
               <Link href="/pricing">
-                <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50">
-                  View Pricing
+                <Button size="lg" variant="outline" className="px-10 py-6 text-lg border-2 border-purple-300 hover:bg-purple-50">
+                  See Pricing Plans
                 </Button>
               </Link>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-16 md:py-24 max-w-7xl">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <Badge className="mb-4 px-4 py-2 bg-green-100 text-green-700 border-green-200">
-            <CheckCircle className="w-4 h-4 mr-2 inline" />
-            All Core Systems Operational
-          </Badge>
-          <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
-            Click Each Card to Discover How It Works
-          </h2>
-          <p className="text-xl text-slate-600">
-            Hover or tap on any feature to see detailed benefits and real-world impact
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {coreFeatures.map((feature, index) => (
-            <div
-              key={index}
-              className="relative h-80 cursor-pointer perspective-1000"
-              onMouseEnter={() => setFlippedCard(index)}
-              onMouseLeave={() => setFlippedCard(null)}
-              onClick={() => setFlippedCard(flippedCard === index ? null : index)}
-            >
-              <div
-                className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${
-                  flippedCard === index ? "rotate-y-180" : ""
-                }`}
-                style={{
-                  transformStyle: "preserve-3d",
-                  transform: flippedCard === index ? "rotateY(180deg)" : "rotateY(0deg)"
-                }}
-              >
-                <Card className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden">
-                  <CardContent className="h-full flex flex-col justify-between p-8">
-                    <div>
-                      <div className={`inline-flex p-4 bg-gradient-to-br ${feature.gradient} rounded-2xl shadow-lg mb-6`}>
-                        <feature.icon className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-slate-900 mb-3">{feature.title}</h3>
-                      <p className="text-slate-600 leading-relaxed">{feature.shortDesc}</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Badge className={`bg-gradient-to-r ${feature.gradient} text-white border-0`}>
-                        {feature.impact}
-                      </Badge>
-                      <ArrowRight className="w-5 h-5 text-slate-400" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  className="absolute w-full h-full border-0 shadow-xl backface-hidden overflow-hidden"
-                  style={{
-                    transform: "rotateY(180deg)",
-                    backfaceVisibility: "hidden"
-                  }}
-                >
-                  <CardContent className={`h-full flex flex-col justify-between p-8 bg-gradient-to-br ${feature.gradient} text-white`}>
-                    <div>
-                      <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
-                      <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
-                      <ul className="space-y-2">
-                        {feature.benefits.map((benefit, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                            <span className="text-sm">{benefit}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-sm mt-4">
-                      Impact: {feature.impact}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 md:p-12 border-2 border-purple-100 text-center mb-16">
-          <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
-            Ready to Transform Your Catering Business?
-          </h3>
-          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-            Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/register">
-              <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-10 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
-                Start Your Free Trial Now
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Link href="/pricing">
-              <Button size="lg" variant="outline" className="px-10 py-6 text-lg border-2 border-purple-300 hover:bg-purple-50">
-                See Pricing Plans
-              </Button>
-            </Link>
-          </div>
-          <p className="text-sm text-slate-500 mt-6">
-            No credit card required • Cancel anytime • Setup in under 3 hours
-          </p>
-        </div>
-
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <Badge className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
-              <Zap className="w-4 h-4 mr-2 inline" />
-              Even More Powerful Features
-            </Badge>
-            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
-              Additional Tools Included
-            </h2>
-            <p className="text-xl text-slate-600">
-              Everything you need, nothing you don't
+            <p className="text-sm text-slate-500 mt-6">
+              No credit card required • Cancel anytime • Setup in under 3 hours
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {additionalFeatures.map((feature, index) => (
-              <Card key={index} className="border-2 border-slate-200 hover:border-purple-300 hover:shadow-xl transition-all group">
-                <CardContent className="pt-6 pb-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl group-hover:scale-110 transition-transform">
-                      <feature.icon className="w-6 h-6 text-purple-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
-                      <p className="text-slate-600 text-sm">{feature.description}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-12 text-center">
-          <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))] bg-[size:40px_40px]" />
-          <div className="relative">
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              Everything Works Together Seamlessly
-            </h2>
-            <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
-              No more juggling 10 different tools. One platform. One login. Everything connected. 
-              Your entire operation flows from lead to delivery to follow-up automatically.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <Link href="/auth/register">
-                <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
-                  Get Started Free
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-10 py-6 text-lg">
-                  Schedule a Demo
-                </Button>
-              </Link>
-            </div>
-            <div className="flex flex-wrap justify-center gap-6 text-purple-200 text-sm">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>15 integrated systems</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>Mobile-optimized</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>Unlimited users</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>24/7 support</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-50 py-16 md:py-24">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <div className="text-center mb-12">
-            <Badge className="mb-4 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200">
-              <TrendingUp className="w-4 h-4 mr-2 inline" />
-              Real Results
-            </Badge>
-            <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
-              The Impact on Your Business
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-6 mb-12">
-            {[
-              { value: "20+", label: "Hours Saved Weekly", icon: Clock },
-              { value: "80%", label: "Fewer Admin Calls", icon: Bell },
-              { value: "15-25%", label: "Margin Increase", icon: TrendingUp },
-              { value: "3x", label: "Repeat Bookings", icon: RefreshCw }
-            ].map((stat, index) => (
-              <Card key={index} className="border-0 shadow-lg text-center">
-                <CardContent className="pt-8 pb-8">
-                  <div className="flex justify-center mb-4">
-                    <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl">
-                      <stat.icon className="w-8 h-8 text-white" />
-                    </div>
-                  </div>
-                  <div className="text-4xl font-bold text-slate-900 mb-2">{stat.value}</div>
-                  <div className="text-slate-600">{stat.label}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-            <CardContent className="py-12 px-8 text-center">
-              <h3 className="text-3xl md:text-4xl font-bold mb-6">
-                Stop Wasting Time. Start Growing Today.
-              </h3>
-              <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-                Join the catering revolution. Build a profitable, scalable business that runs smoothly without constant manual intervention.
+          <div className="mb-16">
+            <div className="text-center mb-12">
+              <Badge className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
+                <Zap className="w-4 h-4 mr-2 inline" />
+                Even More Powerful Features
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Additional Tools Included
+              </h2>
+              <p className="text-xl text-slate-600">
+                Everything you need, nothing you don't
               </p>
-              <Link href="/auth/register">
-                <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
-                  Start Your Free Trial
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            </div>
 
-      <Footer />
-    </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {additionalFeatures.map((feature, index) => (
+                <Card key={index} className="border-2 border-slate-200 hover:border-purple-300 hover:shadow-xl transition-all group">
+                  <CardContent className="pt-6 pb-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl group-hover:scale-110 transition-transform">
+                        <feature.icon className="w-6 h-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
+                        <p className="text-slate-600 text-sm">{feature.description}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-12 text-center">
+            <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))] bg-[size:40px_40px]" />
+            <div className="relative">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+                Everything Works Together Seamlessly
+              </h2>
+              <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
+                No more juggling 10 different tools. One platform. One login. Everything connected. 
+                Your entire operation flows from lead to delivery to follow-up automatically.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+                <Link href="/auth/register">
+                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
+                    Get Started Free
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/contact">
+                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-10 py-6 text-lg">
+                    Schedule a Demo
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex flex-wrap justify-center gap-6 text-purple-200 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>15 integrated systems</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Mobile-optimized</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Unlimited users</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>24/7 support</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 py-16 md:py-24">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <div className="text-center mb-12">
+              <Badge className="mb-4 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200">
+                <TrendingUp className="w-4 h-4 mr-2 inline" />
+                Real Results
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
+                The Impact on Your Business
+              </h2>
+            </div>
+
+            <div className="grid md:grid-cols-4 gap-6 mb-12">
+              {[
+                { value: "20+", label: "Hours Saved Weekly", icon: Clock },
+                { value: "80%", label: "Fewer Admin Calls", icon: Bell },
+                { value: "15-25%", label: "Margin Increase", icon: TrendingUp },
+                { value: "3x", label: "Repeat Bookings", icon: RefreshCw }
+              ].map((stat, index) => (
+                <Card key={index} className="border-0 shadow-lg text-center">
+                  <CardContent className="pt-8 pb-8">
+                    <div className="flex justify-center mb-4">
+                      <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl">
+                        <stat.icon className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                    <div className="text-4xl font-bold text-slate-900 mb-2">{stat.value}</div>
+                    <div className="text-slate-600">{stat.label}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white">
+              <CardContent className="py-12 px-8 text-center">
+                <h3 className="text-3xl md:text-4xl font-bold mb-6">
+                  Stop Wasting Time. Start Growing Today.
+                </h3>
+                <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+                  Join the catering revolution. Build a profitable, scalable business that runs smoothly without constant manual intervention.
+                </p>
+                <Link href="/auth/register">
+                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
+                    Start Your Free Trial
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <Footer />
+      </div>
+    </>
   );
 }
