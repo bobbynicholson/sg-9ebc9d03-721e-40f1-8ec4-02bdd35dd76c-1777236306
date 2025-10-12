@@ -402,9 +402,6 @@ export default function HomePage() {
             <p className="text-xl text-slate-600 mb-4">
               We know because we lived them. Here's what's actually killing your profitability.
             </p>
-            <p className="text-base text-slate-500">
-              Learn more about <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">improving profit margins</Link> and <Link href="/blog/reduce-admin-costs-catering" className="text-purple-600 hover:text-purple-700 underline">reducing admin costs</Link> in our blog.
-            </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
@@ -507,11 +504,6 @@ export default function HomePage() {
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
                   </Link>
-                  <Link href="/blog">
-                    <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-8 py-6 text-lg">
-                      Read Success Stories
-                    </Button>
-                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -529,9 +521,6 @@ export default function HomePage() {
             </h2>
             <p className="text-xl text-slate-600 mb-4">
               A complete platform that transforms chaos into profit
-            </p>
-            <p className="text-base text-slate-500">
-              Read about <Link href="/blog/automate-catering-operations" className="text-purple-600 hover:text-purple-700 underline">automating your catering operations</Link> and <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link>.
             </p>
           </div>
 
@@ -652,9 +641,6 @@ export default function HomePage() {
               <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-4">
                 Launch new kitchens and regional operations with one-click setup. Perfect for multi-location businesses.
               </p>
-              <p className="text-base text-purple-200">
-                Learn more about <Link href="/blog/manage-multiple-catering-locations" className="text-white hover:text-purple-100 underline">managing multiple locations</Link> and <Link href="/blog/scale-catering-business" className="text-white hover:text-purple-100 underline">scaling your business</Link>.
-              </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -708,7 +694,7 @@ export default function HomePage() {
               Everything You Need to Know
             </h2>
             <p className="text-base text-slate-600">
-              More questions? Check out our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">blog for detailed guides</Link> or <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">explore all features</Link>.
+              More questions? Check out our <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">feature overview</Link> or <Link href="/contact" className="text-purple-600 hover:text-purple-700 underline">contact support</Link>.
             </p>
           </div>
 

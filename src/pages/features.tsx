@@ -73,7 +73,6 @@ export default function FeaturesPage() {
       "Email Automation",
       "Payment Gateway Integration",
       "Multi-Currency Support",
-      "Blog & CMS System",
       "Role-Based Access Control"
     ]
   };
@@ -284,21 +283,6 @@ export default function FeaturesPage() {
       ],
       gradient: "from-blue-500 to-indigo-500",
       impact: "Global reach, local feel",
-      link: null
-    },
-    {
-      icon: FileText,
-      title: "Blog & CMS System",
-      shortDesc: "Manage content and drive SEO traffic",
-      fullDesc: "Built-in blog with 20 SEO-optimized posts ready to go. Full CMS for pages and posts. Drive organic traffic and establish thought leadership in catering.",
-      benefits: [
-        "20 pre-written SEO posts",
-        "Full content management",
-        "Page builder",
-        "SEO optimization tools"
-      ],
-      gradient: "from-pink-500 to-purple-500",
-      impact: "Organic lead generation",
       link: null
     },
     {

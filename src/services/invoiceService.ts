@@ -194,13 +194,7 @@ export const invoiceService = {
           full_name,
           email,
           company_name,
-          phone,
-          address,
-          city,
-          postal_code,
-          country,
-          vat_number,
-          tax_number
+          phone
         )
       `)
       .eq("id", subscriptionId)
@@ -218,7 +212,7 @@ export const invoiceService = {
       throw new Error("Customer profile not found for subscription");
     }
 
-    const profile = profileData as any;
+    const profile: any = profileData;
 
     const invoiceNumber = `INV-${subscription.id.substring(0, 8).toUpperCase()}`;
     const invoiceDate = new Date().toISOString().split("T")[0];
@@ -279,13 +273,7 @@ export const invoiceService = {
           full_name,
           email,
           company_name,
-          phone,
-          address,
-          city,
-          postal_code,
-          country,
-          vat_number,
-          tax_number
+          phone
         )
       `)
       .eq("id", orderId)
@@ -310,7 +298,8 @@ export const invoiceService = {
       throw new Error("Customer profile not found for order");
     }
 
-    const profile = profileData as any;
+    const profile: any = profileData;
+    const supplier: any = supplierProfile;
 
     const items = [...((order as any).menu_items || []), ...((order as any).equipment_items || [])];
     const lineItems: InvoiceLineItem[] = items.map((item: any) => ({
@@ -335,15 +324,15 @@ export const invoiceService = {
       invoiceDate,
       dueDate,
       supplier: edits?.supplier || {
-        name: supplierProfile?.company_name || supplierProfile?.full_name || "Catering Company",
-        address: supplierProfile?.address || "N/A",
-        city: supplierProfile?.city || "N/A",
-        postalCode: supplierProfile?.postal_code || "N/A",
-        country: supplierProfile?.country || "South Africa",
-        phone: supplierProfile?.phone || "N/A",
-        email: supplierProfile?.email || "N/A",
-        vatNumber: supplierProfile?.vat_number,
-        taxNumber: supplierProfile?.tax_number
+        name: supplier?.company_name || supplier?.full_name || "Catering Company",
+        address: supplier?.address || "N/A",
+        city: supplier?.city || "N/A",
+        postalCode: supplier?.postal_code || "N/A",
+        country: supplier?.country || "South Africa",
+        phone: supplier?.phone || "N/A",
+        email: supplier?.email || "N/A",
+        vatNumber: supplier?.vat_number,
+        taxNumber: supplier?.tax_number
       },
       customer: edits?.customer || {
         name: profile.company_name || profile.full_name || "Customer",
