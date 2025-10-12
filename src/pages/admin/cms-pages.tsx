@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { cmsService } from "@/services/cmsService";
 import type { CMSPage } from "@/types/cms";
+import type { Page } from "@/types/cms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +13,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
 export default function CMSPageManagement() {
-  const [pages, setPages] = useState<CMSPage[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingPage, setEditingPage] = useState<CMSPage | null>(null);
+  const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -42,7 +43,7 @@ export default function CMSPageManagement() {
     }
   };
 
-  const handleEdit = (page: CMSPage) => {
+  const handleEdit = (page: Page) => {
     setEditingPage(page);
     setFormData({
       slug: page.slug,
