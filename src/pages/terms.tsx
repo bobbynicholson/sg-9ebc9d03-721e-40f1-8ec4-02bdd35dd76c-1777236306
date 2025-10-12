@@ -77,10 +77,10 @@ export default function TermsPage() {
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Link href="/pricing">
+          <Link href="/">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Pricing
+              Back to Home
             </Button>
           </Link>
 
@@ -88,6 +88,9 @@ export default function TermsPage() {
             <CardHeader>
               <CardTitle className="text-3xl">Terms of Service</CardTitle>
               <p className="text-slate-600">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p className="text-sm text-slate-600 mt-2">
+                For more information about our platform, visit our <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">features page</Link> or read <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">success stories on our blog</Link>.
+              </p>
             </CardHeader>
             <CardContent className="prose prose-slate max-w-none space-y-6">
               <section>
@@ -100,7 +103,7 @@ export default function TermsPage() {
               <section>
                 <h2 className="text-2xl font-semibold mb-4">2. Description of Service</h2>
                 <p className="text-slate-700 leading-relaxed mb-3">
-                  The Catering Management Platform provides a comprehensive software solution for catering businesses, including but not limited to:
+                  The Catering Management Platform provides a comprehensive software solution for catering businesses. Learn more about <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">all our features</Link>, including but not limited to:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
                   <li>Lead and quote management</li>
@@ -117,7 +120,7 @@ export default function TermsPage() {
                 <h2 className="text-2xl font-semibold mb-4">3. Subscription Plans and Billing</h2>
                 <h3 className="text-xl font-semibold mt-4 mb-2">3.1 Free Trial</h3>
                 <p className="text-slate-700 leading-relaxed">
-                  All new subscriptions include a 14-day free trial period. During the trial, you have full access to all features of your chosen plan. No payment is required to start your trial.
+                  All new subscriptions include a 14-day free trial period. During the trial, you have full access to all features of your chosen plan. No payment is required to start your trial. View our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline">pricing plans</Link> to get started.
                 </p>
 
                 <h3 className="text-xl font-semibold mt-4 mb-2">3.2 Billing Cycle</h3>
@@ -259,19 +262,20 @@ export default function TermsPage() {
 
               <section>
                 <h2 className="text-2xl font-semibold mb-4">14. Contact Information</h2>
-                <p className="text-slate-700 leading-relaxed">
-                  If you have any questions about these Terms of Service, please contact us:
+                <p className="text-slate-700 leading-relaxed mb-3">
+                  If you have any questions about these Terms of Service, please contact us. You can also learn more about our platform on our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">blog</Link> or explore <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">detailed features</Link>:
                 </p>
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-                  <p className="text-slate-700"><strong>Email:</strong> support@cateringplatform.co.za</p>
-                  <p className="text-slate-700"><strong>Phone:</strong> +27 (0)82 123 4567</p>
-                  <p className="text-slate-700"><strong>Address:</strong> Cape Town, South Africa</p>
+                  <p className="text-slate-700"><strong>Company:</strong> CaterOS (A product of Skylight Digital)</p>
+                  <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
+                  <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
+                  <p className="text-slate-700"><strong>Email:</strong> support@cateros.co.za</p>
                 </div>
               </section>
 
               <section className="mt-8 pt-6 border-t">
                 <p className="text-sm text-slate-600">
-                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
+                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service. For additional information, visit our <Link href="/" className="text-purple-600 hover:text-purple-700 underline">homepage</Link> or review our <Link href="/privacy" className="text-purple-600 hover:text-purple-700 underline">Privacy Policy</Link>.
                 </p>
               </section>
             </CardContent>

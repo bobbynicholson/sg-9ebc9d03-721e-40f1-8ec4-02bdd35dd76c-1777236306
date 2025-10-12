@@ -77,10 +77,10 @@ export default function PrivacyPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Link href="/pricing">
+          <Link href="/">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Pricing
+              Back to Home
             </Button>
           </Link>
 
@@ -88,6 +88,9 @@ export default function PrivacyPage() {
             <CardHeader>
               <CardTitle className="text-3xl">Privacy Policy</CardTitle>
               <p className="text-slate-600">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
+              <p className="text-sm text-slate-600 mt-2">
+                Learn about our <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">secure platform features</Link> or read about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link> on our blog.
+              </p>
             </CardHeader>
             <CardContent className="prose prose-slate max-w-none space-y-6">
               <section>
@@ -96,7 +99,7 @@ export default function PrivacyPage() {
                   Welcome to the Catering Management Platform. We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our Service.
                 </p>
                 <p className="text-slate-700 leading-relaxed mt-3">
-                  By using our Service, you consent to the data practices described in this policy. If you do not agree with our policies and practices, please do not use the Service.
+                  By using our Service, you consent to the data practices described in this policy. If you do not agree with our policies and practices, please do not use the Service. Learn more about <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">our features</Link> and how we protect your data.
                 </p>
               </section>
 
@@ -175,7 +178,7 @@ export default function PrivacyPage() {
 
               <section>
                 <h2 className="text-2xl font-semibold mb-4">5. Data Security</h2>
-                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information, including:</p>
+                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information. Read more about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">security benefits</Link> of our platform, including:</p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
                   <li>Encryption of data in transit (HTTPS/TLS)</li>
                   <li>Encryption of sensitive data at rest</li>
@@ -260,19 +263,20 @@ export default function PrivacyPage() {
               <section>
                 <h2 className="text-2xl font-semibold mb-4">14. Contact Us</h2>
                 <p className="text-slate-700 leading-relaxed mb-4">
-                  If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
+                  If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us. You can also explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline">pricing plans</Link> or read <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">helpful guides</Link> on our blog:
                 </p>
                 <div className="p-4 bg-slate-50 rounded-lg">
-                  <p className="text-slate-700"><strong>Email:</strong> privacy@cateringplatform.co.za</p>
-                  <p className="text-slate-700"><strong>Support:</strong> support@cateringplatform.co.za</p>
-                  <p className="text-slate-700"><strong>Phone:</strong> +27 (0)82 123 4567</p>
-                  <p className="text-slate-700"><strong>Address:</strong> Cape Town, South Africa</p>
+                  <p className="text-slate-700"><strong>Company:</strong> CaterOS (A product of Skylight Digital)</p>
+                  <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
+                  <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
+                  <p className="text-slate-700"><strong>Email:</strong> privacy@cateros.co.za</p>
+                  <p className="text-slate-700"><strong>Support:</strong> support@cateros.co.za</p>
                 </div>
               </section>
 
               <section className="mt-8 pt-6 border-t">
                 <p className="text-sm text-slate-600">
-                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to this Privacy Policy.
+                  By using the Catering Management Platform, you acknowledge that you have read, understood, and agree to this Privacy Policy. For more information, visit our <Link href="/" className="text-purple-600 hover:text-purple-700 underline">homepage</Link> or review our <Link href="/terms" className="text-purple-600 hover:text-purple-700 underline">Terms of Service</Link>.
                 </p>
               </section>
             </CardContent>
