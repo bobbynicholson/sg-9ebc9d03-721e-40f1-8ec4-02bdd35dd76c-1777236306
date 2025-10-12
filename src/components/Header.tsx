@@ -55,7 +55,7 @@ export function Header() {
       category: "Core Operations",
       icon: Settings,
       items: [
-        { name: "Lead Management", href: "/features#lead-management", icon: Users, description: "Capture and convert leads automatically" },
+        { name: "Lead Management", href: "/features/lead-management", icon: Users, description: "Capture and convert leads automatically" },
         { name: "Quote Generation", href: "/features#quote-generation", icon: FileText, description: "Create professional quotes in seconds" },
         { name: "Calendar & Booking", href: "/features#calendar", icon: Calendar, description: "Visual scheduling with conflict detection" },
         { name: "Order Processing", href: "/features#orders", icon: Package, description: "Streamlined order management" }
@@ -66,7 +66,7 @@ export function Header() {
       icon: Users,
       items: [
         { name: "Driver Portal", href: "/features#driver-portal", icon: Truck, description: "GPS tracking and earnings management" },
-        { name: "Kitchen Portal", href: "/features#kitchen-portal", icon: ChefHat, description: "Prep schedules and production tracking" },
+        { name: "Kitchen Management", href: "/features/kitchen-management", icon: ChefHat, description: "Prep schedules and production tracking" },
         { name: "Shopping Portal", href: "/features#shopping-portal", icon: ShoppingCart, description: "Inventory and purchasing management" },
         { name: "Client Portal", href: "/features#client-portal", icon: Shield, description: "Self-service booking and tracking" }
       ]
@@ -75,8 +75,8 @@ export function Header() {
       category: "Advanced Features",
       icon: Zap,
       items: [
-        { name: "GPS Tracking", href: "/features#gps-tracking", icon: MapPin, description: "Real-time delivery location tracking" },
-        { name: "Email Automation", href: "/features#email-automation", icon: Mail, description: "Smart follow-ups and nurture campaigns" },
+        { name: "GPS Tracking", href: "/features/gps-tracking", icon: MapPin, description: "Real-time delivery location tracking" },
+        { name: "Email Automation", href: "/features/email-automation", icon: Mail, description: "Smart follow-ups and nurture campaigns" },
         { name: "Payment Processing", href: "/features#payments", icon: DollarSign, description: "Secure online payment collection" },
         { name: "Multi-Region Support", href: "/features#multi-region", icon: Globe, description: "Scale across multiple locations" }
       ]
@@ -87,7 +87,7 @@ export function Header() {
       items: [
         { name: "Business Analytics", href: "/features#analytics", icon: BarChart3, description: "Real-time performance metrics" },
         { name: "Profit Optimization", href: "/features#profit", icon: Target, description: "Maximize margins and profitability" },
-        { name: "Inventory Tracking", href: "/features#inventory", icon: Package, description: "Stock levels and expiry alerts" },
+        { name: "Inventory Management", href: "/features/inventory-management", icon: Package, description: "Stock levels and expiry alerts" },
         { name: "Time Management", href: "/features#time", icon: Clock, description: "Optimize scheduling and workflows" }
       ]
     }
