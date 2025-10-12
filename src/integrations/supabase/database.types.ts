@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -107,6 +107,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          priority: string | null
+          read: boolean | null
+          read_at: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          priority?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          priority?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
       }
       after_sales_emails: {
         Row: {
@@ -483,6 +516,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currency_fluctuation_alerts: {
+        Row: {
+          alert_sent: boolean | null
+          check_date: string
+          created_at: string | null
+          days_period: number
+          end_rate: number
+          id: string
+          percentage_change: number
+          resolved: boolean | null
+          resolved_at: string | null
+          start_rate: number
+        }
+        Insert: {
+          alert_sent?: boolean | null
+          check_date: string
+          created_at?: string | null
+          days_period: number
+          end_rate: number
+          id?: string
+          percentage_change: number
+          resolved?: boolean | null
+          resolved_at?: string | null
+          start_rate: number
+        }
+        Update: {
+          alert_sent?: boolean | null
+          check_date?: string
+          created_at?: string | null
+          days_period?: number
+          end_rate?: number
+          id?: string
+          percentage_change?: number
+          resolved?: boolean | null
+          resolved_at?: string | null
+          start_rate?: number
+        }
+        Relationships: []
       }
       driver_assignments: {
         Row: {
@@ -1047,6 +1119,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      exchange_rates: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          updated_at: string | null
+          usd_to_zar_rate: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          updated_at?: string | null
+          usd_to_zar_rate: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          updated_at?: string | null
+          usd_to_zar_rate?: number
+        }
+        Relationships: []
       }
       gps_tracking: {
         Row: {
