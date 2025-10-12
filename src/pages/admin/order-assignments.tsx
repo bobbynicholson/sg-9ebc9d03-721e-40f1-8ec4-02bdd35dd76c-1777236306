@@ -109,12 +109,26 @@ export default function OrderAssignmentsPage() {
   };
 
   const handleStatusUpdate = (orderId: string, status: any) => {
-    regionManagement.updateAssignmentStatus(orderId, status);
+    // Load current assignments from localStorage
+    const currentAssignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
     
-    // Save to localStorage so other pages can see the updated status
-    localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
+    // Update the specific assignment
+    const updatedAssignments = currentAssignments.map((a: any) => {
+      if (a.orderId === orderId) {
+        return { ...a, status };
+      }
+      return a;
+    });
     
-    setAssignments([...regionManagement.orderAssignments]);
+    // Save back to localStorage
+    localStorage.setItem("order_assignments", JSON.stringify(updatedAssignments));
+    
+    // Update local state
+    setAssignments(updatedAssignments);
+    
+    // Log for debugging
+    console.log(`Order ${orderId} status updated to ${status}`);
+    console.log("Updated assignments:", updatedAssignments);
     
     // Show success message
     if (status === "accepted") {
