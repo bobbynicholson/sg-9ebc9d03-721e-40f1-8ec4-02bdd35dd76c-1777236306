@@ -214,6 +214,12 @@ export default function HomePage() {
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent leading-tight">
               Stop Losing Money to Manual Chaos
             </h1>
+            <div className="mb-6">
+              <Badge className="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-base font-bold shadow-lg">
+                <Sparkles className="w-5 h-5 mr-2 inline" />
+                The Ultimate Catering Management Solution
+              </Badge>
+            </div>
             <p className="text-xl md:text-2xl text-slate-700 mb-4 leading-relaxed font-medium">
               The complete operating system for profitable, scalable catering businesses
             </p>
