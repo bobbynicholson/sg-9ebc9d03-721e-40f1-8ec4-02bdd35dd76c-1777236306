@@ -56,6 +56,12 @@ export function Header() {
     setActiveDropdown(null);
   }, [router.pathname]);
 
+  const platformAdminMenu = [
+    { name: "Platform Dashboard", href: "/platform/dashboard", description: "CateringMS business analytics and metrics" },
+    { name: "Customer Management", href: "/platform/subscription-management", description: "Manage all customer subscriptions" },
+    { name: "Currency Monitoring", href: "/platform/currency-monitoring", description: "Track ZAR/USD rates and pricing" }
+  ];
+
   const featuresMegaMenu = [
     {
       category: "Core Operations",
@@ -124,6 +130,7 @@ export function Header() {
   ];
 
   const isActive = (path: string) => router.pathname === path;
+  const isPlatformRoute = router.pathname.startsWith('/platform');
 
   const handleDropdownToggle = (dropdown: string) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -161,6 +168,51 @@ export function Header() {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center gap-1">
+            {/* Platform Admin Dropdown (Internal Only) */}
+            <div
+              className="relative"
+              onMouseEnter={() => setActiveDropdown("platform")}
+              onMouseLeave={() => setActiveDropdown(null)}
+            >
+              <button
+                className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+                  isPlatformRoute || activeDropdown === "platform"
+                    ? "bg-orange-50 text-orange-700 border border-orange-200"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="font-medium">CateringMS Admin</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "platform" ? "rotate-180" : ""}`} />
+              </button>
+
+              {activeDropdown === "platform" && (
+                <div className="absolute left-0 top-full mt-2 w-80">
+                  <div className="bg-white rounded-xl shadow-2xl border border-orange-200 p-4">
+                    <div className="mb-3 pb-3 border-b border-orange-100">
+                      <p className="text-xs font-semibold text-orange-600 uppercase tracking-wider">
+                        Internal Platform Management
+                      </p>
+                    </div>
+                    <ul className="space-y-2">
+                      {platformAdminMenu.map((item) => (
+                        <li key={item.name}>
+                          <Link href={item.href}>
+                            <div className="p-3 rounded-lg hover:bg-orange-50 transition-colors group cursor-pointer">
+                              <p className="font-medium text-slate-900 text-sm group-hover:text-orange-700">
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-slate-600 mt-0.5">{item.description}</p>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Features Mega Menu */}
             <div
               className="relative"
@@ -334,6 +386,24 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="p-4 space-y-2">
+              {/* Mobile Platform Admin */}
+              <div className="space-y-2 border-b border-orange-200 pb-4 mb-4">
+                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-orange-600" />
+                  <span className="text-sm font-semibold text-orange-700 uppercase tracking-wider">
+                    CateringMS Internal Admin
+                  </span>
+                </div>
+                {platformAdminMenu.map((item) => (
+                  <Link key={item.name} href={item.href}>
+                    <div className="p-3 rounded-lg hover:bg-orange-50 ml-2">
+                      <p className="font-medium text-slate-900 text-sm">{item.name}</p>
+                      <p className="text-xs text-slate-600">{item.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
               {/* Mobile Features */}
               <div className="space-y-2">
                 <button
