@@ -84,15 +84,19 @@ const PRICING_PLANS = [
 const convertCurrency = (zarAmount: number | null) => {
   if (zarAmount === null) return null;
   
-  const USD_RATE = 0.055;
-  const GBP_RATE = 0.043;
-  const EUR_RATE = 0.050;
+  // Formula: (SA Price × 3) ÷ Exchange Rate
+  const multipliedAmount = zarAmount * 3;
+  
+  // Current exchange rates (as of Oct 2025)
+  const ZAR_TO_USD = 18.5;
+  const ZAR_TO_GBP = 23.5;
+  const ZAR_TO_EUR = 20.0;
   
   return {
     zar: zarAmount,
-    usd: Math.round(zarAmount * USD_RATE),
-    gbp: Math.round(zarAmount * GBP_RATE),
-    eur: Math.round(zarAmount * EUR_RATE)
+    usd: Math.round(multipliedAmount / ZAR_TO_USD),
+    gbp: Math.round(multipliedAmount / ZAR_TO_GBP),
+    eur: Math.round(multipliedAmount / ZAR_TO_EUR)
   };
 };
 
