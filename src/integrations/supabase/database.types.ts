@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -2097,58 +2097,82 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          active_clients_count: number | null
           amount: number
           billing_cycle: string
           cancel_at_period_end: boolean | null
+          cancellation_feedback: string | null
+          cancellation_reason: string | null
           cancelled_at: string | null
           created_at: string | null
           currency: string | null
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          new_amount: number | null
           next_billing_date: string | null
+          orders_this_quarter: number | null
           payfast_subscription_id: string | null
           payfast_token: string | null
           payment_method_last4: string | null
+          pending_price_change: boolean | null
+          plan_id: string | null
           plan_name: string
+          price_change_effective_date: string | null
           status: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          active_clients_count?: number | null
           amount: number
           billing_cycle: string
           cancel_at_period_end?: boolean | null
+          cancellation_feedback?: string | null
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           currency?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          new_amount?: number | null
           next_billing_date?: string | null
+          orders_this_quarter?: number | null
           payfast_subscription_id?: string | null
           payfast_token?: string | null
           payment_method_last4?: string | null
+          pending_price_change?: boolean | null
+          plan_id?: string | null
           plan_name: string
+          price_change_effective_date?: string | null
           status?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          active_clients_count?: number | null
           amount?: number
           billing_cycle?: string
           cancel_at_period_end?: boolean | null
+          cancellation_feedback?: string | null
+          cancellation_reason?: string | null
           cancelled_at?: string | null
           created_at?: string | null
           currency?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          new_amount?: number | null
           next_billing_date?: string | null
+          orders_this_quarter?: number | null
           payfast_subscription_id?: string | null
           payfast_token?: string | null
           payment_method_last4?: string | null
+          pending_price_change?: boolean | null
+          plan_id?: string | null
           plan_name?: string
+          price_change_effective_date?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string
@@ -2246,6 +2270,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_price_change: {
+        Args: { p_subscription_id: string }
+        Returns: undefined
+      }
       decrement_equipment_quantity: {
         Args: { p_equipment_id: string; p_quantity_to_decrement: number }
         Returns: undefined
