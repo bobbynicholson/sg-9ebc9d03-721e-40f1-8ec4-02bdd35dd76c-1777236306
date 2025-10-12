@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,15 +18,34 @@ import {
 } from "lucide-react";
 import { Quote, InventoryItem } from "@/types";
 import { Footer } from "@/components/Footer";
+import { mockOrders } from "@/lib/mockData";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
+    // Get orders from localStorage quotes with status 'accepted'
     const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    const acceptedOrders = storedQuotes.filter((q: Quote) => q.status === "accepted");
-    setOrders(acceptedOrders);
+    const acceptedOrders = storedQuotes.filter((q: Quote) => 
+      q.status === "accepted" || q.status === "confirmed" || q.status === "paid"
+    );
+    
+    // ALSO get orders from mockData that have been assigned to regions
+    // These are the orders from /admin/order-assignments
+    const mockOrdersFromAssignments = mockOrders.filter(order => {
+      // Check if this order has been assigned via regionManagement
+      const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+      return assignments.some((a: any) => a.orderId === order.id && a.status !== "rejected");
+    });
+    
+    // Combine both sources and remove duplicates
+    const allOrders = [...acceptedOrders, ...mockOrdersFromAssignments];
+    const uniqueOrders = allOrders.filter((order, index, self) => 
+      index === self.findIndex((o) => o.id === order.id)
+    );
+    
+    setOrders(uniqueOrders);
     
     const storedInventory = JSON.parse(localStorage.getItem("inventory") || "[]");
     setInventory(storedInventory);

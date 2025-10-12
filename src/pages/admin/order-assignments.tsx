@@ -67,12 +67,17 @@ export default function OrderAssignmentsPage() {
 
   const handleAssignOrder = () => {
     if (selectedOrder && selectedRegion) {
+      // Assign via regionManagement
       regionManagement.assignOrderToRegion(
         selectedOrder.id,
         selectedRegion,
         "hq_admin_001",
         assignmentNotes
       );
+      
+      // Store assignments in localStorage for other components to access
+      localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
+      
       setAssignments([...regionManagement.orderAssignments]);
       setIsAssignDialogOpen(false);
       setSelectedOrder(null);
@@ -83,6 +88,10 @@ export default function OrderAssignmentsPage() {
 
   const handleStatusUpdate = (orderId: string, status: any) => {
     regionManagement.updateAssignmentStatus(orderId, status);
+    
+    // Save to localStorage so other pages can see the updated status
+    localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
+    
     setAssignments([...regionManagement.orderAssignments]);
   };
 

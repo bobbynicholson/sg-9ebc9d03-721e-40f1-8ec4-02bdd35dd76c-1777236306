@@ -20,6 +20,7 @@ import {
 import { Quote } from "@/types";
 import { DriverEarnings } from "@/components/DriverEarnings";
 import { Footer } from "@/components/Footer";
+import { mockOrders } from "@/lib/mockData";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
@@ -47,20 +48,42 @@ export default function DriversPage() {
       setPerKmRate(rates.perKmRate || 8);
     }
 
-    const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    const confirmedQuotes = storedQuotes.filter((q: Quote) => q.status === "accepted");
+    // Get order assignments from regionManagement
+    const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
     
-    const jobs: DeliveryJob[] = confirmedQuotes.map((quote: Quote) => ({
-      ...quote,
-      pickupTime: "14:00",
-      deliveryTime: "16:00",
-      address: "123 Event Street, City",
-      driverAssigned: Math.random() > 0.5 ? driverName : undefined
-    }));
+    // Get accepted/confirmed assignments that drivers can pick up
+    const acceptedAssignments = assignments.filter((a: any) => 
+      a.status === "accepted" || a.status === "in_progress"
+    );
+    
+    // Map assignments to orders from mockOrders
+    const jobs: DeliveryJob[] = acceptedAssignments.map((assignment: any) => {
+      const order = mockOrders.find(o => o.id === assignment.orderId);
+      if (!order) return null;
+      
+      return {
+        ...order,
+        id: order.id,
+        clientName: order.clientName,
+        eventDate: order.eventDate,
+        eventType: order.menuItems[0]?.name || "Catering Event",
+        guestCount: order.guestCount,
+        pickupTime: "14:00",
+        deliveryTime: "16:00",
+        address: order.eventLocation || order.location,
+        driverAssigned: order.assignedDriver === "D001" ? driverName : undefined,
+        menuItems: order.menuItems,
+        equipmentItems: order.equipmentItems,
+        status: order.status,
+        total: order.totalAmount,
+      };
+    }).filter(Boolean);
 
+    // Separate into available and assigned jobs
     setAvailableJobs(jobs.filter(j => !j.driverAssigned));
     setMyJobs(jobs.filter(j => j.driverAssigned === driverName));
 
+    // Calculate total earnings
     let total = 0;
     jobs.forEach(job => {
       const earnings = localStorage.getItem(`earnings_${job.id}`);
