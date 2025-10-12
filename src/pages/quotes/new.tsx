@@ -186,7 +186,6 @@ export default function NewQuotePage() {
       menuItems: menuItems.filter(item => item.name && item.pricePerPerson > 0),
       equipmentItems: equipmentItems.filter(item => item.name && item.rentalPrice > 0),
       subtotal,
-      deliveryFee,
       tax,
       total,
       status: sendToClient ? "sent" : "draft",
