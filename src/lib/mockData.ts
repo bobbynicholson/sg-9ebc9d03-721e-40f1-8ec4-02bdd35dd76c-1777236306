@@ -1,4 +1,3 @@
-
 import { Lead, Quote, Order, InventoryItem, Driver, Delivery, Payment } from "@/types";
 
 export const mockLeads: Lead[] = [
@@ -74,48 +73,383 @@ export const mockQuotes: Quote[] = [
   }
 ];
 
+export const mockDrivers: Driver[] = [
+  {
+    id: "D001",
+    name: "James Wilson",
+    phone: "+27 82 345 6789",
+    email: "james.wilson@cateros.co.za",
+    availableJobs: ["ORD-003"],
+    assignedJobs: ["ORD-001", "ORD-002"],
+    completedJobs: 45
+  },
+  {
+    id: "D002",
+    name: "Lisa Martinez",
+    phone: "+27 83 456 7890",
+    email: "lisa.martinez@cateros.co.za",
+    availableJobs: ["ORD-003"],
+    assignedJobs: [],
+    completedJobs: 62
+  },
+  {
+    id: "D003",
+    name: "Thabo Mbeki",
+    phone: "+27 84 567 8901",
+    email: "thabo.mbeki@cateros.co.za",
+    availableJobs: ["ORD-003"],
+    assignedJobs: [],
+    completedJobs: 38
+  }
+];
+
 export const mockOrders: Order[] = [
   {
     id: "ORD-001",
     quoteId: "Q-001",
     client: "Sarah Johnson",
     clientName: "Sarah Johnson",
-    eventDate: "2024-02-15",
-    date: "2024-02-15",
+    eventDate: "2025-10-15",
+    date: "2025-10-15",
     venue: "Grand Palace Hotel",
-    location: "123 Main St, Cape Town",
-    eventLocation: "123 Main St, Cape Town",
+    location: "123 Victoria Road, Green Point, Cape Town",
+    eventLocation: "123 Victoria Road, Green Point, Cape Town",
     guestCount: 150,
     menuItems: [
       {
         id: "m1",
-        name: "Braai Platter",
+        name: "Deluxe Braai Platter",
         category: "main",
-        pricePerPerson: 250,
+        pricePerPerson: 285,
         quantity: 150,
         ingredients: [
-          { id: "i1", name: "Beef", quantity: 30, quantityNeeded: 30, unit: "kg", category: "fresh" },
-          { id: "i2", name: "Chicken", quantity: 25, quantityNeeded: 25, unit: "kg", category: "fresh" },
+          { id: "i1", name: "Premium Beef Fillet", quantity: 35, quantityNeeded: 35, unit: "kg", category: "fresh" },
+          { id: "i2", name: "Free Range Chicken", quantity: 28, quantityNeeded: 28, unit: "kg", category: "fresh" },
+          { id: "i3", name: "Boerewors", quantity: 22, quantityNeeded: 22, unit: "kg", category: "fresh" },
+          { id: "i4", name: "Lamb Chops", quantity: 20, quantityNeeded: 20, unit: "kg", category: "fresh" },
+        ],
+      },
+      {
+        id: "m2",
+        name: "Traditional Pap & Sauce",
+        category: "side",
+        pricePerPerson: 45,
+        quantity: 150,
+        ingredients: [
+          { id: "i5", name: "Maize Meal", quantity: 15, quantityNeeded: 15, unit: "kg", category: "staples" },
+          { id: "i6", name: "Tomato Sauce Mix", quantity: 8, quantityNeeded: 8, unit: "kg", category: "staples" },
+        ],
+      },
+      {
+        id: "m3",
+        name: "Garden Salad Selection",
+        category: "side",
+        pricePerPerson: 35,
+        quantity: 150,
+        ingredients: [
+          { id: "i7", name: "Mixed Lettuce", quantity: 12, quantityNeeded: 12, unit: "kg", category: "fresh" },
+          { id: "i8", name: "Cherry Tomatoes", quantity: 8, quantityNeeded: 8, unit: "kg", category: "fresh" },
         ],
       },
     ],
     equipmentItems: [
       {
         id: "e1",
-        name: "Chafing Dish",
+        name: "Large Chafing Dish",
         category: "chafing",
-        quantity: 10,
+        quantity: 8,
         available: 8,
         condition: "excellent",
-        rentalPrice: 50,
+        rentalPrice: 65,
+      },
+      {
+        id: "e2",
+        name: "Serving Platters (Large)",
+        category: "serveware",
+        quantity: 12,
+        available: 12,
+        condition: "good",
+        rentalPrice: 25,
+      },
+      {
+        id: "e3",
+        name: "Cutlery Sets (Complete)",
+        category: "cutlery",
+        quantity: 150,
+        available: 150,
+        condition: "excellent",
+        rentalPrice: 3,
       },
     ],
-    kitchenInstructions: "Prepare 2 hours before event",
-    status: "pending",
-    total: 37500,
-    totalAmount: 37500,
-    createdAt: new Date().toISOString(),
+    kitchenInstructions: "Prepare 3 hours before event. Meat must be marinated overnight. Ensure vegetarian options are clearly labeled.",
+    status: "in_transit",
+    total: 56250,
+    totalAmount: 56250,
+    createdAt: new Date("2025-10-12T06:30:00").toISOString(),
+    assignedDriver: "D001",
+    driverName: "James Wilson",
+    driverPhone: "+27 82 345 6789",
   },
+  {
+    id: "ORD-002",
+    quoteId: "Q-002",
+    client: "Michael Chen",
+    clientName: "Michael Chen",
+    eventDate: "2025-10-16",
+    date: "2025-10-16",
+    venue: "Waterfront Conference Centre",
+    location: "45 Beach Road, V&A Waterfront, Cape Town",
+    eventLocation: "45 Beach Road, V&A Waterfront, Cape Town",
+    guestCount: 85,
+    menuItems: [
+      {
+        id: "m4",
+        name: "Executive Lunch Buffet",
+        category: "main",
+        pricePerPerson: 195,
+        quantity: 85,
+        ingredients: [
+          { id: "i9", name: "Chicken Breast", quantity: 18, quantityNeeded: 18, unit: "kg", category: "fresh" },
+          { id: "i10", name: "Salmon Fillets", quantity: 12, quantityNeeded: 12, unit: "kg", category: "fresh" },
+          { id: "i11", name: "Beef Sirloin", quantity: 10, quantityNeeded: 10, unit: "kg", category: "fresh" },
+        ],
+      },
+      {
+        id: "m5",
+        name: "Roasted Vegetables",
+        category: "side",
+        pricePerPerson: 42,
+        quantity: 85,
+        ingredients: [
+          { id: "i12", name: "Mixed Vegetables", quantity: 15, quantityNeeded: 15, unit: "kg", category: "fresh" },
+        ],
+      },
+    ],
+    equipmentItems: [
+      {
+        id: "e4",
+        name: "Medium Chafing Dish",
+        category: "chafing",
+        quantity: 6,
+        available: 6,
+        condition: "excellent",
+        rentalPrice: 55,
+      },
+      {
+        id: "e5",
+        name: "Cutlery Sets (Complete)",
+        category: "cutlery",
+        quantity: 85,
+        available: 85,
+        condition: "excellent",
+        rentalPrice: 3,
+      },
+    ],
+    kitchenInstructions: "Setup by 11:30 AM. Corporate presentation format required.",
+    status: "delivered",
+    total: 20145,
+    totalAmount: 20145,
+    createdAt: new Date("2025-10-11T08:15:00").toISOString(),
+    assignedDriver: "D001",
+    driverName: "James Wilson",
+    driverPhone: "+27 82 345 6789",
+  },
+  {
+    id: "ORD-003",
+    quoteId: "Q-003",
+    client: "Emily Rodriguez",
+    clientName: "Emily Rodriguez",
+    eventDate: "2025-10-18",
+    date: "2025-10-18",
+    venue: "Stellenbosch Wine Estate",
+    location: "Wine Route R310, Stellenbosch",
+    eventLocation: "Wine Route R310, Stellenbosch",
+    guestCount: 200,
+    menuItems: [
+      {
+        id: "m6",
+        name: "Wedding Reception Buffet",
+        category: "main",
+        pricePerPerson: 325,
+        quantity: 200,
+        ingredients: [
+          { id: "i13", name: "Prime Rib Roast", quantity: 45, quantityNeeded: 45, unit: "kg", category: "fresh" },
+          { id: "i14", name: "Whole Salmon", quantity: 25, quantityNeeded: 25, unit: "kg", category: "fresh" },
+          { id: "i15", name: "Lamb Rack", quantity: 35, quantityNeeded: 35, unit: "kg", category: "fresh" },
+        ],
+      },
+      {
+        id: "m7",
+        name: "Gourmet Side Selection",
+        category: "side",
+        pricePerPerson: 68,
+        quantity: 200,
+        ingredients: [
+          { id: "i16", name: "Truffle Mash", quantity: 25, quantityNeeded: 25, unit: "kg", category: "fresh" },
+          { id: "i17", name: "Grilled Asparagus", quantity: 18, quantityNeeded: 18, unit: "kg", category: "fresh" },
+        ],
+      },
+    ],
+    equipmentItems: [
+      {
+        id: "e6",
+        name: "Premium Chafing Dish",
+        category: "chafing",
+        quantity: 15,
+        available: 15,
+        condition: "excellent",
+        rentalPrice: 85,
+      },
+      {
+        id: "e7",
+        name: "Fine China Plates",
+        category: "crockery",
+        quantity: 200,
+        available: 200,
+        condition: "excellent",
+        rentalPrice: 8,
+      },
+      {
+        id: "e8",
+        name: "Premium Cutlery Sets",
+        category: "cutlery",
+        quantity: 200,
+        available: 200,
+        condition: "excellent",
+        rentalPrice: 5,
+      },
+    ],
+    kitchenInstructions: "VIP wedding. Extra attention to presentation. Setup 4 hours before. Coordinate with wedding planner.",
+    status: "confirmed",
+    total: 78600,
+    totalAmount: 78600,
+    createdAt: new Date("2025-10-10T14:22:00").toISOString(),
+    assignedDriver: null,
+    driverName: null,
+    driverPhone: null,
+  },
+  {
+    id: "ORD-004",
+    quoteId: "Q-004",
+    client: "David Naidoo",
+    clientName: "David Naidoo",
+    eventDate: "2025-10-14",
+    date: "2025-10-14",
+    venue: "Century City Convention Centre",
+    location: "Sable Road, Century City, Cape Town",
+    eventLocation: "Sable Road, Century City, Cape Town",
+    guestCount: 120,
+    menuItems: [
+      {
+        id: "m8",
+        name: "Gala Dinner Menu",
+        category: "main",
+        pricePerPerson: 265,
+        quantity: 120,
+        ingredients: [
+          { id: "i18", name: "Duck Breast", quantity: 22, quantityNeeded: 22, unit: "kg", category: "fresh" },
+          { id: "i19", name: "Beef Tenderloin", quantity: 18, quantityNeeded: 18, unit: "kg", category: "fresh" },
+        ],
+      },
+    ],
+    equipmentItems: [
+      {
+        id: "e9",
+        name: "Large Chafing Dish",
+        category: "chafing",
+        quantity: 10,
+        available: 10,
+        condition: "excellent",
+        rentalPrice: 65,
+      },
+    ],
+    kitchenInstructions: "Black tie event. Premium presentation required.",
+    status: "preparing",
+    total: 31800,
+    totalAmount: 31800,
+    createdAt: new Date("2025-10-09T11:45:00").toISOString(),
+    assignedDriver: "D002",
+    driverName: "Lisa Martinez",
+    driverPhone: "+27 83 456 7890",
+  },
+];
+
+export const mockDeliveries: Delivery[] = [
+  {
+    id: "DEL001",
+    orderId: "ORD-001",
+    pickupTime: "2025-10-15T10:00:00Z",
+    deliveryTime: "2025-10-15T11:30:00Z",
+    location: "123 Victoria Road, Green Point, Cape Town",
+    status: "in_transit",
+    driverName: "James Wilson",
+    driverId: "D001"
+  },
+  {
+    id: "DEL002",
+    orderId: "ORD-002",
+    pickupTime: "2025-10-16T10:00:00Z",
+    deliveryTime: "2025-10-16T11:00:00Z",
+    location: "45 Beach Road, V&A Waterfront, Cape Town",
+    status: "delivered",
+    driverName: "James Wilson",
+    driverId: "D001"
+  },
+  {
+    id: "DEL003",
+    orderId: "ORD-003",
+    pickupTime: "2025-10-18T13:00:00Z",
+    deliveryTime: "2025-10-18T15:00:00Z",
+    location: "Wine Route R310, Stellenbosch",
+    status: "available",
+    driverName: null,
+    driverId: null
+  },
+  {
+    id: "DEL004",
+    orderId: "ORD-004",
+    pickupTime: "2025-10-14T16:00:00Z",
+    deliveryTime: "2025-10-14T17:30:00Z",
+    location: "Sable Road, Century City, Cape Town",
+    status: "assigned",
+    driverName: "Lisa Martinez",
+    driverId: "D002"
+  }
+];
+
+export const mockPayments: Payment[] = [
+  {
+    id: "PAY001",
+    quoteId: "Q001",
+    amount: 56250,
+    status: "paid",
+    paidAmount: 56250,
+    reconciled: true
+  },
+  {
+    id: "PAY002",
+    quoteId: "Q002",
+    amount: 20145,
+    status: "paid",
+    paidAmount: 20145,
+    reconciled: true
+  },
+  {
+    id: "PAY003",
+    quoteId: "Q003",
+    amount: 78600,
+    status: "pending",
+    paidAmount: 39300,
+    reconciled: false
+  },
+  {
+    id: "PAY004",
+    quoteId: "Q004",
+    amount: 31800,
+    status: "paid",
+    paidAmount: 31800,
+    reconciled: true
+  }
 ];
 
 export const mockInventory: InventoryItem[] = [
@@ -147,48 +481,5 @@ export const mockInventory: InventoryItem[] = [
     unit: "units",
     minimumStock: 8,
     lastRestocked: "2025-09-15"
-  }
-];
-
-export const mockDrivers: Driver[] = [
-  {
-    id: "D001",
-    name: "James Wilson",
-    phone: "+1234567892",
-    email: "james@example.com",
-    availableJobs: ["O001"],
-    assignedJobs: [],
-    completedJobs: 45
-  },
-  {
-    id: "D002",
-    name: "Lisa Martinez",
-    phone: "+1234567893",
-    email: "lisa@example.com",
-    availableJobs: ["O001"],
-    assignedJobs: [],
-    completedJobs: 62
-  }
-];
-
-export const mockDeliveries: Delivery[] = [
-  {
-    id: "DEL001",
-    orderId: "O001",
-    pickupTime: "2025-11-20T09:00:00Z",
-    deliveryTime: "2025-11-20T10:30:00Z",
-    location: "Convention Center, Downtown",
-    status: "available"
-  }
-];
-
-export const mockPayments: Payment[] = [
-  {
-    id: "PAY001",
-    quoteId: "Q001",
-    amount: 805,
-    status: "pending",
-    paidAmount: 0,
-    reconciled: false
   }
 ];

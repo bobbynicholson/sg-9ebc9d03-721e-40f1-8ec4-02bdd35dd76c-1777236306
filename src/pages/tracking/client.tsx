@@ -19,14 +19,90 @@ export default function ClientTrackingPage() {
   const router = useRouter();
   const { orderId } = router.query;
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [orderDetails, setOrderDetails] = useState<any>(null);
 
   useEffect(() => {
     if (orderId) {
+      const mockOrders = [
+        {
+          id: "ORD-001",
+          client: "Sarah Johnson",
+          venue: "Grand Palace Hotel",
+          location: "123 Victoria Road, Green Point, Cape Town",
+          eventDate: "2025-10-15",
+          guestCount: 150,
+          status: "in_transit",
+          driverName: "James Wilson",
+          driverPhone: "+27 82 345 6789",
+          total: 56250
+        },
+        {
+          id: "ORD-002",
+          client: "Michael Chen",
+          venue: "Waterfront Conference Centre",
+          location: "45 Beach Road, V&A Waterfront, Cape Town",
+          eventDate: "2025-10-16",
+          guestCount: 85,
+          status: "delivered",
+          driverName: "James Wilson",
+          driverPhone: "+27 82 345 6789",
+          total: 20145
+        },
+        {
+          id: "ORD-003",
+          client: "Emily Rodriguez",
+          venue: "Stellenbosch Wine Estate",
+          location: "Wine Route R310, Stellenbosch",
+          eventDate: "2025-10-18",
+          guestCount: 200,
+          status: "confirmed",
+          driverName: null,
+          driverPhone: null,
+          total: 78600
+        }
+      ];
+
+      const order = mockOrders.find(o => o.id === orderId);
+      if (order) {
+        setOrderDetails(order);
+      }
+
       const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
       const orderNotifications = allNotifications.filter(
         (n: any) => n.orderId === orderId
       );
       setNotifications(orderNotifications);
+
+      if (orderNotifications.length === 0 && order && order.status === "in_transit") {
+        const initialNotifications = [
+          {
+            orderId: orderId,
+            type: "info",
+            message: "Your order has been confirmed and is being prepared",
+            timestamp: new Date(Date.now() - 7200000).toISOString()
+          },
+          {
+            orderId: orderId,
+            type: "success",
+            message: "Driver James Wilson has been assigned to your delivery",
+            timestamp: new Date(Date.now() - 3600000).toISOString()
+          },
+          {
+            orderId: orderId,
+            type: "info",
+            message: "Food preparation completed, driver collecting from kitchen",
+            timestamp: new Date(Date.now() - 1800000).toISOString()
+          },
+          {
+            orderId: orderId,
+            type: "success",
+            message: "Driver has collected your order and is en route",
+            timestamp: new Date(Date.now() - 900000).toISOString()
+          }
+        ];
+        localStorage.setItem("notifications", JSON.stringify([...allNotifications, ...initialNotifications]));
+        setNotifications(initialNotifications);
+      }
     }
 
     const interval = setInterval(() => {
@@ -48,12 +124,65 @@ export default function ClientTrackingPage() {
         <Card className="border-0 shadow-lg max-w-md">
           <CardContent className="py-12 text-center">
             <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">No order selected</p>
+            <p className="text-slate-500 mb-4">No order selected for tracking</p>
+            <p className="text-sm text-slate-400 mb-6">
+              Try one of these test orders:
+            </p>
+            <div className="space-y-2">
+              <Link href="/tracking/client?orderId=ORD-001">
+                <Button variant="outline" className="w-full">
+                  Track Order ORD-001 (In Transit)
+                </Button>
+              </Link>
+              <Link href="/tracking/client?orderId=ORD-002">
+                <Button variant="outline" className="w-full">
+                  Track Order ORD-002 (Delivered)
+                </Button>
+              </Link>
+              <Link href="/tracking/client?orderId=ORD-003">
+                <Button variant="outline" className="w-full">
+                  Track Order ORD-003 (Scheduled)
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "in_transit":
+        return (
+          <Badge className="px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
+            <Bell className="w-4 h-4 mr-2" />
+            In Transit
+          </Badge>
+        );
+      case "delivered":
+        return (
+          <Badge className="px-4 py-2 bg-green-100 text-green-700 border-green-200">
+            <Bell className="w-4 h-4 mr-2" />
+            Delivered
+          </Badge>
+        );
+      case "confirmed":
+        return (
+          <Badge className="px-4 py-2 bg-amber-100 text-amber-700 border-amber-200">
+            <Bell className="w-4 h-4 mr-2" />
+            Confirmed
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="px-4 py-2 bg-slate-100 text-slate-700 border-slate-200">
+            <Bell className="w-4 h-4 mr-2" />
+            {status}
+          </Badge>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -66,7 +195,7 @@ export default function ClientTrackingPage() {
         </Link>
 
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-lg">
                 <MapPin className="w-8 h-8 text-white" />
@@ -78,11 +207,51 @@ export default function ClientTrackingPage() {
                 <p className="text-slate-600 mt-1">Order #{orderId}</p>
               </div>
             </div>
-            <Badge className="px-4 py-2 bg-blue-100 text-blue-700 border-blue-200">
-              <Bell className="w-4 h-4 mr-2" />
-              {notifications.length} Updates
-            </Badge>
+            {orderDetails && getStatusBadge(orderDetails.status)}
           </div>
+
+          {orderDetails && (
+            <Card className="border-0 shadow-lg mt-6">
+              <CardContent className="py-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Client</p>
+                    <p className="font-semibold text-slate-900">{orderDetails.client}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Venue</p>
+                    <p className="font-semibold text-slate-900">{orderDetails.venue}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Event Date</p>
+                    <p className="font-semibold text-slate-900">
+                      {new Date(orderDetails.eventDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-500 mb-1">Guest Count</p>
+                    <p className="font-semibold text-slate-900">{orderDetails.guestCount} guests</p>
+                  </div>
+                </div>
+                {orderDetails.driverName && (
+                  <div className="mt-6 pt-6 border-t border-slate-200">
+                    <p className="text-sm text-slate-500 mb-2">Assigned Driver</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold">
+                          {orderDetails.driverName.split(' ').map((n: string) => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{orderDetails.driverName}</p>
+                        <p className="text-sm text-slate-600">{orderDetails.driverPhone}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -95,7 +264,7 @@ export default function ClientTrackingPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="w-5 h-5" />
-                  Notifications
+                  Delivery Updates
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -103,20 +272,45 @@ export default function ClientTrackingPage() {
                   <div className="text-center py-8">
                     <Bell className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-slate-500 text-sm">No updates yet</p>
+                    <p className="text-slate-400 text-xs mt-2">
+                      We'll notify you when your order status changes
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
                     {notifications.slice().reverse().map((notification, index) => (
                       <div
                         key={index}
-                        className="p-3 bg-slate-50 rounded-lg border border-slate-200"
+                        className="p-4 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-shadow"
                       >
-                        <p className="text-sm text-slate-900 mb-1">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(notification.timestamp).toLocaleString()}
-                        </p>
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-full ${
+                            notification.type === "success" 
+                              ? "bg-green-100" 
+                              : notification.type === "warning"
+                              ? "bg-amber-100"
+                              : "bg-blue-100"
+                          }`}>
+                            <Bell className={`w-4 h-4 ${
+                              notification.type === "success" 
+                                ? "text-green-600" 
+                                : notification.type === "warning"
+                                ? "text-amber-600"
+                                : "text-blue-600"
+                            }`} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-slate-900 font-medium mb-1">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(notification.timestamp).toLocaleString('en-ZA', {
+                                dateStyle: 'short',
+                                timeStyle: 'short'
+                              })}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -154,7 +348,7 @@ export default function ClientTrackingPage() {
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
-                      className="w-10 h-10 rounded-full bg-white hover:bg-amber-50 transition-colors flex items-center justify-center"
+                      className="w-10 h-10 rounded-full bg-white hover:bg-amber-50 transition-colors flex items-center justify-center shadow-sm hover:shadow-md"
                     >
                       <Star className="w-5 h-5 text-amber-500" />
                     </button>
