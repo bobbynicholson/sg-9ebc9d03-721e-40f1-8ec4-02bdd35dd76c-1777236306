@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -719,6 +719,114 @@ export type Database = {
           },
           {
             foreignKeyName: "equipment_bookings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_shortage_flags: {
+        Row: {
+          admin_notes: string | null
+          client_email: string | null
+          client_name: string
+          created_at: string | null
+          equipment_booking_id: string
+          equipment_id: string
+          equipment_name: string
+          expected_quantity: number
+          financial_impact: number | null
+          id: string
+          order_id: string
+          priority: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          returned_quantity: number
+          shortage_quantity: number
+          shortage_reason: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          client_email?: string | null
+          client_name: string
+          created_at?: string | null
+          equipment_booking_id: string
+          equipment_id: string
+          equipment_name: string
+          expected_quantity: number
+          financial_impact?: number | null
+          id?: string
+          order_id: string
+          priority?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          returned_quantity: number
+          shortage_quantity: number
+          shortage_reason?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          client_email?: string | null
+          client_name?: string
+          created_at?: string | null
+          equipment_booking_id?: string
+          equipment_id?: string
+          equipment_name?: string
+          expected_quantity?: number
+          financial_impact?: number | null
+          id?: string
+          order_id?: string
+          priority?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          returned_quantity?: number
+          shortage_quantity?: number
+          shortage_reason?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_shortage_flags_equipment_booking_id_fkey"
+            columns: ["equipment_booking_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortage_flags_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
