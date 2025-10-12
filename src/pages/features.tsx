@@ -408,7 +408,7 @@ export default function FeaturesPage() {
             {coreFeatures.map((feature, index) => (
               <div
                 key={index}
-                className="relative h-80 cursor-pointer perspective-1000"
+                className="relative h-[28rem] cursor-pointer perspective-1000"
                 onMouseEnter={() => setFlippedCard(index)}
                 onMouseLeave={() => setFlippedCard(null)}
                 onClick={() => setFlippedCard(flippedCard === index ? null : index)}
@@ -447,15 +447,15 @@ export default function FeaturesPage() {
                       backfaceVisibility: "hidden"
                     }}
                   >
-                    <CardContent className={`h-full flex flex-col justify-between p-8 bg-gradient-to-br ${feature.gradient} text-white`}>
+                    <CardContent className={`h-full flex flex-col justify-between p-8 bg-gradient-to-br ${feature.gradient} text-white overflow-y-auto`}>
                       <div>
                         <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
                         <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
-                        <ul className="space-y-2">
+                        <ul className="space-y-3">
                           {feature.benefits.map((benefit, i) => (
                             <li key={i} className="flex items-start gap-2">
                               <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                              <span className="text-sm">{benefit}</span>
+                              <span className="text-sm leading-relaxed">{benefit}</span>
                             </li>
                           ))}
                         </ul>
