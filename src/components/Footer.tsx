@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { 
@@ -21,36 +20,42 @@ export function Footer() {
       name: "Admin Portal",
       href: "/auth/login?portal=admin",
       icon: Shield,
+      description: "Manage operations, staff, and system settings",
       color: "text-slate-600 hover:text-slate-900"
     },
     {
       name: "Driver Portal",
       href: "/auth/login?portal=driver",
       icon: Truck,
+      description: "Track deliveries and manage earnings",
       color: "text-purple-600 hover:text-purple-800"
     },
     {
       name: "Kitchen Portal",
       href: "/auth/login?portal=kitchen",
       icon: ChefHat,
+      description: "View orders and prep schedules",
       color: "text-orange-600 hover:text-orange-800"
     },
     {
       name: "Cleaning Portal",
       href: "/auth/login?portal=cleaning",
       icon: Sparkles,
+      description: "Track equipment cleaning tasks",
       color: "text-cyan-600 hover:text-cyan-800"
     },
     {
       name: "Shopping Portal",
       href: "/auth/login?portal=shopping",
       icon: ShoppingCart,
+      description: "Manage inventory and purchasing",
       color: "text-green-600 hover:text-green-800"
     },
     {
       name: "Client Portal",
       href: "/auth/login?portal=client",
       icon: UserCircle,
+      description: "Book events and track orders",
       color: "text-blue-600 hover:text-blue-800"
     }
   ];
@@ -67,6 +72,40 @@ export function Footer() {
   return (
     <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
+        {/* Portal Access Section - Now at the top for prominence */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-8 mb-12 border border-slate-600">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Portal Login Access
+            </h3>
+            <p className="text-slate-300">
+              Use the same username and password for all portals
+            </p>
+            <p className="text-sm text-slate-400 mt-1">
+              Perfect for testing and accessing different areas of the platform
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {portalLinks.map((portal) => (
+              <Link key={portal.name} href={portal.href}>
+                <div className="bg-slate-900/50 border border-slate-600 rounded-lg p-4 hover:bg-slate-800 hover:border-slate-500 transition-all group cursor-pointer">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg bg-slate-800 group-hover:scale-110 transition-transform ${portal.color}`}>
+                      <portal.icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-white mb-1">{portal.name}</h4>
+                      <p className="text-xs text-slate-400">{portal.description}</p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div className="col-span-1 md:col-span-2">
             <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
@@ -141,26 +180,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-slate-700 pt-8 mb-8">
-          <h4 className="font-semibold mb-4 text-slate-200 text-center">Portal Login Access</h4>
-          <p className="text-sm text-slate-400 text-center mb-6">
-            Use the same username and password for all portals
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {portalLinks.map((portal) => (
-              <Link key={portal.name} href={portal.href}>
-                <Button
-                  variant="outline"
-                  className="w-full bg-slate-800/50 border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-all"
-                >
-                  <portal.icon className={`w-4 h-4 mr-2 ${portal.color}`} />
-                  <span className="text-slate-200">{portal.name.split(" ")[0]}</span>
-                </Button>
-              </Link>
-            ))}
-          </div>
-        </div>
-
+        {/* Bottom Bar */}
         <div className="border-t border-slate-700 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-slate-400">
