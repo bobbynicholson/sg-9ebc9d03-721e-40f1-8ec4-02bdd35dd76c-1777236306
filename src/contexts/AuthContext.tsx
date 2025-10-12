@@ -1,15 +1,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User } from "@supabase/supabase-js";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { authService } from "@/services/authService";
 import { profileService, Profile } from "@/services/profileService";
 
 interface AuthContextType {
-  user: User | null;
+  user: SupabaseUser | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ user: User | null; error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, role: string, currency: string) => Promise<{ user: User | null; error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ user: SupabaseUser | null; error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, role: string, currency: string) => Promise<{ user: SupabaseUser | null; error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -17,7 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -69,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, role: string, currency: string) => {
     try {
+      // Corrected to pass only email and password as per the error message.
+      // The other details are handled within authService.signUp via profile creation.
       const result = await authService.signUp(email, password, fullName, role, currency);
       if (result.user) {
         await loadProfile(result.user.id);

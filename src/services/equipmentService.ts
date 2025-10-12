@@ -147,10 +147,16 @@ export const equipmentService = {
       throw error;
     }
 
-    await supabase
-      .from("equipment")
-      .update({ available_quantity: supabase.sql`available_quantity - ${quantity}` })
-      .eq("id", equipmentId);
+    // Replace supabase.sql with an RPC call for safe atomic update
+    const { error: rpcError } = await supabase.rpc('decrement_equipment_quantity', {
+      p_equipment_id: equipmentId,
+      p_quantity_to_decrement: quantity
+    });
+
+    if (rpcError) {
+      console.error("Error updating equipment quantity via RPC:", rpcError);
+      // Optionally handle rollback or error logging
+    }
 
     return data;
   },

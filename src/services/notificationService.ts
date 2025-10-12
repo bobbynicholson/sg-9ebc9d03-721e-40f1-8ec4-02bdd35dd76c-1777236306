@@ -1,6 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Tables, Json } from "@/integrations/supabase/types";
 
 export type Notification = Tables<"notifications">;
 
@@ -85,7 +84,7 @@ export const notificationService = {
           message: notification.message,
           link: notification.link,
           priority: notification.priority || "normal",
-          metadata: notification.metadata || {}
+          metadata: (notification.metadata || {}) as Json
         }
       ])
       .select()

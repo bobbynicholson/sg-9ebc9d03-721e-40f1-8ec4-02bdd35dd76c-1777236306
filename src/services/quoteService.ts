@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { type Order } from "@/services/orderService";
 
 export type Quote = Tables<"quotes">;
 
@@ -118,7 +119,7 @@ export const quoteService = {
 
     const { data, error } = await supabase
       .from("orders")
-      .insert([order])
+      .insert(order) // Correctly pass the single object
       .select()
       .single();
 
