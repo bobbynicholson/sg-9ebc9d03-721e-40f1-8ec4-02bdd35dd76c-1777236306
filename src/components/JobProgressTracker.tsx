@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   FileText, 
   CheckCircle2, 
+  CreditCard,
   ChefHat, 
   Truck, 
   Navigation, 
@@ -12,7 +14,8 @@ import {
   Clock,
   CheckCircle,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from "lucide-react";
 import {
   Tooltip,
@@ -20,6 +23,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface JobStep {
   id: string;
@@ -28,6 +42,7 @@ interface JobStep {
   status: "completed" | "current" | "pending";
   timestamp?: string;
   description: string;
+  visibleToRoles: ("admin" | "staff" | "client")[];
 }
 
 interface JobProgressTrackerProps {
@@ -48,6 +63,8 @@ interface JobProgressTrackerProps {
   orderNumber: string;
   isPriority?: boolean;
   isBehindSchedule?: boolean;
+  userRole?: "admin" | "staff" | "client";
+  onOverrideComplete?: (orderId: string) => void;
 }
 
 export function JobProgressTracker({ 
@@ -57,33 +74,49 @@ export function JobProgressTracker({
   eventDate,
   orderNumber,
   isPriority = false,
-  isBehindSchedule = false
+  isBehindSchedule = false,
+  userRole = "admin",
+  onOverrideComplete
 }: JobProgressTrackerProps) {
   
-  const steps: JobStep[] = [
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+
+  const allSteps: JobStep[] = [
     {
       id: "quote",
       label: "Quote Sent",
       icon: FileText,
       status: orderData.quote_sent ? "completed" : "pending",
       timestamp: orderData.quote_sent,
-      description: "Initial quote has been sent to the client via email. Waiting for client review and response."
+      description: "Initial quote has been sent to the client via email. Waiting for client review and response.",
+      visibleToRoles: ["admin"]
     },
     {
-      id: "confirmed",
-      label: "Confirmed",
+      id: "accepted",
+      label: "Quote Accepted",
       icon: CheckCircle2,
       status: orderData.quote_accepted ? "completed" : currentStatus === "quote_sent" ? "current" : "pending",
       timestamp: orderData.quote_accepted,
-      description: "Client has accepted the quote and confirmed their booking. Order is now locked in the system."
+      description: "Client has accepted the quote. Awaiting payment confirmation to proceed with booking.",
+      visibleToRoles: ["admin"]
     },
     {
       id: "payment",
       label: "Payment Received",
-      icon: CheckCircle,
+      icon: CreditCard,
       status: orderData.payment_confirmed ? "completed" : currentStatus === "quote_accepted" ? "current" : "pending",
       timestamp: orderData.payment_confirmed,
-      description: "Deposit or full payment has been received and verified. Order is financially secured."
+      description: "Deposit or full payment has been received and verified. Order is now confirmed and locked in the system.",
+      visibleToRoles: ["admin", "staff", "client"]
+    },
+    {
+      id: "confirmed",
+      label: "Order Confirmed",
+      icon: CheckCircle,
+      status: orderData.payment_confirmed ? "completed" : "pending",
+      timestamp: orderData.payment_confirmed,
+      description: "Payment confirmed! Your order is now officially booked. Our team will begin preparations.",
+      visibleToRoles: ["admin", "staff", "client"]
     },
     {
       id: "kitchen",
@@ -91,7 +124,8 @@ export function JobProgressTracker({
       icon: ChefHat,
       status: orderData.kitchen_assigned ? "completed" : currentStatus === "payment_confirmed" ? "current" : "pending",
       timestamp: orderData.kitchen_assigned,
-      description: "Order has been assigned to kitchen team. Prep will begin 24-48 hours before the event date."
+      description: "Order has been assigned to kitchen team. Prep will begin 24-48 hours before the event date.",
+      visibleToRoles: ["admin", "staff", "client"]
     },
     {
       id: "driver",
@@ -99,7 +133,8 @@ export function JobProgressTracker({
       icon: Truck,
       status: orderData.driver_assigned ? "completed" : currentStatus === "kitchen_assigned" ? "current" : "pending",
       timestamp: orderData.driver_assigned,
-      description: "Delivery driver has been assigned and notified. Driver can see pickup time and venue details."
+      description: "Delivery driver has been assigned and notified. Driver can see pickup time and venue details.",
+      visibleToRoles: ["admin", "staff", "client"]
     },
     {
       id: "transit",
@@ -107,7 +142,8 @@ export function JobProgressTracker({
       icon: Navigation,
       status: orderData.in_transit ? "completed" : currentStatus === "driver_assigned" ? "current" : "pending",
       timestamp: orderData.in_transit,
-      description: "Driver has picked up food and equipment from kitchen. GPS tracking active for client visibility."
+      description: "Driver has picked up food and equipment from kitchen. GPS tracking active for real-time location updates.",
+      visibleToRoles: ["admin", "staff", "client"]
     },
     {
       id: "delivered",
@@ -115,7 +151,8 @@ export function JobProgressTracker({
       icon: PackageCheck,
       status: orderData.delivered ? "completed" : currentStatus === "in_transit" ? "current" : "pending",
       timestamp: orderData.delivered,
-      description: "Food and equipment delivered to venue. Client confirmation received. Event is now in progress."
+      description: "Food and equipment delivered to venue. Client confirmation received. Event is now in progress.",
+      visibleToRoles: ["admin", "staff", "client"]
     },
     {
       id: "equipment",
@@ -123,12 +160,22 @@ export function JobProgressTracker({
       icon: Utensils,
       status: orderData.equipment_returned ? "completed" : currentStatus === "delivered" ? "current" : "pending",
       timestamp: orderData.equipment_returned,
-      description: "Driver collects equipment from venue. All items checked and returned to kitchen for cleaning."
+      description: "Driver collects equipment from venue. All items checked and returned to kitchen for cleaning.",
+      visibleToRoles: ["admin", "staff"]
     }
   ];
 
-  const completedSteps = steps.filter(s => s.status === "completed").length;
-  const progressPercentage = (completedSteps / steps.length) * 100;
+  const visibleSteps = allSteps.filter(step => step.visibleToRoles.includes(userRole));
+  
+  const completedSteps = visibleSteps.filter(s => s.status === "completed").length;
+  const progressPercentage = (completedSteps / visibleSteps.length) * 100;
+
+  const handleOverrideComplete = () => {
+    if (onOverrideComplete) {
+      onOverrideComplete(orderNumber);
+    }
+    setShowOverrideConfirm(false);
+  };
 
   const cardClassName = isBehindSchedule 
     ? "w-full shadow-lg border-2 border-orange-500 animate-pulse"
@@ -140,9 +187,9 @@ export function JobProgressTracker({
     <Card className={cardClassName}>
       <CardContent className="pt-6 pb-8">
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h3 className="text-2xl font-bold text-gray-900">{clientName}</h3>
                 {isBehindSchedule && (
                   <Badge className="bg-orange-500 text-white animate-pulse">
@@ -155,17 +202,69 @@ export function JobProgressTracker({
                     Priority Task
                   </Badge>
                 )}
+                {userRole === "admin" && (
+                  <Badge className="bg-blue-600 text-white">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Admin View
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-gray-600">Order #{orderNumber}</p>
             </div>
-            <div className="text-right">
-              <Badge className="bg-purple-600 text-white mb-2">
-                {completedSteps} of {steps.length} Complete
-              </Badge>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock className="w-4 h-4" />
-                <span>{new Date(eventDate).toLocaleDateString()}</span>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <Badge className="bg-purple-600 text-white mb-2">
+                  {completedSteps} of {visibleSteps.length} Complete
+                </Badge>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Clock className="w-4 h-4" />
+                  <span>{new Date(eventDate).toLocaleDateString()}</span>
+                </div>
               </div>
+
+              {userRole === "admin" && completedSteps < visibleSteps.length && (
+                <AlertDialog open={showOverrideConfirm} onOpenChange={setShowOverrideConfirm}>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className="border-green-500 text-green-700 hover:bg-green-50"
+                      size="sm"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark as DONE
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-orange-600" />
+                        Override Job Progress?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will mark Order #{orderNumber} for {clientName} as 100% complete, skipping all remaining steps.
+                        <br/><br/>
+                        <strong>This action:</strong>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>Marks all stages as completed</li>
+                          <li>Closes the job in the system</li>
+                          <li>Cannot be easily undone</li>
+                        </ul>
+                        <br/>
+                        Only use this if the job is genuinely complete or needs to be manually closed for exceptional circumstances.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleOverrideComplete}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Yes, Mark as Complete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
 
@@ -182,8 +281,14 @@ export function JobProgressTracker({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          {steps.map((step, index) => {
+        <div className={`grid gap-4 ${
+          visibleSteps.length <= 4 
+            ? "grid-cols-2 md:grid-cols-4" 
+            : visibleSteps.length <= 6
+            ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+            : "grid-cols-2 md:grid-cols-4 lg:grid-cols-9"
+        }`}>
+          {visibleSteps.map((step) => {
             const Icon = step.icon;
             
             return (
@@ -251,7 +356,12 @@ export function JobProgressTracker({
                   
                   {step.timestamp && (
                     <p className="text-xs text-gray-500">
-                      {new Date(step.timestamp).toLocaleString()}
+                      {new Date(step.timestamp).toLocaleString([], { 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </p>
                   )}
                   
@@ -271,7 +381,7 @@ export function JobProgressTracker({
             ? "bg-gradient-to-r from-orange-50 to-red-50 border-orange-200"
             : "bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200"
         }`}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                 isBehindSchedule
@@ -285,26 +395,38 @@ export function JobProgressTracker({
               <div>
                 <p className="font-semibold text-gray-900">Overall Progress</p>
                 <p className="text-sm text-gray-600">
-                  {completedSteps === steps.length 
+                  {completedSteps === visibleSteps.length 
                     ? "Job Complete! 🎉" 
-                    : `${steps.length - completedSteps} steps remaining`
+                    : `${visibleSteps.length - completedSteps} steps remaining`
                   }
                 </p>
               </div>
             </div>
 
-            {completedSteps < steps.length && (
+            {completedSteps < visibleSteps.length && (
               <div className="text-right">
                 <p className={`text-sm font-semibold ${isBehindSchedule ? "text-orange-700" : "text-purple-700"}`}>
                   Next Step:
                 </p>
                 <p className="text-xs text-gray-600">
-                  {steps.find(s => s.status === "current")?.label || steps.find(s => s.status === "pending")?.label}
+                  {visibleSteps.find(s => s.status === "current")?.label || visibleSteps.find(s => s.status === "pending")?.label}
                 </p>
               </div>
             )}
           </div>
         </div>
+
+        {userRole !== "admin" && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-700">
+              <Info className="w-3 h-3 inline mr-1" />
+              {userRole === "client" 
+                ? "You're viewing your order's progress. You'll receive notifications at each stage."
+                : "You're viewing stages from Payment Confirmed onwards. Contact admin for full order history."
+              }
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
