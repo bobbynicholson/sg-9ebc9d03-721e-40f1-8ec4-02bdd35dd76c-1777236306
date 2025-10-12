@@ -25,7 +25,9 @@ import {
   AlertCircle,
   AlertTriangle,
   Target,
-  List
+  List,
+  Eye,
+  CheckCircle
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
