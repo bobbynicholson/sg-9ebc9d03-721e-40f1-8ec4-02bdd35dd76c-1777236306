@@ -62,8 +62,10 @@ export const DEMO_USERS = {
 export function DemoModeProvider({ children }: { children: ReactNode }) {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoRole, setDemoRoleState] = useState<DemoRole>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const savedDemoMode = localStorage.getItem("cateringms-demo-mode");
     const savedDemoRole = localStorage.getItem("cateringms-demo-role") as DemoRole;
     
@@ -74,6 +76,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setDemoMode = (enabled: boolean) => {
+    if (!mounted) return;
+    
     setIsDemoMode(enabled);
     localStorage.setItem("cateringms-demo-mode", enabled.toString());
     
@@ -87,6 +91,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   };
 
   const setDemoRole = (role: DemoRole) => {
+    if (!mounted) return;
+    
     setDemoRoleState(role);
     if (role) {
       localStorage.setItem("cateringms-demo-role", role);
@@ -118,6 +124,16 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 export function useDemoMode() {
   const context = useContext(DemoModeContext);
   if (context === undefined) {
+    // Return safe default values instead of throwing during SSR
+    if (typeof window === "undefined") {
+      return {
+        isDemoMode: false,
+        demoRole: null,
+        setDemoMode: () => {},
+        setDemoRole: () => {},
+        getDemoUser: () => null
+      };
+    }
     throw new Error("useDemoMode must be used within a DemoModeProvider");
   }
   return context;
