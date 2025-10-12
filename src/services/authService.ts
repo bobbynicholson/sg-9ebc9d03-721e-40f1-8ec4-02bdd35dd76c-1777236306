@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import { profileService } from "@/services/profileService";
+import { onboardingService } from "@/services/onboardingService";
 
 export interface AuthUser {
   id: string;
@@ -91,6 +92,15 @@ export const authService = {
           avatar_url: "",
           company_name: "",
           phone: ""
+        });
+
+        // Initialize onboarding data for new user
+        await onboardingService.initializeUserData({
+          userId: data.user.id,
+          companyName: fullName,
+          email: email,
+          fullName: fullName,
+          currency: currency
         });
       }
 
