@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -248,36 +247,37 @@ export default function BlogPage() {
             </div>
 
             <div className="space-y-6">
-              {blogPosts.map((post) => (
-                <Link key={post.id} href={`/blog/${post.slug}`}>
-                  <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 group cursor-pointer">
-                    <CardHeader>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Badge className="bg-purple-100 text-purple-700 border-purple-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredPosts.map((post) => (
+                  <Link href={`/blog/${post.slug}`} key={post.id}>
+                    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                      <CardHeader>
+                        <Badge variant="secondary" className="w-fit mb-2">
                           {post.category}
                         </Badge>
-                        <span className="text-sm text-slate-500 flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(post.date).toLocaleDateString()}
-                        </span>
-                        <span className="text-sm text-slate-500 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {post.readTime}
-                        </span>
-                      </div>
-                      <CardTitle className="text-2xl group-hover:text-purple-600 transition-colors">
-                        {post.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-slate-600">{post.excerpt}</p>
-                      <Button variant="link" className="mt-4 p-0 text-purple-600 group-hover:text-purple-700">
-                        Read Full Article →
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
+                        <CardTitle className="text-xl hover:text-orange-600 transition-colors">
+                          {post.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-gray-600 mb-4">{post.excerpt}</p>
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" />
+                            {new Date(post.published_date).toLocaleDateString("en-ZA")}
+                          </div>
+                          {post.read_time_minutes && (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              {post.read_time_minutes} min
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
 
