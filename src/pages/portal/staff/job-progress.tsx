@@ -25,6 +25,7 @@ export default function StaffJobProgressPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Create comprehensive dummy orders for Bob's Catering with correct statuses
@@ -178,13 +179,15 @@ export default function StaffJobProgressPage() {
       },
     ];
 
+    console.log("Staff Job Progress - Setting orders:", dummyOrders.length);
+    console.log("Order statuses:", dummyOrders.map(o => ({ id: o.id, status: o.status })));
+    
     setOrders(dummyOrders);
     localStorage.setItem("bobs_catering_orders", JSON.stringify(dummyOrders));
-    
-    console.log("Staff Job Progress - Orders loaded:", dummyOrders.length);
+    setLoading(false);
   }, []);
 
-  // Calculate status counts - FIXED to ensure correct counting
+  // Calculate status counts
   const statusCounts = {
     all: orders.length,
     confirmed: orders.filter((o) => o.status === "confirmed").length,
@@ -193,7 +196,8 @@ export default function StaffJobProgressPage() {
     delivered: orders.filter((o) => o.status === "delivered").length,
   };
 
-  console.log("Status Counts:", statusCounts);
+  console.log("Current Status Counts:", statusCounts);
+  console.log("Total orders:", orders.length);
 
   const filteredOrders = orders
     .filter((order) => {
@@ -207,6 +211,33 @@ export default function StaffJobProgressPage() {
       return matchesSearch && matchesFilter;
     })
     .slice(0, itemsPerPage);
+
+  console.log("Filtered orders count:", filteredOrders.length);
+
+  if (loading) {
+    return (
+      <>
+        <Head>
+          <title>My Jobs | Bob's Catering Staff Portal</title>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+        <NoIndexMeta />
+
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading Bob's Catering orders...</p>
+              </div>
+            </div>
+          </main>
+          <Footer />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -225,10 +256,10 @@ export default function StaffJobProgressPage() {
               <div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">My Active Jobs</h1>
                 <p className="text-gray-600">
-                  Track all confirmed jobs from payment to completion - Bob's Catering
+                  Track all confirmed jobs from payment to completion
                 </p>
                 <Badge className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
-                  🍽️ Bob's Catering Demo Account
+                  🍽️ Bob's Catering - Demo Account
                 </Badge>
               </div>
               <Button onClick={() => router.push("/calendar")} className="bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -237,7 +268,7 @@ export default function StaffJobProgressPage() {
               </Button>
             </div>
 
-            {/* Statistics Cards - FIXED to display correctly */}
+            {/* Statistics Cards with Real Data */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <Card className="border-2 hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
