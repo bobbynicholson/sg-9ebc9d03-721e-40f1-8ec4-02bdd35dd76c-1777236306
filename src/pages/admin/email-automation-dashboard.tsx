@@ -26,6 +26,7 @@ import {
 import { defaultAfterSalesTemplates } from "@/lib/afterSalesTemplates";
 import { Footer } from "@/components/Footer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function EmailAutomationDashboard() {
   const [queues, setQueues] = useState<AfterSalesEmailQueue[]>([]);
@@ -99,6 +100,7 @@ export default function EmailAutomationDashboard() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Email Automation Dashboard | Catering Platform</title>

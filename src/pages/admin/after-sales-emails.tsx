@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +13,7 @@ import { Calendar, Mail, Clock, Edit, Save, X, AlertCircle, CheckCircle, Trendin
 import { defaultAfterSalesTemplates, interpolateEmailTemplate, getEmailVariables } from "@/lib/afterSalesTemplates";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 interface EmailTemplate {
   id: string;
@@ -101,6 +101,7 @@ export default function AfterSalesEmailsPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>After-Sales Email Automation | Catering Platform</title>

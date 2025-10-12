@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CreditCard, Globe, MapPin, Check, AlertCircle, Settings } from "lucide-react";
 import { PaymentGatewayConfig, PaymentGateway } from "@/types/payments";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 const gatewayDetails: Record<PaymentGateway, {
   name: string;
@@ -136,6 +137,7 @@ export default function PaymentGatewaysPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Payment Gateways - CateringMS Admin</title>

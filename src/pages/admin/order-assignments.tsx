@@ -40,6 +40,7 @@ import {
 import { regionManagement } from "@/lib/regionManagement";
 import { mockOrders } from "@/lib/mockData";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function OrderAssignmentsPage() {
   const [orders] = useState(mockOrders);
@@ -184,6 +185,7 @@ export default function OrderAssignmentsPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Order Assignments - CateringMS Admin</title>
