@@ -1,4 +1,5 @@
 import { SubscriptionPlan, PaymentGatewayConfig } from "@/types/payments";
+import crypto from "crypto";
 
 export interface PayFastConfig {
   merchantId: string;
@@ -52,7 +53,7 @@ export class PayFastService {
       ? `${paramString}&passphrase=${encodeURIComponent(this.config.passphrase)}`
       : paramString;
 
-    return require("crypto")
+    return crypto
       .createHash("md5")
       .update(signatureString)
       .digest("hex");

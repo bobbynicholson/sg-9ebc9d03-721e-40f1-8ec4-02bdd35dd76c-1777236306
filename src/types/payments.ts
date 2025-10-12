@@ -76,3 +76,18 @@ export interface PaymentResult {
   errorMessage?: string;
   transaction?: PaymentTransaction;
 }
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  features: string[];
+  limits: {
+    orders: number;
+    regions: number;
+    users: number;
+    inventory: number;
+  };
+  recommended?: boolean;
+}
