@@ -39,7 +39,7 @@ export default function BlogPostPage() {
     "description": post.excerpt,
     "image": post.featured_image || "https://cateros.co.za/default-blog-image.jpg",
     "datePublished": post.published_date,
-    "dateModified": post.updated_at || post.published_date,
+    "dateModified": post.last_updated || post.published_date,
     "author": {
       "@type": "Person",
       "name": post.author
