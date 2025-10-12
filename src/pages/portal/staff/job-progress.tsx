@@ -27,7 +27,7 @@ export default function StaffJobProgressPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
 
   useEffect(() => {
-    // Create comprehensive dummy orders with proper status progression
+    // Create comprehensive dummy orders for Bob's Catering
     const dummyOrders: Order[] = [
       {
         id: "ORD-001",
@@ -178,12 +178,26 @@ export default function StaffJobProgressPage() {
       },
     ];
 
-    // ALWAYS use dummy orders for staff view - no filtering needed
     setOrders(dummyOrders);
-    
-    // Also update localStorage to ensure consistency
     localStorage.setItem("admin_orders", JSON.stringify(dummyOrders));
   }, []);
+
+  const getStatusCounts = () => {
+    const confirmedCount = orders.filter((o) => o.status === "confirmed").length;
+    const preparingCount = orders.filter((o) => o.status === "preparing").length;
+    const readyCount = orders.filter((o) => o.status === "ready").length;
+    const deliveredCount = orders.filter((o) => o.status === "delivered").length;
+    
+    return {
+      all: orders.length,
+      confirmed: confirmedCount,
+      preparing: preparingCount,
+      ready: readyCount,
+      delivered: deliveredCount,
+    };
+  };
+
+  const statusCounts = getStatusCounts();
 
   const filteredOrders = orders
     .filter((order) => {
@@ -198,22 +212,10 @@ export default function StaffJobProgressPage() {
     })
     .slice(0, itemsPerPage);
 
-  const getStatusCounts = () => {
-    return {
-      all: orders.length,
-      confirmed: orders.filter((o) => o.status === "confirmed").length,
-      preparing: orders.filter((o) => o.status === "preparing").length,
-      ready: orders.filter((o) => o.status === "ready").length,
-      delivered: orders.filter((o) => o.status === "delivered").length,
-    };
-  };
-
-  const statusCounts = getStatusCounts();
-
   return (
     <>
       <Head>
-        <title>My Jobs | Staff Portal</title>
+        <title>My Jobs | Bob's Catering Staff Portal</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <NoIndexMeta />
@@ -223,10 +225,15 @@ export default function StaffJobProgressPage() {
 
         <main className="container mx-auto px-4 py-8">
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">My Active Jobs</h1>
-                <p className="text-gray-600">Track all confirmed jobs from payment to completion</p>
+                <p className="text-gray-600">
+                  Track all confirmed jobs from payment to completion
+                </p>
+                <Badge className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
+                  Bob's Catering - Demo Account
+                </Badge>
               </div>
               <Button onClick={() => router.push("/calendar")} className="bg-gradient-to-r from-blue-600 to-indigo-600">
                 <Calendar className="w-4 h-4 mr-2" />
@@ -234,7 +241,7 @@ export default function StaffJobProgressPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
                 { label: "All Jobs", count: statusCounts.all, icon: TrendingUp, color: "blue" },
                 { label: "Confirmed", count: statusCounts.confirmed, icon: CheckCircle2, color: "green" },
