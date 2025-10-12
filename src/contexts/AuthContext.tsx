@@ -45,11 +45,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           currency: "ZAR",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          company_name: "Demo Company",
-          phone: "+27 83 652 5755",
-          phone_number: "+27 83 652 5755",
+          company_name: "Bob's Catering",
+          phone: "+27 21 555 1234",
+          phone_number: "+27 21 555 1234",
           is_active: true,
-          subscription_plan: "trial",
+          subscription_plan: "professional",
           subscription_status: "active",
           trial_ends_at: new Date(
             Date.now() + 14 * 24 * 60 * 60 * 1000

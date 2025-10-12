@@ -23,39 +23,51 @@ const DemoModeContext = createContext<DemoModeContextType | undefined>(undefined
 export const DEMO_USERS = {
   admin: {
     id: "demo-admin",
-    email: "admin@cateringms-demo.com",
+    email: "admin@bobscatering.co.za",
     role: "admin" as const,
-    full_name: "Demo Admin"
+    full_name: "Bob Thompson",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   },
   driver: {
     id: "demo-driver",
-    email: "driver@cateringms-demo.com",
+    email: "driver@bobscatering.co.za",
     role: "driver" as const,
-    full_name: "Demo Driver"
+    full_name: "James Wilson",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   },
   client: {
     id: "demo-client",
-    email: "client@cateringms-demo.com",
+    email: "sarah.johnson@gmail.com",
     role: "client" as const,
-    full_name: "Demo Client"
+    full_name: "Sarah Johnson",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   },
   kitchen: {
     id: "demo-kitchen",
-    email: "kitchen@cateringms-demo.com",
+    email: "kitchen@bobscatering.co.za",
     role: "kitchen" as const,
-    full_name: "Demo Kitchen Staff"
+    full_name: "Chef Marcus",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   },
   shopping: {
     id: "demo-shopping",
-    email: "shopping@cateringms-demo.com",
+    email: "shopping@bobscatering.co.za",
     role: "shopping" as const,
-    full_name: "Demo Shopping Team"
+    full_name: "Linda Martinez",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   },
   cleaning: {
     id: "demo-cleaning",
-    email: "cleaning@cateringms-demo.com",
+    email: "cleaning@bobscatering.co.za",
     role: "cleaning" as const,
-    full_name: "Demo Cleaning Team"
+    full_name: "David Chen",
+    company_name: "Bob's Catering",
+    company_slug: "bobs-catering"
   }
 };
 

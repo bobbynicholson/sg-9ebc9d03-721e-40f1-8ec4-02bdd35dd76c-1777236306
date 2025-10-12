@@ -27,13 +27,133 @@ export default function StaffJobProgressPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
 
   useEffect(() => {
+    // Create dummy orders for demo
+    const dummyOrders: Order[] = [
+      {
+        id: "ORD-001",
+        quoteId: "Q-001",
+        client: "Sarah Johnson",
+        clientName: "Sarah Johnson",
+        eventDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+        venue: "Grand Palace Hotel",
+        location: "123 Main St, Cape Town",
+        eventLocation: "123 Main St, Cape Town",
+        guestCount: 150,
+        menuItems: [],
+        equipmentItems: [],
+        status: "confirmed",
+        kitchenInstructions: "",
+        total: 38700,
+        totalAmount: 38700,
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+      {
+        id: "ORD-002",
+        quoteId: "Q-002",
+        client: "Michael Chen",
+        clientName: "Michael Chen",
+        eventDate: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
+        venue: "Beach Club Venue",
+        location: "45 Beach Road, Cape Town",
+        eventLocation: "45 Beach Road, Cape Town",
+        guestCount: 80,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "preparing",
+        total: 28000,
+        totalAmount: 28000,
+        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+      {
+        id: "ORD-003",
+        quoteId: "Q-003",
+        client: "Emma Thompson",
+        clientName: "Emma Thompson",
+        eventDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+        venue: "Mountain View Lodge",
+        location: "78 Hill Road, Stellenbosch",
+        eventLocation: "78 Hill Road, Stellenbosch",
+        guestCount: 200,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "ready",
+        total: 52000,
+        totalAmount: 52000,
+        createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+      {
+        id: "ORD-004",
+        quoteId: "Q-004",
+        client: "David Wilson",
+        clientName: "David Wilson",
+        eventDate: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
+        venue: "Garden Estate",
+        location: "90 Valley Road, Franschhoek",
+        eventLocation: "90 Valley Road, Franschhoek",
+        guestCount: 120,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "confirmed",
+        total: 42000,
+        totalAmount: 42000,
+        createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+      {
+        id: "ORD-005",
+        quoteId: "Q-005",
+        client: "Linda Martinez",
+        clientName: "Linda Martinez",
+        eventDate: new Date(Date.now() + 86400000 * 4).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 4).toISOString().split("T")[0],
+        venue: "City Conference Center",
+        location: "15 Main Street, Cape Town CBD",
+        eventLocation: "15 Main Street, Cape Town CBD",
+        guestCount: 300,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "preparing",
+        total: 78000,
+        totalAmount: 78000,
+        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+    ];
+
+    // Try to load from localStorage first
     const stored = localStorage.getItem("admin_orders");
     if (stored) {
-      const allOrders: Order[] = JSON.parse(stored);
-      const paidOrders = allOrders.filter((order) =>
-        ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status)
-      );
-      setOrders(paidOrders);
+      try {
+        const allOrders: Order[] = JSON.parse(stored);
+        const paidOrders = allOrders.filter((order) =>
+          ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status)
+        );
+        setOrders(paidOrders.length > 0 ? paidOrders : dummyOrders);
+      } catch (error) {
+        console.error("Error parsing orders:", error);
+        setOrders(dummyOrders);
+      }
+    } else {
+      // No stored orders, use dummy data
+      setOrders(dummyOrders);
+      // Also store them for consistency
+      localStorage.setItem("admin_orders", JSON.stringify(dummyOrders));
     }
   }, []);
 
