@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -13,35 +13,64 @@ import {
   Users, 
   Clock, 
   DollarSign,
-  CheckCircle2
+  CheckCircle2,
+  X,
+  Sparkles,
+  Calendar,
+  Rocket,
+  Bell
 } from "lucide-react";
 
 export default function UKHomePage() {
   const router = useRouter();
+  const [showPopup, setShowPopup] = useState(false);
+  const [cateringCount, setCateringCount] = useState(10);
+  const [daysUntilLaunch, setDaysUntilLaunch] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowPopup(true);
+    }, 2000);
+
+    const launchDate = new Date("2026-02-01");
+    const today = new Date();
+    const diffTime = Math.abs(launchDate.getTime() - today.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    setDaysUntilLaunch(diffDays);
+
+    const countInterval = setInterval(() => {
+      setCateringCount(prev => {
+        const newCount = prev + Math.floor(Math.random() * 2);
+        return newCount > 50 ? 50 : newCount;
+      });
+    }, 30000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(countInterval);
+    };
+  }, []);
 
   return (
     <>
       <Head>
-        <title>CateringMS - The Ultimate Catering Management Software for UK Caterers</title>
+        <title>CateringMS - The Ultimate Catering Management Software for UK Caterers | Beta Launch Feb 2026</title>
         <meta 
           name="description" 
-          content="Transform your British catering business with CateringMS. Streamline operations, boost profits, and delight clients with our all-in-one management platform. Trusted by UK caterers nationwide."
+          content="Transform your British catering business with CateringMS. Join our beta programme launching February 1, 2026. Perfect timing for your new financial year planning. £24k average revenue boost."
         />
-        <meta name="keywords" content="catering software UK, catering management system, British catering business, UK catering software, event catering management" />
+        <meta name="keywords" content="catering software UK, catering management system, British catering business, UK catering software, event catering management, beta launch 2026" />
         
-        {/* Hreflang tags */}
         <link rel="alternate" hrefLang="en-GB" href="https://cateringms.com/uk" />
         <link rel="alternate" hrefLang="en-US" href="https://cateringms.com/us" />
         <link rel="alternate" hrefLang="en-ZA" href="https://cateringms.com" />
         <link rel="alternate" hrefLang="x-default" href="https://cateringms.com" />
 
-        {/* Open Graph */}
-        <meta property="og:title" content="CateringMS - UK Catering Management Software" />
-        <meta property="og:description" content="The ultimate catering management platform for British caterers" />
+        <meta property="og:title" content="CateringMS - UK Catering Management Software | Beta Launch Feb 2026" />
+        <meta property="og:description" content="Join Britain's most anticipated catering management platform. Beta launching February 1, 2026." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cateringms.com/uk" />
         
-        {/* JSON-LD Schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -61,7 +90,7 @@ export default function UKHomePage() {
                 "priceCurrency": "GBP"
               },
               "operatingSystem": "Web",
-              "description": "Complete catering management software for UK businesses"
+              "description": "Complete catering management software for UK businesses launching February 2026"
             })
           }}
         />
@@ -71,15 +100,18 @@ export default function UKHomePage() {
         <Header />
 
         <main>
-          {/* Hero Section - UK Market */}
           <section className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 text-white py-20 md:py-32">
             <div className="absolute inset-0 bg-grid-white/10"></div>
             
             <div className="container mx-auto px-4 relative z-10">
               <div className="max-w-4xl mx-auto text-center">
-                <Badge className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm">
-                  🇬🇧 Built for British Caterers
-                </Badge>
+                <div className="inline-flex items-center gap-3 mb-6 bg-white/20 text-white border border-white/30 backdrop-blur-sm px-6 py-3 rounded-full">
+                  <span className="text-2xl">🇬🇧</span>
+                  <span className="font-semibold">Launching in the UK</span>
+                  <Badge className="bg-green-500 text-white border-0 animate-pulse">
+                    Beta Now Open
+                  </Badge>
+                </div>
                 
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
                   The Ultimate Catering Management Solution
@@ -89,15 +121,22 @@ export default function UKHomePage() {
                   Transform your UK catering business with automated workflows, real-time tracking, and intelligent operations management
                 </p>
 
+                <div className="inline-flex items-center gap-2 mb-8 bg-green-500/20 border border-green-400 rounded-full px-6 py-3 backdrop-blur-sm">
+                  <Rocket className="w-5 h-5 text-green-300" />
+                  <span className="font-semibold text-green-100">
+                    Official Launch: February 1, 2026 | {daysUntilLaunch} days to go
+                  </span>
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                   <Button 
                     size="lg" 
-                    className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6"
+                    className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 shadow-2xl hover:shadow-purple-500/50 transition-all"
                     asChild
                   >
                     <Link href="/auth/register">
-                      Start Free 14-Day Trial
-                      <ArrowRight className="ml-2 w-5 h-5" />
+                      Join Beta Programme
+                      <Sparkles className="ml-2 w-5 h-5" />
                     </Link>
                   </Button>
                   
@@ -114,24 +153,33 @@ export default function UKHomePage() {
                 </div>
 
                 <p className="text-sm text-purple-200">
-                  No credit card required • Cancel anytime • Trusted by UK caterers nationwide
+                  No credit card required • Cancel anytime • Perfect for your 2026/27 financial year
                 </p>
               </div>
             </div>
           </section>
 
-          {/* Stats Section */}
           <section className="py-16 bg-white">
             <div className="container mx-auto px-4">
               <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
                 {[
                   { icon: TrendingUp, value: "35%", label: "Average Profit Increase" },
                   { icon: Clock, value: "20hrs", label: "Saved Per Week" },
-                  { icon: Users, value: "300+", label: "UK Caterers" },
-                  { icon: DollarSign, value: "£92K", label: "Avg Annual Revenue Boost" }
+                  { 
+                    icon: Users, 
+                    value: `${cateringCount}+`, 
+                    label: "Beta Caterers",
+                    badge: "Live Counter"
+                  },
+                  { icon: DollarSign, value: "£24K", label: "Avg Annual Revenue Boost" }
                 ].map((stat, index) => (
-                  <Card key={index} className="text-center border-2 hover:border-purple-600 transition-colors">
+                  <Card key={index} className="text-center border-2 hover:border-purple-600 transition-colors relative overflow-hidden">
                     <CardContent className="pt-6">
+                      {stat.badge && (
+                        <Badge className="absolute top-2 right-2 bg-green-500 text-white text-xs animate-pulse">
+                          {stat.badge}
+                        </Badge>
+                      )}
                       <stat.icon className="w-12 h-12 mx-auto mb-4 text-purple-600" />
                       <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
                       <div className="text-sm text-gray-600">{stat.label}</div>
@@ -142,7 +190,58 @@ export default function UKHomePage() {
             </div>
           </section>
 
-          {/* Problems We Solve - UK Context */}
+          <section className="py-20 bg-gradient-to-br from-green-50 to-emerald-50">
+            <div className="container mx-auto px-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-12">
+                  <Badge className="mb-4 bg-green-100 text-green-700 border-green-200 px-4 py-2">
+                    <Calendar className="w-4 h-4 mr-2 inline" />
+                    Perfect Timing for Your Financial Year
+                  </Badge>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                    Why Launch After the December Rush?
+                  </h2>
+                  <p className="text-xl text-gray-600">
+                    We know December is your busiest time. That's why we're launching February 1st, giving you the perfect start to your 2026/27 financial year.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {[
+                    {
+                      title: "Avoid the Christmas Chaos",
+                      description: "No system changes during your peak season. Focus on your December bookings while we perfect the platform."
+                    },
+                    {
+                      title: "Fresh Start for New Financial Year",
+                      description: "Launch with clean books and new processes. Perfect timing for tax planning and business improvements."
+                    },
+                    {
+                      title: "Beta Test with Real Events",
+                      description: "Join our beta programme now. Test the system with real bookings before the official launch."
+                    },
+                    {
+                      title: "Lock in Founding Prices",
+                      description: "Beta members get lifetime founding member rates. Never pay increased prices as we scale."
+                    }
+                  ].map((item, index) => (
+                    <Card key={index} className="border-2 border-green-200 bg-white hover:shadow-lg transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                          <div>
+                            <h3 className="font-bold text-lg mb-2 text-gray-900">{item.title}</h3>
+                            <p className="text-gray-600">{item.description}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="py-20 bg-gray-50">
             <div className="container mx-auto px-4">
               <div className="max-w-4xl mx-auto text-center mb-16">
@@ -192,24 +291,23 @@ export default function UKHomePage() {
             </div>
           </section>
 
-          {/* CTA Section */}
           <section className="py-20 bg-purple-600 text-white">
             <div className="container mx-auto px-4 text-center">
               <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                Join Britain's Top Caterers
+                Join Britain's Beta Caterers
               </h2>
               <p className="text-xl mb-8 max-w-2xl mx-auto text-purple-100">
-                Start your 14-day free trial today. No credit card required. Cancel anytime.
+                Be among the first {cateringCount} UK catering businesses to test CateringMS. Lock in founding member rates before our February launch.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   size="lg" 
-                  className="bg-white text-purple-600 hover:bg-gray-100"
+                  className="bg-white text-purple-600 hover:bg-gray-100 shadow-2xl"
                   asChild
                 >
                   <Link href="/auth/register">
-                    Start Free Trial
-                    <ArrowRight className="ml-2 w-5 h-5" />
+                    Apply for Beta Access
+                    <Sparkles className="ml-2 w-5 h-5" />
                   </Link>
                 </Button>
                 <Button 
@@ -228,6 +326,98 @@ export default function UKHomePage() {
         </main>
 
         <Footer />
+
+        {showPopup && (
+          <div 
+            className="fixed bottom-6 right-6 w-96 max-w-[calc(100vw-3rem)] z-50 animate-slide-up"
+            style={{
+              animation: "slideUp 0.5s ease-out"
+            }}
+          >
+            <Card className="border-4 border-purple-500 shadow-2xl bg-gradient-to-br from-purple-600 to-pink-600 text-white overflow-hidden">
+              <CardContent className="pt-6 pb-6 relative">
+                <button
+                  onClick={() => setShowPopup(false)}
+                  className="absolute top-3 right-3 text-white/80 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 animate-pulse"></div>
+
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
+                    <Bell className="w-6 h-6 text-white animate-bounce" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl mb-2">🇬🇧 UK Launch Announcement!</h3>
+                    <p className="text-white/90 text-sm mb-3">
+                      We're launching February 1, 2026! Perfect timing after the December rush for your new financial year.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/20 rounded-lg p-4 mb-4 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold">Beta Members:</span>
+                    <Badge className="bg-green-500 text-white border-0">
+                      {cateringCount} Caterers
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">Launch Countdown:</span>
+                    <span className="text-sm font-bold">{daysUntilLaunch} Days</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <span>£24K average annual revenue boost</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <span>Lock in founding member rates forever</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                    <span>Full access during beta testing</span>
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full bg-white text-purple-600 hover:bg-gray-100 font-bold shadow-lg"
+                  asChild
+                >
+                  <Link href="/auth/register">
+                    Join Beta Now
+                    <Rocket className="ml-2 w-4 h-4" />
+                  </Link>
+                </Button>
+
+                <p className="text-xs text-white/70 text-center mt-3">
+                  Limited to first 50 UK caterers
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <style jsx>{`
+          @keyframes slideUp {
+            from {
+              transform: translateY(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          .animate-slide-up {
+            animation: slideUp 0.5s ease-out;
+          }
+        `}</style>
       </div>
     </>
   );
