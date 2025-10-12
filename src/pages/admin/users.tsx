@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,7 +88,7 @@ export default function UserManagementPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>User Management - CaterOS Admin</title>
+        <title>User Management - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

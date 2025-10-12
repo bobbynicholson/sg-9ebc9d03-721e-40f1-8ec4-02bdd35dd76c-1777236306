@@ -279,7 +279,7 @@ export default function InventoryPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Inventory Management | CaterOS</title>
+        <title>Inventory Management | CateringMS</title>
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

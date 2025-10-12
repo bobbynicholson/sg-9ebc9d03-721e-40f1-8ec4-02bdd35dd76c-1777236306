@@ -186,7 +186,7 @@ export default function OrderAssignmentsPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Order Assignments - CaterOS Admin</title>
+        <title>Order Assignments - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

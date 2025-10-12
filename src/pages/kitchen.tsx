@@ -104,7 +104,7 @@ export default function KitchenPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Kitchen Dashboard - CaterOS</title>
+        <title>Kitchen Dashboard - CateringMS</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">

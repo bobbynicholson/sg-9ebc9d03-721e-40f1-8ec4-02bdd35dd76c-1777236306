@@ -146,7 +146,7 @@ export default function RegionsManagementPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Regional Operations - CaterOS Admin</title>
+        <title>Regional Operations - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">

@@ -400,7 +400,7 @@ export default function EmailTemplatesPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Email Templates - CaterOS Admin</title>
+        <title>Email Templates - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-6">

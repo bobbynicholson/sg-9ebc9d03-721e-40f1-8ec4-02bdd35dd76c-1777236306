@@ -138,7 +138,7 @@ export default function PaymentGatewaysPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Payment Gateways - CaterOS Admin</title>
+        <title>Payment Gateways - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6">
