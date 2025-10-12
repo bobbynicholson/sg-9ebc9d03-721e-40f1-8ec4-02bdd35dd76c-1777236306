@@ -17,7 +17,7 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
   const { branding, isWhiteLabeled } = useBranding();
 
-  const displayName = branding?.organizationName || "CaterOS";
+  const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
   const portalLinks = [
@@ -202,10 +202,10 @@ export function Footer() {
               <p>© {currentYear} {displayName}. All rights reserved.</p>
               {isWhiteLabeled && (
                 <p className="mt-2">
-                  <Link href="https://cateros.com" target="_blank" rel="noopener noreferrer">
+                  <Link href="https://cateringms.com" target="_blank" rel="noopener noreferrer">
                     <span className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors">
                       <Sparkles className="w-4 h-4" />
-                      <span>Powered by CaterOS - Catering Management & Process Solutions</span>
+                      <span>Powered by CateringMS - Catering Management & Process Solutions</span>
                     </span>
                   </Link>
                 </p>

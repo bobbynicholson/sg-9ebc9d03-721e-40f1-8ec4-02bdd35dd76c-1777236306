@@ -40,7 +40,7 @@ export function Header() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
 
-  const displayName = branding?.organizationName || "CaterOS";
+  const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
   useEffect(() => {

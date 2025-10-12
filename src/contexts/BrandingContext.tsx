@@ -5,7 +5,7 @@ const BrandingContext = createContext<BrandingContextType | undefined>(undefined
 
 const DEFAULT_BRANDING: WhiteLabelBranding = {
   id: "default",
-  organizationName: "CaterOS",
+  organizationName: "CateringMS",
   colors: {
     primary: "#2563eb",
     secondary: "#7c3aed",
@@ -61,7 +61,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     applyBrandingToDOM(DEFAULT_BRANDING);
   };
 
-  const isWhiteLabeled = branding?.id !== "default" && branding?.organizationName !== "CaterOS";
+  const isWhiteLabeled = branding?.id !== "default" && branding?.organizationName !== "CateringMS";
 
   return (
     <BrandingContext.Provider
