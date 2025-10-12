@@ -11,5 +11,8 @@ export type Tables<T extends keyof Database['public']['Tables']> = Database['pub
 export type Enums<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T];
 export type Functions<T extends keyof Database['public']['Functions']> = Database['public']['Functions'][T];
 
+// Export Json type for metadata fields
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 // Project reference: ypwxsmytkvaefmmlkspf
 // Last updated: 2025-10-12T00:19:15.934143

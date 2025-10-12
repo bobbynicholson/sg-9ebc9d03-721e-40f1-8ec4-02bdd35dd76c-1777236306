@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { profileService } from "@/services/profileService";
 
 export interface AuthUser {
   id: string;
@@ -52,7 +53,13 @@ export const authService = {
   },
 
   // Sign up with email and password
-  async signUp(email: string, password: string): Promise<{ user: AuthUser | null; error: AuthError | null }> {
+  async signUp(
+    email: string, 
+    password: string, 
+    fullName: string, 
+    role: string, 
+    currency: string
+  ): Promise<{ user: AuthUser | null; error: AuthError | null }> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -64,6 +71,17 @@ export const authService = {
 
       if (error) {
         return { user: null, error: { message: error.message, code: error.status?.toString() } };
+      }
+
+      // Create profile with additional information
+      if (data.user) {
+        await profileService.createProfile({
+          id: data.user.id,
+          email: email,
+          full_name: fullName,
+          role: role,
+          currency: currency
+        });
       }
 
       const authUser = data.user ? {

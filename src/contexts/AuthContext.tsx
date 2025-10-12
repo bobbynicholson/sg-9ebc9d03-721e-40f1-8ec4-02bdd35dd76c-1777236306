@@ -69,8 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string, role: string, currency: string) => {
     try {
-      // Corrected to pass only email and password as per the error message.
-      // The other details are handled within authService.signUp via profile creation.
       const result = await authService.signUp(email, password, fullName, role, currency);
       if (result.user) {
         await loadProfile(result.user.id);
