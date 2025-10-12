@@ -880,7 +880,7 @@ export const driverService = {
   ): Promise<void> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
-      .select("*, orders!inner(*)")
+      .select("*, orders!inner(id, user_id, client_id, venue_lat, venue_lng, venue_address, event_date, event_time)")
       .eq("id", assignmentId)
       .single();
 

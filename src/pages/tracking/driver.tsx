@@ -222,9 +222,10 @@ export default function DriverTrackingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 <DriverGPSTracker
-                  orderId={activeDelivery.id}
-                  driverId={driverId}
-                  driverName={driverName}
+                  orderId={activeDelivery.order_id}
+                  assignmentId={activeDelivery.id}
+                  driverId={user.id}
+                  driverName={user.user_metadata.full_name}
                   onStatusChange={handleStatusChange}
                 />
 

@@ -9,13 +9,15 @@ import {
   MapPin,
   Bell,
   Star,
-  MessageSquare
+  MessageSquare,
+  Clock
 } from "lucide-react";
 import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import { Notification } from "@/types/tracking";
 import { Footer } from "@/components/Footer";
 import { mockOrders, mockDeliveries } from "@/lib/mockData";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { format } from "date-fns";
 
 export default function ClientTrackingPage() {
   const router = useRouter();
@@ -23,6 +25,8 @@ export default function ClientTrackingPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [deliveryDetails, setDeliveryDetails] = useState<any>(null);
+  const [driverLocation, setDriverLocation] = useState<any>(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -163,8 +167,22 @@ export default function ClientTrackingPage() {
     }
   };
 
+  const getDeliveryTimeInfo = () => {
+    if (!deliveryDetails) return null;
+
+    const eventDateTime = new Date(`${deliveryDetails.event_date}T${deliveryDetails.event_time || "12:00"}`);
+    const formattedDeliveryTime = format(eventDateTime, "EEEE, MMMM d, yyyy 'at' h:mm a");
+    const timeUntilEvent = eventDateTime.getTime() - new Date().getTime();
+    const hoursUntilEvent = Math.floor(timeUntilEvent / (1000 * 60 * 60));
+    const daysUntilEvent = Math.floor(hoursUntilEvent / 24);
+
+    return { formattedDeliveryTime, daysUntilEvent, hoursUntilEvent };
+  }
+
+  const deliveryTimeInfo = getDeliveryTimeInfo();
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gray-50">
       <NoIndexMeta />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Link href="/">
@@ -240,6 +258,59 @@ export default function ClientTrackingPage() {
           </div>
 
           <div className="space-y-6">
+            {deliveryTimeInfo && (
+              <div className="p-6 rounded-xl border-4 border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-600 to-red-600 flex items-center justify-center shadow-lg">
+                      <Clock className="w-9 h-9 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-orange-900 uppercase tracking-wider mb-1">
+                        🚨 Estimated Delivery Time
+                      </p>
+                      <p className="text-2xl font-bold text-orange-900 mb-1">
+                        {deliveryTimeInfo.formattedDeliveryTime}
+                      </p>
+                      <p className="text-sm text-orange-700">
+                        Your food is scheduled to arrive at this time.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {deliveryTimeInfo.daysUntilEvent > 0 ? (
+                      <>
+                        <div className="text-4xl font-bold text-orange-900 mb-1">
+                          {deliveryTimeInfo.daysUntilEvent}
+                        </div>
+                        <p className="text-sm text-orange-700 font-medium">
+                          {deliveryTimeInfo.daysUntilEvent === 1 ? "day" : "days"} to go
+                        </p>
+                      </>
+                    ) : deliveryTimeInfo.hoursUntilEvent > 0 ? (
+                      <>
+                        <div className="text-4xl font-bold text-orange-900 mb-1 animate-pulse">
+                          {deliveryTimeInfo.hoursUntilEvent}h
+                        </div>
+                        <p className="text-sm text-orange-700 font-medium">
+                          until delivery
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-red-900 mb-1 animate-pulse">
+                          SOON!
+                        </div>
+                        <p className="text-sm text-red-700 font-medium">
+                          Delivery is imminent
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
