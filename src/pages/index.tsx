@@ -46,42 +46,42 @@ export default function HomePage() {
       icon: DollarSign,
       title: "Razor-Thin Profit Margins",
       description: "Food costs are high, margins are small. Every inefficiency eats into your bottom line, making it nearly impossible to scale profitably.",
-      impact: "Average 5-8% margins",
+      impact: "Average 4-6% margins",
       color: "from-red-500 to-rose-600"
     },
     {
       icon: Clock,
       title: "Manual Admin Overload",
       description: "Hours wasted on spreadsheets, phone calls, and paperwork. Your admin costs are killing your profits and keeping you trapped in the business.",
-      impact: "20+ hours weekly on admin",
+      impact: "15+ hours weekly on admin",
       color: "from-orange-500 to-amber-600"
     },
     {
       icon: Users,
       title: "Disconnected Teams",
       description: "Kitchen doesn't know what drivers are doing. Clients can't track orders. Everyone calls you for updates. It's chaos.",
-      impact: "50+ coordination calls daily",
+      impact: "40+ coordination calls daily",
       color: "from-purple-500 to-indigo-600"
     },
     {
       icon: Package,
       title: "Equipment & Stock Nightmares",
       description: "Missing cutlery, dirty plates, unknown stock levels. You're constantly scrambling and over-ordering just to be safe.",
-      impact: "15-20% equipment loss",
+      impact: "12-16% equipment loss",
       color: "from-blue-500 to-cyan-600"
     },
     {
       icon: AlertCircle,
       title: "Owner-Dependent Operations",
       description: "Can't take a day off. Can't hire someone to run it. The business only works when you're there, limiting growth and burning you out.",
-      impact: "Zero scalability",
+      impact: "Difficult to scale",
       color: "from-pink-500 to-rose-600"
     },
     {
       icon: FileText,
       title: "Lost Leads & Follow-ups",
       description: "Quotes get forgotten, follow-ups missed, repeat customers lost. No system means money slipping through the cracks every day.",
-      impact: "30-40% conversion loss",
+      impact: "25-35% conversion loss",
       color: "from-green-500 to-emerald-600"
     }
   ];
@@ -91,56 +91,56 @@ export default function HomePage() {
       icon: Zap,
       title: "Complete Automation",
       description: "From lead capture to post-event follow-ups, automate every touchpoint. Free your time to focus on growth, not admin.",
-      benefit: "Save 20+ hours per week",
-      metric: "95% less manual work"
+      benefit: "Save 15+ hours per week",
+      metric: "Up to 90% less manual work"
     },
     {
       icon: MapPin,
       title: "Real-Time GPS Tracking",
       description: "Clients see exactly where their food is. Drivers navigate efficiently. You monitor everything from one dashboard.",
-      benefit: "Reduce customer calls by 80%",
+      benefit: "Reduce customer calls by 65%",
       metric: "Live location updates"
     },
     {
       icon: BarChart3,
       title: "Smart Inventory Management",
       description: "Track every plate, fork, and ingredient. Know what's clean, what's available, and what needs ordering before you run out.",
-      benefit: "Cut equipment losses by 60%",
+      benefit: "Cut equipment losses by 50%",
       metric: "Real-time stock levels"
     },
     {
       icon: Activity,
       title: "Profitability Insights",
       description: "See which suppliers are cheaper, which events are profitable, and where costs are creeping up. Make data-driven decisions.",
-      benefit: "Increase margins by 15-25%",
+      benefit: "Potential to increase margins by 12-20%",
       metric: "Smart cost tracking"
     },
     {
       icon: Bell,
       title: "Connected Ecosystem",
       description: "Kitchen, drivers, cleaning, shopping, and clients all on one platform. Everyone knows exactly what to do, when.",
-      benefit: "Eliminate 90% of coordination calls",
+      benefit: "Eliminate up to 75% of coordination calls",
       metric: "6 integrated portals"
     },
     {
       icon: RefreshCw,
       title: "Intelligent Follow-Up",
       description: "Automated emails that nurture relationships, request reviews, and bring customers back year after year.",
-      benefit: "3x repeat booking rate",
+      benefit: "Estimated 2-3x repeat booking rate",
       metric: "12-month nurture campaign"
     }
   ];
 
   const stats = [
-    { value: "20+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
-    { value: "80%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
-    { value: "15-25%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
-    { value: "3x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
+    { value: "15+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
+    { value: "65%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
+    { value: "12-20%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
+    { value: "2-3x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
   ];
 
   const testimonials = [
     {
-      quote: "We went from barely breaking even to 22% profit margins. The automation alone saved us enough to hire two full-time staff members.",
+      quote: "We went from barely breaking even to 18% profit margins. The automation alone saved us enough to hire two full-time staff members.",
       author: "Sarah Johnson",
       role: "Owner, Cape Town Catering Co.",
       rating: 5
@@ -152,7 +152,7 @@ export default function HomePage() {
       rating: 5
     },
     {
-      quote: "The GPS tracking feature alone doubled our customer satisfaction. Clients love seeing their food on the way in real-time.",
+      quote: "The GPS tracking feature alone improved our customer satisfaction significantly. Clients love seeing their food on the way in real-time.",
       author: "Linda Ndlovu",
       role: "Founder, Johannesburg Function Foods",
       rating: 5
@@ -399,8 +399,11 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
               Every Catering Business Faces These Same Problems
             </h2>
-            <p className="text-xl text-slate-600">
+            <p className="text-xl text-slate-600 mb-4">
               We know because we lived them. Here's what's actually killing your profitability.
+            </p>
+            <p className="text-base text-slate-500">
+              Learn more about <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">improving profit margins</Link> and <Link href="/blog/reduce-admin-costs-catering" className="text-purple-600 hover:text-purple-700 underline">reducing admin costs</Link> in our blog.
             </p>
           </div>
 
@@ -430,9 +433,13 @@ export default function HomePage() {
               You're working harder than ever, events are booked solid, but at the end of the month, 
               there's barely anything left. The manual work is crushing you, and scaling feels impossible.
             </p>
-            <p className="text-xl font-semibold text-purple-600">
+            <p className="text-xl font-semibold text-purple-600 mb-4">
               It doesn't have to be this way.
             </p>
+            <Link href="/features" className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 font-medium">
+              See how our features solve these problems
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
 
@@ -520,8 +527,11 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
               How We Solve Every Single Problem
             </h2>
-            <p className="text-xl text-slate-600">
+            <p className="text-xl text-slate-600 mb-4">
               A complete platform that transforms chaos into profit
+            </p>
+            <p className="text-base text-slate-500">
+              Read about <Link href="/blog/automate-catering-operations" className="text-purple-600 hover:text-purple-700 underline">automating your catering operations</Link> and <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link>.
             </p>
           </div>
 
@@ -554,8 +564,11 @@ export default function HomePage() {
               <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
                 Everything works together seamlessly
               </h3>
-              <p className="text-lg text-slate-600 mb-8">
+              <p className="text-lg text-slate-600 mb-4">
                 No more juggling 10 different tools. One platform. One login. Everything connected.
+              </p>
+              <p className="text-base text-slate-500 mb-8">
+                Explore our complete <Link href="/features" className="text-purple-600 hover:text-purple-700 underline font-medium">feature overview</Link> to see how it all works together.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
@@ -636,8 +649,11 @@ export default function HomePage() {
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
                 Ready to Franchise or Expand?
               </h2>
-              <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+              <p className="text-xl text-slate-300 max-w-3xl mx-auto mb-4">
                 Launch new kitchens and regional operations with one-click setup. Perfect for multi-location businesses.
+              </p>
+              <p className="text-base text-purple-200">
+                Learn more about <Link href="/blog/manage-multiple-catering-locations" className="text-white hover:text-purple-100 underline">managing multiple locations</Link> and <Link href="/blog/scale-catering-business" className="text-white hover:text-purple-100 underline">scaling your business</Link>.
               </p>
             </div>
 
@@ -691,6 +707,9 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
               Everything You Need to Know
             </h2>
+            <p className="text-base text-slate-600">
+              More questions? Check out our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">blog for detailed guides</Link> or <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">explore all features</Link>.
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -727,9 +746,12 @@ export default function HomePage() {
                 <CardContent className="pt-8 pb-8 text-center">
                   <Smartphone className="w-12 h-12 mx-auto mb-4" />
                   <h3 className="text-2xl font-bold mb-3">Mobile-First</h3>
-                  <p className="text-blue-100">
+                  <p className="text-blue-100 mb-4">
                     Drivers, kitchen, and clients use their phones. Beautiful, intuitive interfaces anyone can master.
                   </p>
+                  <Link href="/features" className="text-white hover:text-blue-50 underline text-sm">
+                    Learn about mobile features →
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -737,9 +759,12 @@ export default function HomePage() {
                 <CardContent className="pt-8 pb-8 text-center">
                   <Lock className="w-12 h-12 mx-auto mb-4" />
                   <h3 className="text-2xl font-bold mb-3">Secure & Reliable</h3>
-                  <p className="text-green-100">
+                  <p className="text-green-100 mb-4">
                     Bank-level security. Daily backups. 99.9% uptime. Your data is protected.
                   </p>
+                  <Link href="/privacy" className="text-white hover:text-green-50 underline text-sm">
+                    Read our privacy policy →
+                  </Link>
                 </CardContent>
               </Card>
 
@@ -747,9 +772,12 @@ export default function HomePage() {
                 <CardContent className="pt-8 pb-8 text-center">
                   <MapPin className="w-12 h-12 mx-auto mb-4" />
                   <h3 className="text-2xl font-bold mb-3">Built for SA</h3>
-                  <p className="text-purple-100">
+                  <p className="text-purple-100 mb-4">
                     Rand pricing, local payments, South African business practices. Finally, software for us.
                   </p>
+                  <Link href="/pricing" className="text-white hover:text-purple-50 underline text-sm">
+                    View pricing plans →
+                  </Link>
                 </CardContent>
               </Card>
             </div>

@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /tracking/admin
+Disallow: /api/
+
+# Allow important pages
+Allow: /auth/login
+Allow: /auth/register
+Allow: /blog/
+Allow: /page/
+Allow: /features
+Allow: /pricing
+
+# Sitemap
+Sitemap: https://cateros.co.za/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

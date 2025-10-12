@@ -1,0 +1,169 @@
+# CaterOS - Catering Management Platform
+# AI-Friendly Sitemap for Large Language Models
+
+## Company Information
+- Name: CaterOS
+- Description: A product of Skylight Digital
+- Address: 17 Swalle Street, Golden Acre, South Africa
+- Phone: 083 652 5755
+- Website: https://cateros.co.za
+
+## Main Pages
+
+### Homepage
+- URL: https://cateros.co.za/
+- Description: Main landing page showcasing the comprehensive catering management platform
+
+### Features
+- URL: https://cateros.co.za/features
+- Description: Detailed overview of all platform features including lead management, GPS tracking, inventory control, and multi-region support
+
+### Pricing
+- URL: https://cateros.co.za/pricing
+- Description: Subscription plans for catering businesses with 14-day free trial
+
+### Authentication
+- URL: https://cateros.co.za/auth/login
+- Description: User login portal for all roles (admin, drivers, kitchen, clients)
+
+- URL: https://cateros.co.za/auth/register
+- Description: New user registration and account setup
+
+### Legal Pages
+- URL: https://cateros.co.za/terms
+- Description: Terms of Service and subscription policies
+
+- URL: https://cateros.co.za/privacy
+- Description: Privacy Policy and POPIA compliance information
+
+## Blog Posts
+
+### Operations & Management
+- URL: https://cateros.co.za/blog/reduce-admin-costs-catering
+- Title: How to Reduce Admin Costs in Your Catering Business
+- Topics: Cost reduction, automation, efficiency
+
+- URL: https://cateros.co.za/blog/automate-catering-operations
+- Title: Complete Guide to Automating Your Catering Operations
+- Topics: Automation, workflow optimization, technology
+
+- URL: https://cateros.co.za/blog/manage-multiple-catering-locations
+- Title: Managing Multiple Catering Locations and Franchises
+- Topics: Multi-location management, franchising, scaling
+
+- URL: https://cateros.co.za/blog/improve-catering-profit-margins
+- Title: How to Improve Profit Margins in the Catering Industry
+- Topics: Profitability, cost management, pricing strategies
+
+### Technology & Innovation
+- URL: https://cateros.co.za/blog/catering-management-software-benefits
+- Title: Top Benefits of Using Catering Management Software
+- Topics: Software benefits, digital transformation, ROI
+
+- URL: https://cateros.co.za/blog/gps-tracking-catering-delivery
+- Title: Why GPS Tracking is Essential for Catering Deliveries
+- Topics: GPS tracking, delivery management, customer service
+
+- URL: https://cateros.co.za/blog/inventory-management-catering
+- Title: Best Practices for Catering Inventory Management
+- Topics: Inventory control, stock tracking, waste reduction
+
+- URL: https://cateros.co.za/blog/food-cost-control-strategies
+- Title: Proven Food Cost Control Strategies for Caterers
+- Topics: Cost control, ingredient management, pricing
+
+### Customer Experience
+- URL: https://cateros.co.za/blog/improve-customer-satisfaction-catering
+- Title: How to Improve Customer Satisfaction in Catering
+- Topics: Customer service, satisfaction, retention
+
+- URL: https://cateros.co.za/blog/handle-catering-complaints
+- Title: How to Handle Customer Complaints in Catering
+- Topics: Complaint management, customer service, problem resolution
+
+- URL: https://cateros.co.za/blog/email-automation-catering-quotes
+- Title: Using Email Automation for Catering Quotes and Follow-ups
+- Topics: Email marketing, automation, lead nurturing
+
+### Operations & Logistics
+- URL: https://cateros.co.za/blog/optimize-catering-delivery-routes
+- Title: Optimizing Delivery Routes for Catering Events
+- Topics: Route optimization, logistics, efficiency
+
+- URL: https://cateros.co.za/blog/equipment-maintenance-catering
+- Title: Equipment Maintenance and Tracking for Catering
+- Topics: Equipment management, maintenance, asset tracking
+
+- URL: https://cateros.co.za/blog/scale-catering-business
+- Title: How to Scale Your Catering Business Profitably
+- Topics: Business growth, scaling strategies, expansion
+
+- URL: https://cateros.co.za/blog/staff-scheduling-catering
+- Title: Effective Staff Scheduling for Catering Events
+- Topics: Staff management, scheduling, workforce optimization
+
+### Financial Management
+- URL: https://cateros.co.za/blog/payment-processing-catering
+- Title: Modern Payment Processing Solutions for Caterers
+- Topics: Payment processing, financial management, billing
+
+- URL: https://cateros.co.za/blog/catering-business-profitability
+- Title: Understanding Catering Business Profitability Metrics
+- Topics: Financial metrics, KPIs, business analysis
+
+### Planning & Strategy
+- URL: https://cateros.co.za/blog/catering-quote-process
+- Title: Streamlining Your Catering Quote Process
+- Topics: Quote management, sales process, conversion
+
+- URL: https://cateros.co.za/blog/menu-planning-cost-optimization
+- Title: Menu Planning and Cost Optimization Strategies
+- Topics: Menu engineering, cost optimization, profitability
+
+- URL: https://cateros.co.za/blog/seasonal-demand-catering
+- Title: Managing Seasonal Demand in Catering Business
+- Topics: Seasonal planning, demand forecasting, capacity management
+
+## Platform Features
+
+### Core Modules
+1. Lead Management & Quote Generation
+2. Order Processing & Calendar Management
+3. Inventory & Equipment Tracking
+4. Multi-Region Franchise Support
+5. GPS Tracking & Real-Time Delivery
+6. Driver Earnings & Payment System
+7. Kitchen Production Management
+8. Shopping & Receipt Scanning
+9. Cleaning Schedule Management
+10. Client Portal & Complaint System
+11. Email Automation
+12. Payment Gateway Integration
+13. Multi-Currency Support
+14. Role-Based Access Control
+
+### Target Audience
+- Catering companies in South Africa
+- Event catering businesses
+- Corporate catering services
+- Mobile catering operations
+- Franchise catering businesses
+
+### Key Problems Solved
+- High administrative costs
+- Manual processes and inefficiency
+- Poor profit margins
+- Lack of real-time visibility
+- Difficulty scaling operations
+- Equipment and inventory mismanagement
+- Payment and billing complexity
+- Poor customer communication
+
+## Technical Details
+- Platform: Next.js web application
+- Authentication: Supabase Auth
+- Payment Gateways: PayFast (South Africa), Stripe (International)
+- Multi-currency support
+- Role-based access control
+- Real-time GPS tracking
+- Automated email workflows
