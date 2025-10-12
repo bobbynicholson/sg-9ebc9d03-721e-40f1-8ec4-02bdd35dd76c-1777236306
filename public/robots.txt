@@ -1,19 +1,48 @@
-User-agent: *
-Allow: /
-Disallow: /admin/
-Disallow: /tracking/admin
-Disallow: /api/
+# CateringMS Robots.txt
+# Updated: 2025-10-12
+# Security: Block all backend, admin, and client portal pages from indexing
 
-# Allow important pages
-Allow: /auth/login
-Allow: /auth/register
+User-agent: *
+
+# PUBLIC PAGES - Allow indexing
+Allow: /
+Allow: /features
+Allow: /features/*
+Allow: /pricing
+Allow: /contact
 Allow: /blog/
 Allow: /page/
-Allow: /features
-Allow: /pricing
+Allow: /auth/login
+Allow: /auth/register
+Allow: /terms
+Allow: /privacy
+Allow: /support
+Allow: /integrations
+
+# BLOCK ALL BACKEND/PORTAL PAGES - Critical for data security
+Disallow: /admin/
+Disallow: /client/
+Disallow: /portals/
+Disallow: /tracking/
+Disallow: /platform/
+Disallow: /api/
+Disallow: /onboarding
+Disallow: /calendar
+Disallow: /orders
+Disallow: /quotes/
+Disallow: /leads/
+Disallow: /inventory
+Disallow: /drivers
+Disallow: /kitchen
+Disallow: /shopping
+Disallow: /cleaning
+Disallow: /subscription/
+
+# BLOCK AUTHENTICATION CALLBACK PAGES
+Disallow: /auth/callback
 
 # Sitemap
-Sitemap: https://cateros.co.za/sitemap.xml
+Sitemap: https://cateringms.com/sitemap.xml
 
 # Crawl-delay for polite crawling
 Crawl-delay: 1
