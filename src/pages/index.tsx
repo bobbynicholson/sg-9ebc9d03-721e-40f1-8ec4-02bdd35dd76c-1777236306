@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -195,6 +194,7 @@ export default function HomePage() {
     { href: "/drivers", label: "Drivers", icon: Truck },
     { href: "/admin/payment-gateways", label: "Payment Gateways", icon: CreditCard },
     { href: "/admin/regions", label: "Regional Operations", icon: MapPin },
+    { href: "/admin/email-automation-settings", label: "Email Automation", icon: Mail },
     { href: "/admin/settings", label: "Settings", icon: Settings }
   ];
 

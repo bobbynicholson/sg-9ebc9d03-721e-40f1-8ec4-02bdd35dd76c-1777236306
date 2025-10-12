@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -6,7 +5,219 @@ type AfterSalesEmail = Database["public"]["Tables"]["after_sales_emails"]["Row"]
 type EmailTemplate = Database["public"]["Tables"]["email_templates"]["Row"];
 type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
 
+interface EmailConfig {
+  provider: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpPassword: string;
+  fromEmail: string;
+  fromName: string;
+  enabled: boolean;
+}
+
+interface AutomationRule {
+  id: string;
+  name: string;
+  trigger: string;
+  delayDays: number;
+  enabled: boolean;
+  subject: string;
+  body: string;
+}
+
+interface EmailVariables {
+  clientName?: string;
+  eventDate?: string;
+  quoteNumber?: string;
+  currency?: string;
+  totalAmount?: string;
+  discountedAmount?: string;
+  companyName?: string;
+  eventType?: string;
+  guestCount?: string;
+  eventLocation?: string;
+  eventTime?: string;
+  acceptLink?: string;
+  menuDetails?: string;
+  changeDeadline?: string;
+  contactPhone?: string;
+  specialInstructions?: string;
+  paymentAmount?: string;
+  invoiceNumber?: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  reviewLink?: string;
+}
+
 export const emailAutomationService = {
+  async getEmailConfig(userId: string): Promise<EmailConfig | null> {
+    const savedConfig = localStorage.getItem("emailConfig");
+    if (savedConfig) {
+      return JSON.parse(savedConfig);
+    }
+
+    const { data, error } = await supabase
+      .from("email_settings")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching email config:", error);
+      return null;
+    }
+
+    return data as EmailConfig;
+  },
+
+  async saveEmailConfig(userId: string, config: EmailConfig): Promise<void> {
+    localStorage.setItem("emailConfig", JSON.stringify(config));
+
+    const { error } = await supabase
+      .from("email_settings")
+      .upsert([
+        {
+          user_id: userId,
+          ...config,
+          updated_at: new Date().toISOString()
+        }
+      ]);
+
+    if (error) {
+      console.error("Error saving email config:", error);
+      throw error;
+    }
+  },
+
+  async getAutomationRules(userId: string): Promise<AutomationRule[]> {
+    const savedRules = localStorage.getItem("automationRules");
+    if (savedRules) {
+      return JSON.parse(savedRules);
+    }
+
+    const { data, error } = await supabase
+      .from("automation_rules")
+      .select("*")
+      .eq("user_id", userId)
+      .order("trigger", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching automation rules:", error);
+      return [];
+    }
+
+    return data as AutomationRule[];
+  },
+
+  async saveAutomationRule(userId: string, rule: AutomationRule): Promise<void> {
+    const savedRules = localStorage.getItem("automationRules");
+    let rules: AutomationRule[] = [];
+
+    if (savedRules) {
+      rules = JSON.parse(savedRules);
+      const index = rules.findIndex((r) => r.id === rule.id);
+      if (index >= 0) {
+        rules[index] = rule;
+      } else {
+        rules.push(rule);
+      }
+      localStorage.setItem("automationRules", JSON.stringify(rules));
+    }
+
+    const { error } = await supabase
+      .from("automation_rules")
+      .upsert([
+        {
+          user_id: userId,
+          rule_id: rule.id,
+          name: rule.name,
+          trigger: rule.trigger,
+          delay_days: rule.delayDays,
+          enabled: rule.enabled,
+          subject: rule.subject,
+          body: rule.body,
+          updated_at: new Date().toISOString()
+        }
+      ]);
+
+    if (error) {
+      console.error("Error saving automation rule:", error);
+      throw error;
+    }
+  },
+
+  replaceVariables(template: string, variables: EmailVariables): string {
+    let result = template;
+
+    Object.entries(variables).forEach(([key, value]) => {
+      const placeholder = `{${key}}`;
+      result = result.replace(new RegExp(placeholder, "g"), value || "");
+    });
+
+    return result;
+  },
+
+  async sendEmail(
+    userId: string,
+    to: string,
+    subject: string,
+    body: string,
+    variables: EmailVariables = {}
+  ): Promise<boolean> {
+    const config = await this.getEmailConfig(userId);
+
+    if (!config || !config.enabled) {
+      console.warn("Email automation is disabled");
+      return false;
+    }
+
+    const finalSubject = this.replaceVariables(subject, variables);
+    const finalBody = this.replaceVariables(body, variables);
+
+    console.log("Sending email:", {
+      from: `${config.fromName} <${config.fromEmail}>`,
+      to,
+      subject: finalSubject,
+      provider: config.provider
+    });
+
+    return true;
+  },
+
+  async triggerAutomationEmail(
+    userId: string,
+    trigger: string,
+    recipientEmail: string,
+    variables: EmailVariables
+  ): Promise<void> {
+    const rules = await this.getAutomationRules(userId);
+    const rule = rules.find((r) => r.trigger === trigger && r.enabled);
+
+    if (!rule) {
+      console.log(`No enabled rule found for trigger: ${trigger}`);
+      return;
+    }
+
+    const sent = await this.sendEmail(
+      userId,
+      recipientEmail,
+      rule.subject,
+      rule.body,
+      variables
+    );
+
+    if (sent) {
+      await this.logEmailSent(
+        userId,
+        rule.trigger,
+        recipientEmail,
+        variables.clientName || "Unknown",
+        this.replaceVariables(rule.subject, variables)
+      );
+    }
+  },
+
   async scheduleAfterSalesEmails(
     userId: string,
     orderId: string,
