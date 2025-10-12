@@ -4,7 +4,7 @@ import type { Page } from "@/types/cms";
 import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Calendar } from "lucide-react";
 import { Footer } from "@/components/Footer";
 
 interface PageProps {
@@ -12,6 +12,59 @@ interface PageProps {
 }
 
 export default function CMSPageView({ page }: PageProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": page.title,
+    "description": page.meta_description || page.title,
+    "url": `https://cateros.co.za/page/${page.slug}`,
+    "datePublished": page.created_at,
+    "dateModified": page.last_updated,
+    "inLanguage": "en-ZA",
+    "author": {
+      "@type": "Organization",
+      "name": "CaterOS"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "CaterOS",
+      "description": "A product of Skylight Digital",
+      "url": "https://cateros.co.za",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://cateros.co.za/logo.png"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "17 Swalle Street",
+        "addressLocality": "Golden Acre",
+        "addressCountry": "ZA"
+      },
+      "telephone": "+27836525755"
+    },
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://cateros.co.za/page/${page.slug}`
+    },
+    "breadcrumb": {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://cateros.co.za"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": page.title,
+          "item": `https://cateros.co.za/page/${page.slug}`
+        }
+      ]
+    }
+  };
+
   return (
     <>
       <Head>
@@ -19,6 +72,12 @@ export default function CMSPageView({ page }: PageProps) {
         <meta
           name="description"
           content={page.meta_description || page.title}
+        />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href={`https://cateros.co.za/page/${page.slug}`} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       </Head>
 
