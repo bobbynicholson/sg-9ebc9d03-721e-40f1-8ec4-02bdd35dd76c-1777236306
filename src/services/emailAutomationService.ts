@@ -33,6 +33,7 @@ interface EmailVariables {
   clientName?: string;
   eventDate?: string;
   quoteNumber?: string;
+  orderNumber?: string;
   currency?: string;
   totalAmount?: string;
   discountedAmount?: string;

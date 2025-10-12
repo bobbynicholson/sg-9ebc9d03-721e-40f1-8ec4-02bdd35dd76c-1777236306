@@ -41,26 +41,6 @@ export const driverService = {
     return data || [];
   },
 
-  async acceptAssignment(assignmentId: string, driverId: string): Promise<DriverAssignment | null> {
-    const { data, error } = await supabase
-      .from("driver_assignments")
-      .update({
-        status: "accepted",
-        accepted_at: new Date().toISOString()
-      })
-      .eq("id", assignmentId)
-      .eq("driver_id", driverId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error accepting assignment:", error);
-      throw error;
-    }
-
-    return data;
-  },
-
   async startJob(assignmentId: string): Promise<DriverAssignment | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
@@ -351,7 +331,7 @@ export const driverService = {
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,
-      deliveryRate: order.delivery_rate_per_km,
+      deliveryRate: (order as any).delivery_rate_per_km,
     }));
   },
 
@@ -371,14 +351,14 @@ export const driverService = {
 
     const { data: assignment, error } = await supabase
       .from("driver_assignments")
-      .insert([{
+      .insert({
         order_id: orderId,
         driver_id: driverId,
         user_id: order.user_id,
         assignment_type: "delivery",
         status: "accepted",
         accepted_at: new Date().toISOString(),
-      }])
+      })
       .select()
       .single();
 
@@ -387,14 +367,14 @@ export const driverService = {
       throw error;
     }
 
-    await supabase.from("notifications").insert([{
+    await supabase.from("notifications").insert({
       user_id: order.user_id,
       recipient_id: driverId,
       notification_type: "driver_assignment",
       title: "Job Accepted",
       message: "You have successfully accepted a delivery job",
       priority: "medium",
-    }]);
+    });
 
     return assignment;
   },
@@ -476,14 +456,14 @@ export const driverService = {
         .single();
 
       if (orderDetails) {
-        await supabase.from("notifications").insert([{
+        await supabase.from("notifications").insert({
           user_id: orderDetails.user_id,
           recipient_id: assignment.driver_id,
           notification_type: "delivery_started",
           title: "Delivery Started",
           message: "GPS tracking activated. Drive safely!",
           priority: "high",
-        }]);
+        });
       }
     }
 
@@ -527,14 +507,14 @@ export const driverService = {
         .single();
 
       if (orderDetails) {
-        await supabase.from("notifications").insert([{
+        await supabase.from("notifications").insert({
           user_id: orderDetails.user_id,
           recipient_id: assignment.driver_id,
           notification_type: "delivery_arrived",
           title: "Arrived at Venue",
           message: "You have arrived at the delivery location",
           priority: "medium",
-        }]);
+        });
       }
     }
 
@@ -574,14 +554,14 @@ export const driverService = {
         .single();
 
       if (orderDetails) {
-        await supabase.from("notifications").insert([{
+        await supabase.from("notifications").insert({
           user_id: orderDetails.user_id,
           recipient_id: orderDetails.client_id || orderDetails.user_id,
           notification_type: "event_complete",
           title: "Event Complete",
           message: "Collection available for this order",
           priority: "medium",
-        }]);
+        });
       }
     }
 
@@ -617,6 +597,7 @@ export const driverService = {
 
     if (cutleryShortage > 0) {
       shortages.push({
+        user_id: order.user_id,
         order_id: order.id,
         client_id: order.client_id,
         equipment_type: "cutlery",
@@ -627,6 +608,7 @@ export const driverService = {
 
     if (crockeryShortage > 0) {
       shortages.push({
+        user_id: order.user_id,
         order_id: order.id,
         client_id: order.client_id,
         equipment_type: "crockery",
@@ -636,7 +618,7 @@ export const driverService = {
     }
 
     if (shortages.length > 0) {
-      await supabase.from("equipment_shortages").insert(shortages);
+      await supabase.from("equipment_shortages").insert(shortages as any);
     }
 
     const { data: updatedAssignment, error } = await supabase
@@ -693,6 +675,7 @@ export const driverService = {
       .from("driver_assignments")
       .update({
         delivery_earnings: deliveryEarnings,
+        waiter_earnings: waiterEarnings,
         total_earnings: totalEarnings,
       })
       .eq("id", assignmentId);
