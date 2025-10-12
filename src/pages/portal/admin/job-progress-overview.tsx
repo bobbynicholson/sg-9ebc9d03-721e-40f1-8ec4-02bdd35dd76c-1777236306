@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
+import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByUrgency, UrgencyScore } from "@/lib/urgencyScoring";
 
 interface PriorityTask {
   orderId: string;
@@ -46,6 +47,7 @@ export default function JobProgressOverviewPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
   const [whatsNextMode, setWhatsNextMode] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<"date" | "urgency">("date");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -245,6 +247,41 @@ export default function JobProgressOverviewPage() {
     return matchesSearch && matchesFilter;
   }).slice(0, itemsPerPage);
 
+  const calculateOrderUrgency = (order: Order): UrgencyScore => {
+    const eventDate = new Date(order.eventDate);
+    const today = new Date();
+    const hoursUntilEvent = (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60);
+
+    let paymentStatus: "none" | "deposit" | "full" = "none";
+    if (order.status === "confirmed" || order.status === "preparing" || order.status === "ready") {
+      paymentStatus = "deposit";
+    }
+    if (order.status === "delivered" || order.status === "completed") {
+      paymentStatus = "full";
+    }
+
+    return calculateUrgencyScore({
+      hoursUntilEvent,
+      paymentStatus,
+      currentStatus: order.status,
+      guestCount: order.guestCount,
+      equipmentShortage: false,
+      driverAvailable: true,
+      kitchenCapacityPercent: 65,
+      isVIPClient: order.guestCount >= 200,
+      hasSpecialRequirements: false,
+    });
+  };
+
+  const ordersWithUrgency = filteredOrders.map((order) => ({
+    ...order,
+    urgencyScore: calculateOrderUrgency(order),
+  }));
+
+  const sortedOrders = sortBy === "urgency" 
+    ? sortByUrgency(ordersWithUrgency)
+    : ordersWithUrgency;
+
   const getStatusCounts = () => {
     return {
       all: orders.length,
@@ -404,6 +441,26 @@ export default function JobProgressOverviewPage() {
 
                 <div className="flex gap-2 flex-wrap">
                   <Button
+                    variant={sortBy === "date" ? "default" : "outline"}
+                    onClick={() => setSortBy("date")}
+                    size="sm"
+                  >
+                    <Calendar className="w-4 h-4 mr-1" />
+                    By Date
+                  </Button>
+                  <Button
+                    variant={sortBy === "urgency" ? "default" : "outline"}
+                    onClick={() => setSortBy("urgency")}
+                    size="sm"
+                    className={sortBy === "urgency" ? "bg-orange-600 hover:bg-orange-700" : ""}
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    By Urgency
+                  </Button>
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <Button
                     variant={filterStatus === "all" ? "default" : "outline"}
                     onClick={() => setFilterStatus("all")}
                     size="sm"
@@ -464,7 +521,7 @@ export default function JobProgressOverviewPage() {
           </Card>
 
           <div className={`space-y-6 ${whatsNextMode ? "relative" : ""}`}>
-            {filteredOrders.length === 0 ? (
+            {sortedOrders.length === 0 ? (
               <Card>
                 <CardContent className="pt-12 pb-12 text-center">
                   <Filter className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -475,9 +532,11 @@ export default function JobProgressOverviewPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredOrders.map((order) => {
+              sortedOrders.map((order) => {
                 const isPriority = whatsNextMode && isPriorityOrder(order.id);
                 const isBehind = isBehindSchedule(order);
+                const urgency = order.urgencyScore!;
+                const colorClasses = getUrgencyColorClasses(urgency.level);
 
                 return (
                   <div
@@ -488,34 +547,107 @@ export default function JobProgressOverviewPage() {
                         : "opacity-100"
                     }`}
                   >
-                    <JobProgressTracker
-                      currentStatus={order.status}
-                      orderData={{
-                        quote_sent: order.createdAt,
-                        quote_accepted: order.status !== "pending" ? order.createdAt : undefined,
-                        payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(
-                          order.status
-                        )
-                          ? order.createdAt
-                          : undefined,
-                        kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status)
-                          ? order.createdAt
-                          : undefined,
-                        driver_assigned: ["ready", "delivered", "completed"].includes(order.status)
-                          ? order.createdAt
-                          : undefined,
-                        in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                        delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
-                        equipment_returned: order.status === "completed" ? order.createdAt : undefined,
-                      }}
-                      clientName={order.clientName}
-                      eventDate={order.eventDate}
-                      orderNumber={order.id}
-                      isPriority={isPriority}
-                      isBehindSchedule={isBehind}
-                      userRole="admin"
-                      onOverrideComplete={handleOverrideComplete}
-                    />
+                    <Card className={`border-l-4 ${colorClasses.border} ${colorClasses.bg}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`text-3xl ${urgency.level === "critical" ? "animate-pulse" : ""}`}>
+                              {getUrgencyEmoji(urgency.level)}
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">
+                                {order.clientName} - Order #{order.id}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {order.venue} • {new Date(order.eventDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={colorClasses.badge}>
+                              Urgency: {urgency.total}/100
+                            </Badge>
+                            <Badge variant="outline">
+                              {urgency.label}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {/* Urgency Breakdown */}
+                        <div className="mb-4 p-3 bg-white rounded-lg border">
+                          <p className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+                            Urgency Breakdown
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <p className="text-gray-600">Time Pressure</p>
+                              <p className="font-bold text-gray-900">{urgency.breakdown.timeScore}/40</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Payment Status</p>
+                              <p className="font-bold text-gray-900">{urgency.breakdown.paymentScore}/25</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Complexity</p>
+                              <p className="font-bold text-gray-900">{urgency.breakdown.complexityScore}/15</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-600">Status Progress</p>
+                              <p className="font-bold text-gray-900">{urgency.breakdown.statusScore}/20</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Recommendations */}
+                        {urgency.recommendations.length > 0 && (
+                          <div className="mb-4 p-3 bg-white rounded-lg border border-blue-200">
+                            <p className="text-xs font-semibold text-blue-900 mb-2 uppercase tracking-wider flex items-center gap-2">
+                              <Target className="w-4 h-4" />
+                              Action Items
+                            </p>
+                            <ul className="space-y-1">
+                              {urgency.recommendations.map((rec, idx) => (
+                                <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                                  <span className="text-blue-600 font-bold">•</span>
+                                  <span>{rec}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Job Progress Tracker */}
+                        <JobProgressTracker
+                          currentStatus={order.status}
+                          orderData={{
+                            quote_sent: order.createdAt,
+                            quote_accepted: order.status !== "pending" ? order.createdAt : undefined,
+                            payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(
+                              order.status
+                            )
+                              ? order.createdAt
+                              : undefined,
+                            kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status)
+                              ? order.createdAt
+                              : undefined,
+                            driver_assigned: ["ready", "delivered", "completed"].includes(order.status)
+                              ? order.createdAt
+                              : undefined,
+                            in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
+                            delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
+                            equipment_returned: order.status === "completed" ? order.createdAt : undefined,
+                          }}
+                          clientName={order.clientName}
+                          eventDate={order.eventDate}
+                          orderNumber={order.id}
+                          isPriority={isPriority}
+                          isBehindSchedule={isBehind}
+                          userRole="admin"
+                          onOverrideComplete={handleOverrideComplete}
+                        />
+                      </CardContent>
+                    </Card>
                   </div>
                 );
               })
