@@ -247,7 +247,7 @@ export default function PricingPage() {
                   </div>
                   <h3 className="font-semibold text-lg">Estimated ROI</h3>
                   <p className="text-sm text-slate-600">
-                    Potential to save R18,000+/month on average through automation and efficiency gains (based on industry data)
+                    Potential to save R12,000-15,000/month on average through automation and efficiency gains (based on industry data)
                   </p>
                 </div>
 
@@ -255,7 +255,7 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto">
                     <Clock className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">50+ Hours Saved</h3>
+                  <h3 className="font-semibold text-lg">40-50 Hours Saved</h3>
                   <p className="text-sm text-slate-600">
                     Estimated time savings eliminating manual admin work every month, allowing you to focus on growth
                   </p>
@@ -265,7 +265,7 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto">
                     <Target className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">20% More Bookings</h3>
+                  <h3 className="font-semibold text-lg">15-20% More Bookings</h3>
                   <p className="text-sm text-slate-600">
                     Estimated increase from automated follow-ups and professional quotes that convert more leads
                   </p>
@@ -353,7 +353,7 @@ export default function PricingPage() {
               </div>
               <p className="text-sm text-purple-200 pt-4">
                 <Users className="w-4 h-4 inline mr-1" />
-                Join 400+ catering businesses already saving time and money
+                Join 300+ catering businesses already saving time and money
               </p>
             </div>
           </div>

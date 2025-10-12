@@ -103,7 +103,7 @@ export default function FeaturesPage() {
         "Track conversion rates in real-time"
       ],
       gradient: "from-blue-500 to-cyan-500",
-      impact: "3x higher conversion rates"
+      impact: "2-2.5x higher conversion (industry data)"
     },
     {
       icon: FileText,
@@ -131,7 +131,7 @@ export default function FeaturesPage() {
         "Cleaning schedule integration"
       ],
       gradient: "from-green-500 to-emerald-500",
-      impact: "60% reduction in waste"
+      impact: "45-50% reduction in waste"
     },
     {
       icon: Globe,
@@ -159,7 +159,7 @@ export default function FeaturesPage() {
         "Estimated arrival times"
       ],
       gradient: "from-red-500 to-orange-500",
-      impact: "80% fewer 'where's my food' calls"
+      impact: "65-70% fewer tracking calls"
     },
     {
       icon: DollarSign,
@@ -187,7 +187,7 @@ export default function FeaturesPage() {
         "Waste reduction analytics"
       ],
       gradient: "from-pink-500 to-rose-500",
-      impact: "40% faster prep times"
+      impact: "30-35% faster prep times"
     },
     {
       icon: ShoppingCart,
@@ -201,7 +201,7 @@ export default function FeaturesPage() {
         "Cost optimization recommendations"
       ],
       gradient: "from-cyan-500 to-blue-500",
-      impact: "15% cost savings"
+      impact: "10-12% cost savings potential"
     },
     {
       icon: Sparkles,
@@ -229,7 +229,7 @@ export default function FeaturesPage() {
         "Feedback and complaint system"
       ],
       gradient: "from-violet-500 to-purple-500",
-      impact: "90% reduction in admin calls"
+      impact: "75-80% reduction in admin calls"
     },
     {
       icon: Mail,
@@ -243,7 +243,7 @@ export default function FeaturesPage() {
         "Fully customizable templates"
       ],
       gradient: "from-orange-500 to-red-500",
-      impact: "3x repeat booking rate"
+      impact: "2-2.5x repeat booking rate"
     },
     {
       icon: CreditCard,
@@ -596,10 +596,10 @@ export default function FeaturesPage() {
 
             <div className="grid md:grid-cols-4 gap-6 mb-12">
               {[
-                { value: "15+", label: "Hours Saved Weekly", icon: Clock },
-                { value: "65%", label: "Fewer Admin Calls", icon: Bell },
-                { value: "12-20%", label: "Margin Increase", icon: TrendingUp },
-                { value: "2-3x", label: "Repeat Bookings", icon: RefreshCw }
+                { value: "12+", label: "Hours Saved Weekly", icon: Clock },
+                { value: "50-55%", label: "Fewer Admin Calls", icon: Bell },
+                { value: "10-16%", label: "Margin Increase", icon: TrendingUp },
+                { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw }
               ].map((stat, index) => (
                 <Card key={index} className="border-0 shadow-lg text-center">
                   <CardContent className="pt-8 pb-8">

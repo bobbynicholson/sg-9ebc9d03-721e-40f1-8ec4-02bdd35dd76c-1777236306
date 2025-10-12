@@ -91,51 +91,51 @@ export default function HomePage() {
       icon: Zap,
       title: "Complete Automation",
       description: "From lead capture to post-event follow-ups, automate every touchpoint. Free your time to focus on growth, not admin.",
-      benefit: "Save 15+ hours per week",
-      metric: "Up to 90% less manual work"
+      benefit: "Save 12+ hours per week",
+      metric: "Up to 70-75% less manual work"
     },
     {
       icon: MapPin,
       title: "Real-Time GPS Tracking",
       description: "Clients see exactly where their food is. Drivers navigate efficiently. You monitor everything from one dashboard.",
-      benefit: "Reduce customer calls by 65%",
+      benefit: "Reduce customer calls by 50-55%",
       metric: "Live location updates"
     },
     {
       icon: BarChart3,
       title: "Smart Inventory Management",
       description: "Track every plate, fork, and ingredient. Know what's clean, what's available, and what needs ordering before you run out.",
-      benefit: "Cut equipment losses by 50%",
+      benefit: "Cut equipment losses by 40%",
       metric: "Real-time stock levels"
     },
     {
       icon: Activity,
       title: "Profitability Insights",
       description: "See which suppliers are cheaper, which events are profitable, and where costs are creeping up. Make data-driven decisions.",
-      benefit: "Potential to increase margins by 12-20%",
+      benefit: "Potential to increase margins by 10-16%",
       metric: "Smart cost tracking"
     },
     {
       icon: Bell,
       title: "Connected Ecosystem",
       description: "Kitchen, drivers, cleaning, shopping, and clients all on one platform. Everyone knows exactly what to do, when.",
-      benefit: "Eliminate up to 75% of coordination calls",
+      benefit: "Eliminate up to 60-65% of coordination calls",
       metric: "6 integrated portals"
     },
     {
       icon: RefreshCw,
       title: "Intelligent Follow-Up",
       description: "Automated emails that nurture relationships, request reviews, and bring customers back year after year.",
-      benefit: "Estimated 2-3x repeat booking rate",
+      benefit: "Estimated 1.5-2x repeat booking rate",
       metric: "12-month nurture campaign"
     }
   ];
 
   const stats = [
-    { value: "15+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
-    { value: "65%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
-    { value: "12-20%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
-    { value: "2-3x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
+    { value: "12+", label: "Hours Saved Weekly", icon: Clock, color: "from-blue-500 to-cyan-500" },
+    { value: "50-55%", label: "Fewer Admin Calls", icon: Bell, color: "from-purple-500 to-pink-500" },
+    { value: "10-16%", label: "Margin Increase", icon: TrendingUp, color: "from-green-500 to-emerald-500" },
+    { value: "1.5-2x", label: "Repeat Bookings", icon: RefreshCw, color: "from-orange-500 to-amber-500" }
   ];
 
   const testimonials = [
