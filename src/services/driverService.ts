@@ -359,11 +359,23 @@ export const driverService = {
    * Accept an available job
    */
   async acceptJob(orderId: string, driverId: string): Promise<DriverAssignment | null> {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("user_id")
+      .eq("id", orderId)
+      .single();
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
     const { data: assignment, error } = await supabase
       .from("driver_assignments")
       .insert([{
         order_id: orderId,
         driver_id: driverId,
+        user_id: order.user_id,
+        assignment_type: "delivery",
         status: "accepted",
         accepted_at: new Date().toISOString(),
       }])
@@ -376,7 +388,7 @@ export const driverService = {
     }
 
     await supabase.from("notifications").insert([{
-      user_id: driverId,
+      user_id: order.user_id,
       recipient_id: driverId,
       notification_type: "driver_assignment",
       title: "Job Accepted",
@@ -457,14 +469,22 @@ export const driverService = {
         status: "in_transit",
       }).eq("id", assignment.order_id);
 
-      await supabase.from("notifications").insert([{
-        user_id: assignment.driver_id,
-        recipient_id: assignment.driver_id,
-        notification_type: "delivery_started",
-        title: "Delivery Started",
-        message: "GPS tracking activated. Drive safely!",
-        priority: "high",
-      }]);
+      const { data: orderDetails } = await supabase
+        .from("orders")
+        .select("user_id")
+        .eq("id", assignment.order_id)
+        .single();
+
+      if (orderDetails) {
+        await supabase.from("notifications").insert([{
+          user_id: orderDetails.user_id,
+          recipient_id: assignment.driver_id,
+          notification_type: "delivery_started",
+          title: "Delivery Started",
+          message: "GPS tracking activated. Drive safely!",
+          priority: "high",
+        }]);
+      }
     }
 
     return data;
@@ -500,14 +520,22 @@ export const driverService = {
         status: "delivered",
       }).eq("id", assignment.order_id);
 
-      await supabase.from("notifications").insert([{
-        user_id: assignment.driver_id,
-        recipient_id: assignment.driver_id,
-        notification_type: "delivery_arrived",
-        title: "Arrived at Venue",
-        message: "You have arrived at the delivery location",
-        priority: "medium",
-      }]);
+      const { data: orderDetails } = await supabase
+        .from("orders")
+        .select("user_id")
+        .eq("id", assignment.order_id)
+        .single();
+
+      if (orderDetails) {
+        await supabase.from("notifications").insert([{
+          user_id: orderDetails.user_id,
+          recipient_id: assignment.driver_id,
+          notification_type: "delivery_arrived",
+          title: "Arrived at Venue",
+          message: "You have arrived at the delivery location",
+          priority: "medium",
+        }]);
+      }
     }
 
     return data;
@@ -539,13 +567,22 @@ export const driverService = {
       .single();
 
     if (assignment) {
-      await supabase.from("notifications").insert([{
-        user_id: assignment.order_id,
-        notification_type: "event_complete",
-        title: "Event Complete",
-        message: "Collection available for this order",
-        priority: "medium",
-      }]);
+      const { data: orderDetails } = await supabase
+        .from("orders")
+        .select("user_id, client_id")
+        .eq("id", assignment.order_id)
+        .single();
+
+      if (orderDetails) {
+        await supabase.from("notifications").insert([{
+          user_id: orderDetails.user_id,
+          recipient_id: orderDetails.client_id || orderDetails.user_id,
+          notification_type: "event_complete",
+          title: "Event Complete",
+          message: "Collection available for this order",
+          priority: "medium",
+        }]);
+      }
     }
 
     return data;

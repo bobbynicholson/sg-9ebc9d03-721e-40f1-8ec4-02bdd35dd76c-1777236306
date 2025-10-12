@@ -191,6 +191,16 @@ export const orderService = {
     orderId: string,
     paymentReference: string
   ): Promise<Order | null> {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("total")
+      .eq("id", orderId)
+      .single();
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
     const { data, error } = await supabase
       .from("orders")
       .update({
@@ -199,7 +209,7 @@ export const orderService = {
         payment_reference: paymentReference,
         status: "confirmed",
         payment_status: "paid",
-        amount_paid: supabase.rpc("get_order_total", { order_id: orderId }),
+        amount_paid: order.total,
       })
       .eq("id", orderId)
       .select()

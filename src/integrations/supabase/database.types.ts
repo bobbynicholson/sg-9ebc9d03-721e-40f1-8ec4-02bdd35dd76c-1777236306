@@ -559,6 +559,8 @@ export type Database = {
       driver_assignments: {
         Row: {
           accepted_at: string | null
+          actual_crockery_count: number | null
+          actual_cutlery_count: number | null
           assignment_type: string
           calculated_distance: number | null
           calculated_hours: number | null
@@ -566,11 +568,16 @@ export type Database = {
           checklist_crockery_confirmed: boolean | null
           checklist_cutlery_confirmed: boolean | null
           checklist_food_verified: boolean | null
+          collection_crockery_count: number | null
+          collection_cutlery_count: number | null
+          collection_notes: string | null
           completed_at: string | null
           created_at: string | null
+          delivery_earnings: number | null
           departure_confirmed: boolean | null
           departure_confirmed_at: string | null
           driver_id: string
+          event_completed_at: string | null
           hourly_rate: number | null
           id: string
           is_waiter_job: boolean | null
@@ -591,6 +598,8 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          actual_crockery_count?: number | null
+          actual_cutlery_count?: number | null
           assignment_type: string
           calculated_distance?: number | null
           calculated_hours?: number | null
@@ -598,11 +607,16 @@ export type Database = {
           checklist_crockery_confirmed?: boolean | null
           checklist_cutlery_confirmed?: boolean | null
           checklist_food_verified?: boolean | null
+          collection_crockery_count?: number | null
+          collection_cutlery_count?: number | null
+          collection_notes?: string | null
           completed_at?: string | null
           created_at?: string | null
+          delivery_earnings?: number | null
           departure_confirmed?: boolean | null
           departure_confirmed_at?: string | null
           driver_id: string
+          event_completed_at?: string | null
           hourly_rate?: number | null
           id?: string
           is_waiter_job?: boolean | null
@@ -623,6 +637,8 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          actual_crockery_count?: number | null
+          actual_cutlery_count?: number | null
           assignment_type?: string
           calculated_distance?: number | null
           calculated_hours?: number | null
@@ -630,11 +646,16 @@ export type Database = {
           checklist_crockery_confirmed?: boolean | null
           checklist_cutlery_confirmed?: boolean | null
           checklist_food_verified?: boolean | null
+          collection_crockery_count?: number | null
+          collection_cutlery_count?: number | null
+          collection_notes?: string | null
           completed_at?: string | null
           created_at?: string | null
+          delivery_earnings?: number | null
           departure_confirmed?: boolean | null
           departure_confirmed_at?: string | null
           driver_id?: string
+          event_completed_at?: string | null
           hourly_rate?: number | null
           id?: string
           is_waiter_job?: boolean | null
@@ -1120,6 +1141,77 @@ export type Database = {
           },
         ]
       }
+      equipment_shortages: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          equipment_type: string
+          id: string
+          notes: string | null
+          order_id: string
+          quantity_missing: number
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          equipment_type: string
+          id?: string
+          notes?: string | null
+          order_id: string
+          quantity_missing: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          equipment_type?: string
+          id?: string
+          notes?: string | null
+          order_id?: string
+          quantity_missing?: number
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_shortages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortages_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_shortages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exchange_rates: {
         Row: {
           created_at: string | null
@@ -1531,9 +1623,11 @@ export type Database = {
           currency: string | null
           delivery_distance_km: number | null
           delivery_duration_minutes: number | null
+          delivery_rate_per_km: number | null
           delivery_route_optimized: boolean | null
           delivery_status: string | null
           delivery_time: string | null
+          delivery_total_fee: number | null
           deposit_amount: number | null
           deposit_paid: boolean | null
           deposit_paid_at: string | null
@@ -1568,6 +1662,7 @@ export type Database = {
           venue_lng: number | null
           waiter_duration_hours: number | null
           waiter_hourly_rate: number | null
+          waiter_service_required: boolean | null
           waiter_total_fee: number | null
           whatsapp_notifications_sent: Json | null
           xero_invoice_id: string | null
@@ -1589,9 +1684,11 @@ export type Database = {
           currency?: string | null
           delivery_distance_km?: number | null
           delivery_duration_minutes?: number | null
+          delivery_rate_per_km?: number | null
           delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
+          delivery_total_fee?: number | null
           deposit_amount?: number | null
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
@@ -1626,6 +1723,7 @@ export type Database = {
           venue_lng?: number | null
           waiter_duration_hours?: number | null
           waiter_hourly_rate?: number | null
+          waiter_service_required?: boolean | null
           waiter_total_fee?: number | null
           whatsapp_notifications_sent?: Json | null
           xero_invoice_id?: string | null
@@ -1647,9 +1745,11 @@ export type Database = {
           currency?: string | null
           delivery_distance_km?: number | null
           delivery_duration_minutes?: number | null
+          delivery_rate_per_km?: number | null
           delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
+          delivery_total_fee?: number | null
           deposit_amount?: number | null
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
@@ -1684,6 +1784,7 @@ export type Database = {
           venue_lng?: number | null
           waiter_duration_hours?: number | null
           waiter_hourly_rate?: number | null
+          waiter_service_required?: boolean | null
           waiter_total_fee?: number | null
           whatsapp_notifications_sent?: Json | null
           xero_invoice_id?: string | null
@@ -2720,6 +2821,10 @@ export type Database = {
           updated_at: string
           user_id: string
         }[]
+      }
+      get_order_total: {
+        Args: { order_id: string }
+        Returns: number
       }
       get_quarterly_usage: {
         Args: { p_user_id: string }
