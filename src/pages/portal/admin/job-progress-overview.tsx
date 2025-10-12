@@ -28,6 +28,7 @@ import {
   List
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useToast } from "@/hooks/use-toast";
 
 interface PriorityTask {
   orderId: string;
@@ -43,6 +44,7 @@ export default function JobProgressOverviewPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
   const [whatsNextMode, setWhatsNextMode] = useState<boolean>(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const mockOrders: Order[] = [
@@ -147,6 +149,24 @@ export default function JobProgressOverviewPage() {
     setOrders(stored ? JSON.parse(stored) : mockOrders);
   }, []);
 
+  const handleOverrideComplete = (orderId: string) => {
+    const updatedOrders = orders.map((order) => {
+      if (order.id === orderId) {
+        return { ...order, status: "completed" };
+      }
+      return order;
+    });
+
+    setOrders(updatedOrders);
+    localStorage.setItem("admin_orders", JSON.stringify(updatedOrders));
+
+    toast({
+      title: "Order Marked Complete",
+      description: `Order ${orderId} has been manually marked as complete.`,
+      duration: 3000,
+    });
+  };
+
   const calculatePriorityTasks = (): PriorityTask[] => {
     const tasks: PriorityTask[] = [];
 
@@ -247,9 +267,8 @@ export default function JobProgressOverviewPage() {
         <Header />
 
         <main className="container mx-auto px-4 py-8">
-          {/* Header Section */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">
                   Job Progress Overview
@@ -274,7 +293,6 @@ export default function JobProgressOverviewPage() {
               </div>
             </div>
 
-            {/* Priority Tasks Banner */}
             {whatsNextMode && priorityTasks.length > 0 && (
               <Card className="mb-6 border-4 border-purple-500 bg-gradient-to-r from-purple-50 to-pink-50">
                 <CardHeader>
@@ -340,7 +358,6 @@ export default function JobProgressOverviewPage() {
               </Card>
             )}
 
-            {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               {[
                 { label: "All Jobs", count: statusCounts.all, icon: TrendingUp, color: "blue" },
@@ -369,7 +386,6 @@ export default function JobProgressOverviewPage() {
             </div>
           </div>
 
-          {/* Search, Filter, and Items Per Page */}
           <Card className="mb-6 border-2">
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-4 items-end">
@@ -444,7 +460,6 @@ export default function JobProgressOverviewPage() {
             </CardContent>
           </Card>
 
-          {/* Job Progress Trackers */}
           <div className={`space-y-6 ${whatsNextMode ? "relative" : ""}`}>
             {filteredOrders.length === 0 ? (
               <Card>
@@ -495,6 +510,8 @@ export default function JobProgressOverviewPage() {
                       orderNumber={order.id}
                       isPriority={isPriority}
                       isBehindSchedule={isBehind}
+                      userRole="admin"
+                      onOverrideComplete={handleOverrideComplete}
                     />
                   </div>
                 );
@@ -502,7 +519,6 @@ export default function JobProgressOverviewPage() {
             )}
           </div>
 
-          {/* Pagination Info */}
           {orders.length > itemsPerPage && (
             <Card className="mt-6 border-2">
               <CardContent className="pt-4">
@@ -518,7 +534,6 @@ export default function JobProgressOverviewPage() {
             </Card>
           )}
 
-          {/* Quick Actions */}
           <Card className="mt-8 border-2 bg-gradient-to-r from-purple-50 to-pink-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
