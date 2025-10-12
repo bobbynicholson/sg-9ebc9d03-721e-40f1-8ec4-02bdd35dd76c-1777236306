@@ -1880,6 +1880,124 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_reminders: {
+        Row: {
+          created_at: string | null
+          days_before_due: number | null
+          id: string
+          is_urgent: boolean | null
+          order_id: string
+          reminder_date: string
+          reminder_type: string
+          sent: boolean | null
+          sent_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          days_before_due?: number | null
+          id?: string
+          is_urgent?: boolean | null
+          order_id: string
+          reminder_date: string
+          reminder_type: string
+          sent?: boolean | null
+          sent_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          days_before_due?: number | null
+          id?: string
+          is_urgent?: boolean | null
+          order_id?: string
+          reminder_date?: string
+          reminder_type?: string
+          sent?: boolean | null
+          sent_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_reminders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_schedules: {
+        Row: {
+          balance_amount: number
+          balance_due_date: string
+          balance_paid: boolean | null
+          balance_paid_at: string | null
+          balance_transaction_id: string | null
+          created_at: string | null
+          currency: string
+          deposit_amount: number
+          deposit_paid: boolean | null
+          deposit_paid_at: string | null
+          deposit_percentage: number
+          deposit_transaction_id: string | null
+          event_date: string
+          final_order_change_date: string
+          id: string
+          order_id: string
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          balance_amount: number
+          balance_due_date: string
+          balance_paid?: boolean | null
+          balance_paid_at?: string | null
+          balance_transaction_id?: string | null
+          created_at?: string | null
+          currency: string
+          deposit_amount: number
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
+          deposit_percentage: number
+          deposit_transaction_id?: string | null
+          event_date: string
+          final_order_change_date: string
+          id?: string
+          order_id: string
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          balance_amount?: number
+          balance_due_date?: string
+          balance_paid?: boolean | null
+          balance_paid_at?: string | null
+          balance_transaction_id?: string | null
+          created_at?: string | null
+          currency?: string
+          deposit_amount?: number
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
+          deposit_percentage?: number
+          deposit_transaction_id?: string | null
+          event_date?: string
+          final_order_change_date?: string
+          id?: string
+          order_id?: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_schedules_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number

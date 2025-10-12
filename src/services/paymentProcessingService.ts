@@ -147,7 +147,7 @@ class PaymentProcessingService {
       // Get order details for notification
       const { data: order } = await supabase
         .from("orders")
-        .select("*, payment_schedules(*)")
+        .select("*, payment_schedules!inner(*)")
         .eq("id", orderId)
         .single();
 
@@ -157,8 +157,8 @@ class PaymentProcessingService {
           userId,
           orderId,
           "deposit",
-          order.payment_schedules.deposit_amount,
-          order.payment_schedules.currency
+          (order.payment_schedules as any).deposit_amount,
+          (order.payment_schedules as any).currency
         );
 
         // Schedule balance payment reminders
@@ -216,7 +216,7 @@ class PaymentProcessingService {
       // Get order details
       const { data: order } = await supabase
         .from("orders")
-        .select("*, payment_schedules(*)")
+        .select("*, payment_schedules!inner(*)")
         .eq("id", orderId)
         .single();
 
@@ -226,8 +226,8 @@ class PaymentProcessingService {
           userId,
           orderId,
           "balance",
-          order.payment_schedules.balance_amount,
-          order.payment_schedules.currency
+          (order.payment_schedules as any).balance_amount,
+          (order.payment_schedules as any).currency
         );
       }
 
@@ -308,10 +308,10 @@ class PaymentProcessingService {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // Get all unsent reminders due today
+      // Get all unsent reminders due today, joining through orders to get payment_schedules
       const { data: reminders, error } = await supabase
         .from("payment_reminders")
-        .select("*, orders(*), payment_schedules(*)")
+        .select("*, order:orders!inner(*, payment_schedules!inner(*))")
         .eq("sent", false)
         .lte("reminder_date", today);
 
@@ -323,10 +323,11 @@ class PaymentProcessingService {
       let sentCount = 0;
 
       for (const reminder of reminders) {
-        if (!reminder.orders || !reminder.payment_schedules) continue;
+        const orderData = reminder.order as any;
+        if (!orderData || !orderData.payment_schedules) continue;
 
         // Skip if already paid
-        if (reminder.payment_schedules.balance_paid) {
+        if (orderData.payment_schedules.balance_paid) {
           await supabase
             .from("payment_reminders")
             .update({ sent: true, sent_at: new Date().toISOString() })
@@ -338,9 +339,9 @@ class PaymentProcessingService {
         await realtimeNotificationService.sendPaymentReminderNotification(
           reminder.user_id,
           reminder.order_id,
-          reminder.payment_schedules.balance_amount,
-          reminder.payment_schedules.currency,
-          reminder.payment_schedules.balance_due_date
+          orderData.payment_schedules.balance_amount,
+          orderData.payment_schedules.currency,
+          orderData.payment_schedules.balance_due_date
         );
 
         // Mark as sent
@@ -371,20 +372,21 @@ class PaymentProcessingService {
       // Get orders with upcoming modification deadlines
       const { data: schedules, error } = await supabase
         .from("payment_schedules")
-        .select("*, orders(*)")
+        .select("*, order:orders!inner(*)")
         .gte("final_order_change_date", today.toISOString())
         .lte("final_order_change_date", threeDaysFromNow.toISOString())
         .eq("balance_paid", false);
 
       if (error || !schedules) {
-        console.error("Error fetching schedules:", error);
+        console.error("Error fetching schedules for modification deadlines:", error);
         return 0;
       }
 
       let notifiedCount = 0;
 
       for (const schedule of schedules) {
-        if (!schedule.orders) continue;
+        const orderData = schedule.order as any;
+        if (!orderData) continue;
 
         const status = getOrderModificationStatus(schedule.final_order_change_date);
 
@@ -395,12 +397,12 @@ class PaymentProcessingService {
             .select("*")
             .eq("order_id", schedule.order_id)
             .eq("reminder_type", "modification_deadline")
-            .gte("sent_at", today.toISOString())
+            .gte("sent_at", today.toISOString().split('T')[0])
             .single();
 
           if (!existingReminder) {
             await realtimeNotificationService.sendModificationDeadlineReminder(
-              schedule.orders.user_id,
+              orderData.user_id,
               schedule.order_id,
               schedule.final_order_change_date,
               status.daysRemaining
@@ -409,7 +411,7 @@ class PaymentProcessingService {
             // Log the reminder
             await supabase.from("payment_reminders").insert([{
               order_id: schedule.order_id,
-              user_id: schedule.orders.user_id,
+              user_id: orderData.user_id,
               reminder_date: new Date().toISOString(),
               reminder_type: "modification_deadline",
               days_before_due: status.daysRemaining,
