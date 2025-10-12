@@ -123,7 +123,7 @@ export default function NewLeadPage() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="082 123 4567"
                       className="pl-10"
                       required
                     />
