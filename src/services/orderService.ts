@@ -557,4 +557,167 @@ export const orderService = {
 
     return data;
   },
+
+  /**
+   * Make progress on an order - move to next status step
+   */
+  async makeProgress(orderId: string, nextStatus: string): Promise<Order | null> {
+    const statusMap: Record<string, Order["status"]> = {
+      "quote": "pending",
+      "accepted": "confirmed",
+      "payment": "confirmed",
+      "confirmed": "preparing",
+      "kitchen": "ready",
+      "driver": "in_transit",
+      "transit": "delivered",
+      "delivered": "completed",
+      "equipment": "completed"
+    };
+
+    const mappedStatus = statusMap[nextStatus] || nextStatus as Order["status"];
+
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        status: mappedStatus,
+      })
+      .eq("id", orderId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error making progress on order:", error);
+      throw error;
+    }
+
+    // Send notification to relevant parties
+    const { data: order } = await supabase
+      .from("orders")
+      .select("user_id, client_id, client_name, order_number")
+      .eq("id", orderId)
+      .single();
+
+    if (order) {
+      await supabase.from("notifications").insert({
+        user_id: order.user_id,
+        recipient_id: order.client_id || order.user_id,
+        notification_type: "order_updated",
+        title: "Order Progress Update",
+        message: `Order ${order.order_number} has been moved to: ${mappedStatus}`,
+        priority: "medium",
+        order_id: orderId,
+      });
+    }
+
+    return data;
+  },
+
+  /**
+   * Check if order completed smoothly (no issues)
+   */
+  async checkSmoothCompletion(orderId: string): Promise<{
+    isSmooth: boolean;
+    issues: string[];
+  }> {
+    const issues: string[] = [];
+
+    // Check for equipment shortages
+    const { data: shortages } = await supabase
+      .from("equipment_shortages")
+      .select("*")
+      .eq("order_id", orderId)
+      .eq("status", "pending");
+
+    if (shortages && shortages.length > 0) {
+      issues.push("Equipment shortage reported");
+    }
+
+    // Check for late delivery
+    const { data: order } = await supabase
+      .from("orders")
+      .select("event_time, delivery_time")
+      .eq("id", orderId)
+      .single();
+
+    if (order && order.event_time && order.delivery_time) {
+      const eventTime = new Date(`1970-01-01T${order.event_time}`);
+      const deliveryTime = new Date(order.delivery_time);
+      const deliveryHour = deliveryTime.getHours();
+      const deliveryMinute = deliveryTime.getMinutes();
+      
+      const eventHour = eventTime.getHours();
+      const eventMinute = eventTime.getMinutes();
+
+      // Check if delivered late (more than 15 mins after event time)
+      const eventTotalMinutes = eventHour * 60 + eventMinute;
+      const deliveryTotalMinutes = deliveryHour * 60 + deliveryMinute;
+
+      if (deliveryTotalMinutes > eventTotalMinutes + 15) {
+        issues.push("Delivered late");
+      }
+    }
+
+    // Check for complaints
+    const { data: complaints } = await supabase
+      .from("complaints")
+      .select("*")
+      .eq("order_id", orderId);
+
+    if (complaints && complaints.length > 0) {
+      issues.push("Client complaint filed");
+    }
+
+    return {
+      isSmooth: issues.length === 0,
+      issues,
+    };
+  },
+
+  /**
+   * Record order review from client
+   */
+  async recordOrderReview(
+    orderId: string,
+    rating: number,
+    comment?: string
+  ): Promise<any> {
+    const { data: review, error } = await supabase
+      .from("order_reviews")
+      .insert({
+        order_id: orderId,
+        rating,
+        comment,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error recording review:", error);
+      throw error;
+    }
+
+    // If bad review (1-2 stars), alert admin for debrief
+    if (rating <= 2) {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("user_id, order_number, client_name")
+        .eq("id", orderId)
+        .single();
+
+      if (order) {
+        await supabase.from("notifications").insert({
+          user_id: order.user_id,
+          recipient_id: order.user_id, // Admin
+          notification_type: "bad_review_alert",
+          title: "⚠️ Bad Review Alert - Team Debrief Required",
+          message: `Order ${order.order_number} (${order.client_name}) received ${rating} stars. Schedule team debrief to address issues and prevent recurrence.`,
+          priority: "urgent",
+          order_id: orderId,
+        });
+      }
+    }
+
+    return review;
+  },
 };
