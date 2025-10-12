@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function WhiteLabelPage() {
   const { branding, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
@@ -76,6 +77,7 @@ export default function WhiteLabelPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>White Label Branding - CateringMS Admin</title>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 interface ExchangeRate {
   id: string;
@@ -103,6 +104,7 @@ export default function CurrencyMonitoringPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
+        <NoIndexMeta />
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center h-96">
             <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
@@ -114,6 +116,7 @@ export default function CurrencyMonitoringPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8">
+      <NoIndexMeta />
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

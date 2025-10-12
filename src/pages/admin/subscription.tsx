@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { subscriptionService } from "@/services/subscriptionService";
 import type { Database } from "@/integrations/supabase/types";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
@@ -181,6 +182,7 @@ export default function SubscriptionPage() {
   if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
+        <NoIndexMeta />
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
           <p className="text-slate-600">Loading subscription details...</p>
@@ -192,6 +194,7 @@ export default function SubscriptionPage() {
   if (!subscription) {
     return (
       <div className="container mx-auto p-6 max-w-4xl">
+        <NoIndexMeta />
         <Head>
           <title>Subscription - CateringMS</title>
         </Head>
@@ -215,6 +218,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
+      <NoIndexMeta />
       <Head>
         <title>Subscription Management - CateringMS</title>
       </Head>

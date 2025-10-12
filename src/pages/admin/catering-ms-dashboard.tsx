@@ -27,6 +27,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function CateringMSDashboard() {
   const { user } = useAuth();
@@ -84,6 +85,7 @@ export default function CateringMSDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
+        <NoIndexMeta />
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
           <p className="text-slate-600">Loading analytics dashboard...</p>
@@ -133,6 +135,7 @@ export default function CateringMSDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <NoIndexMeta />
       <Head>
         <title>CateringMS Analytics Dashboard - Internal Sales & Metrics</title>
         <meta name="robots" content="noindex, nofollow" />

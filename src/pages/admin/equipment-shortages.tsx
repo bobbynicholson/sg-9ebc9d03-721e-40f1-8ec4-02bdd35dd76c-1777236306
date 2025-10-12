@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +33,7 @@ import {
   User,
   Calendar
 } from "lucide-react";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 interface ShortageFlag {
   id: string;
@@ -200,6 +200,7 @@ export default function EquipmentShortagesPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Equipment Shortages - CateringMS Admin</title>
