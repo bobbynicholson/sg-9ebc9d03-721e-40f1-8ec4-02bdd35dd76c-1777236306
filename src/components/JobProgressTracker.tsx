@@ -15,7 +15,8 @@ import {
   CheckCircle,
   Info,
   AlertTriangle,
-  Shield
+  Shield,
+  ArrowRight
 } from "lucide-react";
 import {
   Tooltip,
@@ -34,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface JobStep {
   id: string;
@@ -65,6 +67,7 @@ interface JobProgressTrackerProps {
   isBehindSchedule?: boolean;
   userRole?: "admin" | "staff" | "client";
   onOverrideComplete?: (orderId: string) => void;
+  onMakeProgress?: (orderId: string, nextStatus: string) => void;
 }
 
 export function JobProgressTracker({ 
@@ -76,10 +79,12 @@ export function JobProgressTracker({
   isPriority = false,
   isBehindSchedule = false,
   userRole = "admin",
-  onOverrideComplete
+  onOverrideComplete,
+  onMakeProgress
 }: JobProgressTrackerProps) {
   
   const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const { toast } = useToast();
 
   const allSteps: JobStep[] = [
     {
@@ -177,6 +182,31 @@ export function JobProgressTracker({
     setShowOverrideConfirm(false);
   };
 
+  const getNextStatus = (): string | null => {
+    const currentStep = allSteps.find(s => s.status === "current");
+    if (!currentStep) return null;
+
+    const currentIndex = allSteps.findIndex(s => s.id === currentStep.id);
+    const nextStep = allSteps[currentIndex + 1];
+    
+    return nextStep ? nextStep.id : null;
+  };
+
+  const handleMakeProgress = () => {
+    const nextStatus = getNextStatus();
+    if (nextStatus && onMakeProgress) {
+      onMakeProgress(orderNumber, nextStatus);
+      
+      toast({
+        title: "Progress Updated",
+        description: `Order ${orderNumber} moved to next stage: ${allSteps.find(s => s.id === nextStatus)?.label}`,
+        duration: 3000,
+      });
+    }
+  };
+
+  const nextStatus = getNextStatus();
+
   const cardClassName = isBehindSchedule 
     ? "w-full shadow-lg border-2 border-orange-500 animate-pulse"
     : isPriority
@@ -223,47 +253,61 @@ export function JobProgressTracker({
               </div>
 
               {userRole === "admin" && completedSteps < visibleSteps.length && (
-                <AlertDialog open={showOverrideConfirm} onOpenChange={setShowOverrideConfirm}>
-                  <AlertDialogTrigger asChild>
+                <>
+                  {nextStatus && (
                     <Button 
-                      variant="outline" 
-                      className="border-green-500 text-green-700 hover:bg-green-50"
+                      variant="default" 
+                      className="bg-blue-600 hover:bg-blue-700"
                       size="sm"
+                      onClick={handleMakeProgress}
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark as DONE
+                      <ArrowRight className="w-4 h-4 mr-2" />
+                      Make Progress
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-orange-600" />
-                        Override Job Progress?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will mark Order #{orderNumber} for {clientName} as 100% complete, skipping all remaining steps.
-                        <br/><br/>
-                        <strong>This action:</strong>
-                        <ul className="list-disc list-inside mt-2 space-y-1">
-                          <li>Marks all stages as completed</li>
-                          <li>Closes the job in the system</li>
-                          <li>Cannot be easily undone</li>
-                        </ul>
-                        <br/>
-                        Only use this if the job is genuinely complete or needs to be manually closed for exceptional circumstances.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={handleOverrideComplete}
-                        className="bg-green-600 hover:bg-green-700"
+                  )}
+                  
+                  <AlertDialog open={showOverrideConfirm} onOpenChange={setShowOverrideConfirm}>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="border-green-500 text-green-700 hover:bg-green-50"
+                        size="sm"
                       >
-                        Yes, Mark as Complete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Mark as DONE
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-orange-600" />
+                          Override Job Progress?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will mark Order #{orderNumber} for {clientName} as 100% complete, skipping all remaining steps.
+                          <br/><br/>
+                          <strong>This action:</strong>
+                          <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Marks all stages as completed</li>
+                            <li>Closes the job in the system</li>
+                            <li>Cannot be easily undone</li>
+                          </ul>
+                          <br/>
+                          Only use this if the job is genuinely complete or needs to be manually closed for exceptional circumstances.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={handleOverrideComplete}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Yes, Mark as Complete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )}
             </div>
           </div>

@@ -728,5 +728,122 @@ export const driverService = {
       unpaidJobs: unpaidAssignments?.length || 0,
       averagePerJob: totalJobs > 0 ? totalEarnings / totalJobs : 0,
     };
+  },
+
+  /**
+   * Update driver profile with drive time to kitchen
+   */
+  async updateDriverProfile(
+    driverId: string,
+    updates: {
+      drive_time_to_kitchen_minutes?: number;
+      phone_number?: string;
+      vehicle_details?: string;
+    }
+  ): Promise<any> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", driverId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating driver profile:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  /**
+   * Get driver profile including drive time to kitchen
+   */
+  async getDriverProfile(driverId: string): Promise<any> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", driverId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching driver profile:", error);
+      return null;
+    }
+
+    return data;
+  },
+
+  /**
+   * Calculate when driver needs to leave for kitchen
+   * Based on: event time - drive to venue - 15min buffer - drive to kitchen
+   */
+  async calculateDepartureTimes(assignmentId: string): Promise<{
+    leaveForKitchenTime: string;
+    leaveForVenueTime: string;
+    collectionTime: string;
+  } | null> {
+    const { data: assignment } = await supabase
+      .from("driver_assignments")
+      .select("*, orders(*), profiles!driver_assignments_driver_id_fkey(*)")
+      .eq("id", assignmentId)
+      .single();
+
+    if (!assignment) {
+      return null;
+    }
+
+    const order = assignment.orders as any;
+    const driverProfile = assignment.profiles as any;
+    
+    const eventDateTime = new Date(`${order.event_date}T${order.event_time || "12:00:00"}`);
+    const driveTimeToKitchen = driverProfile.drive_time_to_kitchen_minutes || 30;
+    const driveTimeToVenue = assignment.estimated_drive_time_minutes || 30;
+    const bufferTime = 15;
+
+    const leaveForVenueTime = new Date(eventDateTime.getTime() - driveTimeToVenue * 60000 - bufferTime * 60000);
+    const collectionTime = new Date(leaveForVenueTime.getTime() - bufferTime * 60000);
+    const leaveForKitchenTime = new Date(collectionTime.getTime() - driveTimeToKitchen * 60000);
+
+    return {
+      leaveForKitchenTime: leaveForKitchenTime.toISOString(),
+      leaveForVenueTime: leaveForVenueTime.toISOString(),
+      collectionTime: collectionTime.toISOString(),
+    };
+  },
+
+  /**
+   * Driver clicks "On the way to Kitchen" button
+   * Alerts admin and changes status
+   */
+  async startTripToKitchen(assignmentId: string): Promise<any> {
+    const { data: assignment, error } = await supabase
+      .from("driver_assignments")
+      .update({
+        status: "heading_to_kitchen",
+        started_trip_to_kitchen_at: new Date().toISOString(),
+      })
+      .eq("id", assignmentId)
+      .select("*, orders(*)")
+      .single();
+
+    if (error) {
+      console.error("Error starting trip to kitchen:", error);
+      throw error;
+    }
+
+    const order = assignment.orders as any;
+
+    await supabase.from("notifications").insert({
+      user_id: order.user_id,
+      recipient_id: order.user_id,
+      notification_type: "driver_departure",
+      title: "Driver En Route to Kitchen",
+      message: `Driver is on the way to kitchen for Order ${order.order_number}`,
+      priority: "medium",
+      order_id: order.id,
+    });
+
+    return assignment;
   }
 };
