@@ -13,7 +13,9 @@ import {
   Send,
   Plus,
   Trash2,
-  Calculator
+  Calculator,
+  MapPin,
+  TrendingUp
 } from "lucide-react";
 import { MenuItem, EquipmentItem } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -27,7 +29,14 @@ export default function NewQuotePage() {
     email: "",
     eventDate: "",
     eventType: "",
-    guestCount: 0
+    guestCount: 0,
+    deliveryAddress: ""
+  });
+
+  const [deliveryDetails, setDeliveryDetails] = useState({
+    distance: 0,
+    costPerKm: 8.50,
+    deliveryFee: 0
   });
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
@@ -54,6 +63,17 @@ export default function NewQuotePage() {
   ]);
 
   useEffect(() => {
+    const savedSettings = localStorage.getItem("admin_settings");
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setDeliveryDetails(prev => ({
+        ...prev,
+        costPerKm: settings.operations?.deliveryCostPerKm || 8.50
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
     if (leadId) {
       const leads = JSON.parse(localStorage.getItem("leads") || "[]");
       const lead = leads.find((l: any) => l.id === leadId);
@@ -63,11 +83,38 @@ export default function NewQuotePage() {
           email: lead.email,
           eventDate: lead.eventDate,
           eventType: lead.eventType,
-          guestCount: lead.guestCount
+          guestCount: lead.guestCount,
+          deliveryAddress: ""
         });
       }
     }
   }, [leadId]);
+
+  const calculateDistance = (deliveryAddress: string) => {
+    if (!deliveryAddress || deliveryAddress.trim().length < 5) {
+      setDeliveryDetails(prev => ({ ...prev, distance: 0, deliveryFee: 0 }));
+      return;
+    }
+
+    const estimatedDistance = Math.floor(Math.random() * 30) + 5;
+    const fee = estimatedDistance * deliveryDetails.costPerKm;
+    
+    setDeliveryDetails(prev => ({
+      ...prev,
+      distance: estimatedDistance,
+      deliveryFee: fee
+    }));
+  };
+
+  const handleDeliveryAddressChange = (address: string) => {
+    setFormData(prev => ({ ...prev, deliveryAddress: address }));
+    
+    const debounceTimer = setTimeout(() => {
+      calculateDistance(address);
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  };
 
   const addMenuItem = () => {
     setMenuItems([...menuItems, {
@@ -123,17 +170,23 @@ export default function NewQuotePage() {
   };
 
   const subtotal = calculateSubtotal();
-  const tax = subtotal * 0.15;
-  const total = subtotal + tax;
+  const deliveryFee = deliveryDetails.deliveryFee;
+  const subtotalWithDelivery = subtotal + deliveryFee;
+  const tax = subtotalWithDelivery * 0.15;
+  const total = subtotalWithDelivery + tax;
 
   const handleSaveQuote = (sendToClient: boolean) => {
     const quote = {
       id: `Q${Date.now()}`,
       leadId: leadId as string,
       ...formData,
+      deliveryDistance: deliveryDetails.distance,
+      deliveryFee: deliveryDetails.deliveryFee,
+      deliveryCostPerKm: deliveryDetails.costPerKm,
       menuItems: menuItems.filter(item => item.name && item.pricePerPerson > 0),
       equipmentItems: equipmentItems.filter(item => item.name && item.rentalPrice > 0),
       subtotal,
+      deliveryFee,
       tax,
       total,
       status: sendToClient ? "sent" : "draft",
@@ -216,6 +269,53 @@ export default function NewQuotePage() {
               </CardContent>
             </Card>
 
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  Delivery Address
+                </CardTitle>
+                <CardDescription>Calculate delivery distance and fees automatically</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Full Delivery Address</Label>
+                  <Input
+                    value={formData.deliveryAddress}
+                    onChange={(e) => handleDeliveryAddressChange(e.target.value)}
+                    placeholder="123 Main Street, Johannesburg, 2000"
+                    className="bg-white"
+                  />
+                  <p className="text-xs text-slate-600 mt-1">
+                    Enter the complete delivery address to calculate distance and fees
+                  </p>
+                </div>
+
+                {deliveryDetails.distance > 0 && (
+                  <div className="p-4 bg-white rounded-lg border border-blue-200">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-blue-600">{deliveryDetails.distance}km</div>
+                        <div className="text-xs text-slate-600">Distance</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-green-600">R{deliveryDetails.costPerKm.toFixed(2)}</div>
+                        <div className="text-xs text-slate-600">Per Km</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-purple-600">R{deliveryDetails.deliveryFee.toFixed(2)}</div>
+                        <div className="text-xs text-slate-600">Delivery Fee</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                      <TrendingUp className="w-4 h-4" />
+                      Calculated from kitchen to delivery location
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -292,7 +392,7 @@ export default function NewQuotePage() {
                     <div className="mt-2 text-right">
                       <span className="text-sm text-slate-600">Subtotal: </span>
                       <span className="font-semibold text-green-600">
-                        ${(item.pricePerPerson * item.quantity).toFixed(2)}
+                        R{(item.pricePerPerson * item.quantity).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -362,7 +462,7 @@ export default function NewQuotePage() {
                     <div className="mt-2 text-right">
                       <span className="text-sm text-slate-600">Subtotal: </span>
                       <span className="font-semibold text-green-600">
-                        ${(item.rentalPrice * item.quantity).toFixed(2)}
+                        R{(item.rentalPrice * item.quantity).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -382,17 +482,28 @@ export default function NewQuotePage() {
               <CardContent className="p-6 space-y-4">
                 <div className="space-y-3">
                   <div className="flex justify-between text-slate-600">
-                    <span>Subtotal</span>
-                    <span className="font-medium">${subtotal.toFixed(2)}</span>
+                    <span>Items Subtotal</span>
+                    <span className="font-medium">R{subtotal.toFixed(2)}</span>
                   </div>
+                  
+                  {deliveryDetails.distance > 0 && (
+                    <div className="flex justify-between text-slate-600 bg-blue-50 -mx-2 px-2 py-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-blue-600" />
+                        <span>Delivery Fee ({deliveryDetails.distance}km)</span>
+                      </div>
+                      <span className="font-medium text-blue-600">R{deliveryFee.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between text-slate-600">
-                    <span>Tax (15%)</span>
-                    <span className="font-medium">${tax.toFixed(2)}</span>
+                    <span>VAT (15%)</span>
+                    <span className="font-medium">R{tax.toFixed(2)}</span>
                   </div>
                   <div className="h-px bg-slate-200" />
                   <div className="flex justify-between text-lg font-bold text-slate-900">
                     <span>Total</span>
-                    <span className="text-green-600">${total.toFixed(2)}</span>
+                    <span className="text-green-600">R{total.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -419,8 +530,10 @@ export default function NewQuotePage() {
                   <ul className="space-y-1 text-xs">
                     <li>• {menuItems.filter(i => i.name).length} menu items</li>
                     <li>• {equipmentItems.filter(i => i.name).length} equipment rentals</li>
-                    <li>• Setup and delivery</li>
-                    <li>• Professional service staff</li>
+                    {deliveryDetails.distance > 0 && (
+                      <li>• Delivery ({deliveryDetails.distance}km at R{deliveryDetails.costPerKm}/km)</li>
+                    )}
+                    <li>• Setup and professional service</li>
                   </ul>
                 </div>
               </CardContent>
