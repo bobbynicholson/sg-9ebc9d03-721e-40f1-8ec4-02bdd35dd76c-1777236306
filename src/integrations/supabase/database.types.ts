@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -15,6 +15,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_requests: {
+        Row: {
+          created_at: string | null
+          data_export_requested: boolean | null
+          data_export_url: string | null
+          deleted_at: string | null
+          id: string
+          reason: string | null
+          scheduled_deletion_date: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_export_requested?: boolean | null
+          data_export_url?: string | null
+          deleted_at?: string | null
+          id?: string
+          reason?: string | null
+          scheduled_deletion_date?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_export_requested?: boolean | null
+          data_export_url?: string | null
+          deleted_at?: string | null
+          id?: string
+          reason?: string | null
+          scheduled_deletion_date?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       activity_log: {
         Row: {
           action: string
@@ -167,6 +203,71 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_history: {
+        Row: {
+          amount: number
+          billing_period_end: string | null
+          billing_period_start: string | null
+          created_at: string | null
+          currency: string
+          failed_reason: string | null
+          id: string
+          invoice_number: string | null
+          invoice_pdf_url: string | null
+          paid_at: string | null
+          payfast_payment_id: string | null
+          payment_method: string | null
+          status: string
+          subscription_id: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          created_at?: string | null
+          currency?: string
+          failed_reason?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_pdf_url?: string | null
+          paid_at?: string | null
+          payfast_payment_id?: string | null
+          payment_method?: string | null
+          status: string
+          subscription_id: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          created_at?: string | null
+          currency?: string
+          failed_reason?: string | null
+          id?: string
+          invoice_number?: string | null
+          invoice_pdf_url?: string | null
+          paid_at?: string | null
+          payfast_payment_id?: string | null
+          payment_method?: string | null
+          status?: string
+          subscription_id?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author: string
@@ -223,6 +324,56 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      cancellation_requests: {
+        Row: {
+          cancellation_type: string
+          created_at: string | null
+          feedback: string | null
+          id: string
+          processed_at: string | null
+          reason: string | null
+          retention_offer_accepted: boolean | null
+          retention_offer_made: boolean | null
+          status: string
+          subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          cancellation_type: string
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          retention_offer_accepted?: boolean | null
+          retention_offer_made?: boolean | null
+          status?: string
+          subscription_id: string
+          user_id: string
+        }
+        Update: {
+          cancellation_type?: string
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          retention_offer_accepted?: boolean | null
+          retention_offer_made?: boolean | null
+          status?: string
+          subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_requests_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cms_pages: {
         Row: {
@@ -1427,6 +1578,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      price_changes: {
+        Row: {
+          affected_subscriptions_count: number | null
+          announced_date: string | null
+          change_reason: string
+          created_at: string | null
+          currency: string
+          effective_date: string
+          exchange_rate_info: string | null
+          id: string
+          new_amount: number
+          notifications_sent: boolean | null
+          old_amount: number
+          plan_id: string
+        }
+        Insert: {
+          affected_subscriptions_count?: number | null
+          announced_date?: string | null
+          change_reason: string
+          created_at?: string | null
+          currency?: string
+          effective_date: string
+          exchange_rate_info?: string | null
+          id?: string
+          new_amount: number
+          notifications_sent?: boolean | null
+          old_amount: number
+          plan_id: string
+        }
+        Update: {
+          affected_subscriptions_count?: number | null
+          announced_date?: string | null
+          change_reason?: string
+          created_at?: string | null
+          currency?: string
+          effective_date?: string
+          exchange_rate_info?: string | null
+          id?: string
+          new_amount?: number
+          notifications_sent?: boolean | null
+          old_amount?: number
+          plan_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
