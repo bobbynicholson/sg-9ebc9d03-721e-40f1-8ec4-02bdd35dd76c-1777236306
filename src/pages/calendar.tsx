@@ -1,282 +1,235 @@
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import Head from "next/head";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Calendar as CalendarIcon,
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  DollarSign,
-  Clock
-} from "lucide-react";
-import { Quote } from "@/types";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { orderService, Order } from "@/services/orderService";
+import { format } from "date-fns";
+import {
+  MapPin,
+  Users,
+  Clock,
+  Package,
+  ArrowRight,
+  Loader2,
+} from "lucide-react";
+import { useRouter } from "next/router";
+
+interface CalendarEvent {
+  id: string;
+  date: Date;
+  title: string;
+  status: Order["status"];
+  clientName: string;
+  venue: string;
+  guestCount: number;
+}
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+    null
+  );
 
   useEffect(() => {
-    const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    setQuotes(storedQuotes.filter((q: Quote) => q.status === "accepted" || q.status === "sent"));
-  }, []);
+    if (user?.id) {
+      loadEvents();
+    }
+  }, [user]);
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    return { daysInMonth, startingDayOfWeek, year, month };
+  const loadEvents = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    const orders = await orderService.getAllOrders(user.id);
+    const calendarEvents = orders.map((order: Order) => ({
+      id: order.id,
+      date: new Date(order.eventDate),
+      title: `Order #${order.order_number || order.id.substring(0, 6)}`,
+      status: order.status,
+      clientName: order.clientName,
+      venue: order.venue,
+      guestCount: order.guestCount,
+    }));
+    setEvents(calendarEvents);
+    setLoading(false);
   };
 
-  const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(currentDate);
-
-  const getQuotesForDate = (day: number) => {
-    const dateStr = new Date(year, month, day).toISOString().split("T")[0];
-    return quotes.filter(q => q.eventDate === dateStr);
+  const getStatusBadge = (status: Order["status"]) => {
+    const styles = {
+      pending: "bg-yellow-100 text-yellow-800",
+      confirmed: "bg-blue-100 text-blue-800",
+      preparing: "bg-purple-100 text-purple-800",
+      ready: "bg-indigo-100 text-indigo-800",
+      in_transit: "bg-cyan-100 text-cyan-800",
+      delivered: "bg-teal-100 text-teal-800",
+      completed: "bg-green-100 text-green-800",
+    };
+    return (
+      <Badge className={styles[status] || "bg-gray-100 text-gray-800"}>
+        {status.replace("_", " ").toUpperCase()}
+      </Badge>
+    );
   };
 
-  const goToPreviousMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+  const DayWithEvents = ({ date, ...props }: { date: Date; [key: string]: any }) => {
+    const dayEvents = events.filter(
+      (event) => format(event.date, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+    );
+
+    return (
+      <div
+        className="relative flex flex-col items-center justify-center h-full w-full"
+        {...props}
+      >
+        <span>{format(date, "d")}</span>
+        {dayEvents.length > 0 && (
+          <div className="absolute bottom-1 flex items-center justify-center space-x-1">
+            {dayEvents.slice(0, 3).map((event, index) => (
+              <div
+                key={index}
+                className={`h-1.5 w-1.5 rounded-full ${
+                  event.status === "completed"
+                    ? "bg-green-500"
+                    : "bg-blue-500"
+                }`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+  const handleDayClick = (day: Date) => {
+    const dayEvents = events.filter(
+      (event) => format(event.date, "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+    );
+    if (dayEvents.length === 1) {
+      setSelectedEvent(dayEvents[0]);
+    } else if (dayEvents.length > 1) {
+      // For simplicity, we open the first one. A better UX might be a popover listing them.
+      setSelectedEvent(dayEvents[0]);
+    }
   };
 
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const handleDateClick = (day: number) => {
-    const dateStr = new Date(year, month, day).toISOString().split("T")[0];
-    setSelectedDate(dateStr);
+  const handleViewOrder = () => {
+    if (selectedEvent) {
+      router.push(`/orders?orderId=${selectedEvent.id}`);
+    }
   };
-
-  const selectedDateQuotes = selectedDate 
-    ? quotes.filter(q => q.eventDate === selectedDate)
-    : [];
 
   return (
     <>
-      <NoIndexMeta />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <Link href="/">
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </Link>
-
-          <div className="mb-8">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg">
-                <CalendarIcon className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Event Calendar
-                </h1>
-                <p className="text-slate-600 mt-1">View and manage event bookings</p>
-              </div>
-            </div>
+      <Head>
+        <title>Events Calendar | CateringMS Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold">Events Calendar</h1>
+            <p className="text-muted-foreground">
+              A complete overview of all scheduled functions.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-2xl">
-                      {monthNames[month]} {year}
-                    </CardTitle>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={goToNextMonth}>
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-7 gap-2 mb-4">
-                    {dayNames.map((day) => (
-                      <div key={day} className="text-center font-semibold text-slate-600 text-sm py-2">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: startingDayOfWeek }).map((_, index) => (
-                      <div key={`empty-${index}`} className="aspect-square" />
-                    ))}
-
-                    {Array.from({ length: daysInMonth }).map((_, index) => {
-                      const day = index + 1;
-                      const dayQuotes = getQuotesForDate(day);
-                      const isToday = 
-                        new Date().getDate() === day &&
-                        new Date().getMonth() === month &&
-                        new Date().getFullYear() === year;
-                      const dateStr = new Date(year, month, day).toISOString().split("T")[0];
-                      const isSelected = selectedDate === dateStr;
-
-                      return (
-                        <button
-                          key={day}
-                          onClick={() => handleDateClick(day)}
-                          className={`aspect-square p-2 rounded-lg border transition-all hover:shadow-md ${
-                            isToday 
-                              ? "border-purple-500 bg-purple-50" 
-                              : isSelected
-                              ? "border-purple-600 bg-purple-100"
-                              : "border-slate-200 hover:border-slate-300"
-                          }`}
-                        >
-                          <div className="flex flex-col h-full">
-                            <span className={`text-sm font-medium ${
-                              isToday ? "text-purple-600" : "text-slate-900"
-                            }`}>
-                              {day}
-                            </span>
-                            {dayQuotes.length > 0 && (
-                              <div className="mt-1 space-y-1">
-                                {dayQuotes.slice(0, 2).map((quote, idx) => (
-                                  <div
-                                    key={idx}
-                                    className={`text-xs px-1 py-0.5 rounded truncate ${
-                                      quote.status === "accepted"
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-blue-100 text-blue-700"
-                                    }`}
-                                  >
-                                    {quote.clientName}
-                                  </div>
-                                ))}
-                                {dayQuotes.length > 2 && (
-                                  <div className="text-xs text-slate-500">
-                                    +{dayQuotes.length - 2} more
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {selectedDate 
-                      ? `Events on ${new Date(selectedDate).toLocaleDateString("en-US", { 
-                          month: "long", 
-                          day: "numeric", 
-                          year: "numeric" 
-                        })}`
-                      : "Select a date"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedDate ? (
-                    selectedDateQuotes.length > 0 ? (
-                      <div className="space-y-4">
-                        {selectedDateQuotes.map((quote) => (
-                          <div key={quote.id} className="p-4 border rounded-lg bg-slate-50">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="font-semibold text-slate-900">{quote.clientName}</h4>
-                              <Badge className={
-                                quote.status === "accepted"
-                                  ? "bg-green-100 text-green-700 border-green-200"
-                                  : "bg-blue-100 text-blue-700 border-blue-200"
-                              }>
-                                {quote.status}
-                              </Badge>
-                            </div>
-                            <div className="space-y-2 text-sm text-slate-600">
-                              <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4" />
-                                <span>{quote.guestCount} guests</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4" />
-                                <span className="font-medium text-green-600">
-                                  ${quote.total.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                <span>{quote.eventType}</span>
-                              </div>
-                            </div>
-                            <Link href={`/quotes/${quote.id}`}>
-                              <Button variant="outline" size="sm" className="w-full mt-3">
-                                View Details
-                              </Button>
-                            </Link>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-slate-500">
-                        <CalendarIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                        <p>No events scheduled</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-center py-8 text-slate-500">
-                      <CalendarIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                      <p>Click a date to view events</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
-                <CardHeader>
-                  <CardTitle className="text-lg">Legend</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-green-100 border border-green-200" />
-                    <span className="text-sm text-slate-700">Confirmed Booking</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-blue-100 border border-blue-200" />
-                    <span className="text-sm text-slate-700">Pending Quote</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded border-2 border-purple-500" />
-                    <span className="text-sm text-slate-700">Today</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-        
+          <Card>
+            <CardContent className="p-2 md:p-6">
+              {loading ? (
+                <div className="flex justify-center items-center h-96">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Calendar
+                  mode="single"
+                  onDayClick={handleDayClick}
+                  className="p-0"
+                  components={{
+                    Day: DayWithEvents,
+                  }}
+                  classNames={{
+                    day: "h-16 w-16 md:h-20 md:w-20 lg:h-24 lg:w-24 relative text-lg",
+                    day_selected: "bg-primary text-primary-foreground",
+                  }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </main>
         <Footer />
       </div>
+
+      <Dialog
+        open={!!selectedEvent}
+        onOpenChange={() => setSelectedEvent(null)}
+      >
+        <DialogContent>
+          {selectedEvent && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>{selectedEvent.title}</span>
+                  {getStatusBadge(selectedEvent.status)}
+                </DialogTitle>
+                <DialogDescription>
+                  {format(selectedEvent.date, "EEEE, MMMM dd, yyyy")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Client</p>
+                    <p className="font-medium">{selectedEvent.clientName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Venue</p>
+                    <p className="font-medium">{selectedEvent.venue}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Package className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Guest Count
+                    </p>
+                    <p className="font-medium">
+                      {selectedEvent.guestCount} guests
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <Button onClick={handleViewOrder} className="w-full">
+                View Full Order Details
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

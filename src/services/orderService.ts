@@ -375,6 +375,23 @@ export const orderService = {
   },
 
   /**
+   * Get all orders for the calendar view
+   */
+  async getAllOrders(userId: string): Promise<Order[]> {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", userId)
+      .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"]);
+
+    if (error) {
+      console.error("Error fetching all orders:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  /**
    * Get orders by date range
    */
   async getOrdersByDateRange(userId: string, startDate: string, endDate: string): Promise<Order[]> {

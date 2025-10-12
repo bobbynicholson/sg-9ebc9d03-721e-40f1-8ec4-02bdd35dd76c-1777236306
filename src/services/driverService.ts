@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { Order } from "@/types";
 
 export type DriverAssignment = Tables<"driver_assignments">;
 export type GPSTracking = Tables<"gps_tracking">;
@@ -299,23 +300,32 @@ export const driverService = {
    * Get available jobs for driver to accept
    * Shows orders ready for delivery with waiter service info
    */
-  async getAvailableJobs(driverId: string, regionId?: string): Promise<any[]> {
+  async getAvailableJobs(driverId: string, regionId?: string): Promise<Order[]> {
     let query = supabase
       .from("orders")
-      .select(`
-        *,
-        driver_assignments!driver_assignments_order_id_fkey (
-          id,
-          status,
-          driver_id
-        )
-      `)
+      .select(`*`)
       .eq("status", "confirmed")
-      .eq("balance_paid", true)
-      .is("driver_assignments.driver_id", null);
+      .eq("balance_paid", true);
 
     if (regionId) {
       query = query.eq("region_id", regionId);
+    }
+    
+    // Check for orders that don't have an accepted driver assignment yet
+    const { data: assignedOrders, error: assignedError } = await supabase
+      .from('driver_assignments')
+      .select('order_id')
+      .in('status', ['accepted', 'in_progress', 'heading_to_kitchen', 'in_transit', 'arrived']);
+
+    if (assignedError) {
+      console.error("Error fetching assigned orders:", assignedError);
+      return [];
+    }
+
+    const assignedOrderIds = (assignedOrders || []).map(a => a.order_id).filter(Boolean);
+
+    if (assignedOrderIds.length > 0) {
+      query = query.not('id', 'in', `(${assignedOrderIds.join(',')})`);
     }
 
     const { data, error } = await query.order("event_date");
@@ -332,7 +342,7 @@ export const driverService = {
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,
       deliveryRate: (order as any).delivery_rate_per_km,
-    }));
+    })) as Order[];
   },
 
   /**
