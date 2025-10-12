@@ -136,8 +136,8 @@ export const mockOrders: Order[] = [
         pricePerPerson: 45,
         quantity: 150,
         ingredients: [
-          { id: "i5", name: "Maize Meal", quantity: 15, quantityNeeded: 15, unit: "kg", category: "staples" },
-          { id: "i6", name: "Tomato Sauce Mix", quantity: 8, quantityNeeded: 8, unit: "kg", category: "staples" },
+          { id: "i5", name: "Maize Meal", quantity: 15, quantityNeeded: 15, unit: "kg", category: "staple" },
+          { id: "i6", name: "Tomato Sauce Mix", quantity: 8, quantityNeeded: 8, unit: "kg", category: "staple" },
         ],
       },
       {
@@ -165,7 +165,7 @@ export const mockOrders: Order[] = [
       {
         id: "e2",
         name: "Serving Platters (Large)",
-        category: "serveware",
+        category: "serving",
         quantity: 12,
         available: 12,
         condition: "good",
@@ -182,7 +182,7 @@ export const mockOrders: Order[] = [
       },
     ],
     kitchenInstructions: "Prepare 3 hours before event. Meat must be marinated overnight. Ensure vegetarian options are clearly labeled.",
-    status: "in_transit",
+    status: "delivered",
     total: 56250,
     totalAmount: 56250,
     createdAt: new Date("2025-10-12T06:30:00").toISOString(),
@@ -381,7 +381,7 @@ export const mockDeliveries: Delivery[] = [
     pickupTime: "2025-10-15T10:00:00Z",
     deliveryTime: "2025-10-15T11:30:00Z",
     location: "123 Victoria Road, Green Point, Cape Town",
-    status: "in_transit",
+    status: "delivered",
     driverName: "James Wilson",
     driverId: "D001"
   },
@@ -411,7 +411,7 @@ export const mockDeliveries: Delivery[] = [
     pickupTime: "2025-10-14T16:00:00Z",
     deliveryTime: "2025-10-14T17:30:00Z",
     location: "Sable Road, Century City, Cape Town",
-    status: "assigned",
+    status: "booked",
     driverName: "Lisa Martinez",
     driverId: "D002"
   }

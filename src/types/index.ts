@@ -146,7 +146,9 @@ export interface Order {
   status: "pending" | "confirmed" | "in_preparation" | "preparing" | "ready" | "in_progress" | "delivered" | "completed";
   total: number;
   totalAmount?: number;
-  assignedDriver?: string;
+  assignedDriver?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
   deliveryTime?: string;
   createdAt: string;
 }
@@ -200,7 +202,8 @@ export interface DriverEarnings {
 export interface Delivery {
   id: string;
   orderId: string;
-  driverId?: string;
+  driverId?: string | null;
+  driverName?: string | null;
   pickupTime: string;
   deliveryTime: string;
   location: string;
