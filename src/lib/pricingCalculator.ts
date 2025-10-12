@@ -1,4 +1,3 @@
-
 import type { MarketRegion } from "./geoLocation";
 
 export interface PricingTier {
@@ -13,7 +12,7 @@ export interface PricingTier {
 
 /**
  * Base pricing in South African Rand (ZAR)
- * All other markets calculate from this base
+ * All other markets calculate from this base using the formula: (ZAR Price × 3) ÷ Exchange Rate
  */
 const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   starter: {
@@ -33,7 +32,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
     ],
     limits: {
       activeClients: 50,
-      ordersPerQuarter: 50,
+      ordersPerQuarter: 150,
     },
   },
   pro: {
@@ -54,7 +53,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
     ],
     limits: {
       activeClients: 200,
-      ordersPerQuarter: 200,
+      ordersPerQuarter: 600,
     },
   },
   enterprise: {
@@ -80,37 +79,45 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
 };
 
 /**
- * Regional pricing multipliers
- * US/UK pricing is 3x ZA base (200% markup as requested)
+ * Exchange rates for currency conversion
+ * Formula: (ZAR Price × 3) ÷ Exchange Rate = Foreign Currency Price
  */
-const REGIONAL_MULTIPLIERS: Record<MarketRegion, number> = {
-  za: 1.0,
-  us: 3.0,
-  uk: 3.0,
-  other: 1.0,
+const EXCHANGE_RATES = {
+  ZAR_TO_USD: 18.5,
+  ZAR_TO_GBP: 23.5,
+  ZAR_TO_EUR: 20.0,
 };
 
 /**
  * Currency symbols and formatting
  */
 const CURRENCY_CONFIG = {
-  ZAR: { symbol: "R", decimals: 2, position: "before" },
-  USD: { symbol: "$", decimals: 2, position: "before" },
-  GBP: { symbol: "£", decimals: 2, position: "before" },
+  ZAR: { symbol: "R", decimals: 0, position: "before" },
+  USD: { symbol: "$", decimals: 0, position: "before" },
+  GBP: { symbol: "£", decimals: 0, position: "before" },
+  EUR: { symbol: "€", decimals: 0, position: "before" },
 };
 
 /**
  * Get pricing for a specific market region
+ * Uses formula: (ZAR Price × 3) ÷ Exchange Rate
  */
 export function getRegionalPricing(region: MarketRegion): Record<string, PricingTier> {
-  const multiplier = REGIONAL_MULTIPLIERS[region];
-  
   const regionalPricing: Record<string, PricingTier> = {};
   
   for (const [key, tier] of Object.entries(BASE_PRICING_ZAR)) {
+    let regionalPrice = tier.basePrice;
+    
+    // Apply pricing formula for non-ZA regions
+    if (region === "us") {
+      regionalPrice = Math.round((tier.basePrice * 3) / EXCHANGE_RATES.ZAR_TO_USD);
+    } else if (region === "uk") {
+      regionalPrice = Math.round((tier.basePrice * 3) / EXCHANGE_RATES.ZAR_TO_GBP);
+    }
+    
     regionalPricing[key] = {
       ...tier,
-      basePrice: Math.round(tier.basePrice * multiplier),
+      basePrice: regionalPrice,
     };
   }
   
@@ -122,10 +129,11 @@ export function getRegionalPricing(region: MarketRegion): Record<string, Pricing
  */
 export function formatPrice(
   amount: number,
-  currency: "ZAR" | "USD" | "GBP"
+  currency: "ZAR" | "USD" | "GBP" | "EUR"
 ): string {
   const config = CURRENCY_CONFIG[currency];
-  const formatted = amount.toFixed(config.decimals);
+  const rounded = Math.round(amount);
+  const formatted = rounded.toLocaleString();
   
   if (config.position === "before") {
     return `${config.symbol}${formatted}`;
@@ -135,20 +143,21 @@ export function formatPrice(
 }
 
 /**
- * Convert ZAR price to other currencies (for reference only)
- * Note: These are approximate conversions for display purposes
+ * Convert ZAR price to other currencies using the formula: (ZAR Price × 3) ÷ Exchange Rate
  */
 export function convertCurrency(
   amountZAR: number,
   toCurrency: "USD" | "GBP" | "EUR"
 ): number {
+  const multipliedAmount = amountZAR * 3;
+  
   const rates = {
-    USD: 0.053, // 1 ZAR ≈ 0.053 USD
-    GBP: 0.043, // 1 ZAR ≈ 0.043 GBP
-    EUR: 0.049, // 1 ZAR ≈ 0.049 EUR
+    USD: EXCHANGE_RATES.ZAR_TO_USD,
+    GBP: EXCHANGE_RATES.ZAR_TO_GBP,
+    EUR: EXCHANGE_RATES.ZAR_TO_EUR,
   };
   
-  return Math.round(amountZAR * rates[toCurrency] * 100) / 100;
+  return Math.round(multipliedAmount / rates[toCurrency]);
 }
 
 /**
@@ -169,6 +178,7 @@ export function getAllPricingOptions(region: MarketRegion) {
       ZAR: formatPrice(BASE_PRICING_ZAR[key].basePrice, "ZAR"),
       USD: formatPrice(convertCurrency(BASE_PRICING_ZAR[key].basePrice, "USD"), "USD"),
       GBP: formatPrice(convertCurrency(BASE_PRICING_ZAR[key].basePrice, "GBP"), "GBP"),
+      EUR: formatPrice(convertCurrency(BASE_PRICING_ZAR[key].basePrice, "EUR"), "EUR"),
     },
   }));
 }
