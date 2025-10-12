@@ -1,22 +1,24 @@
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
-import { DemoModeProvider } from "@/contexts/DemoModeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DemoModeProvider } from "@/contexts/DemoModeContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
-import { Header } from "@/components/Header";
+import { Toaster } from "@/components/ui/toaster";
+import { GeoRedirectHandler } from "@/components/GeoRedirectHandler";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <ThemeProvider>
-      <BrandingProvider>
+      <AuthProvider>
         <DemoModeProvider>
-          <AuthProvider>
-            <Header />
+          <BrandingProvider>
+            <GeoRedirectHandler />
             <Component {...pageProps} />
-          </AuthProvider>
+            <Toaster />
+          </BrandingProvider>
         </DemoModeProvider>
-      </BrandingProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
