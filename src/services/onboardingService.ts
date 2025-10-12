@@ -184,6 +184,17 @@ export const onboardingService = {
     localStorage.setItem(`onboarding_${userId}`, JSON.stringify(progress));
   },
 
+  async initializeUserData(data: {
+    userId: string;
+    companyName: string;
+    email: string;
+    fullName: string;
+    currency: string;
+  }): Promise<void> {
+    // This function ensures the onboarding process is started for a new user.
+    await this.getOnboardingProgress(data.userId);
+  },
+
   parseCSV(csvText: string): Array<Record<string, string>> {
     const lines = csvText.split("\n").filter(line => line.trim());
     if (lines.length === 0) return [];
