@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useRouter } from "next/router";
+import { useState, useEffect } from "react";
+import { detectUserRegion, getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
+import { getAllPricingOptions, calculateAnnualSavings, formatPrice } from "@/lib/pricingCalculator";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -129,368 +130,283 @@ const formatCurrency = (amount: number | null, currency: string = "ZAR") => {
 };
 
 export default function PricingPage() {
-  const router = useRouter();
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
+  const [region, setRegion] = useState<MarketRegion>("za");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleSelectPlan = (planId: string) => {
-    if (planId === "enterprise") {
-      router.push("/contact?subject=Enterprise Plan Inquiry");
-    } else {
-      router.push(`/subscription/checkout?plan=${planId}&cycle=${billingCycle}`);
-    }
-  };
+  useEffect(() => {
+    const initRegion = async () => {
+      const pathRegion = getRegionFromPath(window.location.pathname);
+      setRegion(pathRegion);
+      setIsLoading(false);
+    };
+    
+    initRegion();
+  }, []);
 
-  const calculateSavings = (monthlyPrice: number, annualPrice: number) => {
-    const annualCostIfMonthly = monthlyPrice * 12;
-    const savings = annualCostIfMonthly - annualPrice;
-    const percentage = Math.round((savings / annualCostIfMonthly) * 100);
-    return { amount: savings, percentage };
-  };
+  const pricingOptions = getAllPricingOptions(region);
+  const currency = getRegionCurrency(region);
+  const currencyNote = region === "za" 
+    ? "All prices in South African Rand (ZAR)" 
+    : region === "us"
+    ? "All prices in US Dollars (USD)"
+    : "All prices in British Pounds (GBP)";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <TooltipProvider>
-      <Head>
-        <title>Pricing Plans - CateringMS | Simple & Transparent Pricing</title>
-        <meta name="description" content="Choose the perfect plan for your catering business. Starting at R399/month with 14-day free trial. Flexible limits based on active clients or orders per quarter." />
-        <meta name="keywords" content="catering software pricing, catering management cost, subscription plans, free trial, affordable catering software" />
-        <link rel="canonical" href="https://cateringms.com/pricing" />
-      </Head>
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
+      <Header />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-12 max-w-7xl">
-          {/* Currency Policy Alert Banner */}
-          <Alert className="mb-8 border-2 border-blue-200 bg-blue-50 dark:bg-blue-950">
-            <Info className="h-5 w-5 text-blue-600" />
-            <AlertTitle className="text-blue-900 dark:text-blue-100 font-bold">
-              Currency Policy Notice
-            </AlertTitle>
-            <AlertDescription className="text-blue-800 dark:text-blue-200 space-y-2">
-              <p>
-                <strong>All prices in ZAR.</strong> USD, GBP, and EUR shown for reference only. All payments processed in ZAR.
-              </p>
-              <p>
-                <strong>USD-Pegged Pricing:</strong> Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices if the exchange rate fluctuates by more than 15% over 90 days. You will receive 30 days advance notice of any changes.
-              </p>
-            </AlertDescription>
-          </Alert>
+      <main className="container mx-auto px-4 py-16">
+        {/* Regional Pricing Notice */}
+        <div className="text-center mb-8">
+          <Badge variant="outline" className="mb-4">
+            {region === "za" && "🇿🇦 South African Pricing"}
+            {region === "us" && "🇺🇸 United States Pricing"}
+            {region === "uk" && "🇬🇧 United Kingdom Pricing"}
+          </Badge>
+          <p className="text-sm text-gray-600">{currencyNote}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Base pricing is set in ZAR. International pricing reflects regional market rates.
+          </p>
+        </div>
 
-          <div className="text-center mb-12 space-y-6">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-4 py-1.5 text-sm">
-                <Sparkles className="w-3 h-3 mr-1.5" />
-                14-Day Free Trial on All Plans
-              </Badge>
-            </div>
-            
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-slate-900 via-purple-800 to-slate-900 bg-clip-text text-transparent leading-tight">
-              Simple, Transparent Pricing
-            </h1>
-            
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              Choose the plan that fits your catering business. Flexible limits that grow with you.
-            </p>
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            Simple, Transparent Pricing
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Choose the plan that fits your catering business. All plans include a 14-day free trial.
+          </p>
+        </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-4">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-slate-600">No credit card required</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <span className="text-sm text-slate-600">Cancel anytime</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-purple-600" />
-                <span className="text-sm text-slate-600">Setup in 5 minutes</span>
-              </div>
-            </div>
+        {/* Billing Toggle */}
+        <div className="flex justify-center items-center gap-4 mb-12">
+          <span className={billingCycle === "monthly" ? "font-semibold" : "text-gray-600"}>
+            Monthly
+          </span>
+          <button
+            onClick={() => setBillingCycle(billingCycle === "monthly" ? "annually" : "monthly")}
+            className="relative inline-flex h-6 w-11 items-center rounded-full bg-purple-600"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                billingCycle === "annually" ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className={billingCycle === "annually" ? "font-semibold" : "text-gray-600"}>
+            Annually
+            <Badge variant="outline" className="ml-2 bg-green-50">
+              Save 15%
+            </Badge>
+          </span>
+        </div>
 
-            <div className="flex justify-center pt-6">
-              <Tabs value={billingCycle} onValueChange={(value) => setBillingCycle(value as "monthly" | "annual")} className="w-auto">
-                <TabsList className="grid w-auto grid-cols-2 h-12 p-1">
-                  <TabsTrigger value="monthly" className="px-8 text-base">
-                    Monthly
-                  </TabsTrigger>
-                  <TabsTrigger value="annual" className="px-8 text-base relative">
-                    Annual
-                    <Badge className="ml-2 bg-green-500 text-white text-xs px-2 py-0.5">
-                      Save 17%
-                    </Badge>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </div>
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-16">
+          {pricingOptions.map((plan, index) => {
+            const annualSavings = calculateAnnualSavings(plan.basePrice);
+            const displayPrice = billingCycle === "annually" 
+              ? formatPrice(annualSavings.annualPrice / 12, currency)
+              : plan.displayPrice;
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            {PRICING_PLANS.map((plan) => {
-              const price = plan.monthlyPriceZAR ? (billingCycle === "monthly" ? plan.monthlyPriceZAR : plan.annualPriceZAR) : null;
-              const monthlyEquivalent = price && billingCycle === "annual" ? Math.round(price / 12) : plan.monthlyPriceZAR;
-              const savings = plan.monthlyPriceZAR && plan.annualPriceZAR && billingCycle === "annual" 
-                ? calculateSavings(plan.monthlyPriceZAR, plan.annualPriceZAR) 
-                : null;
-              
-              const currencies = monthlyEquivalent ? convertCurrency(monthlyEquivalent) : null;
-
-              return (
-                <Card 
-                  key={plan.id} 
-                  className={`relative border-2 transition-all duration-300 hover:shadow-2xl ${
-                    plan.recommended 
-                      ? "border-purple-500 shadow-xl scale-105" 
-                      : "border-slate-200 hover:border-purple-300"
-                  }`}
-                >
-                  {plan.recommended && (
-                    <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                      <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-6 py-1.5 text-sm font-semibold shadow-lg">
-                        <Star className="w-3 h-3 mr-1.5" />
-                        Most Popular
-                      </Badge>
-                    </div>
+            return (
+              <Card 
+                key={plan.id}
+                className={index === 1 ? "border-2 border-purple-600 relative" : ""}
+              >
+                {index === 1 && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-purple-600 text-white">Most Popular</Badge>
+                  </div>
+                )}
+                
+                <CardHeader>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">{displayPrice}</span>
+                    <span className="text-gray-600">/month</span>
+                  </div>
+                  {billingCycle === "annually" && (
+                    <p className="text-sm text-green-600 mt-2">
+                      Save {formatPrice(annualSavings.savings, currency)} per year
+                    </p>
                   )}
+                  <p className="text-sm text-gray-600 mt-2">
+                    Billed {billingCycle === "annually" ? "annually" : "monthly"}
+                  </p>
+                </CardHeader>
 
-                  <CardHeader className={plan.recommended ? "pt-8" : ""}>
-                    <CardTitle className="text-2xl font-bold">{plan.name}</CardTitle>
-                    <CardDescription className="text-base">
-                      {plan.id === "starter" && "Perfect for small catering businesses starting out"}
-                      {plan.id === "professional" && "Ideal for growing operations with multiple events"}
-                      {plan.id === "enterprise" && "Built for large-scale catering enterprises"}
-                    </CardDescription>
-                    
-                    <div className="pt-6 space-y-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-bold">
-                          {currencies ? formatCurrency(currencies.zar, "ZAR") : "Custom"}
-                        </span>
-                        {currencies && <span className="text-slate-600 text-lg">/month</span>}
-                      </div>
-                      
-                      {currencies && (
-                        <div className="space-y-1">
-                          <p className="text-xs text-slate-500">
-                            ≈ {formatCurrency(currencies.usd, "USD")} | {formatCurrency(currencies.gbp, "GBP")} | {formatCurrency(currencies.eur, "EUR")}
-                          </p>
-                          {billingCycle === "annual" && price && (
-                            <>
-                              <p className="text-sm text-slate-600">
-                                Billed annually at {formatCurrency(price, "ZAR")}
-                              </p>
-                              {savings && (
-                                <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
-                                  <TrendingUp className="w-4 h-4" />
-                                  <span>Save {formatCurrency(savings.amount, "ZAR")} ({savings.percentage}%)</span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {plan.id !== "enterprise" && (
-                        <div className="flex items-center gap-1 pt-2">
-                          <span className="text-sm font-medium text-slate-700">
-                            {plan.limits.activeClients} active clients OR {plan.limits.ordersPerQuarter} orders/quarter
-                          </span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="w-4 h-4 text-slate-400 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="font-semibold mb-2">Whichever Comes First</p>
-                              <p className="text-sm mb-2">Your plan limit is based on whichever metric you reach first.</p>
-                              <p className="text-sm mb-2"><strong>Active Clients:</strong> Clients who placed at least one order in the last 90 days. Importing existing clients does not count until they place new orders.</p>
-                              <p className="text-sm"><strong>Orders per Quarter:</strong> Total orders in a 3-month period (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec). This smooths seasonal fluctuations.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      )}
+                <CardContent>
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Active Clients</span>
+                      <span className="font-semibold">
+                        {plan.limits.activeClients === 999999 ? "Unlimited" : `Up to ${plan.limits.activeClients}`}
+                      </span>
                     </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-6">
-                    <Button 
-                      onClick={() => handleSelectPlan(plan.id)}
-                      className={`w-full h-12 text-base font-semibold ${
-                        plan.recommended
-                          ? "bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
-                          : "bg-slate-900 hover:bg-slate-800"
-                      }`}
-                    >
-                      {plan.id === "enterprise" ? "Contact Sales" : "Start Free Trial"}
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-
-                    <div className="space-y-3 pt-2">
-                      <p className="text-sm font-semibold text-slate-900">Everything in {plan.name}:</p>
-                      {plan.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                          <span className="text-sm text-slate-700 leading-relaxed">{feature}</span>
-                        </div>
-                      ))}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Orders per Quarter</span>
+                      <span className="font-semibold">
+                        {plan.limits.ordersPerQuarter === 999999 ? "Unlimited" : `Up to ${plan.limits.ordersPerQuarter}`}
+                      </span>
                     </div>
-                  </CardContent>
-
-                  <CardFooter className="flex justify-center border-t pt-6">
-                    <Link href="/features">
-                      <Button variant="ghost" className="text-purple-600 hover:text-purple-700">
-                        View all features
-                        <ChevronRight className="w-4 h-4 ml-1" />
-                      </Button>
-                    </Link>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
-
-          <div className="bg-slate-50 rounded-2xl p-8 mb-12 border border-slate-200">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg text-slate-900">Important Pricing Information</h3>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 font-bold">•</span>
-                    <span><strong>Currency Display:</strong> Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate conversions for reference only. All payments are processed in ZAR.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 font-bold">•</span>
-                    <span><strong>USD-Pegged Pricing:</strong> Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices to maintain USD equivalency if significant currency fluctuations occur (exceeding 15% over 90 days). You will receive 30 days advance notice of any price changes.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-purple-600 font-bold">•</span>
-                    <span><strong>Database Storage:</strong> All plans include unlimited client database storage. You only pay for active clients (those who ordered in the last 90 days) or total orders per quarter, whichever limit you reach first.</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-12 mb-16">
-            <div className="max-w-4xl mx-auto text-center space-y-6">
-              <h2 className="text-3xl font-bold text-slate-900">Why Catering Businesses Choose CateringMS</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6">
-                <div className="space-y-3">
-                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto">
-                    <TrendingUp className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">Estimated Cost Savings</h3>
-                  <p className="text-sm text-slate-600">
-                    Potential to save R10,000-12,000/month through automation and efficiency gains (based on industry data)
-                  </p>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto">
-                    <Clock className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-lg">30-40 Hours Saved</h3>
-                  <p className="text-sm text-slate-600">
-                    Estimated time savings from eliminating manual admin work every month
-                  </p>
-                </div>
+                  <Separator className="my-6" />
 
-                <div className="space-y-3">
-                  <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-semibold text-lg">12-15% More Bookings</h3>
-                  <p className="text-sm text-slate-600">
-                    Estimated increase from automated follow-ups and professional quotes
-                  </p>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 pt-4">
-                * Estimated figures based on industry knowledge and average catering business operations. Actual results may vary.
-              </p>
-            </div>
-          </div>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex items-start gap-2">
+                        <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-          <div className="bg-white rounded-2xl shadow-lg p-12 mb-16">
-            <h2 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h2>
-            
-            <div className="max-w-3xl mx-auto space-y-6">
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">How does the "whichever comes first" limit work?</h3>
-                <p className="text-slate-600">
-                  Your plan limit is based on whichever metric you reach first. For example, if you are on the Starter plan and have 45 active clients but 160 orders in the quarter, you would need to upgrade to Professional because you exceeded the 150 orders/quarter limit (even though you are under the 50 active clients limit).
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">What counts as an "active client"?</h3>
-                <p className="text-slate-600">
-                  An active client is someone who has placed at least one order in the last 90 days. If you import 3,000 existing clients into the system, they do not count toward your limit until they place new orders through the platform.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Why quarterly orders instead of monthly?</h3>
-                <p className="text-slate-600">
-                  Quarterly limits smooth out seasonal fluctuations in the catering business. You might have 200 orders in December but only 30 in February. Quarterly billing prevents your plan from bouncing between tiers every month.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">How does the free trial work?</h3>
-                <p className="text-slate-600">
-                  Start your 14-day free trial with full access to all features in your chosen plan. No credit card required to start. You will only be charged after your trial ends if you decide to continue.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Can I change plans later?</h3>
-                <p className="text-slate-600">
-                  Absolutely! You can upgrade or downgrade your plan at any time. If you upgrade, the change is immediate. If you downgrade, the change takes effect at the end of your current billing cycle.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">What happens if I exceed my plan limits?</h3>
-                <p className="text-slate-600">
-                  We will notify you when you approach your limits. You can upgrade to the next tier at any time. We will never shut off your access without notice.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-12 text-center text-white">
-            <div className="max-w-3xl mx-auto space-y-6">
-              <Zap className="w-16 h-16 mx-auto" />
-              <h2 className="text-4xl font-bold">Ready to Transform Your Catering Business?</h2>
-              <p className="text-xl text-purple-100">
-                Join catering companies saving time, reducing costs, and growing their business with CateringMS.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Button 
-                  size="lg"
-                  onClick={() => handleSelectPlan("professional")}
-                  className="bg-white text-purple-600 hover:bg-slate-100 h-14 px-8 text-lg font-semibold"
-                >
-                  Start Your Free Trial
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Link href="/features">
                   <Button 
+                    className="w-full mt-6"
+                    variant={index === 1 ? "default" : "outline"}
                     size="lg"
-                    variant="outline"
-                    className="border-2 border-white text-white hover:bg-white/10 h-14 px-8 text-lg font-semibold"
+                    asChild
                   >
-                    Explore Features
+                    <Link href="/auth/register">
+                      Start Free Trial
+                    </Link>
                   </Button>
-                </Link>
-              </div>
-              <p className="text-sm text-purple-200 pt-4">
-                <Users className="w-4 h-4 inline mr-1" />
-                Trusted by growing catering businesses across South Africa
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Pricing Notes */}
+        <Card className="max-w-4xl mx-auto mb-16">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Info className="w-5 h-5" />
+              Pricing Policy
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-gray-700">
+            <div>
+              <h3 className="font-semibold mb-2">Currency Display</h3>
+              <p>Prices shown in {currency}. All payments are processed in ZAR (South African Rand). {region !== "za" && "USD, GBP, and EUR are approximate conversions for reference only."}</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">USD-Pegged Pricing</h3>
+              <p>Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices to maintain USD equivalency if significant currency fluctuations occur (exceeding 15% over 90 days). You will receive 30 days advance notice of any price changes.</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Billing Limits</h3>
+              <p>Pricing is based on whichever limit is reached first: Active Clients OR Orders per Quarter. For example, Starter plan includes up to 50 active clients OR up to 50 orders per quarter.</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Free Trial</h3>
+              <p>All plans include a 14-day free trial. No credit card required to start. Cancel anytime during the trial period with no charges.</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Contact Information</h3>
+              <p>
+                All support and billing inquiries are handled from our South African office:
+                <br />
+                <strong>CateringMS</strong> (A product of Skylight Digital)
+                <br />
+                17 Swalle Street, Golden Acre, South Africa
+                <br />
+                Tel: 083 652 5755
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* FAQ Section */}
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-8">Frequently Asked Questions</h2>
+          
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">What happens if I exceed my plan limits?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700">
+                  You'll receive a notification when approaching your limits. You can easily upgrade to the next tier at any time. Your new plan will be prorated based on your current billing cycle.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Can I cancel my subscription anytime?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700">
+                  Yes! You can cancel your subscription at any time from your account settings. Your access will continue until the end of your current billing period. No refunds for partial months.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Do you offer discounts for annual billing?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700">
+                  Yes! Save 15% by paying annually instead of monthly. Annual subscriptions also receive priority support and early access to new features.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">What payment methods do you accept?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700">
+                  We accept all major credit cards (Visa, Mastercard) via PayFast, Stripe, and other secure payment processors. All transactions are processed in ZAR.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
-    </TooltipProvider>
+
+        {/* CTA Section */}
+        <div className="text-center mt-16 py-16 bg-purple-50 rounded-2xl">
+          <h2 className="text-3xl font-bold mb-4">Ready to Transform Your Catering Business?</h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Join hundreds of catering companies already using CateringMS to streamline operations and boost profitability.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Button size="lg" asChild>
+              <Link href="/auth/register">
+                Start Free Trial
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/contact">
+                Contact Sales
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </main>
+
+      <Footer />
+    </div>
   );
 }
