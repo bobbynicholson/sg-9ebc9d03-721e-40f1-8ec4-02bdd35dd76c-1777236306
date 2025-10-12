@@ -109,77 +109,77 @@ export default function PricingManagementPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50">
       <Header />
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
-              <DollarSign className="w-6 h-6 text-white" />
+      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+        {/* Mobile-Optimized Page Header */}
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl w-fit">
+              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
                 CateringMS Package Prices (ADMIN)
               </h1>
-              <p className="text-slate-600 mt-1">
+              <p className="text-sm sm:text-base text-slate-600 mt-1">
                 Manage pricing for South Africa, United States, and United Kingdom markets
               </p>
             </div>
           </div>
         </div>
 
-        {/* Info Alert */}
-        <Alert className="mb-8 border-purple-200 bg-purple-50">
-          <Info className="h-5 w-5 text-purple-600" />
+        {/* Mobile-Optimized Info Alert */}
+        <Alert className="mb-6 sm:mb-8 border-purple-200 bg-purple-50">
+          <Info className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0 mt-0.5" />
           <AlertDescription className="text-slate-700">
-            <p className="font-semibold mb-2">How Pricing Updates Work:</p>
-            <ul className="space-y-1 text-sm">
+            <p className="font-semibold mb-2 text-sm sm:text-base">How Pricing Updates Work:</p>
+            <ul className="space-y-1.5 text-xs sm:text-sm">
               <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5">•</span>
+                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
                 <span><strong>Change ZAR pricing</strong> and foreign currencies auto-calculate using the formula below</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5">•</span>
+                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
                 <span><strong>Manual adjustments</strong> are allowed for USD, GBP, and EUR if needed</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-purple-600 mt-0.5">•</span>
+                <span className="text-purple-600 mt-0.5 flex-shrink-0">•</span>
                 <span><strong>Click Save</strong> to update pricing on all front-end pages (SA, US, UK sites)</span>
               </li>
             </ul>
           </AlertDescription>
         </Alert>
 
-        {/* Formula Card */}
-        <Card className="mb-8 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-          <CardHeader>
+        {/* Mobile-Optimized Formula Card */}
+        <Card className="mb-6 sm:mb-8 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+          <CardHeader className="pb-3 sm:pb-6">
             <div className="flex items-center gap-2">
-              <Calculator className="w-5 h-5 text-purple-600" />
-              <CardTitle className="text-lg">Pricing Conversion Formula</CardTitle>
+              <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
+              <CardTitle className="text-base sm:text-lg">Pricing Conversion Formula</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               This formula ensures consistent international pricing based on ZAR
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <p className="text-xl font-mono font-bold text-purple-900 mb-4">
+            <div className="bg-white rounded-lg p-3 sm:p-4 border border-purple-200">
+              <p className="text-sm sm:text-xl font-mono font-bold text-purple-900 mb-3 sm:mb-4 break-words">
                 {PRICING_FORMULA}
               </p>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
                     USD
                   </Badge>
                   <span className="text-slate-600">÷ {EXCHANGE_RATES.USD}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
                     GBP
                   </Badge>
                   <span className="text-slate-600">÷ {EXCHANGE_RATES.GBP}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
                     EUR
                   </Badge>
                   <span className="text-slate-600">÷ {EXCHANGE_RATES.EUR}</span>
@@ -189,25 +189,25 @@ export default function PricingManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Success Alert */}
+        {/* Mobile-Optimized Success Alert */}
         {saveSuccess && (
-          <Alert className="mb-6 border-green-200 bg-green-50">
-            <Check className="h-5 w-5 text-green-600" />
-            <AlertDescription className="text-green-800 font-medium">
+          <Alert className="mb-4 sm:mb-6 border-green-200 bg-green-50">
+            <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+            <AlertDescription className="text-green-800 font-medium text-xs sm:text-sm">
               Pricing updated successfully! Changes are now live on all front-end pages.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Pricing Cards */}
-        <div className="grid gap-6 mb-8">
+        {/* Mobile-Optimized Pricing Cards */}
+        <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8">
           {editedPricing.map((tier, index) => (
             <Card key={tier.name} className="border-2 hover:border-purple-200 transition-colors">
-              <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50">
-                <div className="flex items-center justify-between">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-2xl">{tier.name} Plan</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-xl sm:text-2xl">{tier.name} Plan</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
                       Monthly subscription pricing across all markets
                     </CardDescription>
                   </div>
@@ -215,27 +215,27 @@ export default function PricingManagementPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleAutoCalculate(index)}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto h-10 text-sm"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Auto-Calculate
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {/* South Africa ZAR */}
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {/* South Africa ZAR - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white">
+                      <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs">
                         🇿🇦 South Africa
                       </Badge>
                     </div>
-                    <Label htmlFor={`zar-${index}`} className="text-sm font-semibold">
+                    <Label htmlFor={`zar-${index}`} className="text-xs sm:text-sm font-semibold">
                       ZAR Price (Primary)
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
                         R
                       </span>
                       <Input
@@ -243,7 +243,7 @@ export default function PricingManagementPage() {
                         type="number"
                         value={tier.zarPrice}
                         onChange={(e) => handleZARChange(index, e.target.value)}
-                        className="pl-8 text-lg font-bold border-2 border-green-200 focus:border-green-400"
+                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-green-200 focus:border-green-400 h-12"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
@@ -251,18 +251,18 @@ export default function PricingManagementPage() {
                     </p>
                   </div>
 
-                  {/* United States USD */}
+                  {/* United States USD - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+                      <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs">
                         🇺🇸 United States
                       </Badge>
                     </div>
-                    <Label htmlFor={`usd-${index}`} className="text-sm font-semibold">
+                    <Label htmlFor={`usd-${index}`} className="text-xs sm:text-sm font-semibold">
                       USD Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
                         $
                       </span>
                       <Input
@@ -270,26 +270,26 @@ export default function PricingManagementPage() {
                         type="number"
                         value={tier.usdPrice}
                         onChange={(e) => handleForeignPriceChange(index, "usdPrice", e.target.value)}
-                        className="pl-8 text-lg font-bold border-2 border-blue-200 focus:border-blue-400"
+                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-blue-200 focus:border-blue-400 h-12"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 break-words">
                       Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)}
                     </p>
                   </div>
 
-                  {/* United Kingdom GBP */}
+                  {/* United Kingdom GBP - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white">
+                      <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs">
                         🇬🇧 United Kingdom
                       </Badge>
                     </div>
-                    <Label htmlFor={`gbp-${index}`} className="text-sm font-semibold">
+                    <Label htmlFor={`gbp-${index}`} className="text-xs sm:text-sm font-semibold">
                       GBP Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
                         £
                       </span>
                       <Input
@@ -297,26 +297,26 @@ export default function PricingManagementPage() {
                         type="number"
                         value={tier.gbpPrice}
                         onChange={(e) => handleForeignPriceChange(index, "gbpPrice", e.target.value)}
-                        className="pl-8 text-lg font-bold border-2 border-red-200 focus:border-red-400"
+                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-red-200 focus:border-red-400 h-12"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 break-words">
                       Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)}
                     </p>
                   </div>
 
-                  {/* Europe EUR */}
+                  {/* Europe EUR - Mobile Optimized */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+                      <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs">
                         🇪🇺 Europe
                       </Badge>
                     </div>
-                    <Label htmlFor={`eur-${index}`} className="text-sm font-semibold">
+                    <Label htmlFor={`eur-${index}`} className="text-xs sm:text-sm font-semibold">
                       EUR Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
                         €
                       </span>
                       <Input
@@ -324,10 +324,10 @@ export default function PricingManagementPage() {
                         type="number"
                         value={tier.eurPrice}
                         onChange={(e) => handleForeignPriceChange(index, "eurPrice", e.target.value)}
-                        className="pl-8 text-lg font-bold border-2 border-purple-200 focus:border-purple-400"
+                        className="pl-7 sm:pl-8 text-base sm:text-lg font-bold border-2 border-purple-200 focus:border-purple-400 h-12"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1 break-words">
                       Auto: R{tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)}
                     </p>
                   </div>
@@ -337,28 +337,28 @@ export default function PricingManagementPage() {
           ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between p-6 bg-white rounded-xl border-2 border-slate-200 sticky bottom-4 shadow-lg">
-          <div className="flex items-center gap-3">
+        {/* Mobile-Optimized Action Buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 bg-white rounded-xl border-2 border-slate-200 sticky bottom-4 shadow-lg">
+          <div className="flex items-center gap-3 justify-center sm:justify-start">
             {hasChanges ? (
               <div className="flex items-center gap-2 text-orange-600">
-                <AlertCircle className="w-5 h-5" />
-                <span className="font-medium">You have unsaved changes</span>
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                <span className="font-medium text-sm sm:text-base">You have unsaved changes</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-green-600">
-                <Check className="w-5 h-5" />
-                <span className="font-medium">All changes saved</span>
+                <Check className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                <span className="font-medium text-sm sm:text-base">All changes saved</span>
               </div>
             )}
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <Button
               variant="outline"
               onClick={handleReset}
               disabled={!hasChanges}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base"
             >
               <RefreshCw className="w-4 h-4" />
               Reset Changes
@@ -366,7 +366,7 @@ export default function PricingManagementPage() {
             <Button
               onClick={handleSave}
               disabled={!hasChanges}
-              className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+              className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
             >
               <Save className="w-4 h-4" />
               Save & Update Live Pricing
@@ -374,29 +374,29 @@ export default function PricingManagementPage() {
           </div>
         </div>
 
-        {/* Info Box */}
-        <Card className="mt-8 border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex gap-4">
-              <Globe className="w-12 h-12 text-blue-600 flex-shrink-0" />
+        {/* Mobile-Optimized Info Box */}
+        <Card className="mt-6 sm:mt-8 border-blue-200 bg-blue-50">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Globe className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 flex-shrink-0" />
               <div className="space-y-2">
-                <h3 className="font-bold text-lg text-slate-900">
+                <h3 className="font-bold text-base sm:text-lg text-slate-900">
                   Multi-Region Pricing Impact
                 </h3>
-                <p className="text-slate-700 text-sm">
+                <p className="text-slate-700 text-xs sm:text-sm">
                   When you save pricing changes, they automatically update across all market-specific pages:
                 </p>
-                <ul className="space-y-1 text-sm text-slate-600">
+                <ul className="space-y-1.5 text-xs sm:text-sm text-slate-600">
                   <li className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-600" />
+                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
                     <span><strong>/pricing</strong> (South African site - ZAR pricing)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
+                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
                     <span><strong>/us/pricing</strong> (United States site - USD pricing)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-red-600" />
+                    <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-red-600 flex-shrink-0" />
                     <span><strong>/uk/pricing</strong> (United Kingdom site - GBP pricing)</span>
                   </li>
                 </ul>
