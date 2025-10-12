@@ -5,7 +5,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
-import Footer from "@/components/Footer";
+import { Footer } from "@/components/Footer";
 
 interface PageProps {
   page: Page;
