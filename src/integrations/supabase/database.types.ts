@@ -125,6 +125,48 @@ export type Database = {
           },
         ]
       }
+      automation_rules: {
+        Row: {
+          body: string
+          created_at: string | null
+          delay_days: number
+          enabled: boolean
+          id: string
+          name: string
+          rule_id: string
+          subject: string
+          trigger: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          delay_days?: number
+          enabled?: boolean
+          id?: string
+          name: string
+          rule_id: string
+          subject: string
+          trigger: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          delay_days?: number
+          enabled?: boolean
+          id?: string
+          name?: string
+          rule_id?: string
+          subject?: string
+          trigger?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       complaints: {
         Row: {
           assigned_to: string | null
@@ -371,6 +413,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_settings: {
+        Row: {
+          created_at: string | null
+          enabled: boolean
+          from_email: string | null
+          from_name: string | null
+          id: string
+          provider: string
+          smtp_host: string | null
+          smtp_password: string | null
+          smtp_port: string | null
+          smtp_user: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          provider?: string
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: string | null
+          smtp_user?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          provider?: string
+          smtp_host?: string | null
+          smtp_password?: string | null
+          smtp_port?: string | null
+          smtp_user?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       email_templates: {
         Row: {

@@ -1,9 +1,12 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type AfterSalesEmail = Database["public"]["Tables"]["after_sales_emails"]["Row"];
 type EmailTemplate = Database["public"]["Tables"]["email_templates"]["Row"];
 type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
+type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
+type AutomationRulesRow = Database["public"]["Tables"]["automation_rules"]["Row"];
 
 interface EmailConfig {
   provider: string;
@@ -68,7 +71,18 @@ export const emailAutomationService = {
       return null;
     }
 
-    return data as EmailConfig;
+    if (!data) return null;
+
+    return {
+      provider: data.provider,
+      smtpHost: data.smtp_host || "",
+      smtpPort: data.smtp_port || "587",
+      smtpUser: data.smtp_user || "",
+      smtpPassword: data.smtp_password || "",
+      fromEmail: data.from_email || "",
+      fromName: data.from_name || "",
+      enabled: data.enabled
+    };
   },
 
   async saveEmailConfig(userId: string, config: EmailConfig): Promise<void> {
@@ -79,7 +93,14 @@ export const emailAutomationService = {
       .upsert([
         {
           user_id: userId,
-          ...config,
+          provider: config.provider,
+          smtp_host: config.smtpHost,
+          smtp_port: config.smtpPort,
+          smtp_user: config.smtpUser,
+          smtp_password: config.smtpPassword,
+          from_email: config.fromEmail,
+          from_name: config.fromName,
+          enabled: config.enabled,
           updated_at: new Date().toISOString()
         }
       ]);
@@ -107,7 +128,15 @@ export const emailAutomationService = {
       return [];
     }
 
-    return data as AutomationRule[];
+    return (data || []).map((row: AutomationRulesRow) => ({
+      id: row.rule_id,
+      name: row.name,
+      trigger: row.trigger,
+      delayDays: row.delay_days,
+      enabled: row.enabled,
+      subject: row.subject,
+      body: row.body
+    }));
   },
 
   async saveAutomationRule(userId: string, rule: AutomationRule): Promise<void> {
@@ -307,7 +336,12 @@ export const emailAutomationService = {
     status: string,
     errorMessage?: string
   ): Promise<AfterSalesEmail | null> {
-    const updates: Partial<AfterSalesEmail> = {
+    const updates: {
+      status: string;
+      updated_at: string;
+      sent_at?: string;
+      error_message?: string;
+    } = {
       status,
       updated_at: new Date().toISOString()
     };
@@ -349,8 +383,8 @@ export const emailAutomationService = {
       .insert([
         {
           user_id: userId,
-          order_id: orderId,
-          quote_id: quoteId,
+          order_id: orderId || null,
+          quote_id: quoteId || null,
           template_type: templateType,
           recipient_email: recipientEmail,
           recipient_name: recipientName,
