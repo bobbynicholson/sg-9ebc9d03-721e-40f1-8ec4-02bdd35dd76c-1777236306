@@ -101,6 +101,7 @@ export default function AfterSalesEmailsPage() {
   return (
     <>
       <Head>
+        <meta name="robots" content="noindex, nofollow" />
         <title>After-Sales Email Automation | Catering Platform</title>
       </Head>
 

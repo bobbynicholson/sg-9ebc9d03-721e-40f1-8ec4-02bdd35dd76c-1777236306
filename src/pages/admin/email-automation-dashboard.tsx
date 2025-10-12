@@ -100,6 +100,7 @@ export default function EmailAutomationDashboard() {
   return (
     <>
       <Head>
+        <meta name="robots" content="noindex, nofollow" />
         <title>Email Automation Dashboard | Catering Platform</title>
       </Head>
 
