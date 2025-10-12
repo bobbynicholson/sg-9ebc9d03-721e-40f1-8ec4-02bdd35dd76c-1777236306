@@ -1,5 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import type { BlogPost, Page } from "@/types/cms";
+import type { BlogPost, Page, CMSPage } from "@/types/cms";
 
 export const cmsService = {
   async getAllBlogPosts(publishedOnly: boolean = true): Promise<BlogPost[]> {
@@ -101,22 +102,6 @@ export const cmsService = {
     return data as Page;
   },
 
-  async updatePage(id: string, updates: Partial<Page>): Promise<Page> {
-    const { data, error } = await supabase
-      .from("cms_pages")
-      .update({ ...updates, last_updated: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating page:", error);
-      throw error;
-    }
-
-    return data as Page;
-  },
-
   async getAllPages(publishedOnly: boolean = true): Promise<Page[]> {
     let query = supabase
       .from("cms_pages")
@@ -137,18 +122,22 @@ export const cmsService = {
     return data as Page[];
   },
 
-  async createPage(page: Omit<CMSPage, "id" | "created_at" | "last_updated">) {
+  async createPage(page: Omit<CMSPage, "id" | "created_at" | "last_updated">): Promise<CMSPage> {
     const { data, error } = await supabase
       .from("cms_pages")
       .insert([page])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error creating page:", error);
+      throw error;
+    }
+
     return data as CMSPage;
   },
 
-  async updatePage(id: string, updates: Partial<CMSPage>) {
+  async updatePage(id: string, updates: Partial<CMSPage>): Promise<CMSPage> {
     const { data, error } = await supabase
       .from("cms_pages")
       .update({ ...updates, last_updated: new Date().toISOString() })
@@ -156,17 +145,25 @@ export const cmsService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error updating page:", error);
+      throw error;
+    }
+
     return data as CMSPage;
   },
 
-  async deletePage(id: string) {
+  async deletePage(id: string): Promise<boolean> {
     const { error } = await supabase
       .from("cms_pages")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error deleting page:", error);
+      throw error;
+    }
+
     return true;
   }
 };

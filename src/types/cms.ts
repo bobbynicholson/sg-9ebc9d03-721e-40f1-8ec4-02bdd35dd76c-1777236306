@@ -25,6 +25,7 @@ export interface Page {
   meta_description?: string;
   is_published: boolean;
   last_updated: string;
+  created_at: string;
 }
 
 export interface CMSSettings {
