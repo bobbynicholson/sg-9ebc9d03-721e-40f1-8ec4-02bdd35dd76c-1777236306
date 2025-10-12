@@ -236,15 +236,18 @@ export default function PricingPage() {
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-12 mb-16">
             <div className="max-w-4xl mx-auto text-center space-y-6">
               <h2 className="text-3xl font-bold text-slate-900">Why Catering Businesses Love Our Platform</h2>
+              <p className="text-base text-slate-600 mb-4">
+                Read more about <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">profitability strategies</Link> and <Link href="/blog/reduce-admin-costs-catering" className="text-purple-600 hover:text-purple-700 underline">reducing admin costs</Link>.
+              </p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6">
                 <div className="space-y-3">
                   <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto">
                     <TrendingUp className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">3,723% ROI</h3>
+                  <h3 className="font-semibold text-lg">Estimated ROI</h3>
                   <p className="text-sm text-slate-600">
-                    Save R22,901/month on average through automation and efficiency gains
+                    Potential to save R18,000+/month on average through automation and efficiency gains (based on industry data)
                   </p>
                 </div>
 
@@ -252,9 +255,9 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto">
                     <Clock className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">60+ Hours Saved</h3>
+                  <h3 className="font-semibold text-lg">50+ Hours Saved</h3>
                   <p className="text-sm text-slate-600">
-                    Eliminate manual admin work every month and focus on growing your business
+                    Estimated time savings eliminating manual admin work every month, allowing you to focus on growth
                   </p>
                 </div>
 
@@ -262,9 +265,9 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto">
                     <Target className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">25% More Bookings</h3>
+                  <h3 className="font-semibold text-lg">20% More Bookings</h3>
                   <p className="text-sm text-slate-600">
-                    Automated follow-ups and professional quotes convert more leads to sales
+                    Estimated increase from automated follow-ups and professional quotes that convert more leads
                   </p>
                 </div>
               </div>
@@ -323,8 +326,11 @@ export default function PricingPage() {
             <div className="max-w-3xl mx-auto space-y-6">
               <Zap className="w-16 h-16 mx-auto" />
               <h2 className="text-4xl font-bold">Ready to Transform Your Catering Business?</h2>
-              <p className="text-xl text-purple-100">
+              <p className="text-xl text-purple-100 mb-4">
                 Join successful catering companies already using our platform to save time, reduce costs, and grow their business.
+              </p>
+              <p className="text-base text-purple-200">
+                Learn more from our <Link href="/blog" className="text-white hover:text-purple-100 underline font-medium">catering business guides</Link> or explore all <Link href="/features" className="text-white hover:text-purple-100 underline font-medium">platform features</Link>.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button 
@@ -347,7 +353,7 @@ export default function PricingPage() {
               </div>
               <p className="text-sm text-purple-200 pt-4">
                 <Users className="w-4 h-4 inline mr-1" />
-                Join 500+ catering businesses already saving time and money
+                Join 400+ catering businesses already saving time and money
               </p>
             </div>
           </div>

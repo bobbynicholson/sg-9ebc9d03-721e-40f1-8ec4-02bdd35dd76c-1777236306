@@ -396,8 +396,11 @@ export default function FeaturesPage() {
             <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
               Click Each Card to Discover How It Works
             </h2>
-            <p className="text-xl text-slate-600">
+            <p className="text-xl text-slate-600 mb-4">
               Hover or tap on any feature to see detailed benefits and real-world impact
+            </p>
+            <p className="text-base text-slate-500">
+              Read more about <Link href="/blog/catering-management-software-benefits" className="text-purple-600 hover:text-purple-700 underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="text-purple-600 hover:text-purple-700 underline">automation strategies</Link> on our blog.
             </p>
           </div>
 
@@ -471,8 +474,11 @@ export default function FeaturesPage() {
             <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
               Ready to Transform Your Catering Business?
             </h3>
-            <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg text-slate-600 mb-4 max-w-2xl mx-auto">
               Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
+            </p>
+            <p className="text-base text-slate-500 mb-8">
+              Explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline font-medium">pricing plans</Link> or read success stories on our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline font-medium">blog</Link>.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/register">
@@ -531,9 +537,12 @@ export default function FeaturesPage() {
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
                 Everything Works Together Seamlessly
               </h2>
-              <p className="text-xl text-slate-300 mb-8 max-w-3xl mx-auto">
+              <p className="text-xl text-slate-300 mb-4 max-w-3xl mx-auto">
                 No more juggling 10 different tools. One platform. One login. Everything connected. 
                 Your entire operation flows from lead to delivery to follow-up automatically.
+              </p>
+              <p className="text-base text-purple-200 mb-8">
+                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="text-white hover:text-purple-100 underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="text-white hover:text-purple-100 underline">inventory best practices</Link>.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
                 <Link href="/auth/register">
@@ -580,14 +589,17 @@ export default function FeaturesPage() {
               <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-6">
                 The Impact on Your Business
               </h2>
+              <p className="text-base text-slate-600">
+                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="text-purple-600 hover:text-purple-700 underline">scaling your business</Link>.
+              </p>
             </div>
 
             <div className="grid md:grid-cols-4 gap-6 mb-12">
               {[
-                { value: "20+", label: "Hours Saved Weekly", icon: Clock },
-                { value: "80%", label: "Fewer Admin Calls", icon: Bell },
-                { value: "15-25%", label: "Margin Increase", icon: TrendingUp },
-                { value: "3x", label: "Repeat Bookings", icon: RefreshCw }
+                { value: "15+", label: "Hours Saved Weekly", icon: Clock },
+                { value: "65%", label: "Fewer Admin Calls", icon: Bell },
+                { value: "12-20%", label: "Margin Increase", icon: TrendingUp },
+                { value: "2-3x", label: "Repeat Bookings", icon: RefreshCw }
               ].map((stat, index) => (
                 <Card key={index} className="border-0 shadow-lg text-center">
                   <CardContent className="pt-8 pb-8">
