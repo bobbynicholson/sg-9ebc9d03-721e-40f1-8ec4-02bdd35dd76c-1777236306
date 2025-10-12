@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,26 +51,29 @@ export default function OrderAssignmentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
+  const regions = regionManagement.regions.filter(r => r.status === "active");
+
   // Load assignments from localStorage on mount
-  useState(() => {
+  useEffect(() => {
     const stored = localStorage.getItem("order_assignments");
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
+        console.log("Loaded assignments from localStorage:", parsed);
         setAssignments(parsed);
       } catch (e) {
+        console.error("Error parsing stored assignments:", e);
         // If parsing fails, use defaults
         setAssignments(regionManagement.orderAssignments);
         localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
       }
     } else {
+      console.log("No stored assignments, using defaults");
       // Initialize with defaults if nothing in localStorage
       setAssignments(regionManagement.orderAssignments);
       localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
     }
-  });
-
-  const regions = regionManagement.regions.filter(r => r.status === "active");
+  }, []);
 
   const getAssignmentForOrder = (orderId: string) => {
     return assignments.find(a => a.orderId === orderId);
