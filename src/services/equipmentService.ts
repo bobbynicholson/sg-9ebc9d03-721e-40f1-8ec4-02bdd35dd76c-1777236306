@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { equipmentShortageService } from "./equipmentShortageService";
 
 export type Equipment = Tables<"equipment">;
 export type EquipmentBooking = Tables<"equipment_bookings">;
@@ -161,7 +161,23 @@ export const equipmentService = {
     return data;
   },
 
-  async returnEquipment(bookingId: string): Promise<EquipmentBooking | null> {
+  async returnEquipment(
+    bookingId: string, 
+    returnedQuantity?: number
+  ): Promise<EquipmentBooking | null> {
+    const booking = await supabase
+      .from("equipment_bookings")
+      .select("*, order_id, equipment_id, quantity, user_id")
+      .eq("id", bookingId)
+      .single();
+
+    if (booking.error) {
+      console.error("Error fetching booking:", booking.error);
+      throw booking.error;
+    }
+
+    const actualReturnedQuantity = returnedQuantity ?? booking.data.quantity;
+
     const { data, error } = await supabase
       .from("equipment_bookings")
       .update({ status: "returned" })
@@ -172,6 +188,21 @@ export const equipmentService = {
     if (error) {
       console.error("Error returning equipment:", error);
       throw error;
+    }
+
+    if (actualReturnedQuantity < booking.data.quantity) {
+      try {
+        await equipmentShortageService.checkAndCreateShortageFlag({
+          orderId: booking.data.order_id,
+          equipmentBookingId: bookingId,
+          equipmentId: booking.data.equipment_id,
+          expectedQuantity: booking.data.quantity,
+          returnedQuantity: actualReturnedQuantity,
+          userId: booking.data.user_id
+        });
+      } catch (shortageError) {
+        console.error("Error creating shortage flag:", shortageError);
+      }
     }
 
     return data;

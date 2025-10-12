@@ -28,7 +28,8 @@ import {
   Phone,
   ArrowRight,
   Zap,
-  Target
+  Target,
+  AlertTriangle
 } from "lucide-react";
 
 export function Header() {
@@ -58,7 +59,8 @@ export function Header() {
         { name: "Lead Management", href: "/features/lead-management", icon: Users, description: "Capture and convert leads automatically" },
         { name: "Quote Generation", href: "/features#quote-generation", icon: FileText, description: "Create professional quotes in seconds" },
         { name: "Calendar & Booking", href: "/features#calendar", icon: Calendar, description: "Visual scheduling with conflict detection" },
-        { name: "Order Processing", href: "/features#orders", icon: Package, description: "Streamlined order management" }
+        { name: "Order Processing", href: "/features#orders", icon: Package, description: "Streamlined order management" },
+        { name: "Equipment Tracking", href: "/admin/equipment-shortages", icon: AlertTriangle, description: "Monitor and resolve equipment shortages" }
       ]
     },
     {
