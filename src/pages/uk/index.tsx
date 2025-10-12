@@ -291,8 +291,8 @@ export default function UKHomePage() {
             </div>
           </section>
 
-          <section className="py-20 bg-purple-600 text-white">
-            <div className="container mx-auto px-4 text-center">
+          <section className="py-20 bg-purple-600 text-white pb-0">
+            <div className="container mx-auto px-4 text-center pb-20">
               <h2 className="text-3xl md:text-4xl font-bold mb-6">
                 Join Britain's Beta Caterers
               </h2>
