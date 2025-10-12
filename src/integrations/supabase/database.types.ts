@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -687,6 +687,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      email_logs: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          email_type: string | null
+          id: number
+          recipient: string
+          sent_at: string | null
+          status: string | null
+          subject: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          email_type?: string | null
+          id?: number
+          recipient: string
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          email_type?: string | null
+          id?: number
+          recipient?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+        }
+        Relationships: []
       }
       email_settings: {
         Row: {
@@ -2073,8 +2106,10 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          next_billing_date: string | null
           payfast_subscription_id: string | null
           payfast_token: string | null
+          payment_method_last4: string | null
           plan_name: string
           status: string | null
           updated_at: string | null
@@ -2090,8 +2125,10 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          next_billing_date?: string | null
           payfast_subscription_id?: string | null
           payfast_token?: string | null
+          payment_method_last4?: string | null
           plan_name: string
           status?: string | null
           updated_at?: string | null
@@ -2107,8 +2144,10 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          next_billing_date?: string | null
           payfast_subscription_id?: string | null
           payfast_token?: string | null
+          payment_method_last4?: string | null
           plan_name?: string
           status?: string | null
           updated_at?: string | null
@@ -2210,6 +2249,13 @@ export type Database = {
       decrement_equipment_quantity: {
         Args: { p_equipment_id: string; p_quantity_to_decrement: number }
         Returns: undefined
+      }
+      get_quarterly_usage: {
+        Args: { p_user_id: string }
+        Returns: {
+          clients_count: number
+          orders_count: number
+        }[]
       }
     }
     Enums: {
