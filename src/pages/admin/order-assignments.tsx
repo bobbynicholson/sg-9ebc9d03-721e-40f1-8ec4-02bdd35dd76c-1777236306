@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -44,13 +43,32 @@ import { Footer } from "@/components/Footer";
 
 export default function OrderAssignmentsPage() {
   const [orders] = useState(mockOrders);
-  const [assignments, setAssignments] = useState(regionManagement.orderAssignments);
+  const [assignments, setAssignments] = useState<any[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  // Load assignments from localStorage on mount
+  useState(() => {
+    const stored = localStorage.getItem("order_assignments");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setAssignments(parsed);
+      } catch (e) {
+        // If parsing fails, use defaults
+        setAssignments(regionManagement.orderAssignments);
+        localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
+      }
+    } else {
+      // Initialize with defaults if nothing in localStorage
+      setAssignments(regionManagement.orderAssignments);
+      localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
+    }
+  });
 
   const regions = regionManagement.regions.filter(r => r.status === "active");
 
