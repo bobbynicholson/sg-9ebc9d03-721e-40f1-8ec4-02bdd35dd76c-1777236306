@@ -6,6 +6,7 @@ import { MapPin, Truck, Clock, Phone, Mail, Navigation, Map } from "lucide-react
 import { Order, Driver, GPSLocation } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function AdminTrackingDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState<any[]>([]);
@@ -106,6 +107,7 @@ export default function AdminTrackingDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-8">
+      <NoIndexMeta />
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between">

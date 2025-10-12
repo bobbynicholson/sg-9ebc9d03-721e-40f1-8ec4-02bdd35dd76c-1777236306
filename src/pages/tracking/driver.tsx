@@ -19,6 +19,7 @@ import {
 import { DriverGPSTracker } from "@/components/tracking/DriverGPSTracker";
 import { DeliveryStatus } from "@/types/tracking";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function DriverTrackingPage() {
   const [driverId] = useState("driver_001");
@@ -156,6 +157,7 @@ export default function DriverTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <NoIndexMeta />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
           <div className="flex items-center justify-between">

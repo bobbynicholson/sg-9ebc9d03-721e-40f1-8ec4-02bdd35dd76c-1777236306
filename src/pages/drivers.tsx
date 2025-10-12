@@ -22,6 +22,7 @@ import { DriverEarnings } from "@/components/DriverEarnings";
 import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
@@ -164,6 +165,7 @@ export default function DriversPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <NoIndexMeta />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Link href="/">
           <Button variant="ghost" className="mb-4">

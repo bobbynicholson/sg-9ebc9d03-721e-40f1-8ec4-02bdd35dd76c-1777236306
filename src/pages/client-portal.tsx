@@ -11,6 +11,7 @@ import { Footer } from "@/components/Footer";
 import { PaymentService } from "@/lib/paymentService";
 import { CreditCard, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -172,6 +173,7 @@ export default function ClientPortalPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+      <NoIndexMeta />
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

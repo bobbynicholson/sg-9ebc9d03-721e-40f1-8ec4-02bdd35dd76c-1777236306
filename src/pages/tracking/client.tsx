@@ -15,6 +15,7 @@ import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import { Notification } from "@/types/tracking";
 import { Footer } from "@/components/Footer";
 import { mockOrders, mockDeliveries } from "@/lib/mockData";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function ClientTrackingPage() {
   const router = useRouter();
@@ -98,6 +99,7 @@ export default function ClientTrackingPage() {
   if (!orderId) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+        <NoIndexMeta />
         <Card className="border-0 shadow-lg max-w-md">
           <CardContent className="py-12 text-center">
             <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -163,6 +165,7 @@ export default function ClientTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <NoIndexMeta />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <Link href="/">
           <Button variant="ghost" className="mb-4">
