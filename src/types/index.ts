@@ -147,6 +147,7 @@ export interface Order {
   client: string;
   clientName: string;
   eventDate: string;
+  eventTime?: string;
   date: string;
   venue: string;
   location: string;

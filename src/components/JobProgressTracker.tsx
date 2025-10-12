@@ -36,6 +36,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface JobStep {
   id: string;
@@ -62,6 +63,7 @@ interface JobProgressTrackerProps {
   };
   clientName: string;
   eventDate: string;
+  eventTime?: string;
   orderNumber: string;
   isPriority?: boolean;
   isBehindSchedule?: boolean;
@@ -75,6 +77,7 @@ export function JobProgressTracker({
   orderData, 
   clientName, 
   eventDate,
+  eventTime = "12:00",
   orderNumber,
   isPriority = false,
   isBehindSchedule = false,
@@ -85,6 +88,13 @@ export function JobProgressTracker({
   
   const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
   const { toast } = useToast();
+
+  // Parse event date and time to create full datetime
+  const eventDateTime = new Date(`${eventDate}T${eventTime}`);
+  const formattedDeliveryTime = format(eventDateTime, "EEEE, MMMM d, yyyy 'at' h:mm a");
+  const timeUntilEvent = eventDateTime.getTime() - new Date().getTime();
+  const hoursUntilEvent = Math.floor(timeUntilEvent / (1000 * 60 * 60));
+  const daysUntilEvent = Math.floor(hoursUntilEvent / 24);
 
   const allSteps: JobStep[] = [
     {
@@ -216,6 +226,58 @@ export function JobProgressTracker({
   return (
     <Card className={cardClassName}>
       <CardContent className="pt-6 pb-8">
+        {/* PROMINENT DELIVERY TIME SECTION - New Feature */}
+        <div className="mb-6 p-6 rounded-xl border-4 border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-600 to-red-600 flex items-center justify-center shadow-lg">
+                <Clock className="w-9 h-9 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-orange-900 uppercase tracking-wider mb-1">
+                  🚨 Client Delivery Time
+                </p>
+                <p className="text-2xl font-bold text-orange-900 mb-1">
+                  {formattedDeliveryTime}
+                </p>
+                <p className="text-sm text-orange-700">
+                  Food must arrive at venue by this time
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              {daysUntilEvent > 0 ? (
+                <>
+                  <div className="text-4xl font-bold text-orange-900 mb-1">
+                    {daysUntilEvent}
+                  </div>
+                  <p className="text-sm text-orange-700 font-medium">
+                    {daysUntilEvent === 1 ? "day" : "days"} until event
+                  </p>
+                </>
+              ) : hoursUntilEvent > 0 ? (
+                <>
+                  <div className="text-4xl font-bold text-orange-900 mb-1 animate-pulse">
+                    {hoursUntilEvent}h
+                  </div>
+                  <p className="text-sm text-orange-700 font-medium">
+                    until delivery
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-red-900 mb-1 animate-pulse">
+                    NOW!
+                  </div>
+                  <p className="text-sm text-red-700 font-medium">
+                    Event in progress
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
