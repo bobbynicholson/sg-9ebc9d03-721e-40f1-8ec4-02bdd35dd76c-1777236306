@@ -27,7 +27,7 @@ export default function StaffJobProgressPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
 
   useEffect(() => {
-    // Create comprehensive dummy orders for Bob's Catering
+    // Create comprehensive dummy orders for Bob's Catering with correct statuses
     const dummyOrders: Order[] = [
       {
         id: "ORD-001",
@@ -179,25 +179,21 @@ export default function StaffJobProgressPage() {
     ];
 
     setOrders(dummyOrders);
-    localStorage.setItem("admin_orders", JSON.stringify(dummyOrders));
+    localStorage.setItem("bobs_catering_orders", JSON.stringify(dummyOrders));
+    
+    console.log("Staff Job Progress - Orders loaded:", dummyOrders.length);
   }, []);
 
-  const getStatusCounts = () => {
-    const confirmedCount = orders.filter((o) => o.status === "confirmed").length;
-    const preparingCount = orders.filter((o) => o.status === "preparing").length;
-    const readyCount = orders.filter((o) => o.status === "ready").length;
-    const deliveredCount = orders.filter((o) => o.status === "delivered").length;
-    
-    return {
-      all: orders.length,
-      confirmed: confirmedCount,
-      preparing: preparingCount,
-      ready: readyCount,
-      delivered: deliveredCount,
-    };
+  // Calculate status counts - FIXED to ensure correct counting
+  const statusCounts = {
+    all: orders.length,
+    confirmed: orders.filter((o) => o.status === "confirmed").length,
+    preparing: orders.filter((o) => o.status === "preparing").length,
+    ready: orders.filter((o) => o.status === "ready").length,
+    delivered: orders.filter((o) => o.status === "delivered").length,
   };
 
-  const statusCounts = getStatusCounts();
+  console.log("Status Counts:", statusCounts);
 
   const filteredOrders = orders
     .filter((order) => {
@@ -229,10 +225,10 @@ export default function StaffJobProgressPage() {
               <div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">My Active Jobs</h1>
                 <p className="text-gray-600">
-                  Track all confirmed jobs from payment to completion
+                  Track all confirmed jobs from payment to completion - Bob's Catering
                 </p>
                 <Badge className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
-                  Bob's Catering - Demo Account
+                  🍽️ Bob's Catering Demo Account
                 </Badge>
               </div>
               <Button onClick={() => router.push("/calendar")} className="bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -241,30 +237,63 @@ export default function StaffJobProgressPage() {
               </Button>
             </div>
 
+            {/* Statistics Cards - FIXED to display correctly */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {[
-                { label: "All Jobs", count: statusCounts.all, icon: TrendingUp, color: "blue" },
-                { label: "Confirmed", count: statusCounts.confirmed, icon: CheckCircle2, color: "green" },
-                { label: "In Kitchen", count: statusCounts.preparing, icon: Clock, color: "purple" },
-                { label: "Ready", count: statusCounts.ready, icon: CheckCircle2, color: "emerald" },
-              ].map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <Card key={index} className="border-2 hover:shadow-lg transition-shadow">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                          <p className="text-3xl font-bold text-gray-900">{stat.count}</p>
-                        </div>
-                        <div className={`w-12 h-12 rounded-lg bg-${stat.color}-100 flex items-center justify-center`}>
-                          <Icon className={`w-6 h-6 text-${stat.color}-600`} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              <Card className="border-2 hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">All Jobs</p>
+                      <p className="text-3xl font-bold text-gray-900">{statusCounts.all}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Confirmed</p>
+                      <p className="text-3xl font-bold text-gray-900">{statusCounts.confirmed}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">In Kitchen</p>
+                      <p className="text-3xl font-bold text-gray-900">{statusCounts.preparing}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 hover:shadow-lg transition-shadow">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Ready</p>
+                      <p className="text-3xl font-bold text-gray-900">{statusCounts.ready}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 

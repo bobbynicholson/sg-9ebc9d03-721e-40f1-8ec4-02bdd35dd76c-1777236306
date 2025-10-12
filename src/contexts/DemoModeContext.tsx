@@ -27,7 +27,8 @@ export const DEMO_USERS = {
     role: "admin" as const,
     full_name: "Bob Thompson",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   },
   driver: {
     id: "demo-driver",
@@ -35,7 +36,8 @@ export const DEMO_USERS = {
     role: "driver" as const,
     full_name: "James Wilson",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   },
   client: {
     id: "demo-client",
@@ -43,7 +45,8 @@ export const DEMO_USERS = {
     role: "client" as const,
     full_name: "Sarah Johnson",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   },
   kitchen: {
     id: "demo-kitchen",
@@ -51,7 +54,8 @@ export const DEMO_USERS = {
     role: "kitchen" as const,
     full_name: "Chef Marcus",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   },
   shopping: {
     id: "demo-shopping",
@@ -59,7 +63,8 @@ export const DEMO_USERS = {
     role: "shopping" as const,
     full_name: "Linda Martinez",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   },
   cleaning: {
     id: "demo-cleaning",
@@ -67,7 +72,8 @@ export const DEMO_USERS = {
     role: "cleaning" as const,
     full_name: "David Chen",
     company_name: "Bob's Catering",
-    company_slug: "bobs-catering"
+    company_slug: "bobs-catering",
+    avatar_url: ""
   }
 };
 
