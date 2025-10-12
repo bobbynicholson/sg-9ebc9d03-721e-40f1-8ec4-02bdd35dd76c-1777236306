@@ -73,7 +73,7 @@ export function OnboardingProgressTracker() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <CardTitle className="text-lg">Get Started with CaterOS</CardTitle>
+              <CardTitle className="text-lg">Get Started with CateringMS</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Complete your setup to unlock full features
               </p>

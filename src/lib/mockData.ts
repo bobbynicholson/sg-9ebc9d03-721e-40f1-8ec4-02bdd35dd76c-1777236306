@@ -78,7 +78,7 @@ export const mockDrivers: Driver[] = [
     id: "D001",
     name: "James Wilson",
     phone: "+27 82 345 6789",
-    email: "james.wilson@cateros.co.za",
+    email: "james.wilson@cateringms.co.za",
     availableJobs: ["ORD-005"],
     assignedJobs: ["ORD-001"],
     completedJobs: 45
@@ -87,7 +87,7 @@ export const mockDrivers: Driver[] = [
     id: "D002",
     name: "Lisa Martinez",
     phone: "+27 83 456 7890",
-    email: "lisa.martinez@cateros.co.za",
+    email: "lisa.martinez@cateringms.co.za",
     availableJobs: ["ORD-005"],
     assignedJobs: ["ORD-002"],
     completedJobs: 62
@@ -96,7 +96,7 @@ export const mockDrivers: Driver[] = [
     id: "D003",
     name: "Thabo Mbeki",
     phone: "+27 84 567 8901",
-    email: "thabo.mbeki@cateros.co.za",
+    email: "thabo.mbeki@cateringms.co.za",
     availableJobs: ["ORD-005"],
     assignedJobs: [],
     completedJobs: 38

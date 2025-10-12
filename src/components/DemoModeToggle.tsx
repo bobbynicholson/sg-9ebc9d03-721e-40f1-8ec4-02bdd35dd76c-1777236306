@@ -186,7 +186,7 @@ export function DemoModeToggle() {
               Demo Mode Guide
             </DialogTitle>
             <DialogDescription>
-              Experience CaterOS from different perspectives
+              Experience CateringMS from different perspectives
             </DialogDescription>
           </DialogHeader>
           
@@ -194,7 +194,7 @@ export function DemoModeToggle() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-semibold text-blue-900 mb-2">What is Demo Mode?</h4>
               <p className="text-sm text-blue-800">
-                Demo Mode lets you explore CaterOS as different users without signing up. Switch between roles to see how each team member experiences the platform. All data is simulated and resets when you exit demo mode.
+                Demo Mode lets you explore CateringMS as different users without signing up. Switch between roles to see how each team member experiences the platform. All data is simulated and resets when you exit demo mode.
               </p>
             </div>
 
@@ -222,7 +222,7 @@ export function DemoModeToggle() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <h4 className="font-semibold text-amber-900 mb-2">Note</h4>
               <p className="text-sm text-amber-800">
-                Demo mode is designed for exploration and testing. To use CaterOS for your business, sign up for a free trial with your own account.
+                Demo mode is designed for exploration and testing. To use CateringMS for your business, sign up for a free trial with your own account.
               </p>
             </div>
           </div>

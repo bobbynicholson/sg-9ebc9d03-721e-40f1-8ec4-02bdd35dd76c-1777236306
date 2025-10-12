@@ -20,48 +20,42 @@ interface DemoModeContextType {
 
 const DemoModeContext = createContext<DemoModeContextType | undefined>(undefined);
 
-const DEMO_USERS: Record<Exclude<DemoRole, null>, DemoUser> = {
+export const DEMO_USERS = {
   admin: {
-    id: "demo-admin-001",
-    email: "admin@cateros-demo.com",
-    full_name: "Sarah Admin",
-    role: "admin",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah"
+    id: "demo-admin",
+    email: "admin@cateringms-demo.com",
+    role: "admin" as const,
+    fullName: "Demo Admin"
   },
   driver: {
-    id: "demo-driver-001",
-    email: "driver@cateros-demo.com",
-    full_name: "Mike Driver",
-    role: "driver",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike"
+    id: "demo-driver",
+    email: "driver@cateringms-demo.com",
+    role: "driver" as const,
+    fullName: "Demo Driver"
   },
   client: {
-    id: "demo-client-001",
-    email: "client@cateros-demo.com",
-    full_name: "Lisa Client",
-    role: "client",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa"
+    id: "demo-client",
+    email: "client@cateringms-demo.com",
+    role: "client" as const,
+    fullName: "Demo Client"
   },
   kitchen: {
-    id: "demo-kitchen-001",
-    email: "kitchen@cateros-demo.com",
-    full_name: "Chef Antonio",
-    role: "kitchen",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Antonio"
+    id: "demo-kitchen",
+    email: "kitchen@cateringms-demo.com",
+    role: "kitchen" as const,
+    fullName: "Demo Kitchen Staff"
   },
   shopping: {
-    id: "demo-shopping-001",
-    email: "shopping@cateros-demo.com",
-    full_name: "Emma Shopping",
-    role: "shopping",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma"
+    id: "demo-shopping",
+    email: "shopping@cateringms-demo.com",
+    role: "shopping" as const,
+    fullName: "Demo Shopping Team"
   },
   cleaning: {
-    id: "demo-cleaning-001",
-    email: "cleaning@cateros-demo.com",
-    full_name: "James Cleaning",
-    role: "cleaning",
-    avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=James"
+    id: "demo-cleaning",
+    email: "cleaning@cateringms-demo.com",
+    role: "cleaning" as const,
+    fullName: "Demo Cleaning Team"
   }
 };
 
@@ -70,8 +64,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   const [demoRole, setDemoRoleState] = useState<DemoRole>(null);
 
   useEffect(() => {
-    const savedDemoMode = localStorage.getItem("cateros-demo-mode");
-    const savedDemoRole = localStorage.getItem("cateros-demo-role") as DemoRole;
+    const savedDemoMode = localStorage.getItem("cateringms-demo-mode");
+    const savedDemoRole = localStorage.getItem("cateringms-demo-role") as DemoRole;
     
     if (savedDemoMode === "true") {
       setIsDemoMode(true);
@@ -81,23 +75,23 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 
   const setDemoMode = (enabled: boolean) => {
     setIsDemoMode(enabled);
-    localStorage.setItem("cateros-demo-mode", enabled.toString());
+    localStorage.setItem("cateringms-demo-mode", enabled.toString());
     
     if (enabled && !demoRole) {
       setDemoRoleState("admin");
-      localStorage.setItem("cateros-demo-role", "admin");
+      localStorage.setItem("cateringms-demo-role", "admin");
     } else if (!enabled) {
       setDemoRoleState(null);
-      localStorage.removeItem("cateros-demo-role");
+      localStorage.removeItem("cateringms-demo-role");
     }
   };
 
   const setDemoRole = (role: DemoRole) => {
     setDemoRoleState(role);
     if (role) {
-      localStorage.setItem("cateros-demo-role", role);
+      localStorage.setItem("cateringms-demo-role", role);
     } else {
-      localStorage.removeItem("cateros-demo-role");
+      localStorage.removeItem("cateringms-demo-role");
     }
   };
 
