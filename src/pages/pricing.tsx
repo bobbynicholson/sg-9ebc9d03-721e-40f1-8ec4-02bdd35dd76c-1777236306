@@ -157,6 +157,22 @@ export default function PricingPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-12 max-w-7xl">
+          {/* Currency Policy Alert Banner */}
+          <Alert className="mb-8 border-2 border-blue-200 bg-blue-50 dark:bg-blue-950">
+            <Info className="h-5 w-5 text-blue-600" />
+            <AlertTitle className="text-blue-900 dark:text-blue-100 font-bold">
+              Currency Policy Notice
+            </AlertTitle>
+            <AlertDescription className="text-blue-800 dark:text-blue-200 space-y-2">
+              <p>
+                <strong>All prices in ZAR.</strong> USD, GBP, and EUR shown for reference only. All payments processed in ZAR.
+              </p>
+              <p>
+                <strong>USD-Pegged Pricing:</strong> Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices if the exchange rate fluctuates by more than 15% over 90 days. You will receive 30 days advance notice of any changes.
+              </p>
+            </AlertDescription>
+          </Alert>
+
           <div className="text-center mb-12 space-y-6">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-4 py-1.5 text-sm">
