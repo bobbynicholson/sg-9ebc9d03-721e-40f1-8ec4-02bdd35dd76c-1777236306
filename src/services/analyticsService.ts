@@ -45,6 +45,15 @@ interface RevenueByPeriod {
 export const analyticsService = {
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     try {
+      // Use the database function that bypasses RLS for admin dashboard
+      const { data: analyticsData, error: analyticsError } = await supabase
+        .rpc("get_all_subscription_analytics");
+
+      if (analyticsError) {
+        console.error("Error fetching analytics:", analyticsError);
+      }
+
+      // Fetch all subscriptions for detailed calculations
       const { data: subscriptions, error } = await supabase
         .from("subscriptions")
         .select("*");
@@ -66,7 +75,10 @@ export const analyticsService = {
         .filter(s => s.billing_cycle === "annual")
         .reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
-      const totalRevenue = monthlyRevenue + annualRevenue;
+      const totalRevenue = analyticsData?.[0]?.total_revenue 
+        ? Number(analyticsData[0].total_revenue) 
+        : monthlyRevenue + annualRevenue;
+      
       const totalCustomers = subscriptions?.length || 0;
       const averageRevenuePerUser = totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
 

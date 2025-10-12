@@ -2374,6 +2374,18 @@ export type Database = {
         Args: { p_equipment_id: string; p_quantity_to_decrement: number }
         Returns: undefined
       }
+      get_all_subscription_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_subscriptions: number
+          annual_revenue: number
+          cancelled_subscriptions: number
+          monthly_revenue: number
+          total_revenue: number
+          total_subscriptions: number
+          trial_subscriptions: number
+        }[]
+      }
       get_quarterly_usage: {
         Args: { p_user_id: string }
         Returns: {
