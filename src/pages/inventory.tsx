@@ -32,6 +32,7 @@ import { fullStarterInventory } from "@/lib/starterInventory";
 import { calculateExpiryStatus, getExpiryAlerts, getExpiryStatusConfig } from "@/lib/expiryUtils";
 import { getUserCurrency, formatCurrency } from "@/lib/currencyUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -281,6 +282,7 @@ export default function InventoryPage() {
         <meta name="robots" content="noindex, nofollow" />
         <title>Inventory Management | CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Order, Ingredient } from "@/types";
 import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -106,6 +106,7 @@ export default function KitchenPage() {
         <meta name="robots" content="noindex, nofollow" />
         <title>Kitchen Dashboard - CateringMS</title>
       </Head>
+      <NoIndexMeta />
       
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
         <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-4 md:space-y-6">
