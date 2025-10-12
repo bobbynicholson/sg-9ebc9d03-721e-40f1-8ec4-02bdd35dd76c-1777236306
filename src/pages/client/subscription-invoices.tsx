@@ -1,24 +1,14 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Subscription {
-  id: string;
-  plan_type: string;
-  amount: number;
-  currency: string;
-  status: string;
-  created_at: string;
-  current_period_start: string;
-  current_period_end: string;
-}
+import { Subscription } from "@/types";
 
 export default function SubscriptionInvoicesPage() {
   const { user } = useAuth();
@@ -42,7 +32,7 @@ export default function SubscriptionInvoicesPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSubscriptions(data || []);
+      setSubscriptions((data as Subscription[]) || []);
     } catch (error) {
       console.error("Error loading subscriptions:", error);
       toast({

@@ -214,6 +214,10 @@ export const invoiceService = {
       ? subscription.profiles[0] 
       : subscription.profiles;
 
+    if (!profile) {
+      throw new Error("Customer profile not found for subscription");
+    }
+
     const invoiceNumber = `INV-${subscription.id.substring(0, 8).toUpperCase()}`;
     const invoiceDate = new Date().toISOString().split("T")[0];
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -248,7 +252,7 @@ export const invoiceService = {
       },
       lineItems: [
         {
-          description: `CateringMS ${subscription.plan_type} Plan - Monthly Subscription`,
+          description: `CateringMS ${(subscription as any).plan_type} Plan - Monthly Subscription`,
           quantity: 1,
           unitPrice: subscription.amount,
           total: subscription.amount
@@ -300,12 +304,16 @@ export const invoiceService = {
       ? order.profiles[0] 
       : order.profiles;
 
-    const items = order.items || [];
+    if (!profile) {
+      throw new Error("Customer profile not found for order");
+    }
+
+    const items = [...(order.menuItems || []), ...(order.equipmentItems || [])];
     const lineItems: InvoiceLineItem[] = items.map((item: any) => ({
       description: item.name || item.description || "Item",
       quantity: item.quantity || 1,
-      unitPrice: item.price || 0,
-      total: (item.quantity || 1) * (item.price || 0)
+      unitPrice: item.pricePerPerson || item.rentalPrice || 0,
+      total: (item.quantity || 1) * (item.pricePerPerson || item.rentalPrice || 0)
     }));
 
     const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
@@ -335,7 +343,7 @@ export const invoiceService = {
       },
       customer: edits?.customer || {
         name: profile.company_name || profile.full_name || "Customer",
-        address: profile.address || order.venue || "N/A",
+        address: profile.address || order.eventLocation || "N/A",
         city: profile.city || "N/A",
         postalCode: profile.postal_code || "N/A",
         country: profile.country || "South Africa",

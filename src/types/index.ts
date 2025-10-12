@@ -286,6 +286,25 @@ export interface User {
   status: "active" | "inactive";
   currency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
   preferredCurrency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
+  company_name?: string;
+  address?: string;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+  vat_number?: string;
+  tax_number?: string;
+}
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_type: 'starter' | 'pro' | 'enterprise';
+  status: 'active' | 'cancelled' | 'trialing';
+  amount: number;
+  currency: string;
+  created_at: string;
+  current_period_start: string;
+  current_period_end: string;
 }
 
 export interface CleaningSchedule {

@@ -268,7 +268,7 @@ export default function DriverTrackingPage() {
                   <CardContent className="space-y-4">
                     <div>
                       <Badge className={`${getStatusBadge(activeDelivery.status)} border mb-3`}>
-                        {activeDelivery.status.replace('_', ' ').toUpperCase()}
+                        {String(activeDelivery.status || '').replace('_', ' ').toUpperCase()}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3">
