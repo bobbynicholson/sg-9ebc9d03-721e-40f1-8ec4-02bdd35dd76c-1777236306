@@ -381,42 +381,42 @@ export default function OrderAssignmentsPage() {
 
         {/* Assignment Dialog - Mobile Optimized */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-lg md:text-xl">Assign Order to Region</DialogTitle>
               <DialogDescription className="text-sm">
                 Select which regional operation will fulfill this order
               </DialogDescription>
             </DialogHeader>
             {selectedOrder && (
-              <div className="space-y-4 md:space-y-6 py-4">
-                <div className="p-3 md:p-4 bg-slate-50 rounded-lg space-y-2 text-sm md:text-base">
-                  <div className="flex justify-between">
+              <div className="space-y-3 md:space-y-4 py-2 overflow-y-auto flex-1">
+                <div className="p-3 bg-slate-50 rounded-lg space-y-1.5 text-sm">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Order ID:</span>
-                    <span className="font-mono font-semibold">{selectedOrder.id}</span>
+                    <span className="font-mono font-semibold text-xs">{selectedOrder.id}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Client:</span>
-                    <span className="font-semibold truncate ml-2">{selectedOrder.client}</span>
+                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.client}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Event Date:</span>
                     <span className="font-semibold">{selectedOrder.date}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Location:</span>
-                    <span className="font-semibold truncate ml-2">{selectedOrder.location}</span>
+                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.location}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Value:</span>
                     <span className="font-semibold text-green-600">R{selectedOrder.total.toLocaleString()}</span>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="region" className="text-sm">Assign to Region</Label>
+                  <Label htmlFor="region" className="text-sm mb-1.5 block">Assign to Region</Label>
                   <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                    <SelectTrigger id="region">
+                    <SelectTrigger id="region" className="h-9">
                       <SelectValue placeholder="Select a region" />
                     </SelectTrigger>
                     <SelectContent>
@@ -433,25 +433,25 @@ export default function OrderAssignmentsPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="notes" className="text-sm">Assignment Notes (Optional)</Label>
+                  <Label htmlFor="notes" className="text-sm mb-1.5 block">Assignment Notes (Optional)</Label>
                   <Textarea
                     id="notes"
-                    placeholder="Add any special instructions or notes for the regional team..."
+                    placeholder="Add any special instructions..."
                     value={assignmentNotes}
                     onChange={(e) => setAssignmentNotes(e.target.value)}
-                    rows={3}
-                    className="text-sm md:text-base"
+                    rows={2}
+                    className="text-sm resize-none"
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-2 md:gap-3 pt-4">
-                  <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)} className="w-full sm:w-auto" size="sm">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 flex-shrink-0">
+                  <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)} className="w-full sm:w-auto h-9" size="sm">
                     Cancel
                   </Button>
                   <Button
                     onClick={handleAssignOrder}
                     disabled={!selectedRegion}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-full sm:w-auto"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white w-full sm:w-auto h-9"
                     size="sm"
                   >
                     <Send className="w-4 h-4 mr-2" />
