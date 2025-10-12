@@ -32,7 +32,7 @@ export interface Quote {
   subtotal: number;
   tax: number;
   total: number;
-  status: "draft" | "sent" | "revised" | "accepted" | "rejected";
+  status: "draft" | "sent" | "revised" | "accepted" | "rejected" | "confirmed" | "paid";
   version: number;
   createdAt: string;
   updatedAt: string;
