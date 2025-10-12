@@ -294,7 +294,7 @@ export default function SubscriptionPage() {
               {subscription.next_billing_date && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Next Billing Date</span>
-                  <span className="font-medium">{formatDate(subscription.next_billing_date)}</span>
+                  <span className="font-medium">{subscription.next_billing_date ? formatDate(subscription.next_billing_date) : 'N/A'}</span>
                 </div>
               )}
               

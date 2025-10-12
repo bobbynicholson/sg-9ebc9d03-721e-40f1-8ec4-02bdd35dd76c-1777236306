@@ -126,7 +126,7 @@ export const subscriptionService = {
     const updates: SubscriptionUpdate = {
       cancel_at_period_end: !immediate,
       cancelled_at: immediate ? new Date().toISOString() : null,
-      status: immediate ? "cancelled" : undefined,
+      status: immediate ? "cancelled" : subscription?.status,
       cancellation_reason: reason || null,
       cancellation_feedback: feedback || null
     };
@@ -302,10 +302,13 @@ export const subscriptionService = {
     currentOrders: number;
     limitReachedType?: "clients" | "orders";
   }> {
-    const planLimits = this.getPlanLimits(subscription.plan_id);
+    const planLimits = this.getPlanLimits(subscription.plan_id || 'starter');
     
-    const activeClientsWithinLimit = subscription.active_clients_count <= planLimits.activeClients;
-    const ordersWithinLimit = subscription.orders_this_quarter <= planLimits.ordersPerQuarter;
+    const currentActiveClients = subscription.active_clients_count || 0;
+    const currentOrders = subscription.orders_this_quarter || 0;
+
+    const activeClientsWithinLimit = currentActiveClients <= planLimits.activeClients;
+    const ordersWithinLimit = currentOrders <= planLimits.ordersPerQuarter;
     
     const withinLimits = activeClientsWithinLimit && ordersWithinLimit;
     
@@ -317,8 +320,8 @@ export const subscriptionService = {
       withinLimits,
       activeClientsLimit: planLimits.activeClients,
       ordersLimit: planLimits.ordersPerQuarter,
-      currentActiveClients: subscription.active_clients_count,
-      currentOrders: subscription.orders_this_quarter,
+      currentActiveClients: currentActiveClients,
+      currentOrders: currentOrders,
       limitReachedType
     };
   },
@@ -343,15 +346,17 @@ export const subscriptionService = {
 
   async acceptPriceChange(subscriptionId: string): Promise<boolean> {
     const { error } = await supabase
-      .from("subscriptions")
-      .update({
-        pending_price_change: false,
-        amount: supabase.sql`new_amount`,
-        new_amount: null,
-        price_change_effective_date: null,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", subscriptionId);
+      .rpc('update', {
+        table_name: 'subscriptions',
+        updates: {
+          pending_price_change: false,
+          amount: supabase.sql`new_amount`,
+          new_amount: null,
+          price_change_effective_date: null,
+          updated_at: new Date().toISOString()
+        },
+        row_id: subscriptionId
+      });
 
     return !error;
   },

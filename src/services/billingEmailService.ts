@@ -346,7 +346,7 @@ export const billingEmailService = {
       planName: subscription.plan_name,
       amount: `R${subscription.amount}`,
       billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
-      nextBillingDate: new Date(subscription.next_billing_date).toLocaleDateString(),
+      nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
       subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
   },
@@ -367,7 +367,7 @@ export const billingEmailService = {
       transactionId: payment.transaction_id || "N/A",
       billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),
       billingPeriodEnd: new Date(payment.billing_period_end).toLocaleDateString(),
-      nextBillingDate: new Date(payment.next_billing_date).toLocaleDateString(),
+      nextBillingDate: payment.next_billing_date ? new Date(payment.next_billing_date).toLocaleDateString() : 'N/A',
       invoiceUrl: payment.invoice_pdf_url || `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
   },
@@ -424,7 +424,7 @@ export const billingEmailService = {
       daysUntilRenewal,
       planName: subscription.plan_name,
       amount: `R${subscription.amount}`,
-      renewalDate: new Date(subscription.next_billing_date).toLocaleDateString(),
+      renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
       paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
       subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
@@ -483,7 +483,7 @@ export const billingEmailService = {
       userName: profile.full_name || "there",
       planName: subscription.plan_name,
       amount: `R${subscription.amount}`,
-      nextBillingDate: new Date(subscription.next_billing_date).toLocaleDateString(),
+      nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
       dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard`
     });
   },
