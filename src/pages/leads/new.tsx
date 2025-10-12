@@ -204,7 +204,7 @@ export default function NewLeadPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="budget">Estimated Budget *</Label>
+                  <Label htmlFor="budget">Estimated Budget (R) *</Label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <Input
@@ -215,7 +215,7 @@ export default function NewLeadPage() {
                       step="0.01"
                       value={formData.budget}
                       onChange={handleChange}
-                      placeholder="5000.00"
+                      placeholder="R 5000.00"
                       className="pl-10"
                       required
                     />
