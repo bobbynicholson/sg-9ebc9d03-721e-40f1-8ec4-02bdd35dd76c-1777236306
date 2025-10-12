@@ -179,16 +179,31 @@ export default function StaffJobProgressPage() {
       },
     ];
 
-    console.log("Setting dummy orders:", dummyOrders);
-    console.log("Order statuses:", dummyOrders.map(o => ({ id: o.id, status: o.status })));
+    console.log("🍽️ Bob's Catering - Setting dummy orders:", dummyOrders.length);
+    console.log("📊 Order statuses:", dummyOrders.map(o => ({ id: o.id, status: o.status })));
     
-    // Ensure orders are set and persisted
+    // Set orders state
     setOrders(dummyOrders);
+    
+    // Persist to localStorage for consistency
     localStorage.setItem("bobs_catering_staff_orders", JSON.stringify(dummyOrders));
+    
+    // Calculate and log counts immediately
+    const counts = {
+      all: dummyOrders.length,
+      confirmed: dummyOrders.filter((o) => o.status === "confirmed").length,
+      preparing: dummyOrders.filter((o) => o.status === "preparing").length,
+      ready: dummyOrders.filter((o) => o.status === "ready").length,
+      delivered: dummyOrders.filter((o) => o.status === "delivered").length,
+    };
+    
+    console.log("✅ Calculated status counts:", counts);
+    console.log("✅ All:", counts.all, "| Confirmed:", counts.confirmed, "| Preparing:", counts.preparing, "| Ready:", counts.ready);
+    
     setLoading(false);
   }, []);
 
-  // Calculate status counts - MOVED INSIDE useMemo to ensure it recalculates when orders change
+  // Calculate status counts reactively based on orders state
   const statusCounts = {
     all: orders.length,
     confirmed: orders.filter((o) => o.status === "confirmed").length,
@@ -196,8 +211,6 @@ export default function StaffJobProgressPage() {
     ready: orders.filter((o) => o.status === "ready").length,
     delivered: orders.filter((o) => o.status === "delivered").length,
   };
-
-  console.log("Calculated status counts:", statusCounts);
 
   const filteredOrders = orders
     .filter((order) => {
