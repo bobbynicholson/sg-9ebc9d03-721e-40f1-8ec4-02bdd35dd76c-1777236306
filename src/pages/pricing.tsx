@@ -6,6 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Check, 
   Zap, 
@@ -18,51 +24,118 @@ import {
   Clock,
   Target,
   Award,
-  ChevronRight
+  ChevronRight,
+  Info
 } from "lucide-react";
-import { SUBSCRIPTION_PLANS, formatCurrency } from "@/lib/payfastService";
+
+const PRICING_PLANS = [
+  {
+    id: "starter",
+    name: "Starter",
+    monthlyPriceZAR: 399,
+    annualPriceZAR: 3990,
+    recommended: false,
+    limits: {
+      activeClients: 50,
+      ordersPerQuarter: 150
+    },
+    features: [
+      "Up to 50 active clients OR 150 orders/quarter",
+      "Unlimited client database storage",
+      "Lead & quote management",
+      "Order processing & calendar",
+      "Basic inventory tracking",
+      "Email automation (quotes & follow-ups)",
+      "Driver management & GPS tracking",
+      "Client portal",
+      "Kitchen & shopping lists",
+      "Email support"
+    ]
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    monthlyPriceZAR: 699,
+    annualPriceZAR: 6990,
+    recommended: true,
+    limits: {
+      activeClients: 200,
+      ordersPerQuarter: 600
+    },
+    features: [
+      "Up to 200 active clients OR 600 orders/quarter",
+      "Everything in Starter, plus:",
+      "Multi-region support",
+      "Advanced inventory with expiry alerts",
+      "Receipt scanning & price tracking",
+      "Equipment shortage management",
+      "After-sales email automation (6 campaigns)",
+      "Priority email support",
+      "Custom branding (logo & colors)",
+      "Advanced analytics dashboard"
+    ]
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    monthlyPriceZAR: null,
+    annualPriceZAR: null,
+    recommended: false,
+    limits: {
+      activeClients: "Unlimited",
+      ordersPerQuarter: "Unlimited"
+    },
+    features: [
+      "Unlimited active clients & orders",
+      "Everything in Professional, plus:",
+      "White-label branding (remove CateringMS)",
+      "Dedicated account manager",
+      "Priority phone & email support",
+      "Custom integrations",
+      "API access",
+      "Custom training sessions",
+      "SLA guarantee"
+    ]
+  }
+];
+
+const convertCurrency = (zarAmount: number | null) => {
+  if (zarAmount === null) return null;
+  
+  const USD_RATE = 0.055;
+  const GBP_RATE = 0.043;
+  const EUR_RATE = 0.050;
+  
+  return {
+    zar: zarAmount,
+    usd: Math.round(zarAmount * USD_RATE),
+    gbp: Math.round(zarAmount * GBP_RATE),
+    eur: Math.round(zarAmount * EUR_RATE)
+  };
+};
+
+const formatCurrency = (amount: number | null, currency: string = "ZAR") => {
+  if (amount === null) return "Custom";
+  
+  const symbols = {
+    ZAR: "R",
+    USD: "$",
+    GBP: "£",
+    EUR: "€"
+  };
+  
+  return `${symbols[currency as keyof typeof symbols]}${amount.toLocaleString()}`;
+};
 
 export default function PricingPage() {
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
 
   const handleSelectPlan = (planId: string) => {
-    router.push(`/subscription/checkout?plan=${planId}&cycle=${billingCycle}`);
-  };
-
-  const productSchema = SUBSCRIPTION_PLANS.map(plan => ({
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "name": `CateringMS ${plan.name} Plan`,
-    "description": plan.features.join(", "),
-    "brand": {
-      "@type": "Brand",
-      "name": "CateringMS"
-    },
-    "offers": {
-      "@type": "Offer",
-      "price": billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice,
-      "priceCurrency": "ZAR",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice,
-        "priceCurrency": "ZAR",
-        "unitText": billingCycle === "monthly" ? "MONTH" : "YEAR"
-      },
-      "availability": "https://schema.org/InStock",
-      "url": `https://cateringms.com/subscription/checkout?plan=${plan.id}`
-    }
-  }));
-
-  const organizationSchema = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "CateringMS",
-    "url": "https://cateringms.com",
-    "contactPoint": {
-      "@type": "ContactPoint",
-      "telephone": "+27-83-652-5755",
-      "contactType": "sales"
+    if (planId === "enterprise") {
+      router.push("/contact?subject=Enterprise Plan Inquiry");
+    } else {
+      router.push(`/subscription/checkout?plan=${planId}&cycle=${billingCycle}`);
     }
   };
 
@@ -74,24 +147,12 @@ export default function PricingPage() {
   };
 
   return (
-    <>
+    <TooltipProvider>
       <Head>
-        <title>Pricing Plans - CateringMS</title>
-        <meta name="description" content="Simple, transparent pricing for CateringMS catering management platform. Choose from Starter, Professional, or Enterprise plans. 14-day free trial on all plans with no credit card required." />
-        <meta name="keywords" content="catering software pricing, catering management cost, subscription plans, free trial" />
+        <title>Pricing Plans - CateringMS | Simple & Transparent Pricing</title>
+        <meta name="description" content="Choose the perfect plan for your catering business. Starting at R399/month with 14-day free trial. Flexible limits based on active clients or orders per quarter." />
+        <meta name="keywords" content="catering software pricing, catering management cost, subscription plans, free trial, affordable catering software" />
         <link rel="canonical" href="https://cateringms.com/pricing" />
-        
-        {productSchema.map((schema, index) => (
-          <script
-            key={index}
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-          />
-        ))}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
@@ -109,10 +170,10 @@ export default function PricingPage() {
             </h1>
             
             <p className="text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed">
-              Choose the plan that fits your catering business. All plans include a 14-day free trial with full access.
+              Choose the plan that fits your catering business. Flexible limits that grow with you.
             </p>
 
-            <div className="flex items-center justify-center gap-8 pt-4">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-4">
               <div className="flex items-center gap-2">
                 <Shield className="w-5 h-5 text-green-600" />
                 <span className="text-sm text-slate-600">No credit card required</span>
@@ -145,10 +206,14 @@ export default function PricingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            {SUBSCRIPTION_PLANS.map((plan) => {
-              const price = billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
-              const monthlyEquivalent = billingCycle === "annual" ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
-              const savings = billingCycle === "annual" ? calculateSavings(plan.monthlyPrice, plan.annualPrice) : null;
+            {PRICING_PLANS.map((plan) => {
+              const price = plan.monthlyPriceZAR ? (billingCycle === "monthly" ? plan.monthlyPriceZAR : plan.annualPriceZAR) : null;
+              const monthlyEquivalent = price && billingCycle === "annual" ? Math.round(price / 12) : plan.monthlyPriceZAR;
+              const savings = plan.monthlyPriceZAR && plan.annualPriceZAR && billingCycle === "annual" 
+                ? calculateSavings(plan.monthlyPriceZAR, plan.annualPriceZAR) 
+                : null;
+              
+              const currencies = monthlyEquivalent ? convertCurrency(monthlyEquivalent) : null;
 
               return (
                 <Card 
@@ -173,26 +238,54 @@ export default function PricingPage() {
                     <CardDescription className="text-base">
                       {plan.id === "starter" && "Perfect for small catering businesses starting out"}
                       {plan.id === "professional" && "Ideal for growing operations with multiple events"}
-                      {plan.id === "enterprise" && "Built for large-scale catering operations"}
+                      {plan.id === "enterprise" && "Built for large-scale catering enterprises"}
                     </CardDescription>
                     
                     <div className="pt-6 space-y-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-bold">{formatCurrency(billingCycle === "annual" ? monthlyEquivalent : price)}</span>
-                        <span className="text-slate-600 text-lg">/month</span>
+                        <span className="text-5xl font-bold">
+                          {currencies ? formatCurrency(currencies.zar, "ZAR") : "Custom"}
+                        </span>
+                        {currencies && <span className="text-slate-600 text-lg">/month</span>}
                       </div>
                       
-                      {billingCycle === "annual" && (
+                      {currencies && (
                         <div className="space-y-1">
-                          <p className="text-sm text-slate-600">
-                            Billed annually at {formatCurrency(price)}
+                          <p className="text-xs text-slate-500">
+                            ≈ {formatCurrency(currencies.usd, "USD")} | {formatCurrency(currencies.gbp, "GBP")} | {formatCurrency(currencies.eur, "EUR")}
                           </p>
-                          {savings && (
-                            <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
-                              <TrendingUp className="w-4 h-4" />
-                              <span>Save {formatCurrency(savings.amount)} ({savings.percentage}%)</span>
-                            </div>
+                          {billingCycle === "annual" && price && (
+                            <>
+                              <p className="text-sm text-slate-600">
+                                Billed annually at {formatCurrency(price, "ZAR")}
+                              </p>
+                              {savings && (
+                                <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
+                                  <TrendingUp className="w-4 h-4" />
+                                  <span>Save {formatCurrency(savings.amount, "ZAR")} ({savings.percentage}%)</span>
+                                </div>
+                              )}
+                            </>
                           )}
+                        </div>
+                      )}
+
+                      {plan.id !== "enterprise" && (
+                        <div className="flex items-center gap-1 pt-2">
+                          <span className="text-sm font-medium text-slate-700">
+                            {plan.limits.activeClients} active clients OR {plan.limits.ordersPerQuarter} orders/quarter
+                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-4 h-4 text-slate-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="font-semibold mb-2">Whichever Comes First</p>
+                              <p className="text-sm mb-2">Your plan limit is based on whichever metric you reach first.</p>
+                              <p className="text-sm mb-2"><strong>Active Clients:</strong> Clients who placed at least one order in the last 90 days. Importing existing clients does not count until they place new orders.</p>
+                              <p className="text-sm"><strong>Orders per Quarter:</strong> Total orders in a 3-month period (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec). This smooths seasonal fluctuations.</p>
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                       )}
                     </div>
@@ -207,7 +300,7 @@ export default function PricingPage() {
                           : "bg-slate-900 hover:bg-slate-800"
                       }`}
                     >
-                      Start Free Trial
+                      {plan.id === "enterprise" ? "Contact Sales" : "Start Free Trial"}
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
 
@@ -223,31 +316,53 @@ export default function PricingPage() {
                   </CardContent>
 
                   <CardFooter className="flex justify-center border-t pt-6">
-                    <Button variant="ghost" onClick={() => handleSelectPlan(plan.id)} className="text-purple-600 hover:text-purple-700">
-                      View full features
-                      <ChevronRight className="w-4 h-4 ml-1" />
-                    </Button>
+                    <Link href="/features">
+                      <Button variant="ghost" className="text-purple-600 hover:text-purple-700">
+                        View all features
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </Link>
                   </CardFooter>
                 </Card>
               );
             })}
           </div>
 
+          <div className="bg-slate-50 rounded-2xl p-8 mb-12 border border-slate-200">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0" />
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg text-slate-900">Important Pricing Information</h3>
+                <ul className="space-y-2 text-sm text-slate-700">
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-600 font-bold">•</span>
+                    <span><strong>Currency Display:</strong> Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate conversions for reference only. All payments are processed in ZAR.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-600 font-bold">•</span>
+                    <span><strong>USD-Pegged Pricing:</strong> Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices to maintain USD equivalency if significant currency fluctuations occur (exceeding 15% over 90 days). You will receive 30 days advance notice of any price changes.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-purple-600 font-bold">•</span>
+                    <span><strong>Database Storage:</strong> All plans include unlimited client database storage. You only pay for active clients (those who ordered in the last 90 days) or total orders per quarter, whichever limit you reach first.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-12 mb-16">
             <div className="max-w-4xl mx-auto text-center space-y-6">
-              <h2 className="text-3xl font-bold text-slate-900">Why Catering Businesses Love Our Platform</h2>
-              <p className="text-base text-slate-600 mb-4">
-                Read more about <Link href="/blog/improve-catering-profit-margins" className="text-purple-600 hover:text-purple-700 underline">profitability strategies</Link> and <Link href="/blog/reduce-admin-costs-catering" className="text-purple-600 hover:text-purple-700 underline">reducing admin costs</Link>.
-              </p>
+              <h2 className="text-3xl font-bold text-slate-900">Why Catering Businesses Choose CateringMS</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6">
                 <div className="space-y-3">
                   <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto">
                     <TrendingUp className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">Estimated ROI</h3>
+                  <h3 className="font-semibold text-lg">Estimated Cost Savings</h3>
                   <p className="text-sm text-slate-600">
-                    Potential to save R12,000-15,000/month on average through automation and efficiency gains (based on industry data)
+                    Potential to save R10,000-12,000/month through automation and efficiency gains (based on industry data)
                   </p>
                 </div>
 
@@ -255,9 +370,9 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mx-auto">
                     <Clock className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">40-50 Hours Saved</h3>
+                  <h3 className="font-semibold text-lg">30-40 Hours Saved</h3>
                   <p className="text-sm text-slate-600">
-                    Estimated time savings eliminating manual admin work every month, allowing you to focus on growth
+                    Estimated time savings from eliminating manual admin work every month
                   </p>
                 </div>
 
@@ -265,12 +380,15 @@ export default function PricingPage() {
                   <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mx-auto">
                     <Target className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="font-semibold text-lg">15-20% More Bookings</h3>
+                  <h3 className="font-semibold text-lg">12-15% More Bookings</h3>
                   <p className="text-sm text-slate-600">
-                    Estimated increase from automated follow-ups and professional quotes that convert more leads
+                    Estimated increase from automated follow-ups and professional quotes
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-slate-500 pt-4">
+                * Estimated figures based on industry knowledge and average catering business operations. Actual results may vary.
+              </p>
             </div>
           </div>
 
@@ -278,6 +396,27 @@ export default function PricingPage() {
             <h2 className="text-3xl font-bold text-center mb-10">Frequently Asked Questions</h2>
             
             <div className="max-w-3xl mx-auto space-y-6">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">How does the "whichever comes first" limit work?</h3>
+                <p className="text-slate-600">
+                  Your plan limit is based on whichever metric you reach first. For example, if you are on the Starter plan and have 45 active clients but 160 orders in the quarter, you would need to upgrade to Professional because you exceeded the 150 orders/quarter limit (even though you are under the 50 active clients limit).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">What counts as an "active client"?</h3>
+                <p className="text-slate-600">
+                  An active client is someone who has placed at least one order in the last 90 days. If you import 3,000 existing clients into the system, they do not count toward your limit until they place new orders through the platform.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">Why quarterly orders instead of monthly?</h3>
+                <p className="text-slate-600">
+                  Quarterly limits smooth out seasonal fluctuations in the catering business. You might have 200 orders in December but only 30 in February. Quarterly billing prevents your plan from bouncing between tiers every month.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <h3 className="font-semibold text-lg">How does the free trial work?</h3>
                 <p className="text-slate-600">
@@ -293,30 +432,9 @@ export default function PricingPage() {
               </div>
 
               <div className="space-y-2">
-                <h3 className="font-semibold text-lg">What payment methods do you accept?</h3>
+                <h3 className="font-semibold text-lg">What happens if I exceed my plan limits?</h3>
                 <p className="text-slate-600">
-                  We use PayFast for secure payment processing in South Africa. We accept all major credit and debit cards, as well as instant EFT. All transactions are encrypted and secure.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Is there a setup fee?</h3>
-                <p className="text-slate-600">
-                  No setup fees, ever. You only pay the monthly or annual subscription price. We want to make it as easy as possible for you to start growing your catering business.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">What happens to my data if I cancel?</h3>
-                <p className="text-slate-600">
-                  Your data is always yours. Before canceling, you can export all your data. We will retain your data for 30 days after cancellation in case you change your mind, then it will be permanently deleted.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold text-lg">Do you offer refunds?</h3>
-                <p className="text-slate-600">
-                  If you are not satisfied within the first 14 days after your trial ends, we offer a full refund, no questions asked. We are confident you will love our platform.
+                  We will notify you when you approach your limits. You can upgrade to the next tier at any time. We will never shut off your access without notice.
                 </p>
               </div>
             </div>
@@ -326,11 +444,8 @@ export default function PricingPage() {
             <div className="max-w-3xl mx-auto space-y-6">
               <Zap className="w-16 h-16 mx-auto" />
               <h2 className="text-4xl font-bold">Ready to Transform Your Catering Business?</h2>
-              <p className="text-xl text-purple-100 mb-4">
-                Join successful catering companies already using our platform to save time, reduce costs, and grow their business.
-              </p>
-              <p className="text-base text-purple-200">
-                Learn more from our <Link href="/blog" className="text-white hover:text-purple-100 underline font-medium">catering business guides</Link> or explore all <Link href="/features" className="text-white hover:text-purple-100 underline font-medium">platform features</Link>.
+              <p className="text-xl text-purple-100">
+                Join catering companies saving time, reducing costs, and growing their business with CateringMS.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Button 
@@ -341,24 +456,24 @@ export default function PricingPage() {
                   Start Your Free Trial
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-                <Link href="/blog">
+                <Link href="/features">
                   <Button 
                     size="lg"
                     variant="outline"
                     className="border-2 border-white text-white hover:bg-white/10 h-14 px-8 text-lg font-semibold"
                   >
-                    Learn More
+                    Explore Features
                   </Button>
                 </Link>
               </div>
               <p className="text-sm text-purple-200 pt-4">
                 <Users className="w-4 h-4 inline mr-1" />
-                Join 300+ catering businesses already saving time and money
+                Trusted by growing catering businesses across South Africa
               </p>
             </div>
           </div>
         </div>
       </div>
-    </>
+    </TooltipProvider>
   );
 }
