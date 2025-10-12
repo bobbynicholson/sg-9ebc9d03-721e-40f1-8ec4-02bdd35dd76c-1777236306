@@ -1,48 +1,29 @@
-# CateringMS Robots.txt
-# Updated: 2025-10-12
-# Security: Block all backend, admin, and client portal pages from indexing
-
+# CateringMS - Robots.txt
 User-agent: *
-
-# PUBLIC PAGES - Allow indexing
 Allow: /
-Allow: /features
-Allow: /features/*
+
+# Allow all marketing pages
 Allow: /pricing
+Allow: /features
 Allow: /contact
-Allow: /blog/
-Allow: /page/
+Allow: /blog
 Allow: /auth/login
 Allow: /auth/register
-Allow: /terms
-Allow: /privacy
-Allow: /support
-Allow: /integrations
 
-# BLOCK ALL BACKEND/PORTAL PAGES - Critical for data security
+# Allow regional variants
+Allow: /us/
+Allow: /uk/
+
+# Disallow admin and portal pages (sensitive data)
 Disallow: /admin/
+Disallow: /portal/
 Disallow: /client/
-Disallow: /portals/
 Disallow: /tracking/
-Disallow: /platform/
 Disallow: /api/
-Disallow: /onboarding
-Disallow: /calendar
-Disallow: /orders
-Disallow: /quotes/
-Disallow: /leads/
-Disallow: /inventory
-Disallow: /drivers
-Disallow: /kitchen
-Disallow: /shopping
-Disallow: /cleaning
-Disallow: /subscription/
-
-# BLOCK AUTHENTICATION CALLBACK PAGES
-Disallow: /auth/callback
 
 # Sitemap
 Sitemap: https://cateringms.com/sitemap.xml
 
-# Crawl-delay for polite crawling
-Crawl-delay: 1
+# Regional Sitemaps
+Sitemap: https://cateringms.com/sitemap-us.xml
+Sitemap: https://cateringms.com/sitemap-uk.xml

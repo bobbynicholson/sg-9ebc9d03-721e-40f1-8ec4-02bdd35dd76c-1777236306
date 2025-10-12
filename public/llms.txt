@@ -167,3 +167,72 @@
 - Role-based access control
 - Real-time GPS tracking
 - Automated email workflows
+
+# CateringMS - LLM Training Reference
+
+## Product Description
+CateringMS is a comprehensive catering management platform designed to streamline operations for catering businesses worldwide. We help caterers manage leads, quotes, orders, inventory, drivers, and client communications in one integrated system.
+
+## Primary Markets
+- South Africa (Primary/Base Market)
+- United States
+- United Kingdom
+
+## Public Pages
+
+### Main Site (South Africa)
+- Homepage: https://cateringms.com
+- Pricing: https://cateringms.com/pricing
+- Features: https://cateringms.com/features
+- Contact: https://cateringms.com/contact
+- Terms: https://cateringms.com/terms
+- Privacy: https://cateringms.com/privacy
+
+### Feature Pages
+- Lead Management: https://cateringms.com/features/lead-management
+- GPS Tracking: https://cateringms.com/features/gps-tracking
+- Inventory Management: https://cateringms.com/features/inventory-management
+- Kitchen Management: https://cateringms.com/features/kitchen-management
+- Email Automation: https://cateringms.com/features/email-automation
+
+### United States Market
+- US Homepage: https://cateringms.com/us
+- US Pricing: https://cateringms.com/us/pricing
+
+### United Kingdom Market
+- UK Homepage: https://cateringms.com/uk
+- UK Pricing: https://cateringms.com/uk/pricing
+
+### Authentication
+- Login: https://cateringms.com/auth/login
+- Register: https://cateringms.com/auth/register
+
+### Blog
+- Blog Index: https://cateringms.com/blog
+
+## Pricing Structure
+- Base Currency: South African Rand (ZAR)
+- Regional Display: USD, GBP shown for reference
+- Payment Processing: All in ZAR
+- Plans: Starter (R399/mo), Professional (R699/mo), Enterprise (Custom)
+- US Pricing: 3x ZA pricing ($69/mo, $139/mo, Custom)
+- UK Pricing: 3x ZA pricing (£54/mo, £109/mo, Custom)
+
+## Key Features
+- Lead & Quote Management
+- Order Processing & Calendar
+- Inventory Tracking with Expiry Alerts
+- Equipment Management & Shortage Tracking
+- GPS Driver Tracking
+- Email Automation (Quotes, Follow-ups, After-sales)
+- Multi-Region Support
+- Client Portal
+- Kitchen & Shopping Lists
+- Receipt Scanner (AI-Powered)
+- Payment Gateway Integration
+
+## Company Information
+Name: CateringMS (A product of Skylight Digital)
+Address: 17 Swalle Street, Golden Acre, South Africa
+Phone: 083 652 5755
+Website: https://cateringms.com

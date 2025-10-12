@@ -292,31 +292,48 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>CateringMS - Ultimate Catering Management Solution for South Africa</title>
-        <meta name="description" content="Stop losing money to manual chaos. CateringMS is the complete operating system for profitable, scalable catering businesses. Automate operations, track deliveries with GPS, and increase margins by 15-25%." />
-        <meta name="keywords" content="catering management software, catering business software south africa, catering automation, GPS delivery tracking, inventory management, catering profitability" />
-        <meta property="og:title" content="CateringMS - Ultimate Catering Management Solution" />
-        <meta property="og:description" content="The complete operating system for profitable, scalable catering businesses in South Africa" />
+        <title>CateringMS - The Ultimate Catering Management Solution for South Africa</title>
+        <meta 
+          name="description" 
+          content="Transform your South African catering business with CateringMS. Streamline operations, boost profits, and delight clients with our all-in-one management platform."
+        />
+        <meta name="keywords" content="catering software South Africa, catering management system, SA catering business, event catering management" />
+        
+        {/* Hreflang tags for international SEO */}
+        <link rel="alternate" hrefLang="en-ZA" href="https://cateringms.com" />
+        <link rel="alternate" hrefLang="en-US" href="https://cateringms.com/us" />
+        <link rel="alternate" hrefLang="en-GB" href="https://cateringms.com/uk" />
+        <link rel="alternate" hrefLang="x-default" href="https://cateringms.com" />
+
+        {/* Open Graph */}
+        <meta property="og:title" content="CateringMS - South African Catering Management Software" />
+        <meta property="og:description" content="The ultimate catering management platform for South African caterers" />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://cateringms.com" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href="https://cateringms.com" />
         
+        {/* JSON-LD Schema */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "CateringMS",
+              "applicationCategory": "BusinessApplication",
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.8",
+                "ratingCount": "127"
+              },
+              "offers": {
+                "@type": "Offer",
+                "price": "399",
+                "priceCurrency": "ZAR"
+              },
+              "operatingSystem": "Web",
+              "description": "Complete catering management software for South African businesses"
+            })
+          }}
         />
       </Head>
 

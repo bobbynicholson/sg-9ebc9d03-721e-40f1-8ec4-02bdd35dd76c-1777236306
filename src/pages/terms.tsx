@@ -65,7 +65,7 @@ export default function TermsPage() {
   return (
     <>
       <Head>
-        <title>Terms of Service - CateringMS Catering Management Platform</title>
+        <title>Terms & Conditions - CateringMS</title>
         <meta name="description" content="Terms of Service for CateringMS. Review our subscription terms, billing policies, cancellation procedures, and user responsibilities for our catering management platform." />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://cateringms.com/terms" />
@@ -75,102 +75,101 @@ export default function TermsPage() {
         />
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Link href="/">
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-          </Link>
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
+        <Header />
 
-          <Card className="border-0 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-3xl">Terms of Service</CardTitle>
-              <p className="text-slate-600">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
-              <p className="text-sm text-slate-600 mt-2">
-                For more information about our platform, visit our <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">features page</Link> or read <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">success stories on our blog</Link>.
+        <main className="container mx-auto px-4 py-16 max-w-4xl">
+          <h1 className="text-4xl font-bold mb-8">Terms & Conditions</h1>
+
+          <div className="prose prose-purple max-w-none space-y-8">
+            <section>
+              <h2 className="text-2xl font-bold mb-4">1. Agreement to Terms</h2>
+              <p>
+                By accessing and using CateringMS ("the Service"), you agree to be bound by these Terms and Conditions. If you do not agree to these terms, please do not use the Service.
               </p>
-            </CardHeader>
-            <CardContent className="prose prose-slate max-w-none space-y-6">
-              <section>
-                <h2 className="text-2xl font-semibold mb-4">1. Acceptance of Terms</h2>
-                <p className="text-slate-700 leading-relaxed">
-                  By accessing and using the Catering Management Platform (the "Service"), you accept and agree to be bound by the terms and provisions of this agreement. If you do not agree to these terms, please do not use the Service.
-                </p>
-              </section>
+            </section>
 
-              <section>
-                <h2 className="text-2xl font-semibold mb-4">2. Description of Service</h2>
-                <p className="text-slate-700 leading-relaxed mb-3">
-                  The Catering Management Platform provides a comprehensive software solution for catering businesses. Learn more about <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">all our features</Link>, including but not limited to:
-                </p>
-                <ul className="list-disc pl-6 space-y-2 text-slate-700">
-                  <li>Lead and quote management</li>
-                  <li>Order processing and calendar booking</li>
-                  <li>Inventory and equipment tracking</li>
-                  <li>Team coordination and driver management</li>
-                  <li>Client portal and communication tools</li>
-                  <li>Email automation and after-sales engagement</li>
-                  <li>Multi-region support for scaling operations</li>
-                </ul>
-              </section>
+            <section>
+              <h2 className="text-2xl font-bold mb-4">2. Pricing and Payment</h2>
+              
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.1 Base Currency and Pricing</h3>
+              <p>
+                All CateringMS pricing is denominated in South African Rand (ZAR). Our base pricing structure is set in ZAR, and all payment processing occurs in ZAR regardless of your geographic location.
+              </p>
 
-              <section>
-                <h2 className="text-2xl font-semibold mb-4">3. Subscription Plans and Billing</h2>
-                <h3 className="text-xl font-semibold mt-4 mb-2">3.1 Free Trial</h3>
-                <p className="text-slate-700 leading-relaxed">
-                  All new subscriptions include a 14-day free trial period. During the trial, you have full access to all features of your chosen plan. No payment is required to start your trial. View our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline">pricing plans</Link> to get started.
-                </p>
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.2 Regional Pricing Display</h3>
+              <p>
+                For your convenience, we display approximate pricing conversions in US Dollars (USD), British Pounds (GBP), and Euros (EUR) on our regional marketing pages. These conversions are for reference purposes only and do not represent actual payment amounts. All charges will be processed in ZAR.
+              </p>
 
-                <h3 className="text-xl font-semibold mt-4 mb-2">3.2 Billing Cycle</h3>
-                <p className="text-slate-700 leading-relaxed">
-                  After your free trial ends, your subscription will automatically begin and your payment method will be charged according to your chosen billing cycle (monthly or annual). Subscriptions automatically renew unless cancelled before the renewal date.
-                </p>
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.3 USD-Pegged Pricing Policy</h3>
+              <p>
+                Our ZAR pricing is pegged to United States Dollar (USD) equivalent rates to maintain consistent value across international markets. We reserve the right to adjust our ZAR pricing if significant currency fluctuations occur (defined as exceeding 15% movement over any 90-day period) to maintain USD equivalency.
+              </p>
+              <p className="mt-2">
+                In the event of a pricing adjustment due to currency fluctuations:
+              </p>
+              <ul className="list-disc pl-6 mt-2 space-y-2">
+                <li>You will receive 30 days advance written notice via email</li>
+                <li>Current subscribers will be grandfathered at their existing rate for their current billing period</li>
+                <li>New pricing will apply at your next renewal date after the notice period</li>
+                <li>You may cancel your subscription at any time before the new pricing takes effect</li>
+              </ul>
 
-                <h3 className="text-xl font-semibold mt-4 mb-2">3.3 Payment Processing</h3>
-                <p className="text-slate-700 leading-relaxed">
-                  All payments are processed securely through PayFast, a PCI-DSS compliant payment gateway. We do not store your credit card information on our servers. By providing your payment information, you authorize us to charge your payment method for all subscription fees.
-                </p>
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.4 Subscription Tiers and Limits</h3>
+              <p>
+                Our subscription plans are based on usage limits defined by whichever threshold is reached first:
+              </p>
+              <ul className="list-disc pl-6 mt-2 space-y-2">
+                <li><strong>Active Clients:</strong> The number of unique client records in your active database</li>
+                <li><strong>Orders per Quarter:</strong> The total number of orders processed in any rolling 3-month period</li>
+              </ul>
+              <p className="mt-2">
+                When you reach either limit, you will be prompted to upgrade to the next tier. You can upgrade at any time, and charges will be prorated based on your current billing cycle.
+              </p>
 
-                <h3 className="text-xl font-semibold mt-4 mb-2">3.4 Price Changes and Currency Policy</h3>
-                <div className="space-y-4">
-                  <p className="text-slate-700 leading-relaxed">
-                    <strong>General Price Changes:</strong> We reserve the right to change our subscription prices with 30 days advance notice. Price changes will not affect your current billing cycle but will apply to subsequent renewals.
-                  </p>
-                  
-                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-slate-900 font-semibold mb-2">USD-Pegged Pricing Policy</p>
-                    <p className="text-slate-700 leading-relaxed mb-3">
-                      All CateringMS subscription pricing is displayed in South African Rand (ZAR) but is fundamentally pegged to United States Dollar (USD) exchange rates. This policy protects both our business and our customers from extreme currency volatility.
-                    </p>
-                    
-                    <p className="text-slate-700 leading-relaxed mb-3">
-                      <strong>Currency Adjustment Threshold:</strong> In the event that the ZAR/USD exchange rate fluctuates by more than 15% over a rolling 90-day period compared to our established baseline rate, CateringMS reserves the right to adjust ZAR pricing to maintain USD equivalency.
-                    </p>
-                    
-                    <p className="text-slate-700 leading-relaxed mb-3">
-                      <strong>Notice Period:</strong> Any pricing adjustments made under this currency policy will be communicated to all active subscribers at least 30 days in advance of implementation. The notice will include:
-                    </p>
-                    <ul className="list-disc pl-6 space-y-1 text-slate-700 mb-3">
-                      <li>The current ZAR pricing</li>
-                      <li>The new ZAR pricing</li>
-                      <li>The effective date of the change</li>
-                      <li>Explanation of the exchange rate movement that triggered the adjustment</li>
-                    </ul>
-                    
-                    <p className="text-slate-700 leading-relaxed mb-3">
-                      <strong>Customer Rights:</strong> If you do not wish to continue your subscription at the adjusted rate, you may cancel your subscription before the effective date of the price change without penalty. You will retain access to the Service until the end of your current paid billing period.
-                    </p>
-                    
-                    <p className="text-slate-700 leading-relaxed">
-                      <strong>Multi-Currency Display:</strong> While pricing is shown in USD, GBP, and EUR for reference purposes on our website, all payments are processed exclusively in ZAR. The displayed USD, GBP, and EUR amounts are approximations only and do not constitute binding prices in those currencies.
-                    </p>
-                  </div>
-                </div>
-              </section>
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.5 Billing Cycles</h3>
+              <p>
+                Subscriptions are available on monthly, quarterly, or annual billing cycles. Annual subscriptions receive a 15% discount compared to monthly billing. All subscriptions automatically renew unless cancelled before the renewal date.
+              </p>
 
-              <section>
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.6 Payment Processing</h3>
+              <p>
+                Payments are processed through secure third-party payment gateways (PayFast, Stripe) in South African Rand (ZAR). Your bank or card issuer may apply currency conversion fees if your account is in a different currency.
+              </p>
+
+              <h3 className="text-xl font-semibold mb-3 mt-4">2.7 Refund Policy</h3>
+              <p>
+                We offer a 14-day free trial with no credit card required. After the trial period, we do not offer refunds for partial months of service. You may cancel at any time, and your access will continue until the end of your current billing period.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-bold mb-4">3. Currency Monitoring and Price Adjustments</h2>
+              
+              <h3 className="text-xl font-semibold mb-3 mt-4">3.1 Monitoring Process</h3>
+              <p>
+                CateringMS monitors ZAR/USD exchange rates continuously. If the ZAR weakens or strengthens by more than 15% against the USD over any 90-day rolling period, we may adjust our ZAR pricing to maintain approximate USD equivalency.
+              </p>
+
+              <h3 className="text-xl font-semibold mb-3 mt-4">3.2 Notification of Price Changes</h3>
+              <p>
+                All registered users will receive email notification at least 30 days before any pricing adjustments take effect. This notification will include:
+              </p>
+              <ul className="list-disc pl-6 mt-2 space-y-2">
+                <li>Current pricing and new pricing in ZAR</li>
+                <li>Effective date of the price change</li>
+                <li>Options to continue, upgrade, downgrade, or cancel</li>
+                <li>Explanation of the currency movement that triggered the adjustment</li>
+              </ul>
+
+              <h3 className="text-xl font-semibold mb-3 mt-4">3.3 Grandfathering Policy</h3>
+              <p>
+                Existing subscribers will not see price increases during their current subscription period. New pricing will only apply at the next renewal date after the 30-day notice period.
+              </p>
+            </section>
+
+            <section>
                 <h2 className="text-2xl font-semibold mb-4">4. Subscription Management and Automation</h2>
                 
                 <h3 className="text-xl font-semibold mt-4 mb-2">4.1 Automated Subscription Processes</h3>
