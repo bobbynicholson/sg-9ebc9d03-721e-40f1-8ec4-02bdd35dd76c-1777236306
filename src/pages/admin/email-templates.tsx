@@ -1,13 +1,13 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare } from "lucide-react";
+import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare, ArrowLeft } from "lucide-react";
 import Head from "next/head";
 
 interface EmailTemplate {
@@ -301,6 +301,7 @@ export default function EmailTemplatesPage() {
   const [editMode, setEditMode] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showTemplateList, setShowTemplateList] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem("email_templates");
@@ -317,6 +318,14 @@ export default function EmailTemplatesPage() {
   const handleSelectTemplate = (template: EmailTemplate) => {
     setSelectedTemplate({ ...template });
     setEditMode(true);
+    setPreviewMode(false);
+    setShowTemplateList(false);
+  };
+
+  const handleBackToList = () => {
+    setShowTemplateList(true);
+    setSelectedTemplate(null);
+    setEditMode(false);
     setPreviewMode(false);
   };
 
@@ -384,7 +393,7 @@ export default function EmailTemplatesPage() {
       review: MessageSquare,
     };
     const Icon = icons[category];
-    return <Icon className="w-4 h-4" />;
+    return <Icon className="w-3 h-3 md:w-4 md:h-4" />;
   };
 
   return (
@@ -394,31 +403,158 @@ export default function EmailTemplatesPage() {
         <title>Email Templates - CaterOS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <Mail className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <Mail className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Email Template Manager</h1>
-                <p className="text-slate-600">Customize automated email communications</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Email Templates</h1>
+                <p className="text-sm md:text-base text-slate-600 hidden sm:block">Customize automated communications</p>
               </div>
             </div>
             {saved && (
-              <Badge className="bg-green-100 text-green-800 border-green-200">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Changes Saved
+              <Badge className="bg-green-100 text-green-800 border-green-200 text-xs md:text-sm">
+                <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                Saved
               </Badge>
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Mobile: Toggle between list and editor */}
+          <div className="lg:hidden">
+            {showTemplateList ? (
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="px-4 py-4">
+                  <CardTitle className="text-lg">Templates</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 px-4">
+                  {templates.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => handleSelectTemplate(template)}
+                      className="w-full text-left p-3 rounded-lg bg-slate-50 hover:bg-slate-100 border-2 border-transparent hover:border-purple-200 transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm truncate pr-2">{template.name}</span>
+                        <Badge className={`text-xs flex-shrink-0 ${getCategoryColor(template.category)}`}>
+                          {getCategoryIcon(template.category)}
+                        </Badge>
+                      </div>
+                      {template.delayDays && (
+                        <p className="text-xs text-slate-600">
+                          {Math.abs(template.delayDays)} days {template.delayDays > 0 ? "after" : "before"}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <Button variant="outline" onClick={handleBackToList} size="sm" className="w-full sm:w-auto">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Templates
+                </Button>
+
+                {selectedTemplate && (
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="px-4 py-4">
+                      <div className="space-y-3">
+                        <div>
+                          <CardTitle className="text-lg">{selectedTemplate.name}</CardTitle>
+                          <Badge className={`mt-2 text-xs ${getCategoryColor(selectedTemplate.category)}`}>
+                            {selectedTemplate.category}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button variant="outline" onClick={handlePreview} size="sm" className="w-full sm:w-auto">
+                            <Eye className="w-4 h-4 mr-2" />
+                            Preview
+                          </Button>
+                          {editMode && (
+                            <Button onClick={handleSaveTemplate} className="bg-purple-600 w-full sm:w-auto" size="sm">
+                              <Save className="w-4 h-4 mr-2" />
+                              Save
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="px-4">
+                      {previewMode ? (
+                        <div className="space-y-4">
+                          <Alert>
+                            <AlertDescription className="text-xs md:text-sm">
+                              Preview with sample data
+                            </AlertDescription>
+                          </Alert>
+                          <div className="bg-white border rounded-lg p-4">
+                            <div className="border-b pb-3 mb-3">
+                              <p className="text-xs text-slate-600">Subject:</p>
+                              <p className="font-semibold text-sm">{selectedTemplate.subject}</p>
+                            </div>
+                            <div className="whitespace-pre-wrap text-xs md:text-sm">{renderPreview()}</div>
+                          </div>
+                          <Button variant="outline" onClick={() => setPreviewMode(false)} size="sm" className="w-full">
+                            Back to Edit
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label className="text-sm">Subject Line</Label>
+                            <Input
+                              value={selectedTemplate.subject}
+                              onChange={(e) =>
+                                setSelectedTemplate({ ...selectedTemplate, subject: e.target.value })
+                              }
+                              placeholder="Email subject"
+                              className="text-sm"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm">Email Body</Label>
+                            <Textarea
+                              value={selectedTemplate.body}
+                              onChange={(e) =>
+                                setSelectedTemplate({ ...selectedTemplate, body: e.target.value })
+                              }
+                              rows={15}
+                              className="font-mono text-xs"
+                            />
+                          </div>
+
+                          <Alert>
+                            <AlertDescription>
+                              <p className="font-semibold mb-2 text-xs">Variables:</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <code>{"{client_name}"}</code>
+                                <code>{"{quote_id}"}</code>
+                                <code>{"{order_id}"}</code>
+                                <code>{"{total_amount}"}</code>
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: Side-by-side layout */}
+          <div className="hidden lg:grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
               <Card className="border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle>Email Templates</CardTitle>
+                  <CardTitle>Templates</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {templates.map((template) => (
@@ -439,7 +575,7 @@ export default function EmailTemplatesPage() {
                       </div>
                       {template.delayDays && (
                         <p className="text-xs text-slate-600">
-                          Sent {Math.abs(template.delayDays)} days {template.delayDays > 0 ? "after" : "before"} trigger
+                          {Math.abs(template.delayDays)} days {template.delayDays > 0 ? "after" : "before"}
                         </p>
                       )}
                     </button>
@@ -467,7 +603,7 @@ export default function EmailTemplatesPage() {
                         {editMode && (
                           <Button onClick={handleSaveTemplate} className="bg-purple-600">
                             <Save className="w-4 h-4 mr-2" />
-                            Save Changes
+                            Save
                           </Button>
                         )}
                       </div>
@@ -478,7 +614,7 @@ export default function EmailTemplatesPage() {
                       <div className="space-y-4">
                         <Alert>
                           <AlertDescription>
-                            This is how your email will look with sample data
+                            Preview with sample data
                           </AlertDescription>
                         </Alert>
                         <div className="bg-white border rounded-lg p-6">
