@@ -1,4 +1,6 @@
+
 import { useState, useEffect } from "react";
+import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { equipmentShortageService } from "@/services/equipmentShortageService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,8 +32,7 @@ import {
   DollarSign,
   Package,
   User,
-  Calendar,
-  MapPin
+  Calendar
 } from "lucide-react";
 
 interface ShortageFlag {
@@ -198,170 +199,186 @@ export default function EquipmentShortagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Equipment Shortage Flags</h1>
-          <p className="text-gray-600">Manage and resolve equipment shortage issues</p>
-        </div>
+    <>
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Equipment Shortages - CaterOS Admin</title>
+      </Head>
+      
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Equipment Shortage Flags</h1>
+            <p className="text-sm md:text-base text-gray-600">Manage and resolve equipment shortage issues</p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pending</p>
-                  <p className="text-3xl font-bold text-orange-600">{pendingCount}</p>
-                </div>
-                <AlertTriangle className="w-10 h-10 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Investigating</p>
-                  <p className="text-3xl font-bold text-blue-600">{investigatingCount}</p>
-                </div>
-                <Clock className="w-10 h-10 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Resolved</p>
-                  <p className="text-3xl font-bold text-green-600">{resolvedCount}</p>
-                </div>
-                <CheckCircle className="w-10 h-10 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Financial Impact</p>
-                  <p className="text-3xl font-bold text-red-600">R{totalFinancialImpact.toFixed(2)}</p>
-                </div>
-                <DollarSign className="w-10 h-10 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  placeholder="Search by client name, equipment, or order number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="investigating">Investigating</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          {filteredShortages.length === 0 ? (
+          {/* Stats Cards - Mobile Optimized Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 mb-6 md:mb-8">
             <Card>
-              <CardContent className="p-12 text-center">
-                <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No Shortage Flags Found</h3>
-                <p className="text-gray-600">
-                  {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
-                    ? "Try adjusting your filters"
-                    : "All equipment has been returned in full"}
-                </p>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-2xl md:text-3xl font-bold text-orange-600">{pendingCount}</p>
+                  </div>
+                  <AlertTriangle className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            filteredShortages.map((shortage) => (
-              <Card key={shortage.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Investigating</p>
+                    <p className="text-2xl md:text-3xl font-bold text-blue-600">{investigatingCount}</p>
+                  </div>
+                  <Clock className="w-8 h-8 md:w-10 md:h-10 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Resolved</p>
+                    <p className="text-2xl md:text-3xl font-bold text-green-600">{resolvedCount}</p>
+                  </div>
+                  <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1">Impact</p>
+                    <p className="text-xl md:text-2xl lg:text-3xl font-bold text-red-600">
+                      R{totalFinancialImpact.toFixed(0)}
+                    </p>
+                  </div>
+                  <DollarSign className="w-8 h-8 md:w-10 md:h-10 text-red-500" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Search and Filter - Mobile Stacked */}
+          <Card className="mb-4 md:mb-6">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col gap-3 md:gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                  <Input
+                    placeholder="Search by client, equipment, or order..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 md:pl-10 text-sm md:text-base"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="text-sm md:text-base">
+                      <Filter className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="investigating">Investigating</SelectItem>
+                      <SelectItem value="resolved">Resolved</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                    <SelectTrigger className="text-sm md:text-base">
+                      <Filter className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Shortages List - Mobile Optimized Cards */}
+          <div className="space-y-4">
+            {filteredShortages.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 md:py-16 text-center px-4">
+                  <Package className="w-12 h-12 md:w-16 md:h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
+                    No Shortage Flags Found
+                  </h3>
+                  <p className="text-sm md:text-base text-gray-600">
+                    {searchTerm || statusFilter !== "all" || priorityFilter !== "all"
+                      ? "Try adjusting your filters"
+                      : "All equipment has been returned in full"}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredShortages.map((shortage) => (
+                <Card key={shortage.id} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="space-y-3 md:space-y-4">
+                      {/* Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2 truncate">
                             {shortage.equipment_name}
                           </h3>
                           <div className="flex flex-wrap gap-2">
-                            <Badge className={`${getPriorityColor(shortage.priority)} text-white`}>
+                            <Badge className={`${getPriorityColor(shortage.priority)} text-white text-xs`}>
                               {shortage.priority.toUpperCase()}
                             </Badge>
-                            <Badge className={`${getStatusColor(shortage.status)} text-white`}>
+                            <Badge className={`${getStatusColor(shortage.status)} text-white text-xs`}>
                               {shortage.status.toUpperCase()}
                             </Badge>
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      {/* Details Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
                         <div className="flex items-center gap-2 text-gray-600">
-                          <User className="w-4 h-4" />
+                          <User className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
                           <span className="font-medium">Client:</span>
-                          <span>{shortage.client_name}</span>
+                          <span className="truncate">{shortage.client_name}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600">
-                          <Package className="w-4 h-4" />
+                          <Package className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
                           <span className="font-medium">Order:</span>
-                          <span>{shortage.order?.order_number || "N/A"}</span>
+                          <span className="truncate">{shortage.order?.order_number || "N/A"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600">
-                          <Calendar className="w-4 h-4" />
-                          <span className="font-medium">Event Date:</span>
+                          <Calendar className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+                          <span className="font-medium">Event:</span>
                           <span>{shortage.order?.event_date ? new Date(shortage.order.event_date).toLocaleDateString() : "N/A"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-gray-600">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span className="font-medium">Shortage:</span>
+                          <AlertTriangle className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+                          <span className="font-medium">Short:</span>
                           <span className="text-red-600 font-semibold">
-                            {shortage.shortage_quantity} of {shortage.expected_quantity} items
+                            {shortage.shortage_quantity}/{shortage.expected_quantity}
                           </span>
                         </div>
                       </div>
 
                       {shortage.financial_impact && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <DollarSign className="w-4 h-4 text-red-500" />
-                          <span className="font-medium text-gray-600">Financial Impact:</span>
+                        <div className="flex items-center gap-2 text-xs md:text-sm">
+                          <DollarSign className="w-3 h-3 md:w-4 md:h-4 text-red-500 flex-shrink-0" />
+                          <span className="font-medium text-gray-600">Impact:</span>
                           <span className="text-red-600 font-semibold">
                             R{Number(shortage.financial_impact).toFixed(2)}
                           </span>
@@ -369,134 +386,134 @@ export default function EquipmentShortagesPage() {
                       )}
 
                       {shortage.shortage_reason && (
-                        <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                        <div className="text-xs md:text-sm text-gray-600 bg-gray-50 p-2 md:p-3 rounded">
                           <span className="font-medium">Reason:</span> {shortage.shortage_reason}
                         </div>
                       )}
 
-                      {shortage.admin_notes && (
-                        <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                          <span className="font-medium">Admin Notes:</span> {shortage.admin_notes}
-                        </div>
-                      )}
-
                       {shortage.status === "resolved" && shortage.resolution_notes && (
-                        <div className="text-sm text-gray-600 bg-green-50 p-3 rounded">
+                        <div className="text-xs md:text-sm text-gray-600 bg-green-50 p-2 md:p-3 rounded">
                           <span className="font-medium">Resolution:</span> {shortage.resolution_notes}
                           {shortage.resolved_by_profile && (
                             <div className="mt-1 text-xs text-gray-500">
-                              Resolved by {shortage.resolved_by_profile.full_name} on{" "}
-                              {shortage.resolved_at ? new Date(shortage.resolved_at).toLocaleString() : ""}
+                              By {shortage.resolved_by_profile.full_name}
                             </div>
                           )}
                         </div>
                       )}
-                    </div>
 
-                    <div className="flex flex-col gap-2 md:min-w-[200px]">
-                      {shortage.status === "pending" && (
-                        <>
-                          <Button
-                            onClick={() => handleUpdateStatus(shortage.id, "investigating")}
-                            variant="outline"
-                            className="w-full"
-                          >
-                            <Clock className="w-4 h-4 mr-2" />
-                            Mark Investigating
-                          </Button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                        {shortage.status === "pending" && (
+                          <>
+                            <Button
+                              onClick={() => handleUpdateStatus(shortage.id, "investigating")}
+                              variant="outline"
+                              size="sm"
+                              className="w-full sm:w-auto text-xs md:text-sm"
+                            >
+                              <Clock className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                              Mark Investigating
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setSelectedShortage(shortage);
+                                setResolveDialogOpen(true);
+                              }}
+                              size="sm"
+                              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs md:text-sm"
+                            >
+                              <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                              Resolve
+                            </Button>
+                          </>
+                        )}
+                        {shortage.status === "investigating" && (
                           <Button
                             onClick={() => {
                               setSelectedShortage(shortage);
                               setResolveDialogOpen(true);
                             }}
-                            className="w-full bg-green-600 hover:bg-green-700"
+                            size="sm"
+                            className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs md:text-sm"
                           >
-                            <CheckCircle className="w-4 h-4 mr-2" />
+                            <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                             Resolve
                           </Button>
-                        </>
-                      )}
-                      {shortage.status === "investigating" && (
-                        <Button
-                          onClick={() => {
-                            setSelectedShortage(shortage);
-                            setResolveDialogOpen(true);
-                          }}
-                          className="w-full bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Resolve
-                        </Button>
-                      )}
-                      {shortage.status === "resolved" && (
-                        <Badge className="bg-green-500 text-white justify-center py-2">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Resolved
-                        </Badge>
-                      )}
+                        )}
+                        {shortage.status === "resolved" && (
+                          <Badge className="bg-green-500 text-white justify-center py-2 text-xs">
+                            <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                            Resolved
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </div>
+
+        {/* Resolve Dialog - Mobile Optimized */}
+        <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg md:text-xl">Resolve Equipment Shortage</DialogTitle>
+              <DialogDescription className="text-sm">
+                Add resolution notes for this shortage issue
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedShortage && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2 text-sm md:text-base">
+                  <div>
+                    <span className="font-medium">Client:</span> {selectedShortage.client_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Equipment:</span> {selectedShortage.equipment_name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Shortage:</span>{" "}
+                    <span className="text-red-600 font-semibold">
+                      {selectedShortage.shortage_quantity} items
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Resolution Notes *</label>
+                  <Textarea
+                    placeholder="Describe how this issue was resolved..."
+                    value={resolutionNotes}
+                    onChange={(e) => setResolutionNotes(e.target.value)}
+                    rows={4}
+                    required
+                    className="text-sm md:text-base"
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setResolveDialogOpen(false)} className="w-full sm:w-auto" size="sm">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleResolveShortage}
+                disabled={!resolutionNotes.trim()}
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                size="sm"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Mark as Resolved
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Resolve Equipment Shortage</DialogTitle>
-            <DialogDescription>
-              Add resolution notes for this shortage issue. This will mark the issue as resolved.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedShortage && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <div className="text-sm">
-                  <span className="font-medium">Client:</span> {selectedShortage.client_name}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Equipment:</span> {selectedShortage.equipment_name}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Shortage:</span>{" "}
-                  <span className="text-red-600 font-semibold">
-                    {selectedShortage.shortage_quantity} items
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Resolution Notes *</label>
-                <Textarea
-                  placeholder="Describe how this issue was resolved (e.g., client paid for missing items, items found and returned, etc.)"
-                  value={resolutionNotes}
-                  onChange={(e) => setResolutionNotes(e.target.value)}
-                  rows={4}
-                  required
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleResolveShortage}
-              disabled={!resolutionNotes.trim()}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Mark as Resolved
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </>
   );
 }
