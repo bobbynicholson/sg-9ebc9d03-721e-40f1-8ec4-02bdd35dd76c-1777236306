@@ -2500,7 +2500,7 @@ export type Database = {
           resolved_at?: string | null
           status?: string
           subject: string
-          ticket_number: string
+          ticket_number?: string
           updated_at?: string | null
           user_id: string
         }

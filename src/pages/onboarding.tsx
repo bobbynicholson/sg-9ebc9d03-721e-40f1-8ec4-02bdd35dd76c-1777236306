@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -25,7 +24,7 @@ import {
 } from "lucide-react";
 
 export default function OnboardingPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,10 +36,13 @@ export default function OnboardingPage() {
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
       loadProgress();
+    } else if (!authLoading && !user) {
+      // If auth is done and there's no user, redirect to login
+      router.push('/auth/login');
     }
-  }, [user]);
+  }, [user, authLoading, router]);
 
   const loadProgress = async () => {
     if (!user) return;
@@ -140,7 +142,7 @@ export default function OnboardingPage() {
     onboardingService.downloadSampleCSV(type);
   };
 
-  if (loading || !progress) {
+  if (authLoading || loading || !progress) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
         <div className="text-center">

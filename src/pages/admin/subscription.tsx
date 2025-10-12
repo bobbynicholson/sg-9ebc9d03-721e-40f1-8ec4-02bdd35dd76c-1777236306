@@ -33,7 +33,7 @@ type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 
 export default function SubscriptionPage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -51,10 +51,12 @@ export default function SubscriptionPage() {
   const [exportData, setExportData] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
       loadSubscriptionData();
+    } else if (!authLoading && !user) {
+      router.push('/auth/login');
     }
-  }, [user]);
+  }, [user, authLoading, router]);
 
   const loadSubscriptionData = async () => {
     if (!user?.id) return;
@@ -146,7 +148,8 @@ export default function SubscriptionPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString("en-ZA", {
       year: "numeric",
       month: "long",
@@ -154,7 +157,7 @@ export default function SubscriptionPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
       case "active": return "bg-green-500";
       case "trial": return "bg-blue-500";
@@ -165,11 +168,12 @@ export default function SubscriptionPage() {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string | null | undefined) => {
+    if (!status) return "Unknown";
     return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
