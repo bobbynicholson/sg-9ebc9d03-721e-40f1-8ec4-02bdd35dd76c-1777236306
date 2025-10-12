@@ -32,7 +32,14 @@ export interface Quote {
   subtotal: number;
   tax: number;
   total: number;
-  status: "draft" | "sent" | "revised" | "accepted" | "rejected" | "confirmed" | "paid";
+  depositPercentage?: number;
+  depositAmount?: number;
+  balanceAmount?: number;
+  balanceDueDays?: number;
+  balanceDueDate?: string;
+  finalOrderChangeDays?: number;
+  finalOrderChangeDate?: string;
+  status: "draft" | "sent" | "revised" | "accepted" | "rejected" | "confirmed" | "paid" | "deposit_paid" | "balance_pending";
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -145,12 +152,22 @@ export interface Order {
   location: string;
   eventLocation: string;
   guestCount: number;
+  originalGuestCount?: number;
   menuItems: MenuItem[];
   equipmentItems: EquipmentItem[];
   kitchenInstructions: string;
   status: "pending" | "confirmed" | "in_preparation" | "preparing" | "ready" | "in_progress" | "delivered" | "completed";
   total: number;
   totalAmount?: number;
+  depositAmount?: number;
+  depositPaid?: boolean;
+  depositPaidAt?: string;
+  balanceAmount?: number;
+  balanceDueDate?: string;
+  balancePaid?: boolean;
+  balancePaidAt?: string;
+  finalOrderChangeDate?: string;
+  orderModifications?: OrderModification[];
   assignedDriver?: string | null;
   driverName?: string | null;
   driverPhone?: string | null;
@@ -161,6 +178,17 @@ export interface Order {
   waiterHourlyRate?: number;
   waiterTotalFee?: number;
   equipmentReturnMethod?: "waiter_return" | "later_collection";
+}
+
+export interface OrderModification {
+  id: string;
+  modifiedAt: string;
+  modifiedBy: string;
+  modificationType: "guest_count" | "menu_items" | "equipment" | "address" | "other";
+  previousValue: any;
+  newValue: any;
+  description: string;
+  priceImpact: number;
 }
 
 export interface ShoppingList {
@@ -233,6 +261,13 @@ export interface Payment {
   status: "pending" | "partial" | "paid" | "refunded";
   method?: "card" | "bank_transfer" | "cash";
   paidAmount: number;
+  depositAmount?: number;
+  depositPaid?: boolean;
+  depositPaidAt?: string;
+  balanceAmount?: number;
+  balanceDueDate?: string;
+  balancePaid?: boolean;
+  balancePaidAt?: string;
   paidAt?: string;
   reconciled: boolean;
 }

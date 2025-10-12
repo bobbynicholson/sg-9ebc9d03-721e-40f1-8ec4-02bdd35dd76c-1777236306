@@ -340,3 +340,93 @@ export function getDaysRemaining(endDate: Date): number {
   const diff = endDate.getTime() - today.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
+
+export interface DepositPaymentConfig {
+  defaultDepositPercentage: number;
+  defaultBalanceDueDays: number;
+  defaultFinalOrderChangeDays: number;
+  minDepositPercentage: number;
+  maxDepositPercentage: number;
+}
+
+export const DEFAULT_DEPOSIT_CONFIG: DepositPaymentConfig = {
+  defaultDepositPercentage: 30,
+  defaultBalanceDueDays: 7,
+  defaultFinalOrderChangeDays: 7,
+  minDepositPercentage: 10,
+  maxDepositPercentage: 100
+};
+
+export function calculateDepositAndBalance(
+  totalAmount: number,
+  depositPercentage: number = DEFAULT_DEPOSIT_CONFIG.defaultDepositPercentage
+): {
+  depositAmount: number;
+  balanceAmount: number;
+} {
+  const depositAmount = Math.round((totalAmount * depositPercentage) / 100);
+  const balanceAmount = totalAmount - depositAmount;
+  
+  return {
+    depositAmount,
+    balanceAmount
+  };
+}
+
+export function calculateBalanceDueDate(
+  eventDate: string,
+  daysBeforeEvent: number = DEFAULT_DEPOSIT_CONFIG.defaultBalanceDueDays
+): string {
+  const event = new Date(eventDate);
+  const dueDate = new Date(event);
+  dueDate.setDate(dueDate.getDate() - daysBeforeEvent);
+  return dueDate.toISOString().split('T')[0];
+}
+
+export function calculateFinalOrderChangeDate(
+  eventDate: string,
+  daysBeforeEvent: number = DEFAULT_DEPOSIT_CONFIG.defaultFinalOrderChangeDays
+): string {
+  const event = new Date(eventDate);
+  const changeDate = new Date(event);
+  changeDate.setDate(changeDate.getDate() - daysBeforeEvent);
+  return changeDate.toISOString().split('T')[0];
+}
+
+export function canModifyOrder(
+  finalOrderChangeDate: string,
+  currentDate: Date = new Date()
+): boolean {
+  const changeDeadline = new Date(finalOrderChangeDate);
+  return currentDate <= changeDeadline;
+}
+
+export function getOrderModificationStatus(
+  finalOrderChangeDate: string,
+  currentDate: Date = new Date()
+): {
+  canModify: boolean;
+  daysRemaining: number;
+  message: string;
+} {
+  const changeDeadline = new Date(finalOrderChangeDate);
+  const today = currentDate;
+  const daysRemaining = Math.ceil((changeDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  const canModify = daysRemaining > 0;
+  
+  let message = "";
+  if (daysRemaining > 7) {
+    message = `You can modify your order until ${changeDeadline.toLocaleDateString()}`;
+  } else if (daysRemaining > 0) {
+    message = `Last chance! Order modifications close in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`;
+  } else {
+    message = `Order modifications are no longer allowed (deadline was ${changeDeadline.toLocaleDateString()})`;
+  }
+  
+  return {
+    canModify,
+    daysRemaining,
+    message
+  };
+}
