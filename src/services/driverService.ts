@@ -311,7 +311,6 @@ export const driverService = {
       query = query.eq("region_id", regionId);
     }
     
-    // Check for orders that don't have an accepted driver assignment yet
     const { data: assignedOrders, error: assignedError } = await supabase
       .from('driver_assignments')
       .select('order_id')
@@ -335,14 +334,30 @@ export const driverService = {
       return [];
     }
 
+    // Map snake_case to camelCase
     return (data || []).map((order) => ({
-      ...order,
+      id: order.id,
+      quoteId: order.quote_id || '',
+      client: order.client_name || '',
+      clientName: order.client_name || '',
+      eventDate: order.event_date,
+      date: order.event_date,
+      venue: order.venue_address || '',
+      location: order.venue_address || '',
+      eventLocation: order.venue_address || '',
+      guestCount: order.guest_count,
+      menuItems: (order.menu_items as any) || [],
+      equipmentItems: (order.equipment_items as any) || [],
+      kitchenInstructions: order.internal_notes || '',
+      status: order.status as Order['status'],
+      total: order.total,
+      createdAt: order.created_at,
       needsWaiter: order.waiter_service_required,
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,
       deliveryRate: (order as any).delivery_rate_per_km,
-    })) as Order[];
+    }));
   },
 
   /**

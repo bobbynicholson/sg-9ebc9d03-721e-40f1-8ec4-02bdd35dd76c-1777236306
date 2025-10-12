@@ -63,7 +63,7 @@ export default function CalendarPage() {
     const calendarEvents = orders.map((order: Order) => ({
       id: order.id,
       date: new Date(order.eventDate),
-      title: `Order #${order.order_number || order.id.substring(0, 6)}`,
+      title: `Order #${(order as any).order_number || order.id.substring(0, 6)}`,
       status: order.status,
       clientName: order.clientName,
       venue: order.venue,
