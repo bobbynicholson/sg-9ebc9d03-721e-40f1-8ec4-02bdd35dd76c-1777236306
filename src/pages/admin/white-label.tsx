@@ -53,9 +53,9 @@ export default function WhiteLabelPage() {
   };
 
   const handleReset = () => {
-    if (confirm("Are you sure you want to reset to default CaterOS branding?")) {
+    if (confirm("Are you sure you want to reset to default CateringMS branding?")) {
       resetBranding();
-      setOrganizationName("CaterOS");
+      setOrganizationName("CateringMS");
       setPrimaryColor("#2563eb");
       setSecondaryColor("#7c3aed");
       setAccentColor("#f59e0b");
@@ -78,7 +78,7 @@ export default function WhiteLabelPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>White Label Branding - CaterOS Admin</title>
+        <title>White Label Branding - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
@@ -346,9 +346,9 @@ export default function WhiteLabelPage() {
                 <div>
                   <h3 className="font-semibold text-blue-900 mb-1">About White Label Branding</h3>
                   <p className="text-sm text-blue-800">
-                    Customize your CaterOS platform with your own branding to create a seamless experience for your clients. 
+                    Customize your CateringMS platform with your own branding to create a seamless experience for your clients. 
                     Your logo and colors will appear across all client-facing areas including the client portal, driver portal, 
-                    and public-facing pages. The platform will maintain <strong>"Powered by CaterOS"</strong> attribution in the 
+                    and public-facing pages. The platform will maintain <strong>"Powered by CateringMS"</strong> attribution in the 
                     footer with a link to our website.
                   </p>
                 </div>

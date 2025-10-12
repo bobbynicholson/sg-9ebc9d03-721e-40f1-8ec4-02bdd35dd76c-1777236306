@@ -204,10 +204,10 @@ export default function HomePage() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "CaterOS",
-    "legalName": "CaterOS (A product of Skylight Digital)",
-    "url": "https://cateros.co.za",
-    "logo": "https://cateros.co.za/logo.png",
+    "name": "CateringMS",
+    "legalName": "CateringMS (A product of Skylight Digital)",
+    "url": "https://cateringms.com",
+    "logo": "https://cateringms.com/logo.png",
     "description": "The ultimate catering management solution for profitable, scalable catering businesses in South Africa",
     "address": {
       "@type": "PostalAddress",
@@ -223,17 +223,17 @@ export default function HomePage() {
       "availableLanguage": ["English", "Afrikaans"]
     },
     "sameAs": [
-      "https://www.facebook.com/cateros",
-      "https://www.linkedin.com/company/cateros"
+      "https://www.facebook.com/cateringms",
+      "https://www.linkedin.com/company/cateringms"
     ]
   };
 
   const localBusinessSchema = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
-    "@id": "https://cateros.co.za",
-    "name": "CaterOS",
-    "image": "https://cateros.co.za/logo.png",
+    "@id": "https://cateringms.com",
+    "name": "CateringMS",
+    "image": "https://cateringms.com/logo.png",
     "telephone": "+27-83-652-5755",
     "address": {
       "@type": "PostalAddress",
@@ -246,7 +246,7 @@ export default function HomePage() {
       "latitude": "-33.9249",
       "longitude": "18.4241"
     },
-    "url": "https://cateros.co.za",
+    "url": "https://cateringms.com",
     "priceRange": "R899-R4999",
     "openingHoursSpecification": {
       "@type": "OpeningHoursSpecification",
@@ -259,7 +259,7 @@ export default function HomePage() {
   const softwareSchema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "CaterOS",
+    "name": "CateringMS",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web, iOS, Android",
     "offers": {
@@ -292,15 +292,15 @@ export default function HomePage() {
   return (
     <>
       <Head>
-        <title>CaterOS - Ultimate Catering Management Solution for South Africa</title>
-        <meta name="description" content="Stop losing money to manual chaos. CaterOS is the complete operating system for profitable, scalable catering businesses. Automate operations, track deliveries with GPS, and increase margins by 15-25%." />
+        <title>CateringMS - Ultimate Catering Management Solution for South Africa</title>
+        <meta name="description" content="Stop losing money to manual chaos. CateringMS is the complete operating system for profitable, scalable catering businesses. Automate operations, track deliveries with GPS, and increase margins by 15-25%." />
         <meta name="keywords" content="catering management software, catering business software south africa, catering automation, GPS delivery tracking, inventory management, catering profitability" />
-        <meta property="og:title" content="CaterOS - Ultimate Catering Management Solution" />
+        <meta property="og:title" content="CateringMS - Ultimate Catering Management Solution" />
         <meta property="og:description" content="The complete operating system for profitable, scalable catering businesses in South Africa" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://cateros.co.za" />
+        <meta property="og:url" content="https://cateringms.com" />
         <meta name="twitter:card" content="summary_large_image" />
-        <link rel="canonical" href="https://cateros.co.za" />
+        <link rel="canonical" href="https://cateringms.com" />
         
         <script
           type="application/ld+json"

@@ -33,11 +33,11 @@ export default function PricingPage() {
   const productSchema = SUBSCRIPTION_PLANS.map(plan => ({
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": `CaterOS ${plan.name} Plan`,
+    "name": `CateringMS ${plan.name} Plan`,
     "description": plan.features.join(", "),
     "brand": {
       "@type": "Brand",
-      "name": "CaterOS"
+      "name": "CateringMS"
     },
     "offers": {
       "@type": "Offer",
@@ -50,15 +50,15 @@ export default function PricingPage() {
         "unitText": billingCycle === "monthly" ? "MONTH" : "YEAR"
       },
       "availability": "https://schema.org/InStock",
-      "url": `https://cateros.co.za/subscription/checkout?plan=${plan.id}`
+      "url": `https://cateringms.com/subscription/checkout?plan=${plan.id}`
     }
   }));
 
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "CaterOS",
-    "url": "https://cateros.co.za",
+    "name": "CateringMS",
+    "url": "https://cateringms.com",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+27-83-652-5755",
@@ -76,10 +76,10 @@ export default function PricingPage() {
   return (
     <>
       <Head>
-        <title>Pricing - CaterOS Catering Management Software</title>
-        <meta name="description" content="Simple, transparent pricing for CaterOS catering management platform. Choose from Starter, Professional, or Enterprise plans. 14-day free trial on all plans with no credit card required." />
+        <title>Pricing - CateringMS Catering Management Software</title>
+        <meta name="description" content="Simple, transparent pricing for CateringMS catering management platform. Choose from Starter, Professional, or Enterprise plans. 14-day free trial on all plans with no credit card required." />
         <meta name="keywords" content="catering software pricing, catering management cost, subscription plans, free trial" />
-        <link rel="canonical" href="https://cateros.co.za/pricing" />
+        <link rel="canonical" href="https://cateringms.com/pricing" />
         
         {productSchema.map((schema, index) => (
           <script
