@@ -32,7 +32,7 @@ interface DeliveryJob extends Quote {
 export default function DriversPage() {
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>([]);
   const [myJobs, setMyJobs] = useState<DeliveryJob[]>([]);
-  const [driverName] = useState("John Driver");
+  const [driverName] = useState("James Wilson");
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -48,22 +48,36 @@ export default function DriversPage() {
       setPerKmRate(rates.perKmRate || 8);
     }
 
-    // Get order assignments from regionManagement
-    const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    // Get order assignments from localStorage or regionManagement
+    let assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    
+    // If localStorage is empty, use default regionManagement assignments
+    if (assignments.length === 0) {
+      assignments = regionManagement.orderAssignments;
+      localStorage.setItem("order_assignments", JSON.stringify(assignments));
+    }
+    
+    console.log("All assignments:", assignments);
     
     // Get assignments that have been accepted by regions - these are available for drivers
     const availableAssignments = assignments.filter((a: any) => 
-      a.status === "accepted" && !a.driverAssigned
+      (a.status === "accepted" || a.status === "in_progress") && !a.driverAssigned
     );
+    
+    console.log("Available for driver pickup:", availableAssignments);
     
     // Get assignments that this driver has booked
     const myAssignments = assignments.filter((a: any) => 
       a.driverAssigned === driverName
     );
     
+    console.log("My driver assignments:", myAssignments);
+    
     // Map assignments to delivery jobs from mockOrders
     const mapAssignmentToJob = (assignment: any): DeliveryJob | null => {
       const order = mockOrders.find(o => o.id === assignment.orderId);
+      console.log(`Mapping assignment ${assignment.orderId}:`, order ? "FOUND ORDER" : "ORDER NOT FOUND");
+      
       if (!order) return null;
       
       return {
@@ -98,6 +112,9 @@ export default function DriversPage() {
     const myJobsList = myAssignments
       .map(mapAssignmentToJob)
       .filter(Boolean) as DeliveryJob[];
+
+    console.log("Available jobs for driver:", availableJobsList);
+    console.log("My booked jobs:", myJobsList);
 
     setAvailableJobs(availableJobsList);
     setMyJobs(myJobsList);

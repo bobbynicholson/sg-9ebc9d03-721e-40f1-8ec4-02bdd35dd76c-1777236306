@@ -95,19 +95,29 @@ export const regionManagement = {
 
   orderAssignments: [
     {
-      orderId: "ord_001",
+      orderId: "ORD-001",
       regionId: "reg_001",
       assignedBy: "hq_admin_001",
       assignedAt: "2025-10-10T14:30:00Z",
       status: "in_progress" as const,
+      driverAssigned: "James Wilson",
       notes: "High priority corporate event"
     },
     {
-      orderId: "ord_002",
+      orderId: "ORD-002",
       regionId: "reg_002",
       assignedAt: "2025-10-11T09:15:00Z",
       assignedBy: "hq_admin_001",
-      status: "accepted" as const
+      status: "accepted" as const,
+      notes: "Available for driver assignment"
+    },
+    {
+      orderId: "ORD-005",
+      regionId: "reg_001",
+      assignedAt: "2025-10-12T08:00:00Z",
+      assignedBy: "hq_admin_001",
+      status: "accepted" as const,
+      notes: "Ready for driver pickup"
     }
   ] as OrderAssignment[],
 

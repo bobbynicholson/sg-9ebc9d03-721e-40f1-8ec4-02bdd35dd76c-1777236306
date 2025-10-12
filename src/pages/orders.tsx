@@ -31,15 +31,27 @@ export default function OrdersPage() {
       q.status === "accepted" || q.status === "confirmed" || q.status === "paid"
     );
     
-    // Get order assignments that have been accepted by regions
-    const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    // Get order assignments from localStorage or regionManagement
+    let assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    
+    // If localStorage is empty, use default regionManagement assignments
+    if (assignments.length === 0) {
+      assignments = regionManagement.orderAssignments;
+      localStorage.setItem("order_assignments", JSON.stringify(assignments));
+    }
+    
     const acceptedAssignments = assignments.filter((a: any) => 
       a.status === "accepted" || a.status === "in_progress" || a.status === "completed"
     );
     
+    console.log("Accepted assignments:", acceptedAssignments);
+    console.log("Mock orders available:", mockOrders);
+    
     // Convert mockOrders that have been assigned and accepted to Quote format
     const ordersFromAssignments: Quote[] = acceptedAssignments.map((assignment: any) => {
       const mockOrder = mockOrders.find(o => o.id === assignment.orderId);
+      console.log(`Looking for order ${assignment.orderId}:`, mockOrder ? "FOUND" : "NOT FOUND");
+      
       if (!mockOrder) return null;
       
       // Convert Order type to Quote type for display
@@ -64,12 +76,15 @@ export default function OrdersPage() {
       };
     }).filter(Boolean) as Quote[];
     
+    console.log("Orders from assignments:", ordersFromAssignments);
+    
     // Combine both sources and remove duplicates
     const allOrders = [...acceptedQuotes, ...ordersFromAssignments];
     const uniqueOrders = allOrders.filter((order, index, self) => 
       index === self.findIndex((o) => o.id === order.id)
     );
     
+    console.log("Final unique orders:", uniqueOrders);
     setOrders(uniqueOrders);
     
     const storedInventory = JSON.parse(localStorage.getItem("inventory") || "[]");
