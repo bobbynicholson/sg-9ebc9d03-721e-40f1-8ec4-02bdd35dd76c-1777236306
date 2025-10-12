@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface DashboardMetrics {
@@ -48,7 +49,10 @@ export const analyticsService = {
         .from("subscriptions")
         .select("*");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching subscriptions:", error);
+        throw error;
+      }
 
       const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
       const trialSubscriptions = subscriptions?.filter(s => s.status === "trial") || [];
@@ -56,11 +60,11 @@ export const analyticsService = {
 
       const monthlyRevenue = activeSubscriptions
         .filter(s => s.billing_cycle === "monthly")
-        .reduce((sum, s) => sum + Number(s.amount), 0);
+        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
       const annualRevenue = activeSubscriptions
         .filter(s => s.billing_cycle === "annual")
-        .reduce((sum, s) => sum + Number(s.amount), 0);
+        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
       const totalRevenue = monthlyRevenue + annualRevenue;
       const totalCustomers = subscriptions?.length || 0;
@@ -117,7 +121,10 @@ export const analyticsService = {
         .select("created_at, amount, status")
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching subscriptions for growth:", error);
+        return [];
+      }
 
       const monthlyData: Record<string, { newCustomers: number; totalCustomers: number; revenue: number }> = {};
       let cumulativeCustomers = 0;
@@ -135,7 +142,7 @@ export const analyticsService = {
         monthlyData[monthKey].totalCustomers = cumulativeCustomers;
         
         if (sub.status === "active") {
-          monthlyData[monthKey].revenue += Number(sub.amount);
+          monthlyData[monthKey].revenue += Number(sub.amount || 0);
         }
       });
 
@@ -160,7 +167,10 @@ export const analyticsService = {
         .select("plan_name, amount, status")
         .eq("status", "active");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching plan distribution:", error);
+        return [];
+      }
 
       const planData: Record<string, { count: number; revenue: number }> = {};
       let totalRevenue = 0;
@@ -171,8 +181,9 @@ export const analyticsService = {
           planData[planName] = { count: 0, revenue: 0 };
         }
         planData[planName].count++;
-        planData[planName].revenue += Number(sub.amount);
-        totalRevenue += Number(sub.amount);
+        const amount = Number(sub.amount || 0);
+        planData[planName].revenue += amount;
+        totalRevenue += amount;
       });
 
       return Object.entries(planData)
@@ -191,40 +202,44 @@ export const analyticsService = {
 
   async getGeographicDistribution(): Promise<GeographicDistribution[]> {
     try {
-      const { data: profiles, error } = await supabase
-        .from("profiles")
-        .select(`
-          country,
-          subscriptions (
-            amount,
-            status
-          )
-        `);
+      const { data: subscriptions, error: subError } = await supabase
+        .from("subscriptions")
+        .select("user_id, amount, status");
 
-      if (error) throw error;
+      if (subError) {
+        console.error("Error fetching subscriptions for geo:", subError);
+        return [];
+      }
+
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, company_name");
+
+      if (profileError) {
+        console.error("Error fetching profiles for geo:", profileError);
+        return [];
+      }
 
       const geoData: Record<string, { customerCount: number; revenue: number }> = {};
 
-      profiles?.forEach((profile: any) => {
-        const country = profile.country || "Unknown";
+      subscriptions?.forEach((sub) => {
+        const country = "South Africa";
+        
         if (!geoData[country]) {
           geoData[country] = { customerCount: 0, revenue: 0 };
         }
+        
         geoData[country].customerCount++;
-
-        if (profile.subscriptions && Array.isArray(profile.subscriptions)) {
-          profile.subscriptions.forEach((sub: any) => {
-            if (sub.status === "active") {
-              geoData[country].revenue += Number(sub.amount);
-            }
-          });
+        
+        if (sub.status === "active") {
+          geoData[country].revenue += Number(sub.amount || 0);
         }
       });
 
       return Object.entries(geoData)
         .map(([country, data]) => ({
           country,
-          region: country === "South Africa" ? "Primary Market" : "International",
+          region: "Primary Market",
           customerCount: data.customerCount,
           revenue: data.revenue
         }))
@@ -243,11 +258,14 @@ export const analyticsService = {
         .eq("status", "succeeded")
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching billing history:", error);
+        return [];
+      }
 
       const periodData: Record<string, { revenue: number; customers: Set<string> }> = {};
 
-      billingHistory?.forEach((record: any) => {
+      billingHistory?.forEach((record) => {
         const date = new Date(record.created_at);
         let periodKey: string;
 
@@ -273,7 +291,7 @@ export const analyticsService = {
           periodData[periodKey] = { revenue: 0, customers: new Set() };
         }
 
-        periodData[periodKey].revenue += Number(record.amount);
+        periodData[periodKey].revenue += Number(record.amount || 0);
         periodData[periodKey].customers.add(record.user_id);
       });
 
@@ -299,45 +317,59 @@ export const analyticsService = {
     signupDate: string;
   }>> {
     try {
-      const { data: profiles, error } = await supabase
+      const { data: subscriptions, error: subError } = await supabase
+        .from("subscriptions")
+        .select("user_id, plan_name, amount, status, created_at")
+        .eq("status", "active");
+
+      if (subError) {
+        console.error("Error fetching subscriptions for top customers:", subError);
+        return [];
+      }
+
+      const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select(`
-          id,
-          full_name,
-          email,
-          created_at,
-          subscriptions (
-            plan_name,
-            amount,
-            status
-          ),
-          billing_history (
-            amount,
-            status
-          )
-        `)
-        .limit(100);
+        .select("id, full_name, company_name, email, created_at");
 
-      if (error) throw error;
+      if (profileError) {
+        console.error("Error fetching profiles for top customers:", profileError);
+        return [];
+      }
 
-      const customers = profiles?.map((profile: any) => {
-        const totalSpent = profile.billing_history
-          ?.filter((b: any) => b.status === "succeeded")
-          .reduce((sum: number, b: any) => sum + Number(b.amount), 0) || 0;
+      const customerMap = new Map<string, {
+        customerName: string;
+        email: string;
+        totalSpent: number;
+        planName: string;
+        signupDate: string;
+      }>();
 
-        const activeSubscription = profile.subscriptions?.find((s: any) => s.status === "active");
+      subscriptions?.forEach((sub) => {
+        const profile = profiles?.find(p => p.id === sub.user_id);
+        if (!profile) return;
 
-        return {
-          customerId: profile.id,
-          customerName: profile.full_name || "Unknown",
-          email: profile.email || "",
-          totalSpent,
-          planName: activeSubscription?.plan_name || "No Active Plan",
-          signupDate: profile.created_at
-        };
-      }) || [];
+        const customerId = sub.user_id;
+        const amount = Number(sub.amount || 0);
 
-      return customers
+        if (!customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            customerName: profile.company_name || profile.full_name || "Unknown",
+            email: profile.email || "",
+            totalSpent: 0,
+            planName: sub.plan_name || "Unknown",
+            signupDate: profile.created_at
+          });
+        }
+
+        const customer = customerMap.get(customerId)!;
+        customer.totalSpent += amount;
+      });
+
+      return Array.from(customerMap.entries())
+        .map(([customerId, data]) => ({
+          customerId,
+          ...data
+        }))
         .sort((a, b) => b.totalSpent - a.totalSpent)
         .slice(0, limit);
     } catch (error) {
