@@ -32,7 +32,7 @@ export default function SubscriptionInvoicesPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setSubscriptions((data as Subscription[]) || []);
+      setSubscriptions((data as any as Subscription[]) || []);
     } catch (error) {
       console.error("Error loading subscriptions:", error);
       toast({

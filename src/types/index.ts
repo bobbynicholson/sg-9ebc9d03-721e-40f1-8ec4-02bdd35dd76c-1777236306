@@ -299,12 +299,29 @@ export interface Subscription {
   id: string;
   user_id: string;
   plan_type: 'starter' | 'pro' | 'enterprise';
-  status: 'active' | 'cancelled' | 'trialing';
+  status: 'active' | 'cancelled' | 'trialing' | 'past_due';
   amount: number;
   currency: string;
   created_at: string;
   current_period_start: string;
   current_period_end: string;
+  active_clients_count: number;
+  billing_cycle: 'monthly' | 'quarterly' | 'annually';
+  cancel_at_period_end: boolean;
+  cancellation_feedback: string;
+  cancellation_reason: string;
+  cancelled_at: string;
+  discount_code: string;
+  mrr: number;
+  orders_this_quarter: number;
+  payment_gateway: string;
+  payment_method: string;
+  quarterly_orders_limit: number;
+  starts_at: string;
+  trial_ends_at: string;
+  trial_starts_at: string;
+  updated_at: string;
+  [key: string]: any;
 }
 
 export interface CleaningSchedule {

@@ -210,9 +210,9 @@ export const invoiceService = {
       throw new Error("Subscription not found");
     }
 
-    const profile = Array.isArray(subscription.profiles) 
-      ? subscription.profiles[0] 
-      : subscription.profiles;
+    const profile = Array.isArray((subscription as any).profiles) 
+      ? (subscription as any).profiles[0] 
+      : (subscription as any).profiles;
 
     if (!profile) {
       throw new Error("Customer profile not found for subscription");
@@ -300,15 +300,15 @@ export const invoiceService = {
       .eq("id", user?.user?.id)
       .single();
 
-    const profile = Array.isArray(order.profiles) 
-      ? order.profiles[0] 
-      : order.profiles;
+    const profile = Array.isArray((order as any).profiles) 
+      ? (order as any).profiles[0] 
+      : (order as any).profiles;
 
     if (!profile) {
       throw new Error("Customer profile not found for order");
     }
 
-    const items = [...(order.menuItems || []), ...(order.equipmentItems || [])];
+    const items = [...((order as any).menu_items || []), ...((order as any).equipment_items || [])];
     const lineItems: InvoiceLineItem[] = items.map((item: any) => ({
       description: item.name || item.description || "Item",
       quantity: item.quantity || 1,
@@ -343,7 +343,7 @@ export const invoiceService = {
       },
       customer: edits?.customer || {
         name: profile.company_name || profile.full_name || "Customer",
-        address: profile.address || order.eventLocation || "N/A",
+        address: profile.address || (order as any).event_location || "N/A",
         city: profile.city || "N/A",
         postalCode: profile.postal_code || "N/A",
         country: profile.country || "South Africa",
