@@ -148,6 +148,73 @@ export const authService = {
     }
   },
 
+  // Sign in with Google OAuth
+  async signInWithGoogle(): Promise<{ error: AuthError | null }> {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${getURL()}auth/callback`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          }
+        }
+      });
+
+      if (error) {
+        return { error: { message: error.message } };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { 
+        error: { message: "An unexpected error occurred during Google sign in" } 
+      };
+    }
+  },
+
+  // Handle OAuth callback and create profile if needed
+  async handleOAuthCallback(userId: string, email: string, fullName: string): Promise<void> {
+    try {
+      // Check if profile already exists
+      const existingProfile = await profileService.getProfile(userId);
+      
+      if (!existingProfile) {
+        // Create new profile for OAuth user
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 14);
+
+        await profileService.createProfile({
+          id: userId,
+          email: email,
+          full_name: fullName || email.split("@")[0],
+          role: "admin",
+          currency: "ZAR",
+          is_active: true,
+          subscription_plan: "trial",
+          subscription_status: "trialing",
+          trial_ends_at: trialEndDate.toISOString(),
+          avatar_url: "",
+          company_name: "",
+          phone: ""
+        });
+
+        // Initialize onboarding for OAuth users
+        await onboardingService.initializeUserData({
+          userId: userId,
+          companyName: fullName || email.split("@")[0],
+          email: email,
+          fullName: fullName || email.split("@")[0],
+          currency: "ZAR"
+        });
+      }
+    } catch (error) {
+      console.error("Error handling OAuth callback:", error);
+      throw error;
+    }
+  },
+
   // Sign out
   async signOut(): Promise<{ error: AuthError | null }> {
     try {
