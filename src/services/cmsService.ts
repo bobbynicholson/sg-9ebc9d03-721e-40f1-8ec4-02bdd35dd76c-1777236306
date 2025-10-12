@@ -135,5 +135,38 @@ export const cmsService = {
     }
 
     return data as Page[];
+  },
+
+  async createPage(page: Omit<CMSPage, "id" | "created_at" | "last_updated">) {
+    const { data, error } = await supabase
+      .from("cms_pages")
+      .insert([page])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as CMSPage;
+  },
+
+  async updatePage(id: string, updates: Partial<CMSPage>) {
+    const { data, error } = await supabase
+      .from("cms_pages")
+      .update({ ...updates, last_updated: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as CMSPage;
+  },
+
+  async deletePage(id: string) {
+    const { error } = await supabase
+      .from("cms_pages")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
   }
 };

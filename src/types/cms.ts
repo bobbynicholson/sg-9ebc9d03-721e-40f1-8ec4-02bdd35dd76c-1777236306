@@ -33,3 +33,15 @@ export interface CMSSettings {
   default_author: string;
   blog_categories: string[];
 }
+
+export interface CMSPage {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  meta_title: string | null;
+  meta_description: string | null;
+  is_published: boolean;
+  last_updated: string;
+  created_at: string;
+}
