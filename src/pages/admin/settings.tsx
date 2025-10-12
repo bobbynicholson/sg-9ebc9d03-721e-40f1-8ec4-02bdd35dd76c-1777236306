@@ -722,7 +722,7 @@ export default function AdminSettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                    <div>
                       <Label className="text-sm md:text-base">Currency</Label>
                       <Select
                         value={settings.financial.currency}
@@ -739,7 +739,7 @@ export default function AdminSettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div>
                       <Label className="text-sm md:text-base">VAT/Tax Rate (%)</Label>
                       <Input
                         type="number"
@@ -751,30 +751,83 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Required Deposit (%)</Label>
-                      <Input
-                        type="number"
-                        value={settings.financial.depositPercent}
-                        onChange={(e) =>
-                          updateSetting("financial", "depositPercent", parseInt(e.target.value))
-                        }
-                      />
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-semibold text-base mb-3 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Deposit & Balance Payment Settings
+                    </h3>
+                    <p className="text-xs md:text-sm text-slate-600 mb-4">
+                      Configure how clients pay for their events - deposit to confirm booking, balance before the event
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm md:text-base">Required Deposit (%)</Label>
+                        <Input
+                          type="number"
+                          value={settings.financial.depositPercent}
+                          onChange={(e) =>
+                            updateSetting("financial", "depositPercent", parseInt(e.target.value))
+                          }
+                          min="10"
+                          max="100"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">Percentage of total to confirm booking (10-100%)</p>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm md:text-base">Balance Due Days Before Event</Label>
+                        <Input
+                          type="number"
+                          value={settings.financial.balanceDueDays || 7}
+                          onChange={(e) =>
+                            updateSetting("financial", "balanceDueDays", parseInt(e.target.value))
+                          }
+                          min="1"
+                          max="30"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">When clients must pay remaining balance</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm md:text-base">Final Order Changes (days before event)</Label>
+                        <Input
+                          type="number"
+                          value={settings.financial.finalOrderChangeDays || 7}
+                          onChange={(e) =>
+                            updateSetting("financial", "finalOrderChangeDays", parseInt(e.target.value))
+                          }
+                          min="1"
+                          max="30"
+                        />
+                        <p className="text-xs text-slate-600 mt-1">Last day clients can modify guest count/address</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm md:text-base">Cancellation Fee (%)</Label>
+                        <Input
+                          type="number"
+                          value={settings.financial.cancellationFeePercent}
+                          onChange={(e) =>
+                            updateSetting("financial", "cancellationFeePercent", parseInt(e.target.value))
+                          }
+                        />
+                        <p className="text-xs text-slate-600 mt-1">Fee charged for cancellations</p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Cancellation Fee (%)</Label>
-                      <Input
-                        type="number"
-                        value={settings.financial.cancellationFeePercent}
-                        onChange={(e) =>
-                          updateSetting("financial", "cancellationFeePercent", parseInt(e.target.value))
-                        }
-                      />
+
+                    <div className="bg-blue-50 p-3 md:p-4 rounded-lg mt-4">
+                      <h4 className="font-semibold text-sm text-blue-900 mb-2">How Deposit & Balance Works:</h4>
+                      <ul className="space-y-1 text-xs md:text-sm text-blue-800">
+                        <li>1. Client accepts quote → Pays {settings.financial.depositPercent}% deposit to confirm booking</li>
+                        <li>2. {settings.financial.balanceDueDays || 7} days before event → Email reminder to pay balance</li>
+                        <li>3. Clients can modify order until {settings.financial.finalOrderChangeDays || 7} days before event</li>
+                        <li>4. After deadline → Order locked, balance must be settled</li>
+                      </ul>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 border-t pt-4">
                     <Label className="text-sm md:text-base">Refund Processing Time (days)</Label>
                     <Input
                       type="number"
