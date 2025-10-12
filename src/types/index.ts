@@ -151,6 +151,11 @@ export interface Order {
   driverPhone?: string | null;
   deliveryTime?: string;
   createdAt: string;
+  requiresWaiter?: boolean;
+  waiterDurationHours?: 1 | 2 | 3;
+  waiterHourlyRate?: number;
+  waiterTotalFee?: number;
+  equipmentReturnMethod?: "waiter_return" | "later_collection";
 }
 
 export interface ShoppingList {
@@ -194,6 +199,7 @@ export interface DriverEarnings {
   totalKm?: number;
   hourlyEarnings: number;
   kmEarnings: number;
+  waiterEarnings?: number;
   totalAmount: number;
   status: "active" | "completed" | "paid";
   paidAt?: string;
@@ -209,6 +215,10 @@ export interface Delivery {
   location: string;
   status: "available" | "booked" | "in_transit" | "delivered" | "completed";
   clientConfirmation?: boolean;
+  requiresWaiter?: boolean;
+  waiterDurationHours?: 1 | 2 | 3;
+  waiterHourlyRate?: number;
+  equipmentReturnMethod?: "waiter_return" | "later_collection";
 }
 
 export interface Payment {
@@ -309,4 +319,27 @@ export interface EmailTemplate {
   isActive: boolean;
   lastEdited: string;
   sequence?: number;
+}
+
+export interface PreDepartureChecklist {
+  assignmentId: string;
+  cutleryConfirmed: boolean;
+  crockeryConfirmed: boolean;
+  foodVerified: boolean;
+  completedAt?: string;
+  departureConfirmed: boolean;
+  departureConfirmedAt?: string;
+}
+
+export interface WaiterServiceConfig {
+  hourlyRates: {
+    1: number;
+    2: number;
+    3: number;
+  };
+  driverHourlyRates: {
+    1: number;
+    2: number;
+    3: number;
+  };
 }

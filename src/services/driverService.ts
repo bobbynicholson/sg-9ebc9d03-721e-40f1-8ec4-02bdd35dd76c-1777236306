@@ -217,5 +217,101 @@ export const driverService = {
     }
 
     return data;
+  },
+
+  async updateChecklistItem(
+    assignmentId: string,
+    field: "checklist_cutlery_confirmed" | "checklist_crockery_confirmed" | "checklist_food_verified",
+    value: boolean
+  ): Promise<DriverAssignment | null> {
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .update({ [field]: value })
+      .eq("id", assignmentId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating checklist:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async confirmDeparture(assignmentId: string): Promise<DriverAssignment | null> {
+    const { data: assignment } = await supabase
+      .from("driver_assignments")
+      .select("*")
+      .eq("id", assignmentId)
+      .single();
+
+    if (!assignment) {
+      throw new Error("Assignment not found");
+    }
+
+    if (!assignment.checklist_cutlery_confirmed || 
+        !assignment.checklist_crockery_confirmed || 
+        !assignment.checklist_food_verified) {
+      throw new Error("All checklist items must be confirmed before departure");
+    }
+
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .update({
+        departure_confirmed: true,
+        departure_confirmed_at: new Date().toISOString(),
+        checklist_completed_at: new Date().toISOString(),
+        status: "in_progress"
+      })
+      .eq("id", assignmentId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error confirming departure:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async getChecklistStatus(assignmentId: string): Promise<DriverAssignment | null> {
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .select("checklist_cutlery_confirmed, checklist_crockery_confirmed, checklist_food_verified, departure_confirmed, departure_confirmed_at, checklist_completed_at")
+      .eq("id", assignmentId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching checklist status:", error);
+      return null;
+    }
+
+    return data;
+  },
+
+  async calculateWaiterEarnings(
+    assignmentId: string,
+    waiterDurationHours: number,
+    waiterHourlyRate: number
+  ): Promise<DriverAssignment | null> {
+    const waiterEarnings = waiterDurationHours * waiterHourlyRate;
+
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .update({
+        waiter_earnings: waiterEarnings
+      })
+      .eq("id", assignmentId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error calculating waiter earnings:", error);
+      throw error;
+    }
+
+    return data;
   }
 };

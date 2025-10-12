@@ -109,5 +109,71 @@ export const orderService = {
     }
 
     return data || [];
+  },
+
+  async addWaiterService(
+    orderId: string,
+    waiterDurationHours: 1 | 2 | 3,
+    waiterHourlyRate: number
+  ): Promise<Order | null> {
+    const waiterTotalFee = waiterDurationHours * waiterHourlyRate;
+
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        requires_waiter: true,
+        waiter_duration_hours: waiterDurationHours,
+        waiter_hourly_rate: waiterHourlyRate,
+        waiter_total_fee: waiterTotalFee,
+        equipment_return_method: "waiter_return"
+      })
+      .eq("id", orderId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding waiter service:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async removeWaiterService(orderId: string): Promise<Order | null> {
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        requires_waiter: false,
+        waiter_duration_hours: null,
+        waiter_hourly_rate: null,
+        waiter_total_fee: null,
+        equipment_return_method: "later_collection"
+      })
+      .eq("id", orderId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error removing waiter service:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async getOrdersRequiringWaiter(userId: string): Promise<Order[]> {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("requires_waiter", true)
+      .order("event_date");
+
+    if (error) {
+      console.error("Error fetching waiter orders:", error);
+      return [];
+    }
+
+    return data || [];
   }
 };

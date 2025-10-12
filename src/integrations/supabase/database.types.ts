@@ -339,11 +339,18 @@ export type Database = {
           assignment_type: string
           calculated_distance: number | null
           calculated_hours: number | null
+          checklist_completed_at: string | null
+          checklist_crockery_confirmed: boolean | null
+          checklist_cutlery_confirmed: boolean | null
+          checklist_food_verified: boolean | null
           completed_at: string | null
           created_at: string | null
+          departure_confirmed: boolean | null
+          departure_confirmed_at: string | null
           driver_id: string
           hourly_rate: number | null
           id: string
+          is_waiter_job: boolean | null
           notes: string | null
           order_id: string
           paid_at: string | null
@@ -355,17 +362,27 @@ export type Database = {
           total_earnings: number | null
           updated_at: string | null
           user_id: string
+          waiter_duration_hours: number | null
+          waiter_earnings: number | null
+          waiter_hourly_rate: number | null
         }
         Insert: {
           accepted_at?: string | null
           assignment_type: string
           calculated_distance?: number | null
           calculated_hours?: number | null
+          checklist_completed_at?: string | null
+          checklist_crockery_confirmed?: boolean | null
+          checklist_cutlery_confirmed?: boolean | null
+          checklist_food_verified?: boolean | null
           completed_at?: string | null
           created_at?: string | null
+          departure_confirmed?: boolean | null
+          departure_confirmed_at?: string | null
           driver_id: string
           hourly_rate?: number | null
           id?: string
+          is_waiter_job?: boolean | null
           notes?: string | null
           order_id: string
           paid_at?: string | null
@@ -377,17 +394,27 @@ export type Database = {
           total_earnings?: number | null
           updated_at?: string | null
           user_id: string
+          waiter_duration_hours?: number | null
+          waiter_earnings?: number | null
+          waiter_hourly_rate?: number | null
         }
         Update: {
           accepted_at?: string | null
           assignment_type?: string
           calculated_distance?: number | null
           calculated_hours?: number | null
+          checklist_completed_at?: string | null
+          checklist_crockery_confirmed?: boolean | null
+          checklist_cutlery_confirmed?: boolean | null
+          checklist_food_verified?: boolean | null
           completed_at?: string | null
           created_at?: string | null
+          departure_confirmed?: boolean | null
+          departure_confirmed_at?: string | null
           driver_id?: string
           hourly_rate?: number | null
           id?: string
+          is_waiter_job?: boolean | null
           notes?: string | null
           order_id?: string
           paid_at?: string | null
@@ -399,6 +426,9 @@ export type Database = {
           total_earnings?: number | null
           updated_at?: string | null
           user_id?: string
+          waiter_duration_hours?: number | null
+          waiter_earnings?: number | null
+          waiter_hourly_rate?: number | null
         }
         Relationships: [
           {
@@ -1132,6 +1162,7 @@ export type Database = {
           delivery_status: string | null
           delivery_time: string | null
           equipment_items: Json | null
+          equipment_return_method: string | null
           event_date: string
           event_time: string | null
           guest_count: number
@@ -1143,6 +1174,7 @@ export type Database = {
           pickup_time: string | null
           quote_id: string | null
           region_id: string | null
+          requires_waiter: boolean | null
           special_instructions: string | null
           status: string | null
           subtotal: number | null
@@ -1153,6 +1185,9 @@ export type Database = {
           venue_address: string | null
           venue_lat: number | null
           venue_lng: number | null
+          waiter_duration_hours: number | null
+          waiter_hourly_rate: number | null
+          waiter_total_fee: number | null
         }
         Insert: {
           amount_paid?: number | null
@@ -1167,6 +1202,7 @@ export type Database = {
           delivery_status?: string | null
           delivery_time?: string | null
           equipment_items?: Json | null
+          equipment_return_method?: string | null
           event_date: string
           event_time?: string | null
           guest_count: number
@@ -1178,6 +1214,7 @@ export type Database = {
           pickup_time?: string | null
           quote_id?: string | null
           region_id?: string | null
+          requires_waiter?: boolean | null
           special_instructions?: string | null
           status?: string | null
           subtotal?: number | null
@@ -1188,6 +1225,9 @@ export type Database = {
           venue_address?: string | null
           venue_lat?: number | null
           venue_lng?: number | null
+          waiter_duration_hours?: number | null
+          waiter_hourly_rate?: number | null
+          waiter_total_fee?: number | null
         }
         Update: {
           amount_paid?: number | null
@@ -1202,6 +1242,7 @@ export type Database = {
           delivery_status?: string | null
           delivery_time?: string | null
           equipment_items?: Json | null
+          equipment_return_method?: string | null
           event_date?: string
           event_time?: string | null
           guest_count?: number
@@ -1213,6 +1254,7 @@ export type Database = {
           pickup_time?: string | null
           quote_id?: string | null
           region_id?: string | null
+          requires_waiter?: boolean | null
           special_instructions?: string | null
           status?: string | null
           subtotal?: number | null
@@ -1223,6 +1265,9 @@ export type Database = {
           venue_address?: string | null
           venue_lat?: number | null
           venue_lng?: number | null
+          waiter_duration_hours?: number | null
+          waiter_hourly_rate?: number | null
+          waiter_total_fee?: number | null
         }
         Relationships: [
           {
