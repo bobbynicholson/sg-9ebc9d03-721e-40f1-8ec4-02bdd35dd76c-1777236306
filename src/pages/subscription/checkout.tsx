@@ -73,10 +73,10 @@ export default function CheckoutPage() {
 
     try {
       const payfastConfig = {
-        merchantId: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "10000100",
-        merchantKey: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "46f0cd694581a",
+        merchantId: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "",
+        merchantKey: process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY || "",
         passphrase: process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "",
-        testMode: true,
+        testMode: process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE === "true",
       };
 
       const payfastService = new PayFastService(payfastConfig);
