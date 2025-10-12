@@ -179,15 +179,13 @@ export default function StaffJobProgressPage() {
       },
     ];
 
-    console.log("Staff Job Progress - Setting orders:", dummyOrders.length);
-    console.log("Order statuses:", dummyOrders.map(o => ({ id: o.id, status: o.status })));
-    
+    // Ensure orders are set and persisted
     setOrders(dummyOrders);
-    localStorage.setItem("bobs_catering_orders", JSON.stringify(dummyOrders));
+    localStorage.setItem("bobs_catering_staff_orders", JSON.stringify(dummyOrders));
     setLoading(false);
   }, []);
 
-  // Calculate status counts
+  // Calculate status counts - ensure this runs after orders are set
   const statusCounts = {
     all: orders.length,
     confirmed: orders.filter((o) => o.status === "confirmed").length,
@@ -195,9 +193,6 @@ export default function StaffJobProgressPage() {
     ready: orders.filter((o) => o.status === "ready").length,
     delivered: orders.filter((o) => o.status === "delivered").length,
   };
-
-  console.log("Current Status Counts:", statusCounts);
-  console.log("Total orders:", orders.length);
 
   const filteredOrders = orders
     .filter((order) => {
@@ -211,8 +206,6 @@ export default function StaffJobProgressPage() {
       return matchesSearch && matchesFilter;
     })
     .slice(0, itemsPerPage);
-
-  console.log("Filtered orders count:", filteredOrders.length);
 
   if (loading) {
     return (
@@ -259,7 +252,7 @@ export default function StaffJobProgressPage() {
                   Track all confirmed jobs from payment to completion
                 </p>
                 <Badge className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
-                  🍽️ Bob's Catering - Demo Account
+                  🍽️ Bob's Catering - Demo Staff Portal
                 </Badge>
               </div>
               <Button onClick={() => router.push("/calendar")} className="bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -268,7 +261,7 @@ export default function StaffJobProgressPage() {
               </Button>
             </div>
 
-            {/* Statistics Cards with Real Data */}
+            {/* Statistics Cards - Display counts correctly */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <Card className="border-2 hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
@@ -276,6 +269,7 @@ export default function StaffJobProgressPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">All Jobs</p>
                       <p className="text-3xl font-bold text-gray-900">{statusCounts.all}</p>
+                      <p className="text-xs text-gray-500 mt-1">Total active orders</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
                       <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -290,6 +284,7 @@ export default function StaffJobProgressPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Confirmed</p>
                       <p className="text-3xl font-bold text-gray-900">{statusCounts.confirmed}</p>
+                      <p className="text-xs text-gray-500 mt-1">Paid & confirmed</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -304,6 +299,7 @@ export default function StaffJobProgressPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">In Kitchen</p>
                       <p className="text-3xl font-bold text-gray-900">{statusCounts.preparing}</p>
+                      <p className="text-xs text-gray-500 mt-1">Being prepared</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
                       <Clock className="w-6 h-6 text-purple-600" />
@@ -318,6 +314,7 @@ export default function StaffJobProgressPage() {
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Ready</p>
                       <p className="text-3xl font-bold text-gray-900">{statusCounts.ready}</p>
+                      <p className="text-xs text-gray-500 mt-1">Ready for delivery</p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-emerald-600" />
