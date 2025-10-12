@@ -408,7 +408,7 @@ export default function FeaturesPage() {
             {coreFeatures.map((feature, index) => (
               <div
                 key={index}
-                className="relative h-[28rem] cursor-pointer perspective-1000"
+                className="relative h-[32rem] cursor-pointer perspective-1000"
                 onMouseEnter={() => setFlippedCard(index)}
                 onMouseLeave={() => setFlippedCard(null)}
                 onClick={() => setFlippedCard(flippedCard === index ? null : index)}
@@ -451,7 +451,7 @@ export default function FeaturesPage() {
                       <div>
                         <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
                         <p className="mb-6 leading-relaxed opacity-95">{feature.fullDesc}</p>
-                        <ul className="space-y-3">
+                        <ul className="space-y-3 mb-4">
                           {feature.benefits.map((benefit, i) => (
                             <li key={i} className="flex items-start gap-2">
                               <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
