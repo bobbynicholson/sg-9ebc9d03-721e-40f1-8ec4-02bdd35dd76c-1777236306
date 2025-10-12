@@ -202,7 +202,7 @@ export default function EquipmentShortagesPage() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Equipment Shortages - CaterOS Admin</title>
+        <title>Equipment Shortages - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">

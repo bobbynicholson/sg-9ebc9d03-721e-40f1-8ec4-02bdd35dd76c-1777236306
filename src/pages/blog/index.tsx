@@ -231,7 +231,7 @@ export default function BlogPage() {
   return (
     <>
       <Head>
-        <title>Catering Business Blog - CaterOS</title>
+        <title>Catering Business Insights - CateringMS Blog</title>
         <meta name="description" content="Expert insights on automation, profitability, and growth for South African catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
         <meta name="keywords" content="catering business tips, catering automation, increase catering profits, catering operations, catering business growth" />
         <link rel="canonical" href="https://cateros.co.za/blog" />

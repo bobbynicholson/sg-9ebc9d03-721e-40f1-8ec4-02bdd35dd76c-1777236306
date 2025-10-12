@@ -111,7 +111,7 @@ export default function CMSPageManagement() {
       <>
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>Page Management - CaterOS Admin</title>
+          <title>Page Management - CateringMS Admin</title>
         </Head>
         
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
@@ -223,7 +223,7 @@ export default function CMSPageManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Page Management - CaterOS Admin</title>
+        <title>Page Management - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">

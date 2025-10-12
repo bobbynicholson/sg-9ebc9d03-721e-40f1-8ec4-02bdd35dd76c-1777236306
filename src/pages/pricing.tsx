@@ -76,7 +76,7 @@ export default function PricingPage() {
   return (
     <>
       <Head>
-        <title>Pricing - CateringMS Catering Management Software</title>
+        <title>Pricing Plans - CateringMS</title>
         <meta name="description" content="Simple, transparent pricing for CateringMS catering management platform. Choose from Starter, Professional, or Enterprise plans. 14-day free trial on all plans with no credit card required." />
         <meta name="keywords" content="catering software pricing, catering management cost, subscription plans, free trial" />
         <link rel="canonical" href="https://cateringms.com/pricing" />

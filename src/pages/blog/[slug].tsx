@@ -129,7 +129,7 @@ export default function BlogPostPage() {
   return (
     <>
       <Head>
-        <title>{post.title} - CaterOS Blog</title>
+        <title>{post.title} - CateringMS Blog</title>
         <meta name="description" content={post.excerpt} />
         <meta name="keywords" content={post.tags?.join(", ") || post.category} />
         <meta property="og:title" content={post.title} />

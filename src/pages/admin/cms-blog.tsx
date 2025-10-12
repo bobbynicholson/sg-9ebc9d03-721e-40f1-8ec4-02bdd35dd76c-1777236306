@@ -131,7 +131,7 @@ export default function CMSBlogManagement() {
       <>
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>Blog Management - CaterOS Admin</title>
+          <title>Blog Management - CateringMS Admin</title>
         </Head>
         
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
@@ -282,7 +282,7 @@ export default function CMSBlogManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Blog Management - CaterOS Admin</title>
+        <title>Blog Management - CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
