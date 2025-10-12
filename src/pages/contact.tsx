@@ -233,7 +233,11 @@ export default function ContactPage() {
                     <p className="text-slate-700 mb-6">
                       Thank you for contacting us. We've received your message and will respond within 24 hours.
                     </p>
-                    <Button onClick={() => setSubmitted(false)} className="bg-green-600 hover:bg-green-700">
+                    {/* Mobile-Optimized Button */}
+                    <Button 
+                      onClick={() => setSubmitted(false)} 
+                      className="w-full sm:w-auto bg-green-600 hover:bg-green-700 h-12 px-8"
+                    >
                       Send Another Message
                     </Button>
                   </CardContent>
@@ -326,7 +330,12 @@ export default function ContactPage() {
                     />
                   </div>
 
-                  <Button type="submit" size="lg" className="w-full h-14 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90">
+                  {/* Mobile-Optimized Submit Button */}
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full h-14 text-base sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
+                  >
                     <Send className="w-5 h-5 mr-2" />
                     Send Message
                   </Button>
@@ -394,15 +403,17 @@ export default function ContactPage() {
                   <p className="text-slate-700 mb-6">
                     Start your 14-day free trial today. No credit card required. Full access to all features.
                   </p>
+                  
+                  {/* Mobile-Optimized CTA Buttons */}
                   <div className="flex flex-col gap-3">
-                    <Link href="/auth/register">
-                      <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
+                    <Link href="/auth/register" className="block">
+                      <Button className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 text-base">
                         Start Free Trial
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </Button>
                     </Link>
-                    <Link href="/pricing">
-                      <Button variant="outline" className="w-full border-2 border-purple-300">
+                    <Link href="/pricing" className="block">
+                      <Button variant="outline" className="w-full h-12 border-2 border-purple-300 text-base">
                         View Pricing Plans
                       </Button>
                     </Link>
@@ -422,8 +433,14 @@ export default function ContactPage() {
             <p className="text-base text-slate-500 mb-8">
               Visit our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">blog for detailed guides</Link> on getting started and maximizing your results.
             </p>
-            <Link href="/blog">
-              <Button size="lg" variant="outline" className="border-2 border-purple-300 hover:bg-purple-50">
+            
+            {/* Mobile-Optimized Help Center Button */}
+            <Link href="/blog" className="inline-block w-full sm:w-auto">
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="w-full sm:w-auto border-2 border-purple-300 hover:bg-purple-50 h-12 px-8 text-base"
+              >
                 <Book className="w-5 h-5 mr-2" />
                 Visit Help Center
               </Button>
