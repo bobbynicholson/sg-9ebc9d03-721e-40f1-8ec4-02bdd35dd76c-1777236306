@@ -33,7 +33,7 @@ type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 
 export default function SubscriptionPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -51,12 +51,17 @@ export default function SubscriptionPage() {
   const [exportData, setExportData] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (user) {
       loadSubscriptionData();
-    } else if (!authLoading && !user) {
-      router.push('/auth/login');
+    } else {
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.push('/auth/login');
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [user, authLoading, router]);
+  }, [user, router]);
 
   const loadSubscriptionData = async () => {
     if (!user?.id) return;
@@ -173,7 +178,7 @@ export default function SubscriptionPage() {
     return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
   };
 
-  if (authLoading || loading) {
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

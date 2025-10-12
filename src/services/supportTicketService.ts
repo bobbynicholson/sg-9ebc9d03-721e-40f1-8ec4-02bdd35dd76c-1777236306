@@ -18,8 +18,7 @@ export const supportTicketService = {
   }) {
     const { data, error } = await supabase
       .from("support_tickets")
-      .insert([
-        {
+      .insert({
           user_id: ticketData.userId,
           subject: ticketData.subject,
           category: ticketData.category,
@@ -29,8 +28,7 @@ export const supportTicketService = {
           contact_email: ticketData.contactEmail,
           contact_phone: ticketData.contactPhone,
           status: "open",
-        },
-      ])
+        })
       .select()
       .single();
 

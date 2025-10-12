@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export default function OnboardingPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [progress, setProgress] = useState<OnboardingProgress | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,13 +36,20 @@ export default function OnboardingPage() {
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    // Auth loading is handled inside the AuthProvider, we can just check for user.
+    if (user) {
       loadProgress();
-    } else if (!authLoading && !user) {
-      // If auth is done and there's no user, redirect to login
-      router.push('/auth/login');
+    } else {
+      // If there's no user, we might be loading, or they might not be logged in.
+      // A brief delay helps prevent a flash of the login redirect.
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.push('/auth/login');
+        }
+      }, 1000); // Wait 1 second to see if user object populates
+      return () => clearTimeout(timer);
     }
-  }, [user, authLoading, router]);
+  }, [user, router]);
 
   const loadProgress = async () => {
     if (!user) return;
@@ -142,7 +149,7 @@ export default function OnboardingPage() {
     onboardingService.downloadSampleCSV(type);
   };
 
-  if (authLoading || loading || !progress) {
+  if (loading || !progress || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
         <div className="text-center">
