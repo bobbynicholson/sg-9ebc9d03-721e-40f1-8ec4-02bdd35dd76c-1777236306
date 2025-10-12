@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -617,7 +616,7 @@ export default function InventoryPage() {
                             <div className="flex-1 min-w-0">
                               <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-2 break-words">{item.name}</h3>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className={status.color} classname="text-xs">{status.label}</Badge>
+                                <Badge className={status.color + " text-xs"}>{status.label}</Badge>
                                 <Badge variant="outline" className="capitalize text-xs">
                                   {item.category.replace("_", " ")}
                                 </Badge>
