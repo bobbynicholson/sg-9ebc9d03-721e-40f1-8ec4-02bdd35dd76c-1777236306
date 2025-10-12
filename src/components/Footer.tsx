@@ -69,6 +69,7 @@ export function Footer() {
     { name: "About", href: "/about" },
     { name: "Features", href: "/features" },
     { name: "Pricing", href: "/pricing" },
+    { name: "Security", href: "/security" },
     { name: "Blog", href: "/blog" },
     { name: "Contact", href: "/contact" },
     { name: "Support", href: "/support" }

@@ -124,6 +124,13 @@ export function Header() {
           description: "Full system administration",
           highlight: true
         },
+        {
+          name: "Job Progress Overview",
+          href: "/portal/admin/job-progress-overview",
+          icon: Layout,
+          description: "Monitor all jobs in real-time",
+          highlight: true
+        },
         { 
           name: "CateringMS Platform", 
           href: "/platform/dashboard", 
