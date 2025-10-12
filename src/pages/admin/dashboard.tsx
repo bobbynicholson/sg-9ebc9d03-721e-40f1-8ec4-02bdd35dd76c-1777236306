@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +23,11 @@ import {
 
 export default function AdminDashboardPage() {
   const [dateRange, setDateRange] = useState("last_30_days");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const leadMetrics = {
     total: 142,
@@ -70,6 +74,9 @@ export default function AdminDashboardPage() {
   ];
 
   const formatCurrency = (amount: number) => {
+    if (!mounted) {
+      return `R ${amount.toLocaleString()}`;
+    }
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
       currency: "ZAR",
