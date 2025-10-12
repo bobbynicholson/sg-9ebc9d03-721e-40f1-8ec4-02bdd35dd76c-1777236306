@@ -51,41 +51,60 @@ export default function DriversPage() {
     // Get order assignments from regionManagement
     const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
     
-    // Get accepted/confirmed assignments that drivers can pick up
-    const acceptedAssignments = assignments.filter((a: any) => 
-      a.status === "accepted" || a.status === "in_progress"
+    // Get assignments that have been accepted by regions - these are available for drivers
+    const availableAssignments = assignments.filter((a: any) => 
+      a.status === "accepted" && !a.driverAssigned
     );
     
-    // Map assignments to orders from mockOrders
-    const jobs: DeliveryJob[] = acceptedAssignments.map((assignment: any) => {
+    // Get assignments that this driver has booked
+    const myAssignments = assignments.filter((a: any) => 
+      a.driverAssigned === driverName
+    );
+    
+    // Map assignments to delivery jobs from mockOrders
+    const mapAssignmentToJob = (assignment: any): DeliveryJob | null => {
       const order = mockOrders.find(o => o.id === assignment.orderId);
       if (!order) return null;
       
       return {
         ...order,
         id: order.id,
+        leadId: order.quoteId,
         clientName: order.clientName,
+        email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
         eventDate: order.eventDate,
         eventType: order.menuItems[0]?.name || "Catering Event",
         guestCount: order.guestCount,
         pickupTime: "14:00",
         deliveryTime: "16:00",
-        address: order.eventLocation || order.location,
-        driverAssigned: order.assignedDriver === "D001" ? driverName : undefined,
+        address: order.location,
+        driverAssigned: assignment.driverAssigned || undefined,
         menuItems: order.menuItems,
         equipmentItems: order.equipmentItems,
-        status: order.status,
+        status: "accepted" as const,
+        subtotal: order.totalAmount * 0.87,
+        tax: order.totalAmount * 0.13,
         total: order.totalAmount,
+        version: 1,
+        createdAt: order.createdAt,
+        updatedAt: order.createdAt,
       };
-    }).filter(Boolean);
+    };
 
-    // Separate into available and assigned jobs
-    setAvailableJobs(jobs.filter(j => !j.driverAssigned));
-    setMyJobs(jobs.filter(j => j.driverAssigned === driverName));
+    const availableJobsList = availableAssignments
+      .map(mapAssignmentToJob)
+      .filter(Boolean) as DeliveryJob[];
+    
+    const myJobsList = myAssignments
+      .map(mapAssignmentToJob)
+      .filter(Boolean) as DeliveryJob[];
+
+    setAvailableJobs(availableJobsList);
+    setMyJobs(myJobsList);
 
     // Calculate total earnings
     let total = 0;
-    jobs.forEach(job => {
+    [...availableJobsList, ...myJobsList].forEach(job => {
       const earnings = localStorage.getItem(`earnings_${job.id}`);
       if (earnings) {
         const parsed = JSON.parse(earnings);
@@ -98,6 +117,17 @@ export default function DriversPage() {
   }, [driverName]);
 
   const handleBookJob = (jobId: string) => {
+    // Update the assignment in localStorage
+    const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    const updatedAssignments = assignments.map((a: any) => {
+      if (a.orderId === jobId) {
+        return { ...a, driverAssigned: driverName, status: "in_progress" };
+      }
+      return a;
+    });
+    localStorage.setItem("order_assignments", JSON.stringify(updatedAssignments));
+    
+    // Move job from available to my jobs
     setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
     const job = availableJobs.find(j => j.id === jobId);
     if (job) {

@@ -25,22 +25,47 @@ export default function OrdersPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
-    // Get orders from localStorage quotes with status 'accepted'
+    // Get accepted quotes from localStorage
     const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    const acceptedOrders = storedQuotes.filter((q: Quote) => 
+    const acceptedQuotes = storedQuotes.filter((q: Quote) => 
       q.status === "accepted" || q.status === "confirmed" || q.status === "paid"
     );
     
-    // ALSO get orders from mockData that have been assigned to regions
-    // These are the orders from /admin/order-assignments
-    const mockOrdersFromAssignments = mockOrders.filter(order => {
-      // Check if this order has been assigned via regionManagement
-      const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
-      return assignments.some((a: any) => a.orderId === order.id && a.status !== "rejected");
-    });
+    // Get order assignments that have been accepted by regions
+    const assignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+    const acceptedAssignments = assignments.filter((a: any) => 
+      a.status === "accepted" || a.status === "in_progress" || a.status === "completed"
+    );
+    
+    // Convert mockOrders that have been assigned and accepted to Quote format
+    const ordersFromAssignments: Quote[] = acceptedAssignments.map((assignment: any) => {
+      const mockOrder = mockOrders.find(o => o.id === assignment.orderId);
+      if (!mockOrder) return null;
+      
+      // Convert Order type to Quote type for display
+      return {
+        id: mockOrder.id,
+        leadId: mockOrder.quoteId,
+        clientName: mockOrder.clientName,
+        email: mockOrder.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
+        eventDate: mockOrder.eventDate,
+        eventType: mockOrder.menuItems[0]?.name || "Catering Event",
+        guestCount: mockOrder.guestCount,
+        menuItems: mockOrder.menuItems,
+        equipmentItems: mockOrder.equipmentItems,
+        subtotal: mockOrder.totalAmount * 0.87,
+        tax: mockOrder.totalAmount * 0.13,
+        total: mockOrder.totalAmount,
+        status: "accepted" as const,
+        version: 1,
+        createdAt: mockOrder.createdAt,
+        updatedAt: mockOrder.createdAt,
+        deliveryAddress: mockOrder.location,
+      };
+    }).filter(Boolean) as Quote[];
     
     // Combine both sources and remove duplicates
-    const allOrders = [...acceptedOrders, ...mockOrdersFromAssignments];
+    const allOrders = [...acceptedQuotes, ...ordersFromAssignments];
     const uniqueOrders = allOrders.filter((order, index, self) => 
       index === self.findIndex((o) => o.id === order.id)
     );

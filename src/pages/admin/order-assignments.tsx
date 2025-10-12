@@ -35,7 +35,8 @@ import {
   Building2,
   AlertCircle,
   TrendingUp,
-  Package
+  Package,
+  ClipboardList,
 } from "lucide-react";
 import { regionManagement } from "@/lib/regionManagement";
 import { mockOrders } from "@/lib/mockData";
@@ -93,6 +94,11 @@ export default function OrderAssignmentsPage() {
     localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
     
     setAssignments([...regionManagement.orderAssignments]);
+    
+    // Show success message
+    if (status === "accepted") {
+      alert("Order accepted! This order is now available for drivers to claim in the Driver Portal.");
+    }
   };
 
   const getStatusColor = (status: string) => {
