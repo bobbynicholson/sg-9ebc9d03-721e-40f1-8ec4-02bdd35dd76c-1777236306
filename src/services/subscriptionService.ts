@@ -29,6 +29,26 @@ export const subscriptionService = {
     return data;
   },
 
+  async getAllSubscriptions(): Promise<(Subscription & { profiles: { full_name: string | null, email: string | null } | null })[]> {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select(`
+        *,
+        profiles (
+          full_name,
+          email
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all subscriptions:", error);
+      return [];
+    }
+
+    return data as any;
+  },
+
   async createSubscription(subscription: SubscriptionInsert): Promise<Subscription | null> {
     const { data, error } = await supabase
       .from("subscriptions")

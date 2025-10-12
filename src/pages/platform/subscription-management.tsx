@@ -34,6 +34,14 @@ import {
   Users
 } from "lucide-react";
 import { subscriptionService } from "@/services/subscriptionService";
+import type { Database } from "@/integrations/supabase/types";
+
+type SubscriptionWithProfile = Database["public"]["Tables"]["subscriptions"]["Row"] & {
+  profiles: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
+};
 
 export default function PlatformSubscriptionManagement() {
   const { user } = useAuth();
@@ -42,7 +50,7 @@ export default function PlatformSubscriptionManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionWithProfile[]>([]);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -71,7 +79,7 @@ export default function PlatformSubscriptionManagement() {
     }
   };
 
-  const calculateStats = (subs: any[]) => {
+  const calculateStats = (subs: SubscriptionWithProfile[]) => {
     const stats = {
       total: subs.length,
       active: subs.filter(s => s.status === "active").length,
