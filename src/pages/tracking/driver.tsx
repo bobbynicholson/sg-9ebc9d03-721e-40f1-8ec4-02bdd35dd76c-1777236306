@@ -20,8 +20,11 @@ import { DriverGPSTracker } from "@/components/tracking/DriverGPSTracker";
 import { DeliveryStatus } from "@/types/tracking";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { Header } from "@/components/Header";
 
 export default function DriverTrackingPage() {
+  const { user } = useAuth();
   const [driverId] = useState("driver_001");
   const [driverName] = useState("John Smith");
   const [activeDelivery, setActiveDelivery] = useState<any>(null);
@@ -155,9 +158,26 @@ export default function DriverTrackingPage() {
     return styles[status as keyof typeof styles] || styles.pending;
   };
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+        <NoIndexMeta />
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center text-slate-600">Please log in to view the driver portal.</p>
+            <Link href="/auth/login?role=driver">
+              <Button className="w-full mt-4">Login</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <NoIndexMeta />
+      <Header />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -222,10 +242,10 @@ export default function DriverTrackingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
                 <DriverGPSTracker
-                  orderId={activeDelivery.order_id}
-                  assignmentId={activeDelivery.id}
+                  orderId={activeDelivery.id}
+                  assignmentId={activeDelivery.assignmentId || "assign-mock-001"}
                   driverId={user.id}
-                  driverName={user.user_metadata.full_name}
+                  driverName={user.user_metadata?.full_name || driverName}
                   onStatusChange={handleStatusChange}
                 />
 

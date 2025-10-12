@@ -878,15 +878,27 @@ export const driverService = {
     currentLat: number,
     currentLng: number
   ): Promise<void> {
-    const { data: assignment } = await supabase
+    const { data: assignment, error: assignmentError } = await supabase
       .from("driver_assignments")
-      .select("*, orders!inner(id, user_id, client_id, venue_lat, venue_lng, venue_address, event_date, event_time)")
+      .select("id, order_id, status")
       .eq("id", assignmentId)
       .single();
 
-    if (!assignment) return;
+    if (assignmentError || !assignment || !assignment.order_id) {
+      if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
+      return;
+    }
+    
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
+      .eq("id", assignment.order_id)
+      .single();
 
-    const order = assignment.orders as any;
+    if (orderError || !order) {
+       if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
+      return;
+    }
     
     if (!order.venue_lat || !order.venue_lng) return;
 
