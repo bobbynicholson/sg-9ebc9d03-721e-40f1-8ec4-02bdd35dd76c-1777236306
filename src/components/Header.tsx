@@ -32,6 +32,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
+import { RegionSwitcher } from "@/components/RegionSwitcher";
 
 export function Header() {
   const router = useRouter();
@@ -356,6 +357,7 @@ export function Header() {
 
           {/* CTA Buttons */}
           <div className="hidden lg:flex items-center gap-3">
+            <RegionSwitcher />
             <DemoModeToggle />
             <Link href="/auth/login">
               <Button variant="ghost" className="text-slate-700 hover:bg-slate-100">
@@ -485,6 +487,9 @@ export function Header() {
 
               {/* Mobile CTA */}
               <div className="pt-4 border-t border-slate-200 space-y-3">
+                <div className="flex justify-center">
+                  <RegionSwitcher />
+                </div>
                 <DemoModeToggle />
                 <Link href="/auth/login">
                   <Button variant="outline" className="w-full border-2 border-slate-200">

@@ -320,6 +320,23 @@ export default function PricingPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
+                <CardTitle className="text-lg">Why is the South African pricing more affordable?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 mb-4">
+                  This is a question close to our hearts. We're not charging US and UK customers more; we're intentionally charging our fellow South Africans less.
+                </p>
+                <p className="text-gray-700 mb-4">
+                  CateringMS was born from the struggles of running a catering business right here in South Africa. We know the challenges of tight margins, and we also know that many of the powerful tools and APIs that make this platform possible are priced in dollars. The volatile Rand makes it incredibly difficult for local small and medium-sized businesses to invest in the technology they need to grow.
+                </p>
+                <p className="text-gray-700 font-medium">
+                  Our mission is to give South African caterers access to something amazing that can genuinely transform their businesses. We believe this tool will help level the playing field, and our pricing reflects that commitment. The international pricing is still well below market value for comparable solutions, but our SA price is set to empower our local industry first.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="text-lg">What happens if I exceed my plan limits?</CardTitle>
               </CardHeader>
               <CardContent>
