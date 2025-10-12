@@ -369,15 +369,23 @@ export default function FeaturesPage() {
               <p className="text-xl md:text-2xl text-slate-700 mb-8 leading-relaxed">
                 15 integrated systems working seamlessly together to automate operations, connect your team, and maximize profitability.
               </p>
+              {/* Mobile-Optimized Hero CTAs */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link href="/auth/register">
-                  <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
+                <Link href="/auth/register" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 px-8 text-base sm:text-lg hover:shadow-2xl transition-all hover:scale-105"
+                  >
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/pricing">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50">
+                <Link href="/pricing" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="w-full h-14 px-8 text-base sm:text-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50"
+                  >
                     View Pricing
                   </Button>
                 </Link>
@@ -482,30 +490,40 @@ export default function FeaturesPage() {
             ))}
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 md:p-12 border-2 border-purple-100 text-center mb-16">
+          {/* Mobile-Optimized Mid-Page CTA */}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-6 sm:p-8 md:p-12 border-2 border-purple-100 text-center mb-16">
             <h3 className="text-2xl md:text-4xl font-bold text-slate-900 mb-4">
               Ready to Transform Your Catering Business?
             </h3>
-            <p className="text-lg text-slate-600 mb-4 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-slate-600 mb-4 max-w-2xl mx-auto">
               Join forward-thinking catering businesses across South Africa who are automating operations and maximizing profitability.
             </p>
-            <p className="text-base text-slate-500 mb-8">
+            <p className="text-sm sm:text-base text-slate-500 mb-8">
               Explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline font-medium">pricing plans</Link> or read success stories on our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline font-medium">blog</Link>.
             </p>
+            
+            {/* Mobile-Optimized CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/register">
-                <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-10 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
+              <Link href="/auth/register" className="w-full sm:w-auto">
+                <Button 
+                  size="lg" 
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white h-14 px-8 sm:px-10 text-base sm:text-lg hover:shadow-2xl transition-all hover:scale-105"
+                >
                   Start Your Free Trial Now
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
-              <Link href="/pricing">
-                <Button size="lg" variant="outline" className="px-10 py-6 text-lg border-2 border-purple-300 hover:bg-purple-50">
+              <Link href="/pricing" className="w-full sm:w-auto">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full h-14 px-8 sm:px-10 text-base sm:text-lg border-2 border-purple-300 hover:bg-purple-50"
+                >
                   See Pricing Plans
                 </Button>
               </Link>
             </div>
-            <p className="text-sm text-slate-500 mt-6">
+            <p className="text-xs sm:text-sm text-slate-500 mt-6">
               No credit card required • Cancel anytime • Setup in under 3 hours
             </p>
           </div>
@@ -543,47 +561,59 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-12 text-center">
+          {/* Mobile-Optimized Bottom CTA Section */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-6 sm:p-8 md:p-12 text-center">
             <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.05))] bg-[size:40px_40px]" />
             <div className="relative">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+              <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-6">
                 Everything Works Together Seamlessly
               </h2>
-              <p className="text-xl text-slate-300 mb-4 max-w-3xl mx-auto">
+              <p className="text-base sm:text-xl text-slate-300 mb-4 max-w-3xl mx-auto">
                 No more juggling 10 different tools. One platform. One login. Everything connected. 
                 Your entire operation flows from lead to delivery to follow-up automatically.
               </p>
-              <p className="text-base text-purple-200 mb-8">
+              <p className="text-sm sm:text-base text-purple-200 mb-8">
                 Learn about <Link href="/blog/gps-tracking-catering-delivery" className="text-white hover:text-purple-100 underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="text-white hover:text-purple-100 underline">inventory best practices</Link>.
               </p>
+              
+              {/* Mobile-Optimized CTAs */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link href="/auth/register">
-                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
+                <Link href="/auth/register" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    className="w-full bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"
+                  >
                     Get Started Free
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/contact">
-                  <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-10 py-6 text-lg">
+                <Link href="/contact" className="w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="w-full border-2 border-white text-white hover:bg-white/10 h-14 px-8 sm:px-10 text-base sm:text-lg"
+                  >
                     Schedule a Demo
                   </Button>
                 </Link>
               </div>
-              <div className="flex flex-wrap justify-center gap-6 text-purple-200 text-sm">
+              
+              {/* Mobile-Optimized Feature Pills */}
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-6 text-purple-200 text-xs sm:text-sm">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4 shrink-0" />
                   <span>15 integrated systems</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4 shrink-0" />
                   <span>Mobile-optimized</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4 shrink-0" />
                   <span>Unlimited users</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
+                  <CheckCircle className="w-4 h-4 shrink-0" />
                   <span>24/7 support</span>
                 </div>
               </div>
@@ -591,9 +621,10 @@ export default function FeaturesPage() {
           </div>
         </div>
 
+        {/* Mobile-Optimized Final CTA Section */}
         <div className="bg-slate-50 py-16 md:py-24">
           <div className="container mx-auto px-4 max-w-6xl">
-            <div className="text-center mb-12">
+            <div className="text-center max-w-3xl mx-auto mb-12">
               <Badge className="mb-4 px-4 py-2 bg-purple-100 text-purple-700 border-purple-200">
                 <TrendingUp className="w-4 h-4 mr-2 inline" />
                 Real Results
@@ -628,15 +659,20 @@ export default function FeaturesPage() {
             </div>
 
             <Card className="border-0 shadow-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-              <CardContent className="py-12 px-8 text-center">
-                <h3 className="text-3xl md:text-4xl font-bold mb-6">
+              <CardContent className="py-8 sm:py-12 px-6 sm:px-8 text-center">
+                <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6">
                   Stop Wasting Time. Start Growing Today.
                 </h3>
-                <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
+                <p className="text-base sm:text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
                   Join the catering revolution. Build a profitable, scalable business that runs smoothly without constant manual intervention.
                 </p>
-                <Link href="/auth/register">
-                  <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
+                
+                {/* Mobile-Optimized Final CTA */}
+                <Link href="/auth/register" className="inline-block w-full sm:w-auto">
+                  <Button 
+                    size="lg" 
+                    className="w-full sm:w-auto bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"
+                  >
                     Start Your Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Button>
