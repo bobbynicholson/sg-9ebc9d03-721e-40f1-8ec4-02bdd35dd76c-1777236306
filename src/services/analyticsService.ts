@@ -239,7 +239,7 @@ export const analyticsService = {
     try {
       const { data: billingHistory, error } = await supabase
         .from("billing_history")
-        .select("created_at, amount, status")
+        .select("created_at, amount, status, user_id")
         .eq("status", "succeeded")
         .order("created_at", { ascending: true });
 
@@ -247,7 +247,7 @@ export const analyticsService = {
 
       const periodData: Record<string, { revenue: number; customers: Set<string> }> = {};
 
-      billingHistory?.forEach((record) => {
+      billingHistory?.forEach((record: any) => {
         const date = new Date(record.created_at);
         let periodKey: string;
 
