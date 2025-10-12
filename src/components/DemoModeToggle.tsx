@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDemoMode, DemoRole } from "@/contexts/DemoModeContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,8 +68,27 @@ const ROLE_CONFIG: Record<Exclude<DemoRole, null>, { label: string; icon: typeof
 };
 
 export function DemoModeToggle() {
-  const { isDemoMode, demoRole, setDemoMode, setDemoRole, getDemoUser } = useDemoMode();
+  const [mounted, setMounted] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const { isDemoMode, demoRole, setDemoMode, setDemoRole, getDemoUser } = useDemoMode();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="outline"
+        className="gap-2 border-2 border-purple-500 hover:bg-purple-50"
+        disabled
+      >
+        <Sparkles className="w-4 h-4" />
+        <span className="hidden sm:inline">Try Demo</span>
+        <span className="sm:hidden">Demo</span>
+      </Button>
+    );
+  }
 
   const handleRoleChange = (role: DemoRole) => {
     if (role) {
