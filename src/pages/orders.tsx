@@ -19,6 +19,7 @@ import {
 import { Quote, InventoryItem } from "@/types";
 import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
+import { regionManagement } from "@/lib/regionManagement";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);

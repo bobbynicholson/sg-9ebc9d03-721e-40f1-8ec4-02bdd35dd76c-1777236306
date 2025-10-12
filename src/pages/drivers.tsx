@@ -21,6 +21,7 @@ import { Quote } from "@/types";
 import { DriverEarnings } from "@/components/DriverEarnings";
 import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
+import { regionManagement } from "@/lib/regionManagement";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
