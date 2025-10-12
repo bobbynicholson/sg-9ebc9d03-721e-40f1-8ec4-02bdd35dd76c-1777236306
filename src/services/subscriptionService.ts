@@ -105,6 +105,12 @@ export const subscriptionService = {
     reason?: string,
     feedback?: string
   ): Promise<CancellationRequest | null> {
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("status")
+      .eq("id", subscriptionId)
+      .single();
+
     const { data, error } = await supabase
       .from("cancellation_requests")
       .insert([{
@@ -126,7 +132,7 @@ export const subscriptionService = {
     const updates: SubscriptionUpdate = {
       cancel_at_period_end: !immediate,
       cancelled_at: immediate ? new Date().toISOString() : null,
-      status: immediate ? "cancelled" : subscription?.status,
+      status: immediate ? "cancelled" : (subscription?.status || "active"),
       cancellation_reason: reason || null,
       cancellation_feedback: feedback || null
     };
@@ -346,18 +352,13 @@ export const subscriptionService = {
 
   async acceptPriceChange(subscriptionId: string): Promise<boolean> {
     const { error } = await supabase
-      .rpc('update', {
-        table_name: 'subscriptions',
-        updates: {
-          pending_price_change: false,
-          amount: supabase.sql`new_amount`,
-          new_amount: null,
-          price_change_effective_date: null,
-          updated_at: new Date().toISOString()
-        },
-        row_id: subscriptionId
+      .rpc('accept_price_change', {
+        p_subscription_id: subscriptionId
       });
-
+      
+    if (error) {
+      console.error("Error accepting price change:", error);
+    }
     return !error;
   },
 
