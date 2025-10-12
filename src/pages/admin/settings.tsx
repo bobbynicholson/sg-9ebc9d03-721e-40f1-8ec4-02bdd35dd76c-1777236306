@@ -82,6 +82,8 @@ export default function AdminSettingsPage() {
       currency: "ZAR",
       taxRate: 15,
       depositPercent: 30,
+      balanceDueDays: 7,
+      finalOrderChangeDays: 7,
       cancellationFeePercent: 25,
       refundProcessDays: 7,
     },
