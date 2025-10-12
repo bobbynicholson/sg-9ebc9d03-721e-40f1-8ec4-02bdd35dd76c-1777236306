@@ -30,17 +30,27 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUser({
           id: demoUser.id,
           email: demoUser.email,
-          user_metadata: { full_name: demoUser.full_name }
-        } as SupabaseUser);
+          user_metadata: { full_name: demoUser.full_name },
+          app_metadata: {},
+          aud: "authenticated",
+          created_at: new Date().toISOString()
+        } as unknown as SupabaseUser);
         
         setProfile({
           id: demoUser.id,
           email: demoUser.email,
           full_name: demoUser.full_name,
           role: demoUser.role,
-          avatar_url: demoUser.avatar_url,
+          avatar_url: demoUser.avatar_url || "",
           currency: "ZAR",
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          company_name: "Demo Company",
+          phone: "+27 83 652 5755",
+          is_active: true,
+          subscription_plan: "trial",
+          subscription_status: "active",
+          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
         });
       }
       setLoading(false);
