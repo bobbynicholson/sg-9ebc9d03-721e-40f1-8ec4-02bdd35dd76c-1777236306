@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
 import { RegionSwitcher } from "@/components/RegionSwitcher";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function Header() {
   const router = useRouter();
