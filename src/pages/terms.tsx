@@ -8,23 +8,23 @@ export default function TermsPage() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "Terms of Service - CaterOS",
-    "description": "Terms of Service for CaterOS Catering Management Platform. Review our subscription terms, billing policies, cancellation procedures, and user responsibilities.",
-    "url": "https://cateros.co.za/terms",
+    "name": "Terms of Service - CateringMS",
+    "description": "Terms of Service for CateringMS Catering Management Platform. Review our subscription terms, billing policies, cancellation procedures, and user responsibilities.",
+    "url": "https://cateringms.com/terms",
     "inLanguage": "en-ZA",
     "isPartOf": {
       "@type": "WebSite",
-      "name": "CaterOS",
-      "url": "https://cateros.co.za"
+      "name": "CateringMS",
+      "url": "https://cateringms.com"
     },
     "publisher": {
       "@type": "Organization",
-      "name": "CaterOS",
+      "name": "CateringMS",
       "description": "A product of Skylight Digital",
-      "url": "https://cateros.co.za",
+      "url": "https://cateringms.com",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://cateros.co.za/logo.png"
+        "url": "https://cateringms.com/logo.png"
       },
       "address": {
         "@type": "PostalAddress",
@@ -50,13 +50,13 @@ export default function TermsPage() {
           "@type": "ListItem",
           "position": 1,
           "name": "Home",
-          "item": "https://cateros.co.za"
+          "item": "https://cateringms.com"
         },
         {
           "@type": "ListItem",
           "position": 2,
           "name": "Terms of Service",
-          "item": "https://cateros.co.za/terms"
+          "item": "https://cateringms.com/terms"
         }
       ]
     }
@@ -65,10 +65,10 @@ export default function TermsPage() {
   return (
     <>
       <Head>
-        <title>Terms of Service - CaterOS Catering Management Platform</title>
-        <meta name="description" content="Terms of Service for CaterOS. Review our subscription terms, billing policies, cancellation procedures, and user responsibilities for our catering management platform." />
+        <title>Terms of Service - CateringMS Catering Management Platform</title>
+        <meta name="description" content="Terms of Service for CateringMS. Review our subscription terms, billing policies, cancellation procedures, and user responsibilities for our catering management platform." />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://cateros.co.za/terms" />
+        <link rel="canonical" href="https://cateringms.com/terms" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
@@ -133,10 +133,41 @@ export default function TermsPage() {
                   All payments are processed securely through PayFast, a PCI-DSS compliant payment gateway. We do not store your credit card information on our servers. By providing your payment information, you authorize us to charge your payment method for all subscription fees.
                 </p>
 
-                <h3 className="text-xl font-semibold mt-4 mb-2">3.4 Price Changes</h3>
-                <p className="text-slate-700 leading-relaxed">
-                  We reserve the right to change our subscription prices with 30 days advance notice. Price changes will not affect your current billing cycle but will apply to subsequent renewals.
-                </p>
+                <h3 className="text-xl font-semibold mt-4 mb-2">3.4 Price Changes and Currency Policy</h3>
+                <div className="space-y-4">
+                  <p className="text-slate-700 leading-relaxed">
+                    <strong>General Price Changes:</strong> We reserve the right to change our subscription prices with 30 days advance notice. Price changes will not affect your current billing cycle but will apply to subsequent renewals.
+                  </p>
+                  
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-slate-900 font-semibold mb-2">USD-Pegged Pricing Policy</p>
+                    <p className="text-slate-700 leading-relaxed mb-3">
+                      All CateringMS subscription pricing is displayed in South African Rand (ZAR) but is fundamentally pegged to United States Dollar (USD) exchange rates. This policy protects both our business and our customers from extreme currency volatility.
+                    </p>
+                    
+                    <p className="text-slate-700 leading-relaxed mb-3">
+                      <strong>Currency Adjustment Threshold:</strong> In the event that the ZAR/USD exchange rate fluctuates by more than 15% over a rolling 90-day period compared to our established baseline rate, CateringMS reserves the right to adjust ZAR pricing to maintain USD equivalency.
+                    </p>
+                    
+                    <p className="text-slate-700 leading-relaxed mb-3">
+                      <strong>Notice Period:</strong> Any pricing adjustments made under this currency policy will be communicated to all active subscribers at least 30 days in advance of implementation. The notice will include:
+                    </p>
+                    <ul className="list-disc pl-6 space-y-1 text-slate-700 mb-3">
+                      <li>The current ZAR pricing</li>
+                      <li>The new ZAR pricing</li>
+                      <li>The effective date of the change</li>
+                      <li>Explanation of the exchange rate movement that triggered the adjustment</li>
+                    </ul>
+                    
+                    <p className="text-slate-700 leading-relaxed mb-3">
+                      <strong>Customer Rights:</strong> If you do not wish to continue your subscription at the adjusted rate, you may cancel your subscription before the effective date of the price change without penalty. You will retain access to the Service until the end of your current paid billing period.
+                    </p>
+                    
+                    <p className="text-slate-700 leading-relaxed">
+                      <strong>Multi-Currency Display:</strong> While pricing is shown in USD, GBP, and EUR for reference purposes on our website, all payments are processed exclusively in ZAR. The displayed USD, GBP, and EUR amounts are approximations only and do not constitute binding prices in those currencies.
+                    </p>
+                  </div>
+                </div>
               </section>
 
               <section>
@@ -266,10 +297,10 @@ export default function TermsPage() {
                   If you have any questions about these Terms of Service, please contact us. You can also learn more about our platform on our <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">blog</Link> or explore <Link href="/features" className="text-purple-600 hover:text-purple-700 underline">detailed features</Link>:
                 </p>
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-                  <p className="text-slate-700"><strong>Company:</strong> CaterOS (A product of Skylight Digital)</p>
+                  <p className="text-slate-700"><strong>Company:</strong> CateringMS (A product of Skylight Digital)</p>
                   <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
                   <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
-                  <p className="text-slate-700"><strong>Email:</strong> support@cateros.co.za</p>
+                  <p className="text-slate-700"><strong>Email:</strong> support@cateringms.com</p>
                 </div>
               </section>
 
