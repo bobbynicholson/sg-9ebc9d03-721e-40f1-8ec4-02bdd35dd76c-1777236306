@@ -22,6 +22,11 @@ export interface Quote {
   eventDate: string;
   eventType: string;
   guestCount: number;
+  deliveryAddress?: string;
+  deliveryLat?: number;
+  deliveryLng?: number;
+  deliveryDistance?: number;
+  deliveryFee?: number;
   menuItems: MenuItem[];
   equipmentItems: EquipmentItem[];
   subtotal: number;

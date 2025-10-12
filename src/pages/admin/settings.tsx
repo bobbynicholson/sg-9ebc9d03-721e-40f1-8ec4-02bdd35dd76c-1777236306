@@ -40,6 +40,9 @@ export default function AdminSettingsPage() {
       phone: "+27 12 345 6789",
       address: "123 Main Street, Johannesburg",
       logo: "",
+      kitchenAddress: "123 Main Street, Johannesburg",
+      kitchenLat: -26.2041,
+      kitchenLng: 28.0473,
     },
     notifications: {
       emailNewLead: true,
@@ -72,6 +75,7 @@ export default function AdminSettingsPage() {
       deliveryBufferMinutes: 30,
       maxConcurrentEvents: 5,
       driverRadius: 50,
+      deliveryCostPerKm: 8.50,
     },
     financial: {
       currency: "ZAR",
@@ -269,6 +273,45 @@ export default function AdminSettingsPage() {
                       value={settings.company.address}
                       onChange={(e) => updateSetting("company", "address", e.target.value)}
                     />
+                  </div>
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-semibold text-base mb-3 flex items-center gap-2">
+                      <Truck className="w-4 h-4" />
+                      Kitchen Location for Delivery Calculations
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-sm md:text-base">Kitchen Address</Label>
+                        <Input
+                          value={settings.company.kitchenAddress}
+                          onChange={(e) => updateSetting("company", "kitchenAddress", e.target.value)}
+                          placeholder="Full kitchen address for delivery distance calculations"
+                        />
+                        <p className="text-xs text-slate-600">This address will be used to calculate delivery distances and fees</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm">Latitude (optional)</Label>
+                          <Input
+                            type="number"
+                            step="0.000001"
+                            value={settings.company.kitchenLat}
+                            onChange={(e) => updateSetting("company", "kitchenLat", parseFloat(e.target.value))}
+                            placeholder="-26.2041"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Longitude (optional)</Label>
+                          <Input
+                            type="number"
+                            step="0.000001"
+                            value={settings.company.kitchenLng}
+                            onChange={(e) => updateSetting("company", "kitchenLng", parseFloat(e.target.value))}
+                            placeholder="28.0473"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -602,15 +645,29 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Driver Service Radius (km)</Label>
-                    <Input
-                      type="number"
-                      value={settings.operations.driverRadius}
-                      onChange={(e) =>
-                        updateSetting("operations", "driverRadius", parseInt(e.target.value))
-                      }
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm md:text-base">Driver Service Radius (km)</Label>
+                      <Input
+                        type="number"
+                        value={settings.operations.driverRadius}
+                        onChange={(e) =>
+                          updateSetting("operations", "driverRadius", parseInt(e.target.value))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm md:text-base">Delivery Cost Per Kilometer (R)</Label>
+                      <Input
+                        type="number"
+                        step="0.50"
+                        value={settings.operations.deliveryCostPerKm}
+                        onChange={(e) =>
+                          updateSetting("operations", "deliveryCostPerKm", parseFloat(e.target.value))
+                        }
+                      />
+                      <p className="text-xs text-slate-600">This rate will be used to automatically calculate delivery fees in quotes</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
