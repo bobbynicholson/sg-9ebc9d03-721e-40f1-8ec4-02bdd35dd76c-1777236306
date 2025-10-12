@@ -21,6 +21,7 @@ import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
@@ -323,113 +324,116 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Link href="/">
-          <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
+    <>
+      <NoIndexMeta />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <Link href="/">
+            <Button variant="ghost" className="mb-4">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
 
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg">
-              <ClipboardList className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Order Management
-              </h1>
-              <p className="text-slate-600 mt-1">Manage orders and track inventory deduction</p>
+          <div className="mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg">
+                <ClipboardList className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  Order Management
+                </h1>
+                <p className="text-slate-600 mt-1">Manage orders and track inventory deduction</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Total Orders</p>
-              <p className="text-2xl font-bold text-slate-900">{orders.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Upcoming</p>
-              <p className="text-2xl font-bold text-orange-600">{upcomingOrders.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{pastOrders.length}</p>
-            </CardContent>
-          </Card>
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Total Orders</p>
+                <p className="text-2xl font-bold text-slate-900">{orders.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Upcoming</p>
+                <p className="text-2xl font-bold text-orange-600">{upcomingOrders.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{pastOrders.length}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-        {upcomingOrders.some(order => !checkStockAvailability(order) && !(order as any).stockDeducted) && (
-          <Card className="mb-6 border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-red-900 mb-1">Stock Alert</h3>
-                  <p className="text-sm text-red-700">
-                    Some orders have insufficient stock. Please restock inventory or scan receipts to update stock levels.
-                  </p>
+          {upcomingOrders.some(order => !checkStockAvailability(order) && !(order as any).stockDeducted) && (
+            <Card className="mb-6 border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-red-900 mb-1">Stock Alert</h3>
+                    <p className="text-sm text-red-700">
+                      Some orders have insufficient stock. Please restock inventory or scan receipts to update stock levels.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          )}
 
-        <Tabs defaultValue="upcoming" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="upcoming" className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Upcoming
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Completed
-            </TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue="upcoming" className="space-y-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="upcoming" className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Upcoming
+              </TabsTrigger>
+              <TabsTrigger value="completed" className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                Completed
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="upcoming" className="space-y-4">
-            {upcomingOrders.length === 0 ? (
-              <Card className="border-2 border-dashed">
-                <CardContent className="p-12 text-center">
-                  <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">No upcoming orders</h3>
-                  <p className="text-slate-600">Orders will appear here once quotes are accepted</p>
-                </CardContent>
-              </Card>
-            ) : (
-              upcomingOrders.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
-            )}
-          </TabsContent>
+            <TabsContent value="upcoming" className="space-y-4">
+              {upcomingOrders.length === 0 ? (
+                <Card className="border-2 border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No upcoming orders</h3>
+                    <p className="text-slate-600">Orders will appear here once quotes are accepted</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                upcomingOrders.map(order => (
+                  <OrderCard key={order.id} order={order} />
+                ))
+              )}
+            </TabsContent>
 
-          <TabsContent value="completed" className="space-y-4">
-            {pastOrders.length === 0 ? (
-              <Card className="border-2 border-dashed">
-                <CardContent className="p-12 text-center">
-                  <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">No completed orders</h3>
-                  <p className="text-slate-600">Completed orders will appear here</p>
-                </CardContent>
-              </Card>
-            ) : (
-              pastOrders.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="completed" className="space-y-4">
+              {pastOrders.length === 0 ? (
+                <Card className="border-2 border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No completed orders</h3>
+                    <p className="text-slate-600">Completed orders will appear here</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                pastOrders.map(order => (
+                  <OrderCard key={order.id} order={order} />
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+        
+        <Footer />
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 }

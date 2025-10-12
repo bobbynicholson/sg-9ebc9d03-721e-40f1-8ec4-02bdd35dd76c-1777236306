@@ -9,6 +9,7 @@ import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Subscription } from "@/types";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function SubscriptionInvoicesPage() {
   const { user } = useAuth();
@@ -82,106 +83,112 @@ export default function SubscriptionInvoicesPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow flex items-center justify-center">
-          <Card className="w-full max-w-md">
-            <CardContent className="pt-6">
-              <p className="text-center text-slate-600">
-                Please sign in to view your subscription invoices
-              </p>
-            </CardContent>
-          </Card>
-        </main>
-        <Footer />
-      </div>
+      <>
+        <NoIndexMeta />
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className="flex-grow flex items-center justify-center">
+            <Card className="w-full max-w-md">
+              <CardContent className="pt-6">
+                <p className="text-center text-slate-600">
+                  Please sign in to view your subscription invoices
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+          <Footer />
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header />
-      
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Subscription Invoices
-            </h1>
-            <p className="text-slate-600">
-              Download tax invoices for your CateringMS subscription
-            </p>
+    <>
+      <NoIndexMeta />
+      <div className="min-h-screen flex flex-col bg-slate-50">
+        <Header />
+        
+        <main className="flex-grow container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                Subscription Invoices
+              </h1>
+              <p className="text-slate-600">
+                Download tax invoices for your CateringMS subscription
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+              </div>
+            ) : subscriptions.length === 0 ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                    <p className="text-slate-600">No subscription invoices available</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {subscriptions.map((subscription) => (
+                  <Card key={subscription.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {subscription.plan_type} Plan
+                          </CardTitle>
+                          <p className="text-sm text-slate-600 mt-1">
+                            Invoice Date: {formatDate(subscription.created_at)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-purple-600">
+                            {formatCurrency(subscription.amount * 1.15, subscription.currency)}
+                          </p>
+                          <p className="text-xs text-slate-500">Including VAT</p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1 text-sm text-slate-600">
+                          <p>
+                            Period: {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
+                          </p>
+                          <p>
+                            Status: <span className="font-medium text-green-600">
+                              {subscription.status}
+                            </span>
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => handleDownloadInvoice(subscription.id, subscription.plan_type)}
+                          disabled={downloadingId === subscription.id}
+                          size="sm"
+                        >
+                          {downloadingId === subscription.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <Download className="w-4 h-4 mr-2" />
+                          )}
+                          Download Invoice
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
+        </main>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-            </div>
-          ) : subscriptions.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600">No subscription invoices available</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {subscriptions.map((subscription) => (
-                <Card key={subscription.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {subscription.plan_type} Plan
-                        </CardTitle>
-                        <p className="text-sm text-slate-600 mt-1">
-                          Invoice Date: {formatDate(subscription.created_at)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-purple-600">
-                          {formatCurrency(subscription.amount * 1.15, subscription.currency)}
-                        </p>
-                        <p className="text-xs text-slate-500">Including VAT</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1 text-sm text-slate-600">
-                        <p>
-                          Period: {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
-                        </p>
-                        <p>
-                          Status: <span className="font-medium text-green-600">
-                            {subscription.status}
-                          </span>
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => handleDownloadInvoice(subscription.id, subscription.plan_type)}
-                        disabled={downloadingId === subscription.id}
-                        size="sm"
-                      >
-                        {downloadingId === subscription.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Download className="w-4 h-4 mr-2" />
-                        )}
-                        Download Invoice
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+        <Footer />
+      </div>
+    </>
   );
 }

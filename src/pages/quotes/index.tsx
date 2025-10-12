@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -37,177 +38,180 @@ export default function QuotesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Link href="/">
-          <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Link>
+    <>
+      <NoIndexMeta />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <Link href="/">
+            <Button variant="ghost" className="mb-4">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Link>
 
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
-                <DollarSign className="w-8 h-8 text-white" />
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
+                  <DollarSign className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                    Quote Management
+                  </h1>
+                  <p className="text-slate-600 mt-1">Create and manage client quotes</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                  Quote Management
-                </h1>
-                <p className="text-slate-600 mt-1">Create and manage client quotes</p>
-              </div>
+              <Link href="/quotes/new">
+                <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                  <Plus className="w-5 h-5 mr-2" />
+                  New Quote
+                </Button>
+              </Link>
             </div>
-            <Link href="/quotes/new">
-              <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                <Plus className="w-5 h-5 mr-2" />
-                New Quote
-              </Button>
-            </Link>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Total Quotes</p>
-              <p className="text-2xl font-bold text-slate-900">{quotes.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Sent</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {quotes.filter(q => q.status === "sent").length}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Accepted</p>
-              <p className="text-2xl font-bold text-green-600">
-                {quotes.filter(q => q.status === "accepted").length}
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4">
-              <p className="text-sm text-slate-600 mb-1">Total Value</p>
-              <p className="text-2xl font-bold text-emerald-600">
-                ${quotes.reduce((sum, q) => sum + q.total, 0).toLocaleString()}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          {quotes.length === 0 ? (
-            <Card className="border-2 border-dashed">
-              <CardContent className="p-12 text-center">
-                <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">No quotes yet</h3>
-                <p className="text-slate-600 mb-6">Create your first quote from a lead</p>
-                <Link href="/leads">
-                  <Button>View Leads</Button>
-                </Link>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Total Quotes</p>
+                <p className="text-2xl font-bold text-slate-900">{quotes.length}</p>
               </CardContent>
             </Card>
-          ) : (
-            quotes.map((quote) => (
-              <Card key={quote.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-xl font-semibold text-slate-900">{quote.clientName}</h3>
-                        <Badge className={`${getStatusColor(quote.status)} border`}>
-                          {quote.status}
-                        </Badge>
-                        <Badge variant="outline">v{quote.version}</Badge>
-                      </div>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Sent</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {quotes.filter(q => q.status === "sent").length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Accepted</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {quotes.filter(q => q.status === "accepted").length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">
+                <p className="text-sm text-slate-600 mb-1">Total Value</p>
+                <p className="text-2xl font-bold text-emerald-600">
+                  ${quotes.reduce((sum, q) => sum + q.total, 0).toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Mail className="w-4 h-4" />
-                          <span className="text-sm">{quote.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Calendar className="w-4 h-4" />
-                          <span className="text-sm">{new Date(quote.eventDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <Users className="w-4 h-4" />
-                          <span className="text-sm">{quote.guestCount} guests</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-slate-600">
-                          <DollarSign className="w-4 h-4" />
-                          <span className="text-sm font-semibold text-green-600">
-                            ${quote.total.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
-                          {quote.eventType}
-                        </span>
-                        <span className="text-slate-600">
-                          {quote.menuItems.length} menu items
-                        </span>
-                        <span className="text-slate-600">
-                          {quote.equipmentItems.length} equipment items
-                        </span>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Subtotal</span>
-                          <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
-                        </div>
-                        {quote.deliveryFee && quote.deliveryFee > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-slate-600">
-                              Delivery Fee {quote.deliveryDistance ? `(${quote.deliveryDistance}km)` : ''}
-                            </span>
-                            <span className="font-medium text-blue-600">R{quote.deliveryFee.toFixed(2)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">VAT (15%)</span>
-                          <span className="font-medium">R{quote.tax.toFixed(2)}</span>
-                        </div>
-                        <div className="h-px bg-slate-200" />
-                        <div className="flex justify-between font-bold">
-                          <span>Total</span>
-                          <span className="text-green-600">R{quote.total.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 ml-4">
-                      {quote.status === "draft" && (
-                        <Button size="sm">
-                          <Send className="w-4 h-4 mr-2" />
-                          Send
-                        </Button>
-                      )}
-                      <Link href={`/quotes/${quote.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+          <div className="space-y-4">
+            {quotes.length === 0 ? (
+              <Card className="border-2 border-dashed">
+                <CardContent className="p-12 text-center">
+                  <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">No quotes yet</h3>
+                  <p className="text-slate-600 mb-6">Create your first quote from a lead</p>
+                  <Link href="/leads">
+                    <Button>View Leads</Button>
+                  </Link>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ) : (
+              quotes.map((quote) => (
+                <Card key={quote.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="text-xl font-semibold text-slate-900">{quote.clientName}</h3>
+                          <Badge className={`${getStatusColor(quote.status)} border`}>
+                            {quote.status}
+                          </Badge>
+                          <Badge variant="outline">v{quote.version}</Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Mail className="w-4 h-4" />
+                            <span className="text-sm">{quote.email}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Calendar className="w-4 h-4" />
+                            <span className="text-sm">{new Date(quote.eventDate).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <Users className="w-4 h-4" />
+                            <span className="text-sm">{quote.guestCount} guests</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600">
+                            <DollarSign className="w-4 h-4" />
+                            <span className="text-sm font-semibold text-green-600">
+                              ${quote.total.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
+                            {quote.eventType}
+                          </span>
+                          <span className="text-slate-600">
+                            {quote.menuItems.length} menu items
+                          </span>
+                          <span className="text-slate-600">
+                            {quote.equipmentItems.length} equipment items
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Subtotal</span>
+                            <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
+                          </div>
+                          {quote.deliveryFee && quote.deliveryFee > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-slate-600">
+                                Delivery Fee {quote.deliveryDistance ? `(${quote.deliveryDistance}km)` : ''}
+                              </span>
+                              <span className="font-medium text-blue-600">R{quote.deliveryFee.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">VAT (15%)</span>
+                            <span className="font-medium">R{quote.tax.toFixed(2)}</span>
+                          </div>
+                          <div className="h-px bg-slate-200" />
+                          <div className="flex justify-between font-bold">
+                            <span>Total</span>
+                            <span className="text-green-600">R{quote.total.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 ml-4">
+                        {quote.status === "draft" && (
+                          <Button size="sm">
+                            <Send className="w-4 h-4 mr-2" />
+                            Send
+                          </Button>
+                        )}
+                        <Link href={`/quotes/${quote.id}`}>
+                          <Button variant="outline" size="sm">
+                            <Edit className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </div>
+        
+        <Footer />
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 }

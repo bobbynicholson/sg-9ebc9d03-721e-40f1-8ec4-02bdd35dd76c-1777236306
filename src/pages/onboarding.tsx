@@ -22,6 +22,7 @@ import {
   ChevronRight,
   X
 } from "lucide-react";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function OnboardingPage() {
   const { user } = useAuth();
@@ -165,8 +166,8 @@ export default function OnboardingPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
         <title>Welcome to CateringMS - Get Started</title>
       </Head>
 
