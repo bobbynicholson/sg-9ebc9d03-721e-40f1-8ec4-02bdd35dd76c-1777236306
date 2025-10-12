@@ -679,6 +679,7 @@ export const orderService = {
   async recordOrderReview(
     orderId: string,
     rating: number,
+    userId: string,
     comment?: string
   ): Promise<any> {
     const { data: review, error } = await supabase
@@ -687,6 +688,7 @@ export const orderService = {
         order_id: orderId,
         rating,
         comment,
+        user_id: userId,
         created_at: new Date().toISOString(),
       })
       .select()

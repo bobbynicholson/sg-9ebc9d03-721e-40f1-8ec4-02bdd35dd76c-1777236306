@@ -577,6 +577,7 @@ export type Database = {
           departure_confirmed: boolean | null
           departure_confirmed_at: string | null
           driver_id: string
+          estimated_drive_time_minutes: number | null
           event_completed_at: string | null
           hourly_rate: number | null
           id: string
@@ -616,6 +617,7 @@ export type Database = {
           departure_confirmed?: boolean | null
           departure_confirmed_at?: string | null
           driver_id: string
+          estimated_drive_time_minutes?: number | null
           event_completed_at?: string | null
           hourly_rate?: number | null
           id?: string
@@ -655,6 +657,7 @@ export type Database = {
           departure_confirmed?: boolean | null
           departure_confirmed_at?: string | null
           driver_id?: string
+          estimated_drive_time_minutes?: number | null
           event_completed_at?: string | null
           hourly_rate?: number | null
           id?: string
@@ -1606,6 +1609,41 @@ export type Database = {
           },
         ]
       }
+      order_reviews: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          order_id: string
+          rating: number
+          user_id: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          order_id: string
+          rating: number
+          user_id?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          rating?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_reviews_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           amount_paid: number | null
@@ -2128,48 +2166,57 @@ export type Database = {
           company_name: string | null
           created_at: string | null
           currency: string | null
+          drive_time_to_kitchen_minutes: number | null
           email: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
           phone: string | null
+          phone_number: string | null
           role: string | null
           subscription_plan: string | null
           subscription_status: string | null
           trial_ends_at: string | null
           updated_at: string | null
+          vehicle_details: string | null
         }
         Insert: {
           avatar_url?: string | null
           company_name?: string | null
           created_at?: string | null
           currency?: string | null
+          drive_time_to_kitchen_minutes?: number | null
           email?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
           phone?: string | null
+          phone_number?: string | null
           role?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
+          vehicle_details?: string | null
         }
         Update: {
           avatar_url?: string | null
           company_name?: string | null
           created_at?: string | null
           currency?: string | null
+          drive_time_to_kitchen_minutes?: number | null
           email?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
           phone?: string | null
+          phone_number?: string | null
           role?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
+          vehicle_details?: string | null
         }
         Relationships: []
       }
