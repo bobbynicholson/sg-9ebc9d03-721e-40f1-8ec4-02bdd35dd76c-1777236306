@@ -210,13 +210,15 @@ export const invoiceService = {
       throw new Error("Subscription not found");
     }
 
-    const profile = Array.isArray((subscription as any).profiles) 
+    const profileData = Array.isArray((subscription as any).profiles) 
       ? (subscription as any).profiles[0] 
       : (subscription as any).profiles;
 
-    if (!profile) {
+    if (!profileData) {
       throw new Error("Customer profile not found for subscription");
     }
+
+    const profile = profileData as any;
 
     const invoiceNumber = `INV-${subscription.id.substring(0, 8).toUpperCase()}`;
     const invoiceDate = new Date().toISOString().split("T")[0];
@@ -240,15 +242,15 @@ export const invoiceService = {
         registrationNumber: "2025/123456/07"
       },
       customer: {
-        name: (profile as any).company_name || (profile as any).full_name || "Customer",
-        address: (profile as any).address || "N/A",
-        city: (profile as any).city || "N/A",
-        postalCode: (profile as any).postal_code || "N/A",
-        country: (profile as any).country || "South Africa",
-        phone: (profile as any).phone || "N/A",
-        email: (profile as any).email || "N/A",
-        vatNumber: (profile as any).vat_number,
-        taxNumber: (profile as any).tax_number
+        name: profile.company_name || profile.full_name || "Customer",
+        address: profile.address || "N/A",
+        city: profile.city || "N/A",
+        postalCode: profile.postal_code || "N/A",
+        country: profile.country || "South Africa",
+        phone: profile.phone || "N/A",
+        email: profile.email || "N/A",
+        vatNumber: profile.vat_number,
+        taxNumber: profile.tax_number
       },
       lineItems: [
         {
@@ -300,13 +302,15 @@ export const invoiceService = {
       .eq("id", user?.user?.id)
       .single();
 
-    const profile = Array.isArray((order as any).profiles) 
+    const profileData = Array.isArray((order as any).profiles) 
       ? (order as any).profiles[0] 
       : (order as any).profiles;
 
-    if (!profile) {
+    if (!profileData) {
       throw new Error("Customer profile not found for order");
     }
+
+    const profile = profileData as any;
 
     const items = [...((order as any).menu_items || []), ...((order as any).equipment_items || [])];
     const lineItems: InvoiceLineItem[] = items.map((item: any) => ({
@@ -342,15 +346,15 @@ export const invoiceService = {
         taxNumber: supplierProfile?.tax_number
       },
       customer: edits?.customer || {
-        name: (profile as any).company_name || (profile as any).full_name || "Customer",
-        address: (profile as any).address || (order as any).event_location || "N/A",
-        city: (profile as any).city || "N/A",
-        postalCode: (profile as any).postal_code || "N/A",
-        country: (profile as any).country || "South Africa",
-        phone: (profile as any).phone || "N/A",
-        email: (profile as any).email || "N/A",
-        vatNumber: (profile as any).vat_number,
-        taxNumber: (profile as any).tax_number
+        name: profile.company_name || profile.full_name || "Customer",
+        address: profile.address || (order as any).event_location || "N/A",
+        city: profile.city || "N/A",
+        postalCode: profile.postal_code || "N/A",
+        country: profile.country || "South Africa",
+        phone: profile.phone || "N/A",
+        email: profile.email || "N/A",
+        vatNumber: profile.vat_number,
+        taxNumber: profile.tax_number
       },
       lineItems: edits?.lineItems || lineItems,
       subtotal: edits?.subtotal || subtotal,
