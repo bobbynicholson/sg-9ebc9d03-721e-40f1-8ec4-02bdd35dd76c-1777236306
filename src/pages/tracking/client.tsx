@@ -37,13 +37,17 @@ export default function ClientTrackingPage() {
     const mockDelivery = mockDeliveries.find(del => del.orderId === orderId);
 
     if (mockOrder) {
-      setOrderDetails({
+      const deliveryData = {
         ...mockOrder,
         status: mockDelivery?.status || mockOrder.status,
         deliveryStatus: mockDelivery?.status,
         pickupTime: mockDelivery?.pickupTime,
-        deliveryTime: mockDelivery?.deliveryTime
-      });
+        deliveryTime: mockDelivery?.deliveryTime,
+        event_date: mockOrder.eventDate,
+        event_time: mockOrder.eventTime || "12:00:00"
+      };
+      setOrderDetails(deliveryData);
+      setDeliveryDetails(deliveryData);
     }
 
     const baseNotifications: Notification[] = [];
@@ -168,7 +172,7 @@ export default function ClientTrackingPage() {
   };
 
   const getDeliveryTimeInfo = () => {
-    if (!deliveryDetails) return null;
+    if (!deliveryDetails || !deliveryDetails.event_date) return null;
 
     const eventDateTime = new Date(`${deliveryDetails.event_date}T${deliveryDetails.event_time || "12:00"}`);
     const formattedDeliveryTime = format(eventDateTime, "EEEE, MMMM d, yyyy 'at' h:mm a");

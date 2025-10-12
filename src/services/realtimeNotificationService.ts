@@ -14,7 +14,13 @@ export type NotificationType =
   | "order_modification_deadline"
   | "quote_sent"
   | "quote_accepted"
-  | "system_alert";
+  | "system_alert"
+  | "driver_arrived"
+  | "driver_10_minutes_away"
+  | "driver_departure"
+  | "bad_review_alert"
+  | "event_complete"
+  | "delivery_arrived";
 
 export type NotificationPriority = "low" | "medium" | "high" | "urgent";
 

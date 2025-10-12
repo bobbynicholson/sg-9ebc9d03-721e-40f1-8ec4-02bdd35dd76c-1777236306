@@ -854,15 +854,17 @@ export const driverService = {
 
     const order = assignment.orders as any;
 
-    await supabase.from("notifications").insert({
-      user_id: order.user_id,
-      recipient_id: order.user_id,
-      notification_type: "driver_departure",
-      title: "Driver En Route to Kitchen",
-      message: `Driver is on the way to kitchen for Order ${order.order_number}`,
-      priority: "medium",
-      order_id: order.id,
-    });
+    if (order) {
+      await realtimeNotificationService.sendNotification({
+        userId: order.user_id,
+        recipientId: order.user_id,
+        type: "driver_departure",
+        title: "Driver En Route to Kitchen",
+        message: `Driver is on the way to kitchen for Order ${order.order_number}`,
+        priority: "medium",
+        orderId: order.id,
+      });
+    }
 
     return assignment;
   },
@@ -936,14 +938,14 @@ export const driverService = {
       await this.markArrived(assignmentId);
       
       // Send "Driver Arrived" notification
-      await supabase.from("notifications").insert({
-        user_id: order.user_id,
-        recipient_id: order.client_id || order.user_id,
-        notification_type: "driver_arrived",
+      await realtimeNotificationService.sendNotification({
+        userId: order.user_id,
+        recipientId: order.client_id || order.user_id,
+        type: "driver_arrived",
         title: "Driver Has Arrived! 🎉",
         message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
         priority: "high",
-        order_id: order.id,
+        orderId: order.id,
       });
     }
     
@@ -953,22 +955,28 @@ export const driverService = {
     
     if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
       // Check if we already sent the 10-minute notification
-      const { data: existingNotification } = await supabase
+      const { data: existingNotification, error: checkError } = await supabase
         .from("notifications")
-        .select("*")
+        .select("id")
         .eq("order_id", order.id)
         .eq("notification_type", "driver_10_minutes_away")
-        .single();
+        .limit(1)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Error checking for existing notification:", checkError);
+        return;
+      }
 
       if (!existingNotification) {
-        await supabase.from("notifications").insert({
-          user_id: order.user_id,
-          recipient_id: order.client_id || order.user_id,
-          notification_type: "driver_10_minutes_away",
+        await realtimeNotificationService.sendNotification({
+          userId: order.user_id,
+          recipientId: order.client_id || order.user_id,
+          type: "driver_10_minutes_away",
           title: "Driver 10 Minutes Away ⏰",
           message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
           priority: "high",
-          order_id: order.id,
+          orderId: order.id,
         });
       }
     }

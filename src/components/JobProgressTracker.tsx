@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { SmoothCompletionCelebration } from "@/components/SmoothCompletionCelebration";
 
 interface JobStep {
   id: string;
@@ -70,6 +71,7 @@ interface JobProgressTrackerProps {
   userRole?: "admin" | "staff" | "client";
   onOverrideComplete?: (orderId: string) => void;
   onMakeProgress?: (orderId: string, nextStatus: string) => void;
+  showCompletionCelebration?: boolean;
 }
 
 export function JobProgressTracker({ 
@@ -83,10 +85,12 @@ export function JobProgressTracker({
   isBehindSchedule = false,
   userRole = "admin",
   onOverrideComplete,
-  onMakeProgress
+  onMakeProgress,
+  showCompletionCelebration = false
 }: JobProgressTrackerProps) {
   
   const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const [celebrationOpen, setCelebrationOpen] = useState(showCompletionCelebration);
   const { toast } = useToast();
 
   // Parse event date and time to create full datetime
@@ -224,6 +228,14 @@ export function JobProgressTracker({
     : "w-full shadow-lg border-2 border-purple-100";
 
   return (
+    <>
+    <SmoothCompletionCelebration
+      isOpen={celebrationOpen}
+      onClose={() => setCelebrationOpen(false)}
+      orderNumber={orderNumber}
+      clientName={clientName}
+      userRole={userRole === "client" ? "client" : "staff"}
+    />
     <Card className={cardClassName}>
       <CardContent className="pt-6 pb-8">
         {/* PROMINENT DELIVERY TIME SECTION - New Feature */}
@@ -535,5 +547,6 @@ export function JobProgressTracker({
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
