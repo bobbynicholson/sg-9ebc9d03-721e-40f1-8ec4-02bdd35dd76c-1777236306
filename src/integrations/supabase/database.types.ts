@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -164,6 +164,99 @@ export type Database = {
           trigger?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      blog_posts: {
+        Row: {
+          author: string
+          category: string
+          content: string
+          created_at: string | null
+          excerpt: string
+          featured_image: string | null
+          id: string
+          is_published: boolean | null
+          last_updated: string | null
+          meta_description: string | null
+          meta_title: string | null
+          published_date: string | null
+          read_time_minutes: number | null
+          slug: string
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          author: string
+          category: string
+          content: string
+          created_at?: string | null
+          excerpt: string
+          featured_image?: string | null
+          id?: string
+          is_published?: boolean | null
+          last_updated?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          published_date?: string | null
+          read_time_minutes?: number | null
+          slug: string
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          author?: string
+          category?: string
+          content?: string
+          created_at?: string | null
+          excerpt?: string
+          featured_image?: string | null
+          id?: string
+          is_published?: boolean | null
+          last_updated?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          published_date?: string | null
+          read_time_minutes?: number | null
+          slug?: string
+          tags?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
+      cms_pages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          is_published: boolean | null
+          last_updated: string | null
+          meta_description: string | null
+          meta_title: string | null
+          slug: string
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          last_updated?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          slug: string
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_published?: boolean | null
+          last_updated?: string | null
+          meta_description?: string | null
+          meta_title?: string | null
+          slug?: string
+          title?: string
         }
         Relationships: []
       }
