@@ -27,7 +27,7 @@ export default function StaffJobProgressPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
 
   useEffect(() => {
-    // Create dummy orders for demo
+    // Create comprehensive dummy orders with proper status progression
     const dummyOrders: Order[] = [
       {
         id: "ORD-001",
@@ -134,27 +134,55 @@ export default function StaffJobProgressPage() {
         depositPaid: true,
         balancePaid: true,
       },
+      {
+        id: "ORD-006",
+        quoteId: "Q-006",
+        client: "John Smith",
+        clientName: "John Smith",
+        eventDate: new Date(Date.now() + 86400000 * 6).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 6).toISOString().split("T")[0],
+        venue: "Riverside Restaurant",
+        location: "55 River Road, Paarl",
+        eventLocation: "55 River Road, Paarl",
+        guestCount: 65,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "confirmed",
+        total: 18500,
+        totalAmount: 18500,
+        createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
+      {
+        id: "ORD-007",
+        quoteId: "Q-007",
+        client: "Amanda Roberts",
+        clientName: "Amanda Roberts",
+        eventDate: new Date(Date.now() + 86400000 * 8).toISOString().split("T")[0],
+        date: new Date(Date.now() + 86400000 * 8).toISOString().split("T")[0],
+        venue: "Corporate Towers",
+        location: "88 Business Park, Century City",
+        eventLocation: "88 Business Park, Century City",
+        guestCount: 180,
+        menuItems: [],
+        equipmentItems: [],
+        kitchenInstructions: "",
+        status: "ready",
+        total: 45000,
+        totalAmount: 45000,
+        createdAt: new Date(Date.now() - 86400000 * 12).toISOString(),
+        depositPaid: true,
+        balancePaid: true,
+      },
     ];
 
-    // Try to load from localStorage first
-    const stored = localStorage.getItem("admin_orders");
-    if (stored) {
-      try {
-        const allOrders: Order[] = JSON.parse(stored);
-        const paidOrders = allOrders.filter((order) =>
-          ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status)
-        );
-        setOrders(paidOrders.length > 0 ? paidOrders : dummyOrders);
-      } catch (error) {
-        console.error("Error parsing orders:", error);
-        setOrders(dummyOrders);
-      }
-    } else {
-      // No stored orders, use dummy data
-      setOrders(dummyOrders);
-      // Also store them for consistency
-      localStorage.setItem("admin_orders", JSON.stringify(dummyOrders));
-    }
+    // ALWAYS use dummy orders for staff view - no filtering needed
+    setOrders(dummyOrders);
+    
+    // Also update localStorage to ensure consistency
+    localStorage.setItem("admin_orders", JSON.stringify(dummyOrders));
   }, []);
 
   const filteredOrders = orders
