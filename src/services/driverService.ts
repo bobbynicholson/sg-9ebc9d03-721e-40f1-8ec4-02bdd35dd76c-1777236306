@@ -783,18 +783,38 @@ export const driverService = {
     leaveForVenueTime: string;
     collectionTime: string;
   } | null> {
-    const { data: assignment } = await supabase
+    const { data: assignment, error: assignmentError } = await supabase
       .from("driver_assignments")
-      .select("*, orders(*), profiles!driver_assignments_driver_id_fkey(*)")
+      .select("id, order_id, driver_id, estimated_drive_time_minutes")
       .eq("id", assignmentId)
       .single();
 
-    if (!assignment) {
+    if (assignmentError || !assignment) {
+      console.error("Error fetching assignment for departure times:", assignmentError);
       return null;
     }
 
-    const order = assignment.orders as any;
-    const driverProfile = assignment.profiles as any;
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("event_date, event_time")
+      .eq("id", assignment.order_id)
+      .single();
+
+    if (orderError || !order) {
+      console.error("Error fetching order for departure times:", orderError);
+      return null;
+    }
+
+    const { data: driverProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("drive_time_to_kitchen_minutes")
+      .eq("id", assignment.driver_id)
+      .single();
+
+    if (profileError || !driverProfile) {
+      console.error("Error fetching driver profile for departure times:", profileError);
+      return null;
+    }
     
     const eventDateTime = new Date(`${order.event_date}T${order.event_time || "12:00:00"}`);
     const driveTimeToKitchen = driverProfile.drive_time_to_kitchen_minutes || 30;
