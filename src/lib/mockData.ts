@@ -182,7 +182,7 @@ export const mockOrders: Order[] = [
       },
     ],
     kitchenInstructions: "Prepare 3 hours before event. Meat must be marinated overnight. Ensure vegetarian options are clearly labeled.",
-    status: "in_transit",
+    status: "in_progress",
     total: 56250,
     totalAmount: 56250,
     createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
