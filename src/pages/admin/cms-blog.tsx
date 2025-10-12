@@ -74,7 +74,8 @@ export default function CMSBlogManagement() {
       } else {
         await cmsService.createBlogPost({
           ...postData,
-          published_date: new Date().toISOString()
+          published_date: new Date().toISOString(),
+          last_updated: new Date().toISOString()
         });
       }
 
