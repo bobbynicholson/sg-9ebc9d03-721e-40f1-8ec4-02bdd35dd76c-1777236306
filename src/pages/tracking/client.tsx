@@ -22,100 +22,41 @@ export default function ClientTrackingPage() {
   const [orderDetails, setOrderDetails] = useState<any>(null);
 
   useEffect(() => {
-    if (orderId) {
-      const mockOrders = [
-        {
-          id: "ORD-001",
-          client: "Sarah Johnson",
-          venue: "Grand Palace Hotel",
-          location: "123 Victoria Road, Green Point, Cape Town",
-          eventDate: "2025-10-15",
-          guestCount: 150,
-          status: "in_transit",
-          driverName: "James Wilson",
-          driverPhone: "+27 82 345 6789",
-          total: 56250
-        },
-        {
-          id: "ORD-002",
-          client: "Michael Chen",
-          venue: "Waterfront Conference Centre",
-          location: "45 Beach Road, V&A Waterfront, Cape Town",
-          eventDate: "2025-10-16",
-          guestCount: 85,
-          status: "delivered",
-          driverName: "James Wilson",
-          driverPhone: "+27 82 345 6789",
-          total: 20145
-        },
-        {
-          id: "ORD-003",
-          client: "Emily Rodriguez",
-          venue: "Stellenbosch Wine Estate",
-          location: "Wine Route R310, Stellenbosch",
-          eventDate: "2025-10-18",
-          guestCount: 200,
-          status: "confirmed",
-          driverName: null,
-          driverPhone: null,
-          total: 78600
-        }
-      ];
+    if (!orderId) return;
 
-      const order = mockOrders.find(o => o.id === orderId);
-      if (order) {
-        setOrderDetails(order);
+    const mockNotifications: Notification[] = [
+      {
+        id: "not-001",
+        orderId: String(orderId),
+        type: "driver_logged_in",
+        message: "Driver has logged in and is preparing to collect your order",
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        recipientEmail: "client@example.com",
+        recipientName: "Valued Client",
+        read: false
+      },
+      {
+        id: "not-002",
+        orderId: String(orderId),
+        type: "food_collected",
+        message: "Food has been collected from the kitchen and is on the way",
+        timestamp: new Date(Date.now() - 1800000).toISOString(),
+        recipientEmail: "client@example.com",
+        recipientName: "Valued Client",
+        read: false
+      },
+      {
+        id: "not-003",
+        orderId: String(orderId),
+        type: "driver_arrived",
+        message: "Driver has arrived at your location",
+        timestamp: new Date(Date.now() - 600000).toISOString(),
+        recipientEmail: "client@example.com",
+        recipientName: "Valued Client",
+        read: false
       }
-
-      const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
-      const orderNotifications = allNotifications.filter(
-        (n: any) => n.orderId === orderId
-      );
-      setNotifications(orderNotifications);
-
-      if (orderNotifications.length === 0 && order && order.status === "in_transit") {
-        const initialNotifications = [
-          {
-            orderId: orderId,
-            type: "info",
-            message: "Your order has been confirmed and is being prepared",
-            timestamp: new Date(Date.now() - 7200000).toISOString()
-          },
-          {
-            orderId: orderId,
-            type: "success",
-            message: "Driver James Wilson has been assigned to your delivery",
-            timestamp: new Date(Date.now() - 3600000).toISOString()
-          },
-          {
-            orderId: orderId,
-            type: "info",
-            message: "Food preparation completed, driver collecting from kitchen",
-            timestamp: new Date(Date.now() - 1800000).toISOString()
-          },
-          {
-            orderId: orderId,
-            type: "success",
-            message: "Driver has collected your order and is en route",
-            timestamp: new Date(Date.now() - 900000).toISOString()
-          }
-        ];
-        localStorage.setItem("notifications", JSON.stringify([...allNotifications, ...initialNotifications]));
-        setNotifications(initialNotifications);
-      }
-    }
-
-    const interval = setInterval(() => {
-      if (orderId) {
-        const allNotifications = JSON.parse(localStorage.getItem("notifications") || "[]");
-        const orderNotifications = allNotifications.filter(
-          (n: any) => n.orderId === orderId
-        );
-        setNotifications(orderNotifications);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
+    ];
+    setNotifications(mockNotifications);
   }, [orderId]);
 
   if (!orderId) {
@@ -278,38 +219,34 @@ export default function ClientTrackingPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {notifications.slice().reverse().map((notification, index) => (
+                    {notifications.map((notification, index) => (
                       <div
                         key={index}
-                        className="p-4 bg-slate-50 rounded-lg border border-slate-200 hover:shadow-md transition-shadow"
+                        className={`flex items-start gap-3 p-4 rounded-lg transition-all ${
+                          notification.type === "driver_arrived" || notification.type === "delivery_complete"
+                            ? "bg-green-50 border-green-200"
+                            : notification.type === "food_collected"
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-slate-50 border-slate-200"
+                        } border`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-full ${
-                            notification.type === "success" 
-                              ? "bg-green-100" 
-                              : notification.type === "warning"
-                              ? "bg-amber-100"
-                              : "bg-blue-100"
-                          }`}>
-                            <Bell className={`w-4 h-4 ${
-                              notification.type === "success" 
-                                ? "text-green-600" 
-                                : notification.type === "warning"
-                                ? "text-amber-600"
-                                : "text-blue-600"
-                            }`} />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm text-slate-900 font-medium mb-1">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {new Date(notification.timestamp).toLocaleString('en-ZA', {
-                                dateStyle: 'short',
-                                timeStyle: 'short'
-                              })}
-                            </p>
-                          </div>
+                        <Badge
+                          className={
+                            notification.type === "driver_arrived" || notification.type === "delivery_complete"
+                              ? "bg-green-500"
+                              : notification.type === "food_collected"
+                              ? "bg-blue-500"
+                              : "bg-slate-500"
+                          }
+                        >
+                          <Bell className="w-3 h-3 mr-1" />
+                          {notification.type.replace(/_/g, " ")}
+                        </Badge>
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-700">{notification.message}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {new Date(notification.timestamp).toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     ))}
