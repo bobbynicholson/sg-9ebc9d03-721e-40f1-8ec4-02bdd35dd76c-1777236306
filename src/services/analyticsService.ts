@@ -45,18 +45,8 @@ interface RevenueByPeriod {
 export const analyticsService = {
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     try {
-      // Use the database function that bypasses RLS for admin dashboard
-      const { data: analyticsData, error: analyticsError } = await supabase
-        .rpc("get_all_subscription_analytics");
-
-      if (analyticsError) {
-        console.error("Error fetching analytics:", analyticsError);
-      }
-
-      // Fetch all subscriptions for detailed calculations
       const { data: subscriptions, error } = await supabase
-        .from("subscriptions")
-        .select("*");
+        .rpc("get_all_subscriptions_admin");
 
       if (error) {
         console.error("Error fetching subscriptions:", error);
@@ -75,10 +65,7 @@ export const analyticsService = {
         .filter(s => s.billing_cycle === "annual")
         .reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
-      const totalRevenue = analyticsData?.[0]?.total_revenue 
-        ? Number(analyticsData[0].total_revenue) 
-        : monthlyRevenue + annualRevenue;
-      
+      const totalRevenue = monthlyRevenue + annualRevenue;
       const totalCustomers = subscriptions?.length || 0;
       const averageRevenuePerUser = totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
 
@@ -129,9 +116,7 @@ export const analyticsService = {
   async getCustomerGrowth(): Promise<CustomerGrowth[]> {
     try {
       const { data: subscriptions, error } = await supabase
-        .from("subscriptions")
-        .select("created_at, amount, status")
-        .order("created_at", { ascending: true });
+        .rpc("get_all_subscriptions_admin");
 
       if (error) {
         console.error("Error fetching subscriptions for growth:", error);
@@ -175,19 +160,18 @@ export const analyticsService = {
   async getPlanDistribution(): Promise<PlanDistribution[]> {
     try {
       const { data: subscriptions, error } = await supabase
-        .from("subscriptions")
-        .select("plan_name, amount, status")
-        .eq("status", "active");
+        .rpc("get_all_subscriptions_admin");
 
       if (error) {
         console.error("Error fetching plan distribution:", error);
         return [];
       }
 
+      const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
       const planData: Record<string, { count: number; revenue: number }> = {};
       let totalRevenue = 0;
 
-      subscriptions?.forEach((sub) => {
+      activeSubscriptions.forEach((sub) => {
         const planName = sub.plan_name || "Unknown";
         if (!planData[planName]) {
           planData[planName] = { count: 0, revenue: 0 };
@@ -215,8 +199,7 @@ export const analyticsService = {
   async getGeographicDistribution(): Promise<GeographicDistribution[]> {
     try {
       const { data: subscriptions, error: subError } = await supabase
-        .from("subscriptions")
-        .select("user_id, amount, status");
+        .rpc("get_all_subscriptions_admin");
 
       if (subError) {
         console.error("Error fetching subscriptions for geo:", subError);
@@ -330,14 +313,14 @@ export const analyticsService = {
   }>> {
     try {
       const { data: subscriptions, error: subError } = await supabase
-        .from("subscriptions")
-        .select("user_id, plan_name, amount, status, created_at")
-        .eq("status", "active");
+        .rpc("get_all_subscriptions_admin");
 
       if (subError) {
         console.error("Error fetching subscriptions for top customers:", subError);
         return [];
       }
+
+      const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
 
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
@@ -356,7 +339,7 @@ export const analyticsService = {
         signupDate: string;
       }>();
 
-      subscriptions?.forEach((sub) => {
+      activeSubscriptions.forEach((sub) => {
         const profile = profiles?.find(p => p.id === sub.user_id);
         if (!profile) return;
 

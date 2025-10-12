@@ -2386,6 +2386,26 @@ export type Database = {
           trial_subscriptions: number
         }[]
       }
+      get_all_subscriptions_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_clients: number
+          amount: number
+          billing_cycle: string
+          cancelled_at: string
+          created_at: string
+          currency: string
+          discount_code: string
+          end_date: string
+          id: string
+          orders_per_quarter: number
+          plan_name: string
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_quarterly_usage: {
         Args: { p_user_id: string }
         Returns: {
