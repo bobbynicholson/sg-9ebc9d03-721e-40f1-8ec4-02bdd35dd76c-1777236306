@@ -14,49 +14,85 @@ import {
 import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import { Notification } from "@/types/tracking";
 import { Footer } from "@/components/Footer";
+import { mockOrders, mockDeliveries } from "@/lib/mockData";
 
 export default function ClientTrackingPage() {
   const router = useRouter();
   const { orderId } = router.query;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!orderId) return;
 
-    const mockNotifications: Notification[] = [
-      {
+    setLoading(true);
+
+    const mockOrder = mockOrders.find(order => order.id === orderId);
+    const mockDelivery = mockDeliveries.find(del => del.orderId === orderId);
+
+    if (mockOrder) {
+      setOrderDetails({
+        ...mockOrder,
+        status: mockDelivery?.status || mockOrder.status,
+        deliveryStatus: mockDelivery?.status,
+        pickupTime: mockDelivery?.pickupTime,
+        deliveryTime: mockDelivery?.deliveryTime
+      });
+    }
+
+    const baseNotifications: Notification[] = [];
+    
+    if (mockDelivery?.status === "in_transit" || mockDelivery?.status === "delivered") {
+      baseNotifications.push({
         id: "not-001",
         orderId: String(orderId),
         type: "driver_logged_in",
-        message: "Driver has logged in and is preparing to collect your order",
+        message: `${mockOrder?.driverName || "Driver"} has logged in and is preparing to collect your order`,
         timestamp: new Date(Date.now() - 3600000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: "Valued Client",
+        recipientName: mockOrder?.clientName || "Valued Client",
         read: false
-      },
-      {
+      });
+      
+      baseNotifications.push({
         id: "not-002",
         orderId: String(orderId),
         type: "food_collected",
-        message: "Food has been collected from the kitchen and is on the way",
+        message: "Food has been collected from our kitchen and is now on the way to your venue",
         timestamp: new Date(Date.now() - 1800000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: "Valued Client",
+        recipientName: mockOrder?.clientName || "Valued Client",
         read: false
-      },
-      {
+      });
+    }
+
+    if (mockDelivery?.status === "delivered") {
+      baseNotifications.push({
         id: "not-003",
         orderId: String(orderId),
         type: "driver_arrived",
-        message: "Driver has arrived at your location",
+        message: `${mockOrder?.driverName || "Driver"} has arrived at ${mockOrder?.venue}`,
         timestamp: new Date(Date.now() - 600000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: "Valued Client",
+        recipientName: mockOrder?.clientName || "Valued Client",
         read: false
-      }
-    ];
-    setNotifications(mockNotifications);
+      });
+
+      baseNotifications.push({
+        id: "not-004",
+        orderId: String(orderId),
+        type: "delivery_complete",
+        message: "Your order has been successfully delivered. We hope you enjoy your event!",
+        timestamp: new Date(Date.now() - 300000).toISOString(),
+        recipientEmail: "client@example.com",
+        recipientName: mockOrder?.clientName || "Valued Client",
+        read: false
+      });
+    }
+
+    setNotifications(baseNotifications);
+    setLoading(false);
   }, [orderId]);
 
   if (!orderId) {
