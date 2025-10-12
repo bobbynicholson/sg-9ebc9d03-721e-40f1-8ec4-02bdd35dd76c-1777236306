@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Clock, CheckCircle } from "lucide-react";
 import { DriverLocation, DeliveryStatus } from "@/types/tracking";
+import { driverService } from "@/services/driverService";
 
 interface DriverGPSTrackerProps {
   orderId: string;
+  assignmentId: string;
   driverId: string;
   driverName: string;
   onStatusChange?: (status: DeliveryStatus) => void;
 }
 
 export function DriverGPSTracker({ 
-  orderId, 
+  orderId,
+  assignmentId,
   driverId, 
   driverName,
   onStatusChange 
@@ -26,7 +29,7 @@ export function DriverGPSTracker({
   useEffect(() => {
     if (isTracking && "geolocation" in navigator) {
       watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
+        async (position) => {
           const location: DriverLocation = {
             id: `loc_${Date.now()}`,
             driverId,
@@ -40,6 +43,31 @@ export function DriverGPSTracker({
 
           setCurrentLocation(location);
 
+          // Track GPS in database
+          try {
+            await driverService.trackGPS(
+              driverId,
+              orderId,
+              assignmentId,
+              {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                speed: location.speed,
+                heading: location.heading,
+              }
+            );
+
+            // Check proximity and send automatic notifications
+            await driverService.checkProximityAndNotify(
+              assignmentId,
+              location.latitude,
+              location.longitude
+            );
+          } catch (error) {
+            console.error("Error tracking GPS:", error);
+          }
+
+          // Store in localStorage as backup
           const trackingData = JSON.parse(
             localStorage.getItem(`tracking_${orderId}`) || "{}"
           );
@@ -72,7 +100,7 @@ export function DriverGPSTracker({
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [isTracking, orderId, driverId, driverName]);
+  }, [isTracking, orderId, assignmentId, driverId, driverName]);
 
   const handleStartTracking = () => {
     setIsTracking(true);

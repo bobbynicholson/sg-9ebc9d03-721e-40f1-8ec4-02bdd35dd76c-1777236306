@@ -845,5 +845,100 @@ export const driverService = {
     });
 
     return assignment;
+  },
+
+  /**
+   * Calculate distance between two GPS coordinates (Haversine formula)
+   */
+  calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  },
+
+  /**
+   * Check proximity to venue and trigger notifications
+   * Call this every time GPS location is updated
+   */
+  async checkProximityAndNotify(
+    assignmentId: string,
+    currentLat: number,
+    currentLng: number
+  ): Promise<void> {
+    const { data: assignment } = await supabase
+      .from("driver_assignments")
+      .select("*, orders!inner(*)")
+      .eq("id", assignmentId)
+      .single();
+
+    if (!assignment) return;
+
+    const order = assignment.orders as any;
+    
+    if (!order.venue_lat || !order.venue_lng) return;
+
+    const distance = this.calculateDistance(
+      currentLat,
+      currentLng,
+      order.venue_lat,
+      order.venue_lng
+    );
+
+    const distanceInMeters = distance * 1000;
+
+    // Check for arrival (within 50 meters)
+    if (distanceInMeters <= 50 && assignment.status !== "arrived") {
+      await this.markArrived(assignmentId);
+      
+      // Send "Driver Arrived" notification
+      await supabase.from("notifications").insert({
+        user_id: order.user_id,
+        recipient_id: order.client_id || order.user_id,
+        notification_type: "driver_arrived",
+        title: "Driver Has Arrived! 🎉",
+        message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
+        priority: "high",
+        order_id: order.id,
+      });
+    }
+    
+    // Check for 10 minutes away (calculate based on distance and average speed)
+    // Assuming average speed of 40 km/h in city
+    const estimatedMinutes = (distance / 40) * 60;
+    
+    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
+      // Check if we already sent the 10-minute notification
+      const { data: existingNotification } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("order_id", order.id)
+        .eq("notification_type", "driver_10_minutes_away")
+        .single();
+
+      if (!existingNotification) {
+        await supabase.from("notifications").insert({
+          user_id: order.user_id,
+          recipient_id: order.client_id || order.user_id,
+          notification_type: "driver_10_minutes_away",
+          title: "Driver 10 Minutes Away ⏰",
+          message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
+          priority: "high",
+          order_id: order.id,
+        });
+      }
+    }
   }
 };
