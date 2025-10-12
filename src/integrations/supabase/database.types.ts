@@ -1208,6 +1208,92 @@ export type Database = {
           },
         ]
       }
+      integration_logs: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          integration_id: string
+          request_data: Json | null
+          response_data: Json | null
+          status: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          integration_id: string
+          request_data?: Json | null
+          response_data?: Json | null
+          status: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          integration_id?: string
+          request_data?: Json | null
+          response_data?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          connected_at: string | null
+          created_at: string | null
+          credentials: Json
+          disconnected_at: string | null
+          id: string
+          integration_type: string
+          is_active: boolean
+          last_sync_at: string | null
+          metadata: Json | null
+          sync_status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_at?: string | null
+          credentials?: Json
+          disconnected_at?: string | null
+          id?: string
+          integration_type: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          metadata?: Json | null
+          sync_status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_at?: string | null
+          credentials?: Json
+          disconnected_at?: string | null
+          id?: string
+          integration_type?: string
+          is_active?: boolean
+          last_sync_at?: string | null
+          metadata?: Json | null
+          sync_status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       inventory: {
         Row: {
           category: string
@@ -1439,6 +1525,9 @@ export type Database = {
           collection_time: string | null
           created_at: string | null
           currency: string | null
+          delivery_distance_km: number | null
+          delivery_duration_minutes: number | null
+          delivery_route_optimized: boolean | null
           delivery_status: string | null
           delivery_time: string | null
           equipment_items: Json | null
@@ -1468,6 +1557,9 @@ export type Database = {
           waiter_duration_hours: number | null
           waiter_hourly_rate: number | null
           waiter_total_fee: number | null
+          whatsapp_notifications_sent: Json | null
+          xero_invoice_id: string | null
+          xero_synced_at: string | null
         }
         Insert: {
           amount_paid?: number | null
@@ -1479,6 +1571,9 @@ export type Database = {
           collection_time?: string | null
           created_at?: string | null
           currency?: string | null
+          delivery_distance_km?: number | null
+          delivery_duration_minutes?: number | null
+          delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
           equipment_items?: Json | null
@@ -1508,6 +1603,9 @@ export type Database = {
           waiter_duration_hours?: number | null
           waiter_hourly_rate?: number | null
           waiter_total_fee?: number | null
+          whatsapp_notifications_sent?: Json | null
+          xero_invoice_id?: string | null
+          xero_synced_at?: string | null
         }
         Update: {
           amount_paid?: number | null
@@ -1519,6 +1617,9 @@ export type Database = {
           collection_time?: string | null
           created_at?: string | null
           currency?: string | null
+          delivery_distance_km?: number | null
+          delivery_duration_minutes?: number | null
+          delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
           equipment_items?: Json | null
@@ -1548,6 +1649,9 @@ export type Database = {
           waiter_duration_hours?: number | null
           waiter_hourly_rate?: number | null
           waiter_total_fee?: number | null
+          whatsapp_notifications_sent?: Json | null
+          xero_invoice_id?: string | null
+          xero_synced_at?: string | null
         }
         Relationships: [
           {

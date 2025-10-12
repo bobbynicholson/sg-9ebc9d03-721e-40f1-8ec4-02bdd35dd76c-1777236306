@@ -221,7 +221,7 @@ export const whatsappIntegrationService = {
 
   async sendPaymentReminder(orderId: string): Promise<boolean> {
     try {
-      const { data: order } = await supabase
+      const { data: orderData } = await supabase
         .from("orders")
         .select(`
           *,
@@ -229,14 +229,16 @@ export const whatsappIntegrationService = {
         `)
         .eq("id", orderId)
         .single();
-
-      if (!order) {
+        
+      if (!orderData) {
         throw new Error("Order not found");
       }
 
-      const profile = Array.isArray((order as any).profiles)
-        ? (order as any).profiles[0]
-        : (order as any).profiles;
+      const order = orderData as any;
+
+      const profile = Array.isArray(order.profiles)
+        ? order.profiles[0]
+        : order.profiles;
 
       if (!profile?.phone) {
         console.warn("Customer phone number not available");

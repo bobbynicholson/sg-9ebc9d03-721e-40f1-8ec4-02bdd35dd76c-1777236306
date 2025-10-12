@@ -85,57 +85,41 @@ export const quoteService = {
     const quote = await this.getQuote(quoteId);
     if (!quote) return null;
 
-    const order: Omit<Order, "id" | "created_at" | "updated_at"> = {
+    const orderData = {
+      ...quote,
+      quote_id: quote.id,
       user_id: quote.user_id,
+      client_id: quote.client_id,
       region_id: quote.region_id,
-      quote_id: quoteId,
-      order_number: `ORD-${Date.now()}`,
-      client_name: quote.client_name,
-      client_email: quote.client_email,
-      client_phone: quote.client_phone,
-      event_date: quote.event_date,
-      event_time: quote.event_time,
-      venue_address: quote.venue_address,
-      venue_lat: null,
-      venue_lng: null,
-      guest_count: quote.guest_count,
-      menu_items: quote.menu_items,
-      equipment_items: quote.equipment_items,
-      subtotal: quote.subtotal,
-      tax: quote.tax,
-      total: quote.total,
-      currency: quote.currency,
-      payment_status: "pending",
-      amount_paid: 0,
-      status: "confirmed",
-      assigned_driver_id: null,
-      assigned_chef_id: null,
-      delivery_status: "pending",
-      pickup_time: null,
-      delivery_time: null,
-      collection_time: null,
-      special_instructions: quote.notes,
-      internal_notes: null,
-      requires_waiter: false,
-      waiter_duration_hours: null,
-      waiter_hourly_rate: null,
-      waiter_total_fee: null,
-      equipment_return_method: "later_collection"
+      status: "confirmed", // or 'pending_payment'
+      order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
+      // Add default values for new fields
+      delivery_distance_km: null,
+      delivery_duration_minutes: null,
+      delivery_route_optimized: false,
+      whatsapp_notifications_sent: [],
+      xero_invoice_id: null,
+      xero_synced_at: null,
     };
 
-    const { data, error } = await supabase
+    delete (orderData as any).id;
+    delete (orderData as any).created_at;
+    delete (orderData as any).updated_at;
+    delete (orderData as any).quotes; // remove nested quotes relation if it exists
+
+    const { data: newOrder, error: orderError } = await supabase
       .from("orders")
-      .insert(order)
+      .insert(orderData)
       .select()
       .single();
 
-    if (error) {
-      console.error("Error converting quote to order:", error);
-      throw error;
+    if (orderError) {
+      console.error("Error converting quote to order:", orderError);
+      throw orderError;
     }
 
     await this.updateQuote(quoteId, { status: "accepted", accepted_at: new Date().toISOString() });
 
-    return data;
+    return newOrder;
   }
 };

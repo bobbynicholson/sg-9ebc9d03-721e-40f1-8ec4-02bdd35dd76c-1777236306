@@ -214,13 +214,20 @@ export const xeroIntegrationService = {
         .eq("is_active", true)
         .single();
 
-      if (!integration) return null;
+      if (!integration || !integration.credentials) return null;
+      
+      const credentials = integration.credentials as {
+        tenantId: string;
+        accessToken: string;
+        refreshToken: string;
+        expiresAt: string;
+      };
 
       return {
-        tenantId: integration.credentials.tenantId,
-        accessToken: integration.credentials.accessToken,
-        refreshToken: integration.credentials.refreshToken,
-        expiresAt: new Date(integration.credentials.expiresAt),
+        tenantId: credentials.tenantId,
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        expiresAt: new Date(credentials.expiresAt),
         connected: integration.is_active
       };
     } catch (error) {
