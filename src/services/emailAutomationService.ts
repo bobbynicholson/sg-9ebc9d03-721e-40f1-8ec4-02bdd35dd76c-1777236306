@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import type { EmailVariables } from "@/types";
 
 type AfterSalesEmail = Database["public"]["Tables"]["after_sales_emails"]["Row"];
 type EmailTemplate = Database["public"]["Tables"]["email_templates"]["Row"];
@@ -27,31 +27,6 @@ interface AutomationRule {
   enabled: boolean;
   subject: string;
   body: string;
-}
-
-interface EmailVariables {
-  clientName?: string;
-  eventDate?: string;
-  quoteNumber?: string;
-  orderNumber?: string;
-  currency?: string;
-  totalAmount?: string;
-  discountedAmount?: string;
-  companyName?: string;
-  eventType?: string;
-  guestCount?: string;
-  eventLocation?: string;
-  eventTime?: string;
-  acceptLink?: string;
-  menuDetails?: string;
-  changeDeadline?: string;
-  contactPhone?: string;
-  specialInstructions?: string;
-  paymentAmount?: string;
-  invoiceNumber?: string;
-  paymentDate?: string;
-  paymentMethod?: string;
-  reviewLink?: string;
 }
 
 export const emailAutomationService = {

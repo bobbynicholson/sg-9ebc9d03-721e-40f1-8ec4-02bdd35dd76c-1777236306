@@ -1616,6 +1616,7 @@ export type Database = {
           balance_paid: boolean | null
           balance_paid_at: string | null
           client_email: string | null
+          client_id: string | null
           client_name: string
           client_phone: string | null
           collection_time: string | null
@@ -1677,6 +1678,7 @@ export type Database = {
           balance_paid?: boolean | null
           balance_paid_at?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name: string
           client_phone?: string | null
           collection_time?: string | null
@@ -1738,6 +1740,7 @@ export type Database = {
           balance_paid?: boolean | null
           balance_paid_at?: string | null
           client_email?: string | null
+          client_id?: string | null
           client_name?: string
           client_phone?: string | null
           collection_time?: string | null
@@ -1801,6 +1804,13 @@ export type Database = {
           {
             foreignKeyName: "orders_assigned_driver_id_fkey"
             columns: ["assigned_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

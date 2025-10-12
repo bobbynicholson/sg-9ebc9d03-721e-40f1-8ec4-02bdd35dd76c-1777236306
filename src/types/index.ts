@@ -422,11 +422,27 @@ export interface WaiterServiceConfig {
   };
 }
 
-interface EmailVariables {
+export interface EmailVariables {
   clientName?: string;
   eventDate?: string;
   quoteNumber?: string;
-  orderNumber?: string; // Added this
+  orderNumber?: string;
   currency?: string;
   totalAmount?: string;
+  discountedAmount?: string;
+  companyName?: string;
+  eventType?: string;
+  guestCount?: string;
+  eventLocation?: string;
+  eventTime?: string;
+  acceptLink?: string;
+  menuDetails?: string;
+  changeDeadline?: string;
+  contactPhone?: string;
+  specialInstructions?: string;
+  paymentAmount?: string;
+  invoiceNumber?: string;
+  paymentDate?: string;
+  paymentMethod?: string;
+  reviewLink?: string;
 }
