@@ -152,7 +152,8 @@ export default function JobProgressOverviewPage() {
   const handleOverrideComplete = (orderId: string) => {
     const updatedOrders = orders.map((order) => {
       if (order.id === orderId) {
-        return { ...order, status: "completed" };
+        const newStatus: Order["status"] = "completed";
+        return { ...order, status: newStatus };
       }
       return order;
     });
