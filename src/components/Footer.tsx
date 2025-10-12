@@ -11,9 +11,14 @@ import {
   Phone,
   MapPin
 } from "lucide-react";
+import { useBranding } from "@/contexts/BrandingContext";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const { branding, isWhiteLabeled } = useBranding();
+
+  const displayName = branding?.organizationName || "CaterOS";
+  const displayLogo = branding?.logoUrl;
 
   const portalLinks = [
     {
@@ -108,11 +113,21 @@ export function Footer() {
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div className="col-span-1 md:col-span-2">
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-              Catering Management Platform
-            </h3>
+            {displayLogo ? (
+              <img
+                src={displayLogo}
+                alt={displayName}
+                className="h-12 object-contain mb-4"
+              />
+            ) : (
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+                {displayName}
+              </h3>
+            )}
             <p className="text-slate-300 mb-6 max-w-md">
-              Complete solution for South African catering businesses. Automate your operations, increase profitability, and deliver exceptional service.
+              {isWhiteLabeled
+                ? `Complete catering management solution powered by advanced technology.`
+                : `Complete solution for South African catering businesses. Automate your operations, increase profitability, and deliver exceptional service.`}
             </p>
             <div className="space-y-2 text-sm text-slate-300">
               <div className="flex items-center gap-2">
@@ -180,12 +195,22 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Bottom Bar with CaterOS Attribution */}
         <div className="border-t border-slate-700 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-slate-400">
-              © {currentYear} Catering Management Platform. Built for South African catering excellence.
-            </p>
+            <div className="text-sm text-slate-400 text-center md:text-left">
+              <p>© {currentYear} {displayName}. All rights reserved.</p>
+              {isWhiteLabeled && (
+                <p className="mt-2">
+                  <Link href="https://cateros.com" target="_blank" rel="noopener noreferrer">
+                    <span className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Powered by CaterOS - Catering Management & Process Solutions</span>
+                    </span>
+                  </Link>
+                </p>
+              )}
+            </div>
             <div className="flex gap-6 text-sm text-slate-400">
               <Link href="/privacy">
                 <span className="hover:text-white transition-colors">Privacy Policy</span>

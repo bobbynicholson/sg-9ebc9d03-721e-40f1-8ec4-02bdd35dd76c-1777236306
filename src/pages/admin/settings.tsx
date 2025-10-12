@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,9 @@ import {
   CheckCircle,
   Globe,
   Building2,
-  ArrowRight
+  ArrowRight,
+  Palette,
+  Sparkles
 } from "lucide-react";
 import {
   Select,
@@ -141,6 +142,44 @@ export default function AdminSettingsPage() {
 
           {/* Call-to-Action Cards - Mobile Optimized Stack */}
           <div className="space-y-4">
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 text-white">
+              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-start gap-3 md:gap-4">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                      <Palette className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg md:text-2xl font-bold mb-1">White Label Branding</h3>
+                      <p className="text-sm md:text-base text-pink-100 mb-2 md:mb-0">
+                        Customize your platform with your own logo and color palette. Create a seamless branded experience for your clients.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Sparkles className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Custom Logo</span>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Palette className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Brand Colors</span>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Globe className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>CaterOS Powered</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <Link href="/admin/white-label" className="w-full md:w-auto">
+                    <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                      Customize Branding
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white">
               <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

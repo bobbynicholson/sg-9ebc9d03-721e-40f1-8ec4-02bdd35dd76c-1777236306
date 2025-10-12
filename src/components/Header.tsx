@@ -31,12 +31,17 @@ import {
   Target,
   AlertTriangle
 } from "lucide-react";
+import { useBranding } from "@/contexts/BrandingContext";
 
 export function Header() {
   const router = useRouter();
+  const { branding, isWhiteLabeled } = useBranding();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  const displayName = branding?.organizationName || "CaterOS";
+  const displayLogo = branding?.logoUrl;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -136,12 +141,22 @@ export function Header() {
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl group-hover:scale-110 transition-transform">
-              <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-            </div>
-            <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              CaterOS
-            </span>
+            {displayLogo ? (
+              <img
+                src={displayLogo}
+                alt={displayName}
+                className="h-8 lg:h-10 object-contain"
+              />
+            ) : (
+              <>
+                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
+                </div>
+                <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  {displayName}
+                </span>
+              </>
+            )}
           </Link>
 
           {/* Desktop Navigation */}
