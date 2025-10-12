@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -92,153 +93,174 @@ export default function UserManagementPage() {
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
           <Link href="/">
-            <Button variant="ghost" className="mb-4">
+            <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
           </Link>
 
-          <div className="mb-8">
+          {/* Header - Mobile Optimized */}
+          <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg">
-                <Users className="w-8 h-8 text-white" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <Users className="w-5 h-5 md:w-8 md:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   User Management
                 </h1>
-                <p className="text-slate-600 mt-1">Assign roles and manage user access</p>
+                <p className="text-sm md:text-base text-slate-600 mt-1">Assign roles and manage user access</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Stats Cards - Mobile Optimized Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Total Users</p>
-                <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+                <p className="text-xs md:text-sm text-slate-600 mb-1">Total Users</p>
+                <p className="text-2xl md:text-3xl font-bold text-slate-900">{users.length}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Active Users</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-xs md:text-sm text-slate-600 mb-1">Active Users</p>
+                <p className="text-2xl md:text-3xl font-bold text-green-600">
                   {users.filter(u => u.status === "active").length}
                 </p>
               </CardContent>
             </Card>
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg col-span-2 lg:col-span-1">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Admins</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xs md:text-sm text-slate-600 mb-1">Admins</p>
+                <p className="text-2xl md:text-3xl font-bold text-purple-600">
                   {users.filter(u => u.role.includes("admin")).length}
                 </p>
               </CardContent>
             </Card>
           </div>
 
+          {/* Search - Mobile Optimized */}
           <div className="mb-6">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
               <Input
                 type="text"
                 placeholder="Search users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
           </div>
 
+          {/* User Cards - Mobile Optimized */}
           <div className="space-y-4">
             {filteredUsers.map((user) => (
               <Card key={user.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-xl font-semibold text-slate-900">{user.name}</h3>
-                        <Badge className={user.status === "active" ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-700 border-slate-200"}>
-                          {user.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2 mb-4">
-                        <p className="text-sm text-slate-600">Email: {user.email}</p>
-                        {user.phone && <p className="text-sm text-slate-600">Phone: {user.phone}</p>}
-                        <p className="text-sm text-slate-600">
-                          Joined: {new Date(user.createdAt).toLocaleDateString()}
-                        </p>
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex flex-col gap-4">
+                    {/* User Info Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-lg md:text-xl font-semibold text-slate-900 truncate">
+                            {user.name}
+                          </h3>
+                          <Badge className={user.status === "active" ? "bg-green-100 text-green-700 border-green-200 text-xs" : "bg-slate-100 text-slate-700 border-slate-200 text-xs"}>
+                            {user.status}
+                          </Badge>
+                        </div>
+                        
+                        {/* User Details - Stacked on Mobile */}
+                        <div className="space-y-1 mb-3 text-xs md:text-sm text-slate-600">
+                          <p className="truncate">Email: {user.email}</p>
+                          {user.phone && <p>Phone: {user.phone}</p>}
+                          <p>Joined: {new Date(user.createdAt).toLocaleDateString()}</p>
+                        </div>
+
+                        {/* Current Roles - Better Mobile Wrapping */}
+                        {editingUser !== user.id && (
+                          <div className="flex gap-2 flex-wrap">
+                            {user.role.map((role) => {
+                              const config = roleConfig.find(r => r.value === role);
+                              const Icon = config?.icon || UserCircle;
+                              return (
+                                <Badge key={role} className={`text-xs ${config?.color}`}>
+                                  <Icon className="w-3 h-3 mr-1" />
+                                  {config?.label || role}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
-                      {editingUser === user.id ? (
-                        <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
-                          <Label className="font-semibold text-slate-700">Assign Roles:</Label>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                            {roleConfig.map((role) => (
-                              <div key={role.value} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`${user.id}-${role.value}`}
-                                  checked={selectedRoles.includes(role.value)}
-                                  onCheckedChange={() => handleRoleToggle(role.value)}
-                                />
-                                <Label
-                                  htmlFor={`${user.id}-${role.value}`}
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <role.icon className="w-4 h-4" />
-                                  {role.label}
-                                </Label>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              onClick={() => handleSaveRoles(user.id)}
-                              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                              disabled={selectedRoles.length === 0}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Save Roles
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              onClick={() => {
-                                setEditingUser(null);
-                                setSelectedRoles([]);
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2 flex-wrap">
-                          {user.role.map((role) => {
-                            const config = roleConfig.find(r => r.value === role);
-                            const Icon = config?.icon || UserCircle;
-                            return (
-                              <Badge key={role} className={config?.color}>
-                                <Icon className="w-3 h-3 mr-1" />
-                                {config?.label || role}
-                              </Badge>
-                            );
-                          })}
-                        </div>
+                      {/* Edit Button */}
+                      {editingUser !== user.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditUser(user.id)}
+                          className="w-full sm:w-auto text-sm"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Roles
+                        </Button>
                       )}
                     </div>
 
-                    {editingUser !== user.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditUser(user.id)}
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Roles
-                      </Button>
+                    {/* Edit Section - Mobile Optimized */}
+                    {editingUser === user.id && (
+                      <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg">
+                        <Label className="font-semibold text-slate-700 text-sm md:text-base">Assign Roles:</Label>
+                        
+                        {/* Role Checkboxes - Better Mobile Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {roleConfig.map((role) => (
+                            <div key={role.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`${user.id}-${role.value}`}
+                                checked={selectedRoles.includes(role.value)}
+                                onCheckedChange={() => handleRoleToggle(role.value)}
+                              />
+                              <Label
+                                htmlFor={`${user.id}-${role.value}`}
+                                className="text-xs md:text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2 cursor-pointer"
+                              >
+                                <role.icon className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
+                                <span className="truncate">{role.label}</span>
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Action Buttons - Mobile Stacked */}
+                        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                          <Button 
+                            onClick={() => handleSaveRoles(user.id)}
+                            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 w-full sm:w-auto text-sm"
+                            disabled={selectedRoles.length === 0}
+                            size="sm"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Save Roles
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => {
+                              setEditingUser(null);
+                              setSelectedRoles([]);
+                            }}
+                            className="w-full sm:w-auto text-sm"
+                            size="sm"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </CardContent>
