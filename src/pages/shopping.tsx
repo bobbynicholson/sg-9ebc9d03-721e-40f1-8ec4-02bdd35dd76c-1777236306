@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,110 +122,122 @@ export default function ShoppingPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-              <ShoppingCart className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
+        {/* Header Section - Mobile Optimized */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900">Shopping Management</h1>
+                <p className="text-sm md:text-base text-slate-600">Track ingredient purchases for events</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Shopping Management</h1>
-              <p className="text-slate-600">Track ingredient purchases for events</p>
-            </div>
-          </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant={filter === "all" ? "default" : "outline"}
-              onClick={() => setFilter("all")}
-              className="gap-2"
-            >
-              <Package className="w-4 h-4" />
-              All Items
-            </Button>
-            <Button
-              variant={filter === "pending" ? "default" : "outline"}
-              onClick={() => setFilter("pending")}
-              className="gap-2"
-            >
-              <Clock className="w-4 h-4" />
-              Pending
-            </Button>
-            <Button
-              variant={filter === "purchased" ? "default" : "outline"}
-              onClick={() => setFilter("purchased")}
-              className="gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Purchased
-            </Button>
+            {/* Filter Buttons - Mobile Optimized */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filter === "all" ? "default" : "outline"}
+                onClick={() => setFilter("all")}
+                className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
+                size="sm"
+              >
+                <Package className="w-4 h-4" />
+                <span className="hidden sm:inline">All Items</span>
+                <span className="sm:hidden">All</span>
+              </Button>
+              <Button
+                variant={filter === "pending" ? "default" : "outline"}
+                onClick={() => setFilter("pending")}
+                className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
+                size="sm"
+              >
+                <Clock className="w-4 h-4" />
+                <span className="hidden sm:inline">Pending</span>
+                <span className="sm:hidden">Pending</span>
+              </Button>
+              <Button
+                variant={filter === "purchased" ? "default" : "outline"}
+                onClick={() => setFilter("purchased")}
+                className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
+                size="sm"
+              >
+                <CheckCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Purchased</span>
+                <span className="sm:hidden">Done</span>
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Stats Cards - Mobile Optimized Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-slate-600">Total Items</p>
-                  <p className="text-2xl font-bold text-slate-900">{items.length}</p>
+                  <p className="text-xs md:text-sm text-slate-600">Total Items</p>
+                  <p className="text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-blue-600" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
+                  <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-slate-600">Pending</p>
-                  <p className="text-2xl font-bold text-orange-600">{pendingCount}</p>
+                  <p className="text-xs md:text-sm text-slate-600">Pending</p>
+                  <p className="text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-orange-600" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
+                  <Clock className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-slate-600">Purchased</p>
-                  <p className="text-2xl font-bold text-green-600">{purchasedCount}</p>
+                  <p className="text-xs md:text-sm text-slate-600">Purchased</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
+                  <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-slate-600">Urgent</p>
-                  <p className="text-2xl font-bold text-red-600">{urgentCount}</p>
+                  <p className="text-xs md:text-sm text-slate-600">Urgent</p>
+                  <p className="text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-red-100 flex items-center justify-center self-end md:self-auto">
+                  <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
+        {/* Shopping List - Mobile Optimized */}
         <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle>Shopping List</CardTitle>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="text-lg md:text-xl">Shopping List</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 md:px-6">
             <div className="space-y-3">
               {filteredItems.length === 0 ? (
                 <div className="text-center py-8 text-slate-600">
@@ -240,7 +253,7 @@ export default function ShoppingPage() {
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border-2 ${
+                      className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 md:p-4 rounded-lg border-2 ${
                         item.purchased
                           ? "bg-green-50 border-green-200"
                           : isUrgent
@@ -248,50 +261,62 @@ export default function ShoppingPage() {
                           : "bg-white border-slate-200"
                       }`}
                     >
-                      <div className="flex items-center gap-4 flex-1">
+                      {/* Checkbox and Content */}
+                      <div className="flex items-start gap-3 sm:gap-4 flex-1">
                         <Checkbox
                           checked={item.purchased}
                           onCheckedChange={() => handleTogglePurchased(item.id)}
-                          className="w-5 h-5"
+                          className="w-5 h-5 mt-0.5 flex-shrink-0"
                         />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          {/* Item Name and Badges */}
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h4
-                              className={`font-semibold ${
+                              className={`font-semibold text-sm md:text-base ${
                                 item.purchased ? "line-through text-slate-500" : "text-slate-900"
                               }`}
                             >
                               {item.name}
                             </h4>
-                            <Badge className={getCategoryColor(item.category)}>
+                            <Badge className={`${getCategoryColor(item.category)} text-xs`}>
                               {item.category}
                             </Badge>
                             {isUrgent && (
-                              <Badge className="bg-red-100 text-red-800">Urgent</Badge>
+                              <Badge className="bg-red-100 text-red-800 text-xs">Urgent</Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
-                            <span>
-                              {item.quantity} {item.unit}
-                            </span>
-                            <span>•</span>
-                            <span>{item.orderName}</span>
-                            <span>•</span>
-                            <span>
-                              Event: {new Date(item.eventDate).toLocaleDateString()} (
-                              {daysUntil > 0 ? `in ${daysUntil} days` : "today"})
-                            </span>
+                          
+                          {/* Item Details - Stacked on Mobile */}
+                          <div className="space-y-1 text-xs md:text-sm text-slate-600">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">
+                                {item.quantity} {item.unit}
+                              </span>
+                              <span className="hidden sm:inline">•</span>
+                              <span className="truncate">{item.orderName}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>Event: {new Date(item.eventDate).toLocaleDateString()}</span>
+                              <span>•</span>
+                              <span className="whitespace-nowrap">
+                                {daysUntil > 0 ? `in ${daysUntil} days` : "today"}
+                              </span>
+                            </div>
                           </div>
+                          
+                          {/* Notes */}
                           {item.notes && (
-                            <p className="text-sm text-slate-600 mt-1 italic">{item.notes}</p>
+                            <p className="text-xs md:text-sm text-slate-600 mt-2 italic">{item.notes}</p>
                           )}
                         </div>
                       </div>
-                      <div className="ml-4">
+                      
+                      {/* Status Icon */}
+                      <div className="flex sm:flex-col items-center justify-center sm:ml-4 self-start sm:self-center">
                         {item.purchased ? (
-                          <CheckCircle className="w-6 h-6 text-green-600" />
+                          <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
                         ) : (
-                          <Clock className="w-6 h-6 text-orange-600" />
+                          <Clock className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
                         )}
                       </div>
                     </div>
