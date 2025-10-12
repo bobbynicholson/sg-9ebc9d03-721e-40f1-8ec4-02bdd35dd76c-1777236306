@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import {
   Settings, 
   Bell, 
   Mail, 
-  Calendar, 
   DollarSign, 
   Clock, 
   Truck,
@@ -105,144 +105,151 @@ export default function AdminSettingsPage() {
         <title>System Settings - CaterOS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+          {/* Header - Mobile Optimized */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-lg">
-                <Settings className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-lg flex-shrink-0">
+                <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">System Settings</h1>
-                <p className="text-slate-600">Configure platform preferences and automation</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">System Settings</h1>
+                <p className="text-sm md:text-base text-slate-600">Configure platform preferences</p>
               </div>
             </div>
-            <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700">
+            <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700 w-full sm:w-auto" size="sm">
               <Save className="w-4 h-4 mr-2" />
-              Save All Changes
+              Save All
             </Button>
           </div>
 
           {saved && (
             <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500">
-              <CardContent className="py-4">
+              <CardContent className="py-3 md:py-4 px-4 md:px-6">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <p className="font-semibold text-green-900">Settings saved successfully!</p>
+                  <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                  <p className="font-semibold text-sm md:text-base text-green-900">Settings saved successfully!</p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white">
-            <CardContent className="pt-6 pb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <Globe className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold mb-1">Scale Across Regions</h3>
-                    <p className="text-purple-100">
-                      Launch franchises and regional operations in new provinces. Head office manages sales while regions handle fulfillment.
-                    </p>
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4" />
-                        <span className="text-sm">Independent Kitchens</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4" />
-                        <span className="text-sm">Regional Drivers</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ChefHat className="w-4 h-4" />
-                        <span className="text-sm">Local Teams</span>
+          {/* Call-to-Action Cards - Mobile Optimized Stack */}
+          <div className="space-y-4">
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 text-white">
+              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-start gap-3 md:gap-4">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                      <Globe className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg md:text-2xl font-bold mb-1">Scale Across Regions</h3>
+                      <p className="text-sm md:text-base text-purple-100 mb-2 md:mb-0">
+                        Launch franchises and regional operations in new provinces. Head office manages sales while regions handle fulfillment.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Building2 className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Independent Kitchens</span>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Truck className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Regional Drivers</span>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <ChefHat className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Local Teams</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Link href="/admin/regions">
-                    <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
-                      Manage Regions
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                  <Link href="/admin/order-assignments">
-                    <Button size="lg" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
-                      Assign Orders
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 text-white">
-            <CardContent className="pt-6 pb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <DollarSign className="w-8 h-8 text-white" />
+                  <div className="flex flex-col gap-2 md:gap-3">
+                    <Link href="/admin/regions" className="w-full">
+                      <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                        Manage Regions
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                    <Link href="/admin/order-assignments" className="w-full">
+                      <Button size="sm" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
+                        Assign Orders
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-bold mb-1">Payment Processing</h3>
-                    <p className="text-green-100">
-                      Connect multiple payment gateways for South African and international transactions. Accept card payments seamlessly.
-                    </p>
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm">PayFast, Yoco, Peach</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4" />
-                        <span className="text-sm">Stripe, PayPal, Square</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 text-white">
+              <CardContent className="pt-4 md:pt-6 pb-4 md:pb-6 px-4 md:px-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-start gap-3 md:gap-4">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                      <DollarSign className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg md:text-2xl font-bold mb-1">Payment Processing</h3>
+                      <p className="text-sm md:text-base text-green-100 mb-2 md:mb-0">
+                        Connect multiple payment gateways for South African and international transactions.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2 md:mt-3">
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>PayFast, Yoco, Peach</span>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm">
+                          <Globe className="w-3 h-3 md:w-4 md:h-4" />
+                          <span>Stripe, PayPal, Square</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <Link href="/admin/payment-gateways">
+                    <Button size="sm" className="bg-white text-green-600 hover:bg-green-50 w-full md:w-auto">
+                      Configure
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
                 </div>
-                <Link href="/admin/payment-gateways">
-                  <Button size="lg" className="bg-white text-green-600 hover:bg-green-50">
-                    Configure Payments
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          <Tabs defaultValue="company" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="company">Company</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-              <TabsTrigger value="automation">Automation</TabsTrigger>
-              <TabsTrigger value="pricing">Pricing</TabsTrigger>
-              <TabsTrigger value="operations">Operations</TabsTrigger>
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="email-automation">Email Automation</TabsTrigger>
-            </TabsList>
+          {/* Tabs - Mobile Optimized with Scrollable Tab List */}
+          <Tabs defaultValue="company" className="space-y-4 md:space-y-6">
+            <div className="overflow-x-auto">
+              <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-7 gap-1">
+                <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap">Company</TabsTrigger>
+                <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap">Notifications</TabsTrigger>
+                <TabsTrigger value="automation" className="text-xs md:text-sm whitespace-nowrap">Automation</TabsTrigger>
+                <TabsTrigger value="pricing" className="text-xs md:text-sm whitespace-nowrap">Pricing</TabsTrigger>
+                <TabsTrigger value="operations" className="text-xs md:text-sm whitespace-nowrap">Operations</TabsTrigger>
+                <TabsTrigger value="financial" className="text-xs md:text-sm whitespace-nowrap">Financial</TabsTrigger>
+                <TabsTrigger value="email-automation" className="text-xs md:text-sm whitespace-nowrap">Email Auto</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="company">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <Settings className="w-4 h-4 md:w-5 md:h-5" />
                     Company Information
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="space-y-2">
-                    <Label>Company Name</Label>
+                    <Label className="text-sm md:text-base">Company Name</Label>
                     <Input
                       value={settings.company.name}
                       onChange={(e) => updateSetting("company", "name", e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email Address</Label>
+                    <Label className="text-sm md:text-base">Email Address</Label>
                     <Input
                       type="email"
                       value={settings.company.email}
@@ -250,14 +257,14 @@ export default function AdminSettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone Number</Label>
+                    <Label className="text-sm md:text-base">Phone Number</Label>
                     <Input
                       value={settings.company.phone}
                       onChange={(e) => updateSetting("company", "phone", e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Physical Address</Label>
+                    <Label className="text-sm md:text-base">Physical Address</Label>
                     <Input
                       value={settings.company.address}
                       onChange={(e) => updateSetting("company", "address", e.target.value)}
@@ -269,19 +276,19 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="notifications">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <Bell className="w-4 h-4 md:w-5 md:h-5" />
                     Notification Preferences
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium">New Lead Notification</p>
-                        <p className="text-sm text-slate-600">Get notified when a new lead is captured</p>
+                <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <Mail className="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">New Lead Notification</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">Get notified when a new lead is captured</p>
                       </div>
                     </div>
                     <Switch
@@ -292,12 +299,12 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="font-medium">Quote Accepted</p>
-                        <p className="text-sm text-slate-600">Notification when client accepts quote</p>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">Quote Accepted</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">Notification when client accepts quote</p>
                       </div>
                     </div>
                     <Switch
@@ -308,12 +315,12 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="font-medium">Payment Received</p>
-                        <p className="text-sm text-slate-600">Alert when payment is processed</p>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">Payment Received</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">Alert when payment is processed</p>
                       </div>
                     </div>
                     <Switch
@@ -324,12 +331,12 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Truck className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <p className="font-medium">Driver Assignment (SMS)</p>
-                        <p className="text-sm text-slate-600">SMS to driver when assigned to delivery</p>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <Truck className="w-4 h-4 md:w-5 md:h-5 text-purple-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">Driver Assignment (SMS)</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">SMS to driver when assigned</p>
                       </div>
                     </div>
                     <Switch
@@ -340,12 +347,12 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Bell className="w-5 h-5 text-red-600" />
-                      <div>
-                        <p className="font-medium">Complaint Submitted</p>
-                        <p className="text-sm text-slate-600">Immediate alert for new complaints</p>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <Bell className="w-4 h-4 md:w-5 md:h-5 text-red-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">Complaint Submitted</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">Immediate alert for new complaints</p>
                       </div>
                     </div>
                     <Switch
@@ -356,12 +363,12 @@ export default function AdminSettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Mail className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="font-medium">Daily Summary Report</p>
-                        <p className="text-sm text-slate-600">Daily email with key metrics and upcoming events</p>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg gap-2">
+                    <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <Mail className="w-4 h-4 md:w-5 md:h-5 text-slate-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm md:text-base">Daily Summary Report</p>
+                        <p className="text-xs md:text-sm text-slate-600 truncate">Daily email with key metrics</p>
                       </div>
                     </div>
                     <Switch
@@ -377,16 +384,16 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="automation">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <Clock className="w-4 h-4 md:w-5 md:h-5" />
                     Automation Rules
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>First Follow-up (days after quote)</Label>
+                      <Label className="text-sm md:text-base">First Follow-up (days)</Label>
                       <Input
                         type="number"
                         value={settings.automation.autoFollowUpDays}
@@ -396,7 +403,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Second Follow-up (days after quote)</Label>
+                      <Label className="text-sm md:text-base">Second Follow-up (days)</Label>
                       <Input
                         type="number"
                         value={settings.automation.secondFollowUpDays}
@@ -408,7 +415,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Follow-up Discount (%)</Label>
+                    <Label className="text-sm md:text-base">Follow-up Discount (%)</Label>
                     <Input
                       type="number"
                       value={settings.automation.autoDiscountPercent}
@@ -416,11 +423,11 @@ export default function AdminSettingsPage() {
                         updateSetting("automation", "autoDiscountPercent", parseInt(e.target.value))
                       }
                     />
-                    <p className="text-sm text-slate-600">Discount offered in second follow-up email</p>
+                    <p className="text-xs md:text-sm text-slate-600">Discount offered in second follow-up email</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Event Reminder Days (comma-separated)</Label>
+                    <Label className="text-sm md:text-base">Event Reminder Days</Label>
                     <Input
                       value={settings.automation.reminderDays.join(", ")}
                       onChange={(e) =>
@@ -431,11 +438,11 @@ export default function AdminSettingsPage() {
                         )
                       }
                     />
-                    <p className="text-sm text-slate-600">Send reminders X days before event (e.g., 14, 7, 3, 1)</p>
+                    <p className="text-xs md:text-sm text-slate-600">Comma-separated (e.g., 14, 7, 3, 1)</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Review Request (days after delivery)</Label>
+                    <Label className="text-sm md:text-base">Review Request (days after)</Label>
                     <Input
                       type="number"
                       value={settings.automation.reviewRequestDays}
@@ -446,7 +453,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Complaint Response SLA (hours)</Label>
+                    <Label className="text-sm md:text-base">Complaint Response SLA (hours)</Label>
                     <Input
                       type="number"
                       value={settings.automation.complaintResponseHours}
@@ -461,16 +468,16 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="pricing">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Pricing Rules
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Weekend Premium (%)</Label>
+                      <Label className="text-sm md:text-base">Weekend Premium (%)</Label>
                       <Input
                         type="number"
                         value={settings.pricing.weekendPremium}
@@ -480,7 +487,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Last Minute Surcharge (%)</Label>
+                      <Label className="text-sm md:text-base">Last Minute Surcharge (%)</Label>
                       <Input
                         type="number"
                         value={settings.pricing.lastMinuteSurcharge}
@@ -491,9 +498,9 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Early Bird Discount (%)</Label>
+                      <Label className="text-sm md:text-base">Early Bird Discount (%)</Label>
                       <Input
                         type="number"
                         value={settings.pricing.earlyBirdDiscount}
@@ -503,7 +510,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Bulk Discount Threshold (guests)</Label>
+                      <Label className="text-sm md:text-base">Bulk Discount Threshold</Label>
                       <Input
                         type="number"
                         value={settings.pricing.bulkDiscountThreshold}
@@ -514,9 +521,9 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Bulk Discount (%)</Label>
+                      <Label className="text-sm md:text-base">Bulk Discount (%)</Label>
                       <Input
                         type="number"
                         value={settings.pricing.bulkDiscountPercent}
@@ -526,7 +533,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Minimum Order Value (R)</Label>
+                      <Label className="text-sm md:text-base">Minimum Order Value (R)</Label>
                       <Input
                         type="number"
                         value={settings.pricing.minimumOrderValue}
@@ -542,16 +549,16 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="operations">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ChefHat className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <ChefHat className="w-4 h-4 md:w-5 md:h-5" />
                     Operational Settings
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Equipment Cleaning Time (hours)</Label>
+                      <Label className="text-sm md:text-base">Equipment Cleaning (hours)</Label>
                       <Input
                         type="number"
                         value={settings.operations.equipmentCleaningHours}
@@ -561,7 +568,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Kitchen Prep Lead Time (hours)</Label>
+                      <Label className="text-sm md:text-base">Kitchen Prep Lead Time (hours)</Label>
                       <Input
                         type="number"
                         value={settings.operations.kitchenPrepHours}
@@ -572,9 +579,9 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Delivery Buffer Time (minutes)</Label>
+                      <Label className="text-sm md:text-base">Delivery Buffer (minutes)</Label>
                       <Input
                         type="number"
                         value={settings.operations.deliveryBufferMinutes}
@@ -584,7 +591,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Max Concurrent Events</Label>
+                      <Label className="text-sm md:text-base">Max Concurrent Events</Label>
                       <Input
                         type="number"
                         value={settings.operations.maxConcurrentEvents}
@@ -596,7 +603,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Driver Service Radius (km)</Label>
+                    <Label className="text-sm md:text-base">Driver Service Radius (km)</Label>
                     <Input
                       type="number"
                       value={settings.operations.driverRadius}
@@ -611,16 +618,16 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="financial">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Financial Settings
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Currency</Label>
+                      <Label className="text-sm md:text-base">Currency</Label>
                       <Select
                         value={settings.financial.currency}
                         onValueChange={(value) => updateSetting("financial", "currency", value)}
@@ -637,7 +644,7 @@ export default function AdminSettingsPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>VAT/Tax Rate (%)</Label>
+                      <Label className="text-sm md:text-base">VAT/Tax Rate (%)</Label>
                       <Input
                         type="number"
                         value={settings.financial.taxRate}
@@ -648,9 +655,9 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Required Deposit (%)</Label>
+                      <Label className="text-sm md:text-base">Required Deposit (%)</Label>
                       <Input
                         type="number"
                         value={settings.financial.depositPercent}
@@ -660,7 +667,7 @@ export default function AdminSettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Cancellation Fee (%)</Label>
+                      <Label className="text-sm md:text-base">Cancellation Fee (%)</Label>
                       <Input
                         type="number"
                         value={settings.financial.cancellationFeePercent}
@@ -672,7 +679,7 @@ export default function AdminSettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Refund Processing Time (days)</Label>
+                    <Label className="text-sm md:text-base">Refund Processing Time (days)</Label>
                     <Input
                       type="number"
                       value={settings.financial.refundProcessDays}
@@ -687,40 +694,39 @@ export default function AdminSettingsPage() {
 
             <TabsContent value="email-automation">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
+                <CardHeader className="px-4 md:px-6">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <Mail className="w-4 h-4 md:w-5 md:h-5" />
                     After-Sales Email Automation
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
-                    <div className="flex items-start gap-4">
+                <CardContent className="space-y-4 px-4 md:px-6">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 md:p-6 border border-blue-200">
+                    <div className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4">
                       <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                         <Mail className="w-6 h-6 text-white" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-2">Intelligent Follow-Up System</h3>
-                        <p className="text-slate-700 mb-4">
-                          Automatically nurture client relationships with 6 strategic emails sent over 12 months after each event. 
-                          Build loyalty, drive repeat business, and maintain top-of-mind awareness.
+                        <h3 className="font-semibold text-base md:text-lg mb-2">Intelligent Follow-Up System</h3>
+                        <p className="text-sm md:text-base text-slate-700 mb-3 md:mb-4">
+                          Automatically nurture client relationships with 6 strategic emails sent over 12 months after each event.
                         </p>
-                        <div className="grid grid-cols-3 gap-4 mb-4">
-                          <div className="bg-white rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-blue-600">6</div>
+                        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-3 md:mb-4">
+                          <div className="bg-white rounded-lg p-2 md:p-3 text-center">
+                            <div className="text-xl md:text-2xl font-bold text-blue-600">6</div>
                             <div className="text-xs text-slate-600">Strategic Emails</div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-green-600">12</div>
+                          <div className="bg-white rounded-lg p-2 md:p-3 text-center">
+                            <div className="text-xl md:text-2xl font-bold text-green-600">12</div>
                             <div className="text-xs text-slate-600">Month Journey</div>
                           </div>
-                          <div className="bg-white rounded-lg p-3 text-center">
-                            <div className="text-2xl font-bold text-purple-600">Auto</div>
+                          <div className="bg-white rounded-lg p-2 md:p-3 text-center">
+                            <div className="text-xl md:text-2xl font-bold text-purple-600">Auto</div>
                             <div className="text-xs text-slate-600">Fully Automated</div>
                           </div>
                         </div>
                         <Link href="/admin/after-sales-emails">
-                          <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                          <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
                             Manage Email Templates
                           </Button>
                         </Link>
@@ -739,13 +745,13 @@ export default function AdminSettingsPage() {
                         { months: 10, title: "Year-End Planning", desc: "Holiday events & new year bookings" },
                         { months: 12, title: "Anniversary Celebration", desc: "Special thank you & biggest discount" },
                       ].map((email, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg border">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold">
+                        <div key={index} className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-white rounded-lg border">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold flex-shrink-0">
                             {email.months}mo
                           </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{email.title}</p>
-                            <p className="text-xs text-slate-600">{email.desc}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-xs md:text-sm">{email.title}</p>
+                            <p className="text-xs text-slate-600 truncate">{email.desc}</p>
                           </div>
                         </div>
                       ))}
