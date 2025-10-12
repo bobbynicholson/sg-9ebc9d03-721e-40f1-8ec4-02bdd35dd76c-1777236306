@@ -1,15 +1,15 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { authService } from "@/services/authService";
+import { authService, AuthUser, AuthError } from "@/services/authService";
 import { profileService, Profile } from "@/services/profileService";
 
 interface AuthContextType {
   user: SupabaseUser | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ user: SupabaseUser | null; error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, role: string, currency: string) => Promise<{ user: SupabaseUser | null; error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
+  signUp: (email: string, password: string, fullName: string, role: string, currency: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -56,27 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const result = await authService.signIn(email, password);
-      if (result.user) {
-        await loadProfile(result.user.id);
-      }
-      return result;
-    } catch (error) {
-      return { user: null, error: error as Error };
-    }
+    return await authService.signIn(email, password);
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: string, currency: string) => {
-    try {
-      const result = await authService.signUp(email, password, fullName, role, currency);
-      if (result.user) {
-        await loadProfile(result.user.id);
-      }
-      return result;
-    } catch (error) {
-      return { user: null, error: error as Error };
-    }
+    return await authService.signUp(email, password, fullName, role, currency);
   };
 
   const signOut = async () => {

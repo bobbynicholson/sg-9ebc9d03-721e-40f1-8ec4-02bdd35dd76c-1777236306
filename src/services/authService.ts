@@ -73,14 +73,24 @@ export const authService = {
         return { user: null, error: { message: error.message, code: error.status?.toString() } };
       }
 
-      // Create profile with additional information
+      // Create profile with all required fields
       if (data.user) {
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 14); // 14-day trial
+
         await profileService.createProfile({
           id: data.user.id,
           email: email,
           full_name: fullName,
           role: role,
-          currency: currency
+          currency: currency,
+          is_active: true,
+          subscription_plan: "trial",
+          subscription_status: "trialing",
+          trial_ends_at: trialEndDate.toISOString(),
+          avatar_url: "",
+          company_name: "",
+          phone: ""
         });
       }
 
