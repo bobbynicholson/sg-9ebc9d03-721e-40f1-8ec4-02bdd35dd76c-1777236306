@@ -240,15 +240,15 @@ export const invoiceService = {
         registrationNumber: "2025/123456/07"
       },
       customer: {
-        name: profile.company_name || profile.full_name || "Customer",
-        address: profile.address || "N/A",
-        city: profile.city || "N/A",
-        postalCode: profile.postal_code || "N/A",
-        country: profile.country || "South Africa",
-        phone: profile.phone || "N/A",
-        email: profile.email || "N/A",
-        vatNumber: profile.vat_number,
-        taxNumber: profile.tax_number
+        name: (profile as any).company_name || (profile as any).full_name || "Customer",
+        address: (profile as any).address || "N/A",
+        city: (profile as any).city || "N/A",
+        postalCode: (profile as any).postal_code || "N/A",
+        country: (profile as any).country || "South Africa",
+        phone: (profile as any).phone || "N/A",
+        email: (profile as any).email || "N/A",
+        vatNumber: (profile as any).vat_number,
+        taxNumber: (profile as any).tax_number
       },
       lineItems: [
         {
@@ -342,15 +342,15 @@ export const invoiceService = {
         taxNumber: supplierProfile?.tax_number
       },
       customer: edits?.customer || {
-        name: profile.company_name || profile.full_name || "Customer",
-        address: profile.address || (order as any).event_location || "N/A",
-        city: profile.city || "N/A",
-        postalCode: profile.postal_code || "N/A",
-        country: profile.country || "South Africa",
-        phone: profile.phone || "N/A",
-        email: profile.email || "N/A",
-        vatNumber: profile.vat_number,
-        taxNumber: profile.tax_number
+        name: (profile as any).company_name || (profile as any).full_name || "Customer",
+        address: (profile as any).address || (order as any).event_location || "N/A",
+        city: (profile as any).city || "N/A",
+        postalCode: (profile as any).postal_code || "N/A",
+        country: (profile as any).country || "South Africa",
+        phone: (profile as any).phone || "N/A",
+        email: (profile as any).email || "N/A",
+        vatNumber: (profile as any).vat_number,
+        taxNumber: (profile as any).tax_number
       },
       lineItems: edits?.lineItems || lineItems,
       subtotal: edits?.subtotal || subtotal,
