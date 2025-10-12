@@ -22,6 +22,7 @@ import {
 import { User, UserRole } from "@/types";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -86,6 +87,7 @@ export default function UserManagementPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>User Management - CateringMS Admin</title>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -42,6 +41,7 @@ import {
 import { regionManagement } from "@/lib/regionManagement";
 import { Region } from "@/types/regions";
 import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function RegionsManagementPage() {
   const [regions, setRegions] = useState(regionManagement.regions);
@@ -144,6 +144,7 @@ export default function RegionsManagementPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Regional Operations - CateringMS Admin</title>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare, ArrowLeft } from "lucide-react";
 import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 interface EmailTemplate {
   id: string;
@@ -398,6 +398,7 @@ export default function EmailTemplatesPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Email Templates - CateringMS Admin</title>

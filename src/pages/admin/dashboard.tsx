@@ -20,6 +20,7 @@ import {
   Download,
   ArrowLeft
 } from "lucide-react";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function AdminDashboardPage() {
   const [dateRange, setDateRange] = useState("last_30_days");
@@ -90,6 +91,7 @@ export default function AdminDashboardPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>Analytics Dashboard | CaterOS Admin</title>

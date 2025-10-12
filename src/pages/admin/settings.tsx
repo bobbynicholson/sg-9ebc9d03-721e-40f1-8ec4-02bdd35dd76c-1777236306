@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
@@ -107,6 +108,7 @@ export default function AdminSettingsPage() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
         <title>System Settings - CateringMS Admin</title>
