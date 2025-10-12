@@ -623,3 +623,10 @@ export default function EmailAutomationSettings() {
     </div>
   );
 }
+
+// Disable static generation - this page requires authentication
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
+}
