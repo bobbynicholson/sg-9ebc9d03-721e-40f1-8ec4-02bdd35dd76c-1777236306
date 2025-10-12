@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -1519,6 +1519,10 @@ export type Database = {
           amount_paid: number | null
           assigned_chef_id: string | null
           assigned_driver_id: string | null
+          balance_amount: number | null
+          balance_due_date: string | null
+          balance_paid: boolean | null
+          balance_paid_at: string | null
           client_email: string | null
           client_name: string
           client_phone: string | null
@@ -1530,15 +1534,23 @@ export type Database = {
           delivery_route_optimized: boolean | null
           delivery_status: string | null
           delivery_time: string | null
+          deposit_amount: number | null
+          deposit_paid: boolean | null
+          deposit_paid_at: string | null
           equipment_items: Json | null
           equipment_return_method: string | null
           event_date: string
           event_time: string | null
+          final_guest_count: number | null
+          final_order_confirmed_at: string | null
           guest_count: number
           id: string
           internal_notes: string | null
+          last_change_allowed_date: string | null
           menu_items: Json | null
           order_number: string
+          payment_gateway: string | null
+          payment_reference: string | null
           payment_status: string | null
           pickup_time: string | null
           quote_id: string | null
@@ -1565,6 +1577,10 @@ export type Database = {
           amount_paid?: number | null
           assigned_chef_id?: string | null
           assigned_driver_id?: string | null
+          balance_amount?: number | null
+          balance_due_date?: string | null
+          balance_paid?: boolean | null
+          balance_paid_at?: string | null
           client_email?: string | null
           client_name: string
           client_phone?: string | null
@@ -1576,15 +1592,23 @@ export type Database = {
           delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
+          deposit_amount?: number | null
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
           equipment_items?: Json | null
           equipment_return_method?: string | null
           event_date: string
           event_time?: string | null
+          final_guest_count?: number | null
+          final_order_confirmed_at?: string | null
           guest_count: number
           id?: string
           internal_notes?: string | null
+          last_change_allowed_date?: string | null
           menu_items?: Json | null
           order_number: string
+          payment_gateway?: string | null
+          payment_reference?: string | null
           payment_status?: string | null
           pickup_time?: string | null
           quote_id?: string | null
@@ -1611,6 +1635,10 @@ export type Database = {
           amount_paid?: number | null
           assigned_chef_id?: string | null
           assigned_driver_id?: string | null
+          balance_amount?: number | null
+          balance_due_date?: string | null
+          balance_paid?: boolean | null
+          balance_paid_at?: string | null
           client_email?: string | null
           client_name?: string
           client_phone?: string | null
@@ -1622,15 +1650,23 @@ export type Database = {
           delivery_route_optimized?: boolean | null
           delivery_status?: string | null
           delivery_time?: string | null
+          deposit_amount?: number | null
+          deposit_paid?: boolean | null
+          deposit_paid_at?: string | null
           equipment_items?: Json | null
           equipment_return_method?: string | null
           event_date?: string
           event_time?: string | null
+          final_guest_count?: number | null
+          final_order_confirmed_at?: string | null
           guest_count?: number
           id?: string
           internal_notes?: string | null
+          last_change_allowed_date?: string | null
           menu_items?: Json | null
           order_number?: string
+          payment_gateway?: string | null
+          payment_reference?: string | null
           payment_status?: string | null
           pickup_time?: string | null
           quote_id?: string | null
