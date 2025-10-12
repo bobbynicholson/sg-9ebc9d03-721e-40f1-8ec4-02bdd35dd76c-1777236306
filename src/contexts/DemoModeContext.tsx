@@ -25,37 +25,37 @@ export const DEMO_USERS = {
     id: "demo-admin",
     email: "admin@cateringms-demo.com",
     role: "admin" as const,
-    fullName: "Demo Admin"
+    full_name: "Demo Admin"
   },
   driver: {
     id: "demo-driver",
     email: "driver@cateringms-demo.com",
     role: "driver" as const,
-    fullName: "Demo Driver"
+    full_name: "Demo Driver"
   },
   client: {
     id: "demo-client",
     email: "client@cateringms-demo.com",
     role: "client" as const,
-    fullName: "Demo Client"
+    full_name: "Demo Client"
   },
   kitchen: {
     id: "demo-kitchen",
     email: "kitchen@cateringms-demo.com",
     role: "kitchen" as const,
-    fullName: "Demo Kitchen Staff"
+    full_name: "Demo Kitchen Staff"
   },
   shopping: {
     id: "demo-shopping",
     email: "shopping@cateringms-demo.com",
     role: "shopping" as const,
-    fullName: "Demo Shopping Team"
+    full_name: "Demo Shopping Team"
   },
   cleaning: {
     id: "demo-cleaning",
     email: "cleaning@cateringms-demo.com",
     role: "cleaning" as const,
-    fullName: "Demo Cleaning Team"
+    full_name: "Demo Cleaning Team"
   }
 };
 
