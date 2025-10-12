@@ -47,10 +47,15 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           updated_at: new Date().toISOString(),
           company_name: "Demo Company",
           phone: "+27 83 652 5755",
+          phone_number: "+27 83 652 5755",
           is_active: true,
           subscription_plan: "trial",
           subscription_status: "active",
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          trial_ends_at: new Date(
+            Date.now() + 14 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          drive_time_to_kitchen_minutes: 25,
+          vehicle_details: "White Toyota Hilux",
         });
       }
       setLoading(false);

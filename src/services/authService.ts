@@ -91,7 +91,10 @@ export const authService = {
           trial_ends_at: trialEndDate.toISOString(),
           avatar_url: "",
           company_name: "",
-          phone: ""
+          phone: "",
+          phone_number: "",
+          drive_time_to_kitchen_minutes: 0,
+          vehicle_details: "",
         });
 
         // Initialize onboarding data for new user
@@ -197,7 +200,10 @@ export const authService = {
           trial_ends_at: trialEndDate.toISOString(),
           avatar_url: "",
           company_name: "",
-          phone: ""
+          phone: "",
+          phone_number: "",
+          drive_time_to_kitchen_minutes: 0,
+          vehicle_details: "",
         });
 
         // Initialize onboarding for OAuth users
