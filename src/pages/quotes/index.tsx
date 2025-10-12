@@ -159,6 +159,30 @@ export default function QuotesPage() {
                           {quote.equipmentItems.length} equipment items
                         </span>
                       </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Subtotal</span>
+                          <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
+                        </div>
+                        {quote.deliveryFee && quote.deliveryFee > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">
+                              Delivery Fee {quote.deliveryDistance ? `(${quote.deliveryDistance}km)` : ''}
+                            </span>
+                            <span className="font-medium text-blue-600">R{quote.deliveryFee.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">VAT (15%)</span>
+                          <span className="font-medium">R{quote.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="h-px bg-slate-200" />
+                        <div className="flex justify-between font-bold">
+                          <span>Total</span>
+                          <span className="text-green-600">R{quote.total.toFixed(2)}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex gap-2 ml-4">
