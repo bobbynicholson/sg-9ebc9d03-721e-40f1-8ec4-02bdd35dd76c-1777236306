@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Truck, Clock, Phone, Mail, Navigation } from "lucide-react";
+import { MapPin, Truck, Clock, Phone, Mail, Navigation, Map } from "lucide-react";
 import { Order, Driver, GPSLocation } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
@@ -10,6 +10,8 @@ import { Footer } from "@/components/Footer";
 export default function AdminTrackingDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
+  const [showMap, setShowMap] = useState(true);
 
   useEffect(() => {
     loadActiveDeliveries();
@@ -82,22 +84,48 @@ export default function AdminTrackingDashboard() {
     }
   };
 
-  const calculateETA = (location: GPSLocation | undefined, destination: string): string => {
+  const calculateETA = (location: GPSLocation | undefined): string => {
     if (!location) return "Unknown";
     const randomMinutes = Math.floor(Math.random() * 20) + 10;
     return `${randomMinutes} mins`;
+  };
+
+  const getDriverMarkerColor = (status: string) => {
+    switch (status) {
+      case "food_collected":
+      case "en_route":
+        return "#8b5cf6";
+      case "driver_arrived":
+        return "#f59e0b";
+      case "delivered":
+        return "#10b981";
+      default:
+        return "#3b82f6";
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">
-            Admin Tracking Dashboard
-          </h1>
-          <p className="text-slate-600">
-            Monitor all active deliveries in real-time
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-slate-900 mb-2">
+                Admin Tracking Dashboard
+              </h1>
+              <p className="text-slate-600">
+                Monitor all active deliveries in real-time with live GPS tracking
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowMap(!showMap)}
+              variant={showMap ? "default" : "outline"}
+              className="flex items-center gap-2"
+            >
+              <Map className="w-4 h-4" />
+              {showMap ? "Hide Map" : "Show Map"}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
@@ -144,6 +172,182 @@ export default function AdminTrackingDashboard() {
           </Card>
         </div>
 
+        {showMap && activeDeliveries.length > 0 && (
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Live Driver Locations
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative h-[500px] bg-slate-100 rounded-lg overflow-hidden">
+                <div className="absolute inset-0">
+                  <svg className="w-full h-full" viewBox="0 0 800 500">
+                    <rect width="800" height="500" fill="#f8fafc" />
+                    
+                    <g opacity="0.2">
+                      {[...Array(20)].map((_, i) => (
+                        <line
+                          key={`h-${i}`}
+                          x1="0"
+                          y1={i * 25}
+                          x2="800"
+                          y2={i * 25}
+                          stroke="#cbd5e1"
+                          strokeWidth="1"
+                        />
+                      ))}
+                      {[...Array(32)].map((_, i) => (
+                        <line
+                          key={`v-${i}`}
+                          x1={i * 25}
+                          y1="0"
+                          x2={i * 25}
+                          y2="500"
+                          stroke="#cbd5e1"
+                          strokeWidth="1"
+                        />
+                      ))}
+                    </g>
+
+                    <text x="20" y="30" fontSize="12" fill="#64748b" fontWeight="600">
+                      Cape Town Area - Real-Time Driver Tracking
+                    </text>
+
+                    {activeDeliveries.map((delivery, index) => {
+                      if (!delivery.location) return null;
+                      
+                      const x = 100 + index * 200 + Math.random() * 50;
+                      const y = 100 + index * 80 + Math.random() * 50;
+                      const color = getDriverMarkerColor(delivery.trackingStatus);
+                      
+                      return (
+                        <g
+                          key={delivery.order.id}
+                          className="cursor-pointer transition-all hover:opacity-80"
+                          onClick={() => setSelectedDelivery(delivery)}
+                        >
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="20"
+                            fill={color}
+                            opacity="0.2"
+                          />
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="10"
+                            fill={color}
+                            stroke="white"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d={`M ${x - 6} ${y - 2} L ${x + 6} ${y - 2} L ${x + 6} ${y + 4} L ${x} ${y + 8} L ${x - 6} ${y + 4} Z`}
+                            fill="white"
+                            opacity="0.9"
+                          />
+                          
+                          <text
+                            x={x}
+                            y={y + 35}
+                            fontSize="11"
+                            fill="#1e293b"
+                            fontWeight="600"
+                            textAnchor="middle"
+                          >
+                            {delivery.driver?.name.split(" ")[0]}
+                          </text>
+                          
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="30"
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="2"
+                            opacity="0.3"
+                            className="animate-ping"
+                            style={{
+                              animation: "ping 2s cubic-bezier(0, 0, 0.2, 1) infinite"
+                            }}
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+
+                <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
+                  <div className="text-xs font-semibold text-slate-900 mb-2">Status Legend</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                    <span className="text-xs text-slate-700">En Route</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <span className="text-xs text-slate-700">Arrived</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-xs text-slate-700">Delivered</span>
+                  </div>
+                </div>
+
+                {selectedDelivery && (
+                  <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-xl p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-semibold text-slate-900">
+                          {selectedDelivery.driver?.name}
+                        </h4>
+                        <p className="text-sm text-slate-600">
+                          Order #{selectedDelivery.order.id.slice(0, 8)}
+                        </p>
+                      </div>
+                      <Badge className={`${getStatusColor(selectedDelivery.trackingStatus)} border text-xs`}>
+                        {getStatusLabel(selectedDelivery.trackingStatus)}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-slate-500">Client</p>
+                        <p className="font-medium text-slate-900">{selectedDelivery.order.clientName}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">ETA</p>
+                        <p className="font-medium text-slate-900">{calculateETA(selectedDelivery.location)}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-slate-500">Destination</p>
+                        <p className="font-medium text-slate-900">{selectedDelivery.order.venue}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => window.open(`tel:${selectedDelivery.driver?.phone}`)}
+                      >
+                        <Phone className="w-3 h-3 mr-1" />
+                        Call Driver
+                      </Button>
+                      <Link href={`/tracking/client?orderId=${selectedDelivery.order.id}`} className="flex-1">
+                        <Button size="sm" className="w-full">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          Full Tracking
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {activeDeliveries.length === 0 ? (
           <Card className="border-0 shadow-lg">
             <CardContent className="py-12 text-center">
@@ -158,6 +362,7 @@ export default function AdminTrackingDashboard() {
           </Card>
         ) : (
           <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Active Deliveries</h2>
             {activeDeliveries.map((delivery) => (
               <Card key={delivery.order.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
                 <CardHeader>
@@ -226,7 +431,7 @@ export default function AdminTrackingDashboard() {
                         <p className="text-sm text-slate-700 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <span className="font-medium">ETA:</span>{" "}
-                          {calculateETA(delivery.location, delivery.order.venue)}
+                          {calculateETA(delivery.location)}
                         </p>
                       </div>
                     </div>
