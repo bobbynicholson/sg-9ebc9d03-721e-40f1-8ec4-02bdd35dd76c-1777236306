@@ -2,33 +2,13 @@ import { useState, useEffect } from "react";
 import { detectUserRegion, getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
 import { getAllPricingOptions, calculateAnnualSavings, formatPrice } from "@/lib/pricingCalculator";
 import Link from "next/link";
-import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { 
-  Check, 
-  Zap, 
-  TrendingUp, 
-  Shield, 
-  Users, 
-  Star,
-  ArrowRight,
-  Sparkles,
-  Clock,
-  Target,
-  Award,
-  ChevronRight,
-  Info
-} from "lucide-react";
+import { Check, ArrowRight, Info } from "lucide-react";
 
 const PRICING_PLANS = [
   {
