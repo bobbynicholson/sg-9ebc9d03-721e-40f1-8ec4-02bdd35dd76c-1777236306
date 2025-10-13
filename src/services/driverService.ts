@@ -945,16 +945,7 @@ export const driverService = {
         return;
       }
 
-      type OrderLocation = {
-        id: string;
-        user_id: string | null;
-        client_id: string | null;
-        venue_lat: number | null;
-        venue_lng: number | null;
-        venue_address: string | null;
-      };
-
-      // Fetch as an array to avoid .single() type inference issue
+      // Use a simplified query and cast to any to avoid deep type instantiation
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
@@ -966,7 +957,7 @@ export const driverService = {
         return;
       }
 
-      const order = orderData[0] as OrderLocation;
+      const order: any = orderData[0];
 
       if (!order.venue_lat || !order.venue_lng) return;
 
