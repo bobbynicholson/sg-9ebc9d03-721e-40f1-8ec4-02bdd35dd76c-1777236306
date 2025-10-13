@@ -1609,6 +1609,27 @@ export type Database = {
           },
         ]
       }
+      onboarding_state: {
+        Row: {
+          checklist: Json | null
+          created_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          checklist?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          checklist?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       order_reviews: {
         Row: {
           comment: string | null

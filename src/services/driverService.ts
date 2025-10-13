@@ -434,7 +434,17 @@ export const driverService = {
       throw new Error("Assignment not found");
     }
 
-    const order = assignment.orders as any;
+    const order: {
+        id: string;
+        order_number: string;
+        equipment_items: any;
+        menu_items: any;
+        special_instructions: string | null;
+    } | null = assignment.orders as any;
+
+    if (!order) {
+      throw new Error("Order not found for assignment");
+    }
 
     const equipmentItems = Array.isArray(order.equipment_items) ? order.equipment_items : [];
 
@@ -630,7 +640,7 @@ export const driverService = {
       notes?: string;
     }
   ): Promise<{ assignment: DriverAssignment; shortages: any[] }> {
-    const { data: assignment, error: assignmentError } = await supabase
+    const { data: assignment, error: assignmentError }: { data: Pick<DriverAssignment, 'id' | 'order_id' | 'driver_id' | 'actual_cutlery_count' | 'actual_crockery_count'> | null, error: any } = await supabase
       .from("driver_assignments")
       .select("id, order_id, driver_id, actual_cutlery_count, actual_crockery_count")
       .eq("id", assignmentId)
@@ -641,7 +651,7 @@ export const driverService = {
       throw new Error("Assignment not found");
     }
 
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError }: { data: Pick<Order, 'id' | 'user_id' | 'client_id' | 'equipment_items'> | null, error: any } = await supabase
       .from("orders")
       .select("id, user_id, client_id, equipment_items")
       .eq("id", assignment.order_id)
@@ -1011,8 +1021,8 @@ export const driverService = {
       
       // Send "Driver Arrived" notification
       await realtimeNotificationService.sendNotification({
-        userId: order.user_id,
-        recipientId: order.client_id || order.user_id,
+        userId: order.user_id!,
+        recipientId: order.client_id || order.user_id!,
         type: "driver_arrived",
         title: "Driver Has Arrived! 🎉",
         message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
@@ -1027,7 +1037,7 @@ export const driverService = {
     
     if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
       // Check if we already sent the 10-minute notification
-      const { data: existingNotification, error: checkError } = await supabase
+      const { count, error: checkError } = await supabase
         .from("notifications")
         .select("id", { count: 'exact', head: true })
         .eq("order_id", order.id)
@@ -1039,10 +1049,10 @@ export const driverService = {
         return;
       }
 
-      if (!existingNotification) {
+      if (count === 0) {
         await realtimeNotificationService.sendNotification({
-          userId: order.user_id,
-          recipientId: order.client_id || order.user_id,
+          userId: order.user_id!,
+          recipientId: order.client_id || order.user_id!,
           type: "driver_10_minutes_away",
           title: "Driver 10 Minutes Away ⏰",
           message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,

@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
-import { onboardingService, OnboardingProgress } from "@/services/onboardingService";
+import { useDemoMode } from "@/contexts/DemoModeContext";
+import { Settings, Users, ClipboardList, Palette, DollarSign, Mail, Sparkles } from "lucide-react";
+import { OnboardingChecklistItem, aiOnboardingService } from "@/services/aiOnboardingService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,145 +26,86 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
-export default function OnboardingPage() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [progress, setProgress] = useState<OnboardingProgress | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [csvData, setCsvData] = useState<Array<Record<string, string>>>([]);
-  const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [importResult, setImportResult] = useState<any>(null);
-  const [showResults, setShowResults] = useState(false);
+const StepIcon = ({
+  category,
+  isCompleted,
+}: {
+  category: string;
+  isCompleted: boolean;
+}) => {
+  let icon;
+  let color;
 
-  useEffect(() => {
-    // Auth loading is handled inside the AuthProvider, we can just check for user.
-    if (user) {
-      loadProgress();
-    } else {
-      // If there's no user, we might be loading, or they might not be logged in.
-      // A brief delay helps prevent a flash of the login redirect.
-      const timer = setTimeout(() => {
-        if (!user) {
-          router.push('/auth/login');
-        }
-      }, 1000); // Wait 1 second to see if user object populates
-      return () => clearTimeout(timer);
-    }
-  }, [user, router]);
-
-  const loadProgress = async () => {
-    if (!user) return;
-    
-    try {
-      setLoading(true);
-      const data = await onboardingService.getOnboardingProgress(user.id);
-      setProgress(data);
-      
-      const currentIndex = data.steps.findIndex(s => s.id === data.currentStep);
-      setCurrentStepIndex(currentIndex >= 0 ? currentIndex : 0);
-    } catch (error) {
-      console.error("Error loading onboarding progress:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleNextStep = async () => {
-    if (!progress || !user) return;
-    
-    const currentStep = progress.steps[currentStepIndex];
-    await onboardingService.updateStepStatus(user.id, currentStep.id, true);
-    
-    if (currentStepIndex < progress.steps.length - 1) {
-      const nextStep = progress.steps[currentStepIndex + 1];
-      await onboardingService.setCurrentStep(user.id, nextStep.id);
-      setCurrentStepIndex(currentStepIndex + 1);
-    } else {
-      router.push("/");
-    }
-    
-    await loadProgress();
-  };
-
-  const handleSkipStep = async () => {
-    if (!progress || !user) return;
-    
-    if (currentStepIndex < progress.steps.length - 1) {
-      const nextStep = progress.steps[currentStepIndex + 1];
-      await onboardingService.setCurrentStep(user.id, nextStep.id);
-      setCurrentStepIndex(currentStepIndex + 1);
-    }
-    
-    await loadProgress();
-  };
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
-    setCsvFile(file);
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const parsed = onboardingService.parseCSV(text);
-      setCsvData(parsed);
-      
-      if (parsed.length > 0) {
-        const headers = Object.keys(parsed[0]);
-        const detectedMapping = onboardingService.detectCSVColumns(headers);
-        setMapping(detectedMapping);
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleImport = async () => {
-    if (!user || !csvData.length) return;
-    
-    const currentStep = progress?.steps[currentStepIndex];
-    let result;
-    
-    switch (currentStep?.id) {
-      case "import_clients":
-        result = await onboardingService.importClients(csvData, mapping, user.id);
-        break;
-      case "import_bookings":
-        result = await onboardingService.importBookings(csvData, mapping, user.id);
-        break;
-      case "import_team":
-        result = await onboardingService.importTeamMembers(csvData, mapping, "driver", user.id);
-        break;
-      case "import_inventory":
-        result = await onboardingService.importInventory(csvData, mapping, user.id);
-        break;
-      default:
-        result = { success: true, imported: 0, failed: 0, skipped: 0, errors: [], warnings: [] };
-    }
-    
-    setImportResult(result);
-    setShowResults(true);
-  };
-
-  const downloadSampleCSV = (type: "clients" | "bookings" | "team" | "inventory" | "equipment") => {
-    onboardingService.downloadSampleCSV(type);
-  };
-
-  if (loading || !progress || !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading your onboarding...</p>
-        </div>
-      </div>
-    );
+  switch (category) {
+    case "clients":
+      icon = Users;
+      color = isCompleted ? "green" : "blue";
+      break;
+    case "bookings":
+      icon = ClipboardList;
+      color = isCompleted ? "green" : "orange";
+      break;
+    case "team":
+      icon = Users;
+      color = isCompleted ? "green" : "purple";
+      break;
+    case "inventory":
+      icon = Palette;
+      color = isCompleted ? "green" : "pink";
+      break;
+    case "payment":
+      icon = DollarSign;
+      color = isCompleted ? "green" : "red";
+      break;
+    case "email":
+      icon = Mail;
+      color = isCompleted ? "green" : "yellow";
+      break;
+    case "settings":
+      icon = Settings;
+      color = isCompleted ? "green" : "indigo";
+      break;
+    default:
+      icon = Sparkles;
+      color = isCompleted ? "green" : "purple";
   }
 
-  const currentStep = progress.steps[currentStepIndex];
-  const isLastStep = currentStepIndex === progress.steps.length - 1;
+  return <icon className={`w-6 h-6 text-${color}-600`} />;
+};
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isDemoMode } = useDemoMode();
+  const [checklist, setChecklist] = useState<OnboardingChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadChecklist(user.id);
+    }
+  }, [user?.id]);
+
+  const loadChecklist = async (userId: string) => {
+    setLoading(true);
+    const items = await aiOnboardingService.getOnboardingState(userId);
+    setChecklist(items);
+    setLoading(false);
+  };
+
+  const handleToggle = async (taskId: string) => {
+    const item = checklist.find(i => i.id === taskId);
+    if (!item || !user?.id) return;
+
+    const updatedChecklist = await aiOnboardingService.updateChecklistItem(user.id, taskId, !item.isCompleted);
+    if (updatedChecklist) {
+      setChecklist(updatedChecklist);
+    }
+  };
+
+  const completedCount = checklist.filter((item) => item.isCompleted).length;
+  const totalCount = checklist.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
     <>
