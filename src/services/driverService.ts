@@ -303,7 +303,25 @@ export const driverService = {
   async getAvailableJobs(driverId: string, regionId?: string): Promise<AppOrder[]> {
     let query = supabase
       .from("orders")
-      .select(`*`)
+      .select(`
+        id,
+        quote_id,
+        client_name,
+        event_date,
+        venue_address,
+        guest_count,
+        menu_items,
+        equipment_items,
+        internal_notes,
+        status,
+        total,
+        created_at,
+        waiter_service_required,
+        waiter_duration_hours,
+        waiter_hourly_rate,
+        delivery_distance_km,
+        delivery_rate_per_km
+      `)
       .eq("status", "confirmed")
       .eq("balance_paid", true);
 
@@ -354,7 +372,7 @@ export const driverService = {
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,
-      deliveryRate: (order as any).delivery_rate_per_km,
+      deliveryRate: order.delivery_rate_per_km,
     }));
   },
 
