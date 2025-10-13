@@ -63,5 +63,49 @@ export const profileService = {
     }
 
     return data || [];
+  },
+
+  async searchClients(searchTerm: string): Promise<Profile[]> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,company_name.ilike.%${searchTerm}%`)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error searching clients:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async getAllClients(): Promise<Profile[]> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all clients:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async getClientsByRegion(region: string): Promise<Profile[]> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("region", region)
+      .order("full_name");
+
+    if (error) {
+      console.error("Error fetching clients by region:", error);
+      return [];
+    }
+
+    return data || [];
   }
 };
