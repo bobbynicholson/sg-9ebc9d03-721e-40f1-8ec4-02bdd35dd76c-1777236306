@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Clock, CheckCircle } from "lucide-react";
 import { DriverLocation, DeliveryStatus } from "@/types/tracking";
 import { driverService } from "@/services/driverService";
+import { proximityService } from "@/services/proximityService";
 
 interface DriverGPSTrackerProps {
   orderId: string;
@@ -58,7 +59,7 @@ export function DriverGPSTracker({
             );
 
             // Check proximity and send automatic notifications
-            await driverService.checkProximityAndNotify(
+            await proximityService.checkProximityAndNotify(
               assignmentId,
               location.latitude,
               location.longitude
