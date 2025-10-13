@@ -1,6 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 
+interface SimpleOrder {
+  id: string;
+  user_id: string | null;
+  client_id: string | null;
+  venue_lat: number | null;
+  venue_lng: number | null;
+  venue_address: string | null;
+}
+
 async function markArrived(assignmentId: string): Promise<any | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
@@ -97,7 +106,7 @@ async function checkProximityAndNotify(
       return;
     }
 
-    const order: any = orderData[0];
+    const order = orderData[0] as SimpleOrder;
 
     if (!order.venue_lat || !order.venue_lng) return;
 
