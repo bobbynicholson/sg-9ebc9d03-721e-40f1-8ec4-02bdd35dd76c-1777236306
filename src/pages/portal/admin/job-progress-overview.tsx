@@ -23,17 +23,17 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
   Target,
   List,
-  Eye,
-  CheckCircle
+  MapPin,
+  Building2
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
 import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByUrgency, UrgencyScore } from "@/lib/urgencyScoring";
-import { RegionSwitcher } from "@/components/RegionSwitcher";
+import { orderService } from "@/services/orderService";
 import { regionService } from "@/services/regionService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PriorityTask {
   orderId: string;
@@ -41,6 +41,13 @@ interface PriorityTask {
   task: string;
   urgency: "high" | "medium";
   daysUntilEvent: number;
+}
+
+interface Region {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
 }
 
 export default function JobProgressOverviewPage() {
@@ -51,146 +58,82 @@ export default function JobProgressOverviewPage() {
   const [whatsNextMode, setWhatsNextMode] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<"date" | "urgency">("date");
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
-  const [regions, setRegions] = useState<any[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
-    const mockOrders: AppOrder[] = [
-      {
-        id: "ORD-001",
-        quoteId: "Q-001",
-        client: "Sarah Johnson",
-        clientName: "Sarah Johnson",
-        eventDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-        venue: "Grand Palace Hotel",
-        location: "123 Main St, Cape Town",
-        eventLocation: "123 Main St, Cape Town",
-        guestCount: 150,
-        menuItems: [],
-        equipmentItems: [],
-        status: "confirmed",
-        kitchenInstructions: "",
-        total: 38700,
-        totalAmount: 38700,
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        region_id: "cpt",
-      },
-      {
-        id: "ORD-002",
-        quoteId: "Q-002",
-        client: "Michael Chen",
-        clientName: "Michael Chen",
-        eventDate: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
-        venue: "Beach Club Venue",
-        location: "45 Beach Road, Cape Town",
-        eventLocation: "45 Beach Road, Cape Town",
-        guestCount: 80,
-        menuItems: [],
-        equipmentItems: [],
-        kitchenInstructions: "",
-        status: "preparing",
-        total: 28000,
-        totalAmount: 28000,
-        createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-        region_id: "cpt",
-      },
-      {
-        id: "ORD-003",
-        quoteId: "Q-003",
-        client: "Emma Thompson",
-        clientName: "Emma Thompson",
-        eventDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        venue: "Sandton Convention Centre",
-        location: "Maude St, Sandton, Johannesburg",
-        eventLocation: "Maude St, Sandton, Johannesburg",
-        guestCount: 200,
-        menuItems: [],
-        equipmentItems: [],
-        kitchenInstructions: "",
-        status: "pending",
-        total: 52000,
-        totalAmount: 52000,
-        createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-        region_id: "jhb",
-      },
-      {
-        id: "ORD-004",
-        quoteId: "Q-004",
-        client: "David Wilson",
-        clientName: "David Wilson",
-        eventDate: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
-        venue: "Durban ICC",
-        location: "Inkosi Albert Luthuli ICC Complex, Durban",
-        eventLocation: "Inkosi Albert Luthuli ICC Complex, Durban",
-        guestCount: 120,
-        menuItems: [],
-        equipmentItems: [],
-        kitchenInstructions: "",
-        status: "ready",
-        total: 42000,
-        totalAmount: 42000,
-        createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-        region_id: "dbn",
-      },
-      {
-        id: "ORD-005",
-        quoteId: "Q-005",
-        client: "Linda Martinez",
-        clientName: "Linda Martinez",
-        eventDate: new Date(Date.now() + 86400000 * 4).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000 * 4).toISOString().split("T")[0],
-        venue: "City Conference Center",
-        location: "15 Main Street, Cape Town CBD",
-        eventLocation: "15 Main Street, Cape Town CBD",
-        guestCount: 300,
-        menuItems: [],
-        equipmentItems: [],
-        kitchenInstructions: "",
-        status: "confirmed",
-        total: 78000,
-        totalAmount: 78000,
-        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-        region_id: "cpt",
-      },
-    ];
-
-    const stored = localStorage.getItem("admin_orders");
-    setOrders(stored ? JSON.parse(stored) : mockOrders);
-    loadRegions();
-  }, []);
+    if (user) {
+      loadRegions();
+      loadOrders();
+    }
+  }, [user]);
 
   const loadRegions = async () => {
-    // This would typically fetch from a service
-    const mockRegions = [
-      { id: "all", name: "All Regions", code: "ALL" },
-      { id: "cpt", name: "Cape Town", code: "CPT" },
-      { id: "jhb", name: "Johannesburg", code: "JHB" },
-      { id: "dbn", name: "Durban", code: "DBN" }
-    ];
-    setRegions(mockRegions);
+    try {
+      if (!user?.id) return;
+      
+      const fetchedRegions = await regionService.getRegions(user.id);
+      const activeRegions = fetchedRegions.filter((r: Region) => r.is_active);
+      
+      // Add "All Regions" option at the beginning
+      setRegions([
+        { id: "all", name: "All Regions", code: "ALL", is_active: true },
+        ...activeRegions
+      ]);
+    } catch (error) {
+      console.error("Error loading regions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load regions",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleOverrideComplete = (orderId: string) => {
-    const updatedOrders = orders.map((order) => {
-      if (order.id === orderId) {
-        const newStatus: AppOrder["status"] = "completed";
-        return { ...order, status: newStatus };
-      }
-      return order;
-    });
+  const loadOrders = async () => {
+    try {
+      if (!user?.id) return;
+      
+      setLoading(true);
+      const fetchedOrders = await orderService.getAllOrders(user.id);
+      setOrders(fetchedOrders);
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load orders",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setOrders(updatedOrders);
-    localStorage.setItem("admin_orders", JSON.stringify(updatedOrders));
+  const handleOverrideComplete = async (orderId: string) => {
+    try {
+      await orderService.updateOrderStatus({
+        orderId,
+        newStatus: "completed",
+        notes: "Manually marked complete by admin"
+      });
 
-    toast({
-      title: "Order Marked Complete",
-      description: `Order ${orderId} has been manually marked as complete.`,
-      duration: 3000,
-    });
+      await loadOrders();
+
+      toast({
+        title: "Order Marked Complete",
+        description: `Order ${orderId} has been manually marked as complete.`,
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Error marking order complete:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
+        variant: "destructive",
+      });
+    }
   };
 
   const calculatePriorityTasks = (): PriorityTask[] => {
@@ -307,17 +250,50 @@ export default function JobProgressOverviewPage() {
     : ordersWithUrgency;
 
   const getStatusCounts = () => {
+    // Filter by selected region first
+    const regionFilteredOrders = selectedRegion === "all" 
+      ? orders 
+      : orders.filter(o => o.region_id === selectedRegion);
+
     return {
-      all: orders.length,
-      pending: orders.filter((o) => o.status === "pending").length,
-      confirmed: orders.filter((o) => o.status === "confirmed").length,
-      preparing: orders.filter((o) => o.status === "preparing").length,
-      ready: orders.filter((o) => o.status === "ready").length,
-      delivered: orders.filter((o) => o.status === "delivered").length,
+      all: regionFilteredOrders.length,
+      pending: regionFilteredOrders.filter((o) => o.status === "pending").length,
+      confirmed: regionFilteredOrders.filter((o) => o.status === "confirmed").length,
+      preparing: regionFilteredOrders.filter((o) => o.status === "preparing").length,
+      ready: regionFilteredOrders.filter((o) => o.status === "ready").length,
+      delivered: regionFilteredOrders.filter((o) => o.status === "delivered").length,
     };
   };
 
   const statusCounts = getStatusCounts();
+
+  const getSelectedRegionName = () => {
+    const region = regions.find(r => r.id === selectedRegion);
+    return region?.name || "All Regions";
+  };
+
+  if (loading) {
+    return (
+      <>
+        <Head>
+          <title>Job Progress Overview | CateringMS Admin</title>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+        <NoIndexMeta />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading job progress...</p>
+              </div>
+            </div>
+          </main>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -337,28 +313,40 @@ export default function JobProgressOverviewPage() {
                 <h1 className="text-4xl font-bold text-gray-900 mb-2">
                   Job Progress Overview
                 </h1>
-                <p className="text-gray-600">
-                  Monitor all active jobs and their current status in real-time
+                <p className="text-gray-600 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Viewing: <span className="font-semibold">{getSelectedRegionName()}</span>
                 </p>
               </div>
               <div className="flex gap-3 items-center flex-wrap">
-                {regions.length > 2 && (
-                  <Select
-                    value={selectedRegion}
-                    onValueChange={(value) => setSelectedRegion(value)}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select Region" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {regions.map((region) => (
-                        <SelectItem key={region.id} value={region.id}>
-                          {region.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                <Select
+                  value={selectedRegion}
+                  onValueChange={(value) => setSelectedRegion(value)}
+                >
+                  <SelectTrigger className="w-[220px] border-2 border-blue-200 bg-white">
+                    <Building2 className="w-4 h-4 mr-2 text-blue-600" />
+                    <SelectValue placeholder="Select Region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {regions.map((region) => (
+                      <SelectItem 
+                        key={region.id} 
+                        value={region.id}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-gray-500" />
+                          <span>{region.name}</span>
+                          {region.code !== "ALL" && (
+                            <Badge variant="outline" className="ml-2 text-xs">
+                              {region.code}
+                            </Badge>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   variant={whatsNextMode ? "default" : "outline"}
                   onClick={() => setWhatsNextMode(!whatsNextMode)}
@@ -495,7 +483,7 @@ export default function JobProgressOverviewPage() {
                     size="sm"
                     className={sortBy === "urgency" ? "bg-orange-600 hover:bg-orange-700" : ""}
                   >
-                    <AlertTriangle className="w-4 h-4 mr-1" />
+                    <Target className="w-4 h-4 mr-1" />
                     By Urgency
                   </Button>
                 </div>
@@ -568,7 +556,10 @@ export default function JobProgressOverviewPage() {
                   <Filter className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <p className="text-xl font-semibold text-gray-900 mb-2">No jobs found</p>
                   <p className="text-gray-600">
-                    Try adjusting your search or filter criteria
+                    {selectedRegion !== "all" 
+                      ? `No jobs found in ${getSelectedRegionName()}`
+                      : "Try adjusting your search or filter criteria"
+                    }
                   </p>
                 </CardContent>
               </Card>
@@ -615,7 +606,6 @@ export default function JobProgressOverviewPage() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        {/* Urgency Breakdown */}
                         <div className="mb-4 p-3 bg-white rounded-lg border">
                           <p className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wider">
                             Urgency Breakdown
@@ -640,7 +630,6 @@ export default function JobProgressOverviewPage() {
                           </div>
                         </div>
 
-                        {/* Recommendations */}
                         {urgency.recommendations.length > 0 && (
                           <div className="mb-4 p-3 bg-white rounded-lg border border-blue-200">
                             <p className="text-xs font-semibold text-blue-900 mb-2 uppercase tracking-wider flex items-center gap-2">
@@ -658,7 +647,6 @@ export default function JobProgressOverviewPage() {
                           </div>
                         )}
 
-                        {/* Job Progress Tracker */}
                         <JobProgressTracker
                           currentStatus={order.status}
                           orderData={{
