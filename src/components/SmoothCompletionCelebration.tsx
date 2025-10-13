@@ -1,4 +1,5 @@
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { CheckCircle, Sparkles, Star, PartyPopper } from "lucide-react";
 import {
   Dialog,
@@ -8,7 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import Confetti from "react-confetti";
+
+const Confetti = dynamic(() => import("react-confetti"), {
+  ssr: false,
+});
 
 interface SmoothCompletionCelebrationProps {
   isOpen: boolean;
@@ -61,7 +65,7 @@ export function SmoothCompletionCelebration({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {showConfetti && (
+      {showConfetti && typeof window !== "undefined" && (
         <Confetti
           width={window.innerWidth}
           height={window.innerHeight}
@@ -98,7 +102,6 @@ export function SmoothCompletionCelebration({
               {content.subtitle}
             </p>
 
-            {/* Star Rating Visualization */}
             <div className="flex justify-center gap-2 py-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
@@ -109,7 +112,6 @@ export function SmoothCompletionCelebration({
               ))}
             </div>
 
-            {/* Celebration Emoji */}
             <div className="text-6xl animate-bounce">
               🎊
             </div>
