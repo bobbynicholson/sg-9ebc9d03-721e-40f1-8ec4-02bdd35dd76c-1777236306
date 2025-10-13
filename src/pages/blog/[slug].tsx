@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, MessageCircleQuestion, Lightbulb, User, Calendar } from "lucide-react";
+import { ArrowRight, MessageCircleQuestion, Lightbulb, User, Calendar, Clock } from "lucide-react";
 import blogPosts from "@/lib/blog.json";
 import Link from "next/link";
 
@@ -42,13 +42,14 @@ interface ContentBlock {
 
 interface PostProps {
   post: Post;
+  relatedPosts: Post[];
 }
 
 interface Params extends ParsedUrlQuery {
   slug: string;
 }
 
-const PostPage = ({ post }: PostProps) => {
+const PostPage = ({ post, relatedPosts }: PostProps) => {
   if (!post) {
     return <div>Post not found</div>;
   }
@@ -191,6 +192,47 @@ const PostPage = ({ post }: PostProps) => {
             <div className="prose prose-lg max-w-none">
               {post.content.map(renderContentBlock)}
             </div>
+
+            {/* Related Posts Section */}
+            {relatedPosts.length > 0 && (
+              <div className="mt-16 pt-12 border-t-2 border-gray-200">
+                <h2 className="text-3xl font-bold text-gray-900 mb-8">Related Articles</h2>
+                <div className="grid md:grid-cols-3 gap-6">
+                  {relatedPosts.map((relatedPost) => (
+                    <Link key={relatedPost.slug} href={`/blog/${relatedPost.slug}`}>
+                      <Card className="h-full hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                        <div className="relative h-48 w-full overflow-hidden rounded-t-lg">
+                          <Image 
+                            src={relatedPost.image} 
+                            alt={relatedPost.title} 
+                            layout="fill" 
+                            objectFit="cover"
+                            className="group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <CardHeader>
+                          <CardTitle className="text-lg line-clamp-2 group-hover:text-purple-600 transition-colors">
+                            {relatedPost.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center text-sm text-gray-500 mb-3">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            <span>{new Date(relatedPost.date).toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 line-clamp-3">
+                            {relatedPost.content.find(block => block.type === 'paragraph')?.text || ''}
+                          </p>
+                          <div className="mt-4 flex items-center text-purple-600 font-medium text-sm group-hover:text-purple-800">
+                            Read More <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </article>
         </div>
       </main>
@@ -218,9 +260,16 @@ export const getStaticProps: GetStaticProps<PostProps, Params> = async ({ params
     };
   }
 
+  // Get related posts (exclude current post, limit to 3)
+  const relatedPosts = posts
+    .filter((p) => p.slug !== post.slug)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3);
+
   return {
     props: {
       post,
+      relatedPosts,
     },
   };
 };
