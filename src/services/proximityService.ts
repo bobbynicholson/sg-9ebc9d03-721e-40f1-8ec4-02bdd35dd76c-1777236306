@@ -101,12 +101,12 @@ async function checkProximityAndNotify(
       .eq("id", assignment.order_id)
       .limit(1);
 
-    if (orderError || !orderData || orderData.length === 0) {
+    if (orderError || !orderData || !orderData.length === 0) {
       if(orderError) console.error("Error fetching order for proximity check:", orderError?.message);
       return;
     }
 
-    const order = orderData[0] as SimpleOrder;
+    const order: any = orderData[0];
 
     if (!order.venue_lat || !order.venue_lng) return;
 
