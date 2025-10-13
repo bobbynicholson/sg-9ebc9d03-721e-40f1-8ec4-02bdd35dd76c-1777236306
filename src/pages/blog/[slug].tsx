@@ -1,260 +1,184 @@
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
-import { cmsService } from "@/services/cmsService";
-import type { BlogPost } from "@/types/cms";
-import { Calendar, Clock, Tag, ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { GetStaticProps, GetStaticPaths } from "next";
 import Head from "next/head";
+import Image from "next/image";
+import { ParsedUrlQuery } from "querystring";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, MessageCircleQuestion, Lightbulb, User, Calendar } from "lucide-react";
+import posts from "@/lib/blog.json";
+import Link from "next/link";
 
-export default function BlogPostPage() {
-  const router = useRouter();
-  const { slug } = router.query;
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Post {
+  slug: string;
+  title: string;
+  author: string;
+  date: string;
+  image: string;
+  content: ContentBlock[];
+}
 
-  useEffect(() => {
-    if (slug && typeof slug === "string") {
-      loadPost(slug);
-    }
-  }, [slug]);
+interface ContentBlock {
+  type: "paragraph" | "heading" | "qa" | "solution";
+  text?: string;
+  level?: number;
+  question?: string;
+  answer?: string;
+  heading?: string;
+  cta?: {
+    text: string;
+    link: string;
+  };
+}
 
-  const loadPost = async (postSlug: string) => {
-    try {
-      setLoading(true);
-      const data = await cmsService.getBlogPostBySlug(postSlug);
-      setPost(data);
-    } catch (error) {
-      console.error("Error loading blog post:", error);
-    } finally {
-      setLoading(false);
+interface PostProps {
+  post: Post;
+}
+
+interface Params extends ParsedUrlQuery {
+  slug: string;
+}
+
+const PostPage = ({ post }: PostProps) => {
+  if (!post) {
+    return <div>Post not found</div>;
+  }
+
+  const renderContentBlock = (block: ContentBlock, index: number) => {
+    switch (block.type) {
+      case "heading":
+        const HeadingTag = `h${block.level || 2}` as keyof JSX.IntrinsicElements;
+        return <HeadingTag key={index} className="text-2xl md:text-3xl font-bold mt-8 mb-4 text-gray-800">{block.text}</HeadingTag>;
+      case "paragraph":
+        return <p key={index} className="text-lg text-gray-700 leading-relaxed mb-6">{block.text}</p>;
+      case "qa":
+        return (
+          <Card key={index} className="mb-6 bg-amber-50 border-amber-200">
+            <CardHeader className="flex flex-row items-start gap-4 space-y-0">
+              <div className="p-3 bg-amber-500 rounded-full">
+                <MessageCircleQuestion className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl text-amber-900">The Problem</CardTitle>
+                <p className="font-semibold text-gray-800 mt-2">{block.question}</p>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700">{block.answer}</p>
+            </CardContent>
+          </Card>
+        );
+      case "solution":
+        return (
+          <Card key={index} className="mb-6 bg-green-50 border-green-200">
+            <CardHeader className="flex flex-row items-start gap-4 space-y-0">
+              <div className="p-3 bg-green-500 rounded-full">
+                <Lightbulb className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl text-green-900">The Solution: {block.heading}</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-700 mb-4">{block.text}</p>
+              {block.cta && (
+                <Link href={block.cta.link}>
+                  <Button className="mt-2 bg-green-600 hover:bg-green-700">
+                    {block.cta.text} <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
+        );
+      default:
+        return null;
     }
   };
 
-  const getBlogPostingSchema = (post: BlogPost) => ({
+  const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     "headline": post.title,
-    "description": post.excerpt,
-    "image": post.featured_image || "https://cateros.co.za/default-blog-image.jpg",
-    "datePublished": post.published_date,
-    "dateModified": post.last_updated || post.published_date,
+    "image": post.image,
     "author": {
-      "@type": "Person",
-      "name": post.author
-    },
-    "publisher": {
       "@type": "Organization",
-      "name": "CaterOS",
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://cateros.co.za/logo.png"
-      }
+      "name": "CateringMS"
     },
-    "mainEntityOfPage": {
-      "@type": "WebPage",
-      "@id": `https://cateros.co.za/blog/${post.slug}`
-    },
-    "keywords": post.tags?.join(", ") || post.category,
-    "articleSection": post.category,
-    "wordCount": post.content.split(" ").length,
-    "timeRequired": `PT${post.read_time_minutes || 10}M`
-  });
-
-  const getBreadcrumbSchema = (post: BlogPost) => ({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": "https://cateros.co.za"
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Blog",
-        "item": "https://cateros.co.za/blog"
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": post.title,
-        "item": `https://cateros.co.za/blog/${post.slug}`
-      }
-    ]
-  });
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl font-bold mb-4">Blog Post Not Found</h1>
-            <p className="text-gray-600 mb-8">The blog post you are looking for does not exist.</p>
-            <Link href="/blog">
-              <Button>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Blog
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    "datePublished": post.date,
+    "description": post.content.find(block => block.type === 'paragraph')?.text || post.title
+  };
 
   return (
     <>
       <Head>
-        <title>{post.title} - CateringMS Blog</title>
-        <meta name="description" content={post.excerpt} />
-        <meta name="keywords" content={post.tags?.join(", ") || post.category} />
-        <meta property="og:title" content={post.title} />
-        <meta property="og:description" content={post.excerpt} />
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={`https://cateros.co.za/blog/${post.slug}`} />
-        {post.featured_image && <meta property="og:image" content={post.featured_image} />}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="article:published_time" content={post.published_date} />
-        <meta name="article:author" content={post.author} />
-        <link rel="canonical" href={`https://cateros.co.za/blog/${post.slug}`} />
-        
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(getBlogPostingSchema(post)) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(getBreadcrumbSchema(post)) }}
-        />
+        <title>{post.title} | CateringMS Blog</title>
+        <meta name="description" content={post.content.find(block => block.type === 'paragraph')?.text || post.title} />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Head>
-
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto">
-            <Link href="/blog">
-              <Button variant="ghost" className="mb-6">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Blog
-              </Button>
-            </Link>
-
-            <article className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-              {post.featured_image && (
-                <div className="w-full h-64 bg-gradient-to-r from-orange-400 to-amber-400"></div>
-              )}
-
-              <div className="p-8 md:p-12">
-                <div className="mb-6">
-                  <Badge variant="secondary" className="mb-4">
-                    {post.category}
-                  </Badge>
-                  <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                    {post.title}
-                  </h1>
-                  <p className="text-xl text-gray-600 mb-6">
-                    {post.excerpt}
-                  </p>
+      <Header />
+      <main className="bg-gray-50 py-12 md:py-20">
+        <div className="container max-w-4xl mx-auto px-4">
+          <article>
+            <header className="mb-8">
+              <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4 leading-tight">{post.title}</h1>
+              <div className="flex items-center text-gray-500 text-sm">
+                <div className="flex items-center">
+                  <User className="w-4 h-4 mr-2" />
+                  <span>{post.author}</span>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500 mb-8 pb-8 border-b">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(post.published_date).toLocaleDateString("en-ZA", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric"
-                    })}
-                  </div>
-                  {post.read_time_minutes && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {post.read_time_minutes} min read
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    By {post.author}
-                  </div>
+                <span className="mx-2">|</span>
+                <div className="flex items-center">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  <span>{new Date(post.date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                 </div>
-
-                <div 
-                  className="prose prose-lg max-w-none"
-                  style={{
-                    lineHeight: "1.8",
-                  }}
-                >
-                  {post.content.split("\n\n").map((paragraph, index) => {
-                    if (paragraph.startsWith("## ")) {
-                      return (
-                        <h2 key={index} className="text-2xl font-bold mt-8 mb-4 text-gray-900">
-                          {paragraph.replace("## ", "")}
-                        </h2>
-                      );
-                    }
-                    if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
-                      return (
-                        <p key={index} className="font-semibold text-gray-800 my-4">
-                          {paragraph.replace(/\*\*/g, "")}
-                        </p>
-                      );
-                    }
-                    return (
-                      <p key={index} className="text-gray-700 mb-4">
-                        {paragraph}
-                      </p>
-                    );
-                  })}
-                </div>
-
-                {post.tags && post.tags.length > 0 && (
-                  <div className="mt-12 pt-8 border-t">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Tag className="h-4 w-4 text-gray-500" />
-                      {post.tags.map((tag) => (
-                        <Badge key={tag} variant="outline">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-            </article>
-
-            <div className="mt-8 text-center">
-              <Link href="/blog">
-                <Button size="lg">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Read More Articles
-                </Button>
-              </Link>
+              <div className="mt-4">
+                  <Badge>Catering Business</Badge>
+                  <Badge className="ml-2">Management</Badge>
+                  <Badge className="ml-2">Automation</Badge>
+              </div>
+            </header>
+            
+            <div className="relative w-full h-64 md:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg">
+              <Image src={post.image} alt={post.title} layout="fill" objectFit="cover" />
             </div>
-          </div>
+
+            <div className="prose prose-lg max-w-none">
+              {post.content.map(renderContentBlock)}
+            </div>
+          </article>
         </div>
-      </div>
+      </main>
+      <Footer />
     </>
   );
-}
+};
+
+export const getStaticPaths: GetStaticPaths<Params> = async () => {
+  const paths = posts.map((post) => ({
+    params: { slug: post.slug },
+  }));
+
+  return { paths, fallback: false };
+};
+
+export const getStaticProps: GetStaticProps<PostProps, Params> = async ({ params }) => {
+  const post = posts.find((p) => p.slug === params!.slug);
+
+  if (!post) {
+    return {
+      notFound: true,
+    };
+  }
+
+  return {
+    props: {
+      post,
+    },
+  };
+};
+
+export default PostPage;

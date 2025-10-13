@@ -28,14 +28,13 @@ export function GeoRedirectHandler() {
       try {
         const currentPath = router.pathname;
         
-        // Don't redirect on these paths
+        // Skip redirect for API routes, portal pages, 404 pages, and already localized paths
         if (
-          currentPath.startsWith("/admin") ||
-          currentPath.startsWith("/portal") ||
-          currentPath.startsWith("/auth") ||
-          currentPath.startsWith("/api") ||
-          currentPath.startsWith("/tracking") ||
-          currentPath.startsWith("/client")
+          currentPath.startsWith('/api') || 
+          currentPath.startsWith('/portal') ||
+          currentPath.startsWith('/platform') ||
+          currentPath.includes('404') || // Do not redirect on 404 pages
+          currentPath.startsWith('/client')
         ) {
           setHasChecked(true);
           return;
