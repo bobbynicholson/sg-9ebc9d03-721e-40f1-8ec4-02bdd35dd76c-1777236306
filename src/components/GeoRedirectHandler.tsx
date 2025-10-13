@@ -34,7 +34,7 @@ export function GeoRedirectHandler() {
           currentPath.startsWith('/portal') ||
           currentPath.startsWith('/platform') ||
           currentPath.includes('404') || // Do not redirect on 404 pages
-          currentPath.startsWith('/client')
+          getRegionFromPath(currentPath)
         ) {
           setHasChecked(true);
           return;

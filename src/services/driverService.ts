@@ -998,11 +998,10 @@ export const driverService = {
       // Check if we already sent the 10-minute notification
       const { data: existingNotification, error: checkError } = await supabase
         .from("notifications")
-        .select("id")
+        .select("id", { count: 'exact', head: true })
         .eq("order_id", order.id)
         .eq("notification_type", "driver_10_minutes_away")
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
       if (checkError) {
         console.error("Error checking for existing notification:", checkError);

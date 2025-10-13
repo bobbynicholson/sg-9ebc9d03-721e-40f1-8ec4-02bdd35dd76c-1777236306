@@ -50,10 +50,15 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
+  const [calendarKey, setCalendarKey] = useState(0); // Add state for re-rendering
 
   useEffect(() => {
     if (user?.id) {
       loadEvents();
+    } else if (!user) {
+      // If no user, maybe redirect or show a login message.
+      // For now, let's stop loading.
+      setLoading(false);
     }
   }, [user]);
 
@@ -72,6 +77,7 @@ export default function CalendarPage() {
     }));
     setEvents(calendarEvents);
     setLoading(false);
+    setCalendarKey(prev => prev + 1); // Force calendar to re-render with new events
   };
 
   const getStatusBadge = (status: AppOrder["status"]) => {
@@ -162,6 +168,7 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <Calendar
+                  key={calendarKey} // Use key to force re-render
                   mode="single"
                   onDayClick={handleDayClick}
                   className="p-0"
