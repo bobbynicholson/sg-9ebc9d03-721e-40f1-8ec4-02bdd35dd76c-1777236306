@@ -17,10 +17,10 @@ export default function KitchenManagementPage() {
   return (
     <>
       <Head>
-        <title>Kitchen Production Management - CaterOS</title>
+        <title>Kitchen Production Management - CateringMS</title>
         <meta name="description" content="Smart prep lists, order coordination, and production workflows for your kitchen team. Reduce prep time by 30% with automated kitchen management." />
         <meta name="keywords" content="kitchen management, food production, prep lists, catering kitchen, workflow optimization, team coordination" />
-        <link rel="canonical" href="https://cateros.co.za/features/kitchen-management" />
+        <link rel="canonical" href="https://cateringms.com/features/kitchen-management" />
       </Head>
 
       <div className="min-h-screen bg-white">

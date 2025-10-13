@@ -19,10 +19,10 @@ export default function LeadManagementPage() {
   return (
     <>
       <Head>
-        <title>Lead Management & Quote Generation - CaterOS</title>
-        <meta name="description" content="Capture leads automatically, generate professional quotes in 60 seconds, and track conversion rates in real-time. Increase your quote-to-booking conversion by 2x with CaterOS." />
+        <title>Lead Management & Quote Generation - CateringMS</title>
+        <meta name="description" content="Capture leads automatically, generate professional quotes in 60 seconds, and track conversion rates in real-time. Increase your quote-to-booking conversion by 2x with CateringMS." />
         <meta name="keywords" content="catering lead management, quote generation, lead tracking, sales pipeline, catering CRM" />
-        <link rel="canonical" href="https://cateros.co.za/features/lead-management" />
+        <link rel="canonical" href="https://cateringms.com/features/lead-management" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -65,7 +65,7 @@ export default function LeadManagementPage() {
                 Never Lose a Lead Again
               </h2>
               <p className="text-lg text-slate-600 mb-6">
-                Every inquiry matters. CaterOS captures leads from your website, phone calls, and manual entry, then automatically guides them through your sales pipeline.
+                Every inquiry matters. CateringMS captures leads from your website, phone calls, and manual entry, then automatically guides them through your sales pipeline.
               </p>
               <ul className="space-y-4">
                 {[
@@ -127,7 +127,7 @@ export default function LeadManagementPage() {
               Stop Losing Leads to Slow Responses
             </h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
-              The faster you respond, the higher your conversion rate. CaterOS helps you respond to every lead within minutes, not hours.
+              The faster you respond, the higher your conversion rate. CateringMS helps you respond to every lead within minutes, not hours.
             </p>
             <Link href="/auth/register">
               <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 px-10 py-6 text-lg">

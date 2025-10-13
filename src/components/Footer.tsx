@@ -196,7 +196,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar with CaterOS Attribution */}
+        {/* Bottom Bar with CateringMS Attribution */}
         <div className="border-t border-slate-700 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-sm text-slate-400 text-center md:text-left">

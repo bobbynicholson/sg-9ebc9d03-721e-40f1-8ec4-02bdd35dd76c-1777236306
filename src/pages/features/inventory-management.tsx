@@ -17,10 +17,10 @@ export default function InventoryManagementPage() {
   return (
     <>
       <Head>
-        <title>Inventory & Equipment Tracking - CaterOS</title>
+        <title>Inventory & Equipment Tracking - CateringMS</title>
         <meta name="description" content="Complete inventory management with automatic expiry alerts, equipment availability tracking, and waste reduction. Cut food waste by 45% with smart inventory control." />
         <meta name="keywords" content="catering inventory management, food tracking, equipment management, expiry alerts, waste reduction, stock control" />
-        <link rel="canonical" href="https://cateros.co.za/features/inventory-management" />
+        <link rel="canonical" href="https://cateringms.com/features/inventory-management" />
       </Head>
 
       <div className="min-h-screen bg-white">
@@ -125,7 +125,7 @@ export default function InventoryManagementPage() {
               Stop Throwing Money in the Bin
             </h2>
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
-              Food waste kills your margins. CaterOS tracks expiry dates and helps you use ingredients before they go bad.
+              Food waste kills your margins. CateringMS tracks expiry dates and helps you use ingredients before they go bad.
             </p>
             <Link href="/auth/register">
               <Button size="lg" className="bg-white text-green-600 hover:bg-green-50 px-10 py-6 text-lg">
