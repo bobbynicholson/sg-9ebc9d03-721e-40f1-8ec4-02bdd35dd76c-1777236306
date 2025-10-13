@@ -117,7 +117,7 @@ export default function ClientSearchPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Client Search | CaterOS Admin</title>
+        <title>Client Search | CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Analytics Dashboard | CaterOS Admin</title>
+        <title>Analytics Dashboard | CateringMS Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

@@ -332,7 +332,7 @@ export default function WhiteLabelPage() {
                         <li>Changes apply to all client-facing areas</li>
                         <li>Logo will appear in navigation and footers</li>
                         <li>Colors update buttons, links, and highlights</li>
-                        <li>CaterOS attribution remains in footer</li>
+                        <li>CateringMS attribution remains in footer</li>
                       </ul>
                     </div>
                   </div>
