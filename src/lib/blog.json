@@ -5,10 +5,17 @@
     "author": "CateringMS Team",
     "date": "2025-10-12",
     "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop&q=60",
+    "imageCredit": {
+      "photographer": "Toa Heftiba",
+      "photographerUrl": "https://unsplash.com/@heftiba",
+      "photoUrl": "https://unsplash.com/photos/white-and-brown-cooked-dish-on-white-ceramic-bowls-C9WnRj-CZEk",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "paragraph",
-        "text": "Running a catering business is rewarding, but it comes with unique challenges. From last-minute changes to inventory nightmares, every department faces its own set of problems. Here’s a look at common issues and how smart solutions can turn them into opportunities for growth."
+        "text": "Running a catering business is rewarding, but it comes with unique challenges. From last-minute changes to inventory nightmares, every department faces its own set of problems. Here's a look at common issues and how smart solutions can turn them into opportunities for growth."
       },
       {
         "type": "heading",
@@ -56,6 +63,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-11",
     "image": "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&auto=format&fit=crop&q=60",
+    "imageCredit": {
+      "photographer": "Louis Hansel",
+      "photographerUrl": "https://unsplash.com/@louishansel",
+      "photoUrl": "https://unsplash.com/photos/person-in-white-chef-uniform-standing-beside-stainless-steel-kitchen-counter-IYD1gAv5NU0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -84,6 +98,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-10",
     "image": "https://images.unsplash.com/photo-1596797882565-3c2713d4157b?q=80&w=2070&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Nik",
+      "photographerUrl": "https://unsplash.com/@helloimnik",
+      "photoUrl": "https://unsplash.com/photos/man-in-blue-crew-neck-t-shirt-holding-brown-cardboard-box-dJ1fVJWAeIg",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -112,6 +133,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-09",
     "image": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2053&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "micheile henderson",
+      "photographerUrl": "https://unsplash.com/@micheile",
+      "photoUrl": "https://unsplash.com/photos/fan-of-100-us-dollar-banknotes-ZVprbBmT8QA",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
         {
             "type": "paragraph",
@@ -144,6 +172,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-08",
     "image": "https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?q=80&w=2070&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Solen Feyissa",
+      "photographerUrl": "https://unsplash.com/@solenfeyissa",
+      "photoUrl": "https://unsplash.com/photos/macbook-pro-displaying-group-of-people-TaOGbz_S-Qw",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
         {
             "type": "paragraph",
@@ -176,6 +211,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-07",
     "image": "https://images.unsplash.com/photo-1511556820780-d912e42b4980?q=80&w=1887&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Becca Tapert",
+      "photographerUrl": "https://unsplash.com/@beccatapert",
+      "photoUrl": "https://unsplash.com/photos/white-ceramic-plates-on-brown-wooden-table-lKdQ3NL8eDc",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
         {
             "type": "heading",
@@ -204,6 +246,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-06",
     "image": "https://images.unsplash.com/photo-1628177207936-6e35045b6b90?q=80&w=1974&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Jan Antonin Kolar",
+      "photographerUrl": "https://unsplash.com/@jankolar",
+      "photoUrl": "https://unsplash.com/photos/person-holding-mop-lRoX0shwjUQ",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "paragraph",
@@ -236,6 +285,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-05",
     "image": "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Adél Grőber",
+      "photographerUrl": "https://unsplash.com/@adelgrober",
+      "photoUrl": "https://unsplash.com/photos/assorted-vegetables-on-brown-wooden-table-VpvhzshGfZE",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -264,6 +320,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-04",
     "image": "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?q=80&w=2070&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Headway",
+      "photographerUrl": "https://unsplash.com/@headwayio",
+      "photoUrl": "https://unsplash.com/photos-5QgIuuBxKwM",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -292,6 +355,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-03",
     "image": "https://images.unsplash.com/photo-1555243896-c709b44370ea?q=80&w=1964&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Peter Secan",
+      "photographerUrl": "https://unsplash.com/@secan",
+      "photoUrl": "https://unsplash.com/photos/photo-of-pub-set-in-room-during-daytime-hYjI0Kge0_k",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -320,6 +390,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-02",
     "image": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1887&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Caroline Attwood",
+      "photographerUrl": "https://unsplash.com/@carolineattwood",
+      "photoUrl": "https://unsplash.com/photos-selective-focus-photography-of-pasta-with-tomato-and-basil-bpPTlXWTOvg",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -348,6 +425,13 @@
     "author": "CateringMS Team",
     "date": "2025-10-01",
     "image": "https://images.unsplash.com/photo-1556910103-1c02745aae4d?q=80&w=2070&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Louis Hansel",
+      "photographerUrl": "https://unsplash.com/@louishansel",
+      "photoUrl": "https://unsplash.com/photos/person-in-white-chef-uniform-standing-beside-stainless-steel-kitchen-counter-IYD1gAv5NU0",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -376,6 +460,13 @@
     "author": "CateringMS Team",
     "date": "2025-09-30",
     "image": "https://images.unsplash.com/photo-1512941675424-1c17dabfdddc?q=80&w=1887&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Spencer Davis",
+      "photographerUrl": "https://unsplash.com/@spencerdavis",
+      "photoUrl": "https://unsplash.com/photos/person-holding-white-ceramic-bowl-with-vegetable-salad-0QcSnCM0aMc",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -404,6 +495,13 @@
     "author": "CateringMS Team",
     "date": "2025-09-29",
     "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1887&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Toa Heftiba",
+      "photographerUrl": "https://unsplash.com/@heftiba",
+      "photoUrl": "https://unsplash.com/photos/white-and-brown-cooked-dish-on-white-ceramic-bowls-C9WnRj-CZEk",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
@@ -432,6 +530,13 @@
     "author": "CateringMS Team",
     "date": "2025-09-28",
     "image": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop",
+    "imageCredit": {
+      "photographer": "Luke Chesser",
+      "photographerUrl": "https://unsplash.com/@lukechesser",
+      "photoUrl": "https://unsplash.com/photos/JKUTrJ4vK00",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    },
     "content": [
       {
         "type": "heading",
