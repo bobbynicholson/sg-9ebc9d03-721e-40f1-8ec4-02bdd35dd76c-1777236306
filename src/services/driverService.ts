@@ -232,8 +232,8 @@ export const driverService = {
       throw new Error("Assignment not found");
     }
 
-    if (!assignment.checklist_cutlery_confirmed || 
-        !assignment.checklist_crockery_confirmed || 
+    if (!assignment.checklist_cutlery_confirmed ||
+        !assignment.checklist_crockery_confirmed ||
         !assignment.checklist_food_verified) {
       throw new Error("All checklist items must be confirmed before departure");
     }
@@ -297,10 +297,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Get available jobs for driver to accept
-   * Shows orders ready for delivery with waiter service info
-   */
   async getAvailableJobs(driverId: string, regionId?: string): Promise<AppOrder[]> {
     let query = supabase
       .from("orders")
@@ -329,7 +325,7 @@ export const driverService = {
     if (regionId) {
       query = query.eq("region_id", regionId);
     }
-    
+
     const { data: assignedOrders, error: assignedError } = await supabase
       .from('driver_assignments')
       .select('order_id')
@@ -343,7 +339,7 @@ export const driverService = {
     const assignedOrderIds = (assignedOrders || []).map(a => a.order_id).filter(Boolean);
 
     const { data, error } = await query.order("event_date");
-    
+
     if (error) {
       console.error("Error fetching available jobs:", error);
       return [];
@@ -351,7 +347,6 @@ export const driverService = {
 
     const availableOrders = (data || []).filter(order => !assignedOrderIds.includes(order.id));
 
-    // Map snake_case to camelCase
     return availableOrders.map((order): AppOrder => ({
       id: order.id,
       quoteId: order.quote_id || '',
@@ -377,9 +372,6 @@ export const driverService = {
     }));
   },
 
-  /**
-   * Accept an available job
-   */
   async acceptJob(orderId: string, driverId: string): Promise<DriverAssignment | null> {
     const { data: order } = await supabase
       .from("orders")
@@ -421,9 +413,6 @@ export const driverService = {
     return assignment;
   },
 
-  /**
-   * Start equipment checklist verification
-   */
   async startEquipmentChecklist(assignmentId: string): Promise<any> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
@@ -467,9 +456,6 @@ export const driverService = {
     };
   },
 
-  /**
-   * Confirm all equipment checked and ready to depart
-   */
   async confirmReadyToDepart(
     assignmentId: string,
     checklist: {
@@ -532,9 +518,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Mark as arrived at venue
-   */
   async markArrived(assignmentId: string): Promise<DriverAssignment | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
@@ -583,9 +566,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Mark event as complete (for waiter service)
-   */
   async markEventComplete(assignmentId: string): Promise<DriverAssignment | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
@@ -630,9 +610,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Confirm equipment collection and check for shortages
-   */
   async confirmCollection(
     assignmentId: string,
     collection: {
@@ -729,9 +706,6 @@ export const driverService = {
     return { assignment: updatedAssignment, shortages };
   },
 
-  /**
-   * Calculate total earnings for an assignment
-   */
   async calculateTotalEarnings(assignmentId: string): Promise<number> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
@@ -766,9 +740,6 @@ export const driverService = {
     return totalEarnings;
   },
 
-  /**
-   * Get earnings summary for a driver
-   */
   async getEarningsSummary(driverId: string, period: "week" | "month" | "all" = "month"): Promise<any> {
     const now = new Date();
     let startDate: Date;
@@ -813,9 +784,6 @@ export const driverService = {
     };
   },
 
-  /**
-   * Update driver profile with drive time to kitchen
-   */
   async updateDriverProfile(
     driverId: string,
     updates: {
@@ -839,9 +807,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Get driver profile including drive time to kitchen
-   */
   async getDriverProfile(driverId: string): Promise<any> {
     const { data, error } = await supabase
       .from("profiles")
@@ -857,10 +822,6 @@ export const driverService = {
     return data;
   },
 
-  /**
-   * Calculate when driver needs to leave for kitchen
-   * Based on: event time - drive to venue - 15min buffer - drive to kitchen
-   */
   async calculateDepartureTimes(assignmentId: string): Promise<{
     leaveForKitchenTime: string;
     leaveForVenueTime: string;
@@ -898,7 +859,7 @@ export const driverService = {
       console.error("Error fetching driver profile for departure times:", profileError);
       return null;
     }
-    
+
     const eventDateTime = new Date(`${order.event_date}T${order.event_time || "12:00:00"}`);
     const driveTimeToKitchen = driverProfile.drive_time_to_kitchen_minutes || 30;
     const driveTimeToVenue = assignment.estimated_drive_time_minutes || 30;
@@ -915,10 +876,6 @@ export const driverService = {
     };
   },
 
-  /**
-   * Driver clicks "On the way to Kitchen" button
-   * Alerts admin and changes status
-   */
   async startTripToKitchen(assignmentId: string): Promise<any> {
     const { data: assignment, error } = await supabase
       .from("driver_assignments")
@@ -952,9 +909,6 @@ export const driverService = {
     return assignment;
   },
 
-  /**
-   * Calculate distance between two GPS coordinates (Haversine formula)
-   */
   calculateDistance(
     lat1: number,
     lon1: number,
@@ -974,37 +928,33 @@ export const driverService = {
     return R * c;
   },
 
-  /**
-   * Check proximity to venue and trigger notifications
-   * Call this every time GPS location is updated
-   */
   async checkProximityAndNotify(
     assignmentId: string,
     currentLat: number,
     currentLng: number
   ): Promise<void> {
-    const { data: assignment, error: assignmentError } = (await supabase
+    const { data: assignment, error: assignmentError } = await supabase
       .from("driver_assignments")
       .select("id, order_id, status")
       .eq("id", assignmentId)
-      .single()) as any;
+      .single();
 
     if (assignmentError || !assignment || !assignment.order_id) {
       if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
       return;
     }
     
-    const { data: order, error: orderError } = (await supabase
+    const { data: order, error: orderError } = await supabase
       .from("orders")
       .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
-      .single()) as any;
+      .single();
 
     if (orderError || !order) {
        if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
       return;
     }
-    
+
     if (!order.venue_lat || !order.venue_lng) return;
 
     const distance = this.calculateDistance(
@@ -1016,11 +966,9 @@ export const driverService = {
 
     const distanceInMeters = distance * 1000;
 
-    // Check for arrival (within 50 meters)
     if (distanceInMeters <= 50 && assignment.status !== "arrived") {
       await this.markArrived(assignmentId);
-      
-      // Send "Driver Arrived" notification
+
       await realtimeNotificationService.sendNotification({
         userId: order.user_id!,
         recipientId: order.client_id || order.user_id!,
@@ -1031,13 +979,10 @@ export const driverService = {
         orderId: order.id,
       });
     }
-    
-    // Check for 10 minutes away (calculate based on distance and average speed)
-    // Assuming average speed of 40 km/h in city
+
     const estimatedMinutes = (distance / 40) * 60;
-    
+
     if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
-      // Check if we already sent the 10-minute notification
       const { count, error: checkError } = await supabase
         .from("notifications")
         .select("id", { count: 'exact', head: true })
