@@ -138,7 +138,7 @@ async function checkProximityAndNotify(
     const estimatedMinutes = (distance / 40) * 60;
 
     if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
-      const { count, error: checkError } = await supabase
+      const { count, error: checkError } = await (supabase as any)
         .from("notifications")
         .select("id", { count: 'exact', head: true })
         .eq("order_id", order.id)
