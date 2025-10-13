@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
-import { Order } from "@/types";
+import { AppOrder } from "@/types";
 
 export type DriverAssignment = Tables<"driver_assignments">;
 export type GPSTracking = Tables<"gps_tracking">;
@@ -300,7 +300,7 @@ export const driverService = {
    * Get available jobs for driver to accept
    * Shows orders ready for delivery with waiter service info
    */
-  async getAvailableJobs(driverId: string, regionId?: string): Promise<Order[]> {
+  async getAvailableJobs(driverId: string, regionId?: string): Promise<AppOrder[]> {
     let query = supabase
       .from("orders")
       .select(`*`)
@@ -335,7 +335,7 @@ export const driverService = {
     }
 
     // Map snake_case to camelCase
-    return (data || []).map((order) => ({
+    return (data || []).map((order): AppOrder => ({
       id: order.id,
       quoteId: order.quote_id || '',
       client: order.client_name || '',
@@ -349,7 +349,7 @@ export const driverService = {
       menuItems: (order.menu_items as any) || [],
       equipmentItems: (order.equipment_items as any) || [],
       kitchenInstructions: order.internal_notes || '',
-      status: order.status as Order['status'],
+      status: order.status as AppOrder['status'],
       total: order.total,
       createdAt: order.created_at,
       needsWaiter: order.waiter_service_required,

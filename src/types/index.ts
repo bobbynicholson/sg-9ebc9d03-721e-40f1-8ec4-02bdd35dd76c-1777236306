@@ -141,7 +141,7 @@ export interface EquipmentItem {
   nextAvailableAt?: string;
 }
 
-export interface Order {
+export interface AppOrder {
   id: string;
   quoteId: string;
   client: string;
@@ -181,6 +181,11 @@ export interface Order {
   equipmentReturnMethod?: "waiter_return" | "later_collection";
   delivery_rate_per_km?: number;
   waiter_service_required?: boolean;
+  needsWaiter?: boolean;
+  waiterDuration?: number;
+  waiterRate?: number;
+  deliveryDistance?: number;
+  deliveryRate?: number;
 }
 
 export interface OrderModification {

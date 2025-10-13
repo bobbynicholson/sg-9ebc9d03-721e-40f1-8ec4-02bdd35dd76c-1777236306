@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { AppOrder } from "@/types";
 
 export type Order = Tables<"orders">;
 export type Quote = Tables<"quotes">;
@@ -377,7 +378,7 @@ export const orderService = {
   /**
    * Get all orders for the calendar view
    */
-  async getAllOrders(userId: string): Promise<Order[]> {
+  async getAllOrders(userId: string): Promise<AppOrder[]> {
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -390,7 +391,7 @@ export const orderService = {
     }
     
     // Map snake_case to camelCase
-    return (data || []).map(order => ({
+    return (data || []).map((order): AppOrder => ({
       id: order.id,
       quoteId: order.quote_id || '',
       client: order.client_name || '',
@@ -404,7 +405,7 @@ export const orderService = {
       menuItems: (order.menu_items as any) || [],
       equipmentItems: (order.equipment_items as any) || [],
       kitchenInstructions: order.internal_notes || '',
-      status: order.status as Order['status'],
+      status: order.status as AppOrder['status'],
       total: order.total,
       createdAt: order.created_at,
     }));

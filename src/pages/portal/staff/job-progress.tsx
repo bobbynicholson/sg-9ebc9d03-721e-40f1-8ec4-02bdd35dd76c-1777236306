@@ -15,13 +15,13 @@ import {
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Order } from "@/types";
+import { AppOrder } from "@/types";
 import { Search, Calendar, Filter, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function StaffJobProgressPage() {
   const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AppOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
@@ -29,7 +29,7 @@ export default function StaffJobProgressPage() {
 
   useEffect(() => {
     // Create comprehensive dummy orders for Bob's Catering with correct statuses
-    const dummyOrders: Order[] = [
+    const dummyOrders: AppOrder[] = [
       {
         id: "ORD-001",
         quoteId: "Q-001",

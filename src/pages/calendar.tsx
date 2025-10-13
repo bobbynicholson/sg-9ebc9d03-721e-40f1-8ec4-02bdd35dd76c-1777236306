@@ -19,7 +19,8 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { orderService, Order } from "@/services/orderService";
+import { orderService, Order as SupabaseOrder } from "@/services/orderService";
+import { AppOrder } from "@/types";
 import { format } from "date-fns";
 import {
   MapPin,
@@ -35,7 +36,7 @@ interface CalendarEvent {
   id: string;
   date: Date;
   title: string;
-  status: Order["status"];
+  status: AppOrder["status"];
   clientName: string;
   venue: string;
   guestCount: number;
@@ -59,8 +60,8 @@ export default function CalendarPage() {
   const loadEvents = async () => {
     if (!user?.id) return;
     setLoading(true);
-    const orders = await orderService.getAllOrders(user.id);
-    const calendarEvents = orders.map((order: Order) => ({
+    const orders: AppOrder[] = await orderService.getAllOrders(user.id);
+    const calendarEvents = orders.map((order: AppOrder) => ({
       id: order.id,
       date: new Date(order.eventDate),
       title: `Order #${(order as any).order_number || order.id.substring(0, 6)}`,
@@ -73,7 +74,7 @@ export default function CalendarPage() {
     setLoading(false);
   };
 
-  const getStatusBadge = (status: Order["status"]) => {
+  const getStatusBadge = (status: AppOrder["status"]) => {
     const styles = {
       pending: "bg-yellow-100 text-yellow-800",
       confirmed: "bg-blue-100 text-blue-800",

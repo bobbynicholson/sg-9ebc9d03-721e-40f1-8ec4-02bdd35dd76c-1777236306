@@ -14,7 +14,7 @@ import {
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Order } from "@/types";
+import { AppOrder } from "@/types";
 import { 
   Search, 
   Calendar, 
@@ -42,7 +42,7 @@ interface PriorityTask {
 }
 
 export default function JobProgressOverviewPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AppOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
@@ -51,7 +51,7 @@ export default function JobProgressOverviewPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const mockOrders: Order[] = [
+    const mockOrders: AppOrder[] = [
       {
         id: "ORD-001",
         quoteId: "Q-001",
@@ -156,7 +156,7 @@ export default function JobProgressOverviewPage() {
   const handleOverrideComplete = (orderId: string) => {
     const updatedOrders = orders.map((order) => {
       if (order.id === orderId) {
-        const newStatus: Order["status"] = "completed";
+        const newStatus: AppOrder["status"] = "completed";
         return { ...order, status: newStatus };
       }
       return order;
@@ -220,7 +220,7 @@ export default function JobProgressOverviewPage() {
 
   const priorityTasks = calculatePriorityTasks();
 
-  const isBehindSchedule = (order: Order): boolean => {
+  const isBehindSchedule = (order: AppOrder): boolean => {
     const eventDate = new Date(order.eventDate);
     const today = new Date();
     const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -247,7 +247,7 @@ export default function JobProgressOverviewPage() {
     return matchesSearch && matchesFilter;
   }).slice(0, itemsPerPage);
 
-  const calculateOrderUrgency = (order: Order): UrgencyScore => {
+  const calculateOrderUrgency = (order: AppOrder): UrgencyScore => {
     const eventDate = new Date(order.eventDate);
     const today = new Date();
     const hoursUntilEvent = (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60);
