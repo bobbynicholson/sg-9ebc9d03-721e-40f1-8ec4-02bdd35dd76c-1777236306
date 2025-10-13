@@ -18,7 +18,8 @@ import {
   ArrowDown,
   Filter,
   Download,
-  ArrowLeft
+  ArrowLeft,
+  Search
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
@@ -139,6 +140,12 @@ export default function AdminDashboardPage() {
                   <Download className="w-4 h-4 mr-2" />
                   <span className="text-xs sm:text-sm">Export</span>
                 </Button>
+                <Link href="/admin/client-search" passHref>
+                  <Button variant="outline" className="w-full xs:w-auto" size="sm">
+                    <Search className="w-4 h-4 mr-2" />
+                    <span className="text-xs sm:text-sm">Client Search</span>
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

@@ -2194,6 +2194,7 @@ export type Database = {
           is_active: boolean | null
           phone: string | null
           phone_number: string | null
+          region: string | null
           role: string | null
           subscription_plan: string | null
           subscription_status: string | null
@@ -2213,6 +2214,7 @@ export type Database = {
           is_active?: boolean | null
           phone?: string | null
           phone_number?: string | null
+          region?: string | null
           role?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
@@ -2232,6 +2234,7 @@ export type Database = {
           is_active?: boolean | null
           phone?: string | null
           phone_number?: string | null
+          region?: string | null
           role?: string | null
           subscription_plan?: string | null
           subscription_status?: string | null
