@@ -17,22 +17,22 @@ export default function CMSPageView({ page }: PageProps) {
     "@type": "Article",
     "headline": page.title,
     "description": page.meta_description || page.title,
-    "url": `https://cateros.co.za/page/${page.slug}`,
+    "url": `https://cateringms.com/page/${page.slug}`,
     "datePublished": page.created_at,
     "dateModified": page.last_updated,
     "inLanguage": "en-ZA",
     "author": {
       "@type": "Organization",
-      "name": "CaterOS"
+      "name": "CateringMS"
     },
     "publisher": {
       "@type": "Organization",
-      "name": "CaterOS",
+      "name": "CateringMS",
       "description": "A product of Skylight Digital",
-      "url": "https://cateros.co.za",
+      "url": "https://cateringms.com",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://cateros.co.za/logo.png"
+        "url": "https://cateringms.com/logo.png"
       },
       "address": {
         "@type": "PostalAddress",
@@ -44,7 +44,7 @@ export default function CMSPageView({ page }: PageProps) {
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://cateros.co.za/page/${page.slug}`
+      "@id": `https://cateringms.com/page/${page.slug}`
     },
     "breadcrumb": {
       "@type": "BreadcrumbList",
@@ -53,13 +53,13 @@ export default function CMSPageView({ page }: PageProps) {
           "@type": "ListItem",
           "position": 1,
           "name": "Home",
-          "item": "https://cateros.co.za"
+          "item": "https://cateringms.com"
         },
         {
           "@type": "ListItem",
           "position": 2,
           "name": page.title,
-          "item": `https://cateros.co.za/page/${page.slug}`
+          "item": `https://cateringms.com/page/${page.slug}`
         }
       ]
     }
@@ -74,7 +74,7 @@ export default function CMSPageView({ page }: PageProps) {
           content={page.meta_description || page.title}
         />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href={`https://cateros.co.za/page/${page.slug}`} />
+        <link rel="canonical" href={`https://cateringms.com/page/${page.slug}`} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}

@@ -41,11 +41,11 @@ export default function FeaturesPage() {
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": "CaterOS - Catering Management Platform",
+    "name": "CateringMS - Catering Management Platform",
     "description": "15 integrated systems for complete catering business management including lead management, GPS tracking, inventory control, kitchen management, and automated email follow-ups",
     "brand": {
       "@type": "Brand",
-      "name": "CaterOS"
+      "name": "CateringMS"
     },
     "offers": {
       "@type": "AggregateOffer",
@@ -80,8 +80,8 @@ export default function FeaturesPage() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "CaterOS",
-    "url": "https://cateros.co.za",
+    "name": "CateringMS",
+    "url": "https://cateringms.com",
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+27-83-652-5755",
@@ -338,10 +338,10 @@ export default function FeaturesPage() {
   return (
     <>
       <Head>
-        <title>Features - CaterOS Catering Management Platform</title>
-        <meta name="description" content="Explore 15 integrated systems working together to automate operations, connect your team, and maximize profitability. Complete feature overview of CaterOS catering management platform." />
+        <title>Features - CateringMS Catering Management Platform</title>
+        <meta name="description" content="Explore 15 integrated systems working together to automate operations, connect your team, and maximize profitability. Complete feature overview of CateringMS catering management platform." />
         <meta name="keywords" content="catering software features, GPS tracking, inventory management, kitchen management, email automation, payment processing, multi-region support" />
-        <link rel="canonical" href="https://cateros.co.za/features" />
+        <link rel="canonical" href="https://cateringms.com/features" />
         
         <script
           type="application/ld+json"

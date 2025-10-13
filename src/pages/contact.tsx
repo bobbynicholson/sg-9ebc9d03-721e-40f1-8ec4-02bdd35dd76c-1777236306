@@ -62,9 +62,9 @@ export default function ContactPage() {
     {
       icon: Mail,
       title: "Email Us",
-      value: "support@cateros.co.za",
+      value: "support@cateringms.com",
       description: "Get a response within 24 hours",
-      href: "mailto:support@cateros.co.za",
+      href: "mailto:support@cateringms.com",
       gradient: "from-blue-500 to-cyan-500"
     },
     {
@@ -112,9 +112,9 @@ export default function ContactPage() {
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "CaterOS",
-    "legalName": "CaterOS (A product of Skylight Digital)",
-    "url": "https://cateros.co.za",
+    "name": "CateringMS",
+    "legalName": "CateringMS (A product of Skylight Digital)",
+    "url": "https://cateringms.com",
     "contactPoint": [
       {
         "@type": "ContactPoint",
@@ -131,7 +131,7 @@ export default function ContactPage() {
       },
       {
         "@type": "ContactPoint",
-        "email": "support@cateros.co.za",
+        "email": "support@cateringms.com",
         "contactType": "customer support"
       }
     ],
@@ -146,10 +146,10 @@ export default function ContactPage() {
   return (
     <>
       <Head>
-        <title>Contact Us - CaterOS Catering Management Software</title>
-        <meta name="description" content="Get in touch with CaterOS support team. Email, phone, or visit us. We're here to help you succeed with your catering business. Response within 24 hours guaranteed." />
-        <meta name="keywords" content="contact cateros, catering software support, get help, customer service" />
-        <link rel="canonical" href="https://cateros.co.za/contact" />
+        <title>Contact Us - CateringMS Catering Management Software</title>
+        <meta name="description" content="Get in touch with CateringMS support team. Email, phone, or visit us. We're here to help you succeed with your catering business. Response within 24 hours guaranteed." />
+        <meta name="keywords" content="contact cateringms, catering software support, get help, customer service" />
+        <link rel="canonical" href="https://cateringms.com/contact" />
         
         <script
           type="application/ld+json"

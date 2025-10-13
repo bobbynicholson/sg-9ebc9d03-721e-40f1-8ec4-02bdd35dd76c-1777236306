@@ -8,23 +8,23 @@ export default function PrivacyPage() {
   const schema = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "Privacy Policy - CaterOS",
-    "description": "Privacy Policy for CaterOS Catering Management Platform. Learn how we collect, use, protect, and manage your personal information in compliance with POPIA.",
-    "url": "https://cateros.co.za/privacy",
+    "name": "Privacy Policy - CateringMS",
+    "description": "Privacy Policy for CateringMS Catering Management Platform. Learn how we collect, use, protect, and manage your personal information in compliance with POPIA.",
+    "url": "https://cateringms.com/privacy",
     "inLanguage": "en-ZA",
     "isPartOf": {
       "@type": "WebSite",
-      "name": "CaterOS",
-      "url": "https://cateros.co.za"
+      "name": "CateringMS",
+      "url": "https://cateringms.com"
     },
     "publisher": {
       "@type": "Organization",
-      "name": "CaterOS",
+      "name": "CateringMS",
       "description": "A product of Skylight Digital",
-      "url": "https://cateros.co.za",
+      "url": "https://cateringms.com",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://cateros.co.za/logo.png"
+        "url": "https://cateringms.com/logo.png"
       },
       "address": {
         "@type": "PostalAddress",
@@ -50,13 +50,13 @@ export default function PrivacyPage() {
           "@type": "ListItem",
           "position": 1,
           "name": "Home",
-          "item": "https://cateros.co.za"
+          "item": "https://cateringms.com"
         },
         {
           "@type": "ListItem",
           "position": 2,
           "name": "Privacy Policy",
-          "item": "https://cateros.co.za/privacy"
+          "item": "https://cateringms.com/privacy"
         }
       ]
     }
@@ -65,10 +65,10 @@ export default function PrivacyPage() {
   return (
     <>
       <Head>
-        <title>Privacy Policy - CaterOS Catering Management Platform</title>
-        <meta name="description" content="Privacy Policy for CaterOS. Learn how we collect, use, protect, and manage your personal information in compliance with POPIA and international data protection laws." />
+        <title>Privacy Policy - CateringMS Catering Management Platform</title>
+        <meta name="description" content="Privacy Policy for CateringMS. Learn how we collect, use, protect, and manage your personal information in compliance with POPIA and international data protection laws." />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://cateros.co.za/privacy" />
+        <link rel="canonical" href="https://cateringms.com/privacy" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
@@ -266,11 +266,11 @@ export default function PrivacyPage() {
                   If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us. You can also explore our <Link href="/pricing" className="text-purple-600 hover:text-purple-700 underline">pricing plans</Link> or read <Link href="/blog" className="text-purple-600 hover:text-purple-700 underline">helpful guides</Link> on our blog:
                 </p>
                 <div className="p-4 bg-slate-50 rounded-lg">
-                  <p className="text-slate-700"><strong>Company:</strong> CaterOS (A product of Skylight Digital)</p>
+                  <p className="text-slate-700"><strong>Company:</strong> CateringMS (A product of Skylight Digital)</p>
                   <p className="text-slate-700"><strong>Address:</strong> 17 Swalle Street, Golden Acre, South Africa</p>
                   <p className="text-slate-700"><strong>Phone:</strong> 083 652 5755</p>
-                  <p className="text-slate-700"><strong>Email:</strong> privacy@cateros.co.za</p>
-                  <p className="text-slate-700"><strong>Support:</strong> support@cateros.co.za</p>
+                  <p className="text-slate-700"><strong>Email:</strong> privacy@cateringms.com</p>
+                  <p className="text-slate-700"><strong>Support:</strong> support@cateringms.com</p>
                 </div>
               </section>
 
