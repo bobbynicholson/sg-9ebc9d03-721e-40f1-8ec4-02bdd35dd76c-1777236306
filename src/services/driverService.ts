@@ -933,90 +933,97 @@ export const driverService = {
     currentLat: number,
     currentLng: number
   ): Promise<void> {
-    const { data: assignment, error: assignmentError } = await supabase
-      .from("driver_assignments")
-      .select("id, order_id, status")
-      .eq("id", assignmentId)
-      .single();
+    try {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("driver_assignments")
+        .select("id, order_id, status")
+        .eq("id", assignmentId)
+        .single();
 
-    if (assignmentError || !assignment || !assignment.order_id) {
-      if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
-      return;
-    }
-    
-    interface OrderProximityInfo {
+      if (assignmentError || !assignment || !assignment.order_id) {
+        if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
+        return;
+      }
+      
+      // Simple type for our specific needs
+      type OrderLocation = {
         id: string;
         user_id: string | null;
         client_id: string | null;
         venue_lat: number | null;
         venue_lng: number | null;
         venue_address: string | null;
-    }
+      };
 
-    // Explicitly bypass TypeScript's type inference for this query
-    const { data, error: orderError } = await (supabase.from("orders") as any)
-      .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
-      .eq("id", assignment.order_id)
-      .single();
+      // Use raw query with minimal type inference
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
+        .eq("id", assignment.order_id)
+        .limit(1)
+        .maybeSingle();
 
-    if (orderError || !data) {
-       if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
-      return;
-    }
-
-    const order = data as OrderProximityInfo;
-
-    if (!order.venue_lat || !order.venue_lng) return;
-
-    const distance = this.calculateDistance(
-      currentLat,
-      currentLng,
-      order.venue_lat,
-      order.venue_lng
-    );
-
-    const distanceInMeters = distance * 1000;
-
-    if (distanceInMeters <= 50 && assignment.status !== "arrived") {
-      await this.markArrived(assignmentId);
-
-      await realtimeNotificationService.sendNotification({
-        userId: order.user_id!,
-        recipientId: order.client_id || order.user_id!,
-        type: "driver_arrived",
-        title: "Driver Has Arrived! 🎉",
-        message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
-        priority: "high",
-        orderId: order.id,
-      });
-    }
-
-    const estimatedMinutes = (distance / 40) * 60;
-
-    if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
-      const { count, error: checkError } = await supabase
-        .from("notifications")
-        .select("id", { count: 'exact', head: true })
-        .eq("order_id", order.id)
-        .eq("notification_type", "driver_10_minutes_away")
-        .limit(1);
-
-      if (checkError) {
-        console.error("Error checking for existing notification:", checkError);
+      if (orderError || !orderData) {
+        if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
         return;
       }
 
-      if (count === 0) {
+      const order = orderData as OrderLocation;
+
+      if (!order.venue_lat || !order.venue_lng) return;
+
+      const distance = this.calculateDistance(
+        currentLat,
+        currentLng,
+        order.venue_lat,
+        order.venue_lng
+      );
+
+      const distanceInMeters = distance * 1000;
+
+      if (distanceInMeters <= 50 && assignment.status !== "arrived") {
+        await this.markArrived(assignmentId);
+
         await realtimeNotificationService.sendNotification({
           userId: order.user_id!,
           recipientId: order.client_id || order.user_id!,
-          type: "driver_10_minutes_away",
-          title: "Driver 10 Minutes Away ⏰",
-          message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
+          type: "driver_arrived",
+          title: "Driver Has Arrived! 🎉",
+          message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
           priority: "high",
           orderId: order.id,
         });
       }
+
+      const estimatedMinutes = (distance / 40) * 60;
+
+      if (estimatedMinutes <= 10 && estimatedMinutes > 8 && assignment.status === "in_transit") {
+        const { count, error: checkError } = await supabase
+          .from("notifications")
+          .select("id", { count: 'exact', head: true })
+          .eq("order_id", order.id)
+          .eq("notification_type", "driver_10_minutes_away")
+          .limit(1);
+
+        if (checkError) {
+          console.error("Error checking for existing notification:", checkError);
+          return;
+        }
+
+        if (count === 0) {
+          await realtimeNotificationService.sendNotification({
+            userId: order.user_id!,
+            recipientId: order.client_id || order.user_id!,
+            type: "driver_10_minutes_away",
+            title: "Driver 10 Minutes Away ⏰",
+            message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
+            priority: "high",
+            orderId: order.id,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error in proximity check:", error);
     }
   }
 };
