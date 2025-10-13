@@ -95,6 +95,7 @@ export const authService = {
           phone_number: "",
           drive_time_to_kitchen_minutes: 0,
           vehicle_details: "",
+          region: null, // Make region optional
         });
 
         // Initialize onboarding data for new user
@@ -204,6 +205,7 @@ export const authService = {
           phone_number: "",
           drive_time_to_kitchen_minutes: 0,
           vehicle_details: "",
+          region: null, // Make region optional
         });
 
         // Initialize onboarding for OAuth users

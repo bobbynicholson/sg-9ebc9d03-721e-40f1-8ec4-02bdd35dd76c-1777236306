@@ -56,6 +56,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           ).toISOString(),
           drive_time_to_kitchen_minutes: 25,
           vehicle_details: "White Toyota Hilux",
+          region: "Gauteng", // Added region
         });
       }
       setLoading(false);
