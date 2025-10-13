@@ -941,11 +941,10 @@ export const driverService = {
         .single();
 
       if (assignmentError || !assignment || !assignment.order_id) {
-        if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
+        if (assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
         return;
       }
-      
-      // Simple type for our specific needs
+
       type OrderLocation = {
         id: string;
         user_id: string | null;
@@ -955,20 +954,19 @@ export const driverService = {
         venue_address: string | null;
       };
 
-      // Use raw query with minimal type inference
+      // Fetch as an array to avoid .single() type inference issue
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
         .eq("id", assignment.order_id)
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
-      if (orderError || !orderData) {
-        if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
+      if (orderError || !orderData || orderData.length === 0) {
+        if(orderError) console.error("Error fetching order for proximity check:", orderError?.message);
         return;
       }
 
-      const order = orderData as OrderLocation;
+      const order = orderData[0] as OrderLocation;
 
       if (!order.venue_lat || !order.venue_lng) return;
 
