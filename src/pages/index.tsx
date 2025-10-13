@@ -38,6 +38,7 @@ import {
   Award
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import { Header } from "@/components/Header";
 import Head from "next/head";
 
 export default function HomePage() {
@@ -336,6 +337,8 @@ export default function HomePage() {
           }}
         />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">
