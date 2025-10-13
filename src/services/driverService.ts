@@ -10,7 +10,7 @@ export const driverService = {
   async getDriverAssignments(driverId: string): Promise<DriverAssignment[]> {
     const { data, error } = await supabase
       .from("driver_assignments")
-      .select("*, orders(*)")
+      .select("*, orders(id, order_number, client_name, event_date, venue_address)")
       .eq("driver_id", driverId)
       .order("created_at", { ascending: false });
 
@@ -25,7 +25,7 @@ export const driverService = {
   async getAvailableAssignments(regionId?: string): Promise<DriverAssignment[]> {
     let query = supabase
       .from("driver_assignments")
-      .select("*, orders(*)")
+      .select("*, orders(id, order_number, client_name, event_date, venue_address)")
       .eq("status", "pending");
 
     if (regionId) {
@@ -410,7 +410,7 @@ export const driverService = {
   async startEquipmentChecklist(assignmentId: string): Promise<any> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
-      .select("*, orders(*)")
+      .select("*, orders(id, order_number, cutlery_count, crockery_count, menu_items, special_instructions)")
       .eq("id", assignmentId)
       .single();
 
@@ -606,7 +606,7 @@ export const driverService = {
   ): Promise<{ assignment: DriverAssignment; shortages: any[] }> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
-      .select("*, orders(*)")
+      .select("*, orders!inner(*)")
       .eq("id", assignmentId)
       .single();
 
@@ -677,7 +677,7 @@ export const driverService = {
   async calculateTotalEarnings(assignmentId: string): Promise<number> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
-      .select("*, orders(*)")
+      .select("*, orders(delivery_rate_per_km)")
       .eq("id", assignmentId)
       .single();
 
@@ -869,7 +869,7 @@ export const driverService = {
         started_trip_to_kitchen_at: new Date().toISOString(),
       })
       .eq("id", assignmentId)
-      .select("*, orders(*)")
+      .select("*, orders(id, user_id, order_number)")
       .single();
 
     if (error) {

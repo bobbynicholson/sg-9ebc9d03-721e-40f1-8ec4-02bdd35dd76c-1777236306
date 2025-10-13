@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Truck, Clock, Phone, Mail, Navigation, Map } from "lucide-react";
-import { Order, Driver, GPSLocation } from "@/types";
+import { AppOrder, Driver, GPSLocation } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -24,7 +24,7 @@ export default function AdminTrackingDashboard() {
   }, []);
 
   const loadActiveDeliveries = () => {
-    const orders: Order[] = JSON.parse(localStorage.getItem("orders") || "[]");
+    const orders: AppOrder[] = JSON.parse(localStorage.getItem("orders") || "[]");
     const drivers: Driver[] = JSON.parse(localStorage.getItem("drivers") || "[]");
     const locations: Record<string, GPSLocation> = JSON.parse(
       localStorage.getItem("driver_locations") || "{}"

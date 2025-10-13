@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Order } from "@/types";
-import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck } from "lucide-react";
+import { AppOrder } from "@/types";
+import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
 import { Footer } from "@/components/Footer";
@@ -15,13 +15,13 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 
 export default function ClientPortalPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("active");
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
-    const mockOrders: Order[] = [
+    const mockOrders: AppOrder[] = [
       {
         id: "ORD-001",
         quoteId: "Q-001",
@@ -105,7 +105,7 @@ export default function ClientPortalPage() {
     setOrders(stored ? JSON.parse(stored) : mockOrders);
   }, []);
 
-  const getStatusColor = (status: Order["status"]) => {
+  const getStatusColor = (status: AppOrder["status"]) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800",
       confirmed: "bg-blue-100 text-blue-800",
@@ -117,7 +117,7 @@ export default function ClientPortalPage() {
     return colors[status];
   };
 
-  const getStatusIcon = (status: Order["status"]) => {
+  const getStatusIcon = (status: AppOrder["status"]) => {
     switch (status) {
       case "pending":
         return <Clock className="w-4 h-4" />;
@@ -137,7 +137,7 @@ export default function ClientPortalPage() {
   const activeOrders = orders.filter((o) => ["confirmed", "preparing", "ready"].includes(o.status));
   const completedOrders = orders.filter((o) => ["delivered", "completed"].includes(o.status));
 
-  const handlePayment = async (order: Order) => {
+  const handlePayment = async (order: AppOrder) => {
     setProcessingPayment(order.id);
     setPaymentError(null);
 
@@ -168,7 +168,7 @@ export default function ClientPortalPage() {
     }
   };
 
-  const needsPayment = (order: Order) => {
+  const needsPayment = (order: AppOrder) => {
     return order.status === "pending" || order.status === "confirmed";
   };
 

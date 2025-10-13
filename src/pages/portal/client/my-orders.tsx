@@ -7,18 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Order } from "@/types";
+import { AppOrder } from "@/types";
 import { Calendar, Package, Clock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function ClientMyOrdersPage() {
   const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AppOrder[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem("admin_orders");
     if (stored) {
-      const allOrders: Order[] = JSON.parse(stored);
+      const allOrders: AppOrder[] = JSON.parse(stored);
       setOrders(allOrders.filter((o) => o.status !== "pending"));
     }
   }, []);

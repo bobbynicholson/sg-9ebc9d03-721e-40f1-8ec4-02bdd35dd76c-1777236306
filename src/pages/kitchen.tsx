@@ -4,17 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Order, Ingredient } from "@/types";
-import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { AppOrder, ShoppingList, Ingredient } from "@/types";
+import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart, Calendar, Users } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
 export default function KitchenPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("today");
+  const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
+  const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
 
   useEffect(() => {
-    const mockOrders: Order[] = [
+    const mockOrders: AppOrder[] = [
       {
         id: "ORD-001",
         quoteId: "Q-001",
@@ -79,6 +88,11 @@ export default function KitchenPage() {
     );
     setOrders(updated);
     localStorage.setItem("kitchen_orders", JSON.stringify(updated));
+  };
+
+  const handleSelectOrder = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    setSelectedOrder(order || null);
   };
 
   const getStatusColor = (status: Order["status"]) => {

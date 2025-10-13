@@ -1,4 +1,5 @@
-import { Lead, Quote, Order, InventoryItem, Driver, Delivery, Payment } from "@/types";
+import type { AppOrder, Delivery, Lead, Quote, InventoryItem } from "@/types";
+import { addDays, subDays } from "date-fns";
 
 export const mockLeads: Lead[] = [
   {
@@ -69,44 +70,14 @@ export const mockQuotes: Quote[] = [
     status: "sent",
     version: 1,
     createdAt: "2025-10-10T09:00:00Z",
-    updatedAt: "2025-10-10T09:00:00Z"
+    updatedAt: subDays(new Date(), 2).toISOString()
   }
 ];
 
-export const mockDrivers: Driver[] = [
-  {
-    id: "D001",
-    name: "James Wilson",
-    phone: "+27 82 345 6789",
-    email: "james.wilson@cateringms.co.za",
-    availableJobs: ["ORD-005"],
-    assignedJobs: ["ORD-001"],
-    completedJobs: 45
-  },
-  {
-    id: "D002",
-    name: "Lisa Martinez",
-    phone: "+27 83 456 7890",
-    email: "lisa.martinez@cateringms.co.za",
-    availableJobs: ["ORD-005"],
-    assignedJobs: ["ORD-002"],
-    completedJobs: 62
-  },
-  {
-    id: "D003",
-    name: "Thabo Mbeki",
-    phone: "+27 84 567 8901",
-    email: "thabo.mbeki@cateringms.co.za",
-    availableJobs: ["ORD-005"],
-    assignedJobs: [],
-    completedJobs: 38
-  }
-];
-
-export const mockOrders: Order[] = [
+export const mockOrders: AppOrder[] = [
   {
     id: "ORD-001",
-    quoteId: "Q-001",
+    quoteId: "QUOTE-001",
     client: "Sarah Johnson",
     clientName: "Sarah Johnson",
     eventDate: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -185,14 +156,14 @@ export const mockOrders: Order[] = [
     status: "in_progress",
     total: 56250,
     totalAmount: 56250,
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    createdAt: subDays(new Date(), 5).toISOString(),
     assignedDriver: "D001",
     driverName: "James Wilson",
     driverPhone: "+27 82 345 6789",
   },
   {
     id: "ORD-002",
-    quoteId: "Q-002",
+    quoteId: "QUOTE-002",
     client: "Michael Chen",
     clientName: "Michael Chen",
     eventDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -249,14 +220,14 @@ export const mockOrders: Order[] = [
     status: "delivered",
     total: 20145,
     totalAmount: 20145,
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    createdAt: subDays(new Date(), 8).toISOString(),
     assignedDriver: "D002",
-    driverName: "Lisa Martinez",
-    driverPhone: "+27 83 456 7890",
+    driverName: "Themba Khumalo",
+    driverPhone: "+27 73 987 6543",
   },
   {
     id: "ORD-003",
-    quoteId: "Q-003",
+    quoteId: "QUOTE-003",
     client: "Emily Rodriguez",
     clientName: "Emily Rodriguez",
     eventDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -323,10 +294,10 @@ export const mockOrders: Order[] = [
     status: "confirmed",
     total: 78600,
     totalAmount: 78600,
-    createdAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+    createdAt: subDays(new Date(), 1).toISOString(),
     assignedDriver: null,
-    driverName: null,
-    driverPhone: null,
+    driverName: "Maria Garcia",
+    driverPhone: "+27 84 123 4567",
   },
   {
     id: "ORD-004",
