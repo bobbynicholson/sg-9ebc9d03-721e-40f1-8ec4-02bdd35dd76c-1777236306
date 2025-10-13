@@ -32,7 +32,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
 import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByUrgency, UrgencyScore } from "@/lib/urgencyScoring";
 import { orderService } from "@/services/orderService";
-import { regionService } from "@/services/regionService";
+import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface PriorityTask {
@@ -41,13 +41,6 @@ interface PriorityTask {
   task: string;
   urgency: "high" | "medium";
   daysUntilEvent: number;
-}
-
-interface Region {
-  id: string;
-  name: string;
-  code: string;
-  is_active: boolean;
 }
 
 export default function JobProgressOverviewPage() {
@@ -75,11 +68,11 @@ export default function JobProgressOverviewPage() {
       if (!user?.id) return;
       
       const fetchedRegions = await regionService.getRegions(user.id);
-      const activeRegions = fetchedRegions.filter((r: Region) => r.is_active);
+      const activeRegions = fetchedRegions.filter((r) => r.is_active);
       
       // Add "All Regions" option at the beginning
       setRegions([
-        { id: "all", name: "All Regions", code: "ALL", is_active: true },
+        { id: "all", name: "All Regions", province: "ALL", is_active: true, address: "", city: "", country: "", created_at: "", email: "", is_primary: false, phone: "", updated_at: "", user_id: "" },
         ...activeRegions
       ]);
     } catch (error) {
@@ -337,9 +330,9 @@ export default function JobProgressOverviewPage() {
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-gray-500" />
                           <span>{region.name}</span>
-                          {region.code !== "ALL" && (
+                          {region.province !== "ALL" && (
                             <Badge variant="outline" className="ml-2 text-xs">
-                              {region.code}
+                              {region.province}
                             </Badge>
                           )}
                         </div>
