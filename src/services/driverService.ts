@@ -620,30 +620,28 @@ export const driverService = {
       notes?: string;
     }
   ): Promise<{ assignment: DriverAssignment; shortages: any[] }> {
-    const { data: assignment } = await supabase
+    const { data: assignment, error: assignmentError } = await supabase
       .from("driver_assignments")
-      .select(`
-        id,
-        order_id,
-        driver_id,
-        actual_cutlery_count,
-        actual_crockery_count,
-        orders (
-          id,
-          user_id,
-          client_id,
-          actual_cutlery_count,
-          actual_crockery_count
-        )
-      `)
+      .select("id, order_id, driver_id, actual_cutlery_count, actual_crockery_count")
       .eq("id", assignmentId)
       .single();
 
-    if (!assignment) {
+    if (assignmentError || !assignment) {
+      console.error("Error fetching assignment for collection:", assignmentError);
       throw new Error("Assignment not found");
     }
 
-    const order = assignment.orders as any;
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, user_id, client_id, cutlery_count, crockery_count")
+      .eq("id", assignment.order_id)
+      .single();
+
+    if (orderError || !order) {
+        console.error("Error fetching order for collection:", orderError);
+        throw new Error("Order not found for assignment");
+    }
+
     const shortages = [];
 
     const cutleryShortage = (assignment.actual_cutlery_count || 0) - collection.cutleryReturned;
