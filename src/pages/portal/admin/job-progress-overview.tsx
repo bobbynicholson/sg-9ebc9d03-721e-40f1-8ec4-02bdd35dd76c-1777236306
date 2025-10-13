@@ -32,6 +32,8 @@ import {
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
 import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByUrgency, UrgencyScore } from "@/lib/urgencyScoring";
+import { RegionSwitcher } from "@/components/RegionSwitcher";
+import { regionService } from "@/services/regionService";
 
 interface PriorityTask {
   orderId: string;
@@ -48,6 +50,8 @@ export default function JobProgressOverviewPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(15);
   const [whatsNextMode, setWhatsNextMode] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<"date" | "urgency">("date");
+  const [selectedRegion, setSelectedRegion] = useState<string>("all");
+  const [regions, setRegions] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -151,7 +155,19 @@ export default function JobProgressOverviewPage() {
 
     const stored = localStorage.getItem("admin_orders");
     setOrders(stored ? JSON.parse(stored) : mockOrders);
+    loadRegions();
   }, []);
+
+  const loadRegions = async () => {
+    // Load regions from mock data for now
+    const mockRegions = [
+      { id: "all", name: "All Regions" },
+      { id: "cpt", name: "Cape Town" },
+      { id: "jhb", name: "Johannesburg" },
+      { id: "dbn", name: "Durban" }
+    ];
+    setRegions(mockRegions);
+  };
 
   const handleOverrideComplete = (orderId: string) => {
     const updatedOrders = orders.map((order) => {
@@ -243,8 +259,11 @@ export default function JobProgressOverviewPage() {
       order.id.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesFilter = filterStatus === "all" || order.status === filterStatus;
+    
+    const matchesRegion = selectedRegion === "all" || 
+      (order as any).region_id === selectedRegion;
 
-    return matchesSearch && matchesFilter;
+    return matchesSearch && matchesFilter && matchesRegion;
   }).slice(0, itemsPerPage);
 
   const calculateOrderUrgency = (order: AppOrder): UrgencyScore => {
@@ -317,7 +336,24 @@ export default function JobProgressOverviewPage() {
                   Monitor all active jobs and their current status in real-time
                 </p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center flex-wrap">
+                {regions.length > 2 && (
+                  <Select
+                    value={selectedRegion}
+                    onValueChange={(value) => setSelectedRegion(value)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select Region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {regions.map((region) => (
+                        <SelectItem key={region.id} value={region.id}>
+                          {region.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button
                   variant={whatsNextMode ? "default" : "outline"}
                   onClick={() => setWhatsNextMode(!whatsNextMode)}
