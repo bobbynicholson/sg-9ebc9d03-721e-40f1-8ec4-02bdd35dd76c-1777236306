@@ -86,20 +86,10 @@ async function checkProximityAndNotify(
       return;
     }
 
-    type OrderLocation = {
-      id: string;
-      user_id: string | null;
-      client_id: string | null;
-      venue_lat: number | null;
-      venue_lng: number | null;
-      venue_address: string | null;
-    };
-
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
       .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
-      .returns<OrderLocation[]>()
       .limit(1);
 
     if (orderError || !orderData || orderData.length === 0) {
@@ -107,7 +97,7 @@ async function checkProximityAndNotify(
       return;
     }
 
-    const order = orderData[0];
+    const order: any = orderData[0];
 
     if (!order.venue_lat || !order.venue_lng) return;
 
