@@ -953,8 +953,8 @@ export const driverService = {
         venue_address: string | null;
     }
 
-    const { data, error: orderError } = await supabase
-      .from("orders")
+    // Explicitly bypass TypeScript's type inference for this query
+    const { data, error: orderError } = await (supabase.from("orders") as any)
       .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
       .single();
