@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { AppOrder } from "@/types";
+import { Order } from "./orderService";
 
 export type DriverAssignment = Tables<"driver_assignments">;
 export type GPSTracking = Tables<"gps_tracking">;
@@ -640,22 +641,22 @@ export const driverService = {
       notes?: string;
     }
   ): Promise<{ assignment: DriverAssignment; shortages: any[] }> {
-    const { data: assignment, error: assignmentError }: { data: Pick<DriverAssignment, 'id' | 'order_id' | 'driver_id' | 'actual_cutlery_count' | 'actual_crockery_count'> | null, error: any } = await supabase
+    const { data: assignment, error: assignmentError } = (await supabase
       .from("driver_assignments")
       .select("id, order_id, driver_id, actual_cutlery_count, actual_crockery_count")
       .eq("id", assignmentId)
-      .single();
+      .single()) as any;
 
     if (assignmentError || !assignment) {
       console.error("Error fetching assignment for collection:", assignmentError);
       throw new Error("Assignment not found");
     }
 
-    const { data: order, error: orderError }: { data: Pick<Order, 'id' | 'user_id' | 'client_id' | 'equipment_items'> | null, error: any } = await supabase
+    const { data: order, error: orderError } = (await supabase
       .from("orders")
       .select("id, user_id, client_id, equipment_items")
       .eq("id", assignment.order_id)
-      .single();
+      .single()) as any;
 
     if (orderError || !order) {
         console.error("Error fetching order for collection:", orderError);
@@ -982,22 +983,22 @@ export const driverService = {
     currentLat: number,
     currentLng: number
   ): Promise<void> {
-    const { data: assignment, error: assignmentError } = await supabase
+    const { data: assignment, error: assignmentError } = (await supabase
       .from("driver_assignments")
       .select("id, order_id, status")
       .eq("id", assignmentId)
-      .single();
+      .single()) as any;
 
     if (assignmentError || !assignment || !assignment.order_id) {
       if(assignmentError) console.error("Error fetching assignment for proximity check:", assignmentError.message);
       return;
     }
     
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = (await supabase
       .from("orders")
       .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
-      .single();
+      .single()) as any;
 
     if (orderError || !order) {
        if(orderError) console.error("Error fetching order for proximity check:", orderError.message);

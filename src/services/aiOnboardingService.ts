@@ -78,7 +78,7 @@ class AiOnboardingService {
     // Store this checklist against the user's profile or in a dedicated onboarding table
     await supabase.from("onboarding_state").upsert({
       user_id: userId,
-      checklist: checklist,
+      checklist: checklist as any,
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id" });
 
@@ -98,7 +98,7 @@ class AiOnboardingService {
       return this.generateOnboardingChecklist(userId);
     }
     
-    return data.checklist as OnboardingChecklistItem[];
+    return data.checklist as unknown as OnboardingChecklistItem[];
   }
 
   async updateChecklistItem(userId: string, taskId: string, isCompleted: boolean): Promise<OnboardingChecklistItem[] | null> {
@@ -110,7 +110,7 @@ class AiOnboardingService {
 
     const { error } = await supabase
       .from("onboarding_state")
-      .update({ checklist: updatedChecklist })
+      .update({ checklist: updatedChecklist as any })
       .eq("user_id", userId);
 
     if (error) {
