@@ -3,238 +3,90 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Calendar, Clock, Search, TrendingUp, DollarSign, Users, Zap } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Search, TrendingUp } from "lucide-react";
 import { Footer } from "@/components/Footer";
+import { Header } from "@/components/Header";
 import Head from "next/head";
+import Image from "next/image";
+import blogPosts from "@/lib/blog.json";
 
 interface BlogPost {
-  id: string;
-  title: string;
-  excerpt: string;
-  category: string;
-  readTime: string;
-  date: string;
   slug: string;
+  title: string;
+  author: string;
+  date: string;
+  image: string;
+  content: Array<{
+    type: string;
+    text?: string;
+    level?: number;
+    question?: string;
+    answer?: string;
+  }>;
 }
 
 export default function BlogPage() {
-  const blogPosts: BlogPost[] = [
-    {
-      id: "1",
-      title: "How to Reduce Catering Business Costs by 40% Without Sacrificing Quality",
-      excerpt: "Learn practical strategies to cut operational expenses while maintaining the high standards your clients expect. Discover automation tools and smart inventory management techniques.",
-      category: "Cost Management",
-      readTime: "8 min read",
-      date: "2025-01-15",
-      slug: "reduce-catering-costs-40-percent"
-    },
-    {
-      id: "2",
-      title: "Complete Guide to Automating Your Catering Business Operations",
-      excerpt: "Step-by-step guide to implementing automation in your catering company. From order management to delivery tracking, streamline every process.",
-      category: "Automation",
-      readTime: "12 min read",
-      date: "2025-01-12",
-      slug: "complete-automation-guide"
-    },
-    {
-      id: "3",
-      title: "Increasing Catering Profit Margins: From 15% to 30% in 6 Months",
-      excerpt: "Real case study showing how South African catering businesses improved profitability through strategic pricing and operational efficiency.",
-      category: "Profitability",
-      readTime: "10 min read",
-      date: "2025-01-10",
-      slug: "increase-profit-margins-guide"
-    },
-    {
-      id: "4",
-      title: "Why Most Catering Businesses Fail and How to Avoid Common Mistakes",
-      excerpt: "Identify the critical mistakes that lead to catering business failure. Get actionable advice to build a sustainable and profitable operation.",
-      category: "Business Strategy",
-      readTime: "9 min read",
-      date: "2025-01-08",
-      slug: "avoid-catering-business-mistakes"
-    },
-    {
-      id: "5",
-      title: "Equipment Management: Stop Losing Money on Missing Inventory",
-      excerpt: "Implement a system to track plates, cutlery, and equipment. Calculate the true cost of lost items and prevent future losses.",
-      category: "Operations",
-      readTime: "7 min read",
-      date: "2025-01-05",
-      slug: "equipment-tracking-system"
-    },
-    {
-      id: "6",
-      title: "Converting More Quotes to Paid Orders: Proven Email Strategies",
-      excerpt: "Master the art of follow-up emails. Learn timing, messaging, and discount strategies that convert hesitant prospects into confirmed bookings.",
-      category: "Sales",
-      readTime: "11 min read",
-      date: "2025-01-03",
-      slug: "quote-conversion-strategies"
-    },
-    {
-      id: "7",
-      title: "Kitchen Efficiency: Reducing Food Waste While Maintaining Quality",
-      excerpt: "Practical tips to minimize waste in your catering kitchen. Improve prep processes, portion control, and inventory rotation.",
-      category: "Kitchen Management",
-      readTime: "8 min read",
-      date: "2024-12-30",
-      slug: "reduce-kitchen-food-waste"
-    },
-    {
-      id: "8",
-      title: "GPS Tracking for Catering Deliveries: Why It Matters",
-      excerpt: "Discover how real-time delivery tracking improves customer satisfaction, reduces complaints, and increases repeat business.",
-      category: "Technology",
-      readTime: "6 min read",
-      date: "2024-12-28",
-      slug: "gps-tracking-benefits"
-    },
-    {
-      id: "9",
-      title: "Scaling Your Catering Business Without Hiring More Admin Staff",
-      excerpt: "Learn how automation allows you to handle 5x more events with the same team. Real examples from successful catering companies.",
-      category: "Growth",
-      readTime: "10 min read",
-      date: "2024-12-25",
-      slug: "scale-without-more-staff"
-    },
-    {
-      id: "10",
-      title: "The True Cost of Manual Processes in Catering Operations",
-      excerpt: "Calculate hidden costs of Excel spreadsheets, WhatsApp coordination, and manual tracking. See ROI of switching to proper systems.",
-      category: "Cost Management",
-      readTime: "9 min read",
-      date: "2024-12-22",
-      slug: "cost-of-manual-processes"
-    },
-    {
-      id: "11",
-      title: "Client Communication Best Practices for Catering Businesses",
-      excerpt: "Master professional communication from first inquiry to post-event follow-up. Templates and timing strategies included.",
-      category: "Client Relations",
-      readTime: "8 min read",
-      date: "2024-12-20",
-      slug: "client-communication-guide"
-    },
-    {
-      id: "12",
-      title: "Seasonal Catering: Managing Peak Periods Without Burnout",
-      excerpt: "Prepare for busy seasons with smart scheduling, staff management, and workflow optimization. Maintain quality during high-volume periods.",
-      category: "Operations",
-      readTime: "11 min read",
-      date: "2024-12-18",
-      slug: "manage-peak-seasons"
-    },
-    {
-      id: "13",
-      title: "Pricing Strategy for Catering Services: Complete Guide",
-      excerpt: "Set profitable prices that win clients. Learn about cost calculation, competitor analysis, and value-based pricing.",
-      category: "Pricing",
-      readTime: "13 min read",
-      date: "2024-12-15",
-      slug: "catering-pricing-strategy"
-    },
-    {
-      id: "14",
-      title: "Managing Multiple Events Simultaneously: Systems That Work",
-      excerpt: "Coordinate multiple events happening on the same day. Calendar management, team coordination, and equipment allocation strategies.",
-      category: "Operations",
-      readTime: "10 min read",
-      date: "2024-12-12",
-      slug: "manage-multiple-events"
-    },
-    {
-      id: "15",
-      title: "Inventory Management for Catering: Reduce Waste, Increase Profit",
-      excerpt: "Implement proper inventory systems to track ingredients, reduce spoilage, and optimize purchasing. Real cost savings examples.",
-      category: "Inventory",
-      readTime: "9 min read",
-      date: "2024-12-10",
-      slug: "inventory-management-guide"
-    },
-    {
-      id: "16",
-      title: "Building a Reliable Catering Team: Hiring and Training Guide",
-      excerpt: "Recruit, train, and retain quality staff. Create systems that allow your business to run without constant owner supervision.",
-      category: "Team Management",
-      readTime: "12 min read",
-      date: "2024-12-08",
-      slug: "build-reliable-team"
-    },
-    {
-      id: "17",
-      title: "Customer Reviews and Complaints: Turning Negatives Into Positives",
-      excerpt: "Handle complaints professionally and turn unhappy clients into loyal advocates. Systematic approach to issue resolution.",
-      category: "Client Relations",
-      readTime: "7 min read",
-      date: "2024-12-05",
-      slug: "handle-reviews-complaints"
-    },
-    {
-      id: "18",
-      title: "Financial Management for Catering Businesses: Cash Flow Basics",
-      excerpt: "Master cash flow management, understand your numbers, and make data-driven business decisions. Avoid common financial pitfalls.",
-      category: "Finance",
-      readTime: "11 min read",
-      date: "2024-12-03",
-      slug: "financial-management-basics"
-    },
-    {
-      id: "19",
-      title: "Marketing Your Catering Business on a Limited Budget",
-      excerpt: "Cost-effective marketing strategies that work. Social media, referrals, partnerships, and local SEO tactics for catering companies.",
-      category: "Marketing",
-      readTime: "10 min read",
-      date: "2024-12-01",
-      slug: "budget-marketing-strategies"
-    },
-    {
-      id: "20",
-      title: "Technology Stack for Modern Catering Businesses in 2025",
-      excerpt: "Essential software and tools every catering business needs. From order management to accounting, build your complete tech stack.",
-      category: "Technology",
-      readTime: "14 min read",
-      date: "2024-11-28",
-      slug: "essential-catering-technology"
-    }
-  ];
+  const posts = blogPosts as BlogPost[];
+
+  const getExcerpt = (post: BlogPost): string => {
+    const firstParagraph = post.content.find(block => block.type === "paragraph");
+    return firstParagraph?.text?.substring(0, 150) + "..." || post.title;
+  };
+
+  const getCategory = (title: string): string => {
+    if (title.toLowerCase().includes("cost") || title.toLowerCase().includes("profit")) return "Cost Management";
+    if (title.toLowerCase().includes("automat")) return "Automation";
+    if (title.toLowerCase().includes("kitchen")) return "Kitchen Management";
+    if (title.toLowerCase().includes("driver") || title.toLowerCase().includes("delivery")) return "Logistics";
+    if (title.toLowerCase().includes("equipment") || title.toLowerCase().includes("inventory")) return "Inventory";
+    if (title.toLowerCase().includes("client") || title.toLowerCase().includes("customer")) return "Client Relations";
+    if (title.toLowerCase().includes("team") || title.toLowerCase().includes("staff")) return "Team Management";
+    return "Business Strategy";
+  };
+
+  const getReadTime = (post: BlogPost): string => {
+    const wordCount = post.content.reduce((count, block) => {
+      const text = block.text || block.question || block.answer || "";
+      return count + text.split(" ").length;
+    }, 0);
+    const minutes = Math.ceil(wordCount / 200);
+    return `${minutes} min read`;
+  };
 
   const collectionSchema = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": "CaterOS Catering Business Blog",
-    "description": "Expert insights on automation, profitability, and growth for South African catering businesses",
-    "url": "https://cateros.co.za/blog",
+    "name": "CateringMS Catering Business Blog",
+    "description": "Expert insights on automation, profitability, and growth for catering businesses",
+    "url": "https://cateringms.com/blog",
     "publisher": {
       "@type": "Organization",
-      "name": "CaterOS",
-      "url": "https://cateros.co.za"
+      "name": "CateringMS",
+      "url": "https://cateringms.com"
     }
   };
 
   const itemListSchema = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "itemListElement": blogPosts.slice(0, 10).map((post, index) => ({
+    "itemListElement": posts.slice(0, 10).map((post, index) => ({
       "@type": "ListItem",
       "position": index + 1,
-      "url": `https://cateros.co.za/blog/${post.slug}`,
+      "url": `https://cateringms.com/blog/${post.slug}`,
       "name": post.title,
-      "description": post.excerpt
+      "description": getExcerpt(post)
     }))
   };
 
-  const categories = ["All", "Cost Management", "Automation", "Profitability", "Operations", "Sales", "Technology", "Growth"];
+  const categories = ["All", "Cost Management", "Automation", "Kitchen Management", "Logistics", "Inventory", "Client Relations"];
 
   return (
     <>
       <Head>
         <title>Catering Business Insights - CateringMS Blog</title>
-        <meta name="description" content="Expert insights on automation, profitability, and growth for South African catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
+        <meta name="description" content="Expert insights on automation, profitability, and growth for catering businesses. Learn strategies to reduce costs, increase margins, and scale operations." />
         <meta name="keywords" content="catering business tips, catering automation, increase catering profits, catering operations, catering business growth" />
-        <link rel="canonical" href="https://cateros.co.za/blog" />
+        <link rel="canonical" href="https://cateringms.com/blog" />
         
         <script
           type="application/ld+json"
@@ -246,12 +98,14 @@ export default function BlogPage() {
         />
       </Head>
 
+      <Header />
+
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <Link href="/">
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back to Home
             </Button>
           </Link>
 
@@ -260,7 +114,7 @@ export default function BlogPage() {
               Catering Business Blog
             </h1>
             <p className="text-xl text-slate-600 max-w-3xl">
-              Expert insights on automation, profitability, and growth for South African catering businesses
+              Expert insights on automation, profitability, and growth for catering businesses
             </p>
           </div>
 
@@ -290,28 +144,37 @@ export default function BlogPage() {
               </div>
 
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {blogPosts.map((post) => (
-                    <Link href={`/blog/${post.slug}`} key={post.id}>
-                      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {posts.map((post) => (
+                    <Link href={`/blog/${post.slug}`} key={post.slug}>
+                      <Card className="h-full hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden group">
+                        <div className="relative h-48 w-full overflow-hidden">
+                          <Image 
+                            src={post.image} 
+                            alt={post.title}
+                            layout="fill"
+                            objectFit="cover"
+                            className="group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
                         <CardHeader>
                           <Badge variant="secondary" className="w-fit mb-2">
-                            {post.category}
+                            {getCategory(post.title)}
                           </Badge>
-                          <CardTitle className="text-xl hover:text-orange-600 transition-colors">
+                          <CardTitle className="text-xl group-hover:text-orange-600 transition-colors">
                             {post.title}
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-gray-600 mb-4">{post.excerpt}</p>
+                          <p className="text-gray-600 mb-4 line-clamp-3">{getExcerpt(post)}</p>
                           <div className="flex items-center justify-between text-sm text-gray-500">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4" />
-                              {new Date(post.date).toLocaleDateString("en-ZA")}
+                              {new Date(post.date).toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}
                             </div>
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              {post.readTime}
+                              {getReadTime(post)}
                             </div>
                           </div>
                         </CardContent>
@@ -330,19 +193,19 @@ export default function BlogPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-700">Cost Reduction</span>
-                    <Badge className="bg-purple-100 text-purple-700">12 posts</Badge>
+                    <Badge className="bg-purple-100 text-purple-700">5 posts</Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">Automation</span>
-                    <Badge className="bg-blue-100 text-blue-700">8 posts</Badge>
+                    <span className="text-slate-700">Kitchen Management</span>
+                    <Badge className="bg-blue-100 text-blue-700">3 posts</Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">Profitability</span>
-                    <Badge className="bg-green-100 text-green-700">10 posts</Badge>
+                    <span className="text-slate-700">Logistics</span>
+                    <Badge className="bg-green-100 text-green-700">2 posts</Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">Operations</span>
-                    <Badge className="bg-orange-100 text-orange-700">15 posts</Badge>
+                    <span className="text-slate-700">Equipment</span>
+                    <Badge className="bg-orange-100 text-orange-700">3 posts</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -355,24 +218,16 @@ export default function BlogPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                      How to Reduce Costs by 40%
-                    </h4>
-                    <p className="text-xs text-slate-600">2.4k reads</p>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                      Automation Complete Guide
-                    </h4>
-                    <p className="text-xs text-slate-600">1.8k reads</p>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm hover:text-purple-600 cursor-pointer">
-                      Increasing Profit Margins
-                    </h4>
-                    <p className="text-xs text-slate-600">1.5k reads</p>
-                  </div>
+                  {posts.slice(0, 3).map((post) => (
+                    <Link href={`/blog/${post.slug}`} key={post.slug}>
+                      <div className="space-y-2 cursor-pointer">
+                        <h4 className="font-semibold text-sm hover:text-purple-600 transition-colors line-clamp-2">
+                          {post.title}
+                        </h4>
+                        <p className="text-xs text-slate-600">{new Date(post.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                      </div>
+                    </Link>
+                  ))}
                 </CardContent>
               </Card>
 
