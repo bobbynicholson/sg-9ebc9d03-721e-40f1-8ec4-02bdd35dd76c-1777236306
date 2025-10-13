@@ -953,16 +953,18 @@ export const driverService = {
         venue_address: string | null;
     }
 
-    const { data: order, error: orderError } = await supabase
+    const { data, error: orderError } = await supabase
       .from("orders")
       .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
-      .single<OrderProximityInfo>();
+      .single();
 
-    if (orderError || !order) {
+    if (orderError || !data) {
        if(orderError) console.error("Error fetching order for proximity check:", orderError.message);
       return;
     }
+
+    const order = data as OrderProximityInfo;
 
     if (!order.venue_lat || !order.venue_lng) return;
 
