@@ -17,6 +17,13 @@ interface Post {
   author: string;
   date: string;
   image: string;
+  imageCredit?: {
+    photographer: string;
+    photographerUrl: string;
+    photoUrl: string;
+    license: string;
+    licenseUrl: string;
+  };
   content: ContentBlock[];
 }
 
@@ -145,6 +152,41 @@ const PostPage = ({ post }: PostProps) => {
             <div className="relative w-full h-64 md:h-96 rounded-2xl overflow-hidden mb-8 shadow-lg">
               <Image src={post.image} alt={post.title} layout="fill" objectFit="cover" />
             </div>
+
+            {post.imageCredit && (
+              <div className="text-sm text-slate-600 mb-8 pb-6 border-b border-slate-200">
+                <p>
+                  Photo by{" "}
+                  <a 
+                    href={post.imageCredit.photographerUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-800 font-medium underline"
+                  >
+                    {post.imageCredit.photographer}
+                  </a>
+                  {" "}on{" "}
+                  <a 
+                    href={post.imageCredit.photoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-800 font-medium underline"
+                  >
+                    Unsplash
+                  </a>
+                  {" "}({" "}
+                  <a 
+                    href={post.imageCredit.licenseUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-purple-600 hover:text-purple-800 font-medium underline"
+                  >
+                    {post.imageCredit.license}
+                  </a>
+                  {" "})
+                </p>
+              </div>
+            )}
 
             <div className="prose prose-lg max-w-none">
               {post.content.map(renderContentBlock)}
