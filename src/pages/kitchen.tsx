@@ -80,9 +80,10 @@ export default function KitchenPage() {
 
     const stored = localStorage.getItem("kitchen_orders");
     setOrders(stored ? JSON.parse(stored) : mockOrders);
+    localStorage.setItem("kitchen_orders", JSON.stringify(stored ? JSON.parse(stored) : mockOrders));
   }, []);
 
-  const handleUpdateStatus = (orderId: string, newStatus: Order["status"]) => {
+  const handleUpdateStatus = (orderId: string, newStatus: AppOrder["status"]) => {
     const updated = orders.map((order) =>
       order.id === orderId ? { ...order, status: newStatus } : order
     );
@@ -95,7 +96,7 @@ export default function KitchenPage() {
     setSelectedOrder(order || null);
   };
 
-  const getStatusColor = (status: Order["status"]) => {
+  const getStatusColor = (status: AppOrder["status"]) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
       confirmed: "bg-blue-100 text-blue-800 border-blue-200",

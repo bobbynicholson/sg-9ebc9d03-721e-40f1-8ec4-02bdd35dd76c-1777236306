@@ -1,4 +1,4 @@
-import type { AppOrder, Delivery, Lead, Quote, InventoryItem } from "@/types";
+import type { AppOrder, Delivery, Lead, Quote, InventoryItem, Payment } from "@/types";
 import { addDays, subDays } from "date-fns";
 
 export const mockLeads: Lead[] = [

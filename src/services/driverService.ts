@@ -323,19 +323,17 @@ export const driverService = {
 
     const assignedOrderIds = (assignedOrders || []).map(a => a.order_id).filter(Boolean);
 
-    if (assignedOrderIds.length > 0) {
-      query = query.not('id', 'in', `(${assignedOrderIds.join(',')})`);
-    }
-
     const { data, error } = await query.order("event_date");
-
+    
     if (error) {
       console.error("Error fetching available jobs:", error);
       return [];
     }
 
+    const availableOrders = (data || []).filter(order => !assignedOrderIds.includes(order.id));
+
     // Map snake_case to camelCase
-    return (data || []).map((order): AppOrder => ({
+    return availableOrders.map((order): AppOrder => ({
       id: order.id,
       quoteId: order.quote_id || '',
       client: order.client_name || '',

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, MessageCircleQuestion, Lightbulb, User, Calendar } from "lucide-react";
-import posts from "@/lib/blog.json";
+import blogPosts from "@/lib/blog.json";
 import Link from "next/link";
 
 interface Post {
@@ -158,6 +158,7 @@ const PostPage = ({ post }: PostProps) => {
 };
 
 export const getStaticPaths: GetStaticPaths<Params> = async () => {
+  const posts = blogPosts as Post[];
   const paths = posts.map((post) => ({
     params: { slug: post.slug },
   }));
@@ -166,6 +167,7 @@ export const getStaticPaths: GetStaticPaths<Params> = async () => {
 };
 
 export const getStaticProps: GetStaticProps<PostProps, Params> = async ({ params }) => {
+  const posts = blogPosts as Post[];
   const post = posts.find((p) => p.slug === params!.slug);
 
   if (!post) {
