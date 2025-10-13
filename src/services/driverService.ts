@@ -426,7 +426,7 @@ export const driverService = {
   async startEquipmentChecklist(assignmentId: string): Promise<any> {
     const { data: assignment } = await supabase
       .from("driver_assignments")
-      .select("*, orders(id, order_number, cutlery_count, crockery_count, menu_items, special_instructions)")
+      .select("*, orders(id, order_number, equipment_items, menu_items, special_instructions)")
       .eq("id", assignmentId)
       .single();
 
@@ -436,11 +436,21 @@ export const driverService = {
 
     const order = assignment.orders as any;
 
+    const equipmentItems = Array.isArray(order.equipment_items) ? order.equipment_items : [];
+
+    const cutleryCount = equipmentItems
+      .filter((item: any) => item.category === 'cutlery')
+      .reduce((sum: number, item: any) => sum + item.quantity, 0);
+
+    const crockeryCount = equipmentItems
+      .filter((item: any) => item.category === 'crockery')
+      .reduce((sum: number, item: any) => sum + item.quantity, 0);
+
     return {
       orderId: order.id,
       orderNumber: order.order_number,
-      cutleryRequired: order.cutlery_count || 0,
-      crockeryRequired: order.crockery_count || 0,
+      cutleryRequired: cutleryCount,
+      crockeryRequired: crockeryCount,
       menuItems: order.menu_items || [],
       specialInstructions: order.special_instructions,
     };
@@ -633,7 +643,7 @@ export const driverService = {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, user_id, client_id, cutlery_count, crockery_count")
+      .select("id, user_id, client_id, equipment_items")
       .eq("id", assignment.order_id)
       .single();
 
@@ -641,6 +651,16 @@ export const driverService = {
         console.error("Error fetching order for collection:", orderError);
         throw new Error("Order not found for assignment");
     }
+
+    const equipmentItems = Array.isArray(order.equipment_items) ? order.equipment_items : [];
+
+    const cutleryCount = equipmentItems
+      .filter((item: any) => item.category === 'cutlery')
+      .reduce((sum: number, item: any) => sum + item.quantity, 0);
+
+    const crockeryCount = equipmentItems
+      .filter((item: any) => item.category === 'crockery')
+      .reduce((sum: number, item: any) => sum + item.quantity, 0);
 
     const shortages = [];
 

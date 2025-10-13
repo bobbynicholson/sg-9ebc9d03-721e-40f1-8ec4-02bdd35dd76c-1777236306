@@ -186,6 +186,7 @@ export interface AppOrder {
   waiterRate?: number;
   deliveryDistance?: number;
   deliveryRate?: number;
+  region_id?: string;
 }
 
 export interface OrderModification {

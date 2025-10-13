@@ -74,6 +74,7 @@ export default function JobProgressOverviewPage() {
         total: 38700,
         totalAmount: 38700,
         createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        region_id: "cpt",
       },
       {
         id: "ORD-002",
@@ -93,6 +94,7 @@ export default function JobProgressOverviewPage() {
         total: 28000,
         totalAmount: 28000,
         createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+        region_id: "cpt",
       },
       {
         id: "ORD-003",
@@ -101,9 +103,9 @@ export default function JobProgressOverviewPage() {
         clientName: "Emma Thompson",
         eventDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
         date: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        venue: "Mountain View Lodge",
-        location: "78 Hill Road, Stellenbosch",
-        eventLocation: "78 Hill Road, Stellenbosch",
+        venue: "Sandton Convention Centre",
+        location: "Maude St, Sandton, Johannesburg",
+        eventLocation: "Maude St, Sandton, Johannesburg",
         guestCount: 200,
         menuItems: [],
         equipmentItems: [],
@@ -112,6 +114,7 @@ export default function JobProgressOverviewPage() {
         total: 52000,
         totalAmount: 52000,
         createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+        region_id: "jhb",
       },
       {
         id: "ORD-004",
@@ -120,9 +123,9 @@ export default function JobProgressOverviewPage() {
         clientName: "David Wilson",
         eventDate: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
         date: new Date(Date.now() + 86400000 * 5).toISOString().split("T")[0],
-        venue: "Garden Estate",
-        location: "90 Valley Road, Franschhoek",
-        eventLocation: "90 Valley Road, Franschhoek",
+        venue: "Durban ICC",
+        location: "Inkosi Albert Luthuli ICC Complex, Durban",
+        eventLocation: "Inkosi Albert Luthuli ICC Complex, Durban",
         guestCount: 120,
         menuItems: [],
         equipmentItems: [],
@@ -131,6 +134,7 @@ export default function JobProgressOverviewPage() {
         total: 42000,
         totalAmount: 42000,
         createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+        region_id: "dbn",
       },
       {
         id: "ORD-005",
@@ -150,6 +154,7 @@ export default function JobProgressOverviewPage() {
         total: 78000,
         totalAmount: 78000,
         createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+        region_id: "cpt",
       },
     ];
 
@@ -159,12 +164,12 @@ export default function JobProgressOverviewPage() {
   }, []);
 
   const loadRegions = async () => {
-    // Load regions from mock data for now
+    // This would typically fetch from a service
     const mockRegions = [
-      { id: "all", name: "All Regions" },
-      { id: "cpt", name: "Cape Town" },
-      { id: "jhb", name: "Johannesburg" },
-      { id: "dbn", name: "Durban" }
+      { id: "all", name: "All Regions", code: "ALL" },
+      { id: "cpt", name: "Cape Town", code: "CPT" },
+      { id: "jhb", name: "Johannesburg", code: "JHB" },
+      { id: "dbn", name: "Durban", code: "DBN" }
     ];
     setRegions(mockRegions);
   };
@@ -261,7 +266,7 @@ export default function JobProgressOverviewPage() {
     const matchesFilter = filterStatus === "all" || order.status === filterStatus;
     
     const matchesRegion = selectedRegion === "all" || 
-      (order as any).region_id === selectedRegion;
+      order.region_id === selectedRegion;
 
     return matchesSearch && matchesFilter && matchesRegion;
   }).slice(0, itemsPerPage);
