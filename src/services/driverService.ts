@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { AppOrder } from "@/types";
 import { Order } from "./orderService";
 
@@ -499,7 +500,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id")
+        .select("user_id, client_id, order_number")
         .eq("id", assignment.order_id)
         .single();
 
@@ -511,6 +512,19 @@ export const driverService = {
           title: "Delivery Started",
           message: "GPS tracking activated. Drive safely!",
           priority: "high",
+        });
+
+        const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/tracking/client?order=${assignment.order_id}`;
+        
+        await whatsappIntegrationService.sendWhatsAppMessage({
+          to: orderDetails.client_id || orderDetails.user_id,
+          type: "text",
+          text: {
+            body: `🚗 Your driver has left the kitchen!\n\n` +
+                  `Order #${orderDetails.order_number}\n\n` +
+                  `Track your delivery live with GPS:\n${trackingUrl}\n\n` +
+                  `You'll receive updates when the driver is near and when they arrive. Have a great event! 🎉`
+          }
         });
       }
     }
@@ -547,7 +561,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id")
+        .select("user_id, client_id, order_number")
         .eq("id", assignment.order_id)
         .single();
 
@@ -559,6 +573,16 @@ export const driverService = {
           title: "Arrived at Venue",
           message: "You have arrived at the delivery location",
           priority: "medium",
+        });
+
+        await whatsappIntegrationService.sendWhatsAppMessage({
+          to: orderDetails.client_id || orderDetails.user_id,
+          type: "text",
+          text: {
+            body: `📍 Your driver has arrived at the venue!\n\n` +
+                  `Order #${orderDetails.order_number}\n\n` +
+                  `Your order is being delivered now. Enjoy your event! 🎉`
+          }
         });
       }
     }
@@ -884,7 +908,7 @@ export const driverService = {
         started_trip_to_kitchen_at: new Date().toISOString(),
       })
       .eq("id", assignmentId)
-      .select("*, orders(id, user_id, order_number)")
+      .select("*, orders(id, user_id, order_number, client_id)")
       .single();
 
     if (error) {
@@ -907,5 +931,59 @@ export const driverService = {
     }
 
     return assignment;
+  },
+
+  async markArrivedAtKitchen(assignmentId: string): Promise<DriverAssignment | null> {
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .update({
+        status: "at_kitchen",
+        arrived_at_kitchen: new Date().toISOString(),
+      })
+      .eq("id", assignmentId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error marking arrived at kitchen:", error);
+      throw error;
+    }
+
+    const { data: assignment } = await supabase
+      .from("driver_assignments")
+      .select("order_id, driver_id")
+      .eq("id", assignmentId)
+      .single();
+
+    if (assignment) {
+      const { data: orderDetails } = await supabase
+        .from("orders")
+        .select("user_id, client_id, order_number")
+        .eq("id", assignment.order_id)
+        .single();
+
+      if (orderDetails) {
+        await supabase.from("notifications").insert({
+          user_id: orderDetails.user_id,
+          recipient_id: assignment.driver_id,
+          notification_type: "driver_at_kitchen",
+          title: "Driver at Kitchen",
+          message: "Driver has arrived at the kitchen and is collecting the order",
+          priority: "medium",
+        });
+
+        await whatsappIntegrationService.sendWhatsAppMessage({
+          to: orderDetails.client_id || orderDetails.user_id,
+          type: "text",
+          text: {
+            body: `👨‍🍳 Your driver has arrived at the kitchen!\n\n` +
+                  `Order #${orderDetails.order_number}\n\n` +
+                  `Your order is being collected and prepared for delivery. You'll receive another update when the driver departs. 📦`
+          }
+        });
+      }
+    }
+
+    return data;
   },
 };
