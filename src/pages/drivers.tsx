@@ -110,7 +110,6 @@ export default function DriversPage() {
         client_phone: null,
         currency: "ZAR",
         event_time: "18:00",
-        internal_notes: null,
         payment_terms: null,
         region_id: null,
         rejection_reason: null,
