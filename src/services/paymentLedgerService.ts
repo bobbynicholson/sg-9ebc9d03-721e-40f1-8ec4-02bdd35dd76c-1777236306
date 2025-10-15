@@ -5,6 +5,37 @@ import type { Database } from "@/integrations/supabase/types";
 type StaffPaymentLedger = Database["public"]["Tables"]["staff_payment_ledger"]["Row"];
 
 export const paymentLedgerService = {
+  /**
+   * Get payment ledger summary for dashboard
+   */
+  async getPaymentLedger() {
+    try {
+      // Get all unpaid work sessions
+      const { data: unpaidSessions, error } = await supabase
+        .from("staff_work_sessions")
+        .select("*, staff:profiles!staff_work_sessions_staff_id_fkey(id, full_name, role)")
+        .eq("payment_status", "unpaid");
+
+      if (error) {
+        console.error("Error fetching unpaid sessions:", error);
+        return { totalOwed: 0, unpaidSessions: [] };
+      }
+
+      const totalOwed = (unpaidSessions || []).reduce((sum, session) => {
+        return sum + Number(session.total_earnings || 0);
+      }, 0);
+
+      return {
+        totalOwed: Math.round(totalOwed * 100) / 100,
+        unpaidSessions: unpaidSessions || [],
+        staffCount: new Set((unpaidSessions || []).map(s => s.staff_id)).size
+      };
+    } catch (error) {
+      console.error("Error getting payment ledger:", error);
+      return { totalOwed: 0, unpaidSessions: [] };
+    }
+  },
+
   async recordPayment(
     staffId: string,
     paymentData: {

@@ -19,6 +19,118 @@ export interface CashflowAlert {
 
 export const aiFinancialService = {
   /**
+   * Get predictive analytics for dashboard
+   */
+  async getPredictiveAnalytics() {
+    try {
+      const predictions = await this.generatePredictions(90);
+      
+      return {
+        predictions,
+        summary: {
+          avgRevenue: predictions.reduce((sum, p) => sum + p.predicted_revenue, 0) / predictions.length,
+          avgCashflow: predictions.reduce((sum, p) => sum + p.predicted_cashflow, 0) / predictions.length,
+          highRiskDays: predictions.filter(p => p.risk_level === "high").length,
+          confidence: predictions.reduce((sum, p) => sum + p.confidence_score, 0) / predictions.length
+        }
+      };
+    } catch (error) {
+      console.error("Error getting predictive analytics:", error);
+      return {
+        predictions: [],
+        summary: {
+          avgRevenue: 0,
+          avgCashflow: 0,
+          highRiskDays: 0,
+          confidence: 0
+        }
+      };
+    }
+  },
+
+  /**
+   * Generate cash flow alerts for dashboard
+   */
+  async generateCashFlowAlerts(data: {
+    currentCashFlow: number;
+    projectedRevenue30Days: number;
+    upcomingExpenses: number;
+    orders: any[];
+  }) {
+    const alerts: Array<{
+      severity: "high" | "medium" | "low";
+      message: string;
+      suggestedAction: string;
+      predictedDate?: string;
+    }> = [];
+
+    // Check current cash flow
+    if (data.currentCashFlow < 0) {
+      alerts.push({
+        severity: "high",
+        message: "Negative Cash Flow Alert",
+        suggestedAction: "Immediately review outstanding invoices and delay non-essential expenses. Consider contacting clients for early payment.",
+        predictedDate: new Date().toISOString()
+      });
+    } else if (data.currentCashFlow < data.upcomingExpenses * 0.5) {
+      alerts.push({
+        severity: "medium",
+        message: "Low Cash Flow Warning",
+        suggestedAction: "Cash reserves are below recommended levels. Focus on collecting pending payments and manage expenses carefully.",
+        predictedDate: new Date().toISOString()
+      });
+    }
+
+    // Check upcoming revenue vs expenses
+    const cashFlowRatio = data.projectedRevenue30Days / (data.upcomingExpenses || 1);
+    if (cashFlowRatio < 1.2) {
+      const predictedDate = new Date();
+      predictedDate.setDate(predictedDate.getDate() + 15);
+      
+      alerts.push({
+        severity: cashFlowRatio < 1 ? "high" : "medium",
+        message: "Tight Cash Flow Expected",
+        suggestedAction: "Your projected revenue is close to your upcoming expenses. Consider rescheduling non-urgent expenses or accelerating payment collection.",
+        predictedDate: predictedDate.toISOString()
+      });
+    }
+
+    // Check for seasonal slow periods
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    if (currentMonth >= 0 && currentMonth <= 1) {
+      alerts.push({
+        severity: "low",
+        message: "Seasonal Slow Period",
+        suggestedAction: "January-February typically sees lower bookings. Use this time for marketing, equipment maintenance, and planning for peak season.",
+        predictedDate: now.toISOString()
+      });
+    }
+
+    // Check for upcoming peak season
+    if (currentMonth >= 3 && currentMonth <= 4) {
+      alerts.push({
+        severity: "low",
+        message: "Peak Season Approaching",
+        suggestedAction: "Wedding season (May-September) is approaching. Ensure adequate inventory, staff availability, and equipment maintenance.",
+        predictedDate: new Date(now.getFullYear(), 4, 1).toISOString()
+      });
+    }
+
+    // Good financial health
+    if (data.currentCashFlow > data.upcomingExpenses * 2 && cashFlowRatio > 1.5) {
+      alerts.push({
+        severity: "low",
+        message: "Strong Financial Position",
+        suggestedAction: "Excellent cash flow! Consider investing in equipment upgrades, marketing campaigns, or building cash reserves for slower periods.",
+        predictedDate: now.toISOString()
+      });
+    }
+
+    return alerts;
+  },
+
+  /**
    * Generate financial predictions for next 90 days
    */
   async generatePredictions(daysAhead: number = 90): Promise<FinancialPrediction[]> {

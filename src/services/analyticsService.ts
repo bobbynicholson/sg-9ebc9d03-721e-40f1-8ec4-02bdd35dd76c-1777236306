@@ -43,6 +43,87 @@ interface RevenueByPeriod {
 }
 
 export const analyticsService = {
+  /**
+   * Get financial analytics for client dashboard (catering company specific)
+   */
+  async getFinancialAnalytics() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get orders for current user
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (ordersError) {
+        console.error("Error fetching orders:", ordersError);
+        return this.getEmptyFinancialAnalytics();
+      }
+
+      // Get payment ledger data
+      const { data: paymentLedger, error: ledgerError } = await supabase
+        .from("staff_work_sessions")
+        .select("*")
+        .eq("payment_status", "unpaid");
+
+      if (ledgerError) {
+        console.error("Error fetching payment ledger:", ledgerError);
+      }
+
+      // Calculate analytics
+      const totalRevenue = (orders || [])
+        .filter(o => o.payment_status === "paid")
+        .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
+
+      const pendingRevenue = (orders || [])
+        .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
+        .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
+
+      const totalOrders = orders?.length || 0;
+      const completedOrders = orders?.filter(o => o.status === "completed").length || 0;
+      const upcomingOrders = orders?.filter(o => {
+        const eventDate = new Date(o.event_date);
+        return eventDate > new Date() && o.status !== "cancelled";
+      }).length || 0;
+
+      const staffPaymentsOwed = (paymentLedger || [])
+        .reduce((sum, session) => sum + Number(session.total_earnings || 0), 0);
+
+      return {
+        totalRevenue,
+        pendingRevenue,
+        totalOrders,
+        completedOrders,
+        upcomingOrders,
+        staffPaymentsOwed,
+        averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+        completionRate: totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0
+      };
+    } catch (error) {
+      console.error("Error fetching financial analytics:", error);
+      return this.getEmptyFinancialAnalytics();
+    }
+  },
+
+  /**
+   * Return empty analytics when data unavailable
+   */
+  getEmptyFinancialAnalytics() {
+    return {
+      totalRevenue: 0,
+      pendingRevenue: 0,
+      totalOrders: 0,
+      completedOrders: 0,
+      upcomingOrders: 0,
+      staffPaymentsOwed: 0,
+      averageOrderValue: 0,
+      completionRate: 0
+    };
+  },
+
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     try {
       const { data: subscriptions, error } = await supabase
