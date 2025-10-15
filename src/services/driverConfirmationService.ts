@@ -180,27 +180,17 @@ export const driverConfirmationService = {
 
     if (!driver || !order) return;
 
-    // Send notification to admin
-    await notificationService.createNotification({
+    // Send notification to admin (using realtime service)
+    await realtimeNotificationService.sendNotification({
+      userId: driverId,
+      recipientId: 'admin',
+      type: 'system_alert',
       title: '⚠️ Driver Not En-Route',
       message: `${driver.full_name} has not confirmed en-route for Order #${order.order_number}. Function time: ${order.event_time}`,
-      type: 'alert',
-      link: `/orders`,
-      recipient_id: 'admin', // Or a specific admin user ID
-      metadata: { orderId, driverId }
-    });
-
-    // Send realtime alert to admin dashboard
-    await realtimeNotificationService.sendNotification({
-      channelName: 'admin',
-      event: 'driver_not_confirmed',
-      payload: {
-        orderId,
-        driverId,
-        driverName: driver.full_name,
-        orderNumber: order.order_number,
-        eventTime: order.event_time
-      }
+      priority: 'high',
+      orderId: orderId,
+      actionUrl: `/admin/order-assignments?orderId=${orderId}`,
+      metadata: { driverId, orderNumber: order.order_number }
     });
   },
 
@@ -276,16 +266,15 @@ export const driverConfirmationService = {
     };
 
     await realtimeNotificationService.sendNotification({
-      channelName: 'admin',
-      event: 'driver_status_update',
-      payload: {
-        orderId,
-        driverId,
-        driverName: driver.full_name,
-        orderNumber: order.order_number,
-        confirmationType,
-        message: messages[confirmationType as keyof typeof messages]
-      }
+      userId: driverId,
+      recipientId: 'admin',
+      type: 'delivery_started', // Using a relevant type
+      title: 'Driver Status Update',
+      message: messages[confirmationType as keyof typeof messages],
+      priority: 'medium',
+      orderId: orderId,
+      actionUrl: `/admin/order-assignments?orderId=${orderId}`,
+      metadata: { driverId, orderNumber: order.order_number, confirmationType }
     });
   },
 

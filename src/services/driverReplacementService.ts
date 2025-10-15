@@ -178,26 +178,16 @@ export const driverReplacementService = {
 
     if (!request) return;
 
-    await notificationService.createNotification({
-      title: '🚨 Driver Replacement Requested',
-      message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Reason: ${request.reason}`,
-      type: 'alert',
-      link: `/admin/order-assignments`,
-      recipient_id: 'admin', // Or specific admin user ID
-      metadata: { requestId, orderId: request.order_id }
-    });
-
     await realtimeNotificationService.sendNotification({
-      channelName: 'admin',
-      event: 'driver_replacement_requested',
-      payload: {
-        requestId,
-        orderId: request.order_id,
-        originalDriverName: request.profiles?.full_name,
-        orderNumber: request.orders?.order_number,
-        eventDate: request.orders?.event_date,
-        reason: request.reason
-      }
+      userId: request.original_driver_id,
+      recipientId: 'admin',
+      type: 'system_alert',
+      title: '🚨 Driver Replacement Requested',
+      message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
+      priority: 'urgent',
+      orderId: request.order_id,
+      actionUrl: '/admin/order-assignments',
+      metadata: { requestId, orderId: request.order_id }
     });
   },
 
