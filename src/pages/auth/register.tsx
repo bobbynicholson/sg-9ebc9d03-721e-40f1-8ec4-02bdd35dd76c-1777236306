@@ -58,13 +58,14 @@ export default function RegisterPage() {
     }
 
     try {
-      // Register with Supabase
+      // BUG FIX #4: Pass phone number in metadata to ensure it's saved
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
         "client", // Default role for new registrations
-        formData.currency
+        formData.currency,
+        formData.phone // BUG FIX: Add phone parameter
       );
 
       if (signUpError) {

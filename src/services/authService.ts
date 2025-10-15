@@ -72,7 +72,8 @@ export const authService = {
     password: string, 
     fullName: string, 
     role: string, 
-    currency: string
+    currency: string,
+    phone?: string // BUG FIX #4: Add phone parameter
   ): Promise<{ user: AuthUser | null; error: AuthError | null }> {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -82,7 +83,8 @@ export const authService = {
           data: {
             full_name: fullName,
             role: role,
-            currency: currency
+            currency: currency,
+            phone: phone || null // BUG FIX #4: Include phone in user metadata
           }
         }
       });
@@ -104,6 +106,24 @@ export const authService = {
           user: null, 
           error: { message: "Profile creation failed. Please try again or contact support." } 
         };
+      }
+
+      // BUG FIX #5: Ensure profile has valid subscription_status
+      // Update profile with phone and ensure subscription fields are set
+      try {
+        const profile = await profileService.getProfile(data.user.id);
+        if (profile && (!profile.phone || !profile.subscription_status)) {
+          await profileService.updateProfile(data.user.id, {
+            phone: phone || null,
+            phone_number: phone || null,
+            subscription_status: profile.subscription_status || "trial", // BUG FIX #5: Ensure valid status
+            subscription_plan: profile.subscription_plan || "free",
+            trial_ends_at: profile.trial_ends_at || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
+      } catch (updateError) {
+        console.error("Error updating profile after creation:", updateError);
+        // Don't fail registration if profile update fails
       }
 
       // Now safely initialize onboarding data
