@@ -66,7 +66,10 @@ export const authService = {
         email,
         password,
         options: {
-          emailRedirectTo: `${getURL()}auth/confirm-email`
+          emailRedirectTo: `${getURL()}auth/confirm-email`,
+          data: {
+            full_name: fullName
+          }
         }
       });
 
