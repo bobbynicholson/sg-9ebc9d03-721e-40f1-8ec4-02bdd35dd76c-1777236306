@@ -118,19 +118,19 @@ export default function RegisterPage() {
         <Card className="w-full max-w-md border-0 shadow-2xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6">
-              <Mail className="w-10 h-10 text-white" />
+              <CheckCircle className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Check Your Email!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Account Created Successfully!</h2>
             <p className="text-slate-600 mb-4">
-              We&apos;ve sent a confirmation email to <strong>{formData.email}</strong>
+              Your account has been created for <strong>{formData.email}</strong>
             </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-blue-800">
-                <strong>Important:</strong> Please click the confirmation link in your email to activate your account before signing in.
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-green-800">
+                <strong>Success!</strong> You can now sign in to your account immediately.
               </p>
             </div>
             <p className="text-sm text-slate-500">
-              Your account will be created with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency.
+              Your account is set up with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency and includes a 14-day free trial.
             </p>
             <p className="text-xs text-slate-400 mt-4">Redirecting to login in 3 seconds...</p>
           </CardContent>
