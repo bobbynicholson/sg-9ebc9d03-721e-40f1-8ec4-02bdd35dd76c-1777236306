@@ -58,6 +58,21 @@ export const whatsappTemplateService = {
   },
 
   /**
+   * Send game invitation to client while waiting for driver
+   */
+  async sendGameInvitation(clientPhone: string, orderNumber: string, clientName?: string) {
+    const gameUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/client-portal?game=true`;
+    
+    const message = `🎮 Hi${clientName ? ' ' + clientName : ''}!\n\n` +
+                   `While you wait for your driver (Order #${orderNumber}), why not have some fun?\n\n` +
+                   `Play our Catering Dash game and compete for a spot on the leaderboard! 🏆\n\n` +
+                   `🎯 Click here to play: ${gameUrl}\n\n` +
+                   `Challenge: Can you beat the Top 10? 😊`;
+
+    return message;
+  },
+
+  /**
    * Update template content
    */
   async updateTemplate(id: string, updates: Partial<WhatsAppTemplate>) {

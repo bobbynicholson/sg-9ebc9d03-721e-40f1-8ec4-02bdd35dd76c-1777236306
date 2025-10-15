@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppOrder } from "@/types";
-import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck, ShoppingCart } from "lucide-react";
+import { User, Calendar, MapPin, Package, Clock, CheckCircle, Truck, ShoppingCart, Gamepad2 } from "lucide-react";
 import Link from "next/link";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
 import { Footer } from "@/components/Footer";
@@ -13,12 +13,14 @@ import { CreditCard, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
+import { CateringDashGame } from "@/components/games/CateringDashGame";
 
 export default function ClientPortalPage() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("active");
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showGame, setShowGame] = useState(false);
 
   useEffect(() => {
     const mockOrders: AppOrder[] = [
@@ -186,11 +188,20 @@ export default function ClientPortalPage() {
               <p className="text-slate-600">Track your catering orders</p>
             </div>
           </div>
-          <Link href="/quotes/new">
-            <Button className="bg-gradient-to-r from-blue-500 to-blue-600">
-              Request New Quote
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowGame(true)}
+              className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+            >
+              <Gamepad2 className="w-4 h-4 mr-2" />
+              Play Game
             </Button>
-          </Link>
+            <Link href="/quotes/new">
+              <Button className="bg-gradient-to-r from-blue-500 to-blue-600">
+                Request New Quote
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {paymentError && (
@@ -436,6 +447,8 @@ export default function ClientPortalPage() {
       </div>
       
       <Footer />
+      
+      {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
     </div>
   );
 }
