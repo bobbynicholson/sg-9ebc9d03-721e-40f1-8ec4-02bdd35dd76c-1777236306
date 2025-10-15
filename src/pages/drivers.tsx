@@ -15,7 +15,8 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  Settings
+  Settings,
+  Gamepad2
 } from "lucide-react";
 import { Quote } from "@/types";
 import { DriverEarnings } from "@/components/DriverEarnings";
@@ -23,6 +24,7 @@ import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { CateringDashGame } from "@/components/games/CateringDashGame";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
@@ -37,6 +39,7 @@ export default function DriversPage() {
   const [driverName] = useState("James Wilson");
   const [selectedJob, setSelectedJob] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGame, setShowGame] = useState(false);
   
   const [hourlyRate, setHourlyRate] = useState(150);
   const [perKmRate, setPerKmRate] = useState(8);
@@ -187,14 +190,24 @@ export default function DriversPage() {
                 <p className="text-slate-600 mt-1">Welcome back, {driverName}</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => setShowSettings(!showSettings)}
-              className="gap-2"
-            >
-              <Settings className="w-4 h-4" />
-              Payment Settings
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowGame(true)}
+                className="gap-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white border-0 hover:from-orange-600 hover:to-pink-600"
+              >
+                <Gamepad2 className="w-4 h-4" />
+                Play Game
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowSettings(!showSettings)}
+                className="gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Payment Settings
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -440,6 +453,8 @@ export default function DriversPage() {
       </div>
       
       <Footer />
+      
+      {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
     </div>
   );
 }

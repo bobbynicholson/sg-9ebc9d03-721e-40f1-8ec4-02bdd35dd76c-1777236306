@@ -19,13 +19,16 @@ import {
   Filter,
   Download,
   ArrowLeft,
-  Search
+  Search,
+  Gamepad2
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { CateringDashGame } from "@/components/games/CateringDashGame";
 
 export default function AdminDashboardPage() {
   const [dateRange, setDateRange] = useState("last_30_days");
   const [mounted, setMounted] = useState(false);
+  const [showGame, setShowGame] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -136,6 +139,10 @@ export default function AdminDashboardPage() {
                     ))}
                   </select>
                 </div>
+                <Button onClick={() => setShowGame(true)} className="bg-gradient-to-r from-orange-500 to-pink-500 w-full xs:w-auto" size="sm">
+                  <Gamepad2 className="w-4 h-4 mr-2" />
+                  <span className="text-xs sm:text-sm">Play Game</span>
+                </Button>
                 <Button onClick={exportData} className="bg-gradient-to-r from-purple-500 to-pink-500 w-full xs:w-auto" size="sm">
                   <Download className="w-4 h-4 mr-2" />
                   <span className="text-xs sm:text-sm">Export</span>
@@ -375,6 +382,8 @@ export default function AdminDashboardPage() {
           </Card>
         </div>
       </div>
+      
+      {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
     </>
   );
 }
