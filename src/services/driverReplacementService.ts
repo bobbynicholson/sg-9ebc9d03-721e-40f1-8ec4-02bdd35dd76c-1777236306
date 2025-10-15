@@ -223,33 +223,38 @@ export const driverReplacementService = {
 
     if (!drivers) return;
 
-    // Send notification to each driver
+    const notificationPayload: Omit<Parameters<typeof notificationService.createNotification>[0], 'recipient_id'> = {
+      title: '🚗 Driver Needed',
+      message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Accept if available.`,
+      type: 'replacement_request',
+      link: `/drivers`,
+      user_id: request.original_driver_id,
+      priority: 'high',
+      metadata: { requestId, orderId: request.order_id }
+    };
+
+    // Send a notification to each available driver
     for (const driver of drivers) {
       await notificationService.createNotification({
-        title: '🚗 Driver Needed',
-        message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Accept if available.`,
-        type: 'info',
-        link: `/drivers`,
+        ...notificationPayload,
         recipient_id: driver.id,
-        metadata: { requestId, orderId: request.order_id }
       });
 
       // Send WhatsApp notification
       await this.sendReplacementRequestWhatsApp(driver.id, requestId);
     }
 
-    // Send realtime broadcast
-    await realtimeNotificationService.sendNotification({
-      channelName: 'driver',
-      event: 'replacement_request_broadcast',
+    // Send a single realtime broadcast to the 'driver' channel
+    // This can be used to trigger a refresh on the available jobs list for all drivers
+    const broadcastChannel = supabase.channel('driver-broadcasts');
+    await broadcastChannel.send({
+      type: 'broadcast',
+      event: 'replacement_request_available',
       payload: {
         requestId,
         orderId: request.order_id,
         orderNumber: request.orders?.order_number,
-        eventDate: request.orders?.event_date,
-        eventTime: request.orders?.event_time,
-        originalDriverName: request.profiles?.full_name
-      }
+      },
     });
   },
 
