@@ -1,0 +1,181 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type Equipment = Database["public"]["Tables"]["equipment"]["Row"];
+type EquipmentInsert = Database["public"]["Tables"]["equipment"]["Insert"];
+type EquipmentUpdate = Database["public"]["Tables"]["equipment"]["Update"];
+
+export const equipmentManagementService = {
+  async getAllEquipment(userId: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("user_id", userId)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data as Equipment[];
+  },
+
+  async getEquipmentById(id: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+    return data as Equipment;
+  },
+
+  async getEquipmentByCategory(userId: string, category: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("category", category)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data as Equipment[];
+  },
+
+  async getAvailableEquipment(userId: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("user_id", userId)
+      .gt("quantity_available", 0)
+      .order("category", { ascending: true });
+
+    if (error) throw error;
+    return data as Equipment[];
+  },
+
+  async createEquipment(equipment: Omit<EquipmentInsert, "id" | "created_at" | "updated_at">) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .insert([equipment])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Equipment;
+  },
+
+  async updateEquipment(id: string, updates: EquipmentUpdate) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Equipment;
+  },
+
+  async deleteEquipment(id: string) {
+    const { error } = await supabase
+      .from("equipment")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
+  },
+
+  async updateEquipmentQuantity(id: string, quantityChange: number) {
+    const equipment = await this.getEquipmentById(id);
+    const newAvailable = equipment.quantity_available + quantityChange;
+
+    if (newAvailable < 0) {
+      throw new Error("Not enough equipment available");
+    }
+
+    if (newAvailable > equipment.quantity_total) {
+      throw new Error("Available quantity cannot exceed total quantity");
+    }
+
+    const { data, error } = await supabase
+      .from("equipment")
+      .update({ 
+        quantity_available: newAvailable,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Equipment;
+  },
+
+  async reserveEquipment(id: string, quantity: number) {
+    return this.updateEquipmentQuantity(id, -quantity);
+  },
+
+  async returnEquipment(id: string, quantity: number) {
+    return this.updateEquipmentQuantity(id, quantity);
+  },
+
+  async getEquipmentStats(userId: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("category, quantity_total, quantity_available, condition")
+      .eq("user_id", userId);
+
+    if (error) throw error;
+
+    const stats = {
+      totalItems: data.length,
+      totalQuantity: data.reduce((sum, eq) => sum + eq.quantity_total, 0),
+      availableQuantity: data.reduce((sum, eq) => sum + eq.quantity_available, 0),
+      inUseQuantity: data.reduce((sum, eq) => sum + (eq.quantity_total - eq.quantity_available), 0),
+      byCategory: data.reduce((acc, eq) => {
+        if (!acc[eq.category]) {
+          acc[eq.category] = { total: 0, available: 0 };
+        }
+        acc[eq.category].total += eq.quantity_total;
+        acc[eq.category].available += eq.quantity_available;
+        return acc;
+      }, {} as Record<string, { total: number; available: number }>),
+      byCondition: data.reduce((acc, eq) => {
+        if (!acc[eq.condition]) {
+          acc[eq.condition] = 0;
+        }
+        acc[eq.condition]++;
+        return acc;
+      }, {} as Record<string, number>),
+    };
+
+    return stats;
+  },
+
+  async searchEquipment(userId: string, searchTerm: string) {
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("user_id", userId)
+      .ilike("name", `%${searchTerm}%`)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data as Equipment[];
+  },
+
+  async getMaintenanceDueEquipment(userId: string, daysThreshold: number = 90) {
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - daysThreshold);
+
+    const { data, error } = await supabase
+      .from("equipment")
+      .select("*")
+      .eq("user_id", userId)
+      .lt("last_maintenance_date", thresholdDate.toISOString())
+      .order("last_maintenance_date", { ascending: true });
+
+    if (error) throw error;
+    return data as Equipment[];
+  },
+};

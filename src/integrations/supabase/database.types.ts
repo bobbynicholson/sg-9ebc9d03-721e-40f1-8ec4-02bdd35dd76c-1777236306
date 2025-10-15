@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -555,6 +555,69 @@ export type Database = {
           start_rate?: number
         }
         Relationships: []
+      }
+      deliveries: {
+        Row: {
+          actual_delivery_time: string | null
+          client_signature: string | null
+          created_at: string | null
+          delivery_photo_url: string | null
+          delivery_time: string
+          driver_id: string | null
+          driver_notes: string | null
+          id: string
+          location: string
+          order_id: string
+          pickup_time: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_delivery_time?: string | null
+          client_signature?: string | null
+          created_at?: string | null
+          delivery_photo_url?: string | null
+          delivery_time: string
+          driver_id?: string | null
+          driver_notes?: string | null
+          id?: string
+          location: string
+          order_id: string
+          pickup_time: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_delivery_time?: string | null
+          client_signature?: string | null
+          created_at?: string | null
+          delivery_photo_url?: string | null
+          delivery_time?: string
+          driver_id?: string | null
+          driver_notes?: string | null
+          id?: string
+          location?: string
+          order_id?: string
+          pickup_time?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_route_stops: {
         Row: {
