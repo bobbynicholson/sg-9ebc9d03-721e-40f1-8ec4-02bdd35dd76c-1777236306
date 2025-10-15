@@ -89,7 +89,7 @@ export const authService = {
           currency: currency,
           is_active: true,
           subscription_plan: "trial",
-          subscription_status: "trialing",
+          subscription_status: "trial", // ✅ Changed from "trialing" to "trial" to match database constraint
           trial_ends_at: trialEndDate.toISOString(),
           avatar_url: "",
           company_name: "",
@@ -199,7 +199,7 @@ export const authService = {
           currency: "ZAR",
           is_active: true,
           subscription_plan: "trial",
-          subscription_status: "trialing",
+          subscription_status: "trial", // ✅ Changed from "trialing" to "trial" to match database constraint
           trial_ends_at: trialEndDate.toISOString(),
           avatar_url: "",
           company_name: "",
