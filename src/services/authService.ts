@@ -35,6 +35,19 @@ const getURL = () => {
   return url
 }
 
+// Helper to wait for profile creation by database trigger
+async function waitForProfile(userId: string, maxAttempts = 5): Promise<boolean> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const profile = await profileService.getProfile(userId);
+    if (profile) {
+      return true;
+    }
+    // Wait 500ms before next attempt
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  return false;
+}
+
 export const authService = {
   // Get current user
   async getCurrentUser(): Promise<AuthUser | null> {
@@ -78,32 +91,45 @@ export const authService = {
         return { user: null, error: { message: error.message, code: error.status?.toString() } };
       }
 
-      // Profile is now automatically created by database trigger
-      // Just initialize onboarding data for new user
-      if (data.user) {
-        try {
-          await onboardingService.initializeUserData({
-            userId: data.user.id,
-            companyName: fullName,
-            email: email,
-            fullName: fullName,
-            currency: currency
-          });
-        } catch (onboardingError) {
-          console.error("Error initializing onboarding data:", onboardingError);
-          // Don't fail registration if onboarding initialization fails
-        }
+      if (!data.user) {
+        return { user: null, error: { message: "User creation failed" } };
       }
 
-      const authUser = data.user ? {
+      // BUG FIX #1: Wait for database trigger to create profile
+      const profileCreated = await waitForProfile(data.user.id);
+      
+      if (!profileCreated) {
+        console.error("Profile was not created by database trigger");
+        return { 
+          user: null, 
+          error: { message: "Profile creation failed. Please try again or contact support." } 
+        };
+      }
+
+      // Now safely initialize onboarding data
+      try {
+        await onboardingService.initializeUserData({
+          userId: data.user.id,
+          companyName: fullName,
+          email: email,
+          fullName: fullName,
+          currency: currency
+        });
+      } catch (onboardingError) {
+        console.error("Error initializing onboarding data:", onboardingError);
+        // Don't fail registration if onboarding initialization fails
+      }
+
+      const authUser = {
         id: data.user.id,
         email: data.user.email || "",
         user_metadata: data.user.user_metadata,
         created_at: data.user.created_at
-      } : null;
+      };
 
       return { user: authUser, error: null };
     } catch (error) {
+      console.error("Unexpected signup error:", error);
       return { 
         user: null, 
         error: { message: "An unexpected error occurred during sign up" } 
@@ -132,6 +158,7 @@ export const authService = {
 
       return { user: authUser, error: null };
     } catch (error) {
+      console.error("Unexpected signin error:", error);
       return { 
         user: null, 
         error: { message: "An unexpected error occurred during sign in" } 
@@ -159,6 +186,7 @@ export const authService = {
 
       return { error: null };
     } catch (error) {
+      console.error("Unexpected Google signin error:", error);
       return { 
         error: { message: "An unexpected error occurred during Google sign in" } 
       };
@@ -168,8 +196,21 @@ export const authService = {
   // Handle OAuth callback and create profile if needed
   async handleOAuthCallback(userId: string, email: string, fullName: string): Promise<void> {
     try {
-      // Profile is automatically created by database trigger
-      // Just initialize onboarding for OAuth users
+      // BUG FIX #2: Check if profile exists first, wait for database trigger
+      const profileCreated = await waitForProfile(userId);
+      
+      if (!profileCreated) {
+        console.error("OAuth profile was not created by database trigger");
+        throw new Error("Profile creation failed during OAuth");
+      }
+
+      // Verify profile exists before initializing onboarding
+      const profile = await profileService.getProfile(userId);
+      if (!profile) {
+        throw new Error("Profile not found after OAuth signup");
+      }
+
+      // Now safely initialize onboarding for OAuth users
       try {
         await onboardingService.initializeUserData({
           userId: userId,
@@ -199,6 +240,7 @@ export const authService = {
 
       return { error: null };
     } catch (error) {
+      console.error("Unexpected signout error:", error);
       return { 
         error: { message: "An unexpected error occurred during sign out" } 
       };
@@ -218,6 +260,7 @@ export const authService = {
 
       return { error: null };
     } catch (error) {
+      console.error("Unexpected password reset error:", error);
       return { 
         error: { message: "An unexpected error occurred during password reset" } 
       };
@@ -245,6 +288,7 @@ export const authService = {
 
       return { user: authUser, error: null };
     } catch (error) {
+      console.error("Unexpected email confirmation error:", error);
       return { 
         user: null, 
         error: { message: "An unexpected error occurred during email confirmation" } 
