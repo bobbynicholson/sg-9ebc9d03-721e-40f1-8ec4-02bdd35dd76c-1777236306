@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -1153,49 +1153,73 @@ export type Database = {
       equipment: {
         Row: {
           available_quantity: number | null
+          average_cost: number | null
           category: string
           cleaning_time_hours: number | null
           condition: string | null
           created_at: string | null
           id: string
           last_inspection: string | null
+          last_maintenance_date: string | null
+          last_restocked: string | null
+          minimum_stock: number
           name: string
           notes: string | null
+          purchase_date: string | null
           quantity: number | null
+          quantity_total: number
           region_id: string | null
           replacement_cost: number | null
+          shelf_life_days: number | null
+          unit: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           available_quantity?: number | null
+          average_cost?: number | null
           category: string
           cleaning_time_hours?: number | null
           condition?: string | null
           created_at?: string | null
           id?: string
           last_inspection?: string | null
+          last_maintenance_date?: string | null
+          last_restocked?: string | null
+          minimum_stock?: number
           name: string
           notes?: string | null
+          purchase_date?: string | null
           quantity?: number | null
+          quantity_total?: number
           region_id?: string | null
           replacement_cost?: number | null
+          shelf_life_days?: number | null
+          unit?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           available_quantity?: number | null
+          average_cost?: number | null
           category?: string
           cleaning_time_hours?: number | null
           condition?: string | null
           created_at?: string | null
           id?: string
           last_inspection?: string | null
+          last_maintenance_date?: string | null
+          last_restocked?: string | null
+          minimum_stock?: number
           name?: string
           notes?: string | null
+          purchase_date?: string | null
           quantity?: number | null
+          quantity_total?: number
           region_id?: string | null
           replacement_cost?: number | null
+          shelf_life_days?: number | null
+          unit?: string | null
           updated_at?: string | null
           user_id?: string
         }

@@ -14,7 +14,13 @@ export const leadService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data as Lead[];
+    
+    // Map db fields to frontend fields to resolve type errors
+    return data.map(lead => ({
+      ...lead,
+      email: lead.client_email,
+      phone: lead.client_phone,
+    })) as (Lead & { email: string | null; phone: string | null; })[];
   },
 
   async getLeadById(id: string) {
@@ -40,10 +46,25 @@ export const leadService = {
     return data as Lead[];
   },
 
-  async createLead(lead: Omit<LeadInsert, "id" | "created_at" | "updated_at">) {
+  async createLead(lead: Omit<LeadInsert, "id" | "created_at" | "updated_at"> & { email: string; phone: string | null }) {
+    
+    const leadData: LeadInsert = {
+      ...lead,
+      client_name: lead.client_name,
+      client_email: lead.email,
+      client_phone: lead.phone,
+      event_date: lead.event_date,
+      event_type: lead.event_type,
+      guest_count: lead.guest_count,
+      budget: lead.budget,
+      special_requests: lead.special_requests,
+      status: lead.status,
+      user_id: lead.user_id
+    };
+
     const { data, error } = await supabase
       .from("leads")
-      .insert([lead])
+      .insert([leadData])
       .select()
       .single();
 
