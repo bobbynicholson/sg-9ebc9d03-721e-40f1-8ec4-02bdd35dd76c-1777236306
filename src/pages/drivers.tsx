@@ -112,7 +112,6 @@ export default function DriversPage() {
         event_time: "18:00",
         region_id: null,
         sent_at: new Date().toISOString(),
-        special_requests: "None",
         venue_address: order.location,
         version: 1,
       };
