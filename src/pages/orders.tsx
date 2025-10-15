@@ -70,13 +70,23 @@ export default function OrdersPage() {
         guest_count: mockOrder.guestCount,
         menu_items: mockOrder.menuItems,
         equipment_items: mockOrder.equipmentItems,
-        subtotal: mockOrder.totalAmount * 0.87,
-        tax: mockOrder.totalAmount * 0.13,
-        total: mockOrder.totalAmount,
+        subtotal: (mockOrder.totalAmount ?? 0) * 0.87,
+        tax: (mockOrder.totalAmount ?? 0) * 0.13,
+        total: mockOrder.totalAmount ?? 0,
         status: "accepted",
-        version: 1,
         created_at: mockOrder.createdAt,
         updated_at: mockOrder.createdAt,
+        // FIX: Add missing required properties
+        notes: "Mock data from assignment.",
+        quote_number: `QT-${mockOrder.id}`,
+        terms: "Standard terms from mock data.",
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        viewed_at: null,
+        accepted_at: new Date().toISOString(),
+        client_phone: null,
+        currency: "ZAR",
+        region_id: null,
+        sent_at: mockOrder.createdAt,
       };
     }).filter(Boolean) as Quote[];
     

@@ -89,6 +89,7 @@ export default function DriversPage() {
         ...order,
         id: order.id,
         lead_id: order.quoteId,
+        user_id: "mock-user-id", // FIX: Added user_id
         client_name: order.clientName,
         client_email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
         event_date: order.eventDate,
@@ -100,9 +101,9 @@ export default function DriversPage() {
         menu_items: order.menuItems as any,
         equipment_items: order.equipmentItems as any,
         status: "accepted" as const,
-        subtotal: order.totalAmount * 0.87,
-        tax: order.totalAmount * 0.13,
-        total: order.totalAmount,
+        subtotal: (order.totalAmount ?? 0) * 0.87,
+        tax: (order.totalAmount ?? 0) * 0.13,
+        total: order.totalAmount ?? 0,
         created_at: order.createdAt,
         updated_at: order.createdAt,
         viewed_at: null,
@@ -113,6 +114,11 @@ export default function DriversPage() {
         region_id: null,
         sent_at: new Date().toISOString(),
         venue_address: order.location,
+        // FIX: Add missing properties from Quote type
+        notes: "Mock order, driver assignment pending.",
+        quote_number: `QT-${order.id}`,
+        terms: "Standard mock terms.",
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       };
     };
 
