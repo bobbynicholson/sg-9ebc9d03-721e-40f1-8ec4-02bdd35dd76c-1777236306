@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import type { Order } from "@/types";
 
 interface DashboardMetrics {
   totalRevenue: number;
@@ -74,11 +74,11 @@ export const analyticsService = {
       }
 
       // Calculate analytics
-      const totalRevenue = (orders || [])
+      const totalRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "paid")
         .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
 
-      const pendingRevenue = (orders || [])
+      const pendingRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
         .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
 

@@ -23,7 +23,7 @@ import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
-import { currencyUtils } from "@/lib/currencyUtils";
+import * as currencyUtils from "@/lib/currencyUtils";
 import type { Order } from "@/types";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -65,11 +65,12 @@ export default function FinancialDashboardPage() {
       setLoading(true);
 
       // Load all financial data
-      const [ordersData, ledgerData, analyticsData, aiPredictions] = await Promise.all([
-        orderService.getOrders(),
+      const ordersData = await orderService.getOrders();
+      
+      const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
         analyticsService.getFinancialAnalytics(),
-        aiFinancialService.getPredictiveAnalytics()
+        aiFinancialService.getPredictiveAnalytics(ordersData)
       ]);
 
       setOrders(ordersData);
@@ -180,7 +181,8 @@ export default function FinancialDashboardPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return currencyUtils.formatCurrency(amount, user?.currency || "ZAR");
+    const profile = user as Profile;
+    return currencyUtils.formatCurrency(amount, (profile?.currency as currencyUtils.CurrencyCode) || "ZAR");
   };
 
   if (!user) {

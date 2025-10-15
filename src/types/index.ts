@@ -1,8 +1,9 @@
 import { Tables } from "@/integrations/supabase/types";
 
-export type Profile = Tables<"profiles">;
+export type Profile = Tables<"profiles"> & { currency?: string };
 export type Lead = Tables<"leads">;
 export type Quote = Tables<"quotes">;
+export type Order = Tables<"orders">;
 
 export interface DisplayLead {
   id: string;
