@@ -13,8 +13,21 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
 
 export default function EmailAutomationPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, 100]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+  const contentY = useTransform(scrollYProgress, [0.1, 0.4], [50, 0]);
+  const statsY = useTransform(scrollYProgress, [0.3, 0.6], [100, 0]);
+
   return (
     <>
       <Head>
@@ -26,13 +39,20 @@ export default function EmailAutomationPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white">
-        {/* Hero Section - Mobile Optimized */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-orange-50 via-white to-red-50">
+      <div className="min-h-screen bg-white" ref={containerRef}>
+        <motion.div 
+          className="relative overflow-hidden bg-gradient-to-br from-orange-50 via-white to-red-50"
+          style={{ y: heroY, opacity: heroOpacity }}
+        >
           <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] bg-[size:40px_40px]" />
           
           <div className="relative container mx-auto px-4 py-12 md:py-16 lg:py-24 max-w-6xl">
-            <div className="text-center max-w-4xl mx-auto mb-8 md:mb-12">
+            <motion.div 
+              className="text-center max-w-4xl mx-auto mb-8 md:mb-12"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
               <Badge className="mb-4 md:mb-6 px-3 md:px-4 py-1.5 md:py-2 bg-orange-100 text-orange-700 border-orange-200 text-xs md:text-sm">
                 <Mail className="w-3 h-3 md:w-4 md:h-4 mr-1.5 md:mr-2 inline" />
                 Email Automation
@@ -56,15 +76,21 @@ export default function EmailAutomationPage() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Main Content - Mobile Optimized */}
         <div className="container mx-auto px-4 py-12 md:py-16 max-w-6xl">
-          {/* Features Grid - Mobile Stacked */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 mb-12 md:mb-16">
-            <div>
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 mb-12 md:mb-16"
+            style={{ y: contentY }}
+          >
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 md:mb-6">
                 Set It and Forget It Marketing
               </h2>
@@ -80,24 +106,47 @@ export default function EmailAutomationPage() {
                   "Fully customizable email templates",
                   "Track open rates and conversions"
                 ].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3">
+                  <motion.li 
+                    key={i} 
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
                     <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-orange-600 shrink-0 mt-0.5 md:mt-1" />
                     <span className="text-sm md:text-base text-slate-700">{feature}</span>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
-            </div>
-            <div className="bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl p-6 md:p-8 flex items-center justify-center min-h-[200px] md:min-h-0">
+            </motion.div>
+            <motion.div 
+              className="bg-gradient-to-br from-orange-100 to-red-100 rounded-2xl p-6 md:p-8 flex items-center justify-center min-h-[200px] md:min-h-0"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
               <div className="text-center">
-                <div className="text-4xl md:text-6xl font-bold text-orange-600 mb-3 md:mb-4">2-2.5x</div>
+                <motion.div 
+                  className="text-4xl md:text-6xl font-bold text-orange-600 mb-3 md:mb-4"
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", duration: 0.8 }}
+                >
+                  2-2.5x
+                </motion.div>
                 <p className="text-lg md:text-xl text-slate-700 mb-1 md:mb-2">More Repeat Bookings</p>
                 <p className="text-xs md:text-sm text-slate-600">Automated nurture campaigns bring clients back</p>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          {/* Benefits Cards - Mobile Optimized */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-12 md:mb-16">
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-12 md:mb-16"
+            style={{ y: statsY }}
+          >
             {[
               {
                 icon: Zap,
@@ -115,20 +164,34 @@ export default function EmailAutomationPage() {
                 description: "Automated follow-ups convert 2x more quotes than manual processes"
               }
             ].map((benefit, i) => (
-              <Card key={i} className="border-2 hover:border-orange-300 hover:shadow-xl transition-all">
-                <CardContent className="pt-5 md:pt-6 px-4 md:px-6">
-                  <div className="p-2.5 md:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl w-fit mb-3 md:mb-4">
-                    <benefit.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                  </div>
-                  <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2">{benefit.title}</h3>
-                  <p className="text-sm md:text-base text-slate-600">{benefit.description}</p>
-                </CardContent>
-              </Card>
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.2 }}
+                whileHover={{ y: -10, transition: { duration: 0.2 } }}
+              >
+                <Card className="border-2 hover:border-orange-300 hover:shadow-xl transition-all">
+                  <CardContent className="pt-5 md:pt-6 px-4 md:px-6">
+                    <div className="p-2.5 md:p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl w-fit mb-3 md:mb-4">
+                      <benefit.icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                    </div>
+                    <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2">{benefit.title}</h3>
+                    <p className="text-sm md:text-base text-slate-600">{benefit.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
-          {/* CTA Section - Mobile Optimized */}
-          <div className="bg-gradient-to-br from-orange-600 to-red-600 rounded-2xl md:rounded-3xl p-6 md:p-12 text-center text-white mb-12 md:mb-16">
+          <motion.div 
+            className="bg-gradient-to-br from-orange-600 to-red-600 rounded-2xl md:rounded-3xl p-6 md:p-12 text-center text-white mb-12 md:mb-16"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 md:mb-6 px-2">
               Stop Losing Clients to Manual Follow-Ups
             </h2>
@@ -141,9 +204,8 @@ export default function EmailAutomationPage() {
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5 ml-2" />
               </Button>
             </Link>
-          </div>
+          </motion.div>
 
-          {/* Footer Links - Mobile Optimized */}
           <div className="text-center px-4">
             <p className="text-sm md:text-base text-slate-600 mb-4">
               Read about <Link href="/blog/email-automation-for-catering" className="text-orange-600 underline">email automation strategies</Link>
