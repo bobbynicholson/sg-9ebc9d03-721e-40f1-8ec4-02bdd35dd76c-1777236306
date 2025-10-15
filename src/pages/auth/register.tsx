@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User } from "@/types";
-import { UserPlus, CheckCircle, DollarSign } from "lucide-react";
+import { UserPlus, CheckCircle, DollarSign, Mail } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { Separator } from "@/components/ui/separator";
@@ -59,40 +58,36 @@ export default function RegisterPage() {
     }
 
     try {
-      const newUser: User = {
-        id: Math.random().toString(36).substring(7),
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        role: ["client"],
-        primaryRole: "client",
-        status: "active",
-        currency: formData.currency as "ZAR" | "USD" | "EUR" | "GBP" | "AUD",
-        preferredCurrency: formData.currency as "ZAR" | "USD" | "EUR" | "GBP" | "AUD",
-        createdAt: new Date().toISOString()
-      };
+      // Register with Supabase
+      const { user, error: signUpError } = await authService.signUp(
+        formData.email,
+        formData.password,
+        formData.name,
+        "client", // Default role for new registrations
+        formData.currency
+      );
 
-      const existingUsers = JSON.parse(localStorage.getItem("all_users") || "[]");
-      
-      const emailExists = existingUsers.some((u: User) => u.email === formData.email);
-      if (emailExists) {
-        setError("An account with this email already exists");
+      if (signUpError) {
+        setError(signUpError.message);
         setLoading(false);
         return;
       }
 
-      existingUsers.push(newUser);
-      localStorage.setItem("all_users", JSON.stringify(existingUsers));
+      if (!user) {
+        setError("Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
 
-      localStorage.setItem("current_user", JSON.stringify(newUser));
-      localStorage.setItem("auth_token", Math.random().toString(36).substring(2));
-
+      // Show success message
       setSuccess(true);
 
+      // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push("/auth/login");
-      }, 2000);
+      }, 3000);
     } catch (err) {
+      console.error("Registration error:", err);
       setError("Registration failed. Please try again.");
       setLoading(false);
     }
@@ -111,6 +106,7 @@ export default function RegisterPage() {
       }
       // OAuth will redirect automatically
     } catch (err) {
+      console.error("Google sign up error:", err);
       setError("Failed to sign up with Google. Please try again.");
       setGoogleLoading(false);
     }
@@ -122,13 +118,21 @@ export default function RegisterPage() {
         <Card className="w-full max-w-md border-0 shadow-2xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6">
-              <CheckCircle className="w-10 h-10 text-white" />
+              <Mail className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Check Your Email!</h2>
             <p className="text-slate-600 mb-4">
-              Your account has been created with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency.
+              We&apos;ve sent a confirmation email to <strong>{formData.email}</strong>
             </p>
-            <p className="text-sm text-slate-500">Redirecting to login...</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Important:</strong> Please click the confirmation link in your email to activate your account before signing in.
+              </p>
+            </div>
+            <p className="text-sm text-slate-500">
+              Your account will be created with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency.
+            </p>
+            <p className="text-xs text-slate-400 mt-4">Redirecting to login in 3 seconds...</p>
           </CardContent>
         </Card>
       </div>
@@ -157,7 +161,6 @@ export default function RegisterPage() {
               </Alert>
             )}
 
-            {/* Google Sign Up Button */}
             <Button
               type="button"
               variant="outline"
@@ -300,7 +303,7 @@ export default function RegisterPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Your account will be created with client access. An admin can assign additional roles (kitchen, driver, cleaning, etc.) after registration.
+                <strong>Note:</strong> Your account will be created with client access and a 14-day free trial. An admin can assign additional roles (kitchen, driver, cleaning, etc.) after registration.
               </p>
             </div>
 

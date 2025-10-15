@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { UserRole } from "@/types";
 import { ChefHat, Truck, ShoppingCart, Sparkles, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
+import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
 
 const roleIcons = {
@@ -39,7 +40,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     if (router.query.portal) {
       const portalMap: Record<string, UserRole> = {
         admin: "admin",
@@ -54,7 +55,7 @@ export default function LoginPage() {
         setRole(mappedRole);
       }
     }
-  });
+  }, [router.query.portal]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,16 +69,38 @@ export default function LoginPage() {
     }
 
     try {
-      const user = {
-        id: Math.random().toString(36).substring(7),
-        email,
-        name: email.split("@")[0],
-        role: role as UserRole,
-      };
+      // Authenticate with Supabase
+      const { user, error: signInError } = await authService.signIn(email, password);
 
-      localStorage.setItem("current_user", JSON.stringify(user));
-      localStorage.setItem("auth_token", Math.random().toString(36).substring(2));
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
 
+      if (!user) {
+        setError("Authentication failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Get user profile from Supabase
+      const profile = await profileService.getProfile(user.id);
+
+      if (!profile) {
+        setError("User profile not found. Please contact support.");
+        setLoading(false);
+        return;
+      }
+
+      // Check if user's role matches the selected role
+      if (profile.role !== role) {
+        setError(`Your account does not have ${role} access. Please select the correct role or contact your administrator.`);
+        setLoading(false);
+        return;
+      }
+
+      // Successful login - redirect based on role
       setTimeout(() => {
         switch (role) {
           case "admin":
@@ -103,6 +126,7 @@ export default function LoginPage() {
         }
       }, 500);
     } catch (err) {
+      console.error("Login error:", err);
       setError("Login failed. Please try again.");
       setLoading(false);
     }
@@ -121,6 +145,7 @@ export default function LoginPage() {
       }
       // OAuth will redirect automatically, no need to stop loading
     } catch (err) {
+      console.error("Google sign in error:", err);
       setError("Failed to sign in with Google. Please try again.");
       setGoogleLoading(false);
     }
@@ -151,7 +176,6 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            {/* Google Sign In Button */}
             <Button
               type="button"
               variant="outline"
