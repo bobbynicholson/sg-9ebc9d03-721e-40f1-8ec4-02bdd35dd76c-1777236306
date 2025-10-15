@@ -79,15 +79,20 @@ export const authService = {
       }
 
       // Profile is now automatically created by database trigger
-      // Initialize onboarding data for new user
+      // Just initialize onboarding data for new user
       if (data.user) {
-        await onboardingService.initializeUserData({
-          userId: data.user.id,
-          companyName: fullName,
-          email: email,
-          fullName: fullName,
-          currency: currency
-        });
+        try {
+          await onboardingService.initializeUserData({
+            userId: data.user.id,
+            companyName: fullName,
+            email: email,
+            fullName: fullName,
+            currency: currency
+          });
+        } catch (onboardingError) {
+          console.error("Error initializing onboarding data:", onboardingError);
+          // Don't fail registration if onboarding initialization fails
+        }
       }
 
       const authUser = data.user ? {
@@ -165,9 +170,7 @@ export const authService = {
     try {
       // Profile is automatically created by database trigger
       // Just initialize onboarding for OAuth users
-      const existingProfile = await profileService.getProfile(userId);
-      
-      if (existingProfile) {
+      try {
         await onboardingService.initializeUserData({
           userId: userId,
           companyName: fullName || email.split("@")[0],
@@ -175,6 +178,9 @@ export const authService = {
           fullName: fullName || email.split("@")[0],
           currency: "ZAR"
         });
+      } catch (onboardingError) {
+        console.error("Error initializing onboarding data:", onboardingError);
+        // Don't fail OAuth if onboarding initialization fails
       }
     } catch (error) {
       console.error("Error handling OAuth callback:", error);
