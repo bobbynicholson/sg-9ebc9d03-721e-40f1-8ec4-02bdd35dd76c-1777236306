@@ -191,17 +191,17 @@ export const driverConfirmationService = {
     });
 
     // Send realtime alert to admin dashboard
-    await realtimeNotificationService.sendNotification(
-      'admin',
-      'driver_not_confirmed',
-      {
+    await realtimeNotificationService.sendNotification({
+      channelName: 'admin',
+      event: 'driver_not_confirmed',
+      payload: {
         orderId,
         driverId,
         driverName: driver.full_name,
         orderNumber: order.order_number,
         eventTime: order.event_time
       }
-    );
+    });
   },
 
   /**
@@ -275,10 +275,10 @@ export const driverConfirmationService = {
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
-    await realtimeNotificationService.sendNotification(
-      'admin',
-      'driver_status_update',
-      {
+    await realtimeNotificationService.sendNotification({
+      channelName: 'admin',
+      event: 'driver_status_update',
+      payload: {
         orderId,
         driverId,
         driverName: driver.full_name,
@@ -286,7 +286,7 @@ export const driverConfirmationService = {
         confirmationType,
         message: messages[confirmationType as keyof typeof messages]
       }
-    );
+    });
   },
 
   /**

@@ -187,10 +187,10 @@ export const driverReplacementService = {
       metadata: { requestId, orderId: request.order_id }
     });
 
-    await realtimeNotificationService.sendNotification(
-      'admin',
-      'driver_replacement_requested',
-      {
+    await realtimeNotificationService.sendNotification({
+      channelName: 'admin',
+      event: 'driver_replacement_requested',
+      payload: {
         requestId,
         orderId: request.order_id,
         originalDriverName: request.profiles?.full_name,
@@ -198,7 +198,7 @@ export const driverReplacementService = {
         eventDate: request.orders?.event_date,
         reason: request.reason
       }
-    );
+    });
   },
 
   /**
@@ -249,10 +249,10 @@ export const driverReplacementService = {
     }
 
     // Send realtime broadcast
-    await realtimeNotificationService.sendNotification(
-      'driver',
-      'replacement_request_broadcast',
-      {
+    await realtimeNotificationService.sendNotification({
+      channelName: 'driver',
+      event: 'replacement_request_broadcast',
+      payload: {
         requestId,
         orderId: request.order_id,
         orderNumber: request.orders?.order_number,
@@ -260,7 +260,7 @@ export const driverReplacementService = {
         eventTime: request.orders?.event_time,
         originalDriverName: request.profiles?.full_name
       }
-    );
+    });
   },
 
   /**
