@@ -71,7 +71,7 @@ export default function InventoryPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await inventoryService.getAllInventory(user.id);
+      const data = await inventoryService.getInventory(user.id);
       const updatedInventory = data.map((item: any) => {
         if (item.shelf_life_days && item.purchase_date) {
           const expiryInfo = calculateExpiryStatus({

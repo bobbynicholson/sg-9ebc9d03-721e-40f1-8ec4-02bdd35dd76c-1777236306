@@ -60,7 +60,7 @@ export default function LeadsPage() {
       setLoading(true);
       setError("");
       const data = await leadService.getLeads(user.id);
-      setLeads(data);
+      setLeads(data as Lead[]);
     } catch (err) {
       console.error("Error loading leads:", err);
       setError("Failed to load leads. Please try again.");

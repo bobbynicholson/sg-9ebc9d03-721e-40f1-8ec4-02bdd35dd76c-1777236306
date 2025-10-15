@@ -122,24 +122,24 @@ export const equipmentManagementService = {
   async getEquipmentStats(userId: string) {
     const { data, error } = await supabase
       .from("equipment")
-      .select("category, quantity_total, quantity_available, condition")
+      .select("category, quantity, available_quantity, condition")
       .eq("user_id", userId);
 
     if (error) throw error;
-    if (!data) return null; // Add null check for data
+    if (!data) return null;
 
     const stats = {
       totalItems: data.length,
-      totalQuantity: data.reduce((sum, eq) => sum + (eq.quantity_total || 0), 0),
-      availableQuantity: data.reduce((sum, eq) => sum + (eq.quantity_available || 0), 0),
-      inUseQuantity: data.reduce((sum, eq) => sum + ((eq.quantity_total || 0) - (eq.quantity_available || 0)), 0),
+      totalQuantity: data.reduce((sum, eq) => sum + (eq.quantity || 0), 0),
+      availableQuantity: data.reduce((sum, eq) => sum + (eq.available_quantity || 0), 0),
+      inUseQuantity: data.reduce((sum, eq) => sum + ((eq.quantity || 0) - (eq.available_quantity || 0)), 0),
       byCategory: data.reduce((acc, eq) => {
         const category = eq.category || 'uncategorized';
         if (!acc[category]) {
           acc[category] = { total: 0, available: 0 };
         }
-        acc[category].total += eq.quantity_total || 0;
-        acc[category].available += eq.quantity_available || 0;
+        acc[category].total += eq.quantity || 0;
+        acc[category].available += eq.available_quantity || 0;
         return acc;
       }, {} as Record<string, { total: number; available: number }>),
       byCondition: data.reduce((acc, eq) => {
