@@ -20,6 +20,7 @@ import {
   Shield,
   Clock
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -204,6 +205,8 @@ export default function IntegrationsPage() {
         <meta name="keywords" content="catering software integrations, xero accounting, whatsapp business, google maps, payfast, stripe, payment integrations" />
         <link rel="canonical" href="https://cateringms.com/integrations" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">

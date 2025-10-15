@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Switch } from "@/components/ui/switch";
 
@@ -102,6 +103,8 @@ export default function OnboardingPage() {
       <Head>
         <title>Welcome to CateringMS - Get Started</title>
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
         <main className="container mx-auto px-4 py-8 max-w-5xl">

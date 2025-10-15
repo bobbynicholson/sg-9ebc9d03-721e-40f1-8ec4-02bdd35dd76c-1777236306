@@ -21,6 +21,7 @@ import {
   Users,
   Zap
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
 export default function ContactPage() {
@@ -156,6 +157,8 @@ export default function ContactPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-pink-50">
