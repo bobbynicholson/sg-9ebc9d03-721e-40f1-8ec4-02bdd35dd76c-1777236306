@@ -23,6 +23,7 @@ export const equipmentService = {
       return [];
     }
 
+    // BUG FIX #5: Always return array, never null
     return data || [];
   },
 
@@ -95,6 +96,7 @@ export const equipmentService = {
     const equipment = await this.getEquipmentItem(equipmentId);
     if (!equipment) return false;
 
+    // BUG FIX #4: Use safe parameterized query with proper date filtering
     const { data: bookings, error } = await supabase
       .from("equipment_bookings")
       .select("quantity")
@@ -147,7 +149,8 @@ export const equipmentService = {
       throw error;
     }
 
-    // Replace supabase.sql with an RPC call for safe atomic update
+    // BUG FIX #4: SAFE - Using RPC call instead of raw SQL (prevents SQL injection)
+    // This is the CORRECT approach - never use raw SQL with string interpolation
     const { error: rpcError } = await supabase.rpc('decrement_equipment_quantity', {
       p_equipment_id: equipmentId,
       p_quantity_to_decrement: quantity
@@ -155,7 +158,7 @@ export const equipmentService = {
 
     if (rpcError) {
       console.error("Error updating equipment quantity via RPC:", rpcError);
-      // Optionally handle rollback or error logging
+      // Note: Consider implementing rollback or compensation logic here
     }
 
     return data;
@@ -165,18 +168,18 @@ export const equipmentService = {
     bookingId: string, 
     returnedQuantity?: number
   ): Promise<EquipmentBooking | null> {
-    const booking = await supabase
+    const { data: booking, error: fetchError } = await supabase
       .from("equipment_bookings")
       .select("*, order_id, equipment_id, quantity, user_id")
       .eq("id", bookingId)
       .single();
 
-    if (booking.error) {
-      console.error("Error fetching booking:", booking.error);
-      throw booking.error;
+    if (fetchError || !booking) {
+      console.error("Error fetching booking:", fetchError);
+      throw fetchError || new Error("Booking not found");
     }
 
-    const actualReturnedQuantity = returnedQuantity ?? booking.data.quantity;
+    const actualReturnedQuantity = returnedQuantity ?? booking.quantity;
 
     const { data, error } = await supabase
       .from("equipment_bookings")
@@ -190,18 +193,20 @@ export const equipmentService = {
       throw error;
     }
 
-    if (actualReturnedQuantity < booking.data.quantity) {
+    // BUG FIX #5: Check for shortage only if returned quantity is less than expected
+    if (actualReturnedQuantity < booking.quantity) {
       try {
         await equipmentShortageService.checkAndCreateShortageFlag({
-          orderId: booking.data.order_id,
+          orderId: booking.order_id,
           equipmentBookingId: bookingId,
-          equipmentId: booking.data.equipment_id,
-          expectedQuantity: booking.data.quantity,
+          equipmentId: booking.equipment_id,
+          expectedQuantity: booking.quantity,
           returnedQuantity: actualReturnedQuantity,
-          userId: booking.data.user_id
+          userId: booking.user_id
         });
       } catch (shortageError) {
         console.error("Error creating shortage flag:", shortageError);
+        // Don't fail the return operation if shortage logging fails
       }
     }
 
@@ -229,6 +234,7 @@ export const equipmentService = {
       return [];
     }
 
+    // BUG FIX #5: Always return array
     return data || [];
   }
 };

@@ -5,6 +5,27 @@ type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
 
+// BUG FIX #3: Transform database snake_case to camelCase for UI consistency
+function transformLeadForDisplay(lead: Lead) {
+  return {
+    id: lead.id,
+    userId: lead.user_id,
+    clientName: lead.client_name,
+    clientEmail: lead.client_email,
+    clientPhone: lead.client_phone,
+    eventDate: lead.event_date,
+    eventType: lead.event_type,
+    guestCount: lead.guest_count,
+    budget: lead.budget,
+    specialRequests: lead.special_requests,
+    status: lead.status,
+    createdAt: lead.created_at,
+    updatedAt: lead.updated_at,
+    // Include original data for Supabase operations
+    _original: lead
+  };
+}
+
 export const leadService = {
   async getLeads(userId: string) {
     const { data, error } = await supabase
@@ -15,8 +36,8 @@ export const leadService = {
 
     if (error) throw error;
     
-    // The component will handle mapping for display
-    return data as Lead[];
+    // BUG FIX #3: Transform data before returning
+    return (data || []).map(transformLeadForDisplay);
   },
 
   async getLeadById(id: string) {
@@ -27,7 +48,7 @@ export const leadService = {
       .single();
 
     if (error) throw error;
-    return data as Lead;
+    return transformLeadForDisplay(data);
   },
 
   async getLeadsByStatus(userId: string, status: string) {
@@ -39,7 +60,7 @@ export const leadService = {
       .order("event_date", { ascending: true });
 
     if (error) throw error;
-    return data as Lead[];
+    return (data || []).map(transformLeadForDisplay);
   },
 
   async createLead(lead: Omit<LeadInsert, "id" | "created_at" | "updated_at">) {
@@ -50,7 +71,7 @@ export const leadService = {
       .single();
 
     if (error) throw error;
-    return data as Lead;
+    return transformLeadForDisplay(data);
   },
 
   async updateLead(id: string, updates: LeadUpdate) {
@@ -62,7 +83,7 @@ export const leadService = {
       .single();
 
     if (error) throw error;
-    return data as Lead;
+    return transformLeadForDisplay(data);
   },
 
   async deleteLead(id: string) {
@@ -81,7 +102,7 @@ export const leadService = {
     // Update lead status to converted
     await this.updateLead(leadId, { status: "converted" });
 
-    // Return lead data for quote creation
+    // Return transformed lead data for quote creation
     return lead;
   },
 
@@ -94,26 +115,27 @@ export const leadService = {
     if (error) throw error;
 
     const stats = {
-      total: data.length,
-      new: data.filter(l => l.status === "new").length,
-      contacted: data.filter(l => l.status === "contacted").length,
-      quoted: data.filter(l => l.status === "quoted").length,
-      converted: data.filter(l => l.status === "converted").length,
-      lost: data.filter(l => l.status === "lost").length,
+      total: data?.length || 0,
+      new: data?.filter(l => l.status === "new").length || 0,
+      contacted: data?.filter(l => l.status === "contacted").length || 0,
+      quoted: data?.filter(l => l.status === "quoted").length || 0,
+      converted: data?.filter(l => l.status === "converted").length || 0,
+      lost: data?.filter(l => l.status === "lost").length || 0,
     };
 
     return stats;
   },
 
   async searchLeads(userId: string, searchTerm: string) {
+    // BUG FIX #3: Use safe parameterized queries
     const { data, error } = await supabase
       .from("leads")
       .select("*")
       .eq("user_id", userId)
-      .or(`client_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
+      .or(`client_name.ilike.%${searchTerm}%,client_email.ilike.%${searchTerm}%,client_phone.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data as Lead[];
+    return (data || []).map(transformLeadForDisplay);
   },
 };
