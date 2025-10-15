@@ -129,22 +129,24 @@ export const equipmentManagementService = {
 
     const stats = {
       totalItems: data.length,
-      totalQuantity: data.reduce((sum, eq) => sum + eq.quantity_total, 0),
-      availableQuantity: data.reduce((sum, eq) => sum + eq.quantity_available, 0),
-      inUseQuantity: data.reduce((sum, eq) => sum + (eq.quantity_total - eq.quantity_available), 0),
+      totalQuantity: data.reduce((sum, eq) => sum + (eq.quantity_total || 0), 0),
+      availableQuantity: data.reduce((sum, eq) => sum + (eq.quantity_available || 0), 0),
+      inUseQuantity: data.reduce((sum, eq) => sum + ((eq.quantity_total || 0) - (eq.quantity_available || 0)), 0),
       byCategory: data.reduce((acc, eq) => {
-        if (!acc[eq.category]) {
-          acc[eq.category] = { total: 0, available: 0 };
+        const category = eq.category || 'uncategorized';
+        if (!acc[category]) {
+          acc[category] = { total: 0, available: 0 };
         }
-        acc[eq.category].total += eq.quantity_total;
-        acc[eq.category].available += eq.quantity_available;
+        acc[category].total += eq.quantity_total || 0;
+        acc[category].available += eq.quantity_available || 0;
         return acc;
       }, {} as Record<string, { total: number; available: number }>),
       byCondition: data.reduce((acc, eq) => {
-        if (!acc[eq.condition]) {
-          acc[eq.condition] = 0;
+        const condition = eq.condition || 'unknown';
+        if (!acc[condition]) {
+          acc[condition] = 0;
         }
-        acc[eq.condition]++;
+        acc[condition]++;
         return acc;
       }, {} as Record<string, number>),
     };

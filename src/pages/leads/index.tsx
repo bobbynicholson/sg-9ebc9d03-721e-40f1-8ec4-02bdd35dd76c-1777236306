@@ -27,7 +27,9 @@ type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";
 interface Lead {
   id: string;
   client_name: string;
-  email: string;
+  client_email: string | null;
+  client_phone: string | null;
+  email: string | null;
   phone: string | null;
   event_date: string;
   event_type: string;
@@ -89,8 +91,9 @@ export default function LeadsPage() {
   }
 
   const filteredLeads = leads.filter(lead => {
+    const searchEmail = lead.email || lead.client_email || "";
     const matchesSearch = lead.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.email.toLowerCase().includes(searchTerm.toLowerCase());
+                         searchEmail.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -233,12 +236,12 @@ export default function LeadsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                             <div className="flex items-center gap-2 text-slate-600">
                               <Mail className="w-4 h-4" />
-                              <span className="text-sm">{lead.email}</span>
+                              <span className="text-sm">{lead.email || lead.client_email}</span>
                             </div>
-                            {lead.phone && (
+                            {(lead.phone || lead.client_phone) && (
                               <div className="flex items-center gap-2 text-slate-600">
                                 <Phone className="w-4 h-4" />
-                                <span className="text-sm">{lead.phone}</span>
+                                <span className="text-sm">{lead.phone || lead.client_phone}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-2 text-slate-600">

@@ -1875,6 +1875,7 @@ export type Database = {
           notes: string | null
           region_id: string | null
           source: string | null
+          special_requests: string | null
           status: string | null
           updated_at: string | null
           user_id: string
@@ -1893,6 +1894,7 @@ export type Database = {
           notes?: string | null
           region_id?: string | null
           source?: string | null
+          special_requests?: string | null
           status?: string | null
           updated_at?: string | null
           user_id: string
@@ -1911,6 +1913,7 @@ export type Database = {
           notes?: string | null
           region_id?: string | null
           source?: string | null
+          special_requests?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string
