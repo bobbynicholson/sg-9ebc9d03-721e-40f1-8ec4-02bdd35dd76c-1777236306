@@ -21,9 +21,9 @@ export const aiFinancialService = {
   /**
    * Get predictive analytics for dashboard
    */
-  async getPredictiveAnalytics() {
+  async getPredictiveAnalytics(orders: any[] = []) {
     try {
-      const predictions = await this.generatePredictions(90);
+      const predictions = await this.generatePredictions(90, orders);
       
       return {
         predictions,
@@ -51,12 +51,14 @@ export const aiFinancialService = {
   /**
    * Generate cash flow alerts for dashboard
    */
-  async generateCashFlowAlerts(data: {
-    currentCashFlow: number;
-    projectedRevenue30Days: number;
-    upcomingExpenses: number;
-    orders: any[];
-  }) {
+  async generateCashFlowAlerts(
+    orders: any[],
+    data: {
+      currentCashFlow: number;
+      projectedRevenue30Days: number;
+      upcomingExpenses: number;
+    }
+  ) {
     const alerts: Array<{
       severity: "high" | "medium" | "low";
       message: string;
@@ -133,13 +135,17 @@ export const aiFinancialService = {
   /**
    * Generate financial predictions for next 90 days
    */
-  async generatePredictions(daysAhead: number = 90): Promise<FinancialPrediction[]> {
-    // Get historical data
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('*')
-      .order('event_date', { ascending: false })
-      .limit(100);
+  async generatePredictions(daysAhead: number = 90, orders: any[]): Promise<FinancialPrediction[]> {
+    // If no orders passed, get historical data
+    if (!orders || orders.length === 0) {
+      const { data: historicalOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .order('event_date', { ascending: false })
+        .limit(100);
+      
+      orders = historicalOrders || [];
+    }
 
     if (!orders || orders.length === 0) {
       return this.generateDefaultPredictions(daysAhead);

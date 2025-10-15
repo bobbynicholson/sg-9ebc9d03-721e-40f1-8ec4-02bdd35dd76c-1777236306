@@ -76,11 +76,11 @@ export const analyticsService = {
       // Calculate analytics
       const totalRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "paid")
-        .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
       const pendingRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
-        .reduce((sum, o) => sum + Number(o.final_price || 0), 0);
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
       const totalOrders = orders?.length || 0;
       const completedOrders = orders?.filter(o => o.status === "completed").length || 0;

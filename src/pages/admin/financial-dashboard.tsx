@@ -24,7 +24,7 @@ import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
-import type { Order } from "@/types";
+import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
@@ -70,7 +70,7 @@ export default function FinancialDashboardPage() {
       const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
         analyticsService.getFinancialAnalytics(),
-        aiFinancialService.getPredictiveAnalytics(ordersData)
+        aiFinancialService.getPredictiveAnalytics()
       ]);
 
       setOrders(ordersData);
@@ -103,11 +103,10 @@ export default function FinancialDashboardPage() {
       });
 
       // Generate AI-powered alerts
-      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts({
+      const generatedAlerts = await aiFinancialService.generateCashFlowAlerts(ordersData, {
         currentCashFlow,
         projectedRevenue30Days,
         upcomingExpenses: staffPaymentsOwed + inventoryCosts,
-        orders: ordersData
       });
       setAlerts(generatedAlerts);
 
@@ -126,7 +125,7 @@ export default function FinancialDashboardPage() {
   const calculateCurrentCashFlow = (orders: Order[], ledgerData: any) => {
     const receivedPayments = orders
       .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (o.final_price || 0), 0);
+      .reduce((sum, o) => sum + (o.total || 0), 0);
     
     const staffOwed = ledgerData.totalOwed || 0;
     
@@ -142,25 +141,25 @@ export default function FinancialDashboardPage() {
         const eventDate = new Date(o.event_date);
         return eventDate <= futureDate && o.status !== "cancelled";
       })
-      .reduce((sum, o) => sum + (o.final_price || 0), 0);
+      .reduce((sum, o) => sum + (o.total || 0), 0);
   };
 
   const calculatePendingPayments = (orders: Order[]) => {
     return orders
       .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
-      .reduce((sum, o) => sum + (o.final_price || 0), 0);
+      .reduce((sum, o) => sum + (o.total || 0), 0);
   };
 
   const calculateInventoryCosts = (orders: Order[]) => {
     return orders
       .filter(o => o.status === "confirmed" || o.status === "in_progress")
-      .reduce((sum, o) => sum + ((o.final_price || 0) * 0.35), 0);
+      .reduce((sum, o) => sum + ((o.total || 0) * 0.35), 0);
   };
 
   const calculateProfitMargin = (orders: Order[]) => {
     const totalRevenue = orders
       .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (o.final_price || 0), 0);
+      .reduce((sum, o) => sum + (o.total || 0), 0);
     
     const totalCosts = totalRevenue * 0.65;
     const profit = totalRevenue - totalCosts;
@@ -404,7 +403,7 @@ export default function FinancialDashboardPage() {
                       <span className="text-slate-600">Total Revenue (Paid)</span>
                       <span className="font-semibold">{formatCurrency(
                         orders.filter(o => o.payment_status === "paid")
-                          .reduce((sum, o) => sum + (o.final_price || 0), 0)
+                          .reduce((sum, o) => sum + (o.total || 0), 0)
                       )}</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -563,9 +562,9 @@ export default function FinancialDashboardPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {orders.slice(0, 5).map((order) => {
-                      const estimatedCost = (order.final_price || 0) * 0.65;
-                      const estimatedProfit = (order.final_price || 0) - estimatedCost;
-                      const profitMargin = ((estimatedProfit / (order.final_price || 1)) * 100);
+                      const estimatedCost = (order.total || 0) * 0.65;
+                      const estimatedProfit = (order.total || 0) - estimatedCost;
+                      const profitMargin = ((estimatedProfit / (order.total || 1)) * 100);
 
                       return (
                         <div key={order.id} className="border rounded-lg p-4">
@@ -588,7 +587,7 @@ export default function FinancialDashboardPage() {
                             <div>
                               <span className="text-slate-600">Revenue:</span>
                               <div className="font-semibold">
-                                {formatCurrency(order.final_price || 0)}
+                                {formatCurrency(order.total || 0)}
                               </div>
                             </div>
                             <div>
