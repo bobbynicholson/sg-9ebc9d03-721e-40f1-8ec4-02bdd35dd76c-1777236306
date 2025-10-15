@@ -22,6 +22,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
+import { RouteStopManager } from "@/components/driver/RouteStopManager";
 
 export default function DriverTrackingPage() {
   const { user } = useAuth();
@@ -247,6 +248,13 @@ export default function DriverTrackingPage() {
                   driverId={user.id}
                   driverName={user.user_metadata?.full_name || driverName}
                   onStatusChange={handleStatusChange}
+                />
+
+                {/* Add Route Stop Manager */}
+                <RouteStopManager
+                  orderId={activeDelivery.id}
+                  driverId={user.id}
+                  isAdmin={false}
                 />
 
                 <Card className="border-0 shadow-lg">

@@ -15,12 +15,18 @@ import type { AppOrder, ShoppingList, Ingredient } from "@/types";
 import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart, Calendar, Users } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
+import { timeClockService } from "@/services/timeClockService";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
+  const [staffSessions, setStaffSessions] = useState<any[]>([]);
+  const [period, setPeriod] = useState<"week" | "month">("week");
+  const { user } = useAuth();
 
   useEffect(() => {
     const mockOrders: AppOrder[] = [
@@ -83,6 +89,33 @@ export default function KitchenPage() {
     localStorage.setItem("kitchen_orders", JSON.stringify(stored ? JSON.parse(stored) : mockOrders));
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      loadStaffHours();
+    }
+  }, [user, period]);
+
+  const loadStaffHours = async () => {
+    if (!user) return;
+    try {
+      const now = new Date();
+      const startDate = new Date();
+      
+      if (period === "week") {
+        startDate.setDate(now.getDate() - 7);
+      } else {
+        startDate.setMonth(now.getMonth() - 1);
+      }
+
+      const sessions = await timeClockService.getStaffWorkSessions(user.id, startDate, now);
+      setStaffSessions(sessions);
+    } catch (error) {
+      console.error("Error loading staff hours:", error);
+    }
+  };
+
+  const totalHours = staffSessions.reduce((sum, session) => sum + Number(session.total_hours || 0), 0);
+
   const handleUpdateStatus = (orderId: string, newStatus: AppOrder["status"]) => {
     const updated = orders.map((order) =>
       order.id === orderId ? { ...order, status: newStatus } : order
@@ -133,6 +166,63 @@ export default function KitchenPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Kitchen Dashboard</h1>
               <p className="text-sm md:text-base text-slate-600">Manage orders and prep schedules</p>
+            </div>
+          </div>
+
+          {/* Add Time Clock Widget */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <TimeClockWidget />
+            </div>
+            
+            {/* Staff Hours Summary */}
+            <div className="lg:col-span-2">
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>My Hours</CardTitle>
+                    <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="week">Last 7 Days</SelectItem>
+                        <SelectItem value="month">Last 30 Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-6 p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                    <p className="text-sm text-blue-700 mb-1">Total Hours This {period === "week" ? "Week" : "Month"}</p>
+                    <p className="text-3xl font-bold text-blue-900">{totalHours.toFixed(1)}h</p>
+                  </div>
+                  
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {staffSessions.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">No hours recorded yet</p>
+                    ) : (
+                      staffSessions.map((session) => (
+                        <div key={session.id} className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+                          <div>
+                            <p className="font-medium">{new Date(session.clock_in_time).toLocaleDateString()}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(session.clock_in_time).toLocaleTimeString()} - 
+                              {session.clock_out_time ? new Date(session.clock_out_time).toLocaleTimeString() : "In Progress"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">{Number(session.total_hours || 0).toFixed(1)}h</p>
+                            <Badge variant={session.payment_status === "paid" ? "default" : "secondary"} className="text-xs">
+                              {session.payment_status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
