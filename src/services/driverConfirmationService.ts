@@ -325,7 +325,7 @@ export const driverConfirmationService = {
         order_number: order.order_number || '',
         collection_time: order.event_time || '',
         tracking_link: `${window.location.origin}/tracking/client?order=${orderId}`,
-        venue_name: order.venue_address || order.delivery_address || ''
+        venue_name: order.venue_address || ''
       };
 
       Object.entries(variables).forEach(([key, value]) => {

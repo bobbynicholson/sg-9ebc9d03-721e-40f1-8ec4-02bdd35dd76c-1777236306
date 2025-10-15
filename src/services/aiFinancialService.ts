@@ -34,7 +34,7 @@ export const aiFinancialService = {
     }
 
     // Calculate historical averages
-    const totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total_cost) || 0), 0);
+    const totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
     const avgDailyRevenue = totalRevenue / orders.length;
 
     // Generate predictions
