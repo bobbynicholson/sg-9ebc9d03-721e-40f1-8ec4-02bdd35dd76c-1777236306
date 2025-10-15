@@ -3,6 +3,8 @@ import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 
 export default function PrivacyPage() {
   const schema = {
@@ -75,15 +77,10 @@ export default function PrivacyPage() {
         />
       </Head>
 
+      <Header />
+
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
-          <Link href="/">
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Button>
-          </Link>
-
           <Card className="border-0 shadow-xl">
             <CardHeader>
               <CardTitle className="text-3xl">Privacy Policy</CardTitle>
@@ -283,6 +280,8 @@ export default function PrivacyPage() {
           </Card>
         </div>
       </div>
+
+      <Footer />
     </>
   );
 }
