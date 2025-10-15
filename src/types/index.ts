@@ -1,48 +1,24 @@
+import { Tables } from "@/integrations/supabase/types";
 
-export interface Lead {
+export type Profile = Tables<"profiles">;
+export type Lead = Tables<"leads">;
+export type Quote = Tables<"quotes">;
+
+export interface DisplayLead {
   id: string;
+  userId: string;
   clientName: string;
-  email: string;
-  phone: string;
+  clientEmail: string;
+  clientPhone: string | null;
   eventDate: string;
   eventType: string;
   guestCount: number;
-  budget: number;
-  specialRequests: string;
-  status: "new" | "quoted" | "revised" | "confirmed" | "cancelled";
+  budget: number | null;
+  specialRequests: string | null;
+  status: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Quote {
-  id: string;
-  leadId: string;
-  clientName: string;
-  email: string;
-  eventDate: string;
-  eventType: string;
-  guestCount: number;
-  deliveryAddress?: string;
-  deliveryLat?: number;
-  deliveryLng?: number;
-  deliveryDistance?: number;
-  deliveryFee?: number;
-  menuItems: MenuItem[];
-  equipmentItems: EquipmentItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  depositPercentage?: number;
-  depositAmount?: number;
-  balanceAmount?: number;
-  balanceDueDays?: number;
-  balanceDueDate?: string;
-  finalOrderChangeDays?: number;
-  finalOrderChangeDate?: string;
-  status: "draft" | "sent" | "revised" | "accepted" | "rejected" | "confirmed" | "paid" | "deposit_paid" | "balance_pending";
-  version: number;
-  createdAt: string;
-  updatedAt: string;
+  _original: Lead;
 }
 
 export interface MenuItem {
