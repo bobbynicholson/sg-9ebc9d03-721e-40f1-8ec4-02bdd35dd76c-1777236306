@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -708,6 +708,115 @@ export type Database = {
           },
         ]
       }
+      driver_confirmations: {
+        Row: {
+          confirmation_type: string
+          confirmed_at: string | null
+          created_at: string | null
+          driver_id: string
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          order_id: string
+        }
+        Insert: {
+          confirmation_type: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          driver_id: string
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          order_id: string
+        }
+        Update: {
+          confirmation_type?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          driver_id?: string
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_confirmations_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_confirmations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_replacement_requests: {
+        Row: {
+          accepted_at: string | null
+          accepted_by_driver_id: string | null
+          created_at: string | null
+          id: string
+          order_id: string
+          original_driver_id: string
+          reason: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by_driver_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_id: string
+          original_driver_id: string
+          reason: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by_driver_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_id?: string
+          original_driver_id?: string
+          reason?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_replacement_requests_accepted_by_driver_id_fkey"
+            columns: ["accepted_by_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_replacement_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_replacement_requests_original_driver_id_fkey"
+            columns: ["original_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_automation_log: {
         Row: {
           clicked_at: string | null
@@ -1238,6 +1347,125 @@ export type Database = {
           usd_to_zar_rate?: number
         }
         Relationships: []
+      }
+      financial_predictions: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          predicted_cashflow: number | null
+          predicted_expenses: number | null
+          predicted_revenue: number | null
+          prediction_date: string
+          recommendations: Json | null
+          risk_level: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          predicted_cashflow?: number | null
+          predicted_expenses?: number | null
+          predicted_revenue?: number | null
+          prediction_date: string
+          recommendations?: Json | null
+          risk_level?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          predicted_cashflow?: number | null
+          predicted_expenses?: number | null
+          predicted_revenue?: number | null
+          prediction_date?: string
+          recommendations?: Json | null
+          risk_level?: string | null
+        }
+        Relationships: []
+      }
+      gamification_achievements: {
+        Row: {
+          achievement_description: string | null
+          achievement_key: string
+          achievement_name: string
+          icon: string | null
+          id: string
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_description?: string | null
+          achievement_key: string
+          achievement_name: string
+          icon?: string | null
+          id?: string
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_description?: string | null
+          achievement_key?: string
+          achievement_name?: string
+          icon?: string | null
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gamification_points: {
+        Row: {
+          action_description: string | null
+          action_type: string
+          awarded_at: string | null
+          id: string
+          order_id: string | null
+          points: number
+          user_id: string
+        }
+        Insert: {
+          action_description?: string | null
+          action_type: string
+          awarded_at?: string | null
+          id?: string
+          order_id?: string | null
+          points?: number
+          user_id: string
+        }
+        Update: {
+          action_description?: string | null
+          action_type?: string
+          awarded_at?: string | null
+          id?: string
+          order_id?: string | null
+          points?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gamification_points_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gamification_points_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gps_tracking: {
         Row: {
@@ -2432,6 +2660,54 @@ export type Database = {
           },
         ]
       }
+      recipe_scaling_history: {
+        Row: {
+          adjusted_by_user_id: string | null
+          created_at: string | null
+          id: string
+          ingredient_adjustments: Json
+          new_guest_count: number
+          order_id: string
+          original_guest_count: number
+          scaling_factor: number
+        }
+        Insert: {
+          adjusted_by_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          ingredient_adjustments: Json
+          new_guest_count: number
+          order_id: string
+          original_guest_count: number
+          scaling_factor: number
+        }
+        Update: {
+          adjusted_by_user_id?: string | null
+          created_at?: string | null
+          id?: string
+          ingredient_adjustments?: Json
+          new_guest_count?: number
+          order_id?: string
+          original_guest_count?: number
+          scaling_factor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_scaling_history_adjusted_by_user_id_fkey"
+            columns: ["adjusted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_scaling_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       regions: {
         Row: {
           address: string | null
@@ -2971,6 +3247,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean | null
+          template_content: string
+          template_key: string
+          template_name: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          template_content: string
+          template_key: string
+          template_name: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          template_content?: string
+          template_key?: string
+          template_name?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: []
       }
     }
     Views: {
