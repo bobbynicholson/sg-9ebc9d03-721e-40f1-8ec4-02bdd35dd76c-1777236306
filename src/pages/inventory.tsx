@@ -33,9 +33,14 @@ import { calculateExpiryStatus, getExpiryAlerts, getExpiryStatusConfig } from "@
 import { getUserCurrency, formatCurrency } from "@/lib/currencyUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { inventoryService } from "@/services/inventoryService";
 
 export default function InventoryPage() {
+  const { user } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showScanner, setShowScanner] = useState(false);
@@ -56,45 +61,62 @@ export default function InventoryPage() {
   const userCurrency = getUserCurrency();
 
   useEffect(() => {
-    const stored = localStorage.getItem("inventory");
-    if (stored) {
-      const inventoryData = JSON.parse(stored);
-      const updatedInventory = inventoryData.map((item: InventoryItem) => {
-        if (item.shelfLifeDays && item.purchaseDate) {
-          const expiryInfo = calculateExpiryStatus(item);
+    if (user) {
+      loadInventory();
+    }
+  }, [user]);
+
+  const loadInventory = async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      setError("");
+      const data = await inventoryService.getAllInventory(user.id);
+      const updatedInventory = data.map((item: any) => {
+        if (item.shelf_life_days && item.purchase_date) {
+          const expiryInfo = calculateExpiryStatus({
+            ...item,
+            shelfLifeDays: item.shelf_life_days,
+            purchaseDate: item.purchase_date,
+            currentStock: item.quantity_available,
+            minimumStock: item.minimum_stock,
+          });
           return {
             ...item,
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            currentStock: item.quantity_available,
+            unit: item.unit,
+            minimumStock: item.minimum_stock,
             expiryStatus: expiryInfo.status,
             daysUntilExpiry: expiryInfo.daysUntilExpiry,
-            expiryDate: expiryInfo.expiryDate
+            expiryDate: expiryInfo.expiryDate,
           };
         }
-        return item;
+        return {
+          ...item,
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          currentStock: item.quantity_available,
+          unit: item.unit,
+          minimumStock: item.minimum_stock,
+        };
       });
       setInventory(updatedInventory);
-    } else {
-      const initialInventory = fullStarterInventory.map(item => {
-        if (item.shelfLifeDays && item.purchaseDate) {
-          const expiryInfo = calculateExpiryStatus(item);
-          return {
-            ...item,
-            expiryStatus: expiryInfo.status,
-            daysUntilExpiry: expiryInfo.daysUntilExpiry,
-            expiryDate: expiryInfo.expiryDate
-          };
-        }
-        return item;
-      });
-      setInventory(initialInventory);
-      localStorage.setItem("inventory", JSON.stringify(initialInventory));
+      generateSupplierComparisons(updatedInventory);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load inventory. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    generateSupplierComparisons();
-  }, []);
+  };
 
-  const generateSupplierComparisons = () => {
-    const stored = localStorage.getItem("inventory") || JSON.stringify(fullStarterInventory);
-    const inventoryData: InventoryItem[] = JSON.parse(stored);
-    
+  const generateSupplierComparisons = (inventoryData: InventoryItem[]) => {
+    // This function will need to be adapted once supplier prices are stored in Supabase
+    // For now, we'll keep its logic but it may not be fully functional with live data yet.
     const comparisons: SupplierComparison[] = inventoryData
       .filter(item => item.supplierPrices && item.supplierPrices.length > 1)
       .map(item => {
@@ -125,9 +147,14 @@ export default function InventoryPage() {
     setSupplierComparisons(comparisons);
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     setAddItemError("");
     setAddItemSuccess("");
+
+    if (!user) {
+      setAddItemError("You must be logged in to add items.");
+      return;
+    }
 
     // Validation
     if (!newItem.name.trim()) {
@@ -143,94 +170,54 @@ export default function InventoryPage() {
       return;
     }
 
-    const item: InventoryItem = {
-      id: `INV-${Date.now()}`,
-      name: newItem.name,
-      category: newItem.category as any,
-      currentStock: Number(newItem.currentStock),
-      unit: newItem.unit,
-      minimumStock: Number(newItem.minimumStock),
-      lastRestocked: new Date().toISOString().split("T")[0],
-      shelfLifeDays: newItem.shelfLifeDays > 0 ? newItem.shelfLifeDays : undefined,
-      purchaseDate: newItem.purchaseDate || undefined
-    };
+    try {
+      const newItemData = {
+        user_id: user.id,
+        name: newItem.name,
+        category: newItem.category,
+        quantity_total: Number(newItem.currentStock),
+        quantity_available: Number(newItem.currentStock),
+        unit: newItem.unit,
+        minimum_stock: Number(newItem.minimumStock),
+        shelf_life_days: newItem.shelfLifeDays > 0 ? newItem.shelfLifeDays : undefined,
+        purchase_date: newItem.purchaseDate || undefined
+      };
 
-    if (item.shelfLifeDays && item.purchaseDate) {
-      const expiryInfo = calculateExpiryStatus(item);
-      item.expiryStatus = expiryInfo.status;
-      item.daysUntilExpiry = expiryInfo.daysUntilExpiry;
-      item.expiryDate = expiryInfo.expiryDate;
+      await inventoryService.createInventoryItem(newItemData as any);
+      
+      setAddItemSuccess(`Successfully added ${newItem.name} to inventory!`);
+      
+      loadInventory(); // Refresh inventory
+      
+      // Reset form
+      setNewItem({
+        name: "",
+        category: "fresh_produce",
+        currentStock: 0,
+        unit: "kg",
+        minimumStock: 0,
+        shelfLifeDays: 0,
+        purchaseDate: new Date().toISOString().split("T")[0]
+      });
+      
+      // Close form after 2 seconds
+      setTimeout(() => {
+        setShowAddItemForm(false);
+        setAddItemSuccess("");
+      }, 2000);
+
+    } catch (error) {
+      console.error("Failed to add item:", error);
+      setAddItemError("An error occurred while adding the item.");
     }
-
-    const updatedInventory = [...inventory, item];
-    setInventory(updatedInventory);
-    localStorage.setItem("inventory", JSON.stringify(updatedInventory));
-    
-    setAddItemSuccess(`Successfully added ${newItem.name} to inventory!`);
-    
-    // Reset form
-    setNewItem({
-      name: "",
-      category: "fresh_produce",
-      currentStock: 0,
-      unit: "kg",
-      minimumStock: 0,
-      shelfLifeDays: 0,
-      purchaseDate: new Date().toISOString().split("T")[0]
-    });
-    
-    // Close form after 2 seconds
-    setTimeout(() => {
-      setShowAddItemForm(false);
-      setAddItemSuccess("");
-    }, 2000);
   };
 
   const handleReceiptProcessed = (receipt: ScannedReceipt) => {
+    // This function will also need significant rework for Supabase integration
     if (receipt.status === "processed") {
-      const updatedInventory = [...inventory];
-      
-      receipt.items.forEach(receiptItem => {
-        const existingItem = updatedInventory.find(
-          item => item.name.toLowerCase() === receiptItem.name.toLowerCase()
-        );
-        
-        if (existingItem) {
-          existingItem.currentStock += receiptItem.quantity;
-          existingItem.lastRestocked = receipt.receiptDate;
-          existingItem.purchaseDate = receipt.receiptDate;
-          
-          if (existingItem.shelfLifeDays) {
-            const expiryInfo = calculateExpiryStatus(existingItem);
-            existingItem.expiryStatus = expiryInfo.status;
-            existingItem.daysUntilExpiry = expiryInfo.daysUntilExpiry;
-            existingItem.expiryDate = expiryInfo.expiryDate;
-          }
-          
-          if (existingItem.supplierPrices) {
-            const existingSupplier = existingItem.supplierPrices.find(
-              sp => sp.supplierName === receipt.supplierName
-            );
-            
-            if (existingSupplier) {
-              existingSupplier.price = receiptItem.price;
-              existingSupplier.lastUpdated = receipt.scannedAt;
-            } else {
-              existingItem.supplierPrices.push({
-                supplierId: receipt.supplierId,
-                supplierName: receipt.supplierName,
-                price: receiptItem.price,
-                lastUpdated: receipt.scannedAt
-              });
-            }
-          }
-        }
-      });
-      
-      setInventory(updatedInventory);
-      localStorage.setItem("inventory", JSON.stringify(updatedInventory));
-      generateSupplierComparisons();
+      console.log("Receipt processed, Supabase integration for this is a TODO");
       setShowScanner(false);
+      loadInventory();
     }
   };
 
@@ -275,6 +262,26 @@ export default function InventoryPage() {
   );
 
   const totalExpiryAlerts = expiryAlerts.expired.length + expiryAlerts.critical.length + expiryAlerts.warning.length;
+
+  if (!user) {
+    return (
+      <>
+        <NoIndexMeta />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-8 text-center">
+              <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
+              <p className="text-slate-600 mb-6">Please sign in to view your inventory.</p>
+              <Link href="/auth/login">
+                <Button>Sign In</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -381,6 +388,13 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
           </div>
+
+          {error && (
+             <Alert className="mb-4 border-red-200 bg-red-50">
+               <AlertCircle className="h-4 w-4 text-red-600" />
+               <AlertDescription className="text-sm text-red-800">{error}</AlertDescription>
+             </Alert>
+          )}
 
           {/* Success/Error Messages */}
           {addItemSuccess && (
@@ -511,7 +525,7 @@ export default function InventoryPage() {
           )}
 
           {/* Expiry Alerts - Mobile Optimized */}
-          {totalExpiryAlerts > 0 && (
+          {totalExpiryAlerts > 0 && !loading && (
             <Card className="mb-6 border-red-200 bg-red-50">
               <CardContent className="p-4 md:pt-6">
                 <div className="flex items-start gap-3">
@@ -596,98 +610,103 @@ export default function InventoryPage() {
                 ))}
               </div>
 
-              {/* Inventory Items - Mobile Optimized */}
-              <div className="grid gap-4">
-                {filteredInventory.map((item) => {
-                  const status = getStockStatus(item.currentStock, item.minimumStock);
-                  const bestPrice = item.supplierPrices 
-                    ? Math.min(...item.supplierPrices.map(sp => sp.price))
-                    : item.averageCost || 0;
-                  
-                  const hasExpiry = item.shelfLifeDays && item.purchaseDate;
-                  const expiryConfig = hasExpiry && item.expiryStatus 
-                    ? getExpiryStatusConfig(item.expiryStatus) 
-                    : null;
-                  
-                  return (
-                    <Card key={item.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-                      <CardContent className="p-4 md:p-6">
-                        <div className="flex flex-col gap-4">
-                          {/* Item Header */}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-2 break-words">{item.name}</h3>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <Badge className={status.color + " text-xs"}>{status.label}</Badge>
-                                <Badge variant="outline" className="capitalize text-xs">
-                                  {item.category.replace("_", " ")}
-                                </Badge>
-                                {expiryConfig && (
-                                  <Badge className={expiryConfig.color + " text-xs"}>
-                                    {expiryConfig.icon} {expiryConfig.label}
+              {loading ? (
+                <div className="text-center p-12">
+                  <p>Loading inventory...</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredInventory.map((item) => {
+                    const status = getStockStatus(item.currentStock, item.minimumStock);
+                    const bestPrice = item.supplierPrices 
+                      ? Math.min(...item.supplierPrices.map(sp => sp.price))
+                      : item.averageCost || 0;
+                    
+                    const hasExpiry = item.shelfLifeDays && item.purchaseDate;
+                    const expiryConfig = hasExpiry && item.expiryStatus 
+                      ? getExpiryStatusConfig(item.expiryStatus) 
+                      : null;
+                    
+                    return (
+                      <Card key={item.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col gap-4">
+                            {/* Item Header */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-base md:text-lg font-semibold text-slate-900 mb-2 break-words">{item.name}</h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge className={status.color + " text-xs"}>{status.label}</Badge>
+                                  <Badge variant="outline" className="capitalize text-xs">
+                                    {item.category.replace("_", " ")}
                                   </Badge>
-                                )}
+                                  {expiryConfig && (
+                                    <Badge className={expiryConfig.color + " text-xs"}>
+                                      {expiryConfig.icon} {expiryConfig.label}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <Button variant="ghost" size="sm">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Button variant="ghost" size="sm">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
 
-                          {/* Item Details */}
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs md:text-sm text-slate-600">
-                            <div className="flex items-center gap-2">
-                              <Package className="w-4 h-4 flex-shrink-0" />
-                              <span>
-                                <span className="font-semibold text-slate-900">{item.currentStock}</span> {item.unit}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <TrendingDown className="w-4 h-4 flex-shrink-0" />
-                              <span>Min: {item.minimumStock} {item.unit}</span>
-                            </div>
-                            {bestPrice > 0 && (
+                            {/* Item Details */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs md:text-sm text-slate-600">
                               <div className="flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 flex-shrink-0" />
-                                <span className="truncate">Best: {formatCurrency(bestPrice, userCurrency)}</span>
-                              </div>
-                            )}
-                            {hasExpiry && item.daysUntilExpiry !== undefined && (
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 flex-shrink-0" />
-                                <span className="truncate">
-                                  {item.daysUntilExpiry < 0 
-                                    ? `Expired ${Math.abs(item.daysUntilExpiry)}d ago`
-                                    : `${item.daysUntilExpiry}d left`
-                                  }
+                                <Package className="w-4 h-4 flex-shrink-0" />
+                                <span>
+                                  <span className="font-semibold text-slate-900">{item.currentStock}</span> {item.unit}
                                 </span>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <TrendingDown className="w-4 h-4 flex-shrink-0" />
+                                <span>Min: {item.minimumStock} {item.unit}</span>
+                              </div>
+                              {bestPrice > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <DollarSign className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate">Best: {formatCurrency(bestPrice, userCurrency)}</span>
+                                </div>
+                              )}
+                              {hasExpiry && item.daysUntilExpiry !== undefined && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {item.daysUntilExpiry < 0 
+                                      ? `Expired ${Math.abs(item.daysUntilExpiry)}d ago`
+                                      : `${item.daysUntilExpiry}d left`
+                                    }
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Additional Info */}
+                            {hasExpiry && item.expiryDate && (
+                              <div className="text-xs text-slate-500 break-words">
+                                Purchase: {item.purchaseDate} | Expires: {item.expiryDate} ({item.shelfLifeDays} day shelf life)
+                              </div>
+                            )}
+                            {item.supplierPrices && item.supplierPrices.length > 1 && (
+                              <div className="text-xs text-blue-600 flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                {item.supplierPrices.length} suppliers available
+                              </div>
                             )}
                           </div>
-
-                          {/* Additional Info */}
-                          {hasExpiry && item.expiryDate && (
-                            <div className="text-xs text-slate-500 break-words">
-                              Purchase: {item.purchaseDate} | Expires: {item.expiryDate} ({item.shelfLifeDays} day shelf life)
-                            </div>
-                          )}
-                          {item.supplierPrices && item.supplierPrices.length > 1 && (
-                            <div className="text-xs text-blue-600 flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              {item.supplierPrices.length} suppliers available
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="suppliers" className="space-y-6">
