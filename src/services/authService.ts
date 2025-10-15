@@ -67,7 +67,9 @@ export const authService = {
         password,
         options: {
           data: {
-            full_name: fullName
+            full_name: fullName,
+            role: role,
+            currency: currency
           }
         }
       });
@@ -76,31 +78,9 @@ export const authService = {
         return { user: null, error: { message: error.message, code: error.status?.toString() } };
       }
 
-      // Create profile with all required fields
+      // Profile is now automatically created by database trigger
+      // Initialize onboarding data for new user
       if (data.user) {
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 14); // 14-day trial
-
-        await profileService.createProfile({
-          id: data.user.id,
-          email: email,
-          full_name: fullName,
-          role: role,
-          currency: currency,
-          is_active: true,
-          subscription_plan: "trial",
-          subscription_status: "trial", // ✅ Changed from "trialing" to "trial" to match database constraint
-          trial_ends_at: trialEndDate.toISOString(),
-          avatar_url: "",
-          company_name: "",
-          phone: "",
-          phone_number: "",
-          drive_time_to_kitchen_minutes: 0,
-          vehicle_details: "",
-          region: null, // Make region optional
-        });
-
-        // Initialize onboarding data for new user
         await onboardingService.initializeUserData({
           userId: data.user.id,
           companyName: fullName,
@@ -183,34 +163,11 @@ export const authService = {
   // Handle OAuth callback and create profile if needed
   async handleOAuthCallback(userId: string, email: string, fullName: string): Promise<void> {
     try {
-      // Check if profile already exists
+      // Profile is automatically created by database trigger
+      // Just initialize onboarding for OAuth users
       const existingProfile = await profileService.getProfile(userId);
       
-      if (!existingProfile) {
-        // Create new profile for OAuth user
-        const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 14);
-
-        await profileService.createProfile({
-          id: userId,
-          email: email,
-          full_name: fullName || email.split("@")[0],
-          role: "admin",
-          currency: "ZAR",
-          is_active: true,
-          subscription_plan: "trial",
-          subscription_status: "trial", // ✅ Changed from "trialing" to "trial" to match database constraint
-          trial_ends_at: trialEndDate.toISOString(),
-          avatar_url: "",
-          company_name: "",
-          phone: "",
-          phone_number: "",
-          drive_time_to_kitchen_minutes: 0,
-          vehicle_details: "",
-          region: null, // Make region optional
-        });
-
-        // Initialize onboarding for OAuth users
+      if (existingProfile) {
         await onboardingService.initializeUserData({
           userId: userId,
           companyName: fullName || email.split("@")[0],
