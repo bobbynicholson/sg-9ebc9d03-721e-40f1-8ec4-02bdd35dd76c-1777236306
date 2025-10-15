@@ -10,6 +10,7 @@ import {
   ListChecks,
   Users
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -22,6 +23,8 @@ export default function KitchenManagementPage() {
         <meta name="keywords" content="kitchen management, food production, prep lists, catering kitchen, workflow optimization, team coordination" />
         <link rel="canonical" href="https://cateringms.com/features/kitchen-management" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-pink-50 via-white to-rose-50">

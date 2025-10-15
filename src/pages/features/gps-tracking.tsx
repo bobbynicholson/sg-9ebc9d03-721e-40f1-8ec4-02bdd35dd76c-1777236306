@@ -10,6 +10,7 @@ import {
   Navigation,
   Clock
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -22,6 +23,8 @@ export default function GPSTrackingPage() {
         <meta name="keywords" content="GPS tracking catering, delivery tracking, real-time location, driver tracking, catering delivery management" />
         <link rel="canonical" href="https://cateringms.com/features/gps-tracking" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-red-50 via-white to-orange-50">

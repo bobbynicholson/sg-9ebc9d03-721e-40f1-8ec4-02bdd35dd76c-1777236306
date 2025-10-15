@@ -10,6 +10,7 @@ import {
   RefreshCw,
   TrendingUp
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -22,6 +23,8 @@ export default function EmailAutomationPage() {
         <meta name="keywords" content="email automation, quote follow-ups, after sales, email marketing, catering automation, client nurture" />
         <link rel="canonical" href="https://cateringms.com/features/email-automation" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         {/* Hero Section - Mobile Optimized */}

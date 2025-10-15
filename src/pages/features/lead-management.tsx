@@ -12,6 +12,7 @@ import {
   Target,
   Zap
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -24,6 +25,8 @@ export default function LeadManagementPage() {
         <meta name="keywords" content="catering lead management, quote generation, lead tracking, sales pipeline, catering CRM" />
         <link rel="canonical" href="https://cateringms.com/features/lead-management" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-cyan-50">

@@ -10,6 +10,7 @@ import {
   TrendingDown,
   RefreshCw
 } from "lucide-react";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 
@@ -22,6 +23,8 @@ export default function InventoryManagementPage() {
         <meta name="keywords" content="catering inventory management, food tracking, equipment management, expiry alerts, waste reduction, stock control" />
         <link rel="canonical" href="https://cateringms.com/features/inventory-management" />
       </Head>
+
+      <Header />
 
       <div className="min-h-screen bg-white">
         <div className="relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-emerald-50">
