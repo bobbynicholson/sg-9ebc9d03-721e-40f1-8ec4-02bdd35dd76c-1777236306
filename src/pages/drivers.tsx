@@ -113,7 +113,6 @@ export default function DriversPage() {
         region_id: null,
         sent_at: new Date().toISOString(),
         venue_address: order.location,
-        version: 1,
       };
     };
 

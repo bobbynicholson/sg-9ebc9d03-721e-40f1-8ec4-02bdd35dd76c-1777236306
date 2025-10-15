@@ -88,6 +88,10 @@ export const mockQuotes: Quote[] = [
     region_id: null,
     sent_at: new Date().toISOString(),
     venue_address: "123 Example St",
+    notes: "Initial quote, pending client review.",
+    quote_number: "QT-2025-001",
+    terms: "50% deposit required to confirm booking. Balance due 7 days before event.",
+    valid_until: addDays(new Date(), 30).toISOString(),
   }
 ];
 
