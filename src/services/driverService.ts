@@ -500,7 +500,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, order_number")
+        .select("user_id, client_id, client_phone, order_number")
         .eq("id", assignment.order_id)
         .single();
 
@@ -516,16 +516,36 @@ export const driverService = {
 
         const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/tracking/client?order=${assignment.order_id}`;
         
-        await whatsappIntegrationService.sendWhatsAppMessage({
-          to: orderDetails.client_id || orderDetails.user_id,
-          type: "text",
-          text: {
-            body: `🚗 Your driver has left the kitchen!\n\n` +
-                  `Order #${orderDetails.order_number}\n\n` +
-                  `Track your delivery live with GPS:\n${trackingUrl}\n\n` +
-                  `You'll receive updates when the driver is near and when they arrive. Have a great event! 🎉`
+        // Get client phone number from profiles table
+        let clientPhone = orderDetails.client_phone;
+        if (!clientPhone && orderDetails.client_id) {
+          const { data: clientProfile } = await supabase
+            .from("profiles")
+            .select("phone, phone_number")
+            .eq("id", orderDetails.client_id)
+            .single();
+          
+          clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+        }
+
+        if (clientPhone) {
+          try {
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: clientPhone,
+              type: "text",
+              text: {
+                body: `🚗 Your driver has left the kitchen!\n\n` +
+                      `Order #${orderDetails.order_number}\n\n` +
+                      `Track your delivery live with GPS:\n${trackingUrl}\n\n` +
+                      `You'll receive updates when the driver is near and when they arrive. Have a great event! 🎉`
+              }
+            });
+          } catch (whatsappError) {
+            console.error("Failed to send WhatsApp message:", whatsappError);
           }
-        });
+        } else {
+          console.warn("Client phone number not available for WhatsApp notification");
+        }
       }
     }
 
@@ -561,7 +581,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, order_number")
+        .select("user_id, client_id, client_phone, order_number")
         .eq("id", assignment.order_id)
         .single();
 
@@ -575,15 +595,35 @@ export const driverService = {
           priority: "medium",
         });
 
-        await whatsappIntegrationService.sendWhatsAppMessage({
-          to: orderDetails.client_id || orderDetails.user_id,
-          type: "text",
-          text: {
-            body: `📍 Your driver has arrived at the venue!\n\n` +
-                  `Order #${orderDetails.order_number}\n\n` +
-                  `Your order is being delivered now. Enjoy your event! 🎉`
+        // Get client phone number from profiles table
+        let clientPhone = orderDetails.client_phone;
+        if (!clientPhone && orderDetails.client_id) {
+          const { data: clientProfile } = await supabase
+            .from("profiles")
+            .select("phone, phone_number")
+            .eq("id", orderDetails.client_id)
+            .single();
+          
+          clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+        }
+
+        if (clientPhone) {
+          try {
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: clientPhone,
+              type: "text",
+              text: {
+                body: `📍 Your driver has arrived at the venue!\n\n` +
+                      `Order #${orderDetails.order_number}\n\n` +
+                      `Your order is being delivered now. Enjoy your event! 🎉`
+              }
+            });
+          } catch (whatsappError) {
+            console.error("Failed to send WhatsApp message:", whatsappError);
           }
-        });
+        } else {
+          console.warn("Client phone number not available for WhatsApp notification");
+        }
       }
     }
 
@@ -958,7 +998,7 @@ export const driverService = {
     if (assignment) {
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, order_number")
+        .select("user_id, client_id, client_phone, order_number")
         .eq("id", assignment.order_id)
         .single();
 
@@ -972,15 +1012,35 @@ export const driverService = {
           priority: "medium",
         });
 
-        await whatsappIntegrationService.sendWhatsAppMessage({
-          to: orderDetails.client_id || orderDetails.user_id,
-          type: "text",
-          text: {
-            body: `👨‍🍳 Your driver has arrived at the kitchen!\n\n` +
-                  `Order #${orderDetails.order_number}\n\n` +
-                  `Your order is being collected and prepared for delivery. You'll receive another update when the driver departs. 📦`
+        // Get client phone number from profiles table
+        let clientPhone = orderDetails.client_phone;
+        if (!clientPhone && orderDetails.client_id) {
+          const { data: clientProfile } = await supabase
+            .from("profiles")
+            .select("phone, phone_number")
+            .eq("id", orderDetails.client_id)
+            .single();
+          
+          clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+        }
+
+        if (clientPhone) {
+          try {
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: clientPhone,
+              type: "text",
+              text: {
+                body: `👨‍🍳 Your driver has arrived at the kitchen!\n\n` +
+                      `Order #${orderDetails.order_number}\n\n` +
+                      `Your order is being collected and prepared for delivery. You'll receive another update when the driver departs. 📦`
+              }
+            });
+          } catch (whatsappError) {
+            console.error("Failed to send WhatsApp message:", whatsappError);
           }
-        });
+        } else {
+          console.warn("Client phone number not available for WhatsApp notification");
+        }
       }
     }
 
