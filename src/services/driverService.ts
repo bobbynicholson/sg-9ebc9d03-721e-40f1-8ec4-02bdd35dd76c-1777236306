@@ -500,7 +500,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, client_phone, order_number")
+        .select("user_id, client_id, client_phone, order_number, client_name")
         .eq("id", assignment.order_id)
         .single();
 
@@ -515,21 +515,26 @@ export const driverService = {
         });
 
         const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/tracking/client?order=${assignment.order_id}`;
+        const gameUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/client-portal?game=true`;
         
         // Get client phone number from profiles table
         let clientPhone = orderDetails.client_phone;
+        let clientName = orderDetails.client_name;
+        
         if (!clientPhone && orderDetails.client_id) {
           const { data: clientProfile } = await supabase
             .from("profiles")
-            .select("phone, phone_number")
+            .select("phone, phone_number, full_name")
             .eq("id", orderDetails.client_id)
             .single();
           
           clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+          if (!clientName) clientName = clientProfile?.full_name;
         }
 
         if (clientPhone) {
           try {
+            // Send main delivery notification with tracking link
             await whatsappIntegrationService.sendWhatsAppMessage({
               to: clientPhone,
               type: "text",
@@ -540,8 +545,20 @@ export const driverService = {
                       `You'll receive updates when the driver is near and when they arrive. Have a great event! 🎉`
               }
             });
+
+            // Send game invitation as a follow-up
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: clientPhone,
+              type: "text",
+              text: {
+                body: `🎮 While you wait for your driver...\n\n` +
+                      `Why not have some fun? Play our Catering Dash game and compete for a spot on the leaderboard! 🏆\n\n` +
+                      `🎯 Play now: ${gameUrl}\n\n` +
+                      `Challenge: Can you beat the Top 10? 😊`
+              }
+            });
           } catch (whatsappError) {
-            console.error("Failed to send WhatsApp message:", whatsappError);
+            console.error("Failed to send WhatsApp messages:", whatsappError);
           }
         } else {
           console.warn("Client phone number not available for WhatsApp notification");

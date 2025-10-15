@@ -14,13 +14,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
+import { useRouter } from "next/router";
 
 export default function ClientPortalPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("active");
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showGame, setShowGame] = useState(false);
+
+  useEffect(() => {
+    // Check if game parameter is in URL
+    if (router.query.game === 'true') {
+      setShowGame(true);
+    }
+  }, [router.query]);
 
   useEffect(() => {
     const mockOrders: AppOrder[] = [
