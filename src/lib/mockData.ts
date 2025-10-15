@@ -9,13 +9,13 @@ export const mockLeads: Lead[] = [
     client_email: "alice.j@example.com",
     client_phone: "555-0101",
     event_date: "2025-11-15",
-    eventType: "Wedding Reception",
-    guestCount: 150,
+    event_type: "Wedding Reception",
+    guest_count: 150,
     budget: 8000,
-    specialRequests: "Vegetarian options needed for 20 guests",
+    special_requests: "Vegetarian options needed for 20 guests",
     status: "new",
-    createdAt: "2025-10-10T10:00:00Z",
-    updatedAt: "2025-10-10T10:00:00Z"
+    created_at: "2025-10-10T10:00:00Z",
+    updated_at: "2025-10-10T10:00:00Z"
   },
   {
     id: "lead-2",
@@ -24,13 +24,13 @@ export const mockLeads: Lead[] = [
     client_email: "bob.w@example.com",
     client_phone: "555-0102",
     event_date: "2025-12-01",
-    eventType: "Corporate Event",
-    guestCount: 75,
+    event_type: "Corporate Event",
+    guest_count: 75,
     budget: 4500,
-    specialRequests: "Need setup by 11 AM",
+    special_requests: "Need setup by 11 AM",
     status: "contacted",
-    createdAt: "2025-10-09T14:30:00Z",
-    updatedAt: "2025-10-10T09:15:00Z"
+    created_at: "2025-10-09T14:30:00Z",
+    updated_at: "2025-10-10T09:15:00Z"
   }
 ];
 
@@ -41,10 +41,10 @@ export const mockQuotes: Quote[] = [
     user_id: "user-123",
     client_name: "Alice Johnson",
     client_email: "alice.j@example.com",
-    eventDate: "2025-11-20",
-    eventType: "Corporate Event",
-    guestCount: 75,
-    menuItems: [
+    event_date: "2025-11-20",
+    event_type: "Corporate Event",
+    guest_count: 75,
+    menu_items: [
       {
         id: "M001",
         name: "Chicken Satay Skewers",
@@ -56,7 +56,7 @@ export const mockQuotes: Quote[] = [
         ]
       }
     ],
-    equipmentItems: [
+    equipment_items: [
       {
         id: "E001",
         name: "Chafing Dish",

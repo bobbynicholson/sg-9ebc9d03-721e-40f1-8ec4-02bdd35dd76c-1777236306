@@ -88,25 +88,25 @@ export default function DriversPage() {
       return {
         ...order,
         id: order.id,
-        leadId: order.quoteId,
-        clientName: order.clientName,
-        email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
-        eventDate: order.eventDate,
-        eventType: order.menuItems[0]?.name || "Catering Event",
-        guestCount: order.guestCount,
+        lead_id: order.quoteId,
+        client_name: order.clientName,
+        client_email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
+        event_date: order.eventDate,
+        event_type: order.menuItems[0]?.name || "Catering Event",
+        guest_count: order.guestCount,
         pickupTime: "14:00",
         deliveryTime: "16:00",
         address: order.location,
         driverAssigned: assignment.driverAssigned || undefined,
-        menuItems: order.menuItems,
-        equipmentItems: order.equipmentItems,
+        menu_items: order.menuItems,
+        equipment_items: order.equipmentItems,
         status: "accepted" as const,
         subtotal: order.totalAmount * 0.87,
         tax: order.totalAmount * 0.13,
         total: order.totalAmount,
         version: 1,
-        createdAt: order.createdAt,
-        updatedAt: order.createdAt,
+        created_at: order.createdAt,
+        updated_at: order.createdAt,
       };
     };
 
@@ -328,8 +328,8 @@ export default function DriversPage() {
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div>
-                            <CardTitle className="text-lg">{job.clientName}</CardTitle>
-                            <p className="text-sm text-slate-600 mt-1">{job.eventType}</p>
+                            <CardTitle className="text-lg">{job.client_name}</CardTitle>
+                            <p className="text-sm text-slate-600 mt-1">{job.event_type}</p>
                           </div>
                           <Badge className="bg-blue-100 text-blue-700 border-blue-200">
                             Available
@@ -339,7 +339,7 @@ export default function DriversPage() {
                       <CardContent className="space-y-3">
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Calendar className="w-4 h-4" />
-                          <span>{new Date(job.eventDate).toLocaleDateString()}</span>
+                          <span>{new Date(job.event_date).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Clock className="w-4 h-4" />
@@ -351,7 +351,7 @@ export default function DriversPage() {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Users className="w-4 h-4" />
-                          <span>{job.guestCount} guests</span>
+                          <span>{job.guest_count} guests</span>
                         </div>
                         <Button 
                           className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
@@ -383,8 +383,8 @@ export default function DriversPage() {
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div>
-                            <CardTitle className="text-lg">{job.clientName}</CardTitle>
-                            <p className="text-sm text-slate-600 mt-1">{job.eventType}</p>
+                            <CardTitle className="text-lg">{job.client_name}</CardTitle>
+                            <p className="text-sm text-slate-600 mt-1">{job.event_type}</p>
                           </div>
                           <Badge className="bg-green-100 text-green-700 border-green-200">
                             Booked
@@ -394,7 +394,7 @@ export default function DriversPage() {
                       <CardContent className="space-y-3">
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Calendar className="w-4 h-4" />
-                          <span>{new Date(job.eventDate).toLocaleDateString()}</span>
+                          <span>{new Date(job.event_date).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Clock className="w-4 h-4" />
@@ -406,7 +406,7 @@ export default function DriversPage() {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-slate-600">
                           <Users className="w-4 h-4" />
-                          <span>{job.guestCount} guests</span>
+                          <span>{job.guest_count} guests</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Link href={`/tracking/driver?orderId=${job.id}`}>

@@ -133,7 +133,7 @@ export default function QuotesPage() {
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                           <div className="flex items-center gap-2 text-slate-600">
                             <Mail className="w-4 h-4" />
-                            <span className="text-sm">{quote.email}</span>
+                            <span className="text-sm">{quote.client_email}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <Calendar className="w-4 h-4" />
@@ -156,10 +156,10 @@ export default function QuotesPage() {
                             {quote.event_type}
                           </span>
                           <span className="text-slate-600">
-                            {quote.menu_items.length} menu items
+                            {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items
                           </span>
                           <span className="text-slate-600">
-                            {quote.equipment_items.length} equipment items
+                            {Array.isArray(quote.equipment_items) ? quote.equipment_items.length : 0} equipment items
                           </span>
                         </div>
 
@@ -168,14 +168,6 @@ export default function QuotesPage() {
                             <span className="text-slate-600">Subtotal</span>
                             <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
                           </div>
-                          {quote.delivery_fee && quote.delivery_fee > 0 && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600">
-                                Delivery Fee {quote.delivery_distance ? `(${quote.delivery_distance}km)` : ''}
-                              </span>
-                              <span className="font-medium text-blue-600">R{quote.delivery_fee.toFixed(2)}</span>
-                            </div>
-                          )}
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">VAT (15%)</span>
                             <span className="font-medium">R{quote.tax.toFixed(2)}</span>
