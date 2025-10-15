@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Users, 
   ArrowLeft,
@@ -14,13 +15,19 @@ import {
   Mail,
   Phone,
   DollarSign,
-  UserPlus
+  UserPlus,
+  Loader2
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { leadService } from "@/services/leadService";
 
 export default function NewLeadPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     clientName: "",
     email: "",
@@ -32,23 +39,38 @@ export default function NewLeadPage() {
     specialRequests: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newLead = {
-      id: `L${Date.now()}`,
-      ...formData,
-      guestCount: parseInt(formData.guestCount),
-      budget: parseFloat(formData.budget),
-      status: "new" as const,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+    if (!user) {
+      setError("You must be signed in to create leads");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError("");
 
-    const existingLeads = JSON.parse(localStorage.getItem("leads") || "[]");
-    localStorage.setItem("leads", JSON.stringify([...existingLeads, newLead]));
+      await leadService.createLead({
+        client_name: formData.clientName,
+        email: formData.email,
+        phone: formData.phone || null,
+        event_date: formData.eventDate,
+        event_type: formData.eventType,
+        guest_count: parseInt(formData.guestCount),
+        budget: formData.budget ? parseFloat(formData.budget) : null,
+        special_requests: formData.specialRequests || null,
+        status: "new",
+        user_id: user.id
+      });
 
-    router.push("/leads");
+      router.push("/leads");
+    } catch (err) {
+      console.error("Error creating lead:", err);
+      setError("Failed to create lead. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -67,6 +89,26 @@ export default function NewLeadPage() {
     "Conference",
     "Other"
   ];
+
+  if (!user) {
+    return (
+      <>
+        <NoIndexMeta />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-8 text-center">
+              <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
+              <p className="text-slate-600 mb-6">Please sign in to create leads.</p>
+              <Link href="/auth/login">
+                <Button>Sign In</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -94,6 +136,12 @@ export default function NewLeadPage() {
             </div>
           </div>
 
+          {error && (
+            <Alert className="mb-6 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit}>
             <Card className="border-0 shadow-lg mb-6">
               <CardHeader>
@@ -114,11 +162,12 @@ export default function NewLeadPage() {
                       onChange={handleChange}
                       placeholder="John Smith"
                       required
+                      disabled={loading}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <Input
@@ -128,7 +177,7 @@ export default function NewLeadPage() {
                         onChange={handleChange}
                         placeholder="082 123 4567"
                         className="pl-10"
-                        required
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -146,6 +195,7 @@ export default function NewLeadPage() {
                         placeholder="john@example.com"
                         className="pl-10"
                         required
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -172,6 +222,7 @@ export default function NewLeadPage() {
                       value={formData.eventDate}
                       onChange={handleChange}
                       required
+                      disabled={loading}
                     />
                   </div>
 
@@ -184,6 +235,7 @@ export default function NewLeadPage() {
                       onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
                       className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
+                      disabled={loading}
                     >
                       <option value="">Select event type</option>
                       {eventTypes.map((type) => (
@@ -203,11 +255,12 @@ export default function NewLeadPage() {
                       onChange={handleChange}
                       placeholder="100"
                       required
+                      disabled={loading}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="budget">Estimated Budget (R) *</Label>
+                    <Label htmlFor="budget">Estimated Budget (R)</Label>
                     <div className="relative">
                       <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <Input
@@ -218,9 +271,9 @@ export default function NewLeadPage() {
                         step="0.01"
                         value={formData.budget}
                         onChange={handleChange}
-                        placeholder="R 5000.00"
+                        placeholder="5000.00"
                         className="pl-10"
-                        required
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -234,6 +287,7 @@ export default function NewLeadPage() {
                       onChange={handleChange}
                       placeholder="Any dietary restrictions, setup requirements, or special requests..."
                       rows={4}
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -242,13 +296,27 @@ export default function NewLeadPage() {
 
             <div className="flex gap-4 justify-end">
               <Link href="/leads">
-                <Button type="button" variant="outline" size="lg">
+                <Button type="button" variant="outline" size="lg" disabled={loading}>
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                <Save className="w-5 h-5 mr-2" />
-                Save Lead
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5 mr-2" />
+                    Save Lead
+                  </>
+                )}
               </Button>
             </div>
           </form>
