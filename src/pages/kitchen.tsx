@@ -17,7 +17,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
 import { timeClockService } from "@/services/timeClockService";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<AppOrder[]>([]);

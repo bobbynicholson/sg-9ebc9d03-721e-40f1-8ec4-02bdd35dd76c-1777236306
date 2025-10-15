@@ -186,6 +186,7 @@ export const driverConfirmationService = {
       message: `${driver.full_name} has not confirmed en-route for Order #${order.order_number}. Function time: ${order.event_time}`,
       type: 'alert',
       link: `/orders`,
+      recipient_id: 'admin', // Or a specific admin user ID
       metadata: { orderId, driverId }
     });
 
@@ -211,7 +212,7 @@ export const driverConfirmationService = {
       .from('driver_confirmations')
       .select(`
         *,
-        profiles!driver_confirmations_driver_id_fkey (
+        driver:profiles!driver_confirmations_driver_id_fkey (
           full_name
         )
       `)
@@ -220,7 +221,7 @@ export const driverConfirmationService = {
 
     if (error) throw error;
 
-    return data as DriverConfirmationWithDetails[];
+    return data?.map(c => ({...c, driver_name: Array.isArray(c.driver) ? c.driver[0]?.full_name : c.driver?.full_name })) || [];
   },
 
   /**
@@ -233,7 +234,7 @@ export const driverConfirmationService = {
       .from('driver_confirmations')
       .select(`
         *,
-        orders!driver_confirmations_order_id_fkey (
+        order:orders!driver_confirmations_order_id_fkey (
           order_number,
           event_date,
           event_time
@@ -244,8 +245,8 @@ export const driverConfirmationService = {
       .order('confirmed_at', { ascending: false });
 
     if (error) throw error;
-
-    return data as DriverConfirmationWithDetails[];
+    
+    return data?.map(c => ({...c, order_number: c.order?.order_number })) || [];
   },
 
   /**
@@ -308,7 +309,7 @@ export const driverConfirmationService = {
         .from('orders')
         .select(`
           *,
-          profiles!orders_driver_id_fkey (
+          driver:profiles!orders_assigned_driver_id_fkey (
             full_name
           )
         `)
@@ -320,8 +321,8 @@ export const driverConfirmationService = {
       // Replace template variables
       let message = template.template_content;
       const variables: Record<string, string> = {
-        driver_name: order.profiles?.full_name || 'Your driver',
-        order_number: order.order_number,
+        driver_name: order.driver?.full_name || 'Your driver',
+        order_number: order.order_number || '',
         collection_time: order.event_time || '',
         tracking_link: `${window.location.origin}/tracking/client?order=${orderId}`,
         venue_name: order.venue_address || order.delivery_address || ''

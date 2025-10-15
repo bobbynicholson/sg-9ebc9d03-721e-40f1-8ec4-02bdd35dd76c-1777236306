@@ -155,7 +155,7 @@ export const aiRecipeScalingService = {
         original_guest_count: originalGuestCount,
         new_guest_count: newGuestCount,
         scaling_factor: scalingFactor,
-        ingredient_adjustments: adjustments,
+        ingredient_adjustments: JSON.parse(JSON.stringify(adjustments)),
         adjusted_by_user_id: user.user.id
       }]);
 

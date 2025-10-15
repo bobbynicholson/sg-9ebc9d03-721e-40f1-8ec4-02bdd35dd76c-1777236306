@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Clock, DollarSign, Calendar, TrendingUp, CheckCircle, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { timeClockService } from "@/services/timeClockService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -142,7 +141,7 @@ export default function StaffHoursPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.totalHours.toFixed(1)}h</div>
+              <div className="text-2xl font-bold">{Number(summary.totalHours || 0).toFixed(1)}h</div>
               <p className="text-xs text-muted-foreground">Worked this {period}</p>
             </CardContent>
           </Card>
@@ -153,7 +152,7 @@ export default function StaffHoursPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-600">R {summary.totalUnpaid.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-amber-600">R {Number(summary.totalUnpaid || 0).toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Pending payment</p>
             </CardContent>
           </Card>
@@ -164,7 +163,7 @@ export default function StaffHoursPage() {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">R {summary.totalPaid.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-green-600">R {Number(summary.totalPaid || 0).toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">This {period}</p>
             </CardContent>
           </Card>
@@ -204,9 +203,9 @@ export default function StaffHoursPage() {
                       </CardDescription>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold">{data.totalHours.toFixed(1)}h</div>
+                      <div className="text-2xl font-bold">{Number(data.totalHours || 0).toFixed(1)}h</div>
                       <div className="text-sm text-muted-foreground">
-                        R {data.totalEarnings.toFixed(2)} total
+                        R {Number(data.totalEarnings || 0).toFixed(2)} total
                       </div>
                     </div>
                   </div>
@@ -217,12 +216,12 @@ export default function StaffHoursPage() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">Unpaid Hours</span>
                         <span className="text-lg font-bold text-amber-600">
-                          R {data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0).toFixed(2)}
+                          R {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <span>
-                          {data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0).toFixed(1)} hours
+                          {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0)).toFixed(1)} hours
                         </span>
                         <Dialog open={paymentDialog && selectedStaff === staffId} onOpenChange={(open) => {
                           setPaymentDialog(open);
@@ -242,13 +241,13 @@ export default function StaffHoursPage() {
                                 <div className="flex justify-between mb-2">
                                   <span>Total Hours:</span>
                                   <span className="font-bold">
-                                    {data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0).toFixed(1)}h
+                                    {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_hours || 0), 0)).toFixed(1)}h
                                   </span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Total Amount:</span>
                                   <span className="font-bold text-green-600">
-                                    R {data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0).toFixed(2)}
+                                    R {Number(data.unpaidSessions.reduce((sum: number, s: any) => sum + Number(s.total_earnings || 0), 0)).toFixed(2)}
                                   </span>
                                 </div>
                               </div>

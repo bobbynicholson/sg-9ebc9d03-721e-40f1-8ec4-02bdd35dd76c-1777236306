@@ -62,9 +62,9 @@ export const notificationService = {
   },
 
   async createNotification(
-    userId: string,
-    recipientId: string,
     notification: {
+      recipient_id: string;
+      user_id?: string; // sender
       type: string;
       title: string;
       message: string;
@@ -76,8 +76,8 @@ export const notificationService = {
     const { data, error } = await supabase
       .from("notifications")
       .insert({
-        user_id: userId,
-        recipient_id: recipientId,
+        recipient_id: notification.recipient_id,
+        user_id: notification.user_id,
         notification_type: notification.type,
         title: notification.title,
         message: notification.message,

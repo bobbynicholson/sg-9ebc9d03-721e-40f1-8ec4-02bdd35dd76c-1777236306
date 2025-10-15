@@ -57,7 +57,7 @@ export const gamificationService = {
       title: `🎉 +${points} Points!`,
       message: actionDescription || `You earned ${points} points!`,
       type: 'success',
-      userId,
+      recipient_id: userId,
       metadata: { points, actionType }
     });
 
@@ -129,7 +129,7 @@ export const gamificationService = {
       title: `🏆 Achievement Unlocked!`,
       message: `You unlocked: ${achievementName}`,
       type: 'success',
-      userId,
+      recipient_id: userId,
       metadata: { achievementKey, achievementName }
     });
 

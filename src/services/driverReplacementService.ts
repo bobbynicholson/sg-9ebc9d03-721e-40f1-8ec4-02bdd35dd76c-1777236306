@@ -73,7 +73,7 @@ export const driverReplacementService = {
     // Update order with new driver
     await supabase
       .from('orders')
-      .update({ driver_id: driverId })
+      .update({ assigned_driver_id: driverId })
       .eq('id', data.order_id);
 
     // Notify admin
@@ -183,6 +183,7 @@ export const driverReplacementService = {
       message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Reason: ${request.reason}`,
       type: 'alert',
       link: `/admin/order-assignments`,
+      recipient_id: 'admin', // Or specific admin user ID
       metadata: { requestId, orderId: request.order_id }
     });
 
@@ -239,7 +240,7 @@ export const driverReplacementService = {
         message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Accept if available.`,
         type: 'info',
         link: `/drivers`,
-        userId: driver.id,
+        recipient_id: driver.id,
         metadata: { requestId, orderId: request.order_id }
       });
 
@@ -290,6 +291,7 @@ export const driverReplacementService = {
       message: `${newDriver.full_name} has accepted Order #${request.orders?.order_number}`,
       type: 'success',
       link: `/orders`,
+      recipient_id: 'admin', // Or specific admin ID
       metadata: { requestId, orderId: request.order_id }
     });
   },
@@ -322,7 +324,7 @@ export const driverReplacementService = {
       message: `${newDriver.full_name} has accepted your replacement request for Order #${request.orders?.order_number}`,
       type: 'success',
       link: `/drivers`,
-      userId: request.original_driver_id,
+      recipient_id: request.original_driver_id,
       metadata: { requestId, orderId: request.order_id }
     });
   },
