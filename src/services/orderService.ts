@@ -408,6 +408,7 @@ export const orderService = {
       status: order.status as AppOrder['status'],
       total: order.total,
       createdAt: order.created_at,
+      region_id: order.region_id || undefined,
     }));
   },
 
