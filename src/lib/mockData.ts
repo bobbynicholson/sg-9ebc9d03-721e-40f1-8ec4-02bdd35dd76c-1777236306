@@ -15,7 +15,11 @@ export const mockLeads: Lead[] = [
     special_requests: "Vegetarian options needed for 20 guests",
     status: "new",
     created_at: "2025-10-10T10:00:00Z",
-    updated_at: "2025-10-10T10:00:00Z"
+    updated_at: "2025-10-10T10:00:00Z",
+    assigned_to: null,
+    notes: null,
+    region_id: null,
+    source: null,
   },
   {
     id: "lead-2",
@@ -30,7 +34,11 @@ export const mockLeads: Lead[] = [
     special_requests: "Need setup by 11 AM",
     status: "contacted",
     created_at: "2025-10-09T14:30:00Z",
-    updated_at: "2025-10-10T09:15:00Z"
+    updated_at: "2025-10-10T09:15:00Z",
+    assigned_to: null,
+    notes: null,
+    region_id: null,
+    source: null,
   }
 ];
 
@@ -42,7 +50,6 @@ export const mockQuotes: Quote[] = [
     client_name: "Alice Johnson",
     client_email: "alice.j@example.com",
     event_date: "2025-11-20",
-    event_type: "Corporate Event",
     guest_count: 75,
     menu_items: [
       {
@@ -72,8 +79,8 @@ export const mockQuotes: Quote[] = [
     total: 805,
     status: "sent",
     version: 1,
-    createdAt: "2025-10-10T09:00:00Z",
-    updatedAt: subDays(new Date(), 2).toISOString()
+    created_at: "2025-10-10T09:00:00Z",
+    updated_at: subDays(new Date(), 2).toISOString()
   }
 ];
 

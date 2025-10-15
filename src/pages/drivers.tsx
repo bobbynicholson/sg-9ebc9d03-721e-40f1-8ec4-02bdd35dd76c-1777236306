@@ -88,18 +88,17 @@ export default function DriversPage() {
       return {
         ...order,
         id: order.id,
-        lead_id: order.quoteId,
+        leadId: order.quoteId,
         client_name: order.clientName,
         client_email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
         event_date: order.eventDate,
-        event_type: order.menuItems[0]?.name || "Catering Event",
         guest_count: order.guestCount,
         pickupTime: "14:00",
         deliveryTime: "16:00",
         address: order.location,
         driverAssigned: assignment.driverAssigned || undefined,
-        menu_items: order.menuItems,
-        equipment_items: order.equipmentItems,
+        menu_items: order.menuItems as any,
+        equipment_items: order.equipmentItems as any,
         status: "accepted" as const,
         subtotal: order.totalAmount * 0.87,
         tax: order.totalAmount * 0.13,
@@ -329,7 +328,7 @@ export default function DriversPage() {
                         <div className="flex items-start justify-between">
                           <div>
                             <CardTitle className="text-lg">{job.client_name}</CardTitle>
-                            <p className="text-sm text-slate-600 mt-1">{job.event_type}</p>
+                            <p className="text-sm text-slate-600 mt-1">{new Date(job.event_date).toDateString()}</p>
                           </div>
                           <Badge className="bg-blue-100 text-blue-700 border-blue-200">
                             Available
@@ -384,7 +383,7 @@ export default function DriversPage() {
                         <div className="flex items-start justify-between">
                           <div>
                             <CardTitle className="text-lg">{job.client_name}</CardTitle>
-                            <p className="text-sm text-slate-600 mt-1">{job.event_type}</p>
+                            <p className="text-sm text-slate-600 mt-1">{new Date(job.event_date).toDateString()}</p>
                           </div>
                           <Badge className="bg-green-100 text-green-700 border-green-200">
                             Booked

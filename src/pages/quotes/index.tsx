@@ -127,7 +127,6 @@ export default function QuotesPage() {
                           <Badge className={`${getStatusColor(quote.status)} border`}>
                             {quote.status}
                           </Badge>
-                          <Badge variant="outline">v{quote.version}</Badge>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -152,9 +151,6 @@ export default function QuotesPage() {
                         </div>
 
                         <div className="flex items-center gap-4 text-sm">
-                          <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
-                            {quote.event_type}
-                          </span>
                           <span className="text-slate-600">
                             {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items
                           </span>

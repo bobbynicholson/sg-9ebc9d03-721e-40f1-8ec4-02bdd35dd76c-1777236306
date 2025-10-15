@@ -99,19 +99,23 @@ export default function OrdersPage() {
     const updatedInventory = [...inventory];
     let stockDeducted = false;
     
-    order.menuItems.forEach(menuItem => {
-      menuItem.ingredients.forEach(ingredient => {
-        const totalNeeded = ingredient.quantity * menuItem.quantity;
-        const inventoryItem = updatedInventory.find(
-          item => item.name.toLowerCase() === ingredient.name.toLowerCase()
-        );
-        
-        if (inventoryItem && inventoryItem.currentStock >= totalNeeded) {
-          inventoryItem.currentStock -= totalNeeded;
-          stockDeducted = true;
+    if (Array.isArray(order.menu_items)) {
+      order.menu_items.forEach((menuItem: any) => {
+        if (Array.isArray(menuItem.ingredients)) {
+          menuItem.ingredients.forEach((ingredient: any) => {
+            const totalNeeded = ingredient.quantity * menuItem.quantity;
+            const inventoryItem = updatedInventory.find(
+              item => item.name.toLowerCase() === ingredient.name.toLowerCase()
+            );
+            
+            if (inventoryItem && inventoryItem.currentStock >= totalNeeded) {
+              inventoryItem.currentStock -= totalNeeded;
+              stockDeducted = true;
+            }
+          });
         }
       });
-    });
+    }
     
     if (stockDeducted) {
       setInventory(updatedInventory);
