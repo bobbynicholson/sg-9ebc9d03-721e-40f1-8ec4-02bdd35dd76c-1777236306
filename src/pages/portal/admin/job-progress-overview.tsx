@@ -58,10 +58,8 @@ export default function JobProgressOverviewPage() {
   const { user } = useAuth();
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
     // Set a timeout for loading state
-    timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       if (loading) {
         setLoading(false);
         setError("Loading timed out. Please refresh the page or check your connection.");
@@ -78,7 +76,7 @@ export default function JobProgressOverviewPage() {
     }
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
     };
   }, [user]);
 
