@@ -88,7 +88,7 @@ export default function DriversPage() {
       return {
         ...order,
         id: order.id,
-        leadId: order.quoteId,
+        lead_id: order.quoteId,
         client_name: order.clientName,
         client_email: order.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
         event_date: order.eventDate,
@@ -103,9 +103,22 @@ export default function DriversPage() {
         subtotal: order.totalAmount * 0.87,
         tax: order.totalAmount * 0.13,
         total: order.totalAmount,
-        version: 1,
         created_at: order.createdAt,
         updated_at: order.createdAt,
+        viewed_at: null,
+        accepted_at: null,
+        client_phone: null,
+        currency: "ZAR",
+        event_time: "18:00",
+        final_guest_count: null,
+        internal_notes: null,
+        payment_terms: null,
+        region_id: null,
+        rejection_reason: null,
+        sent_at: new Date().toISOString(),
+        special_requests: "None",
+        venue_address: order.location,
+        version: 1,
       };
     };
 

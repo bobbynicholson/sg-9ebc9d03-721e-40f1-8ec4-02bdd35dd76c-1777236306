@@ -78,9 +78,21 @@ export const mockQuotes: Quote[] = [
     tax: 105,
     total: 805,
     status: "sent",
-    version: 1,
     created_at: "2025-10-10T09:00:00Z",
-    updated_at: subDays(new Date(), 2).toISOString()
+    updated_at: subDays(new Date(), 2).toISOString(),
+    viewed_at: null,
+    accepted_at: null,
+    client_phone: null,
+    currency: "ZAR",
+    event_time: "18:00",
+    final_guest_count: null,
+    internal_notes: null,
+    payment_terms: null,
+    region_id: null,
+    rejection_reason: null,
+    sent_at: new Date().toISOString(),
+    special_requests: "None",
+    venue_address: "123 Example St",
   }
 ];
 
