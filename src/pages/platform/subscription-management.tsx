@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Select,
   SelectContent,
@@ -47,6 +48,7 @@ export default function PlatformSubscriptionManagement() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -63,17 +65,33 @@ export default function PlatformSubscriptionManagement() {
   useEffect(() => {
     if (user) {
       loadData();
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const allSubs = await subscriptionService.getAllSubscriptions();
+      setError(null);
+      
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Request timeout")), 10000)
+      );
+      
+      const dataPromise = subscriptionService.getAllSubscriptions();
+      
+      const allSubs = await Promise.race([dataPromise, timeoutPromise]) as SubscriptionWithProfile[];
+      
       setSubscriptions(allSubs);
       calculateStats(allSubs);
-    } catch (error) {
-      console.error("Error loading subscriptions:", error);
+    } catch (err) {
+      console.error("Error loading subscriptions:", err);
+      setError(err instanceof Error ? err.message : "Failed to load subscriptions");
+      // Set empty data on error to allow UI to render
+      setSubscriptions([]);
+      calculateStats([]);
     } finally {
       setLoading(false);
     }
@@ -145,7 +163,23 @@ export default function PlatformSubscriptionManagement() {
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
           <p className="text-slate-600">Loading subscription management...</p>
+          <p className="text-xs text-slate-400 mt-2">This should only take a few seconds</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
+            <p className="text-slate-600 mb-6">Please sign in to access subscription management.</p>
+            <Button onClick={() => router.push("/auth/login")}>Sign In</Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -173,6 +207,23 @@ export default function PlatformSubscriptionManagement() {
             Refresh
           </Button>
         </div>
+
+        {error && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <strong>Error loading subscriptions:</strong> {error}
+              <Button 
+                variant="link" 
+                size="sm" 
+                onClick={handleRefresh}
+                className="ml-2 text-red-700 underline"
+              >
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid gap-6 md:grid-cols-4 mb-8">
           <Card>
@@ -255,7 +306,22 @@ export default function PlatformSubscriptionManagement() {
             {filteredSubscriptions.length === 0 ? (
               <div className="text-center py-12">
                 <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">No subscriptions found matching your criteria</p>
+                <p className="text-slate-500">
+                  {subscriptions.length === 0 
+                    ? "No subscriptions found in the system" 
+                    : "No subscriptions found matching your criteria"}
+                </p>
+                {error && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefresh}
+                    className="mt-4"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry Loading
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
