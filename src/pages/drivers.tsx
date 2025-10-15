@@ -111,7 +111,6 @@ export default function DriversPage() {
         currency: "ZAR",
         event_time: "18:00",
         region_id: null,
-        rejection_reason: null,
         sent_at: new Date().toISOString(),
         special_requests: "None",
         venue_address: order.location,
