@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,32 +13,95 @@ import {
   Phone,
   DollarSign,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from "lucide-react";
-import { mockLeads } from "@/lib/mockData";
-import { Lead } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { leadService } from "@/services/leadService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";
+
+interface Lead {
+  id: string;
+  client_name: string;
+  email: string;
+  phone: string | null;
+  event_date: string;
+  event_type: string;
+  guest_count: number;
+  budget: number | null;
+  special_requests: string | null;
+  status: LeadStatus;
+  created_at: string;
+}
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const { user } = useAuth();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
+  useEffect(() => {
+    if (user) {
+      loadLeads();
+    }
+  }, [user]);
+
+  const loadLeads = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError("");
+      const data = await leadService.getLeads(user.id);
+      setLeads(data);
+    } catch (err) {
+      console.error("Error loading leads:", err);
+      setError("Failed to load leads. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <>
+        <NoIndexMeta />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
+          <Card className="max-w-md">
+            <CardContent className="p-8 text-center">
+              <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
+              <p className="text-slate-600 mb-6">Please sign in to access lead management.</p>
+              <Link href="/auth/login">
+                <Button>Sign In</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    );
+  }
+
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = lead.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || lead.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: Lead["status"]) => {
+  const getStatusColor = (status: LeadStatus) => {
     switch (status) {
       case "new": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "quoted": return "bg-purple-100 text-purple-700 border-purple-200";
-      case "revised": return "bg-orange-100 text-orange-700 border-orange-200";
-      case "confirmed": return "bg-green-100 text-green-700 border-green-200";
-      case "cancelled": return "bg-red-100 text-red-700 border-red-200";
+      case "contacted": return "bg-purple-100 text-purple-700 border-purple-200";
+      case "quoted": return "bg-orange-100 text-orange-700 border-orange-200";
+      case "converted": return "bg-green-100 text-green-700 border-green-200";
+      case "lost": return "bg-red-100 text-red-700 border-red-200";
       default: return "bg-gray-100 text-gray-700";
     }
   };
@@ -46,8 +109,9 @@ export default function LeadsPage() {
   const statusCounts = {
     all: leads.length,
     new: leads.filter(l => l.status === "new").length,
+    contacted: leads.filter(l => l.status === "contacted").length,
     quoted: leads.filter(l => l.status === "quoted").length,
-    confirmed: leads.filter(l => l.status === "confirmed").length,
+    converted: leads.filter(l => l.status === "converted").length,
   };
 
   return (
@@ -55,7 +119,6 @@ export default function LeadsPage() {
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          {/* Header */}
           <div className="mb-8">
             <Link href="/">
               <Button variant="ghost" className="mb-4">
@@ -84,7 +147,12 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          {/* Stats */}
+          {error && (
+            <Alert className="mb-6 border-red-200 bg-red-50">
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             {Object.entries(statusCounts).map(([status, count]) => (
               <Card 
@@ -102,7 +170,6 @@ export default function LeadsPage() {
             ))}
           </div>
 
-          {/* Search and Filter */}
           <Card className="mb-6 border-0 shadow-lg">
             <CardContent className="p-6">
               <div className="flex gap-4">
@@ -123,94 +190,103 @@ export default function LeadsPage() {
             </CardContent>
           </Card>
 
-          {/* Leads List */}
-          <div className="space-y-4">
-            {filteredLeads.length === 0 ? (
-              <Card className="border-2 border-dashed">
-                <CardContent className="p-12 text-center">
-                  <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-900 mb-2">No leads found</h3>
-                  <p className="text-slate-600 mb-6">
-                    {searchTerm || filterStatus !== "all" 
-                      ? "Try adjusting your search or filters" 
-                      : "Get started by adding your first lead"}
-                  </p>
-                  <Link href="/leads/new">
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add New Lead
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredLeads.map((lead) => (
-                <Card key={lead.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <h3 className="text-xl font-semibold text-slate-900">{lead.clientName}</h3>
-                          <Badge className={`${getStatusColor(lead.status)} border`}>
-                            {lead.status}
-                          </Badge>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Mail className="w-4 h-4" />
-                            <span className="text-sm">{lead.email}</span>
+          {loading ? (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-12 text-center">
+                <Loader2 className="w-16 h-16 text-slate-300 mx-auto mb-4 animate-spin" />
+                <p className="text-slate-600">Loading leads...</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredLeads.length === 0 ? (
+                <Card className="border-2 border-dashed">
+                  <CardContent className="p-12 text-center">
+                    <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No leads found</h3>
+                    <p className="text-slate-600 mb-6">
+                      {searchTerm || filterStatus !== "all" 
+                        ? "Try adjusting your search or filters" 
+                        : "Get started by adding your first lead"}
+                    </p>
+                    <Link href="/leads/new">
+                      <Button>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add New Lead
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredLeads.map((lead) => (
+                  <Card key={lead.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-xl font-semibold text-slate-900">{lead.client_name}</h3>
+                            <Badge className={`${getStatusColor(lead.status)} border`}>
+                              {lead.status}
+                            </Badge>
                           </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Phone className="w-4 h-4" />
-                            <span className="text-sm">{lead.phone}</span>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Mail className="w-4 h-4" />
+                              <span className="text-sm">{lead.email}</span>
+                            </div>
+                            {lead.phone && (
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <Phone className="w-4 h-4" />
+                                <span className="text-sm">{lead.phone}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 text-slate-600">
+                              <Calendar className="w-4 h-4" />
+                              <span className="text-sm">{new Date(lead.event_date).toLocaleDateString()}</span>
+                            </div>
+                            {lead.budget && (
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <DollarSign className="w-4 h-4" />
+                                <span className="text-sm">R{lead.budget.toLocaleString()} budget</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Calendar className="w-4 h-4" />
-                            <span className="text-sm">{new Date(lead.eventDate).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <DollarSign className="w-4 h-4" />
-                            <span className="text-sm">${lead.budget.toLocaleString()} budget</span>
+
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
+                              {lead.event_type}
+                            </span>
+                            <span className="text-slate-600">
+                              {lead.guest_count} guests
+                            </span>
+                            {lead.special_requests && (
+                              <span className="text-slate-500 italic">
+                                "{lead.special_requests}"
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
-                            {lead.eventType}
-                          </span>
-                          <span className="text-slate-600">
-                            {lead.guestCount} guests
-                          </span>
-                          {lead.specialRequests && (
-                            <span className="text-slate-500 italic">
-                              "{lead.specialRequests}"
-                            </span>
+                        <div className="flex gap-2 ml-4">
+                          {lead.status === "new" && (
+                            <Link href={`/quotes/new?leadId=${lead.id}`}>
+                              <Button>Create Quote</Button>
+                            </Link>
+                          )}
+                          {lead.status === "quoted" && (
+                            <Link href={`/quotes/${lead.id}`}>
+                              <Button variant="outline">View Quote</Button>
+                            </Link>
                           )}
                         </div>
                       </div>
-
-                      <div className="flex gap-2 ml-4">
-                        {lead.status === "new" && (
-                          <Link href={`/quotes/new?leadId=${lead.id}`}>
-                            <Button>Create Quote</Button>
-                          </Link>
-                        )}
-                        {lead.status === "quoted" && (
-                          <Link href={`/quotes/${lead.id}`}>
-                            <Button variant="outline">View Quote</Button>
-                          </Link>
-                        )}
-                        <Link href={`/leads/${lead.id}`}>
-                          <Button variant="outline">Details</Button>
-                        </Link>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
         </div>
         
         <Footer />
