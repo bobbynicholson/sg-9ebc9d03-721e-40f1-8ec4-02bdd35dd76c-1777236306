@@ -31,6 +31,9 @@
     --chart-5: 27 87% 67%;
     --brand-primary: 271 91% 65%;
     --brand-secondary: 338 90% 70%;
+    
+    /* Smooth scroll */
+    scroll-behavior: smooth;
   }
 
   .dark {
@@ -67,6 +70,11 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
   body {
     @apply bg-background text-foreground;
   }
