@@ -53,8 +53,8 @@ export default function NewLeadPage() {
 
       await leadService.createLead({
         client_name: formData.clientName,
-        email: formData.email,
-        phone: formData.phone || null,
+        client_email: formData.email,
+        client_phone: formData.phone || null,
         event_date: formData.eventDate,
         event_type: formData.eventType,
         guest_count: parseInt(formData.guestCount),

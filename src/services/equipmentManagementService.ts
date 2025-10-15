@@ -126,6 +126,7 @@ export const equipmentManagementService = {
       .eq("user_id", userId);
 
     if (error) throw error;
+    if (!data) return null; // Add null check for data
 
     const stats = {
       totalItems: data.length,
