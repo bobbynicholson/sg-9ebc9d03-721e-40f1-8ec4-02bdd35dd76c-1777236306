@@ -13,8 +13,21 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
 
 export default function InventoryManagementPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, 100]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
+  const contentY = useTransform(scrollYProgress, [0.1, 0.4], [50, 0]);
+  const statsY = useTransform(scrollYProgress, [0.3, 0.6], [100, 0]);
+
   return (
     <>
       <Head>
@@ -26,12 +39,20 @@ export default function InventoryManagementPage() {
 
       <Header />
 
-      <div className="min-h-screen bg-white">
-        <div className="relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-emerald-50">
+      <div className="min-h-screen bg-white" ref={containerRef}>
+        <motion.div 
+          className="relative overflow-hidden bg-gradient-to-br from-green-50 via-white to-emerald-50"
+          style={{ y: heroY, opacity: heroOpacity }}
+        >
           <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.5))] bg-[size:40px_40px]" />
           
           <div className="relative container mx-auto px-4 py-16 md:py-24 max-w-6xl">
-            <div className="text-center max-w-4xl mx-auto mb-12">
+            <motion.div 
+              className="text-center max-w-4xl mx-auto mb-12"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+            >
               <Badge className="mb-6 px-4 py-2 bg-green-100 text-green-700 border-green-200">
                 <Package className="w-4 h-4 mr-2 inline" />
                 Inventory Management
@@ -55,13 +76,21 @@ export default function InventoryManagementPage() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
         <div className="container mx-auto px-4 py-16 max-w-6xl">
-          <div className="grid md:grid-cols-2 gap-12 mb-16">
-            <div>
+          <motion.div 
+            className="grid md:grid-cols-2 gap-12 mb-16"
+            style={{ y: contentY }}
+          >
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
               <h2 className="text-3xl font-bold text-slate-900 mb-6">
                 Know Exactly What You Have, When You Have It
               </h2>
@@ -77,23 +106,47 @@ export default function InventoryManagementPage() {
                   "Purchase history and supplier tracking",
                   "Waste reduction analytics"
                 ].map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3">
+                  <motion.li 
+                    key={i} 
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
                     <CheckCircle className="w-6 h-6 text-green-600 shrink-0 mt-1" />
                     <span className="text-slate-700">{feature}</span>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
-            </div>
-            <div className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-8 flex items-center justify-center">
+            </motion.div>
+            <motion.div 
+              className="bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl p-8 flex items-center justify-center"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
               <div className="text-center">
-                <div className="text-6xl font-bold text-green-600 mb-4">45-50%</div>
+                <motion.div 
+                  className="text-6xl font-bold text-green-600 mb-4"
+                  initial={{ scale: 0 }}
+                  whileInView={{ scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ type: "spring", duration: 0.8 }}
+                >
+                  45-50%
+                </motion.div>
                 <p className="text-xl text-slate-700">Less Food Waste</p>
                 <p className="text-sm text-slate-600 mt-2">Reduce waste with expiry tracking and smart ordering</p>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-16">
+          <motion.div 
+            className="grid md:grid-cols-3 gap-6 mb-16"
+            style={{ y: statsY }}
+          >
             {[
               {
                 icon: AlertCircle,
@@ -111,19 +164,34 @@ export default function InventoryManagementPage() {
                 description: "Analytics show what's being wasted so you can order smarter"
               }
             ].map((benefit, i) => (
-              <Card key={i} className="border-2 hover:border-green-300 hover:shadow-xl transition-all">
-                <CardContent className="pt-6">
-                  <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl w-fit mb-4">
-                    <benefit.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">{benefit.title}</h3>
-                  <p className="text-slate-600">{benefit.description}</p>
-                </CardContent>
-              </Card>
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.2 }}
+                whileHover={{ y: -10, transition: { duration: 0.2 } }}
+              >
+                <Card className="border-2 hover:border-green-300 hover:shadow-xl transition-all">
+                  <CardContent className="pt-6">
+                    <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl w-fit mb-4">
+                      <benefit.icon className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">{benefit.title}</h3>
+                    <p className="text-slate-600">{benefit.description}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
-          <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-3xl p-12 text-center text-white mb-16">
+          <motion.div 
+            className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-3xl p-12 text-center text-white mb-16"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
             <h2 className="text-3xl md:text-4xl font-bold mb-6">
               Stop Throwing Money in the Bin
             </h2>
@@ -136,7 +204,7 @@ export default function InventoryManagementPage() {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-          </div>
+          </motion.div>
 
           <div className="text-center">
             <p className="text-slate-600 mb-4">
