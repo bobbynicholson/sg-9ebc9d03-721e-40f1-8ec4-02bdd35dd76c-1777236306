@@ -53,14 +53,33 @@ export default function JobProgressOverviewPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>("all");
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    // Set a timeout for loading state
+    timeoutId = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+        setError("Loading timed out. Please refresh the page or check your connection.");
+      }
+    }, 10000); // 10 second timeout
+
     if (user) {
       loadRegions();
       loadOrders();
+    } else if (user === null) {
+      // User is explicitly null (not authenticated)
+      setLoading(false);
+      setError("Please log in to view job progress.");
     }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [user]);
 
   const loadRegions = async () => {
@@ -87,13 +106,18 @@ export default function JobProgressOverviewPage() {
 
   const loadOrders = async () => {
     try {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
       
       setLoading(true);
+      setError(null);
       const fetchedOrders = await orderService.getAllOrders(user.id);
       setOrders(fetchedOrders);
     } catch (error) {
       console.error("Error loading orders:", error);
+      setError("Failed to load orders. Please try refreshing the page.");
       toast({
         title: "Error",
         description: "Failed to load orders",
@@ -280,8 +304,36 @@ export default function JobProgressOverviewPage() {
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading job progress...</p>
+                <p className="text-sm text-gray-500 mt-2">This should only take a moment</p>
               </div>
             </div>
+          </main>
+        </div>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <Head>
+          <title>Job Progress Overview | CateringMS Admin</title>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+        <NoIndexMeta />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            <Card className="border-2 border-red-200 bg-red-50">
+              <CardContent className="pt-12 pb-12 text-center">
+                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <p className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Job Progress</p>
+                <p className="text-gray-600 mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700">
+                  Refresh Page
+                </Button>
+              </CardContent>
+            </Card>
           </main>
         </div>
       </>
