@@ -556,6 +556,81 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_route_stops: {
+        Row: {
+          added_by_admin: boolean | null
+          amount_spent: number | null
+          arrival_time: string | null
+          created_at: string | null
+          departure_time: string | null
+          driver_id: string
+          duration_minutes: number | null
+          id: string
+          order_id: string
+          reason: string | null
+          receipt_url: string | null
+          stop_address: string
+          stop_lat: number | null
+          stop_lng: number | null
+          stop_name: string
+          stop_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          added_by_admin?: boolean | null
+          amount_spent?: number | null
+          arrival_time?: string | null
+          created_at?: string | null
+          departure_time?: string | null
+          driver_id: string
+          duration_minutes?: number | null
+          id?: string
+          order_id: string
+          reason?: string | null
+          receipt_url?: string | null
+          stop_address: string
+          stop_lat?: number | null
+          stop_lng?: number | null
+          stop_name: string
+          stop_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          added_by_admin?: boolean | null
+          amount_spent?: number | null
+          arrival_time?: string | null
+          created_at?: string | null
+          departure_time?: string | null
+          driver_id?: string
+          duration_minutes?: number | null
+          id?: string
+          order_id?: string
+          reason?: string | null
+          receipt_url?: string | null
+          stop_address?: string
+          stop_lat?: number | null
+          stop_lng?: number | null
+          stop_name?: string
+          stop_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_route_stops_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_route_stops_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_assignments: {
         Row: {
           accepted_at: string | null
@@ -2907,6 +2982,135 @@ export type Database = {
           },
         ]
       }
+      staff_payment_ledger: {
+        Row: {
+          created_at: string | null
+          currency: string
+          hourly_rate: number
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string
+          payment_period_end: string
+          payment_period_start: string
+          payment_reference: string | null
+          staff_id: string
+          total_amount: number
+          total_hours: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string
+          hourly_rate: number
+          id?: string
+          notes?: string | null
+          payment_date: string
+          payment_method: string
+          payment_period_end: string
+          payment_period_start: string
+          payment_reference?: string | null
+          staff_id: string
+          total_amount: number
+          total_hours: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string
+          hourly_rate?: number
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string
+          payment_period_end?: string
+          payment_period_start?: string
+          payment_reference?: string | null
+          staff_id?: string
+          total_amount?: number
+          total_hours?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_payment_ledger_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_payment_ledger_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_work_sessions: {
+        Row: {
+          clock_in_time: string
+          clock_out_time: string | null
+          created_at: string | null
+          hourly_rate: number | null
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_status: string
+          staff_id: string
+          total_earnings: number | null
+          total_hours: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          clock_in_time: string
+          clock_out_time?: string | null
+          created_at?: string | null
+          hourly_rate?: number | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_status?: string
+          staff_id: string
+          total_earnings?: number | null
+          total_hours?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          clock_in_time?: string
+          clock_out_time?: string | null
+          created_at?: string | null
+          hourly_rate?: number | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_status?: string
+          staff_id?: string
+          total_earnings?: number | null
+          total_hours?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_work_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_work_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           active_clients_count: number | null
@@ -3241,6 +3445,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "support_tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_clock_entries: {
+        Row: {
+          created_at: string | null
+          entry_type: string
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          staff_id: string
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entry_type: string
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          staff_id: string
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entry_type?: string
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          staff_id?: string
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_clock_entries_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_clock_entries_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
