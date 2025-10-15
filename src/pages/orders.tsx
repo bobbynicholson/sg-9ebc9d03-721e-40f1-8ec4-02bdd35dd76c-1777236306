@@ -60,22 +60,23 @@ export default function OrdersPage() {
       // Convert Order type to Quote type for display
       return {
         id: mockOrder.id,
-        leadId: mockOrder.quoteId,
-        clientName: mockOrder.clientName,
-        email: mockOrder.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
-        eventDate: mockOrder.eventDate,
-        eventType: mockOrder.menuItems[0]?.name || "Catering Event",
-        guestCount: mockOrder.guestCount,
-        menuItems: mockOrder.menuItems,
-        equipmentItems: mockOrder.equipmentItems,
+        lead_id: mockOrder.quoteId,
+        user_id: "mock-user-id",
+        client_name: mockOrder.clientName,
+        client_email: mockOrder.clientName.toLowerCase().replace(/\s+/g, '.') + "@example.com",
+        event_date: mockOrder.eventDate,
+        event_time: "18:00",
+        venue_address: mockOrder.location,
+        guest_count: mockOrder.guestCount,
+        menu_items: mockOrder.menuItems,
+        equipment_items: mockOrder.equipmentItems,
         subtotal: mockOrder.totalAmount * 0.87,
         tax: mockOrder.totalAmount * 0.13,
         total: mockOrder.totalAmount,
-        status: "accepted" as const,
+        status: "accepted",
         version: 1,
-        createdAt: mockOrder.createdAt,
-        updatedAt: mockOrder.createdAt,
-        deliveryAddress: mockOrder.location,
+        created_at: mockOrder.createdAt,
+        updated_at: mockOrder.createdAt,
       };
     }).filter(Boolean) as Quote[];
     
@@ -130,33 +131,37 @@ export default function OrdersPage() {
   };
 
   const upcomingOrders = orders
-    .filter(order => new Date(order.eventDate) >= new Date())
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+    .filter(order => new Date(order.event_date) >= new Date())
+    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
 
   const pastOrders = orders
-    .filter(order => new Date(order.eventDate) < new Date())
-    .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+    .filter(order => new Date(order.event_date) < new Date())
+    .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
 
   const getOrderIngredients = (order: Quote) => {
     const allIngredients: { [key: string]: { quantity: number; inStock: boolean } } = {};
     
-    order.menuItems.forEach(item => {
-      item.ingredients.forEach(ingredient => {
-        const totalNeeded = ingredient.quantity * item.quantity;
-        const inventoryItem = inventory.find(
-          inv => inv.name.toLowerCase() === ingredient.name.toLowerCase()
-        );
-        
-        if (allIngredients[ingredient.name]) {
-          allIngredients[ingredient.name].quantity += totalNeeded;
-        } else {
-          allIngredients[ingredient.name] = {
-            quantity: totalNeeded,
-            inStock: inventoryItem ? inventoryItem.currentStock >= totalNeeded : false
-          };
+    if (Array.isArray(order.menu_items)) {
+      order.menu_items.forEach((item: any) => {
+        if(Array.isArray(item.ingredients)) {
+          item.ingredients.forEach((ingredient: any) => {
+            const totalNeeded = ingredient.quantity * item.quantity;
+            const inventoryItem = inventory.find(
+              (inv: any) => inv.name.toLowerCase() === ingredient.name.toLowerCase()
+            );
+            
+            if (allIngredients[ingredient.name]) {
+              allIngredients[ingredient.name].quantity += totalNeeded;
+            } else {
+              allIngredients[ingredient.name] = {
+                quantity: totalNeeded,
+                inStock: inventoryItem ? inventoryItem.currentStock >= totalNeeded : false
+              };
+            }
+          });
         }
       });
-    });
+    }
 
     return Object.entries(allIngredients).map(([name, data]) => ({
       name,
@@ -176,7 +181,7 @@ export default function OrdersPage() {
     const hasStock = checkStockAvailability(order);
     const stockAlreadyDeducted = (order as any).stockDeducted || false;
     const daysUntil = Math.ceil(
-      (new Date(order.eventDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      (new Date(order.event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
     );
 
     return (
@@ -185,7 +190,7 @@ export default function OrdersPage() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-xl font-semibold text-slate-900">{order.clientName}</h3>
+                <h3 className="text-xl font-semibold text-slate-900">{order.client_name}</h3>
                 {daysUntil >= 0 && daysUntil <= 7 && (
                   <Badge className="bg-orange-100 text-orange-700 border-orange-200">
                     {daysUntil === 0 ? "Today" : `${daysUntil} days`}
@@ -212,15 +217,15 @@ export default function OrdersPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
                   <Calendar className="w-4 h-4" />
-                  <span>{new Date(order.eventDate).toLocaleDateString()}</span>
+                  <span>{new Date(order.event_date).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
                   <Users className="w-4 h-4" />
-                  <span>{order.guestCount} guests</span>
+                  <span>{order.guest_count} guests</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
                   <ClipboardList className="w-4 h-4" />
-                  <span>{order.menuItems.length} items</span>
+                  <span>{(Array.isArray(order.menu_items) ? order.menu_items.length : 0)} items</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
                   <ShoppingCart className="w-4 h-4" />
@@ -234,7 +239,7 @@ export default function OrdersPage() {
                   Menu Items
                 </h4>
                 <div className="space-y-1">
-                  {order.menuItems.map((item, idx) => (
+                  {Array.isArray(order.menu_items) && order.menu_items.map((item: any, idx) => (
                     <div key={idx} className="text-sm text-slate-600 flex justify-between">
                       <span>{item.name} ({item.category})</span>
                       <span className="font-medium">×{item.quantity}</span>
@@ -284,7 +289,7 @@ export default function OrdersPage() {
                 <InvoiceGenerator
                   orderId={order.id}
                   orderNumber={order.id.substring(0, 8).toUpperCase()}
-                  customerEmail={order.email}
+                  customerEmail={order.client_email}
                 />
               </div>
               

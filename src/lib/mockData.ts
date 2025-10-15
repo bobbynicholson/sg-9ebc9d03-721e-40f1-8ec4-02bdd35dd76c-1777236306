@@ -3,11 +3,12 @@ import { addDays, subDays } from "date-fns";
 
 export const mockLeads: Lead[] = [
   {
-    id: "L001",
-    clientName: "Sarah Johnson",
-    email: "sarah@example.com",
-    phone: "+1234567890",
-    eventDate: "2025-11-15",
+    id: "lead-1",
+    user_id: "user-123",
+    client_name: "Alice Johnson",
+    client_email: "alice.j@example.com",
+    client_phone: "555-0101",
+    event_date: "2025-11-15",
     eventType: "Wedding Reception",
     guestCount: 150,
     budget: 8000,
@@ -17,16 +18,17 @@ export const mockLeads: Lead[] = [
     updatedAt: "2025-10-10T10:00:00Z"
   },
   {
-    id: "L002",
-    clientName: "Michael Chen",
-    email: "michael@example.com",
-    phone: "+1234567891",
-    eventDate: "2025-11-20",
+    id: "lead-2",
+    user_id: "user-123",
+    client_name: "Bob Williams",
+    client_email: "bob.w@example.com",
+    client_phone: "555-0102",
+    event_date: "2025-12-01",
     eventType: "Corporate Event",
     guestCount: 75,
     budget: 4500,
     specialRequests: "Need setup by 11 AM",
-    status: "quoted",
+    status: "contacted",
     createdAt: "2025-10-09T14:30:00Z",
     updatedAt: "2025-10-10T09:15:00Z"
   }
@@ -34,10 +36,11 @@ export const mockLeads: Lead[] = [
 
 export const mockQuotes: Quote[] = [
   {
-    id: "Q001",
-    leadId: "L002",
-    clientName: "Michael Chen",
-    email: "michael@example.com",
+    id: "quote-1",
+    lead_id: "lead-1",
+    user_id: "user-123",
+    client_name: "Alice Johnson",
+    client_email: "alice.j@example.com",
     eventDate: "2025-11-20",
     eventType: "Corporate Event",
     guestCount: 75,

@@ -123,7 +123,7 @@ export default function QuotesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
-                          <h3 className="text-xl font-semibold text-slate-900">{quote.clientName}</h3>
+                          <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
                           <Badge className={`${getStatusColor(quote.status)} border`}>
                             {quote.status}
                           </Badge>
@@ -137,11 +137,11 @@ export default function QuotesPage() {
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <Calendar className="w-4 h-4" />
-                            <span className="text-sm">{new Date(quote.eventDate).toLocaleDateString()}</span>
+                            <span className="text-sm">{new Date(quote.event_date).toLocaleDateString()}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <Users className="w-4 h-4" />
-                            <span className="text-sm">{quote.guestCount} guests</span>
+                            <span className="text-sm">{quote.guest_count} guests</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <DollarSign className="w-4 h-4" />
@@ -153,13 +153,13 @@ export default function QuotesPage() {
 
                         <div className="flex items-center gap-4 text-sm">
                           <span className="px-3 py-1 bg-slate-100 rounded-full text-slate-700">
-                            {quote.eventType}
+                            {quote.event_type}
                           </span>
                           <span className="text-slate-600">
-                            {quote.menuItems.length} menu items
+                            {quote.menu_items.length} menu items
                           </span>
                           <span className="text-slate-600">
-                            {quote.equipmentItems.length} equipment items
+                            {quote.equipment_items.length} equipment items
                           </span>
                         </div>
 
@@ -168,12 +168,12 @@ export default function QuotesPage() {
                             <span className="text-slate-600">Subtotal</span>
                             <span className="font-medium">R{quote.subtotal.toFixed(2)}</span>
                           </div>
-                          {quote.deliveryFee && quote.deliveryFee > 0 && (
+                          {quote.delivery_fee && quote.delivery_fee > 0 && (
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">
-                                Delivery Fee {quote.deliveryDistance ? `(${quote.deliveryDistance}km)` : ''}
+                                Delivery Fee {quote.delivery_distance ? `(${quote.delivery_distance}km)` : ''}
                               </span>
-                              <span className="font-medium text-blue-600">R{quote.deliveryFee.toFixed(2)}</span>
+                              <span className="font-medium text-blue-600">R{quote.delivery_fee.toFixed(2)}</span>
                             </div>
                           )}
                           <div className="flex justify-between text-sm">
