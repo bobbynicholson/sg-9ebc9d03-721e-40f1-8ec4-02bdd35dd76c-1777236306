@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { roleService } from "@/services/roleService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 export default function AuthPage() {
   const router = useRouter();
   const { companySlug, authType } = router.query;
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, userRoles, activeRole } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,31 +22,27 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - USE NEW MULTI-ROLE SYSTEM
   useEffect(() => {
-    if (user) {
+    if (user && userRoles.length > 0) {
       const redirect = router.query.redirect as string;
       if (redirect) {
         router.push(redirect);
       } else {
-        // Redirect based on role
-        const role = user.role || "client";
-        if (role === "admin" || role === "super_admin") {
-          router.push(`/${companySlug}/admin/dashboard`);
-        } else if (role === "driver") {
-          router.push(`/${companySlug}/driver/dashboard`);
-        } else if (role === "kitchen_staff") {
-          router.push(`/${companySlug}/kitchen/dashboard`);
-        } else if (role === "cleaning_staff") {
-          router.push(`/${companySlug}/cleaning/dashboard`);
-        } else if (role === "shopping_staff") {
-          router.push(`/${companySlug}/shopping/dashboard`);
-        } else {
-          router.push("/client-portal");
-        }
+        // Find primary role or use active role
+        const primaryRole = userRoles.find(r => r.isPrimary);
+        const roleToUse = primaryRole?.department || activeRole || userRoles[0].department;
+        
+        // Use roleService to get the correct dashboard URL
+        const dashboardUrl = roleService.getRoleDashboardUrl(
+          roleToUse as any,
+          companySlug as string
+        );
+        
+        router.push(dashboardUrl);
       }
     }
-  }, [user, router, companySlug]);
+  }, [user, userRoles, activeRole, router, companySlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

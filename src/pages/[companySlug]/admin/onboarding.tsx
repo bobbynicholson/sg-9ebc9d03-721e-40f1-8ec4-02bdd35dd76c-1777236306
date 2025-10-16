@@ -15,7 +15,9 @@ import {
   ChefHat,
   Truck,
   ShoppingCart,
-  Sparkles
+  Sparkles,
+  Copy,
+  Check
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
@@ -25,6 +27,14 @@ export default function OnboardingPage() {
   const { companySlug } = router.query;
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const registrationUrl = `${window.location.origin}/${companySlug}/auth/register`;
+    navigator.clipboard.writeText(registrationUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const onboardingSteps = [
     {
@@ -117,15 +127,38 @@ export default function OnboardingPage() {
             </Card>
           </div>
 
-          <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6 text-center">
-            <p className="text-sm text-purple-800 mb-4">
-              <strong>Your Registration URL:</strong>
+          <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6">
+            <p className="text-sm text-purple-800 mb-3 text-center font-semibold">
+              Your Team Registration URL:
             </p>
-            <p className="text-lg font-mono font-bold text-purple-900 mb-4">
-              cateringms.com/{companySlug}/auth/register
-            </p>
-            <p className="text-xs text-purple-700">
-              Share this link with your team members to get started
+            <div className="flex items-center gap-2 bg-white rounded-lg p-3 border border-purple-300">
+              <code className="flex-1 text-sm font-mono text-purple-900 overflow-x-auto">
+                {typeof window !== "undefined" 
+                  ? `${window.location.origin}/${companySlug}/auth/register`
+                  : `cateringms.com/${companySlug}/auth/register`
+                }
+              </code>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-purple-400 text-purple-700 hover:bg-purple-100 flex-shrink-0"
+                onClick={handleCopyLink}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-purple-700 mt-3 text-center">
+              💡 Share this link with your team members to get started
             </p>
           </div>
         </div>

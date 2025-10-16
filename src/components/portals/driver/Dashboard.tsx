@@ -10,7 +10,9 @@ import {
   CheckCircle, 
   AlertCircle,
   Calendar,
-  Navigation
+  Navigation,
+  Home,
+  ArrowLeft
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,7 +25,7 @@ interface PortalComponentProps {
 const DriverDashboard: React.FC<PortalComponentProps> = ({ companySlug }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
+      {/* Header with Portal Context */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -32,11 +34,23 @@ const DriverDashboard: React.FC<PortalComponentProps> = ({ companySlug }) => {
                 <Truck className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Driver Portal</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-slate-900">Driver Portal</h1>
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                    <Truck className="w-3 h-3 mr-1" />
+                    Driver Dashboard
+                  </Badge>
+                </div>
                 <p className="text-sm text-slate-600">Manage your deliveries and routes</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Link href={`/${companySlug}/admin/dashboard`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">Admin Dashboard</span>
+                </Button>
+              </Link>
               <Badge variant="outline" className="text-sm">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "short",
