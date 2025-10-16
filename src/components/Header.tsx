@@ -39,10 +39,13 @@ import {
 import { useBranding } from "@/contexts/BrandingContext";
 import { RegionSwitcher } from "@/components/RegionSwitcher";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const router = useRouter();
   const { branding, isWhiteLabeled } = useBranding();
+  const { user, userRoles } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -474,6 +477,10 @@ export function Header() {
           {/* Desktop Right Section */}
           <div className="hidden lg:flex items-center gap-3">
             <RegionSwitcher />
+            {user && userRoles.length > 1 && (
+              <RoleSwitcher variant="compact" showLabel={false} />
+            )}
+            {user && <NotificationBell />}
             <Link href="/auth/register">
               <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg">
                 Start Free Trial
@@ -632,6 +639,11 @@ export function Header() {
 
               {/* Mobile CTA Section */}
               <div className="pt-4 border-t border-slate-200 space-y-3">
+                {user && userRoles.length > 1 && (
+                  <div className="px-2">
+                    <RoleSwitcher variant="default" showLabel={true} />
+                  </div>
+                )}
                 <div className="flex justify-center">
                   <RegionSwitcher />
                 </div>
