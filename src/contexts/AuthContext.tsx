@@ -5,11 +5,15 @@ import { authService, AuthUser, AuthError } from "@/services/authService";
 import { profileService, Profile } from "@/services/profileService";
 import { useDemoMode } from "@/contexts/DemoModeContext";
 import { useRouter } from "next/router";
+import { roleService, RoleAssignment } from "@/services/roleService";
 
 interface AuthContextType {
   user: SupabaseUser | null;
   profile: Profile | null;
   loading: boolean;
+  userRoles: RoleAssignment[]; // NEW: All assigned roles
+  activeRole: string; // NEW: Currently active role
+  switchRole: (newRole: string) => Promise<void>; // NEW: Switch active role
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signUp: (email: string, password: string, fullName: string, role: string, currency: string, phone: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -24,6 +28,8 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]); // NEW
+  const [activeRole, setActiveRole] = useState<string>("client"); // NEW
 
   useEffect(() => {
     if (isDemoMode) {
@@ -61,6 +67,17 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           vehicle_details: "White Toyota Hilux",
           region: "Gauteng",
         });
+        
+        // Set demo user roles
+        setUserRoles([{ 
+          id: "demo-role", 
+          userId: demoUser.id, 
+          department: demoUser.role as any,
+          isPrimary: true,
+          assignedAt: new Date().toISOString(),
+          assignedBy: null
+        }]);
+        setActiveRole(demoUser.role);
       }
       setLoading(false);
       return;
@@ -70,7 +87,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error("Session error:", error);
-        // Clear invalid session and redirect to login
         handleInvalidSession();
         return;
       }
@@ -78,6 +94,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);
+        loadUserRoles(session.user.id); // NEW: Load roles
       } else {
         setLoading(false);
       }
@@ -87,7 +104,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth state changed:", event);
       
-      // Handle token refresh errors
       if (event === "TOKEN_REFRESHED") {
         console.log("Token refreshed successfully");
       }
@@ -95,6 +111,8 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       if (event === "SIGNED_OUT" || !session) {
         setUser(null);
         setProfile(null);
+        setUserRoles([]); // NEW: Clear roles
+        setActiveRole("client"); // NEW: Reset active role
         setLoading(false);
         return;
       }
@@ -102,6 +120,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       setUser(session.user);
       if (session.user) {
         await loadProfile(session.user.id);
+        await loadUserRoles(session.user.id); // NEW: Load roles
       } else {
         setLoading(false);
       }
@@ -143,6 +162,59 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     }
   };
 
+  // NEW: Load user roles and active role
+  const loadUserRoles = async (userId: string) => {
+    try {
+      const [roles, active] = await Promise.all([
+        roleService.getUserRoles(userId),
+        roleService.getActiveRole(userId),
+      ]);
+      
+      setUserRoles(roles);
+      setActiveRole(active);
+      
+      // If no roles assigned, assign client role by default
+      if (roles.length === 0) {
+        await roleService.assignRole(userId, "client" as any, userId, true);
+        setUserRoles([{
+          id: "default-client",
+          userId,
+          department: "client" as any,
+          isPrimary: true,
+          assignedAt: new Date().toISOString(),
+          assignedBy: userId,
+        }]);
+        setActiveRole("client");
+      }
+    } catch (error) {
+      console.error("Error loading user roles:", error);
+      // Fallback to client role
+      setActiveRole("client");
+      setUserRoles([]);
+    }
+  };
+
+  // NEW: Switch active role
+  const switchRole = async (newRole: string) => {
+    if (isDemoMode) return;
+    if (!user) return;
+
+    try {
+      await roleService.switchRole(user.id, newRole as any);
+      setActiveRole(newRole);
+      
+      // Navigate to the new role's dashboard
+      const dashboardUrl = roleService.getRoleDashboardUrl(
+        newRole as any, 
+        profile?.company_slug || undefined
+      );
+      router.push(dashboardUrl);
+    } catch (error) {
+      console.error("Error switching role:", error);
+      throw error;
+    }
+  };
+
   const signIn = async (email: string, password: string) => {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign in while in demo mode" } as AuthError };
@@ -164,6 +236,8 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     await authService.signOut();
     setUser(null);
     setProfile(null);
+    setUserRoles([]); // NEW: Clear roles
+    setActiveRole("client"); // NEW: Reset active role
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
@@ -178,7 +252,18 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      profile, 
+      loading, 
+      userRoles, // NEW
+      activeRole, // NEW
+      switchRole, // NEW
+      signIn, 
+      signUp, 
+      signOut, 
+      updateProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );
