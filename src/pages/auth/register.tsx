@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, CheckCircle, DollarSign, Shield, ChefHat, ShoppingCart, Truck, Sparkles, User } from "lucide-react";
+import { UserPlus, CheckCircle, DollarSign, Shield, ChefHat, ShoppingCart, Truck, Sparkles, User, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
@@ -49,20 +49,36 @@ export default function RegisterPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [companySlug, setCompanySlug] = useState("");
+  const [slugChecking, setSlugChecking] = useState(false);
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
 
-  // Generate company slug when company name changes
-  const handleCompanyNameChange = (value: string) => {
+  // Generate company slug when company name changes and check availability
+  const handleCompanyNameChange = async (value: string) => {
     setFormData({ ...formData, companyName: value });
     
+    if (!value.trim()) {
+      setCompanySlug("");
+      setSlugAvailable(null);
+      return;
+    }
+
     // Generate URL-friendly slug
-    const slug = value
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-      .replace(/\s+/g, '-') // Replace spaces with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single
-      .trim();
-    
+    const slug = companyService.generateSlug(value);
     setCompanySlug(slug);
+
+    // Check if slug is available
+    if (slug) {
+      setSlugChecking(true);
+      try {
+        const available = await companyService.isSlugAvailable(slug);
+        setSlugAvailable(available);
+      } catch (error) {
+        console.error("Error checking slug availability:", error);
+        setSlugAvailable(null);
+      } finally {
+        setSlugChecking(false);
+      }
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -79,6 +95,13 @@ export default function RegisterPage() {
     // Require company name for admin roles
     if (formData.role === "admin" && !formData.companyName) {
       setError("Please provide your company name");
+      setLoading(false);
+      return;
+    }
+
+    // Check slug availability for admin accounts
+    if (formData.role === "admin" && slugAvailable === false) {
+      setError("This company name is already taken. Please choose a different name.");
       setLoading(false);
       return;
     }
@@ -294,13 +317,53 @@ export default function RegisterPage() {
                   required={formData.role === "admin"}
                 />
                 {companySlug && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
-                    <p className="text-xs text-blue-800">
-                      <strong>Your portal URL:</strong> /{companySlug}/
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      Your team and clients will access your portal at this URL
-                    </p>
+                  <div className={`border rounded-lg p-3 mt-2 ${
+                    slugChecking ? "bg-blue-50 border-blue-200" :
+                    slugAvailable === true ? "bg-green-50 border-green-200" :
+                    slugAvailable === false ? "bg-red-50 border-red-200" :
+                    "bg-blue-50 border-blue-200"
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      {slugChecking ? (
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin mt-0.5 flex-shrink-0" />
+                      ) : slugAvailable === true ? (
+                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      ) : slugAvailable === false ? (
+                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      ) : null}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-semibold ${
+                          slugChecking ? "text-blue-800" :
+                          slugAvailable === true ? "text-green-800" :
+                          slugAvailable === false ? "text-red-800" :
+                          "text-blue-800"
+                        }`}>
+                          {slugChecking ? "Checking availability..." :
+                           slugAvailable === true ? "✓ Company name available!" :
+                           slugAvailable === false ? "✗ Company name already taken" :
+                           "Your portal URL:"}
+                        </p>
+                        {!slugChecking && (
+                          <>
+                            <p className={`text-xs break-all mt-1 ${
+                              slugAvailable === false ? "text-red-700" : "text-slate-700"
+                            }`}>
+                              <strong>cateringms.com/{companySlug}</strong>
+                            </p>
+                            {slugAvailable === false && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Please choose a different company name
+                              </p>
+                            )}
+                            {slugAvailable === true && (
+                              <p className="text-xs text-green-600 mt-1">
+                                Your team and clients will access your portal at this URL
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
