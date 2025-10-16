@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -35,22 +36,47 @@ import {
   AlertCircle,
   TrendingUp,
   Package,
-  ClipboardList,
+  ChefHat,
+  ShoppingCart,
+  Truck,
+  Sparkles,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { regionManagement } from "@/lib/regionManagement";
 import { mockOrders } from "@/lib/mockData";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { userManagementService } from "@/services/userManagementService";
+import { useToast } from "@/hooks/use-toast";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-export default function OrderAssignmentsPage() {
+interface StaffAssignment {
+  orderId: string;
+  kitchen?: string;
+  shopping?: string;
+  driver?: string;
+  cleaning?: string;
+}
+
+function OrderAssignmentsPage() {
   const [orders] = useState(mockOrders);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [staffAssignments, setStaffAssignments] = useState<Record<string, StaffAssignment>>({});
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState<"kitchen" | "shopping" | "driver" | "cleaning" | null>(null);
+  const [selectedStaffMember, setSelectedStaffMember] = useState("");
   const [assignmentNotes, setAssignmentNotes] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [availableStaff, setAvailableStaff] = useState<any[]>([]);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const regions = regionManagement.regions.filter(r => r.status === "active");
 
@@ -60,21 +86,50 @@ export default function OrderAssignmentsPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        console.log("Loaded assignments from localStorage:", parsed);
         setAssignments(parsed);
       } catch (e) {
         console.error("Error parsing stored assignments:", e);
-        // If parsing fails, use defaults
         setAssignments(regionManagement.orderAssignments);
         localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
       }
     } else {
-      console.log("No stored assignments, using defaults");
-      // Initialize with defaults if nothing in localStorage
       setAssignments(regionManagement.orderAssignments);
       localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
     }
+
+    // Load staff assignments
+    const staffAssigned = localStorage.getItem("staff_assignments");
+    if (staffAssigned) {
+      try {
+        setStaffAssignments(JSON.parse(staffAssigned));
+      } catch (e) {
+        console.error("Error parsing staff assignments:", e);
+      }
+    }
   }, []);
+
+  // Load available staff when dialog opens
+  useEffect(() => {
+    if (isStaffDialogOpen && selectedDepartment && user?.id) {
+      loadAvailableStaff(selectedDepartment);
+    }
+  }, [isStaffDialogOpen, selectedDepartment, user?.id]);
+
+  const loadAvailableStaff = async (department: string) => {
+    if (!user?.id) return;
+    
+    try {
+      const staff = await userManagementService.getUsersByDepartment(department as any);
+      setAvailableStaff(staff);
+    } catch (error) {
+      console.error("Error loading staff:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load available staff",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getAssignmentForOrder = (orderId: string) => {
     return assignments.find(a => a.orderId === orderId);
@@ -88,9 +143,12 @@ export default function OrderAssignmentsPage() {
     return null;
   };
 
+  const getStaffAssignmentForOrder = (orderId: string) => {
+    return staffAssignments[orderId] || {};
+  };
+
   const handleAssignOrder = () => {
     if (selectedOrder && selectedRegion) {
-      // Assign via regionManagement
       regionManagement.assignOrderToRegion(
         selectedOrder.id,
         selectedRegion,
@@ -98,22 +156,54 @@ export default function OrderAssignmentsPage() {
         assignmentNotes
       );
       
-      // Store assignments in localStorage for other components to access
       localStorage.setItem("order_assignments", JSON.stringify(regionManagement.orderAssignments));
-      
       setAssignments([...regionManagement.orderAssignments]);
       setIsAssignDialogOpen(false);
       setSelectedOrder(null);
       setSelectedRegion("");
       setAssignmentNotes("");
+      
+      toast({
+        title: "Order Assigned",
+        description: `Order ${selectedOrder.id} has been assigned to ${regions.find(r => r.id === selectedRegion)?.name}`,
+      });
     }
   };
 
-  const handleStatusUpdate = (orderId: string, status: any) => {
-    // Load current assignments from localStorage
-    const currentAssignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
+  const handleOpenStaffDialog = (order: any, department: "kitchen" | "shopping" | "driver" | "cleaning") => {
+    setSelectedOrder(order);
+    setSelectedDepartment(department);
+    setIsStaffDialogOpen(true);
+  };
+
+  const handleAssignStaff = () => {
+    if (!selectedOrder || !selectedDepartment || !selectedStaffMember) return;
+
+    const updatedAssignments = {
+      ...staffAssignments,
+      [selectedOrder.id]: {
+        ...staffAssignments[selectedOrder.id],
+        [selectedDepartment]: selectedStaffMember,
+      }
+    };
+
+    setStaffAssignments(updatedAssignments);
+    localStorage.setItem("staff_assignments", JSON.stringify(updatedAssignments));
     
-    // Update the specific assignment
+    const staffMember = availableStaff.find(s => s.id === selectedStaffMember);
+    toast({
+      title: "Staff Assigned",
+      description: `${staffMember?.full_name} has been assigned to ${selectedDepartment} for order ${selectedOrder.id}`,
+    });
+
+    setIsStaffDialogOpen(false);
+    setSelectedOrder(null);
+    setSelectedDepartment(null);
+    setSelectedStaffMember("");
+  };
+
+  const handleStatusUpdate = (orderId: string, status: any) => {
+    const currentAssignments = JSON.parse(localStorage.getItem("order_assignments") || "[]");
     const updatedAssignments = currentAssignments.map((a: any) => {
       if (a.orderId === orderId) {
         return { ...a, status };
@@ -121,19 +211,24 @@ export default function OrderAssignmentsPage() {
       return a;
     });
     
-    // Save back to localStorage
     localStorage.setItem("order_assignments", JSON.stringify(updatedAssignments));
-    
-    // Update local state
     setAssignments(updatedAssignments);
     
-    // Log for debugging
-    console.log(`Order ${orderId} status updated to ${status}`);
-    console.log("Updated assignments:", updatedAssignments);
-    
-    // Show success message
     if (status === "accepted") {
-      alert("Order accepted! This order is now available for drivers to claim in the Driver Portal.");
+      toast({
+        title: "Order Accepted",
+        description: "Order is now available for staff assignment",
+      });
+    }
+  };
+
+  const getDepartmentIcon = (dept: string) => {
+    switch (dept) {
+      case "kitchen": return ChefHat;
+      case "shopping": return ShoppingCart;
+      case "driver": return Truck;
+      case "cleaning": return Sparkles;
+      default: return Users;
     }
   };
 
@@ -194,23 +289,32 @@ export default function OrderAssignmentsPage() {
   const pendingCount = assignments.filter(a => a.status === "pending").length;
   const activeCount = assignments.filter(a => a.status === "in_progress").length;
 
+  const departments = [
+    { key: "kitchen" as const, label: "Kitchen", icon: ChefHat, color: "orange" },
+    { key: "shopping" as const, label: "Shopping", icon: ShoppingCart, color: "green" },
+    { key: "driver" as const, label: "Driver", icon: Truck, color: "blue" },
+    { key: "cleaning" as const, label: "Cleaning", icon: Sparkles, color: "cyan" }
+  ];
+
   return (
     <>
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Order Assignments - CateringMS Admin</title>
+        <title>Order Assignment Hub - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
-          {/* Header - Mobile Optimized */}
+          {/* Header */}
           <div className="mb-6 md:mb-8">
             <div className="flex flex-col gap-4 mb-4 md:mb-6">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div>
                   <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-1 md:mb-2">Order Assignment Hub</h1>
-                  <p className="text-sm md:text-base text-slate-600">Assign orders to regional operations for fulfillment</p>
+                  <p className="text-sm md:text-base text-slate-600">Assign orders to regions and staff members</p>
                 </div>
                 <Link href="/admin/regions" className="w-full md:w-auto">
                   <Button variant="outline" className="w-full md:w-auto" size="sm">
@@ -221,7 +325,7 @@ export default function OrderAssignmentsPage() {
               </div>
             </div>
 
-            {/* Stats Cards - Mobile Optimized Grid */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 mb-6 md:mb-8">
               <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white">
                 <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
@@ -272,7 +376,7 @@ export default function OrderAssignmentsPage() {
               </Card>
             </div>
 
-            {/* Search and Filter - Mobile Stacked */}
+            {/* Search and Filter */}
             <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
@@ -301,7 +405,7 @@ export default function OrderAssignmentsPage() {
             </div>
           </div>
 
-          {/* Orders List - Mobile Optimized Cards */}
+          {/* Orders List */}
           <div className="space-y-4">
             {filteredOrders.length === 0 ? (
               <Card className="border-0 shadow-lg">
@@ -315,16 +419,20 @@ export default function OrderAssignmentsPage() {
               filteredOrders.map((order) => {
                 const assignment = getAssignmentForOrder(order.id);
                 const region = getRegionForOrder(order.id);
+                const staffAssignment = getStaffAssignmentForOrder(order.id);
                 
                 return (
                   <Card key={order.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
                     <CardContent className="p-4 md:p-6">
-                      <div className="space-y-3 md:space-y-4">
+                      <div className="space-y-4">
                         {/* Header */}
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="font-mono font-semibold text-xs md:text-sm text-slate-600 mb-1">{order.id}</div>
                             <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">{order.client_name}</h3>
+                            <p className="text-xs md:text-sm text-slate-600 mt-1">
+                              {new Date(order.event_date).toLocaleDateString()} • {order.venue_address}
+                            </p>
                           </div>
                           {assignment ? (
                             <Badge className={`${getStatusColor(assignment.status)} text-xs flex-shrink-0`}>
@@ -339,34 +447,57 @@ export default function OrderAssignmentsPage() {
                           )}
                         </div>
 
-                        {/* Order Details Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <Calendar className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">{new Date(order.event_date).toLocaleDateString()}</span>
+                        {/* Region Assignment */}
+                        {region && (
+                          <div className="flex items-center gap-2 text-xs md:text-sm text-slate-600 bg-purple-50 p-2 rounded-lg">
+                            <Building2 className="w-4 h-4 text-purple-500" />
+                            <span className="font-semibold">Region: {region.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <MapPin className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">{order.venue_address}</span>
+                        )}
+
+                        {/* Staff Assignment Section */}
+                        {assignment && assignment.status === "accepted" && (
+                          <div className="border-t pt-4">
+                            <h4 className="text-sm font-semibold text-slate-700 mb-3">Staff Assignments</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                              {departments.map((dept) => {
+                                const Icon = dept.icon;
+                                const assignedStaff = staffAssignment[dept.key];
+                                const staffMember = assignedStaff ? availableStaff.find(s => s.id === assignedStaff) : null;
+                                
+                                return (
+                                  <div key={dept.key} className={`border-2 rounded-lg p-3 ${assignedStaff ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-slate-50'}`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Icon className={`w-4 h-4 text-${dept.color}-600`} />
+                                      <span className="text-xs font-semibold text-slate-700">{dept.label}</span>
+                                    </div>
+                                    {assignedStaff ? (
+                                      <div className="space-y-1">
+                                        <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                                          <CheckCircle className="w-3 h-3 mr-1" />
+                                          Assigned
+                                        </Badge>
+                                        <p className="text-xs text-slate-600 truncate">
+                                          {staffMember?.full_name || "Unknown"}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleOpenStaffDialog(order, dept.key)}
+                                        className="w-full text-xs"
+                                      >
+                                        <UserPlus className="w-3 h-3 mr-1" />
+                                        Assign
+                                      </Button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            <DollarSign className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="font-semibold">R{order.total.toLocaleString()}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-600">
-                            {region ? (
-                              <>
-                                <Building2 className="w-3 h-3 md:w-4 md:h-4 text-purple-500 flex-shrink-0" />
-                                <span className="font-semibold truncate">{region.name}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Building2 className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                                <span className="text-slate-400">Not Assigned</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                        )}
 
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -392,7 +523,7 @@ export default function OrderAssignmentsPage() {
                                   className="w-full sm:w-auto text-xs md:text-sm"
                                 >
                                   <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                                  Accept
+                                  Accept Order
                                 </Button>
                               )}
                               <Button
@@ -405,7 +536,7 @@ export default function OrderAssignmentsPage() {
                                 }}
                                 className="w-full sm:w-auto text-xs md:text-sm"
                               >
-                                Update
+                                Update Region
                               </Button>
                             </div>
                           )}
@@ -417,42 +548,19 @@ export default function OrderAssignmentsPage() {
               })
             )}
           </div>
-
-          {/* No Regions Alert */}
-          {regions.length === 0 && (
-            <Card className="border-0 shadow-lg mt-6 bg-amber-50 border-l-4 border-l-amber-500">
-              <CardContent className="py-4 md:py-6 px-4 md:px-6">
-                <div className="flex flex-col md:flex-row items-start gap-3 md:gap-4">
-                  <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-600 flex-shrink-0 mt-1" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-sm md:text-base text-amber-900 mb-2">No Active Regions</h3>
-                    <p className="text-xs md:text-sm text-amber-800 mb-3 md:mb-4">
-                      You need to create regional operations before you can assign orders. Set up your first region to get started.
-                    </p>
-                    <Link href="/admin/regions" className="inline-block">
-                      <Button className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto" size="sm">
-                        <Building2 className="w-4 h-4 mr-2" />
-                        Create First Region
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
-        {/* Assignment Dialog - Mobile Optimized */}
+        {/* Region Assignment Dialog */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col">
-            <DialogHeader className="flex-shrink-0">
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
+            <DialogHeader>
               <DialogTitle className="text-lg md:text-xl">Assign Order to Region</DialogTitle>
               <DialogDescription className="text-sm">
                 Select which regional operation will fulfill this order
               </DialogDescription>
             </DialogHeader>
             {selectedOrder && (
-              <div className="space-y-3 md:space-y-4 py-2 overflow-y-auto flex-1">
+              <div className="space-y-3 md:space-y-4 py-2">
                 <div className="p-3 bg-slate-50 rounded-lg space-y-1.5 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Order ID:</span>
@@ -467,12 +575,8 @@ export default function OrderAssignmentsPage() {
                     <span className="font-semibold">{new Date(selectedOrder.event_date).toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Location:</span>
-                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.venue_address}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
                     <span className="text-slate-600">Value:</span>
-                    <span className="font-semibold text-green-600">R{selectedOrder.total.toLocaleString()}</span>
+                    <span className="font-semibold text-green-600">R{selectedOrder.total?.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -507,7 +611,7 @@ export default function OrderAssignmentsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2 flex-shrink-0">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)} className="w-full sm:w-auto h-9" size="sm">
                     Cancel
                   </Button>
@@ -526,8 +630,89 @@ export default function OrderAssignmentsPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Staff Assignment Dialog */}
+        <Dialog open={isStaffDialogOpen} onOpenChange={setIsStaffDialogOpen}>
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg md:text-xl flex items-center gap-2">
+                {selectedDepartment && (
+                  <>
+                    {React.createElement(getDepartmentIcon(selectedDepartment), { className: "w-5 h-5" })}
+                    Assign {selectedDepartment ? departments.find(d => d.key === selectedDepartment)?.label : ""} Staff
+                  </>
+                )}
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                Select a staff member for this department
+              </DialogDescription>
+            </DialogHeader>
+            {selectedOrder && selectedDepartment && (
+              <div className="space-y-3 md:space-y-4 py-2">
+                <div className="p-3 bg-slate-50 rounded-lg space-y-1.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Order:</span>
+                    <span className="font-mono font-semibold text-xs">{selectedOrder.id}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600">Department:</span>
+                    <span className="font-semibold">{departments.find(d => d.key === selectedDepartment)?.label}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="staff" className="text-sm mb-1.5 block">Select Staff Member</Label>
+                  <Select value={selectedStaffMember} onValueChange={setSelectedStaffMember}>
+                    <SelectTrigger id="staff" className="h-9">
+                      <SelectValue placeholder="Select a staff member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableStaff.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No staff available for this department
+                        </SelectItem>
+                      ) : (
+                        availableStaff.map((staff) => (
+                          <SelectItem key={staff.id} value={staff.id}>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              {staff.full_name} ({staff.email})
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setIsStaffDialogOpen(false)} className="w-full sm:w-auto h-9" size="sm">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAssignStaff}
+                    disabled={!selectedStaffMember || availableStaff.length === 0}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white w-full sm:w-auto h-9"
+                    size="sm"
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Assign Staff
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <Footer />
       </div>
     </>
+  );
+}
+
+export default function ProtectedOrderAssignmentsPage() {
+  return (
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <OrderAssignmentsPage />
+    </ProtectedRoute>
   );
 }
