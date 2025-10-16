@@ -169,7 +169,7 @@ export const userManagementService = {
       
       if (primaryDept) {
         // Explicitly type the role as string to match database schema
-        const roleValue: string = primaryDept;
+        const roleValue: string = primaryDept as string;
         
         const { error: updateError } = await supabase
           .from("profiles")
