@@ -165,12 +165,12 @@ export const userManagementService = {
       }
 
       // Update user's primary role in profiles
-      const primaryDept = (departments.find((d) => d.is_primary)?.department || departments[0]?.department) as UserRole;
+      const primaryDept = departments.find((d) => d.is_primary)?.department || departments[0]?.department;
       
       if (primaryDept) {
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ role: primaryDept })
+          .update({ role: primaryDept } as { role: UserRole })
           .eq("id", userId);
 
         if (updateError) {
