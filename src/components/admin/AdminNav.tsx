@@ -1,6 +1,8 @@
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,180 +44,184 @@ interface NavSection {
   items: NavItem[];
 }
 
-const adminNavSections: NavSection[] = [
-  {
-    title: "Dashboard",
-    items: [
-      {
-        title: "Analytics Dashboard",
-        href: "/admin/dashboard",
-        icon: LayoutDashboard,
-        description: "Business insights and metrics"
-      }
-    ]
-  },
-  {
-    title: "Management",
-    items: [
-      {
-        title: "Users",
-        href: "/admin/users",
-        icon: Users,
-        description: "Manage user accounts"
-      },
-      {
-        title: "Driver Management",
-        href: "/admin/driver-management",
-        icon: Truck,
-        description: "Manage delivery drivers"
-      },
-      {
-        title: "Client Search",
-        href: "/admin/client-search",
-        icon: Search,
-        description: "Search and filter clients"
-      },
-      {
-        title: "Order Assignments",
-        href: "/admin/order-assignments",
-        icon: ClipboardList,
-        description: "Assign orders to team"
-      },
-      {
-        title: "Staff Hours",
-        href: "/admin/staff-hours",
-        icon: Clock,
-        description: "Track staff working hours"
-      }
-    ]
-  },
-  {
-    title: "Operations",
-    items: [
-      {
-        title: "Operations Hub",
-        href: "/admin/operations-hub",
-        icon: Layers,
-        description: "40 operational standards"
-      },
-      {
-        title: "Operations Standards",
-        href: "/admin/operations-standards",
-        icon: Briefcase,
-        description: "Standards 41-75: Equipment & Fleet"
-      },
-      {
-        title: "Job Progress Overview",
-        href: "/portal/admin/job-progress-overview",
-        icon: TrendingUp,
-        description: "Monitor all jobs"
-      },
-      {
-        title: "Equipment Shortages",
-        href: "/admin/equipment-shortages",
-        icon: Package,
-        description: "Track inventory issues"
-      },
-      {
-        title: "Regions",
-        href: "/admin/regions",
-        icon: MapPin,
-        description: "Manage service regions"
-      }
-    ]
-  },
-  {
-    title: "Communications",
-    items: [
-      {
-        title: "Email Templates",
-        href: "/admin/email-templates",
-        icon: Mail,
-        description: "Manage email templates"
-      },
-      {
-        title: "After-Sales Emails",
-        href: "/admin/after-sales-emails",
-        icon: MessageSquare,
-        description: "Follow-up communications"
-      },
-      {
-        title: "Email Automation",
-        href: "/admin/email-automation-dashboard",
-        icon: Mail,
-        description: "Automated email campaigns"
-      },
-      {
-        title: "Automation Settings",
-        href: "/admin/email-automation-settings",
-        icon: Settings,
-        description: "Configure automation"
-      },
-      {
-        title: "Notification Settings",
-        href: "/portal/admin/notification-settings",
-        icon: Bell,
-        description: "Configure notifications"
-      }
-    ]
-  },
-  {
-    title: "Branding",
-    items: [
-      {
-        title: "White Label",
-        href: "/admin/white-label",
-        icon: Building2,
-        description: "Branding customization"
-      }
-    ]
-  },
-  {
-    title: "Finance & Billing",
-    items: [
-      {
-        title: "Financial Dashboard",
-        href: "/admin/financial-dashboard",
-        icon: DollarSign,
-        description: "Financial insights"
-      },
-      {
-        title: "Subscription",
-        href: "/admin/subscription",
-        icon: CreditCard,
-        description: "Manage subscriptions"
-      },
-      {
-        title: "Payment Gateways",
-        href: "/admin/payment-gateways",
-        icon: CreditCard,
-        description: "Configure payments"
-      }
-    ]
-  },
-  {
-    title: "Settings",
-    items: [
-      {
-        title: "System Settings",
-        href: "/admin/settings",
-        icon: Settings,
-        description: "General configuration"
-      }
-    ]
-  }
-];
-
 interface AdminNavProps {
   className?: string;
+  companySlug?: string;
 }
 
-export function AdminNav({ className }: AdminNavProps) {
+export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
+  const companySlug = propCompanySlug || user?.company_slug || "your-company";
+
+  const adminNavSections: NavSection[] = [
+    {
+      title: "Dashboard",
+      items: [
+        {
+          title: "Analytics Dashboard",
+          href: `/${companySlug}/admin/dashboard`,
+          icon: LayoutDashboard,
+          description: "Business insights and metrics"
+        }
+      ]
+    },
+    {
+      title: "Management",
+      items: [
+        {
+          title: "Users",
+          href: `/${companySlug}/admin/users`,
+          icon: Users,
+          description: "Manage user accounts"
+        },
+        {
+          title: "Driver Management",
+          href: "/admin/driver-management",
+          icon: Truck,
+          description: "Manage delivery drivers"
+        },
+        {
+          title: "Client Search",
+          href: "/admin/client-search",
+          icon: Search,
+          description: "Search and filter clients"
+        },
+        {
+          title: "Order Assignments",
+          href: "/admin/order-assignments",
+          icon: ClipboardList,
+          description: "Assign orders to team"
+        },
+        {
+          title: "Staff Hours",
+          href: "/admin/staff-hours",
+          icon: Clock,
+          description: "Track staff working hours"
+        }
+      ]
+    },
+    {
+      title: "Operations",
+      items: [
+        {
+          title: "Operations Hub",
+          href: "/admin/operations-hub",
+          icon: Layers,
+          description: "40 operational standards"
+        },
+        {
+          title: "Operations Standards",
+          href: "/admin/operations-standards",
+          icon: Briefcase,
+          description: "Standards 41-75: Equipment & Fleet"
+        },
+        {
+          title: "Job Progress Overview",
+          href: "/portal/admin/job-progress-overview",
+          icon: TrendingUp,
+          description: "Monitor all jobs"
+        },
+        {
+          title: "Equipment Shortages",
+          href: "/admin/equipment-shortages",
+          icon: Package,
+          description: "Track inventory issues"
+        },
+        {
+          title: "Regions",
+          href: "/admin/regions",
+          icon: MapPin,
+          description: "Manage service regions"
+        }
+      ]
+    },
+    {
+      title: "Communications",
+      items: [
+        {
+          title: "Email Templates",
+          href: "/admin/email-templates",
+          icon: Mail,
+          description: "Manage email templates"
+        },
+        {
+          title: "After-Sales Emails",
+          href: "/admin/after-sales-emails",
+          icon: MessageSquare,
+          description: "Follow-up communications"
+        },
+        {
+          title: "Email Automation",
+          href: "/admin/email-automation-dashboard",
+          icon: Mail,
+          description: "Automated email campaigns"
+        },
+        {
+          title: "Automation Settings",
+          href: "/admin/email-automation-settings",
+          icon: Settings,
+          description: "Configure automation"
+        },
+        {
+          title: "Notification Settings",
+          href: "/portal/admin/notification-settings",
+          icon: Bell,
+          description: "Configure notifications"
+        }
+      ]
+    },
+    {
+      title: "Branding",
+      items: [
+        {
+          title: "White Label",
+          href: "/admin/white-label",
+          icon: Building2,
+          description: "Branding customization"
+        }
+      ]
+    },
+    {
+      title: "Finance & Billing",
+      items: [
+        {
+          title: "Financial Dashboard",
+          href: "/admin/financial-dashboard",
+          icon: DollarSign,
+          description: "Financial insights"
+        },
+        {
+          title: "Subscription",
+          href: "/admin/subscription",
+          icon: CreditCard,
+          description: "Manage subscriptions"
+        },
+        {
+          title: "Payment Gateways",
+          href: "/admin/payment-gateways",
+          icon: CreditCard,
+          description: "Configure payments"
+        }
+      ]
+    },
+    {
+      title: "Settings",
+      items: [
+        {
+          title: "System Settings",
+          href: `/${companySlug}/admin/settings`,
+          icon: Settings,
+          description: "General configuration"
+        }
+      ]
+    }
+  ];
+
   const isActive = (href: string) => {
-    return router.pathname === href;
+    return router.pathname === href || router.asPath === href;
   };
 
   const NavContent = () => (
@@ -286,7 +292,7 @@ export function AdminNav({ className }: AdminNavProps) {
 
       {/* Desktop Navigation */}
       <div className={cn("hidden lg:block", className)}>
-        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden">
+        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
           <div className="px-6 py-6 border-b bg-gradient-to-r from-purple-500 to-pink-500">
             <h2 className="text-xl font-bold text-white">Admin Portal</h2>
             <p className="text-sm text-purple-100 mt-1">Catering Management System</p>

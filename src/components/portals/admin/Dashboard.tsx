@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -80,7 +79,7 @@ export default function AdminDashboard({ companySlug }: PortalComponentProps) {
 
   return (
     <>
-      <AdminNav />
+      <AdminNav companySlug={companySlug} />
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
