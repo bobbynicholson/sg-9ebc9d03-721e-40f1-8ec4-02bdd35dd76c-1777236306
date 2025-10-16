@@ -78,10 +78,6 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/client/subscription-invoices",
     "/notifications"
   ],
-  // @ts-expect-error - temp fix
-  get buyer() {
-    return this.shopping;
-  },
 };
 
 // Role display names
@@ -92,10 +88,6 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   driver: "Driver",
   cleaning: "Cleaning Team",
   client: "Client",
-  // @ts-expect-error - temp fix
-  get buyer() {
-    return this.shopping;
-  },
 };
 
 // Default landing pages for each role
@@ -106,10 +98,6 @@ export const ROLE_LANDING_PAGES: Record<UserRole, string> = {
   driver: "/drivers",
   cleaning: "/cleaning",
   client: "/client-portal",
-  // @ts-expect-error - temp fix
-  get buyer() {
-    return this.shopping;
-  },
 };
 
 /**

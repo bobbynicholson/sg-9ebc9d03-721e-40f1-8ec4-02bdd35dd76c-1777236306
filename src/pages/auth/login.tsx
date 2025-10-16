@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 const roleIcons = {
   admin: Shield,
   kitchen: ChefHat,
-  buyer: ShoppingCart,
+  shopping: ShoppingCart,
   driver: Truck,
   cleaning: Sparkles,
   client: User,
@@ -25,7 +25,7 @@ const roleIcons = {
 const roleColors = {
   admin: "from-purple-500 to-purple-600",
   kitchen: "from-orange-500 to-orange-600",
-  buyer: "from-green-500 to-green-600",
+  shopping: "from-green-500 to-green-600",
   driver: "from-blue-500 to-blue-600",
   cleaning: "from-pink-500 to-pink-600",
   client: "from-slate-500 to-slate-600",
@@ -47,7 +47,7 @@ export default function LoginPage() {
         driver: "driver",
         kitchen: "kitchen",
         cleaning: "cleaning",
-        shopping: "buyer",
+        shopping: "shopping",
         client: "client"
       };
       const mappedRole = portalMap[router.query.portal as string];
@@ -108,7 +108,7 @@ export default function LoginPage() {
         case "kitchen":
           router.push("/kitchen");
           break;
-        case "buyer":
+        case "shopping":
           router.push("/shopping");
           break;
         case "driver":
@@ -232,7 +232,7 @@ export default function LoginPage() {
                       Kitchen Team
                     </div>
                   </SelectItem>
-                  <SelectItem value="buyer">
+                  <SelectItem value="shopping">
                     <div className="flex items-center gap-2">
                       <ShoppingCart className="w-4 h-4" />
                       Shopping Team

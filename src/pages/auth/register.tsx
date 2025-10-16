@@ -24,7 +24,7 @@ const CURRENCIES = [
 const ROLES = [
   { value: "admin", label: "Admin", icon: Shield, description: "Full system access" },
   { value: "kitchen", label: "Kitchen Team", icon: ChefHat, description: "Kitchen operations" },
-  { value: "buyer", label: "Shopping Team", icon: ShoppingCart, description: "Purchasing & inventory" },
+  { value: "shopping", label: "Shopping Team", icon: ShoppingCart, description: "Purchasing & inventory" },
   { value: "driver", label: "Driver", icon: Truck, description: "Deliveries & logistics" },
   { value: "cleaning", label: "Cleaning Team", icon: Sparkles, description: "Equipment cleaning" },
   { value: "client", label: "Client", icon: User, description: "Client access" }
