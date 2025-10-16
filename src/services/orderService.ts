@@ -327,16 +327,31 @@ export const orderService = {
   },
 
   /**
-   * Get all orders for a specific user, or all orders if no user is specified.
+   * Get all orders, with optional filtering by user and other properties.
    */
-  async getOrders(userId?: string): Promise<Order[]> {
+  async getOrders(params?: {
+    userId?: string;
+    filters?: {
+      event_date?: string;
+      status?: string;
+      [key: string]: any;
+    };
+  }): Promise<Order[]> {
     let query = supabase
       .from("orders")
       .select("*")
       .order("event_date", { ascending: false });
 
-    if (userId) {
-      query = query.eq("user_id", userId);
+    if (params?.userId) {
+      query = query.eq("user_id", params.userId);
+    }
+    
+    if (params?.filters) {
+        for (const key in params.filters) {
+            if (params.filters[key]) {
+                query = query.eq(key, params.filters[key]);
+            }
+        }
     }
 
     const { data, error } = await query;
