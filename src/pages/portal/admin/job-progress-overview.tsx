@@ -34,7 +34,6 @@ import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByU
 import { orderService } from "@/services/orderService";
 import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
-import { GetServerSideProps } from 'next';
 
 interface PriorityTask {
   orderId: string;
@@ -78,7 +77,7 @@ export default function JobProgressOverviewPage() {
         variant: "destructive",
       });
     }
-  }, []);
+  }, [user?.id, toast]);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -102,7 +101,7 @@ export default function JobProgressOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, toast]);
 
   useEffect(() => {
     if (user) {
@@ -202,20 +201,20 @@ export default function JobProgressOverviewPage() {
   };
 
   const filteredOrders = useMemo(() => {
-    let result = orders;
+    return orders.filter(order => {
+        const matchesSearch =
+            order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesSearch =
-      order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = filterStatus === "all" || order.status === filterStatus;
 
-    const matchesFilter = filterStatus === "all" || order.status === filterStatus;
-    
-    const matchesRegion = selectedRegion === "all" || 
-      order.region_id === selectedRegion;
+        const matchesRegion = selectedRegion === "all" ||
+            order.region_id === selectedRegion;
 
-    return matchesSearch && matchesFilter && matchesRegion;
-  }, [orders, searchTerm, selectedRegion, statusFilter, dateRange]);
+        return matchesSearch && matchesFilter && matchesRegion;
+    });
+  }, [orders, searchTerm, filterStatus, selectedRegion]);
 
   const calculateOrderUrgency = (order: AppOrder): UrgencyScore => {
     const eventDate = new Date(order.eventDate);
@@ -766,9 +765,3 @@ export default function JobProgressOverviewPage() {
     </>
   );
 }
-
-export const getServerSideProps: GetServerSideProps = async () => {
-  return {
-    props: {},
-  };
-};
