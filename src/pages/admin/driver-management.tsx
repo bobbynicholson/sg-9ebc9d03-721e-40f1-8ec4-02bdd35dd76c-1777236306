@@ -29,7 +29,7 @@ interface Driver {
 }
 
 export default function DriverManagementPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,10 +45,10 @@ export default function DriverManagementPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (user && profile) {
+    if (user) {
       loadDrivers();
     }
-  }, [user, profile]);
+  }, [user]);
 
   const loadDrivers = async () => {
     try {
@@ -91,7 +91,7 @@ export default function DriverManagementPage() {
         newDriver.password,
         newDriver.name,
         "driver",
-        profile?.currency || "ZAR",
+        user?.currency || "ZAR",
         newDriver.phone
       );
 
@@ -112,7 +112,7 @@ export default function DriverManagementPage() {
         email: newDriver.email,
         full_name: newDriver.name,
         role: "driver",
-        currency: profile?.currency || "ZAR",
+        currency: user?.currency || "ZAR",
         phone_number: newDriver.phone,
         is_active: true,
       });
@@ -436,7 +436,7 @@ export default function DriverManagementPage() {
                 Share this URL with your drivers so they can easily bookmark and access their portal:
               </p>
               <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/${profile?.company_slug || "your-company"}/driver-login` : "/your-company/driver-login"}
+                {typeof window !== "undefined" ? `${window.location.origin}/${user?.company_slug || "your-company"}/driver-login` : "/your-company/driver-login"}
               </code>
             </div>
 
@@ -446,7 +446,7 @@ export default function DriverManagementPage() {
                 Share this URL if you want drivers to self-register:
               </p>
               <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/${profile?.company_slug || "your-company"}/driver-signup` : "/your-company/driver-signup"}
+                {typeof window !== "undefined" ? `${window.location.origin}/${user?.company_slug || "your-company"}/driver-signup` : "/your-company/driver-signup"}
               </code>
             </div>
           </CardContent>

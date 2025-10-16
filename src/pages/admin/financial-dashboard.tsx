@@ -49,7 +49,7 @@ interface CashFlowAlert {
 }
 
 export default function FinancialDashboardPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
@@ -182,7 +182,7 @@ export default function FinancialDashboardPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return currencyUtils.formatCurrency(amount, (profile?.currency as currencyUtils.CurrencyCode) || "ZAR");
+    return currencyUtils.formatCurrency(amount, (user?.currency as currencyUtils.CurrencyCode) || "ZAR");
   };
 
   if (!user) {

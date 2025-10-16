@@ -35,7 +35,7 @@ interface AutomationRule {
 }
 
 export default function EmailAutomationSettings() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({
     provider: "smtp",
     smtpHost: "",
@@ -193,7 +193,7 @@ export default function EmailAutomationSettings() {
     }
   }, []);
 
-  if (profile?.role !== "admin") {
+  if (user?.role !== "admin" && user?.role !== "owner" && user?.role !== "super_admin") {
     return (
       <>
         <NoIndexMeta />

@@ -48,7 +48,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppOrder } from "@/types";
 
 function ClientPortalPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [recentOrder, setRecentOrder] = useState<AppOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();

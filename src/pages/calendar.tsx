@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import {
@@ -32,7 +31,7 @@ import {
 import { useRouter } from "next/router";
 
 export default function CalendarPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [events, setEvents] = useState<AppOrder[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -118,8 +117,8 @@ export default function CalendarPage() {
   };
 
   const handleViewOrder = (orderId: string) => {
-    if (profile?.company_slug) {
-        router.push(`/${profile.company_slug}/admin/dashboard?orderId=${orderId}`);
+    if (user?.company_slug) {
+        router.push(`/${user.company_slug}/admin/dashboard?orderId=${orderId}`);
     } else {
         router.push(`/orders?orderId=${orderId}`);
     }

@@ -37,7 +37,7 @@ interface DeliveryJob extends Quote {
 }
 
 export default function DriversPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>([]);
   const [myJobs, setMyJobs] = useState<DeliveryJob[]>([]);
   const [completedToday, setCompletedToday] = useState(3);
@@ -47,7 +47,7 @@ export default function DriversPage() {
   const [showGame, setShowGame] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   
-  const driverName = profile?.full_name || "Driver";
+  const driverName = user?.full_name || "Driver";
 
   useEffect(() => {
     const onboardingShown = localStorage.getItem("driver_onboarding_shown");

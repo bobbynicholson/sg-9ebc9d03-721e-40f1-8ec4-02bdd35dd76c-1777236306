@@ -63,7 +63,7 @@ const statusConfig: Record<CleaningStatus, {
 };
 
 export function CleaningWorkflowTracker() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [equipmentList, setEquipmentList] = useState<any[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<CleaningStatus | "all">("all");

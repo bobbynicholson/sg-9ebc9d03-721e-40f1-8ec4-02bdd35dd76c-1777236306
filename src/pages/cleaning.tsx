@@ -12,7 +12,7 @@ import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentD
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function CleaningPage() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("verification");
 
   if (!user) {
@@ -176,7 +176,7 @@ export default function CleaningPage() {
                             <div>
                               <p className="text-sm text-muted-foreground">Currently On Duty</p>
                               <p className="text-2xl font-bold text-green-600">
-                                {profile?.full_name || "You"}
+                                {user?.full_name || "You"}
                               </p>
                             </div>
                           </div>

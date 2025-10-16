@@ -8,7 +8,7 @@ import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function CleaningDutyWidget() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [onDutyStaff, setOnDutyStaff] = useState<any[]>([]);
   const [myCurrentDuty, setMyCurrentDuty] = useState<any>(null);
@@ -89,13 +89,13 @@ export function CleaningDutyWidget() {
         <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
           <div className="flex items-center gap-3">
             <Avatar>
-              <AvatarImage src={profile?.avatar_url} />
+              <AvatarImage src={user?.avatar_url} />
               <AvatarFallback>
-                {profile?.full_name?.charAt(0) || "U"}
+                {user?.full_name?.charAt(0) || "U"}
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{profile?.full_name || "You"}</p>
+              <p className="font-medium">{user?.full_name || "You"}</p>
               {myCurrentDuty && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />

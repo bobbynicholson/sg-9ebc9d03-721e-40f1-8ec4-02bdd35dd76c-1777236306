@@ -89,7 +89,7 @@ const PORTAL_ROUTES = {
 
 export default function PortalPage() {
   const router = useRouter();
-  const { user, profile, userRoles, activeRole, loading: authLoading } = useAuth();
+  const { user, userRoles, activeRole, loading: authLoading } = useAuth();
   const { companySlug, portal, slug } = router.query;
   
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -102,15 +102,15 @@ export default function PortalPage() {
     if (authLoading) return;
 
     // Check if user is authenticated
-    if (!user || !profile) {
+    if (!user) {
       router.push(`/${companySlug}/auth/login?redirect=${router.asPath}`);
       return;
     }
 
     // Verify company slug matches user's company
-    if (profile.company_slug && profile.company_slug !== companySlug) {
+    if (user.company_slug && user.company_slug !== companySlug) {
       console.warn("Company slug mismatch - redirecting to user's company");
-      router.push(`/${profile.company_slug}/${portal}/${currentRoute}`);
+      router.push(`/${user.company_slug}/${portal}/${currentRoute}`);
       return;
     }
 
@@ -134,7 +134,7 @@ export default function PortalPage() {
     if (hasAccess && !portalConfig.routes[currentRoute]) {
       router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
     }
-  }, [user, profile, userRoles, authLoading, companySlug, portal, currentRoute, router]);
+  }, [user, userRoles, authLoading, companySlug, portal, currentRoute, router]);
 
   // Loading state
   if (authLoading || isLoading) {
@@ -196,7 +196,7 @@ export default function PortalPage() {
             </div>
             <div className="space-y-2">
               {userRoles.length > 0 && (
-                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, profile?.company_slug || undefined)}>
+                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, user?.company_slug || undefined)}>
                   <Button className="w-full">Go to Your Dashboard</Button>
                 </Link>
               )}

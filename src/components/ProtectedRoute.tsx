@@ -26,7 +26,7 @@ export function ProtectedRoute({
   allowedRoles, 
   requireAuth = true 
 }: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -41,16 +41,16 @@ export function ProtectedRoute({
       return;
     }
 
-    // Check if profile exists
-    if (requireAuth && user && !profile) {
-      console.error("User authenticated but no profile found");
-      router.push("/auth/login");
+    // Check if profile data is loaded within user object
+    if (requireAuth && user && !user.role) {
+      console.error("User authenticated but no profile data (role) found");
+      // Could be a race condition, maybe wait or redirect
       return;
     }
 
     // Check role-based access
-    if (allowedRoles && profile) {
-      const userRole = profile.role as UserRole;
+    if (allowedRoles && user) {
+      const userRole = user.role as UserRole;
       
       // Check if user's role is in the allowed roles
       if (!allowedRoles.includes(userRole)) {
@@ -69,7 +69,7 @@ export function ProtectedRoute({
     }
 
     setChecking(false);
-  }, [user, profile, loading, router, requireAuth, allowedRoles]);
+  }, [user, loading, router, requireAuth, allowedRoles]);
 
   // Show loading state
   if (loading || checking) {
@@ -87,7 +87,7 @@ export function ProtectedRoute({
   }
 
   // Show unauthorized if requirements not met
-  if (requireAuth && (!user || !profile)) {
+  if (requireAuth && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-0 shadow-2xl">
@@ -107,8 +107,8 @@ export function ProtectedRoute({
   }
 
   // Show access denied if role not allowed
-  if (allowedRoles && profile) {
-    const userRole = profile.role as UserRole;
+  if (allowedRoles && user) {
+    const userRole = user.role as UserRole;
     if (!allowedRoles.includes(userRole)) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">

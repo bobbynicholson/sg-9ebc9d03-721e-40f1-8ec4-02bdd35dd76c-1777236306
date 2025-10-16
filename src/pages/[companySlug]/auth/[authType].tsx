@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 export default function AuthPage() {
   const router = useRouter();
   const { companySlug, authType } = router.query;
-  const { user, profile, signIn, signUp } = useAuth();
+  const { user, signIn, signUp } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,13 +23,13 @@ export default function AuthPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (user && profile) {
+    if (user) {
       const redirect = router.query.redirect as string;
       if (redirect) {
         router.push(redirect);
       } else {
         // Redirect based on role
-        const role = profile.role || "client";
+        const role = user.role || "client";
         if (role === "admin" || role === "super_admin") {
           router.push(`/${companySlug}/admin/dashboard`);
         } else if (role === "driver") {
@@ -45,7 +45,7 @@ export default function AuthPage() {
         }
       }
     }
-  }, [user, profile, router, companySlug]);
+  }, [user, router, companySlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
