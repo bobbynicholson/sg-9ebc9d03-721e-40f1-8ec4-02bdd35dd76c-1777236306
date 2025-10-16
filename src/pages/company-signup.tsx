@@ -72,12 +72,21 @@ export default function CompanySignupPage() {
     const newSlug = generateSlug(name);
     setCompanySlug(newSlug);
     
+    // Reset availability state immediately
+    setSlugAvailable(null);
+    
     // Check slug availability after a short delay
     if (newSlug.length >= 3) {
+      setCheckingSlug(true);
       const timeoutId = setTimeout(() => {
         checkSlugAvailability(newSlug);
-      }, 500);
-      return () => clearTimeout(timeoutId);
+      }, 800);
+      return () => {
+        clearTimeout(timeoutId);
+        setCheckingSlug(false);
+      };
+    } else {
+      setCheckingSlug(false);
     }
   };
 
@@ -86,11 +95,20 @@ export default function CompanySignupPage() {
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setCompanySlug(cleanSlug);
     
+    // Reset availability state immediately
+    setSlugAvailable(null);
+    
     if (cleanSlug.length >= 3) {
+      setCheckingSlug(true);
       const timeoutId = setTimeout(() => {
         checkSlugAvailability(cleanSlug);
-      }, 500);
-      return () => clearTimeout(timeoutId);
+      }, 800);
+      return () => {
+        clearTimeout(timeoutId);
+        setCheckingSlug(false);
+      };
+    } else {
+      setCheckingSlug(false);
     }
   };
 
