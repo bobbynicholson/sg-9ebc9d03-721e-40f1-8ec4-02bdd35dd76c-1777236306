@@ -22,7 +22,6 @@ import {
   Globe,
   BarChart3,
   Calendar,
-  Clock,
   Settings,
   BookOpen,
   Phone,
@@ -30,11 +29,10 @@ import {
   Zap,
   Target,
   AlertTriangle,
-  LogIn,
-  UserPlus,
   Play,
-  Building2,
-  Layout
+  CheckCircle,
+  Lock,
+  Building2
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
 import { RegionSwitcher } from "@/components/RegionSwitcher";
@@ -44,7 +42,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const router = useRouter();
-  const { branding, isWhiteLabeled } = useBranding();
+  const { branding } = useBranding();
   const { user, userRoles } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -65,86 +63,6 @@ export function Header() {
     setMobileMenuOpen(false);
     setActiveDropdown(null);
   }, [router.pathname]);
-
-  const accessPortalsMegaMenu = [
-    {
-      category: "Try CateringMS",
-      icon: Play,
-      items: [
-        { 
-          name: "Interactive Demo", 
-          href: "/?demo=true", 
-          icon: Play, 
-          description: "Test drive all features with sample data",
-          badge: "Popular"
-        },
-        { 
-          name: "Start Free Trial", 
-          href: "/auth/register", 
-          icon: UserPlus, 
-          description: "14 days free, no credit card required",
-          badge: "14 Days Free"
-        }
-      ]
-    },
-    {
-      category: "Client Portals",
-      icon: Users,
-      items: [
-        { 
-          name: "Customer Login", 
-          href: "/auth/login?role=client", 
-          icon: Shield, 
-          description: "Access your client dashboard" 
-        },
-        { 
-          name: "Driver Portal", 
-          href: "/auth/login?role=driver", 
-          icon: Truck, 
-          description: "View deliveries and earnings" 
-        },
-        { 
-          name: "Kitchen Team", 
-          href: "/auth/login?role=kitchen", 
-          icon: ChefHat, 
-          description: "Manage production schedules" 
-        },
-        { 
-          name: "Shopping Team", 
-          href: "/auth/login?role=shopping", 
-          icon: ShoppingCart, 
-          description: "Track inventory and purchases" 
-        }
-      ]
-    },
-    {
-      category: "Admin Access",
-      icon: Settings,
-      items: [
-        { 
-          name: "Company Admin", 
-          href: "/auth/login?role=admin", 
-          icon: Building2, 
-          description: "Full system administration",
-          highlight: true
-        },
-        {
-          name: "Job Progress Overview",
-          href: "/portal/admin/job-progress-overview",
-          icon: Layout,
-          description: "Monitor all jobs in real-time",
-          highlight: true
-        },
-        { 
-          name: "CateringMS Platform", 
-          href: "/platform/dashboard", 
-          icon: BarChart3, 
-          description: "Internal platform management",
-          restricted: true
-        }
-      ]
-    }
-  ];
 
   const featuresMegaMenu = [
     {
@@ -202,7 +120,7 @@ export function Header() {
       category: "Support",
       icon: Phone,
       items: [
-        { name: "Help Center", href: "/contact", icon: Phone, description: "24-hour support" },
+        { name: "Help Center", href: "/support", icon: Phone, description: "24-hour support" },
         { name: "Contact Us", href: "/contact", icon: Mail, description: "Get personalized help" },
         { name: "Documentation", href: "/blog", icon: FileText, description: "Complete guides" }
       ]
@@ -385,93 +303,6 @@ export function Header() {
                 Contact
               </button>
             </Link>
-
-            {/* Access Portals Mega Menu */}
-            <div
-              className="relative"
-              onMouseEnter={() => setActiveDropdown("access")}
-              onMouseLeave={() => setActiveDropdown(null)}
-            >
-              <button
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
-                  activeDropdown === "access"
-                    ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                    : "bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 hover:from-purple-100 hover:to-pink-100"
-                }`}
-              >
-                <Layout className="w-4 h-4" />
-                <span className="font-medium">Access Portals</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "access" ? "rotate-180" : ""}`} />
-              </button>
-
-              {activeDropdown === "access" && (
-                <div className="absolute right-0 top-full mt-2 w-[600px]">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-purple-200 p-6">
-                    <div className="grid grid-cols-3 gap-6">
-                      {accessPortalsMegaMenu.map((section, idx) => (
-                        <div key={idx}>
-                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-200">
-                            <section.icon className="w-4 h-4 text-purple-600" />
-                            <h3 className="font-bold text-slate-900 text-sm">{section.category}</h3>
-                          </div>
-                          <ul className="space-y-2">
-                            {section.items.map((item, itemIdx) => (
-                              <li key={itemIdx}>
-                                <Link href={item.href}>
-                                  <div className={`flex items-center gap-3 p-3 rounded-lg transition-colors group cursor-pointer ${
-                                    item.highlight 
-                                      ? "bg-purple-50 hover:bg-purple-100" 
-                                      : item.restricted
-                                      ? "bg-orange-50 hover:bg-orange-100"
-                                      : "hover:bg-purple-50"
-                                  }`}>
-                                    <item.icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                                      item.highlight 
-                                        ? "text-purple-600" 
-                                        : item.restricted
-                                        ? "text-orange-600"
-                                        : "text-purple-500"
-                                    }`} />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <p className={`font-medium text-xs ${
-                                          item.highlight 
-                                            ? "text-purple-700" 
-                                            : item.restricted
-                                            ? "text-orange-700"
-                                            : "text-slate-900"
-                                        }`}>
-                                          {item.name}
-                                        </p>
-                                        {item.badge && (
-                                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-green-200">
-                                            {item.badge}
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <p className="text-[11px] text-slate-600 mt-0.5 leading-tight">{item.description}</p>
-                                    </div>
-                                  </div>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Play className="w-4 h-4 text-purple-600" />
-                        <p className="text-xs text-slate-600">
-                          Try demo mode to explore all features
-                        </p>
-                      </div>
-                      <DemoModeToggle />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Desktop Right Section */}
@@ -481,6 +312,16 @@ export function Header() {
               <RoleSwitcher variant="compact" showLabel={false} />
             )}
             {user && <NotificationBell />}
+            
+            {/* Try Demo Button - Prominent */}
+            <Link href="/test-company">
+              <Button variant="outline" className="border-2 border-green-500 text-green-700 hover:bg-green-50 shadow-sm">
+                <Play className="w-4 h-4 mr-2" />
+                Try Demo
+              </Button>
+            </Link>
+
+            {/* Sign Up CTA */}
             <Link href="/auth/register">
               <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg">
                 Start Free Trial
@@ -507,56 +348,6 @@ export function Header() {
         {mobileMenuOpen && (
           <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="p-4 space-y-3">
-              {/* Mobile Access Portals - Featured Section */}
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Layout className="w-5 h-5 text-purple-600" />
-                  <span className="font-bold text-purple-900 text-sm uppercase tracking-wider">
-                    Access Portals
-                  </span>
-                </div>
-                {accessPortalsMegaMenu.map((section, idx) => (
-                  <div key={idx} className="space-y-2">
-                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider px-2">
-                      {section.category}
-                    </p>
-                    {section.items.map((item, itemIdx) => (
-                      <Link key={itemIdx} href={item.href}>
-                        <div className={`flex items-center gap-3 p-3 rounded-lg ${
-                          item.highlight 
-                            ? "bg-white shadow-sm border border-purple-200" 
-                            : item.restricted
-                            ? "bg-orange-50 border border-orange-200"
-                            : "bg-white/50"
-                        }`}>
-                          <item.icon className={`w-5 h-5 flex-shrink-0 ${
-                            item.highlight 
-                              ? "text-purple-600" 
-                              : item.restricted
-                              ? "text-orange-600"
-                              : "text-purple-500"
-                          }`} />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                              {item.badge && (
-                                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-green-200">
-                                  {item.badge}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-600 mt-0.5">{item.description}</p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ))}
-                <div className="pt-3 border-t border-purple-200">
-                  <DemoModeToggle />
-                </div>
-              </div>
-
               {/* Mobile Features */}
               <div className="space-y-2">
                 <button
@@ -637,6 +428,35 @@ export function Header() {
                 </div>
               </Link>
 
+              {/* Mobile Demo Section - Highlighted */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Play className="w-5 h-5 text-green-600" />
+                  <span className="font-bold text-green-900 text-sm uppercase tracking-wider">
+                    Try Demo
+                  </span>
+                </div>
+                <p className="text-sm text-green-800 mb-3">
+                  Test all features with pre-loaded sample data. Login as admin, driver, kitchen, shopping, cleaning, or client.
+                </p>
+                <Link href="/test-company">
+                  <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white h-12">
+                    <Play className="w-5 h-5 mr-2" />
+                    Access Demo Portal
+                  </Button>
+                </Link>
+                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-green-700">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" />
+                    <span>Unlimited Access</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    <span>Safe Sandbox</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Mobile CTA Section */}
               <div className="pt-4 border-t border-slate-200 space-y-3">
                 {user && userRoles.length > 1 && (
@@ -655,7 +475,6 @@ export function Header() {
                 </Link>
                 <div className="text-center">
                   <Badge className="bg-green-100 text-green-700 border-green-200">
-                    <Clock className="w-3 h-3 mr-1" />
                     14-Day Free Trial • No Credit Card
                   </Badge>
                 </div>
