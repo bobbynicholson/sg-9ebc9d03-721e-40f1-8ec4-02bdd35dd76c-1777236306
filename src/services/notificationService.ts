@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { UserRole } from "@/types";
 
 export type Notification = Tables<"notifications">;
 
@@ -89,7 +90,7 @@ export const notificationService = {
       message: string;
       link?: string;
       priority?: string;
-      target_role?: string; // NEW: Target specific role
+      target_role?: UserRole; // FIX: Use UserRole type instead of string
       metadata?: Record<string, unknown>;
     }
   ): Promise<Notification | null> {
@@ -103,7 +104,7 @@ export const notificationService = {
         message: notification.message,
         link: notification.link || null,
         priority: notification.priority || "normal",
-        target_role: notification.target_role || null, // NEW
+        target_role: notification.target_role || null,
         metadata: (notification.metadata || {}) as unknown as never
       })
       .select()

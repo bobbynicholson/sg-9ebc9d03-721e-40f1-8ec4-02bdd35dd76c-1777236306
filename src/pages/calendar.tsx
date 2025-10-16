@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import {
@@ -26,14 +27,16 @@ import {
   Package,
   ArrowRight,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { useRouter } from "next/router";
 
 export default function CalendarPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const [events, setEvents] = useState<AppOrder[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<AppOrder | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<AppOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [calendarKey, setCalendarKey] = useState(0);
 
@@ -48,14 +51,15 @@ export default function CalendarPage() {
   const loadEvents = async () => {
     if (!user?.id) return;
     setLoading(true);
-    const orders: AppOrder[] = await orderService.getOrders({ userId: user.id });
+    // Use getAllOrders to fetch all relevant events for the admin's company
+    const orders: AppOrder[] = await orderService.getAllOrders(user.id);
     setEvents(orders);
     setLoading(false);
     setCalendarKey(prev => prev + 1); 
   };
 
   const getStatusBadge = (status: AppOrder["status"]) => {
-    const styles = {
+    const styles: { [key: string]: string } = {
       pending_deposit: "bg-yellow-100 text-yellow-800",
       confirmed: "bg-blue-100 text-blue-800",
       preparing: "bg-purple-100 text-purple-800",
@@ -63,10 +67,11 @@ export default function CalendarPage() {
       in_transit: "bg-cyan-100 text-cyan-800",
       delivered: "bg-teal-100 text-teal-800",
       completed: "bg-green-100 text-green-800",
+      cancelled: "bg-red-100 text-red-800",
     };
     return (
       <Badge className={styles[status || "pending_deposit"] || "bg-gray-100 text-gray-800"}>
-        {status?.replace("_", " ").toUpperCase()}
+        {status?.replace(/_/g, " ").toUpperCase()}
       </Badge>
     );
   };
@@ -90,10 +95,11 @@ export default function CalendarPage() {
                 className={`h-1.5 w-1.5 rounded-full ${
                   event.status === "completed"
                     ? "bg-green-500"
-                    : "bg-blue-500"
+                    : event.status === "cancelled" ? "bg-red-500" : "bg-blue-500"
                 }`}
               />
             ))}
+            {dayEvents.length > 3 && <div className="text-xs font-bold">+</div>}
           </div>
         )}
       </div>
@@ -101,18 +107,24 @@ export default function CalendarPage() {
   };
 
   const handleDayClick = (day: Date) => {
-    const dayEvents = events.filter(
-      (event) => format(new Date(event.event_date), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
-    );
+    const dayEvents = events
+      .filter((event) => format(new Date(event.event_date), "yyyy-MM-dd") === format(day, "yyyy-MM-dd"))
+      .sort((a,b) => (a.event_time || "00:00").localeCompare(b.event_time || "00:00"));
+    
     if (dayEvents.length > 0) {
-      setSelectedEvent(dayEvents[0]);
+      setSelectedDate(day);
+      setSelectedDayEvents(dayEvents);
     }
   };
 
-  const handleViewOrder = () => {
-    if (selectedEvent) {
-      router.push(`/orders?orderId=${selectedEvent.id}`);
+  const handleViewOrder = (orderId: string) => {
+    if (profile?.company_slug) {
+        router.push(`/${profile.company_slug}/admin/dashboard?orderId=${orderId}`);
+    } else {
+        router.push(`/orders?orderId=${orderId}`);
     }
+    setSelectedDayEvents([]);
+    setSelectedDate(null);
   };
 
   return (
@@ -121,17 +133,17 @@ export default function CalendarPage() {
         <title>Events Calendar | CateringMS Admin</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold">Events Calendar</h1>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Events Calendar</h1>
             <p className="text-muted-foreground">
-              A complete overview of all scheduled functions.
+              A top-level view of all scheduled functions.
             </p>
           </div>
 
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-2 md:p-6">
               {loading ? (
                 <div className="flex justify-center items-center h-96">
@@ -147,8 +159,10 @@ export default function CalendarPage() {
                     Day: DayWithEvents,
                   }}
                   classNames={{
-                    day: "h-16 w-16 md:h-20 md:w-20 lg:h-24 lg:w-24 relative text-lg",
+                    day: "h-16 w-16 md:h-20 md:w-20 lg:h-24 lg:w-24 relative text-lg rounded-md focus-within:relative focus-within:z-20",
                     day_selected: "bg-primary text-primary-foreground",
+                    day_today: "bg-accent text-accent-foreground",
+                    day_outside: "text-muted-foreground opacity-50",
                   }}
                 />
               )}
@@ -159,52 +173,69 @@ export default function CalendarPage() {
       </div>
 
       <Dialog
-        open={!!selectedEvent}
-        onOpenChange={() => setSelectedEvent(null)}
+        open={selectedDayEvents.length > 0}
+        onOpenChange={(isOpen) => {
+            if (!isOpen) {
+                setSelectedDayEvents([]);
+                setSelectedDate(null);
+            }
+        }}
       >
-        <DialogContent>
-          {selectedEvent && (
+        <DialogContent className="max-w-2xl">
+          {selectedDate && (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center justify-between">
-                  <span>Order #{selectedEvent.order_number || selectedEvent.id.substring(0, 6)}</span>
-                  {getStatusBadge(selectedEvent.status)}
+                <DialogTitle className="text-2xl">
+                  Events for {format(selectedDate, "EEEE, MMMM dd, yyyy")}
                 </DialogTitle>
                 <DialogDescription>
-                  {format(new Date(selectedEvent.event_date), "EEEE, MMMM dd, yyyy")}
+                  {selectedDayEvents.length} function(s) scheduled for this day.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Client</p>
-                    <p className="font-medium">{selectedEvent.client_name}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Venue</p>
-                    <p className="font-medium">{selectedEvent.venue_address}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Package className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Guest Count
-                    </p>
-                    <p className="font-medium">
-                      {selectedEvent.guest_count} guests
-                    </p>
-                  </div>
-                </div>
+              <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-4">
+                {selectedDayEvents.map(event => (
+                    <div key={event.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                            <h3 className="font-semibold text-lg">Order #{event.order_number || event.id.substring(0, 6)}</h3>
+                            {getStatusBadge(event.status)}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-3">
+                                <Users className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Client</p>
+                                    <p className="font-medium">{event.client_name}</p>
+                                </div>
+                            </div>
+                             <div className="flex items-center gap-3">
+                                <Clock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Event Time</p>
+                                    <p className="font-medium">{event.event_time ? format(new Date(`1970-01-01T${event.event_time}`), 'p') : 'Not set'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 col-span-1 md:col-span-2">
+                                <MapPin className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Venue</p>
+                                    <p className="font-medium">{event.venue_address}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Package className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Guest Count</p>
+                                    <p className="font-medium">{event.guest_count} guests</p>
+                                </div>
+                            </div>
+                        </div>
+                        <Button onClick={() => handleViewOrder(event.id)} className="w-full mt-4">
+                            View Full Order & Planning Details
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                    </div>
+                ))}
               </div>
-              <Button onClick={handleViewOrder} className="w-full">
-                View Full Order Details
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
             </>
           )}
         </DialogContent>

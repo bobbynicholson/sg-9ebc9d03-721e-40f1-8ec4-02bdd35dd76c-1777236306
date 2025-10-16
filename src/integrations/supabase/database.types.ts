@@ -2422,6 +2422,7 @@ export type Database = {
           priority: string | null
           read_at: string | null
           recipient_id: string
+          target_role: Database["public"]["Enums"]["user_role"] | null
           title: string
           user_id: string
         }
@@ -2436,6 +2437,7 @@ export type Database = {
           priority?: string | null
           read_at?: string | null
           recipient_id: string
+          target_role?: Database["public"]["Enums"]["user_role"] | null
           title: string
           user_id: string
         }
@@ -2450,6 +2452,7 @@ export type Database = {
           priority?: string | null
           read_at?: string | null
           recipient_id?: string
+          target_role?: Database["public"]["Enums"]["user_role"] | null
           title?: string
           user_id?: string
         }
@@ -4204,7 +4207,18 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      user_role:
+        | "admin"
+        | "kitchen"
+        | "driver"
+        | "client"
+        | "cleaning"
+        | "shopping"
+        | "owner"
+        | "super_admin"
+        | "shopping_staff"
+        | "cleaning_staff"
+        | "kitchen_staff"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4331,6 +4345,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: [
+        "admin",
+        "kitchen",
+        "driver",
+        "client",
+        "cleaning",
+        "shopping",
+        "owner",
+        "super_admin",
+        "shopping_staff",
+        "cleaning_staff",
+        "kitchen_staff",
+      ],
+    },
   },
 } as const
