@@ -24,11 +24,7 @@ export default function AuthCallbackPage() {
                           session.user.email?.split("@")[0] || 
                           "User";
           
-          await authService.handleOAuthCallback(
-            session.user.id,
-            session.user.email || "",
-            fullName
-          );
+          await authService.handleOAuthCallback();
 
           router.push("/");
         } else {

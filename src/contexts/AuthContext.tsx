@@ -10,7 +10,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
-  signUp: (email: string, password: string, fullName: string, role: string, currency: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
+  signUp: (email: string, password: string, fullName: string, role: string, currency: string, phone: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -103,11 +103,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     return await authService.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: string, currency: string) => {
+  const signUp = async (email: string, password: string, fullName: string, role: string, currency: string, phone: string) => {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
-    return await authService.signUp(email, password, fullName, role, currency);
+    return await authService.signUp(email, password, fullName, role, currency, phone);
   };
 
   const signOut = async () => {
