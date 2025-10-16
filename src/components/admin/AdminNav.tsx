@@ -24,7 +24,8 @@ import {
   Menu,
   ChevronRight,
   Briefcase,
-  MessageSquare
+  MessageSquare,
+  Truck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,12 @@ const adminNavSections: NavSection[] = [
         href: "/admin/users",
         icon: Users,
         description: "Manage user accounts"
+      },
+      {
+        title: "Driver Management",
+        href: "/admin/driver-management",
+        icon: Truck,
+        description: "Manage delivery drivers"
       },
       {
         title: "Client Search",
