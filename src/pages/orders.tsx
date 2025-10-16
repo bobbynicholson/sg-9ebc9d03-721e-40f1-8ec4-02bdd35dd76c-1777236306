@@ -23,7 +23,7 @@ import { regionManagement } from "@/lib/regionManagement";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface OrdersPageProps {
   companySlug?: string;
