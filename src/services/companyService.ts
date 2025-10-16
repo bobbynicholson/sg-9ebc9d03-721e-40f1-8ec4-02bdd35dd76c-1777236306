@@ -24,6 +24,12 @@ export const companyService = {
     timezone?: string;
   }): Promise<Company> {
     try {
+      // CRITICAL: Validate slug availability before creating company
+      const slugAvailable = await this.isSlugAvailable(data.slug);
+      if (!slugAvailable) {
+        throw new Error(`The company slug "${data.slug}" is already taken. Please choose a different company name.`);
+      }
+
       const companyData: CompanyInsert = {
         name: data.name,
         slug: data.slug,
@@ -44,7 +50,14 @@ export const companyService = {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Handle unique constraint violation specifically
+        if (error.code === "23505" && error.message.includes("slug")) {
+          throw new Error(`The company slug "${data.slug}" is already taken. Please choose a different company name.`);
+        }
+        throw error;
+      }
+      
       if (!company) throw new Error("Failed to create company");
 
       return company;

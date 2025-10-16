@@ -27,6 +27,7 @@ import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 function AdminDashboardPage() {
   const [dateRange, setDateRange] = useState("last_30_days");
@@ -123,9 +124,15 @@ function AdminDashboardPage() {
                   <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
-                    Analytics Dashboard
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent truncate">
+                      Analytics Dashboard
+                    </h1>
+                    <InfoTooltip 
+                      content="View comprehensive business analytics including leads, conversions, revenue, and product performance. Use filters to analyze different time periods."
+                      side="right"
+                    />
+                  </div>
                   <p className="text-xs sm:text-sm md:text-base text-slate-600 mt-0.5 sm:mt-1">Business insights and metrics</p>
                 </div>
               </div>
@@ -143,20 +150,42 @@ function AdminDashboardPage() {
                       </option>
                     ))}
                   </select>
+                  <InfoTooltip 
+                    content="Filter all dashboard metrics by different time periods to track performance trends."
+                    side="top"
+                  />
                 </div>
-                <Button onClick={() => setShowGame(true)} className="bg-gradient-to-r from-orange-500 to-pink-500 w-full xs:w-auto" size="sm">
-                  <Gamepad2 className="w-4 h-4 mr-2" />
-                  <span className="text-xs sm:text-sm">Play Game</span>
-                </Button>
-                <Button onClick={exportData} className="bg-gradient-to-r from-purple-500 to-pink-500 w-full xs:w-auto" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  <span className="text-xs sm:text-sm">Export</span>
-                </Button>
-                <Link href="/admin/client-search" passHref>
-                  <Button variant="outline" className="w-full xs:w-auto" size="sm">
-                    <Search className="w-4 h-4 mr-2" />
-                    <span className="text-xs sm:text-sm">Client Search</span>
+                <div className="flex items-center gap-2">
+                  <InfoTooltip 
+                    content="Take a break and play the Catering Dash game! Manage orders, satisfy customers, and earn high scores."
+                    side="top"
+                  />
+                  <Button onClick={() => setShowGame(true)} className="bg-gradient-to-r from-orange-500 to-pink-500 w-full xs:w-auto" size="sm">
+                    <Gamepad2 className="w-4 h-4 mr-2" />
+                    <span className="text-xs sm:text-sm">Play Game</span>
                   </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <InfoTooltip 
+                    content="Export all dashboard data to CSV/Excel for further analysis or reporting."
+                    side="top"
+                  />
+                  <Button onClick={exportData} className="bg-gradient-to-r from-purple-500 to-pink-500 w-full xs:w-auto" size="sm">
+                    <Download className="w-4 h-4 mr-2" />
+                    <span className="text-xs sm:text-sm">Export</span>
+                  </Button>
+                </div>
+                <Link href="/admin/client-search" passHref>
+                  <div className="flex items-center gap-2 w-full xs:w-auto">
+                    <InfoTooltip 
+                      content="Search for clients by name, email, phone, or other details to quickly find customer information."
+                      side="left"
+                    />
+                    <Button variant="outline" className="flex-1 xs:flex-initial" size="sm">
+                      <Search className="w-4 h-4 mr-2" />
+                      <span className="text-xs sm:text-sm">Client Search</span>
+                    </Button>
+                  </div>
                 </Link>
               </div>
             </div>
@@ -166,9 +195,16 @@ function AdminDashboardPage() {
           <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
             <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 hover:shadow-xl transition-shadow">
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="text-white min-w-0 flex-1 mr-2">
-                    <p className="text-blue-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Total Leads</p>
+                    <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                      <p className="text-blue-100 text-xs sm:text-sm">Total Leads</p>
+                      <InfoTooltip 
+                        content="Total number of leads captured in the selected time period. Includes all lead sources and statuses."
+                        side="top"
+                        className="text-blue-100 hover:text-white"
+                      />
+                    </div>
                     <p className="text-2xl sm:text-3xl md:text-4xl font-bold">{leadMetrics.total}</p>
                     <div className="flex items-center gap-1 mt-1 sm:mt-2">
                       <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -182,9 +218,16 @@ function AdminDashboardPage() {
 
             <Card className="border-0 shadow-lg bg-gradient-to-br from-green-500 to-green-600 hover:shadow-xl transition-shadow">
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="text-white min-w-0 flex-1 mr-2">
-                    <p className="text-green-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Conversion</p>
+                    <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                      <p className="text-green-100 text-xs sm:text-sm">Conversion</p>
+                      <InfoTooltip 
+                        content="Percentage of leads that converted to paying customers. Higher is better - industry average is 30-40%."
+                        side="top"
+                        className="text-green-100 hover:text-white"
+                      />
+                    </div>
                     <p className="text-2xl sm:text-3xl md:text-4xl font-bold">{leadMetrics.conversionRate}%</p>
                     <div className="flex items-center gap-1 mt-1 sm:mt-2">
                       <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -198,9 +241,16 @@ function AdminDashboardPage() {
 
             <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 hover:shadow-xl transition-shadow">
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="text-white min-w-0 flex-1 mr-2">
-                    <p className="text-purple-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Revenue</p>
+                    <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                      <p className="text-purple-100 text-xs sm:text-sm">Revenue</p>
+                      <InfoTooltip 
+                        content="Total revenue generated in the selected period. Includes all completed and paid orders."
+                        side="top"
+                        className="text-purple-100 hover:text-white"
+                      />
+                    </div>
                     <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold truncate">{formatCurrency(revenueMetrics.total)}</p>
                     <div className="flex items-center gap-1 mt-1 sm:mt-2">
                       <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -214,9 +264,16 @@ function AdminDashboardPage() {
 
             <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 hover:shadow-xl transition-shadow">
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-3 sm:px-4 md:px-6 pb-3 sm:pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="text-white min-w-0 flex-1 mr-2">
-                    <p className="text-orange-100 text-xs sm:text-sm mb-0.5 sm:mb-1">Avg Order</p>
+                    <div className="flex items-center gap-1 mb-0.5 sm:mb-1">
+                      <p className="text-orange-100 text-xs sm:text-sm">Avg Order</p>
+                      <InfoTooltip 
+                        content="Average value per order. Use this to identify opportunities for upselling and premium packages."
+                        side="top"
+                        className="text-orange-100 hover:text-white"
+                      />
+                    </div>
                     <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold truncate">{formatCurrency(revenueMetrics.avgOrderValue)}</p>
                     <div className="flex items-center gap-1 mt-1 sm:mt-2">
                       <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -236,6 +293,10 @@ function AdminDashboardPage() {
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
                   <Package className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
                   <span className="truncate">Popular Products</span>
+                  <InfoTooltip 
+                    content="Your top-selling products ranked by revenue. Green percentage shows profit margin on each item."
+                    side="right"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
@@ -266,6 +327,10 @@ function AdminDashboardPage() {
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
                   <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
                   <span className="truncate">Top Clients</span>
+                  <InfoTooltip 
+                    content="Your highest-value clients by total spending. Focus on maintaining these relationships for consistent revenue."
+                    side="right"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
@@ -299,6 +364,10 @@ function AdminDashboardPage() {
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
                   <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                   <span className="truncate">Highest Margin</span>
+                  <InfoTooltip 
+                    content="Product with the best profit margin. Consider promoting this more heavily to maximize profitability."
+                    side="right"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
@@ -329,6 +398,10 @@ function AdminDashboardPage() {
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
                   <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
                   <span className="truncate">Lowest Margin</span>
+                  <InfoTooltip 
+                    content="Product with the lowest profit margin. Review pricing and costs to improve profitability on this item."
+                    side="right"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6 pb-3 sm:pb-4 md:pb-6">
