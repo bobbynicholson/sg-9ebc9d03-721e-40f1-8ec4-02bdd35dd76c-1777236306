@@ -12,8 +12,8 @@ import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const roleIcons = {
   admin: Shield,
