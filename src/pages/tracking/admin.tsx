@@ -58,10 +58,10 @@ export default function AdminTrackingDashboard() {
     );
 
     const active = orders
-      .filter((order) => order.status === "in_progress" && order.assignedDriver)
+      .filter((order) => order.status === "in_progress" && order.assigned_driver_id)
       .map((order) => {
-        const driver = drivers.find((d) => d.id === order.assignedDriver);
-        const location = locations[order.assignedDriver || ""];
+        const driver = drivers.find((d) => d.id === order.assigned_driver_id);
+        const location = locations[order.assigned_driver_id || ""];
         return {
           order,
           driver,

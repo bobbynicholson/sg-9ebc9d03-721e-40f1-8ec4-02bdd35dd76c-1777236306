@@ -36,6 +36,8 @@ const defaultOrderValues = {
   amount_paid: 19350,
   requires_waiter: false,
   collection_time: null,
+  pickup_time: null, // Added missing property
+  delivery_total_fee: 0, // Added missing property
   currency: 'ZAR',
   delivery_distance_km: null,
   delivery_duration_minutes: null,

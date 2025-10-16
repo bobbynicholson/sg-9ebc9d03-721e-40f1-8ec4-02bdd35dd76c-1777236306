@@ -71,9 +71,9 @@ export default function OrdersPage() {
         guest_count: mockOrder.guest_count,
         menu_items: mockOrder.menu_items,
         equipment_items: mockOrder.equipment_items,
-        subtotal: (mockOrder.total_amount ?? 0) * 0.87,
-        tax: (mockOrder.total_amount ?? 0) * 0.13,
-        total: mockOrder.total_amount ?? 0,
+        subtotal: (mockOrder.total ?? 0) * 0.87,
+        tax: (mockOrder.total ?? 0) * 0.13,
+        total: mockOrder.total ?? 0,
         status: "accepted",
         created_at: mockOrder.created_at,
         updated_at: mockOrder.created_at,
@@ -87,7 +87,7 @@ export default function OrdersPage() {
         client_phone: null,
         currency: "ZAR",
         region_id: null,
-        sent_at: mockOrder.createdAt,
+        sent_at: mockOrder.created_at,
       };
     }).filter(Boolean) as Quote[];
     

@@ -110,7 +110,7 @@ function ClientPortalPage() {
         internal_notes: "",
         total: 38700,
         created_at: new Date().toISOString(),
-      } as AppOrder,
+      } as unknown as AppOrder,
       {
         id: "ORD-002",
         quote_id: "Q-002",
@@ -133,7 +133,7 @@ function ClientPortalPage() {
         status: "preparing",
         total: 28000,
         created_at: new Date().toISOString(),
-      } as AppOrder,
+      } as unknown as AppOrder,
     ];
 
     const stored = localStorage.getItem("client_orders");

@@ -132,6 +132,14 @@ export interface EquipmentItem {
   nextAvailableAt?: string;
 }
 
+export interface DeliveryJob extends Quote {
+  pickupTime: string;
+  deliveryTime: string;
+  address: string;
+  driverAssigned?: string;
+  lead_id: string; // Added to satisfy required property from Quote
+}
+
 export type AppOrder = Order & {
   clientName?: string;
   driverName?: string;
@@ -140,6 +148,9 @@ export type AppOrder = Order & {
   menuItems?: any[];
   equipmentItems?: any[];
   kitchen_instructions?: string;
+  delivery_total_fee?: number;
+  pickup_time?: string;
+  waiterDuration?: number;
 };
 
 export interface OrderModification {

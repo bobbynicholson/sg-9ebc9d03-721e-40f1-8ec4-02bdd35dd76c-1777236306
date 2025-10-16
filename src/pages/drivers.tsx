@@ -88,6 +88,7 @@ export default function DriversPage() {
       return {
         ...order,
         id: order.id,
+        lead_id: `L-${order.id}`,
         user_id: "mock-user-id", // FIX: Added user_id
         client_name: order.client_name,
         client_email: order.client_name.toLowerCase().replace(/\s+/g, '.') + "@example.com",
