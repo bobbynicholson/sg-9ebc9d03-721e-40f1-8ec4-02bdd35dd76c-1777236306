@@ -329,29 +329,23 @@ export const orderService = {
   /**
    * Get all orders, with optional filtering by user and other properties.
    */
-  async getOrders(params: { userId?: string; filters?: { event_date?: string; status?: string; } }): Promise<Order[]>;
-  async getOrders(userId: string): Promise<Order[]>;
-  async getOrders(paramsOrUserId: { userId?: string; filters?: { event_date?: string; status?: string; } } | string): Promise<Order[]> {
+  async getOrders(params: { userId?: string; filters?: { event_date?: string; status?: string; } }): Promise<Order[]> {
     let query = supabase
       .from("orders")
       .select("*")
       .order("event_date", { ascending: false });
 
-    if (typeof paramsOrUserId === 'string') {
-      query = query.eq("user_id", paramsOrUserId);
-    } else {
-      if (paramsOrUserId.userId) {
-        query = query.eq("user_id", paramsOrUserId.userId);
+    if (params.userId) {
+      query = query.eq("user_id", params.userId);
+    }
+    
+    if (params.filters) {
+      const { filters } = params;
+      if (filters.event_date) {
+          query = query.eq('event_date', filters.event_date);
       }
-      
-      if (paramsOrUserId.filters) {
-        const { filters } = paramsOrUserId;
-        if (filters.event_date) {
-            query = query.eq('event_date', filters.event_date);
-        }
-        if (filters.status) {
-            query = query.eq('status', filters.status);
-        }
+      if (filters.status) {
+          query = query.eq('status', filters.status);
       }
     }
 
