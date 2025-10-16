@@ -103,21 +103,66 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 
       } catch (error) {
         console.error("Error loading user session data:", error);
-        setUser(session.user as AuthenticatedUser); // Set at least the auth user
+        setUser(session.user as AuthenticatedUser);
       } finally {
         setLoading(false);
       }
     };
     
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      loadUserSession(session);
-    });
+    // Wrap in try-catch to handle Supabase internal errors
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Error getting session:", error);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
+        await loadUserSession(session);
+      } catch (error) {
+        console.error("Fatal error initializing auth:", error);
+        // Clear any corrupted session data
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.error("Error during cleanup signout:", signOutError);
+        }
+        setUser(null);
+        setLoading(false);
+      }
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      loadUserSession(session);
-    });
+    initializeAuth();
 
-    return () => subscription.unsubscribe();
+    // Wrap auth state change listener in try-catch as well
+    let subscription: any;
+    try {
+      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        try {
+          await loadUserSession(session);
+        } catch (error) {
+          console.error("Error in auth state change handler:", error);
+          setUser(null);
+          setLoading(false);
+        }
+      });
+      subscription = data.subscription;
+    } catch (error) {
+      console.error("Error setting up auth state change listener:", error);
+    }
+
+    return () => {
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (error) {
+          console.error("Error unsubscribing:", error);
+        }
+      }
+    };
   }, [isDemoMode, getDemoUser, router]);
 
   const handleInvalidSession = async () => {
