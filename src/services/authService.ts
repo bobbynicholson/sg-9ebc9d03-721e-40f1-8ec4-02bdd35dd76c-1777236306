@@ -15,12 +15,21 @@ export interface AuthError {
 }
 
 const getURL = () => {
+  // Check if we're in a browser environment
+  if (typeof window !== "undefined") {
+    // In browser, use window.location.origin
+    return window.location.origin + "/";
+  }
+
+  // Server-side: try environment variables
   let url =
     process?.env?.NEXT_PUBLIC_VERCEL_URL ??
     process?.env?.NEXT_PUBLIC_SITE_URL ??
     "http://localhost:3000";
 
+  // Ensure URL has protocol
   url = url.startsWith("http") ? url : `https://${url}`;
+  // Ensure URL ends with slash
   url = url.endsWith("/") ? url : `${url}/`;
 
   return url;

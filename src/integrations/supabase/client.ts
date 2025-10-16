@@ -5,7 +5,25 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://ypwxsmytkvaefmmlkspf.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwd3hzbXl0a3ZhZWZtbWxrc3BmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAyMjc1ODEsImV4cCI6MjA3NTgwMzU4MX0.3DapqGeC_5qwINnUzy9Loz5bF1PygeVTS_2lAcJmK9w";
 
+// Validate that URL and key are defined
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error("Supabase configuration is missing. Please check your environment variables.");
+}
+
+// Validate URL format
+try {
+  new URL(SUPABASE_URL);
+} catch (error) {
+  throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
