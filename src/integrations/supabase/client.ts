@@ -17,6 +17,30 @@ try {
   throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
 }
 
+// Clean up potentially corrupted Supabase session data
+if (typeof window !== 'undefined') {
+  try {
+    const storageKey = `sb-${SUPABASE_URL.split('//')[1]?.split('.')[0]}-auth-token`;
+    const storedData = localStorage.getItem(storageKey);
+    
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData);
+        // If data is corrupted or missing critical fields, clear it
+        if (!parsed || typeof parsed !== 'object') {
+          console.warn('Clearing corrupted Supabase session data');
+          localStorage.removeItem(storageKey);
+        }
+      } catch (e) {
+        console.warn('Clearing malformed Supabase session data');
+        localStorage.removeItem(storageKey);
+      }
+    }
+  } catch (error) {
+    console.error('Error cleaning localStorage:', error);
+  }
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -24,6 +48,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce'
   }
 });
