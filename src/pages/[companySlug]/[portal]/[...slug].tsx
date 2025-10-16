@@ -7,28 +7,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { roleService } from "@/services/roleService";
 
-// Import existing pages that will be wrapped as portal components
-import LeadsPage from "@/pages/leads/index";
-import NewLeadPage from "@/pages/leads/new";
-import QuotesPage from "@/pages/quotes/index";
-import NewQuotePage from "@/pages/quotes/new";
-import CalendarPage from "@/pages/calendar";
-import NotificationsPage from "@/pages/notifications";
-import IntegrationsPage from "@/pages/integrations";
-import ClientPortalPage from "@/pages/client-portal";
-import DriversPage from "@/pages/drivers";
-import OrdersPage from "@/pages/orders";
-import InventoryPage from "@/pages/inventory";
-import ShoppingPage from "@/pages/shopping";
-import JobProgressOverviewPage from "@/pages/portal/admin/job-progress-overview";
-
-// Portal Components
-import AdminDashboard from "@/components/portals/admin/Dashboard";
-import AdminUsers from "@/components/portals/admin/Users";
-import AdminReports from "@/components/portals/admin/Reports";
-import AdminSettings from "@/components/portals/admin/Settings";
-import AdminOnboarding from "@/components/portals/admin/Onboarding";
-
+// Portal Components for Driver, Shopping, Cleaning, Kitchen
 import DriverDashboard from "@/components/portals/driver/Dashboard";
 import DriverRoutes from "@/components/portals/driver/Routes";
 import DriverDeliveries from "@/components/portals/driver/Deliveries";
@@ -49,29 +28,50 @@ import KitchenMenu from "@/components/portals/kitchen/Menu";
 import KitchenStock from "@/components/portals/kitchen/Stock";
 import KitchenPrepList from "@/components/portals/kitchen/PrepList";
 
+// Admin Dashboard Component
+import AdminDashboard from "@/components/portals/admin/Dashboard";
+
 const PORTAL_ROUTES = {
   admin: {
     allowedRoles: ["admin", "owner", "super_admin"],
     routes: {
       dashboard: AdminDashboard,
-      users: AdminUsers,
-      reports: AdminReports,
-      settings: AdminSettings,
-      onboarding: AdminOnboarding,
-      // Core Management Routes - ALL admin pages
-      leads: LeadsPage,
-      "leads/new": NewLeadPage,
-      quotes: QuotesPage,
-      "quotes/new": NewQuotePage,
-      calendar: CalendarPage,
-      notifications: NotificationsPage,
-      integrations: IntegrationsPage,
-      "client-portal": ClientPortalPage,
-      drivers: DriversPage,
-      orders: OrdersPage,
-      inventory: InventoryPage,
-      shopping: ShoppingPage,
-      "job-progress-overview": JobProgressOverviewPage,
+    },
+    redirectRoutes: {
+      users: "/admin/users",
+      reports: "/admin/reports",
+      settings: "/admin/settings",
+      onboarding: "/admin/onboarding",
+      leads: "/leads",
+      "leads/new": "/leads/new",
+      quotes: "/quotes",
+      "quotes/new": "/quotes/new",
+      calendar: "/calendar",
+      notifications: "/notifications",
+      integrations: "/integrations",
+      "client-portal": "/client-portal",
+      drivers: "/drivers",
+      orders: "/orders",
+      inventory: "/inventory",
+      shopping: "/shopping",
+      "job-progress-overview": "/portal/admin/job-progress-overview",
+      "staff-hours": "/admin/staff-hours",
+      "operations-hub": "/admin/operations-hub",
+      "operations-standards": "/admin/operations-standards",
+      "equipment-shortages": "/admin/equipment-shortages",
+      "regions": "/admin/regions",
+      "email-templates": "/admin/email-templates",
+      "after-sales-emails": "/admin/after-sales-emails",
+      "email-automation-dashboard": "/admin/email-automation-dashboard",
+      "email-automation-settings": "/admin/email-automation-settings",
+      "notification-settings": "/portal/admin/notification-settings",
+      "client-search": "/admin/client-search",
+      "white-label": "/admin/white-label",
+      "financial-dashboard": "/admin/financial-dashboard",
+      subscription: "/admin/subscription",
+      "payment-gateways": "/admin/payment-gateways",
+      "driver-management": "/admin/driver-management",
+      "kitchen-duty-tracking": "/admin/kitchen-duty-tracking",
     },
     defaultRoute: "dashboard",
   },
@@ -83,6 +83,7 @@ const PORTAL_ROUTES = {
       deliveries: DriverDeliveries,
       profile: DriverProfile,
     },
+    redirectRoutes: {},
     defaultRoute: "dashboard",
   },
   shopping: {
@@ -92,8 +93,8 @@ const PORTAL_ROUTES = {
       orders: ShoppingOrders,
       suppliers: ShoppingSuppliers,
       inventory: ShoppingInventory,
-      shopping: ShoppingPage,
     },
+    redirectRoutes: {},
     defaultRoute: "dashboard",
   },
   cleaning: {
@@ -104,6 +105,7 @@ const PORTAL_ROUTES = {
       schedules: CleaningSchedules,
       supplies: CleaningSupplies,
     },
+    redirectRoutes: {},
     defaultRoute: "dashboard",
   },
   kitchen: {
@@ -114,6 +116,7 @@ const PORTAL_ROUTES = {
       stock: KitchenStock,
       "prep-list": KitchenPrepList,
     },
+    redirectRoutes: {},
     defaultRoute: "dashboard",
   },
 };
@@ -126,7 +129,7 @@ export default function PortalPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const currentRoute = Array.isArray(slug) ? slug[0] : (slug || "dashboard");
+  const currentRoute = Array.isArray(slug) ? slug.join("/") : (slug || "dashboard");
   
   useEffect(() => {
     if (authLoading) return;
@@ -156,8 +159,15 @@ export default function PortalPage() {
     setIsAuthorized(hasAccess);
     setIsLoading(false);
 
-    if (hasAccess && !portalConfig.routes[currentRoute]) {
-      router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
+    if (hasAccess) {
+      if (portalConfig.redirectRoutes && portalConfig.redirectRoutes[currentRoute]) {
+        router.push(portalConfig.redirectRoutes[currentRoute]);
+        return;
+      }
+
+      if (!portalConfig.routes[currentRoute]) {
+        router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
+      }
     }
   }, [user, userRoles, authLoading, companySlug, portal, currentRoute, router]);
 
