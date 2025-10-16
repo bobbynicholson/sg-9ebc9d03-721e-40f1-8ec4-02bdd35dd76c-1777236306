@@ -266,6 +266,7 @@ export interface User {
   currency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
   preferredCurrency?: "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
   company_name?: string;
+  company_id?: string | null;
   address?: string;
   city?: string;
   postal_code?: string;

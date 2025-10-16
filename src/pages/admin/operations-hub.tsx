@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { operationsService } from "@/services/operationsService";
@@ -67,13 +66,16 @@ export default function OperationsHub() {
   useEffect(() => {
     if (user?.company_id) {
       loadDashboard();
+    } else if (user) {
+      setLoading(false); // User exists but no company_id, stop loading
     }
   }, [user]);
 
   const loadDashboard = async () => {
+    if (!user?.company_id) return;
     try {
       setLoading(true);
-      const data = await operationsService.getOperationsDashboard(user!.company_id!);
+      const data = await operationsService.getOperationsDashboard(user.company_id);
       setDashboard(data);
     } catch (error) {
       console.error("Error loading operations dashboard:", error);
