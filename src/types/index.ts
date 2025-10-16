@@ -254,7 +254,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole[];
+  role: UserRole; // Legacy single role for backward compatibility
+  roles: UserRole[]; // NEW: Array of assigned roles
+  activeRole: UserRole; // NEW: Currently active role
   primaryRole: UserRole;
   assignedBy?: string;
   createdAt: string;
