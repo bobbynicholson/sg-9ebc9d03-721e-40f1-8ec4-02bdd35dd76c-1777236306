@@ -22,12 +22,16 @@ export const companyService = {
     phone?: string;
     currency?: string;
     timezone?: string;
-  }): Promise<Company> {
+    status?: string;
+  }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
       // CRITICAL: Validate slug availability before creating company
       const slugAvailable = await this.isSlugAvailable(data.slug);
       if (!slugAvailable) {
-        throw new Error(`The company slug "${data.slug}" is already taken. Please choose a different company name.`);
+        return {
+          success: false,
+          error: `The company slug "${data.slug}" is already taken. Please choose a different company name.`
+        };
       }
 
       const companyData: CompanyInsert = {
@@ -53,17 +57,34 @@ export const companyService = {
       if (error) {
         // Handle unique constraint violation specifically
         if (error.code === "23505" && error.message.includes("slug")) {
-          throw new Error(`The company slug "${data.slug}" is already taken. Please choose a different company name.`);
+          return {
+            success: false,
+            error: `The company slug "${data.slug}" is already taken. Please choose a different company name.`
+          };
         }
-        throw error;
+        return {
+          success: false,
+          error: error.message
+        };
       }
       
-      if (!company) throw new Error("Failed to create company");
+      if (!company) {
+        return {
+          success: false,
+          error: "Failed to create company"
+        };
+      }
 
-      return company;
+      return {
+        success: true,
+        company
+      };
     } catch (error) {
       console.error("Error creating company:", error);
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error occurred"
+      };
     }
   },
 
@@ -149,6 +170,13 @@ export const companyService = {
   },
 
   /**
+   * Check if slug is available (alias for isSlugAvailable)
+   */
+  async checkSlugAvailability(slug: string): Promise<boolean> {
+    return this.isSlugAvailable(slug);
+  },
+
+  /**
    * Check if slug is available
    */
   async isSlugAvailable(slug: string): Promise<boolean> {
@@ -165,6 +193,35 @@ export const companyService = {
     } catch (error) {
       console.error("Error checking slug availability:", error);
       return false;
+    }
+  },
+
+  /**
+   * Update user's company association
+   */
+  async updateUserCompany(userId: string, companySlug: string): Promise<void> {
+    try {
+      // First, get the company by slug
+      const company = await this.getCompanyBySlug(companySlug);
+      
+      if (!company) {
+        throw new Error(`Company with slug "${companySlug}" not found`);
+      }
+
+      // Update the user's profile with company_id and company_slug
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          company_id: company.id,
+          company_slug: companySlug,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating user company:", error);
+      throw error;
     }
   },
 
