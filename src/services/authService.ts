@@ -164,7 +164,7 @@ export const authService = {
         try {
           const slug = await companyService.generateUniqueSlug(companyName);
           
-          const company = await companyService.createCompany({
+          const companyResult = await companyService.createCompany({
             name: companyName,
             slug: slug,
             owner_id: data.user.id,
@@ -173,12 +173,20 @@ export const authService = {
             currency: currency,
           });
 
-          companySlug = company.slug;
+          if (companyResult.success && companyResult.company) {
+            companySlug = companyResult.company.slug;
 
-          await supabase
-            .from("profiles")
-            .update({ company_id: company.id })
-            .eq("id", data.user.id);
+            await supabase
+              .from("profiles")
+              .update({ 
+                company_id: companyResult.company.id,
+                company_slug: companyResult.company.slug
+              })
+              .eq("id", data.user.id);
+          } else {
+            console.error("Failed to create company during signup:", companyResult.error);
+          }
+
         } catch (companyError) {
           console.error("Error creating company:", companyError);
         }
