@@ -51,12 +51,6 @@ const adminNavSections: NavSection[] = [
         href: "/admin/dashboard",
         icon: LayoutDashboard,
         description: "Business insights and metrics"
-      },
-      {
-        title: "CateringMS Dashboard",
-        href: "/admin/catering-ms-dashboard",
-        icon: Briefcase,
-        description: "Platform overview"
       }
     ]
   },
