@@ -78,7 +78,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/client/subscription-invoices",
     "/notifications"
   ],
-  // @ts-ignore - temp fix
+  // @ts-expect-error - temp fix
   get buyer() {
     return this.shopping;
   },
@@ -92,7 +92,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   driver: "Driver",
   cleaning: "Cleaning Team",
   client: "Client",
-  // @ts-ignore - temp fix
+  // @ts-expect-error - temp fix
   get buyer() {
     return this.shopping;
   },
@@ -106,7 +106,7 @@ export const ROLE_LANDING_PAGES: Record<UserRole, string> = {
   driver: "/drivers",
   cleaning: "/cleaning",
   client: "/client-portal",
-  // @ts-ignore - temp fix
+  // @ts-expect-error - temp fix
   get buyer() {
     return this.shopping;
   },

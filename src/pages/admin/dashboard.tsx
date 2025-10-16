@@ -24,8 +24,10 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
-export default function AdminDashboardPage() {
+function AdminDashboardPage() {
   const [dateRange, setDateRange] = useState("last_30_days");
   const [mounted, setMounted] = useState(false);
   const [showGame, setShowGame] = useState(false);
@@ -385,5 +387,13 @@ export default function AdminDashboardPage() {
       
       {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
     </>
+  );
+}
+
+export default function ProtectedAdminDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.Admin]}>
+      <AdminDashboardPage />
+    </ProtectedRoute>
   );
 }

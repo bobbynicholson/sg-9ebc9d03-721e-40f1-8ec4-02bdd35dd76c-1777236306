@@ -9,15 +9,20 @@ export const profileService = {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", userId)
-      .single();
+      .eq("id", userId);
 
     if (error) {
+      // Don't throw if the error is that the row doesn't exist, just return null.
+      if (error.code === 'PGRST116') {
+        console.warn("Profile not found for user:", userId);
+        return null;
+      }
       console.error("Error fetching profile:", error);
       return null;
     }
 
-    return data;
+    // If data is an array, return the first element. Otherwise, return null.
+    return data && data.length > 0 ? data[0] : null;
   },
 
   // Create or update user profile (upsert)
