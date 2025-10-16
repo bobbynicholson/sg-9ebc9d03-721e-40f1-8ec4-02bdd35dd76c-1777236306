@@ -101,30 +101,28 @@ export default function LoginPage() {
       }
 
       // Successful login - redirect based on role
-      setTimeout(() => {
-        switch (role) {
-          case "admin":
-            router.push("/admin/dashboard");
-            break;
-          case "kitchen":
-            router.push("/kitchen");
-            break;
-          case "buyer":
-            router.push("/shopping");
-            break;
-          case "driver":
-            router.push("/drivers");
-            break;
-          case "cleaning":
-            router.push("/cleaning");
-            break;
-          case "client":
-            router.push("/client-portal");
-            break;
-          default:
-            router.push("/");
-        }
-      }, 500);
+      switch (role) {
+        case "admin":
+          router.push("/admin/dashboard");
+          break;
+        case "kitchen":
+          router.push("/kitchen");
+          break;
+        case "buyer":
+          router.push("/shopping");
+          break;
+        case "driver":
+          router.push("/drivers");
+          break;
+        case "cleaning":
+          router.push("/cleaning");
+          break;
+        case "client":
+          router.push("/client-portal");
+          break;
+        default:
+          router.push("/");
+      }
     } catch (err) {
       console.error("Login error:", err);
       setError("Login failed. Please try again.");
