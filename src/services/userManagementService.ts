@@ -168,11 +168,14 @@ export const userManagementService = {
       const primaryDept = departments.find((d) => d.is_primary)?.department || departments[0]?.department;
       
       if (primaryDept) {
+        // Use Database Update type to ensure TypeScript compatibility
+        const updateData: Database["public"]["Tables"]["profiles"]["Update"] = {
+          role: primaryDept
+        };
+        
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ 
-            role: primaryDept as string
-          })
+          .update(updateData)
           .eq("id", userId);
 
         if (updateError) {
