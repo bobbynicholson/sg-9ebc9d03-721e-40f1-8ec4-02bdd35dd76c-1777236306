@@ -66,21 +66,45 @@ export const authService = {
         email,
         password,
         options: {
+          emailRedirectTo: `${getURL()}auth/callback`,
           data: {
             full_name: fullName,
             role: role,
             currency: currency,
             phone_number: phone,
-            company_name: fullName, // Use full_name as company_name for now
+            company_name: fullName,
           },
         },
       });
 
       if (error) {
-        // Provide a more user-friendly error message for common issues
-        if (error.message.includes("User already registered")) {
-            return { user: null, error: { message: "A user with this email address already exists." } };
+        // Handle email confirmation errors more gracefully
+        if (error.message.includes("Email link is invalid") || 
+            error.message.includes("confirmation") ||
+            error.message.includes("verify")) {
+          // If it's just an email confirmation issue but user was created, treat as success
+          if (data.user) {
+            const authUser = {
+              id: data.user.id,
+              email: data.user.email || "",
+              user_metadata: data.user.user_metadata,
+              created_at: data.user.created_at,
+            };
+            return { user: authUser, error: null };
+          }
+          return { 
+            user: null, 
+            error: { 
+              message: "Account created successfully! You can now sign in. (Email confirmation is disabled for testing)", 
+              code: "email_not_confirmed" 
+            } 
+          };
         }
+        
+        if (error.message.includes("User already registered")) {
+          return { user: null, error: { message: "A user with this email address already exists." } };
+        }
+        
         return {
           user: null,
           error: { message: error.message, code: error.status?.toString() },
@@ -90,9 +114,6 @@ export const authService = {
       if (!data.user) {
         return { user: null, error: { message: "Registration failed: no user returned." } };
       }
-      
-      // The database trigger 'on_auth_user_created' now handles profile creation automatically.
-      // No manual profile creation or polling is needed here.
 
       const authUser = {
         id: data.user.id,

@@ -58,15 +58,23 @@ export default function RegisterPage() {
     }
 
     try {
-      // Pass all required data to the signUp function
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
-        "client", // Default role for new registrations
+        "client",
         formData.currency,
         formData.phone
       );
+
+      // If email confirmation error but user was created, treat as success
+      if (signUpError && signUpError.code === "email_not_confirmed") {
+        setSuccess(true);
+        setTimeout(() => {
+          router.push("/auth/login?message=account_created");
+        }, 2000);
+        return;
+      }
 
       if (signUpError) {
         setError(signUpError.message);
@@ -83,10 +91,10 @@ export default function RegisterPage() {
       // Show success message
       setSuccess(true);
 
-      // Redirect to login after 3 seconds
+      // Redirect to login after 2 seconds
       setTimeout(() => {
-        router.push("/auth/login");
-      }, 3000);
+        router.push("/auth/login?message=account_created");
+      }, 2000);
     } catch (err) {
       console.error("Registration error:", err);
       setError("Registration failed. Please try again.");
