@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,9 @@ export default function CompanySignupPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
+  
+  // Use ref to store timeout ID so we can clear it
+  const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate slug from company name
   const generateSlug = (name: string) => {
@@ -51,10 +54,10 @@ export default function CompanySignupPage() {
   const checkSlugAvailability = async (slug: string) => {
     if (!slug || slug.length < 3) {
       setSlugAvailable(null);
+      setCheckingSlug(false);
       return;
     }
 
-    setCheckingSlug(true);
     try {
       const available = await companyService.checkSlugAvailability(slug);
       setSlugAvailable(available);
@@ -72,21 +75,23 @@ export default function CompanySignupPage() {
     const newSlug = generateSlug(name);
     setCompanySlug(newSlug);
     
+    // Clear any existing timeout
+    if (slugCheckTimeoutRef.current) {
+      clearTimeout(slugCheckTimeoutRef.current);
+    }
+    
     // Reset availability state immediately
     setSlugAvailable(null);
     
     // Check slug availability after a short delay
     if (newSlug.length >= 3) {
       setCheckingSlug(true);
-      const timeoutId = setTimeout(() => {
+      slugCheckTimeoutRef.current = setTimeout(() => {
         checkSlugAvailability(newSlug);
       }, 800);
-      return () => {
-        clearTimeout(timeoutId);
-        setCheckingSlug(false);
-      };
     } else {
       setCheckingSlug(false);
+      setSlugAvailable(null);
     }
   };
 
@@ -95,22 +100,33 @@ export default function CompanySignupPage() {
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setCompanySlug(cleanSlug);
     
+    // Clear any existing timeout
+    if (slugCheckTimeoutRef.current) {
+      clearTimeout(slugCheckTimeoutRef.current);
+    }
+    
     // Reset availability state immediately
     setSlugAvailable(null);
     
     if (cleanSlug.length >= 3) {
       setCheckingSlug(true);
-      const timeoutId = setTimeout(() => {
+      slugCheckTimeoutRef.current = setTimeout(() => {
         checkSlugAvailability(cleanSlug);
       }, 800);
-      return () => {
-        clearTimeout(timeoutId);
-        setCheckingSlug(false);
-      };
     } else {
       setCheckingSlug(false);
+      setSlugAvailable(null);
     }
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (slugCheckTimeoutRef.current) {
+        clearTimeout(slugCheckTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
