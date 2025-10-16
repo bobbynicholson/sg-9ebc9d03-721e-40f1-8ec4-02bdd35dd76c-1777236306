@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
-import type { AppOrder } from "@/services/orderService";
+import type { AppOrder } from "@/types";
 import {
   Card,
   CardHeader,

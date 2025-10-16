@@ -17,7 +17,7 @@ import {
   MessageSquare,
   Star,
 } from "lucide-react";
-import { AppOrder, orderService } from "@/services/orderService";
+import { AppOrder } from "@/types";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
