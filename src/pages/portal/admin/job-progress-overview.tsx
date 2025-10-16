@@ -34,6 +34,7 @@ import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByU
 import { orderService } from "@/services/orderService";
 import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/router";
 
 interface PriorityTask {
   orderId: string;
@@ -44,6 +45,7 @@ interface PriorityTask {
 }
 
 export default function JobProgressOverviewPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -55,7 +57,14 @@ export default function JobProgressOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/auth/login?message=login_required");
+    }
+  }, [user, authLoading, router]);
 
   const loadRegions = useCallback(async () => {
     try {
@@ -104,12 +113,12 @@ export default function JobProgressOverviewPage() {
   }, [user?.id, toast]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
       setLoading(true);
       loadRegions();
       loadOrders();
     }
-  }, [user, loadRegions, loadOrders]);
+  }, [user, authLoading, loadRegions, loadOrders]);
 
   const handleOverrideComplete = async (orderId: string) => {
     try {

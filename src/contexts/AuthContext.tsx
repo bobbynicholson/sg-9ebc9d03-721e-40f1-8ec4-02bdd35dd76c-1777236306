@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { authService, AuthUser, AuthError } from "@/services/authService";
 import { profileService, Profile } from "@/services/profileService";
 import { useDemoMode } from "@/contexts/DemoModeContext";
+import { useRouter } from "next/router";
 
 interface AuthContextType {
   user: SupabaseUser | null;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function AuthProviderInner({ children }: { children: ReactNode }) {
   const { isDemoMode, getDemoUser } = useDemoMode();
+  const router = useRouter();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,14 +59,22 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           ).toISOString(),
           drive_time_to_kitchen_minutes: 25,
           vehicle_details: "White Toyota Hilux",
-          region: "Gauteng", // Added region
+          region: "Gauteng",
         });
       }
       setLoading(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Handle initial session load with error handling
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Session error:", error);
+        // Clear invalid session and redirect to login
+        handleInvalidSession();
+        return;
+      }
+      
       setUser(session?.user ?? null);
       if (session?.user) {
         loadProfile(session.user.id);
@@ -73,18 +83,49 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
+    // Listen for auth state changes with error handling
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event);
+      
+      // Handle token refresh errors
+      if (event === "TOKEN_REFRESHED") {
+        console.log("Token refreshed successfully");
+      }
+      
+      if (event === "SIGNED_OUT" || !session) {
+        setUser(null);
         setProfile(null);
+        setLoading(false);
+        return;
+      }
+      
+      setUser(session.user);
+      if (session.user) {
+        await loadProfile(session.user.id);
+      } else {
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [isDemoMode, getDemoUser]);
+  }, [isDemoMode, getDemoUser, router]);
+
+  const handleInvalidSession = async () => {
+    console.log("Handling invalid session - clearing and redirecting to login");
+    
+    // Clear all auth data
+    setUser(null);
+    setProfile(null);
+    setLoading(false);
+    
+    // Sign out to clear any corrupted session data
+    await supabase.auth.signOut();
+    
+    // Redirect to login if not already there
+    if (!router.pathname.includes("/auth/")) {
+      router.push("/auth/login?message=session_expired");
+    }
+  };
 
   const loadProfile = async (userId: string) => {
     try {
@@ -92,6 +133,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       setProfile(profileData);
     } catch (error) {
       console.error("Error loading profile:", error);
+      // If profile loading fails due to auth error, handle invalid session
+      if (error && typeof error === "object" && "code" in error && 
+          (error as any).code === "PGRST301") {
+        handleInvalidSession();
+      }
     } finally {
       setLoading(false);
     }

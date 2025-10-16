@@ -12,6 +12,8 @@ import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/useToast";
 
 const roleIcons = {
   admin: Shield,
@@ -33,12 +35,34 @@ const roleColors = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { message } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole | "">("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn } = useAuth();
+  const { toast } = useToast();
+
+  // Show session expiration message if redirected from expired session
+  useEffect(() => {
+    if (message === "session_expired") {
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please sign in again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    } else if (message === "login_required") {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to access this page.",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
+  }, [message, toast]);
 
   useEffect(() => {
     if (router.query.portal) {
