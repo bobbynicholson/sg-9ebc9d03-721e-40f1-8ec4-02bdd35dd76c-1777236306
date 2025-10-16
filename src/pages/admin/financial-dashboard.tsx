@@ -47,7 +47,7 @@ interface CashFlowAlert {
 }
 
 export default function FinancialDashboardPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
@@ -70,7 +70,7 @@ export default function FinancialDashboardPage() {
       const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
         analyticsService.getFinancialAnalytics(),
-        aiFinancialService.getPredictiveAnalytics()
+        aiFinancialService.getPredictiveAnalytics(ordersData)
       ]);
 
       setOrders(ordersData);
@@ -180,7 +180,6 @@ export default function FinancialDashboardPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    const profile = user as Profile;
     return currencyUtils.formatCurrency(amount, (profile?.currency as currencyUtils.CurrencyCode) || "ZAR");
   };
 

@@ -340,14 +340,19 @@ export const orderService = {
   },
 
   /**
-   * Get all orders for a specific user
+   * Get all orders for a specific user, or all orders if no user is specified.
    */
-  async getOrders(userId: string): Promise<Order[]> {
-    const { data, error } = await supabase
+  async getOrders(userId?: string): Promise<Order[]> {
+    let query = supabase
       .from("orders")
       .select("*")
-      .eq("user_id", userId)
       .order("event_date", { ascending: false });
+
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching orders:", error);
