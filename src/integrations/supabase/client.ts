@@ -63,6 +63,30 @@ if (typeof window !== 'undefined') {
     } catch (storageError) {
       console.warn('Error checking session storage:', storageError);
     }
+    
+    // CRITICAL FIX: Clean up any malformed URL fragments that could cause parsing errors
+    try {
+      // Check if URL has auth fragments that might be malformed
+      const currentUrl = window.location.href;
+      if (currentUrl.includes('#access_token') || currentUrl.includes('#error')) {
+        // Validate the hash fragment structure
+        const hash = window.location.hash;
+        if (hash && hash.length > 1) {
+          try {
+            // Try to parse the hash as URL search params
+            const params = new URLSearchParams(hash.substring(1));
+            // If parsing succeeds, let Supabase handle it normally
+            // If it fails, we'll catch and clean it below
+          } catch (hashError) {
+            // Hash is malformed, clean it up
+            console.warn('Detected malformed auth hash, cleaning up');
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          }
+        }
+      }
+    } catch (urlCleanupError) {
+      console.warn('Error during URL cleanup:', urlCleanupError);
+    }
   } catch (error) {
     console.error('Error during session validation:', error);
   }
@@ -110,7 +134,7 @@ try {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true, // Re-enable URL detection for OAuth callbacks
+      detectSessionInUrl: true,
       flowType: 'pkce',
       storage: createSafeStorage(),
       storageKey: `sb-ypwxsmytkvaefmmlkspf-auth-token`,
