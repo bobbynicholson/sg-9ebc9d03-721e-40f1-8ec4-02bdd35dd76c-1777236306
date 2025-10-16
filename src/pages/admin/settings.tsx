@@ -32,6 +32,7 @@ import {
 import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { GetServerSideProps } from "next";
 
 export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
@@ -919,3 +920,9 @@ export default function AdminSettingsPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};

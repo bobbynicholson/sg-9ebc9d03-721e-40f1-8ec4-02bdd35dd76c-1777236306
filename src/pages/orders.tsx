@@ -22,6 +22,7 @@ import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { GetServerSideProps } from "next";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Quote[]>([]);
@@ -456,3 +457,9 @@ export default function OrdersPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};

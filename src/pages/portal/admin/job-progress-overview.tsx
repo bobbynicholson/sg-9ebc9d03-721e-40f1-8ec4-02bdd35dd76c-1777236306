@@ -778,3 +778,9 @@ export default function JobProgressOverviewPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};

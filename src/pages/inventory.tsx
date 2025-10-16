@@ -35,6 +35,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { inventoryService } from "@/services/inventoryService";
+import { GetServerSideProps } from "next";
 
 export default function InventoryPage() {
   const { user } = useAuth();
@@ -868,3 +869,9 @@ export default function InventoryPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};

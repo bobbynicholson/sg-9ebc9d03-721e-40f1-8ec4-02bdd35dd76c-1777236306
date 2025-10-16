@@ -27,6 +27,7 @@ import * as currencyUtils from "@/lib/currencyUtils";
 import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { GetServerSideProps } from "next";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -59,10 +60,10 @@ export default function FinancialDashboardPage() {
     try {
       setLoading(true);
 
-      // Load all financial data for the specific user
+      // Load all financial data
       const ordersData = await orderService.getOrders(user.id);
 
-      const [ledgerData, aiPredictions] = await Promise.all([
+      const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
         aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
@@ -615,3 +616,9 @@ export default function FinancialDashboardPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};

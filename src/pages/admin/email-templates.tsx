@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare, ArrowLeft } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { GetServerSideProps } from "next";
 
 interface EmailTemplate {
   id: string;
@@ -688,3 +689,9 @@ export default function EmailTemplatesPage() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  return {
+    props: {},
+  };
+};
