@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare, ArrowLeft } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -405,7 +406,9 @@ export default function EmailTemplatesPage() {
         <title>Email Templates - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-6">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
         <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

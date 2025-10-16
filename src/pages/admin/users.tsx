@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { 
   Users,
   ArrowLeft,
@@ -249,9 +247,9 @@ export default function UserManagementPage() {
         <title>User Management - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <Header />
-        
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
           <Link href="/admin/dashboard">
             <Button variant="ghost" className="mb-4" size="sm">
@@ -491,8 +489,6 @@ export default function UserManagementPage() {
             </div>
           )}
         </div>
-        
-        <Footer />
       </div>
     </>
   );

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { 
   Settings, 
   Bell, 
@@ -115,7 +116,9 @@ export default function AdminSettingsPage() {
         <title>System Settings - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
         <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
           {/* Header - Mobile Optimized */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

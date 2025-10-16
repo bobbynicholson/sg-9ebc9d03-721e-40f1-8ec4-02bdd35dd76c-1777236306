@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminNav } from "@/components/admin/AdminNav";
 import {
   Dialog,
   DialogContent,
@@ -150,7 +151,9 @@ export default function RegionsManagementPage() {
         <title>Regional Operations - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
           {/* Header - Mobile Optimized */}
           <div className="mb-6 md:mb-8">
