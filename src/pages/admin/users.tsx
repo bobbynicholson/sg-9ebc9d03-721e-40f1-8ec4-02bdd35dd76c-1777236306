@@ -29,8 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments, DepartmentAssignment } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-
-type DepartmentType = "admin" | "kitchen" | "driver" | "cleaning" | "shopping" | "client";
+import { DepartmentType } from "@/types";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
