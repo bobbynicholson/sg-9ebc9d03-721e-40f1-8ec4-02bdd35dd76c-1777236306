@@ -171,10 +171,13 @@ export default function OrderAssignmentsPage() {
 
   const filteredOrders = useMemo(() => {
     let result = orders;
-    if (filter === "unassigned") {
-      result = orders.filter((order) => !order.assigned_driver_id && !order.assigned_chef_id);
-    } else if (filter === "assigned") {
-      result = orders.filter((order) => order.assigned_driver_id || order.assigned_chef_id);
+    if (filterStatus === "unassigned") {
+      result = orders.filter((order) => !getAssignmentForOrder(order.id));
+    } else if (filterStatus !== "all") {
+      const assignedOrders = assignments
+        .filter(a => a.status === filterStatus)
+        .map(a => a.orderId);
+      result = orders.filter((order) => assignedOrders.includes(order.id));
     }
 
     if (searchTerm) {
@@ -185,7 +188,7 @@ export default function OrderAssignmentsPage() {
       );
     }
     return result;
-  }, [orders, filter, searchTerm]);
+  }, [orders, assignments, filterStatus, searchTerm]);
 
   const unassignedCount = orders.filter(o => !getAssignmentForOrder(o.id)).length;
   const pendingCount = assignments.filter(a => a.status === "pending").length;
@@ -321,7 +324,7 @@ export default function OrderAssignmentsPage() {
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="font-mono font-semibold text-xs md:text-sm text-slate-600 mb-1">{order.id}</div>
-                            <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">{order.client}</h3>
+                            <h3 className="font-bold text-base md:text-lg text-slate-900 truncate">{order.client_name}</h3>
                           </div>
                           {assignment ? (
                             <Badge className={`${getStatusColor(assignment.status)} text-xs flex-shrink-0`}>
@@ -340,11 +343,11 @@ export default function OrderAssignmentsPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
                           <div className="flex items-center gap-2 text-slate-600">
                             <Calendar className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">{order.date}</span>
+                            <span className="truncate">{new Date(order.event_date).toLocaleDateString()}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <MapPin className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">{order.location}</span>
+                            <span className="truncate">{order.venue_address}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <DollarSign className="w-3 h-3 md:w-4 md:h-4 flex-shrink-0" />
@@ -457,15 +460,15 @@ export default function OrderAssignmentsPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Client:</span>
-                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.client}</span>
+                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.client_name}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Event Date:</span>
-                    <span className="font-semibold">{selectedOrder.date}</span>
+                    <span className="font-semibold">{new Date(selectedOrder.event_date).toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Location:</span>
-                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.location}</span>
+                    <span className="font-semibold truncate ml-2 max-w-[60%] text-right">{selectedOrder.venue_address}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-600">Value:</span>

@@ -11,13 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AppOrder, ShoppingList, Ingredient } from "@/types";
-import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart, Calendar, Users } from "lucide-react";
+import type { AppOrder, ShoppingList } from "@/types";
+import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
 import { timeClockService } from "@/services/timeClockService";
 import { useAuth } from "@/contexts/AuthContext";
+import { orderService } from "@/services/orderService";
 
 export default function KitchenPage() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
@@ -30,7 +31,7 @@ export default function KitchenPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const mockOrders: AppOrder[] = [
+    const mockOrdersData: AppOrder[] = [
       {
         id: "ORD-001",
         quote_id: "Q-001",
@@ -75,15 +76,15 @@ export default function KitchenPage() {
         ],
         equipmentItems: [],
         kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
-        status: "pending",
+        status: "preparing",
         total: 37500,
         created_at: new Date().toISOString(),
-      },
+      } as unknown as AppOrder,
     ];
 
     const stored = localStorage.getItem("kitchen_orders");
-    setOrders(stored ? JSON.parse(stored) : mockOrders);
-    localStorage.setItem("kitchen_orders", JSON.stringify(stored ? JSON.parse(stored) : mockOrders));
+    setOrders(stored ? JSON.parse(stored) : mockOrdersData);
+    localStorage.setItem("kitchen_orders", JSON.stringify(stored ? JSON.parse(stored) : mockOrdersData));
   }, []);
 
   useEffect(() => {
@@ -157,10 +158,10 @@ export default function KitchenPage() {
   };
 
   const todayOrders = orders.filter(
-    (order) => order.eventDate === new Date().toISOString().split("T")[0]
+    (order) => order.event_date === new Date().toISOString().split("T")[0]
   );
   const upcomingOrders = orders.filter(
-    (order) => new Date(order.eventDate) > new Date()
+    (order) => new Date(order.event_date) > new Date()
   );
 
   return (
@@ -339,13 +340,13 @@ export default function KitchenPage() {
                       {/* Menu Items */}
                       <div>
                         <h4 className="font-semibold text-sm md:text-base mb-2">Menu Items</h4>
-                        {order.menu_items.map((item) => (
+                        {Array.isArray(order.menu_items) && order.menu_items.map((item: any) => (
                           <div key={item.id} className="bg-slate-50 p-3 rounded-lg mb-2">
                             <p className="font-medium text-sm md:text-base">{item.name}</p>
                             <p className="text-xs md:text-sm text-slate-600">Quantity: {item.quantity}</p>
-                            {item.ingredients && (
+                            {item.ingredients && Array.isArray(item.ingredients) && (
                               <div className="mt-2 space-y-1">
-                                {item.ingredients.map((ing) => (
+                                {item.ingredients.map((ing: any) => (
                                   <div
                                     key={ing.id}
                                     className="flex items-center justify-between text-xs md:text-sm"

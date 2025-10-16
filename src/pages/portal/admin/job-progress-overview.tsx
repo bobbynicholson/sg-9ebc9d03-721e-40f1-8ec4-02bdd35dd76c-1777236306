@@ -140,14 +140,14 @@ export default function JobProgressOverviewPage() {
     const tasks: PriorityTask[] = [];
 
     orders.forEach((order) => {
-      const eventDate = new Date(order.eventDate);
+      const eventDate = new Date(order.event_date);
       const today = new Date();
       const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (order.status === "pending" && daysUntilEvent <= 3) {
+      if (order.status === "pending_deposit" && daysUntilEvent <= 3) {
         tasks.push({
           orderId: order.id,
-          clientName: order.clientName,
+          clientName: order.client_name,
           task: "Follow up payment (overdue)",
           urgency: "high",
           daysUntilEvent,
@@ -157,7 +157,7 @@ export default function JobProgressOverviewPage() {
       if (order.status === "confirmed" && daysUntilEvent <= 2) {
         tasks.push({
           orderId: order.id,
-          clientName: order.clientName,
+          clientName: order.client_name,
           task: "Assign to kitchen urgently",
           urgency: "high",
           daysUntilEvent,
@@ -167,7 +167,7 @@ export default function JobProgressOverviewPage() {
       if (order.status === "preparing" && daysUntilEvent <= 1) {
         tasks.push({
           orderId: order.id,
-          clientName: order.clientName,
+          clientName: order.client_name,
           task: "Assign driver immediately",
           urgency: "high",
           daysUntilEvent,
@@ -185,11 +185,11 @@ export default function JobProgressOverviewPage() {
   const priorityTasks = calculatePriorityTasks();
 
   const isBehindSchedule = (order: AppOrder): boolean => {
-    const eventDate = new Date(order.eventDate);
+    const eventDate = new Date(order.event_date);
     const today = new Date();
     const daysUntilEvent = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (order.status === "pending" && daysUntilEvent <= 7) return true;
+    if (order.status === "pending_deposit" && daysUntilEvent <= 7) return true;
     if (order.status === "confirmed" && daysUntilEvent <= 3) return true;
     if (order.status === "preparing" && daysUntilEvent <= 1) return true;
 
@@ -203,8 +203,8 @@ export default function JobProgressOverviewPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
         const matchesSearch =
-            order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.venue_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
             order.id.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesFilter = filterStatus === "all" || order.status === filterStatus;
@@ -217,7 +217,7 @@ export default function JobProgressOverviewPage() {
   }, [orders, searchTerm, filterStatus, selectedRegion]);
 
   const calculateOrderUrgency = (order: AppOrder): UrgencyScore => {
-    const eventDate = new Date(order.eventDate);
+    const eventDate = new Date(order.event_date);
     const today = new Date();
     const hoursUntilEvent = (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60);
 
@@ -233,11 +233,11 @@ export default function JobProgressOverviewPage() {
       hoursUntilEvent,
       paymentStatus,
       currentStatus: order.status,
-      guestCount: order.guestCount,
+      guestCount: order.guest_count,
       equipmentShortage: false,
       driverAvailable: true,
       kitchenCapacityPercent: 65,
-      isVIPClient: order.guestCount >= 200,
+      isVIPClient: order.guest_count >= 200,
       hasSpecialRequirements: false,
     });
   };
@@ -618,10 +618,10 @@ export default function JobProgressOverviewPage() {
                             </div>
                             <div>
                               <h3 className="text-xl font-bold text-gray-900">
-                                {order.clientName} - Order #{order.id}
+                                {order.client_name} - Order #{order.id}
                               </h3>
                               <p className="text-sm text-gray-600">
-                                {order.venue} • {new Date(order.eventDate).toLocaleDateString()}
+                                {order.venue_address} • {new Date(order.event_date).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
@@ -680,25 +680,25 @@ export default function JobProgressOverviewPage() {
                         <JobProgressTracker
                           currentStatus={order.status}
                           orderData={{
-                            quote_sent: order.createdAt,
-                            quote_accepted: order.status !== "pending" ? order.createdAt : undefined,
+                            quote_sent: order.created_at,
+                            quote_accepted: order.status !== "pending_deposit" ? order.created_at : undefined,
                             payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(
                               order.status
                             )
-                              ? order.createdAt
+                              ? order.created_at
                               : undefined,
                             kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status)
-                              ? order.createdAt
+                              ? order.created_at
                               : undefined,
                             driver_assigned: ["ready", "delivered", "completed"].includes(order.status)
-                              ? order.createdAt
+                              ? order.created_at
                               : undefined,
-                            in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                            delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
-                            equipment_returned: order.status === "completed" ? order.createdAt : undefined,
+                            in_transit: ["in_transit", "delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                            delivered: order.status === "delivered" || order.status === "completed" ? order.created_at : undefined,
+                            equipment_returned: order.status === "completed" ? order.created_at : undefined,
                           }}
-                          clientName={order.clientName}
-                          eventDate={order.eventDate}
+                          clientName={order.client_name}
+                          eventDate={order.event_date}
                           orderNumber={order.id}
                           isPriority={isPriority}
                           isBehindSchedule={isBehind}

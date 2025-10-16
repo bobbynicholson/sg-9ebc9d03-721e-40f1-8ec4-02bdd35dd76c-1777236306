@@ -354,7 +354,7 @@ export const driverService = {
       eventLocation: order.venue_address || '',
       menuItems: (order.menu_items as any) || [],
       equipmentItems: (order.equipment_items as any) || [],
-      needsWaiter: order.waiter_service_required,
+      waiter_service_required: order.waiter_service_required,
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,

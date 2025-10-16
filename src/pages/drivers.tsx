@@ -88,7 +88,6 @@ export default function DriversPage() {
       return {
         ...order,
         id: order.id,
-        lead_id: order.quote_id,
         user_id: "mock-user-id", // FIX: Added user_id
         client_name: order.client_name,
         client_email: order.client_name.toLowerCase().replace(/\s+/g, '.') + "@example.com",
@@ -101,9 +100,9 @@ export default function DriversPage() {
         menu_items: order.menu_items as any,
         equipment_items: order.equipment_items as any,
         status: "accepted" as const,
-        subtotal: (order.total_amount ?? 0) * 0.87,
-        tax: (order.total_amount ?? 0) * 0.13,
-        total: order.total_amount ?? 0,
+        subtotal: (order.total ?? 0) * 0.87,
+        tax: (order.total ?? 0) * 0.13,
+        total: order.total ?? 0,
         created_at: order.created_at,
         updated_at: order.created_at,
         viewed_at: null,

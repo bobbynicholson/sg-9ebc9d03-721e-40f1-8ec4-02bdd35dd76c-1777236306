@@ -139,6 +139,7 @@ export type AppOrder = Order & {
   eventLocation?: string;
   menuItems?: any[];
   equipmentItems?: any[];
+  kitchen_instructions?: string;
 };
 
 export interface OrderModification {
