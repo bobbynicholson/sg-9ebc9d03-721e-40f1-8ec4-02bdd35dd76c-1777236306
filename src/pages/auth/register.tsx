@@ -12,6 +12,7 @@ import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
 import { UserRole } from "@/types";
+import { userManagementService } from "@/services/userManagementService";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
@@ -39,12 +40,29 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     currency: "ZAR",
-    role: "client" as UserRole
+    role: "client" as UserRole,
+    companyName: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [companySlug, setCompanySlug] = useState("");
+
+  // Generate company slug when company name changes
+  const handleCompanyNameChange = (value: string) => {
+    setFormData({ ...formData, companyName: value });
+    
+    // Generate URL-friendly slug
+    const slug = value
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single
+      .trim();
+    
+    setCompanySlug(slug);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +71,13 @@ export default function RegisterPage() {
 
     if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency || !formData.role) {
       setError("Please fill in all required fields");
+      setLoading(false);
+      return;
+    }
+
+    // Require company name for non-client roles (catering companies signing up)
+    if (formData.role === "admin" && !formData.companyName) {
+      setError("Please provide your company name");
       setLoading(false);
       return;
     }
@@ -92,7 +117,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Step 2: Create/update the profile with correct data
+      // Step 2: Create/update the profile with correct data including company_slug
       try {
         const trialEndsAt = new Date();
         trialEndsAt.setDate(trialEndsAt.getDate() + 14);
@@ -104,16 +129,26 @@ export default function RegisterPage() {
           role: formData.role,
           currency: formData.currency,
           phone_number: formData.phone,
-          company_name: formData.name,
+          company_name: formData.companyName || formData.name,
           subscription_status: "trial",
           subscription_plan: "trial",
           trial_ends_at: trialEndsAt.toISOString(),
           is_active: true,
         });
+
+        // If company slug exists, update it via SQL
+        if (companySlug && formData.role === "admin") {
+          await fetch('/api/update-company-slug', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              companySlug: companySlug
+            })
+          });
+        }
       } catch (profileError: any) {
         console.error("Profile creation error:", profileError);
-        // Even if profile creation fails, user is created, so don't show error
-        // The trigger should have created it already
       }
 
       // Show success message
@@ -270,6 +305,33 @@ export default function RegisterPage() {
                 Choose the role that matches your access level
               </p>
             </div>
+
+            {formData.role === "admin" && (
+              <div className="space-y-2">
+                <Label htmlFor="companyName" className="text-slate-700 font-medium">
+                  Company Name * <span className="text-xs text-slate-500">(Required for admin accounts)</span>
+                </Label>
+                <Input
+                  id="companyName"
+                  type="text"
+                  placeholder="Spit Braai Delivery"
+                  value={formData.companyName}
+                  onChange={(e) => handleCompanyNameChange(e.target.value)}
+                  className="h-12"
+                  required={formData.role === "admin"}
+                />
+                {companySlug && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+                    <p className="text-xs text-blue-800">
+                      <strong>Your portal URL:</strong> /{companySlug}/
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Your team and clients will access your portal at this URL
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-700 font-medium">
