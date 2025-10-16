@@ -30,9 +30,16 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/router";
 
-export default function CalendarPage() {
+interface CalendarPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function CalendarPage({ companySlug: propCompanySlug }: CalendarPageProps = {}) {
   const { user } = useAuth();
   const router = useRouter();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [events, setEvents] = useState<AppOrder[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<AppOrder[]>([]);
@@ -117,10 +124,10 @@ export default function CalendarPage() {
   };
 
   const handleViewOrder = (orderId: string) => {
-    if (user?.company_slug) {
-        router.push(`/${user.company_slug}/admin/dashboard?orderId=${orderId}`);
+    if (companySlug) {
+      router.push(`/${companySlug}/admin/dashboard?orderId=${orderId}`);
     } else {
-        router.push(`/orders?orderId=${orderId}`);
+      router.push(`/orders?orderId=${orderId}`);
     }
     setSelectedDayEvents([]);
     setSelectedDate(null);

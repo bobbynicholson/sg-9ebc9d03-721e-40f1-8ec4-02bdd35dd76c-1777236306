@@ -8,8 +8,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { realtimeNotificationService } from "@/services/realtimeNotificationService";
 import { formatDistanceToNow } from "date-fns";
 
-export default function NotificationsPage() {
+interface NotificationsPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function NotificationsPage({ companySlug: propCompanySlug }: NotificationsPageProps = {}) {
   const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [notifications, setNotifications] = useState<any[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [loading, setLoading] = useState(true);

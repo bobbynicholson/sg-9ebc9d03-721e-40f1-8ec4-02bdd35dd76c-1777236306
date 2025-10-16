@@ -17,8 +17,19 @@ import {
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function QuotesPage() {
+interface QuotesPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function QuotesPage({ companySlug: propCompanySlug }: QuotesPageProps = {}) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [quotes, setQuotes] = useState<Quote[]>([]);
 
   useEffect(() => {
@@ -37,12 +48,16 @@ export default function QuotesPage() {
     }
   };
 
+  const dashboardUrl = companySlug ? `/${companySlug}/admin/dashboard` : "/";
+  const newQuoteUrl = companySlug ? `/${companySlug}/admin/quotes/new` : "/quotes/new";
+  const leadsUrl = companySlug ? `/${companySlug}/admin/leads` : "/leads";
+
   return (
     <>
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <Link href="/">
+          <Link href={dashboardUrl}>
             <Button variant="ghost" className="mb-4">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
@@ -62,7 +77,7 @@ export default function QuotesPage() {
                   <p className="text-slate-600 mt-1">Create and manage client quotes</p>
                 </div>
               </div>
-              <Link href="/quotes/new">
+              <Link href={newQuoteUrl}>
                 <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
                   <Plus className="w-5 h-5 mr-2" />
                   New Quote
@@ -111,7 +126,7 @@ export default function QuotesPage() {
                   <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-slate-900 mb-2">No quotes yet</h3>
                   <p className="text-slate-600 mb-6">Create your first quote from a lead</p>
-                  <Link href="/leads">
+                  <Link href={leadsUrl}>
                     <Button>View Leads</Button>
                   </Link>
                 </CardContent>
