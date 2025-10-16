@@ -13,6 +13,7 @@ import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
 import { UserRole } from "@/types";
 import { userManagementService } from "@/services/userManagementService";
+import { companyService } from "@/services/companyService";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
@@ -75,7 +76,7 @@ export default function RegisterPage() {
       return;
     }
 
-    // Require company name for non-client roles (catering companies signing up)
+    // Require company name for admin roles
     if (formData.role === "admin" && !formData.companyName) {
       setError("Please provide your company name");
       setLoading(false);
@@ -95,14 +96,15 @@ export default function RegisterPage() {
     }
 
     try {
-      // Step 1: Sign up the user with selected role
-      const { user, error: signUpError } = await authService.signUp(
+      // Sign up the user - company creation is now handled in authService
+      const { user, error: signUpError, companySlug: createdSlug } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
         formData.role,
         formData.currency,
-        formData.phone
+        formData.phone,
+        formData.companyName
       );
 
       if (signUpError) {
@@ -117,38 +119,9 @@ export default function RegisterPage() {
         return;
       }
 
-      // Step 2: Create/update the profile with correct data including company_slug
-      try {
-        const trialEndsAt = new Date();
-        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
-
-        await profileService.createProfile({
-          id: user.id,
-          email: formData.email,
-          full_name: formData.name,
-          role: formData.role,
-          currency: formData.currency,
-          phone_number: formData.phone,
-          company_name: formData.companyName || formData.name,
-          subscription_status: "trial",
-          subscription_plan: "trial",
-          trial_ends_at: trialEndsAt.toISOString(),
-          is_active: true,
-        });
-
-        // If company slug exists, update it via SQL
-        if (companySlug && formData.role === "admin") {
-          await fetch('/api/update-company-slug', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              companySlug: companySlug
-            })
-          });
-        }
-      } catch (profileError: any) {
-        console.error("Profile creation error:", profileError);
+      // If company was created, store the slug for display
+      if (createdSlug) {
+        setCompanySlug(createdSlug);
       }
 
       // Show success message
