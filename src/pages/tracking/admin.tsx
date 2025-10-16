@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,37 @@ import { AppOrder, Driver, GPSLocation } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { supabase } from "@/lib/supabase";
+import { toast } from "@/components/ui/use-toast";
 
 export default function AdminTrackingDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [showMap, setShowMap] = useState(true);
+
+  const getLatestDeliveries = useCallback(async () => {
+    setLoading(true);
+    const { data: deliveries, error } = await supabase
+      .from("orders")
+      .select("*, driver:profiles!assigned_driver_id(*)")
+      .in("status", ["in_transit", "delivered"])
+      .order("event_date", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching active deliveries:", error);
+      toast({ title: "Error", description: "Could not fetch deliveries.", variant: "destructive" });
+    } else {
+      const formattedDeliveries = deliveries.map(d => ({
+        ...d,
+        driverName: d.driver ? (d.driver as any).full_name : 'N/A',
+        driverPhone: d.driver ? (d.driver as any).phone : 'N/A'
+      }));
+      setActiveDeliveries(formattedDeliveries as any);
+    }
+    setLoading(false);
+  }, [toast]);
 
   useEffect(() => {
     loadActiveDeliveries();

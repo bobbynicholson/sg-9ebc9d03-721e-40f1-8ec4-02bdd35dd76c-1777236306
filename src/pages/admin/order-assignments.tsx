@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,15 +169,23 @@ export default function OrderAssignmentsPage() {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const assignment = getAssignmentForOrder(order.id);
-    const matchesFilter = filterStatus === "all" ||
-                         (filterStatus === "unassigned" && !assignment) ||
-                         (assignment && assignment.status === filterStatus);
-    return matchesSearch && matchesFilter;
-  });
+  const filteredOrders = useMemo(() => {
+    let result = orders;
+    if (filter === "unassigned") {
+      result = orders.filter((order) => !order.assigned_driver_id && !order.assigned_chef_id);
+    } else if (filter === "assigned") {
+      result = orders.filter((order) => order.assigned_driver_id || order.assigned_chef_id);
+    }
+
+    if (searchTerm) {
+      result = result.filter(
+        (order) =>
+          order.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    return result;
+  }, [orders, filter, searchTerm]);
 
   const unassignedCount = orders.filter(o => !getAssignmentForOrder(o.id)).length;
   const pendingCount = assignments.filter(a => a.status === "pending").length;

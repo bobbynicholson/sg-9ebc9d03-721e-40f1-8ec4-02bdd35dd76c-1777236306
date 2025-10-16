@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -90,10 +90,19 @@ export default function KitchenPage() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      loadStaffHours();
+    if (user?.id) {
+      loadKitchenData(user.id);
+      loadStaffHours(user.id);
     }
-  }, [user, period]);
+  }, [user]);
+
+  const loadKitchenData = async (userId: string) => {
+    const orders = await orderService.getOrders(userId);
+    const filteredOrders = orders.filter(o => ['preparing', 'confirmed'].includes(o.status));
+    const sortedOrders = filteredOrders.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+    setOrders(sortedOrders);
+    setLoading(false);
+  };
 
   const loadStaffHours = async () => {
     if (!user) return;
@@ -124,9 +133,18 @@ export default function KitchenPage() {
     localStorage.setItem("kitchen_orders", JSON.stringify(updated));
   };
 
-  const handleSelectOrder = (orderId: string) => {
-    const order = orders.find((o) => o.id === orderId);
-    setSelectedOrder(order || null);
+  const handleSelectOrder = (order: AppOrder) => {
+    const now = new Date();
+    const eventDate = new Date(order.event_date);
+    const diffTime = Math.abs(eventDate.getTime() - now.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 2 && order.status === 'confirmed') {
+        orderService.updateOrderStatus({orderId: order.id, newStatus: 'preparing'});
+        order.status = 'preparing';
+    }
+    
+    setSelectedOrder(order);
   };
 
   const getStatusColor = (status: AppOrder["status"]) => {

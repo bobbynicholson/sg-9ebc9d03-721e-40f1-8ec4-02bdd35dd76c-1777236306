@@ -4,33 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
-  CardFooter,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin,
   Clock,
-  Package,
-  Truck,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  List,
   Bell,
-  MessageSquare,
-  Star,
 } from "lucide-react";
 import { AppOrder, orderService } from "@/services/orderService";
 import { Header } from "@/components/Header";
@@ -69,8 +50,8 @@ function ClientTrackingPage() {
         deliveryStatus: mockDelivery?.status,
         pickupTime: mockDelivery?.pickupTime,
         deliveryTime: mockDelivery?.deliveryTime,
-        event_date: mockOrder.eventDate,
-        event_time: mockOrder.eventTime || "12:00:00"
+        event_date: mockOrder.event_date,
+        event_time: mockOrder.event_time || "12:00:00"
       };
       setOrderDetails(deliveryData);
       setDeliveryDetails(deliveryData);
@@ -86,7 +67,7 @@ function ClientTrackingPage() {
         message: `${mockOrder?.driverName || "Driver"} has logged in and is preparing to collect your order`,
         timestamp: new Date(Date.now() - 3600000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: mockOrder?.clientName || "Valued Client",
+        recipientName: mockOrder?.client_name || "Valued Client",
         read: false
       });
       
@@ -97,7 +78,7 @@ function ClientTrackingPage() {
         message: "Food has been collected from our kitchen and is now on the way to your venue",
         timestamp: new Date(Date.now() - 1800000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: mockOrder?.clientName || "Valued Client",
+        recipientName: mockOrder?.client_name || "Valued Client",
         read: false
       });
     }
@@ -107,10 +88,10 @@ function ClientTrackingPage() {
         id: "not-003",
         orderId: String(orderId),
         type: "driver_arrived",
-        message: `${mockOrder?.driverName || "Driver"} has arrived at ${mockOrder?.venue}`,
+        message: `${mockOrder?.driverName || "Driver"} has arrived at ${mockOrder?.venue_address}`,
         timestamp: new Date(Date.now() - 600000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: mockOrder?.clientName || "Valued Client",
+        recipientName: mockOrder?.client_name || "Valued Client",
         read: false
       });
 
@@ -121,7 +102,7 @@ function ClientTrackingPage() {
         message: "Your order has been successfully delivered. We hope you enjoy your event!",
         timestamp: new Date(Date.now() - 300000).toISOString(),
         recipientEmail: "client@example.com",
-        recipientName: mockOrder?.clientName || "Valued Client",
+        recipientName: mockOrder?.client_name || "Valued Client",
         read: false
       });
     }
@@ -242,16 +223,16 @@ function ClientTrackingPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                       <p className="text-sm text-slate-500 mb-1">Client</p>
-                      <p className="font-semibold text-slate-900">{orderDetails.client}</p>
+                      <p className="font-semibold text-slate-900">{orderDetails.client_name}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-500 mb-1">Venue</p>
-                      <p className="font-semibold text-slate-900">{orderDetails.venue}</p>
+                      <p className="font-semibold text-slate-900">{orderDetails.venue_address}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-500 mb-1">Event Date</p>
                       <p className="font-semibold text-slate-900">
-                        {new Date(orderDetails.eventDate).toLocaleDateString()}
+                        {new Date(orderDetails.event_date).toLocaleDateString()}
                       </p>
                     </div>
                     <div>

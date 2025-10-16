@@ -349,22 +349,11 @@ export const driverService = {
     const availableOrders = (data || []).filter(order => !assignedOrderIds.includes(order.id));
 
     return availableOrders.map((order): AppOrder => ({
-      id: order.id,
-      quoteId: order.quote_id || '',
-      client: order.client_name || '',
+      ...order,
       clientName: order.client_name || '',
-      eventDate: order.event_date,
-      date: order.event_date,
-      venue: order.venue_address || '',
-      location: order.venue_address || '',
       eventLocation: order.venue_address || '',
-      guestCount: order.guest_count,
       menuItems: (order.menu_items as any) || [],
       equipmentItems: (order.equipment_items as any) || [],
-      kitchenInstructions: order.internal_notes || '',
-      status: order.status as AppOrder['status'],
-      total: order.total,
-      createdAt: order.created_at,
       needsWaiter: order.waiter_service_required,
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,

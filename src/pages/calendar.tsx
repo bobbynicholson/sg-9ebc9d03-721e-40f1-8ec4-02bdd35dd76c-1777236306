@@ -3,8 +3,6 @@ import Head from "next/head";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
@@ -25,38 +23,24 @@ import { format } from "date-fns";
 import {
   MapPin,
   Users,
-  Clock,
   Package,
   ArrowRight,
   Loader2,
 } from "lucide-react";
 import { useRouter } from "next/router";
 
-interface CalendarEvent {
-  id: string;
-  date: Date;
-  title: string;
-  status: AppOrder["status"];
-  clientName: string;
-  venue: string;
-  guestCount: number;
-}
-
 export default function CalendarPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [events, setEvents] = useState<AppOrder[]>([]);
-  const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selectedEvent, setSelectedEvent] = useState<AppOrder | null>(null);
   const [loading, setLoading] = useState(true);
-  const [calendarKey, setCalendarKey] = useState(0); // Add state for re-rendering
+  const [calendarKey, setCalendarKey] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
       loadEvents();
     } else if (!user) {
-      // If no user, maybe redirect or show a login message.
-      // For now, let's stop loading.
       setLoading(false);
     }
   }, [user]);
@@ -64,24 +48,15 @@ export default function CalendarPage() {
   const loadEvents = async () => {
     if (!user?.id) return;
     setLoading(true);
-    const orders: AppOrder[] = await orderService.getAllOrders(user.id);
-    const calendarEvents = orders.map((order: AppOrder) => ({
-      id: order.id,
-      date: new Date(order.eventDate),
-      title: `Order #${(order as any).order_number || order.id.substring(0, 6)}`,
-      status: order.status,
-      clientName: order.clientName,
-      venue: order.venue,
-      guestCount: order.guestCount,
-    }));
-    setEvents(calendarEvents);
+    const orders: AppOrder[] = await orderService.getOrders(user.id);
+    setEvents(orders);
     setLoading(false);
-    setCalendarKey(prev => prev + 1); // Force calendar to re-render with new events
+    setCalendarKey(prev => prev + 1); 
   };
 
   const getStatusBadge = (status: AppOrder["status"]) => {
     const styles = {
-      pending: "bg-yellow-100 text-yellow-800",
+      pending_deposit: "bg-yellow-100 text-yellow-800",
       confirmed: "bg-blue-100 text-blue-800",
       preparing: "bg-purple-100 text-purple-800",
       ready: "bg-indigo-100 text-indigo-800",
@@ -90,15 +65,15 @@ export default function CalendarPage() {
       completed: "bg-green-100 text-green-800",
     };
     return (
-      <Badge className={styles[status] || "bg-gray-100 text-gray-800"}>
-        {status.replace("_", " ").toUpperCase()}
+      <Badge className={styles[status || "pending_deposit"] || "bg-gray-100 text-gray-800"}>
+        {status?.replace("_", " ").toUpperCase()}
       </Badge>
     );
   };
 
   const DayWithEvents = ({ date, ...props }: { date: Date; [key: string]: any }) => {
     const dayEvents = events.filter(
-      (event) => format(event.date, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+      (event) => format(new Date(event.event_date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
     );
 
     return (
@@ -127,12 +102,9 @@ export default function CalendarPage() {
 
   const handleDayClick = (day: Date) => {
     const dayEvents = events.filter(
-      (event) => format(event.date, "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
+      (event) => format(new Date(event.event_date), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
     );
-    if (dayEvents.length === 1) {
-      setSelectedEvent(dayEvents[0]);
-    } else if (dayEvents.length > 1) {
-      // For simplicity, we open the first one. A better UX might be a popover listing them.
+    if (dayEvents.length > 0) {
       setSelectedEvent(dayEvents[0]);
     }
   };
@@ -167,7 +139,7 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <Calendar
-                  key={calendarKey} // Use key to force re-render
+                  key={calendarKey}
                   mode="single"
                   onDayClick={handleDayClick}
                   className="p-0"
@@ -195,11 +167,11 @@ export default function CalendarPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between">
-                  <span>{selectedEvent.title}</span>
+                  <span>Order #{selectedEvent.order_number || selectedEvent.id.substring(0, 6)}</span>
                   {getStatusBadge(selectedEvent.status)}
                 </DialogTitle>
                 <DialogDescription>
-                  {format(selectedEvent.date, "EEEE, MMMM dd, yyyy")}
+                  {format(new Date(selectedEvent.event_date), "EEEE, MMMM dd, yyyy")}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -207,14 +179,14 @@ export default function CalendarPage() {
                   <Users className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Client</p>
-                    <p className="font-medium">{selectedEvent.clientName}</p>
+                    <p className="font-medium">{selectedEvent.client_name}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <MapPin className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">Venue</p>
-                    <p className="font-medium">{selectedEvent.venue}</p>
+                    <p className="font-medium">{selectedEvent.venue_address}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -224,7 +196,7 @@ export default function CalendarPage() {
                       Guest Count
                     </p>
                     <p className="font-medium">
-                      {selectedEvent.guestCount} guests
+                      {selectedEvent.guest_count} guests
                     </p>
                   </div>
                 </div>
