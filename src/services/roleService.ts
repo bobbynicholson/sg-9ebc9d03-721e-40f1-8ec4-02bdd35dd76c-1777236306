@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import type { UserRole } from "@/types"; // FIX: Import manual UserRole type
 
-type UserRole = Database["public"]["Enums"]["user_role"];
 type UserDepartment = Database["public"]["Tables"]["user_departments"]["Row"];
 type UserDepartmentInsert = Database["public"]["Tables"]["user_departments"]["Insert"];
 

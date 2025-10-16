@@ -49,6 +49,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           email: demoUser.email,
           full_name: demoUser.full_name,
           role: demoUser.role,
+          active_role: demoUser.role, // FIX: Add missing active_role
           avatar_url: demoUser.avatar_url || "",
           currency: "ZAR",
           created_at: new Date().toISOString(),
