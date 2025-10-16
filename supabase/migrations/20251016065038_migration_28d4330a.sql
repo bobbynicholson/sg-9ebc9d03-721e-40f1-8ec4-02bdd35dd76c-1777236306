@@ -23,7 +23,7 @@ BEGIN
     new.raw_user_meta_data->>'phone_number',
     new.raw_user_meta_data->>'company_name',
     'trial', -- Default subscription plan on sign-up
-    'trialing', -- Default subscription status on sign-up
+    'trial', -- FIXED: Changed from 'trialing' to 'trial' to match the constraint
     (now() + interval '14 days') -- Set trial to expire in 14 days
   );
   RETURN new;
