@@ -23,8 +23,18 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function IntegrationsPage() {
+interface IntegrationsPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function IntegrationsPage({ companySlug: propCompanySlug }: IntegrationsPageProps = {}) {
+  const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
+
   const integrations = [
     {
       name: "Xero Accounting",
@@ -380,7 +390,7 @@ export default function IntegrationsPage() {
                   Start your free trial and connect all your favorite apps in minutes. No credit card required.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/auth/register">
+                  <Link href={companySlug ? `/${companySlug}/auth/register` : "/auth/register"}>
                     <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
                       Start Free Trial
                       <ArrowRight className="w-5 h-5 ml-2" />

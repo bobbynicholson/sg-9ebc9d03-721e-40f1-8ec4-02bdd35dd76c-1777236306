@@ -45,10 +45,17 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppOrder } from "@/types";
+import { AppOrder };
 
-function ClientPortalPage() {
+interface ClientPortalPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProps = {}) {
   const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [recentOrder, setRecentOrder] = useState<AppOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();

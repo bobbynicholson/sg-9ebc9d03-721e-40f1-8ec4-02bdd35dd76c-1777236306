@@ -36,8 +36,15 @@ interface DeliveryJob extends Quote {
   driverAssigned?: string;
 }
 
-export default function DriversPage() {
+interface DriversPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function DriversPage({ companySlug: propCompanySlug }: DriversPageProps = {}) {
   const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>([]);
   const [myJobs, setMyJobs] = useState<DeliveryJob[]>([]);
   const [completedToday, setCompletedToday] = useState(3);
