@@ -48,13 +48,15 @@ export const roleService = {
       .from("profiles")
       .select("active_role")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching active role:", error);
-      throw error;
+      // Fallback to client role on error
+      return "client" as UserRole;
     }
 
+    // Return active_role if it exists, otherwise default to client
     return (data?.active_role || "client") as UserRole;
   },
 
