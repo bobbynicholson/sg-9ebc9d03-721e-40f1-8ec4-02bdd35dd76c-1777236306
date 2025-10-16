@@ -36,6 +36,7 @@ import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { userManagementService } from "@/services/userManagementService";
 
 interface PriorityTask {
   orderId: string;
@@ -112,6 +113,60 @@ export default function JobProgressOverviewPage() {
       setLoading(false);
     }
   }, [user?.id, toast]);
+
+  const handleDepartmentAssignment = async (userId: string, departments: any[]) => {
+    try {
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to assign departments",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate that the user exists before attempting assignment
+      const userExists = await userManagementService.userExists(userId);
+      if (!userExists) {
+        toast({
+          title: "User Not Found",
+          description: "The user profile does not exist. Please ensure the user is properly registered.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Attempt department assignment
+      await userManagementService.assignDepartments(userId, departments, user.id);
+
+      toast({
+        title: "Success",
+        description: "Department assignments updated successfully",
+      });
+
+      // Refresh the data
+      await loadOrders();
+    } catch (error: any) {
+      console.error("Error assigning departments:", error);
+      
+      // Provide specific error messages based on the error type
+      let errorMessage = "Failed to update department assignments";
+      
+      if (error.message?.includes("does not exist")) {
+        errorMessage = "User profile does not exist. The user may need to complete registration first.";
+      } else if (error.message?.includes("Foreign key constraint")) {
+        errorMessage = "Database constraint error. Please ensure all user data is properly set up.";
+      } else if (error.message?.includes("Duplicate")) {
+        errorMessage = "This department is already assigned to the user.";
+      }
+      
+      toast({
+        title: "Assignment Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     if (user && !authLoading) {
