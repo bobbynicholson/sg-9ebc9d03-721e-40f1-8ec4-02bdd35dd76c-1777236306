@@ -11,6 +11,7 @@ export type AuthenticatedUser = SupabaseUser & Profile;
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
+  profile: Profile | null;
   loading: boolean;
   userRoles: RoleAssignment[];
   activeRole: string;
@@ -30,6 +31,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -65,6 +67,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         } as AuthenticatedUser;
         
         setUser(fullDemoUser);
+        setProfile(fullDemoUser);
         
         setUserRoles([{ 
           id: "demo-role", 
@@ -83,6 +86,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const loadUserSession = async (session: any) => {
       if (!session?.user) {
         setUser(null);
+        setProfile(null);
         setUserRoles([]);
         setActiveRole("client");
         setLoading(false);
@@ -98,6 +102,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           console.error("Error loading profile:", profileError);
           // Profile is critical - if it fails, we can't proceed
           setUser(null);
+          setProfile(null);
           setLoading(false);
           return;
         }
@@ -105,6 +110,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         // Merge user with profile data
         const mergedUser = { ...session.user, ...profileData } as AuthenticatedUser;
         setUser(mergedUser);
+        setProfile(profileData);
 
         // Load roles - non-critical, use defaults if fails
         let roles: RoleAssignment[] = [];
@@ -130,6 +136,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         console.error("Error loading user session data:", error);
         // If something went very wrong, at least set the basic user
         setUser(session.user as AuthenticatedUser);
+        setProfile(null);
       } finally {
         setLoading(false);
       }
@@ -143,6 +150,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         if (error) {
           console.error("Error getting session:", error);
           setUser(null);
+          setProfile(null);
           setLoading(false);
           return;
         }
@@ -157,6 +165,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           console.error("Error during cleanup signout:", signOutError);
         }
         setUser(null);
+        setProfile(null);
         setLoading(false);
       }
     };
@@ -172,6 +181,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error("Error in auth state change handler:", error);
           setUser(null);
+          setProfile(null);
           setLoading(false);
         }
       });
@@ -195,6 +205,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     console.log("Handling invalid session - clearing and redirecting to login");
     
     setUser(null);
+    setProfile(null);
     setLoading(false);
     
     await supabase.auth.signOut();
@@ -240,6 +251,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     if (isDemoMode) return;
     await authService.signOut();
     setUser(null);
+    setProfile(null);
     setUserRoles([]);
     setActiveRole("client");
   };
@@ -249,12 +261,14 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     const updatedProfile = await profileService.updateProfile(user.id, updates);
     if (updatedProfile) {
       setUser({ ...user, ...updatedProfile });
+      setProfile({ ...profile, ...updatedProfile } as Profile);
     }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
+      profile,
       loading, 
       userRoles,
       activeRole,

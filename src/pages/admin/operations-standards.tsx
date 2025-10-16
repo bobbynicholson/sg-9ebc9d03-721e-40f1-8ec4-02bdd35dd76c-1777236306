@@ -25,6 +25,8 @@ import {
   Zap,
   Loader2
 } from "lucide-react";
+import { LucideProps } from "lucide-react";
+import { ForwardRefExoticComponent, RefAttributes } from "react";
 
 interface DashboardMetrics {
   overduePATTests: number;
@@ -40,6 +42,15 @@ interface DashboardMetrics {
   availableCrates: number;
   expiringInsurance: number;
   restViolations: number;
+}
+
+interface OperationalStandard {
+  id: number;
+  name: string;
+  description: string;
+  icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
+  metric?: keyof DashboardMetrics;
+  inverse?: boolean;
 }
 
 export default function OperationsStandardsPage() {
@@ -87,7 +98,11 @@ export default function OperationsStandardsPage() {
     return "text-red-600 bg-red-50 border-red-200";
   };
 
-  const operationalStandards = {
+  const operationalStandards: {
+    equipment: OperationalStandard[];
+    maintenance: OperationalStandard[];
+    fleet: OperationalStandard[];
+  } = {
     equipment: [
       { id: 41, name: "Comprehensive Equipment List", description: "Live database of all equipment with QR codes", icon: Package },
       { id: 42, name: "Event Equipment Kits", description: "Pre-packed labeled crates for events", icon: Package },
