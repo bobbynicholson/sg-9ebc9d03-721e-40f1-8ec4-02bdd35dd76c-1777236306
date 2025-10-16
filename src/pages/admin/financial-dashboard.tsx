@@ -63,7 +63,7 @@ export default function FinancialDashboardPage() {
       // Load all financial data
       const ordersData = await orderService.getOrders(user.id);
 
-      const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
+      const [ledgerData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
         aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
