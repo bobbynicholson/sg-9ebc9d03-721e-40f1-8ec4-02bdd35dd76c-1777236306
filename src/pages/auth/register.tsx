@@ -58,14 +58,14 @@ export default function RegisterPage() {
     }
 
     try {
-      // BUG FIX #4: Pass phone number in metadata to ensure it's saved
+      // Pass all required data to the signUp function
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
         "client", // Default role for new registrations
         formData.currency,
-        formData.phone // BUG FIX: Add phone parameter
+        formData.phone
       );
 
       if (signUpError) {
