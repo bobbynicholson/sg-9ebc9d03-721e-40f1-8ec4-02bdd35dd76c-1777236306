@@ -6,23 +6,23 @@ export type Profile = Tables<"profiles">;
 export const profileService = {
   // Get user profile
   async getProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (error) {
-      // Don't throw if the error is that the row doesn't exist, just return null.
-      if (error.code === 'PGRST116') {
-        console.warn("Profile not found for user:", userId);
+      if (error) {
+        console.error("Error fetching profile:", error);
         return null;
       }
-      console.error("Error fetching profile:", error);
+
+      return data;
+    } catch (error) {
+      console.error("Fatal error in getProfile:", error);
       return null;
     }
-
-    // If data is an array, return the first element. Otherwise, return null.
-    return data && data.length > 0 ? data[0] : null;
   },
 
   // Create or update user profile (upsert)

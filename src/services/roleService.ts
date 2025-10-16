@@ -19,45 +19,53 @@ export const roleService = {
    * Get all roles assigned to a user
    */
   async getUserRoles(userId: string): Promise<RoleAssignment[]> {
-    const { data, error } = await supabase
-      .from("user_departments")
-      .select("*")
-      .eq("user_id", userId)
-      .order("is_primary", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("user_departments")
+        .select("*")
+        .eq("user_id", userId)
+        .order("is_primary", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching user roles:", error);
-      throw error;
+      if (error) {
+        console.error("Error fetching user roles:", error);
+        return [];
+      }
+
+      return (data || []).map((dept) => ({
+        id: dept.id,
+        userId: dept.user_id,
+        department: dept.department as UserRole,
+        isPrimary: dept.is_primary || false,
+        assignedAt: dept.assigned_at || new Date().toISOString(),
+        assignedBy: dept.assigned_by,
+      }));
+    } catch (error) {
+      console.error("Fatal error in getUserRoles:", error);
+      return [];
     }
-
-    return (data || []).map((dept) => ({
-      id: dept.id,
-      userId: dept.user_id,
-      department: dept.department as UserRole,
-      isPrimary: dept.is_primary || false,
-      assignedAt: dept.assigned_at || new Date().toISOString(),
-      assignedBy: dept.assigned_by,
-    }));
   },
 
   /**
    * Get user's active role from profile
    */
   async getActiveRole(userId: string): Promise<UserRole> {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("active_role")
-      .eq("id", userId)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("active_role")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (error) {
-      console.error("Error fetching active role:", error);
-      // Fallback to client role on error
+      if (error) {
+        console.error("Error fetching active role:", error);
+        return "client" as UserRole;
+      }
+
+      return (data?.active_role || "client") as UserRole;
+    } catch (error) {
+      console.error("Fatal error in getActiveRole:", error);
       return "client" as UserRole;
     }
-
-    // Return active_role if it exists, otherwise default to client
-    return (data?.active_role || "client") as UserRole;
   },
 
   /**
