@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { companyService } from "./companyService";
 
 export interface AuthUser {
   id: string;
@@ -13,23 +14,19 @@ export interface AuthError {
   code?: string;
 }
 
-// Dynamic URL Helper
 const getURL = () => {
   let url =
     process?.env?.NEXT_PUBLIC_VERCEL_URL ??
     process?.env?.NEXT_PUBLIC_SITE_URL ??
     "http://localhost:3000";
 
-  // Ensure url has protocol
   url = url.startsWith("http") ? url : `https://${url}`;
-  // Ensure url ends with slash
   url = url.endsWith("/") ? url : `${url}/`;
 
   return url;
 };
 
 export const authService = {
-  // Get current user
   async getCurrentUser(): Promise<AuthUser | null> {
     const {
       data: { user },
@@ -44,7 +41,6 @@ export const authService = {
       : null;
   },
 
-  // Get current session
   async getCurrentSession(): Promise<Session | null> {
     const {
       data: { session },
@@ -52,45 +48,47 @@ export const authService = {
     return session;
   },
 
-  // Sign up with email and password
   async signUp(
     email: string,
     password: string,
     fullName: string,
     role: string,
     currency: string,
-    phone: string
-  ): Promise<{ user: AuthUser | null; error: AuthError | null }> {
+    phone: string,
+    companyName?: string
+  ): Promise<{ user: AuthUser | null; error: AuthError | null; companySlug?: string }> {
     try {
+      const metadata: Record<string, any> = {
+        full_name: fullName,
+        role: role,
+        currency: currency,
+        phone_number: phone,
+      };
+
+      if (companyName) {
+        metadata.company_name = companyName;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${getURL()}auth/callback`,
-          data: {
-            full_name: fullName,
-            role: role,
-            currency: currency,
-            phone_number: phone,
-            company_name: fullName,
-          },
+          data: metadata,
         },
       });
 
       if (error) {
-        // Handle specific error cases
         if (error.message.includes("User already registered")) {
           return { user: null, error: { message: "A user with this email address already exists." } };
         }
         
-        // If we get any email-related error but user was created, treat as success
         if (data.user && (
           error.message.includes("Email") || 
           error.message.includes("confirmation") ||
           error.message.includes("verify") ||
           error.message.includes("link is invalid")
         )) {
-          // User was created successfully, email confirmation is just disabled
           const authUser = {
             id: data.user.id,
             email: data.user.email || "",
@@ -117,7 +115,33 @@ export const authService = {
         created_at: data.user.created_at,
       };
 
-      return { user: authUser, error: null };
+      let companySlug: string | undefined;
+
+      if (role === "admin" && companyName) {
+        try {
+          const slug = await companyService.generateUniqueSlug(companyName);
+          
+          const company = await companyService.createCompany({
+            name: companyName,
+            slug: slug,
+            owner_id: data.user.id,
+            email: email,
+            phone: phone,
+            currency: currency,
+          });
+
+          companySlug = company.slug;
+
+          await supabase
+            .from("profiles")
+            .update({ company_id: company.id })
+            .eq("id", data.user.id);
+        } catch (companyError) {
+          console.error("Error creating company:", companyError);
+        }
+      }
+
+      return { user: authUser, error: null, companySlug };
     } catch (error: any) {
       console.error("Unexpected signup error:", error);
       return {
@@ -129,7 +153,6 @@ export const authService = {
     }
   },
 
-  // Sign in with email and password
   async signIn(
     email: string,
     password: string
@@ -168,7 +191,6 @@ export const authService = {
     }
   },
 
-  // Sign in with Google OAuth
   async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -195,15 +217,10 @@ export const authService = {
     }
   },
 
-  // Handle OAuth callback - the trigger handles profile creation
   async handleOAuthCallback(): Promise<void> {
-    // The on_auth_user_created trigger handles profile creation automatically.
-    // We can add logic here if we need to perform actions AFTER login,
-    // like redirecting the user or fetching additional data.
     console.log("OAuth callback handled. Profile creation is managed by database trigger.");
   },
 
-  // Sign out
   async signOut(): Promise<{ error: AuthError | null }> {
     try {
       const { error } = await supabase.auth.signOut();
@@ -221,7 +238,6 @@ export const authService = {
     }
   },
 
-  // Reset password
   async resetPassword(email: string): Promise<{ error: AuthError | null }> {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -241,7 +257,6 @@ export const authService = {
     }
   },
 
-  // Listen to auth state changes
   onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     const { data } = supabase.auth.onAuthStateChange(callback);
     return data.subscription;
