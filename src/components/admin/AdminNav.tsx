@@ -176,12 +176,6 @@ const adminNavSections: NavSection[] = [
         href: "/admin/payment-gateways",
         icon: CreditCard,
         description: "Configure payments"
-      },
-      {
-        title: "Currency Monitoring",
-        href: "/admin/currency-monitoring",
-        icon: DollarSign,
-        description: "Monitor exchange rates"
       }
     ]
   },
