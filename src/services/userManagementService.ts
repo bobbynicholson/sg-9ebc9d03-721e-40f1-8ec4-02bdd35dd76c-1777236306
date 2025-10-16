@@ -163,23 +163,6 @@ export const userManagementService = {
           }
         }
       }
-
-      // Update user's primary role in profiles
-      const primaryDeptString = departments.find((d) => d.is_primary)?.department || departments[0]?.department;
-      
-      if (primaryDeptString) {
-        // @ts-ignore - primaryDeptString is a valid role from departments
-        const updateData = { role: primaryDeptString };
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update(updateData)
-          .eq("id", userId);
-
-        if (updateError) {
-          console.error("Error updating profile role:", updateError);
-          throw updateError;
-        }
-      }
     } catch (error) {
       console.error("Error assigning departments:", error);
       throw error;
