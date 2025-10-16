@@ -1,4 +1,3 @@
-
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { roleService } from "@/services/roleService";
+
+// Import existing pages that will be wrapped as portal components
+import LeadsPage from "@/pages/leads/index";
+import NewLeadPage from "@/pages/leads/new";
+import QuotesPage from "@/pages/quotes/index";
+import NewQuotePage from "@/pages/quotes/new";
+import CalendarPage from "@/pages/calendar";
+import NotificationsPage from "@/pages/notifications";
+import IntegrationsPage from "@/pages/integrations";
+import ClientPortalPage from "@/pages/client-portal";
+import DriversPage from "@/pages/drivers";
+import OrdersPage from "@/pages/orders";
+import InventoryPage from "@/pages/inventory";
 
 // Portal Components
 import AdminDashboard from "@/components/portals/admin/Dashboard";
@@ -44,6 +56,19 @@ const PORTAL_ROUTES = {
       reports: AdminReports,
       settings: AdminSettings,
       onboarding: AdminOnboarding,
+      // Core Management Routes
+      leads: LeadsPage,
+      "leads/new": NewLeadPage,
+      quotes: QuotesPage,
+      "quotes/new": NewQuotePage,
+      calendar: CalendarPage,
+      notifications: NotificationsPage,
+      integrations: IntegrationsPage,
+      "client-portal": ClientPortalPage,
+      drivers: DriversPage,
+      orders: OrdersPage,
+      inventory: InventoryPage,
+      shopping: ShoppingDashboard,
     },
     defaultRoute: "dashboard",
   },
