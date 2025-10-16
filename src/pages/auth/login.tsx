@@ -131,7 +131,7 @@ export default function LoginPage() {
           dashboardUrl = "/client-portal";
           break;
         case "super_admin":
-          dashboardUrl = "/platform/dashboard";
+          dashboardUrl = "/cateringms-platform/dashboard";
           break;
         default:
           dashboardUrl = "/";

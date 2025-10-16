@@ -208,7 +208,7 @@ export const roleService = {
       shopping: `/${slug}/shopping/dashboard`,
       kitchen: `/${slug}/kitchen/dashboard`,
       owner: `/${slug}/admin/dashboard`,
-      super_admin: "/platform/dashboard",
+      super_admin: "/cateringms-platform/dashboard",
       shopping_staff: `/${slug}/shopping/dashboard`,
       cleaning_staff: `/${slug}/cleaning/dashboard`,
       kitchen_staff: `/${slug}/kitchen/dashboard`,

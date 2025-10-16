@@ -58,7 +58,7 @@ const PORTAL_ROUTES = {
       reports: AdminReports,
       settings: AdminSettings,
       onboarding: AdminOnboarding,
-      // Core Management Routes
+      // Core Management Routes - ALL admin pages
       leads: LeadsPage,
       "leads/new": NewLeadPage,
       quotes: QuotesPage,

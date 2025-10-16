@@ -255,7 +255,7 @@ export default function CMSPageManagement() {
               <p className="text-gray-600">Manage static pages and content for cateringms.com</p>
             </div>
             <div className="flex gap-4">
-              <Link href="/platform/catering-ms-dashboard">
+              <Link href="/cateringms-platform/catering-ms-dashboard">
                 <Button variant="outline">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Platform Dashboard
