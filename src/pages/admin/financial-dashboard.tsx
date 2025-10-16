@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,23 +54,17 @@ export default function FinancialDashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      loadFinancialData();
-    }
-  }, [user]);
-
-  const loadFinancialData = async () => {
+  const loadFinancialData = useCallback(async () => {
+    if (!user) return;
     try {
       setLoading(true);
 
-      // Load all financial data
-      const ordersData = await orderService.getOrders();
-      
-      const [ledgerData, analyticsData, aiPredictions] = await Promise.all([
+      // Load all financial data for the specific user
+      const ordersData = await orderService.getOrders(user.id);
+
+      const [ledgerData, aiPredictions] = await Promise.all([
         paymentLedgerService.getPaymentLedger(),
-        analyticsService.getFinancialAnalytics(),
-        aiFinancialService.getPredictiveAnalytics(ordersData)
+        aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
 
       setOrders(ordersData);
@@ -120,7 +114,13 @@ export default function FinancialDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadFinancialData();
+    }
+  }, [user, loadFinancialData]);
 
   const calculateCurrentCashFlow = (orders: Order[], ledgerData: any) => {
     const receivedPayments = orders
