@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -404,6 +404,53 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cleaning_duty_logs: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          duty_ended_at: string | null
+          duty_started_at: string | null
+          equipment_verified: boolean | null
+          equipment_verified_at: string | null
+          id: string
+          on_duty: boolean
+          user_id: string
+          verification_notes: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          duty_ended_at?: string | null
+          duty_started_at?: string | null
+          equipment_verified?: boolean | null
+          equipment_verified_at?: string | null
+          id?: string
+          on_duty?: boolean
+          user_id: string
+          verification_notes?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          duty_ended_at?: string | null
+          duty_started_at?: string | null
+          equipment_verified?: boolean | null
+          equipment_verified_at?: string | null
+          id?: string
+          on_duty?: boolean
+          user_id?: string
+          verification_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_duty_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1301,6 +1348,289 @@ export type Database = {
           {
             foreignKeyName: "equipment_bookings_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_cleaning_status: {
+        Row: {
+          admin_notified: boolean | null
+          admin_notified_at: string | null
+          cleaned_by_user_id: string | null
+          cleaning_completed_at: string | null
+          cleaning_started_at: string | null
+          created_at: string | null
+          current_status: string
+          drying_completed_at: string | null
+          drying_started_at: string | null
+          equipment_id: string
+          id: string
+          order_id: string
+          ready_for_use_at: string | null
+          returned_quantity: number
+          updated_at: string | null
+          verified_by_user_id: string | null
+        }
+        Insert: {
+          admin_notified?: boolean | null
+          admin_notified_at?: string | null
+          cleaned_by_user_id?: string | null
+          cleaning_completed_at?: string | null
+          cleaning_started_at?: string | null
+          created_at?: string | null
+          current_status?: string
+          drying_completed_at?: string | null
+          drying_started_at?: string | null
+          equipment_id: string
+          id?: string
+          order_id: string
+          ready_for_use_at?: string | null
+          returned_quantity: number
+          updated_at?: string | null
+          verified_by_user_id?: string | null
+        }
+        Update: {
+          admin_notified?: boolean | null
+          admin_notified_at?: string | null
+          cleaned_by_user_id?: string | null
+          cleaning_completed_at?: string | null
+          cleaning_started_at?: string | null
+          created_at?: string | null
+          current_status?: string
+          drying_completed_at?: string | null
+          drying_started_at?: string | null
+          equipment_id?: string
+          id?: string
+          order_id?: string
+          ready_for_use_at?: string | null
+          returned_quantity?: number
+          updated_at?: string | null
+          verified_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_cleaning_status_cleaned_by_user_id_fkey"
+            columns: ["cleaned_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_cleaning_status_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_cleaning_status_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_cleaning_status_verified_by_user_id_fkey"
+            columns: ["verified_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_damages: {
+        Row: {
+          created_at: string | null
+          damage_stage: string
+          damage_type: string
+          description: string | null
+          equipment_id: string
+          handover_id: string | null
+          id: string
+          notes: string | null
+          order_id: string
+          photo_url: string | null
+          quantity_damaged: number
+          resolution_notes: string | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          responsible_name: string | null
+          responsible_user_id: string | null
+          total_cost: number
+          unit_cost: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          damage_stage: string
+          damage_type: string
+          description?: string | null
+          equipment_id: string
+          handover_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id: string
+          photo_url?: string | null
+          quantity_damaged: number
+          resolution_notes?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          responsible_name?: string | null
+          responsible_user_id?: string | null
+          total_cost: number
+          unit_cost: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          damage_stage?: string
+          damage_type?: string
+          description?: string | null
+          equipment_id?: string
+          handover_id?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string
+          photo_url?: string | null
+          quantity_damaged?: number
+          resolution_notes?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          responsible_name?: string | null
+          responsible_user_id?: string | null
+          total_cost?: number
+          unit_cost?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_damages_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_damages_handover_id_fkey"
+            columns: ["handover_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_handovers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_damages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_damages_resolved_by_user_id_fkey"
+            columns: ["resolved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_damages_responsible_user_id_fkey"
+            columns: ["responsible_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_handovers: {
+        Row: {
+          created_at: string | null
+          discrepancy_noted: boolean | null
+          discrepancy_reason: string | null
+          equipment_id: string
+          from_stage: string
+          handed_at: string | null
+          handed_by_name: string | null
+          handed_by_user_id: string | null
+          id: string
+          order_id: string
+          quantity: number
+          quantity_received: number | null
+          quantity_sent: number
+          received_at: string | null
+          received_by_name: string | null
+          received_by_user_id: string | null
+          to_stage: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          discrepancy_noted?: boolean | null
+          discrepancy_reason?: string | null
+          equipment_id: string
+          from_stage: string
+          handed_at?: string | null
+          handed_by_name?: string | null
+          handed_by_user_id?: string | null
+          id?: string
+          order_id: string
+          quantity: number
+          quantity_received?: number | null
+          quantity_sent: number
+          received_at?: string | null
+          received_by_name?: string | null
+          received_by_user_id?: string | null
+          to_stage: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          discrepancy_noted?: boolean | null
+          discrepancy_reason?: string | null
+          equipment_id?: string
+          from_stage?: string
+          handed_at?: string | null
+          handed_by_name?: string | null
+          handed_by_user_id?: string | null
+          id?: string
+          order_id?: string
+          quantity?: number
+          quantity_received?: number | null
+          quantity_sent?: number
+          received_at?: string | null
+          received_by_name?: string | null
+          received_by_user_id?: string | null
+          to_stage?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_handovers_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_handovers_handed_by_user_id_fkey"
+            columns: ["handed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_handovers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_handovers_received_by_user_id_fkey"
+            columns: ["received_by_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
