@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -28,7 +27,12 @@ import {
   Briefcase,
   MessageSquare,
   Truck,
-  Layers
+  Layers,
+  Calendar,
+  ShoppingCart,
+  UserPlus,
+  FileSpreadsheet,
+  Plug
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -65,11 +69,52 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
           href: `/${companySlug}/admin/dashboard`,
           icon: LayoutDashboard,
           description: "Business insights and metrics"
+        },
+        {
+          title: "Notifications",
+          href: `/${companySlug}/admin/notifications`,
+          icon: Bell,
+          description: "View all notifications"
         }
       ]
     },
     {
-      title: "Management",
+      title: "Core Management",
+      items: [
+        {
+          title: "Leads",
+          href: `/${companySlug}/admin/leads`,
+          icon: UserPlus,
+          description: "Manage potential clients"
+        },
+        {
+          title: "Quotes",
+          href: `/${companySlug}/admin/quotes`,
+          icon: FileSpreadsheet,
+          description: "Create and manage quotes"
+        },
+        {
+          title: "Orders",
+          href: `/${companySlug}/admin/orders`,
+          icon: ClipboardList,
+          description: "View and manage orders"
+        },
+        {
+          title: "Calendar",
+          href: `/${companySlug}/admin/calendar`,
+          icon: Calendar,
+          description: "Event scheduling"
+        },
+        {
+          title: "Inventory",
+          href: `/${companySlug}/admin/inventory`,
+          icon: Package,
+          description: "Stock management"
+        }
+      ]
+    },
+    {
+      title: "Team Management",
       items: [
         {
           title: "Users",
@@ -78,26 +123,14 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
           description: "Manage user accounts"
         },
         {
-          title: "Driver Management",
-          href: "/admin/driver-management",
+          title: "Drivers",
+          href: `/${companySlug}/admin/drivers`,
           icon: Truck,
           description: "Manage delivery drivers"
         },
         {
-          title: "Client Search",
-          href: "/admin/client-search",
-          icon: Search,
-          description: "Search and filter clients"
-        },
-        {
-          title: "Order Assignments",
-          href: "/admin/order-assignments",
-          icon: ClipboardList,
-          description: "Assign orders to team"
-        },
-        {
           title: "Staff Hours",
-          href: "/admin/staff-hours",
+          href: `/${companySlug}/admin/staff-hours`,
           icon: Clock,
           description: "Track staff working hours"
         }
@@ -108,31 +141,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Operations Hub",
-          href: "/admin/operations-hub",
+          href: `/${companySlug}/admin/operations-hub`,
           icon: Layers,
           description: "40 operational standards"
         },
         {
           title: "Operations Standards",
-          href: "/admin/operations-standards",
+          href: `/${companySlug}/admin/operations-standards`,
           icon: Briefcase,
           description: "Standards 41-75: Equipment & Fleet"
         },
         {
           title: "Job Progress Overview",
-          href: "/portal/admin/job-progress-overview",
+          href: `/${companySlug}/admin/job-progress-overview`,
           icon: TrendingUp,
           description: "Monitor all jobs"
         },
         {
           title: "Equipment Shortages",
-          href: "/admin/equipment-shortages",
+          href: `/${companySlug}/admin/equipment-shortages`,
           icon: Package,
           description: "Track inventory issues"
         },
         {
           title: "Regions",
-          href: "/admin/regions",
+          href: `/${companySlug}/admin/regions`,
           icon: MapPin,
           description: "Manage service regions"
         }
@@ -143,44 +176,84 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Email Templates",
-          href: "/admin/email-templates",
+          href: `/${companySlug}/admin/email-templates`,
           icon: Mail,
           description: "Manage email templates"
         },
         {
           title: "After-Sales Emails",
-          href: "/admin/after-sales-emails",
+          href: `/${companySlug}/admin/after-sales-emails`,
           icon: MessageSquare,
           description: "Follow-up communications"
         },
         {
           title: "Email Automation",
-          href: "/admin/email-automation-dashboard",
+          href: `/${companySlug}/admin/email-automation-dashboard`,
           icon: Mail,
           description: "Automated email campaigns"
         },
         {
           title: "Automation Settings",
-          href: "/admin/email-automation-settings",
+          href: `/${companySlug}/admin/email-automation-settings`,
           icon: Settings,
           description: "Configure automation"
         },
         {
           title: "Notification Settings",
-          href: "/portal/admin/notification-settings",
+          href: `/${companySlug}/admin/notification-settings`,
           icon: Bell,
           description: "Configure notifications"
         }
       ]
     },
     {
-      title: "Branding",
+      title: "Client Portal",
+      items: [
+        {
+          title: "Client Portal Management",
+          href: `/${companySlug}/admin/client-portal`,
+          icon: Users,
+          description: "Manage client portal access"
+        },
+        {
+          title: "Client Search",
+          href: `/${companySlug}/admin/client-search`,
+          icon: Search,
+          description: "Search and filter clients"
+        }
+      ]
+    },
+    {
+      title: "Shopping & Procurement",
+      items: [
+        {
+          title: "Shopping Dashboard",
+          href: `/${companySlug}/admin/shopping`,
+          icon: ShoppingCart,
+          description: "Procurement overview"
+        }
+      ]
+    },
+    {
+      title: "Branding & Settings",
       items: [
         {
           title: "White Label",
-          href: "/admin/white-label",
+          href: `/${companySlug}/admin/white-label`,
           icon: Building2,
           description: "Branding customization"
+        },
+        {
+          title: "Integrations",
+          href: `/${companySlug}/admin/integrations`,
+          icon: Plug,
+          description: "Third-party integrations"
+        },
+        {
+          title: "System Settings",
+          href: `/${companySlug}/admin/settings`,
+          icon: Settings,
+          description: "General configuration"
         }
       ]
     },
@@ -189,32 +262,21 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Financial Dashboard",
-          href: "/admin/financial-dashboard",
+          href: `/${companySlug}/admin/financial-dashboard`,
           icon: DollarSign,
           description: "Financial insights"
         },
         {
           title: "Subscription",
-          href: "/admin/subscription",
+          href: `/${companySlug}/admin/subscription`,
           icon: CreditCard,
           description: "Manage subscriptions"
         },
         {
           title: "Payment Gateways",
-          href: "/admin/payment-gateways",
+          href: `/${companySlug}/admin/payment-gateways`,
           icon: CreditCard,
           description: "Configure payments"
-        }
-      ]
-    },
-    {
-      title: "Settings",
-      items: [
-        {
-          title: "System Settings",
-          href: `/${companySlug}/admin/settings`,
-          icon: Settings,
-          description: "General configuration"
         }
       ]
     }
