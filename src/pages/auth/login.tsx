@@ -4,10 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { UserRole } from "@/types";
-import { ChefHat, Truck, ShoppingCart, Sparkles, Shield, User } from "lucide-react";
+import { User } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
@@ -15,30 +13,11 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-const roleIcons = {
-  admin: Shield,
-  kitchen: ChefHat,
-  shopping: ShoppingCart,
-  driver: Truck,
-  cleaning: Sparkles,
-  client: User,
-};
-
-const roleColors = {
-  admin: "from-purple-500 to-purple-600",
-  kitchen: "from-orange-500 to-orange-600",
-  shopping: "from-green-500 to-green-600",
-  driver: "from-blue-500 to-blue-600",
-  cleaning: "from-pink-500 to-pink-600",
-  client: "from-slate-500 to-slate-600",
-};
-
 export default function LoginPage() {
   const router = useRouter();
   const { message, redirect } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole | "">("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -61,32 +40,21 @@ export default function LoginPage() {
         variant: "destructive",
         duration: 4000,
       });
+    } else if (message === "account_created") {
+      toast({
+        title: "Account Created Successfully!",
+        description: "You can now sign in with your credentials.",
+        duration: 5000,
+      });
     }
   }, [message, toast]);
-
-  useEffect(() => {
-    if (router.query.portal) {
-      const portalMap: Record<string, UserRole> = {
-        admin: "admin",
-        driver: "driver",
-        kitchen: "kitchen",
-        cleaning: "cleaning",
-        shopping: "shopping",
-        client: "client"
-      };
-      const mappedRole = portalMap[router.query.portal as string];
-      if (mappedRole) {
-        setRole(mappedRole);
-      }
-    }
-  }, [router.query.portal]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    if (!email || !password || !role) {
+    if (!email || !password) {
       setError("Please fill in all fields");
       setLoading(false);
       return;
@@ -196,15 +164,12 @@ export default function LoginPage() {
     }
   };
 
-  const RoleIcon = role ? roleIcons[role as keyof typeof roleIcons] : User;
-  const gradientClass = role ? roleColors[role as keyof typeof roleColors] : "from-slate-500 to-slate-600";
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="space-y-4">
-          <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${gradientClass} mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform`}>
-            <RoleIcon className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+            <User className="w-10 h-10 text-white" />
           </div>
           <CardTitle className="text-3xl font-bold text-center text-slate-900">
             Welcome Back
@@ -259,55 +224,6 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-slate-700 font-medium">
-                Select Role
-              </Label>
-              <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
-                <SelectTrigger id="role" className="h-12">
-                  <SelectValue placeholder="Choose your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      Admin
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="kitchen">
-                    <div className="flex items-center gap-2">
-                      <ChefHat className="w-4 h-4" />
-                      Kitchen Team
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="shopping">
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4" />
-                      Shopping Team
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="driver">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Driver
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="cleaning">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4" />
-                      Cleaning Team
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="client">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      Client
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700 font-medium">
                 Email Address
               </Label>
@@ -339,7 +255,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className={`w-full h-12 bg-gradient-to-r ${gradientClass} hover:opacity-90 transition-opacity text-white font-semibold`}
+              className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold"
               disabled={loading || googleLoading}
             >
               {loading ? "Signing in..." : "Sign In"}
