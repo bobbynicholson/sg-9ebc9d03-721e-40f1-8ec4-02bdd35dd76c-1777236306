@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { Quote, AppOrder as Order } from "@/types";
+import { Quote, AppOrder } from "@/types";
 import { regionService } from "./regionService";
 
 export const quoteService = {
@@ -79,7 +79,7 @@ export const quoteService = {
     return true;
   },
 
-  async convertQuoteToOrder(quoteId: string): Promise<Order | null> {
+  async convertQuoteToOrder(quoteId: string): Promise<AppOrder | null> {
     const quote = await this.getQuote(quoteId);
     if (!quote) return null;
 

@@ -1,17 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate } from "@/types/index";
+import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate, AppOrder } from "@/types/index";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
-export type AppOrder = Order & {
-  clientName?: string;
-  driverName?: string;
-  totalAmount?: number;
-  eventLocation?: string;
-  menuItems?: any[];
-  equipmentItems?: any[];
-};
 
 export const orderService = {
   /**
