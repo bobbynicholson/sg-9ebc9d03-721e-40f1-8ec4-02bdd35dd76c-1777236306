@@ -52,7 +52,7 @@ export default function DriverManagementPage() {
   const loadDrivers = async () => {
     try {
       setLoading(true);
-      const allUsers = await userManagementService.getUsers();
+      const allUsers = await userManagementService.getAllUsers();
       const driverUsers = allUsers.filter(u => u.role === "driver");
       setDrivers(driverUsers as Driver[]);
     } catch (err) {
@@ -135,9 +135,7 @@ export default function DriverManagementPage() {
 
   const handleToggleDriverStatus = async (driverId: string, currentStatus: boolean) => {
     try {
-      await userManagementService.updateUser(driverId, {
-        is_active: !currentStatus,
-      });
+      await userManagementService.updateUserStatus(driverId, !currentStatus);
 
       toast({
         title: "Success",
