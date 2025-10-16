@@ -1,0 +1,132 @@
+
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Users, Clock } from "lucide-react";
+import { kitchenDutyService } from "@/services/kitchenDutyService";
+
+interface StaffMember {
+  id: string;
+  full_name: string;
+  avatar_url?: string;
+  email: string;
+}
+
+interface DutyShift {
+  id: string;
+  shift_start: string;
+  is_active: boolean;
+  staff: StaffMember;
+}
+
+export function OnDutyBoard() {
+  const [activeShifts, setActiveShifts] = useState<DutyShift[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadActiveShifts();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadActiveShifts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadActiveShifts = async () => {
+    try {
+      const shifts = await kitchenDutyService.getActiveDutyShifts();
+      setActiveShifts(shifts as any);
+    } catch (error) {
+      console.error("Error loading active shifts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getElapsedTime = (startTime: string) => {
+    const start = new Date(startTime);
+    const now = new Date();
+    const diff = now.getTime() - start.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map(n => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            On Duty Staff
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          On Duty Staff
+          {activeShifts.length > 0 && (
+            <Badge variant="default" className="ml-auto bg-green-500">
+              {activeShifts.length} on duty
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {activeShifts.length === 0 ? (
+          <div className="text-center py-6">
+            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              No staff currently on duty
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {activeShifts.map((shift) => (
+              <div
+                key={shift.id}
+                className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200"
+              >
+                <Avatar className="h-10 w-10 border-2 border-green-500">
+                  <AvatarImage src={shift.staff?.avatar_url} />
+                  <AvatarFallback className="bg-green-100 text-green-700">
+                    {getInitials(shift.staff?.full_name || "?")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">
+                    {shift.staff?.full_name}
+                  </p>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    Started {getElapsedTime(shift.shift_start)} ago
+                  </div>
+                </div>
+                <Badge variant="default" className="bg-green-500">
+                  Active
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
