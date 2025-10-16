@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ShoppingItem {
   id: string;
@@ -22,7 +23,16 @@ interface ShoppingItem {
   notes?: string;
 }
 
-export default function ShoppingPage() {
+interface ShoppingPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function ShoppingPage({ companySlug: propCompanySlug }: ShoppingPageProps = {}) {
+  const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
+  
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 

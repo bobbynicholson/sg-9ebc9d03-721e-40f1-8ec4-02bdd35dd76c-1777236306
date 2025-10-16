@@ -37,8 +37,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { inventoryService } from "@/services/inventoryService";
 import { GetServerSideProps } from "next";
 
-export default function InventoryPage() {
+interface InventoryPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function InventoryPage({ companySlug: propCompanySlug }: InventoryPageProps = {}) {
   const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

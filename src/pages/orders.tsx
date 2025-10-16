@@ -23,8 +23,18 @@ import { regionManagement } from "@/lib/regionManagement";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
+import { useAuth } from "@/lib/auth";
 
-export default function OrdersPage() {
+interface OrdersPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageProps = {}) {
+  const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
+  
   const [orders, setOrders] = useState<Quote[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
