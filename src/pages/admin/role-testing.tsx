@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,9 @@ import {
   Sparkles,
   User,
   CheckCircle2,
-  XCircle,
   Copy,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -30,7 +30,7 @@ interface TestAccount {
   loginUrl: string;
   portalUrl: string;
   description: string;
-  created: boolean;
+  departments?: string[];
 }
 
 const testAccounts: TestAccount[] = [
@@ -44,7 +44,7 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/admin/dashboard",
     description: "Full system access - manage all aspects of the catering business",
-    created: false
+    departments: ["admin"]
   },
   {
     role: "driver",
@@ -56,7 +56,7 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/driver/dashboard",
     description: "Delivery operations - view routes, deliveries, and update status",
-    created: false
+    departments: ["driver"]
   },
   {
     role: "shopping",
@@ -68,7 +68,7 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/shopping/dashboard",
     description: "Procurement - manage orders, suppliers, and inventory",
-    created: false
+    departments: ["shopping"]
   },
   {
     role: "kitchen",
@@ -80,7 +80,7 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/kitchen/dashboard",
     description: "Kitchen operations - manage menu, stock, and prep lists",
-    created: false
+    departments: ["kitchen"]
   },
   {
     role: "cleaning",
@@ -92,7 +92,7 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/cleaning/dashboard",
     description: "Equipment cleaning - manage tasks, schedules, and supplies",
-    created: false
+    departments: ["cleaning"]
   },
   {
     role: "client",
@@ -104,12 +104,120 @@ const testAccounts: TestAccount[] = [
     loginUrl: "https://cateringms.com/spit-braai-delivery/auth/login",
     portalUrl: "https://cateringms.com/spit-braai-delivery/admin/dashboard",
     description: "Has access to ALL portals - perfect for testing role switching",
-    created: false
+    departments: ["admin", "driver", "shopping", "kitchen", "cleaning"]
   }
 ];
 
+const sqlScript = `-- ROLE ASSIGNMENT SQL SCRIPT
+-- Run this script AFTER registering the test users
+-- This will assign the correct roles/departments to each test user
+
+-- 1. Admin User (admin@test.cateringms.com)
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'admin', true
+FROM profiles
+WHERE email = 'admin@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'admin', active_role = 'admin'
+WHERE email = 'admin@test.cateringms.com';
+
+-- 2. Driver User (driver@test.cateringms.com)
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'driver', true
+FROM profiles
+WHERE email = 'driver@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'driver', active_role = 'driver'
+WHERE email = 'driver@test.cateringms.com';
+
+-- 3. Shopping Manager (shopping@test.cateringms.com)
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'shopping', true
+FROM profiles
+WHERE email = 'shopping@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'shopping', active_role = 'shopping'
+WHERE email = 'shopping@test.cateringms.com';
+
+-- 4. Kitchen Staff (kitchen@test.cateringms.com)
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'kitchen', true
+FROM profiles
+WHERE email = 'kitchen@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'kitchen', active_role = 'kitchen'
+WHERE email = 'kitchen@test.cateringms.com';
+
+-- 5. Cleaning Staff (cleaning@test.cateringms.com)
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'cleaning', true
+FROM profiles
+WHERE email = 'cleaning@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'cleaning', active_role = 'cleaning'
+WHERE email = 'cleaning@test.cateringms.com';
+
+-- 6. Multi-Role User (multirole@test.cateringms.com)
+-- Add all departments for multi-role testing
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'admin', true
+FROM profiles
+WHERE email = 'multirole@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'driver', false
+FROM profiles
+WHERE email = 'multirole@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'shopping', false
+FROM profiles
+WHERE email = 'multirole@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'kitchen', false
+FROM profiles
+WHERE email = 'multirole@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+INSERT INTO user_departments (user_id, department, is_primary)
+SELECT id, 'cleaning', false
+FROM profiles
+WHERE email = 'multirole@test.cateringms.com'
+ON CONFLICT (user_id, department) DO NOTHING;
+
+UPDATE profiles
+SET role = 'admin', active_role = 'admin'
+WHERE email = 'multirole@test.cateringms.com';
+
+-- Verify the setup
+SELECT 
+  p.email,
+  p.role,
+  p.active_role,
+  array_agg(ud.department) as departments
+FROM profiles p
+LEFT JOIN user_departments ud ON p.id = ud.user_id
+WHERE p.email LIKE '%@test.cateringms.com'
+GROUP BY p.id, p.email, p.role, p.active_role
+ORDER BY p.email;`;
+
 export default function RoleTestingPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   const copyCredentials = (account: TestAccount, index: number) => {
     const text = `Email: ${account.email}\nPassword: ${account.password}\nLogin URL: ${account.loginUrl}`;
@@ -126,6 +234,12 @@ export default function RoleTestingPage() {
     alert("All credentials copied to clipboard!");
   };
 
+  const copySqlScript = () => {
+    navigator.clipboard.writeText(sqlScript);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 2000);
+  };
+
   return (
     <>
       <NoIndexMeta />
@@ -137,61 +251,99 @@ export default function RoleTestingPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 lg:ml-64 xl:ml-72">
         <div className="max-w-7xl mx-auto space-y-6">
           <div>
-            <h1 className="text-4xl font-bold mb-2">🧪 Role Testing Credentials</h1>
+            <h1 className="text-4xl font-bold mb-2">🧪 Role Testing Setup</h1>
             <p className="text-muted-foreground">
-              Test user accounts for all portal roles - use these to verify each portal's functionality
+              Complete guide to creating and testing all portal roles
             </p>
           </div>
 
-          <Alert>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                All test accounts are ready to use! Simply copy the credentials and login.
-              </span>
-              <Button variant="outline" size="sm" onClick={copyAllCredentials}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy All
-              </Button>
-            </AlertDescription>
-          </Alert>
-
-          {/* Quick Start Guide */}
-          <Card className="border-2 border-blue-200 bg-blue-50/50">
+          {/* Setup Instructions */}
+          <Card className="border-2 border-orange-200 bg-orange-50/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                🚀 Quick Start Guide
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+                ⚠️ Setup Required
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-3 text-sm">
-                <div className="flex gap-3">
-                  <Badge variant="outline" className="shrink-0">1</Badge>
+            <CardContent className="space-y-4">
+              <p className="text-sm">
+                Before you can test the portals, you need to create the test users and assign their roles. Follow these steps:
+              </p>
+              <div className="grid gap-4 text-sm">
+                <div className="flex gap-3 p-3 bg-white rounded-lg border">
+                  <Badge variant="outline" className="shrink-0 h-6">Step 1</Badge>
                   <div>
-                    <strong>Choose a role to test</strong> from the cards below
+                    <strong className="block mb-1">Register Each Test User</strong>
+                    <p className="text-muted-foreground">
+                      Go to the registration page and create accounts for each test user using the emails and passwords shown below.
+                      Register URL: <code className="px-1 py-0.5 bg-slate-100 rounded">https://cateringms.com/spit-braai-delivery/auth/register</code>
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Badge variant="outline" className="shrink-0">2</Badge>
+                <div className="flex gap-3 p-3 bg-white rounded-lg border">
+                  <Badge variant="outline" className="shrink-0 h-6">Step 2</Badge>
                   <div>
-                    <strong>Copy the credentials</strong> or click the login URL
+                    <strong className="block mb-1">Run the SQL Script</strong>
+                    <p className="text-muted-foreground mb-2">
+                      After registering all users, copy and run the SQL script below to assign the correct roles and departments.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={copySqlScript}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      {sqlCopied ? "SQL Copied!" : "Copy SQL Script"}
+                    </Button>
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <Badge variant="outline" className="shrink-0">3</Badge>
+                <div className="flex gap-3 p-3 bg-white rounded-lg border">
+                  <Badge variant="outline" className="shrink-0 h-6">Step 3</Badge>
                   <div>
-                    <strong>Login with the provided email and password</strong>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Badge variant="outline" className="shrink-0">4</Badge>
-                  <div>
-                    <strong>Verify the portal loads correctly</strong> and role-specific features appear
+                    <strong className="block mb-1">Start Testing!</strong>
+                    <p className="text-muted-foreground">
+                      Login with each test account and verify that the correct portal appears with appropriate permissions.
+                    </p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* SQL Script Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle>SQL Role Assignment Script</CardTitle>
+              <CardDescription>
+                Run this in your Supabase SQL Editor after registering all test users
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <pre className="bg-slate-900 text-slate-50 p-4 rounded-lg overflow-x-auto text-xs max-h-96 overflow-y-auto">
+                  <code>{sqlScript}</code>
+                </pre>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={copySqlScript}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  {sqlCopied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Alert>
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                Ready to test? Use the credentials below to login to each portal
+              </span>
+              <Button variant="outline" size="sm" onClick={copyAllCredentials}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy All Credentials
+              </Button>
+            </AlertDescription>
+          </Alert>
 
           {/* Test Account Cards */}
           <div className="grid gap-6 md:grid-cols-2">
@@ -213,13 +365,22 @@ export default function RoleTestingPage() {
                           </Badge>
                         </div>
                       </div>
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
                     </div>
                   </CardHeader>
                   <CardContent className="pl-6 space-y-4">
                     <p className="text-sm text-muted-foreground">
                       {account.description}
                     </p>
+
+                    {account.departments && account.departments.length > 1 && (
+                      <div className="flex flex-wrap gap-1">
+                        {account.departments.map((dept) => (
+                          <Badge key={dept} variant="outline" className="text-xs">
+                            {dept}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <div className="p-3 bg-slate-100 rounded-lg space-y-2 font-mono text-sm">
@@ -334,6 +495,12 @@ export default function RoleTestingPage() {
                   <div className="w-5 h-5 border-2 border-slate-300 rounded mt-0.5"></div>
                   <div>
                     <strong>Permissions</strong> - Only authorized actions are available
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-5 h-5 border-2 border-slate-300 rounded mt-0.5"></div>
+                  <div>
+                    <strong>Department Access</strong> - Multi-role user can see RoleSwitcher and toggle between portals
                   </div>
                 </div>
               </div>
