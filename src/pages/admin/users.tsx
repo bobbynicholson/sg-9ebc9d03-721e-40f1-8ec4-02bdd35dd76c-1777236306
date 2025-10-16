@@ -30,6 +30,7 @@ import { userManagementService, UserWithDepartments, DepartmentAssignment } from
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole as DepartmentType } from "@/types";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
@@ -272,15 +273,21 @@ function AdminUsersPage() {
                 </div>
               </div>
               
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadUsers}
-                disabled={loading}
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                <InfoTooltip 
+                  content="Refresh the user list to see the latest changes and department assignments."
+                  side="left"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadUsers}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -386,24 +393,36 @@ function AdminUsersPage() {
                         </div>
 
                         {editingUser !== targetUser.id && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditUser(targetUser.id)}
-                            className="w-full sm:w-auto text-sm"
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Departments
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <InfoTooltip 
+                              content="Click to assign or modify departments for this user. You can assign multiple departments and set one as primary."
+                              side="left"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUser(targetUser.id)}
+                              className="w-full sm:w-auto text-sm"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Departments
+                            </Button>
+                          </div>
                         )}
                       </div>
 
                       {editingUser === targetUser.id && (
                         <div className="space-y-4 p-3 md:p-4 bg-slate-50 rounded-lg border-2 border-purple-200">
                           <div>
-                            <Label className="font-semibold text-slate-700 text-sm md:text-base mb-3 block">
-                              Assign Departments:
-                            </Label>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Label className="font-semibold text-slate-700 text-sm md:text-base">
+                                Assign Departments:
+                              </Label>
+                              <InfoTooltip 
+                                content="Select all departments this user should have access to. The primary department determines their default portal view when they log in."
+                                side="right"
+                              />
+                            </div>
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {roleConfig.map((role) => {
@@ -427,15 +446,22 @@ function AdminUsersPage() {
                                       <span className="truncate">{role.label}</span>
                                     </Label>
                                     {isSelected && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-6 px-2 text-xs"
-                                        onClick={() => handleSetPrimary(role.value)}
-                                        disabled={isPrimary}
-                                      >
-                                        {isPrimary ? "Primary" : "Set Primary"}
-                                      </Button>
+                                      <div className="flex items-center gap-1">
+                                        <InfoTooltip 
+                                          content="The primary department is where the user will land when they first log in. They can switch between all assigned departments."
+                                          side="top"
+                                          className="mr-1"
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-2 text-xs"
+                                          onClick={() => handleSetPrimary(role.value)}
+                                          disabled={isPrimary}
+                                        >
+                                          {isPrimary ? "Primary" : "Set Primary"}
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
                                 );
@@ -448,24 +474,30 @@ function AdminUsersPage() {
                           </div>
                           
                           <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                            <Button 
-                              onClick={() => handleSaveRoles(targetUser.id)}
-                              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 w-full sm:w-auto text-sm"
-                              disabled={selectedDepartments.length === 0 || saving}
-                              size="sm"
-                            >
-                              {saving ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Saving...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Save Departments
-                                </>
-                              )}
-                            </Button>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <InfoTooltip 
+                                content="Save the department assignments. The user will be able to access all selected department portals."
+                                side="top"
+                              />
+                              <Button 
+                                onClick={() => handleSaveRoles(targetUser.id)}
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 flex-1 sm:flex-initial text-sm"
+                                disabled={selectedDepartments.length === 0 || saving}
+                                size="sm"
+                              >
+                                {saving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Save Departments
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                             <Button 
                               variant="outline"
                               onClick={() => {
