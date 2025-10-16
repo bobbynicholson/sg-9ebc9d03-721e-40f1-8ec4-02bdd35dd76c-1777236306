@@ -45,7 +45,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppOrder };
+import { AppOrder } from "@/types"; // Bug fix 1: Correcting the invalid import statement
 
 interface ClientPortalPageProps {
   companySlug?: string;

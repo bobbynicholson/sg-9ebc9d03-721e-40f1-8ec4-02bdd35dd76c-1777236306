@@ -19,6 +19,8 @@ import ClientPortalPage from "@/pages/client-portal";
 import DriversPage from "@/pages/drivers";
 import OrdersPage from "@/pages/orders";
 import InventoryPage from "@/pages/inventory";
+import ShoppingPage from "@/pages/shopping";
+import JobProgressOverviewPage from "@/pages/portal/admin/job-progress-overview";
 
 // Portal Components
 import AdminDashboard from "@/components/portals/admin/Dashboard";
@@ -68,7 +70,8 @@ const PORTAL_ROUTES = {
       drivers: DriversPage,
       orders: OrdersPage,
       inventory: InventoryPage,
-      shopping: ShoppingDashboard,
+      shopping: ShoppingPage,
+      "job-progress-overview": JobProgressOverviewPage,
     },
     defaultRoute: "dashboard",
   },
@@ -89,6 +92,7 @@ const PORTAL_ROUTES = {
       orders: ShoppingOrders,
       suppliers: ShoppingSuppliers,
       inventory: ShoppingInventory,
+      shopping: ShoppingPage,
     },
     defaultRoute: "dashboard",
   },
