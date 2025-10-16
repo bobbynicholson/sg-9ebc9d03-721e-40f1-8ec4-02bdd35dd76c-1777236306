@@ -24,7 +24,9 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  BookOpen
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -207,6 +209,58 @@ export default function CateringMSDashboard() {
             changeType="positive"
           />
         </div>
+
+        {/* CMS Management Quick Access */}
+        <Card className="mb-8 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              CateringMS Website Content Management
+            </CardTitle>
+            <CardDescription>
+              Manage blog posts and static pages for the CateringMS marketing website
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Button
+                variant="outline"
+                className="h-auto p-4 justify-start hover:bg-white hover:border-purple-300"
+                onClick={() => router.push("/admin/cms-blog")}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold text-slate-900 mb-1">Blog Management</p>
+                    <p className="text-sm text-slate-600">
+                      Create and edit blog posts for cateringms.com
+                    </p>
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto p-4 justify-start hover:bg-white hover:border-purple-300"
+                onClick={() => router.push("/admin/cms-pages")}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <div className="h-10 w-10 rounded-lg bg-pink-100 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-5 w-5 text-pink-600" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold text-slate-900 mb-1">Page Management</p>
+                    <p className="text-sm text-slate-600">
+                      Create and edit static pages for cateringms.com
+                    </p>
+                  </div>
+                </div>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 md:grid-cols-3 mb-8">
           <StatCard
