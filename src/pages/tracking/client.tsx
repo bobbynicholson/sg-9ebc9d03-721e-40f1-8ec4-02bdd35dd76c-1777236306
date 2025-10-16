@@ -28,6 +28,9 @@ import {
   AlertCircle,
   Loader2,
   List,
+  Bell,
+  MessageSquare,
+  Star,
 } from "lucide-react";
 import { AppOrder, orderService } from "@/services/orderService";
 import { Header } from "@/components/Header";
@@ -39,6 +42,7 @@ import { ClientNav } from "@/components/client/ClientNav";
 import { Notification } from "@/types/tracking";
 import { mockOrders, mockDeliveries } from "@/lib/mockData";
 import { format } from "date-fns";
+import Link from "next/link";
 
 function ClientTrackingPage() {
   const router = useRouter();

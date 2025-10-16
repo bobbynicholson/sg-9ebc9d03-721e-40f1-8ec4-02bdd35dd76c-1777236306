@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Card,
@@ -12,6 +13,8 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FileText,
   CreditCard,
@@ -23,11 +26,19 @@ import {
   ExternalLink,
   ChevronRight,
   Package,
+  User,
+  Gamepad2,
+  Calendar,
+  MapPin,
+  DollarSign,
 } from "lucide-react";
 import Link from "next/link";
 import { orderService, AppOrder } from "@/services/orderService";
+import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { complaintService } from "@/services/complaintService";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
+import { JobProgressTracker } from "@/components/JobProgressTracker";
+import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
@@ -175,9 +186,9 @@ function ClientPortalPage() {
     setPaymentError(null);
 
     try {
-      const result = await PaymentService.initiatePayment({
+      const result = await paymentProcessingService.initiatePayment({
         orderId: order.id,
-        amount: order.totalAmount,
+        amount: order.totalAmount || 0,
         currency: "ZAR",
         customerEmail: "client@example.com",
         customerName: order.clientName,

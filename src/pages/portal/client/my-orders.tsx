@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppOrder, orderService } from "@/services/orderService";
 import {
@@ -18,10 +19,12 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Calendar, Package, Clock } from "lucide-react";
+import { JobProgressTracker } from "@/components/JobProgressTracker";
 
 function MyOrdersPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem("admin_orders");
