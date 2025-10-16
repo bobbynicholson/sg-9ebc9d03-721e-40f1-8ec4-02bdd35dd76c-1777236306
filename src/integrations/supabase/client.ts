@@ -17,97 +17,140 @@ try {
   throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
 }
 
-// Aggressive cleanup of ALL Supabase-related storage to prevent URL parsing errors
+// Nuclear option: Clear ALL localStorage on client side to ensure clean state
 if (typeof window !== 'undefined') {
   try {
-    // Extract project ref from URL
-    const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0];
+    // Extract project ref safely
+    let projectRef = 'ypwxsmytkvaefmmlkspf';
+    try {
+      const urlParts = SUPABASE_URL.split('//');
+      if (urlParts[1]) {
+        const hostParts = urlParts[1].split('.');
+        if (hostParts[0]) {
+          projectRef = hostParts[0];
+        }
+      }
+    } catch (e) {
+      console.warn('Could not parse project ref from URL, using default');
+    }
     
-    // Clear all possible Supabase storage keys
-    const keysToCheck = [
+    // Clear ALL possible Supabase keys without exception
+    const allPossibleKeys = [
       `sb-${projectRef}-auth-token`,
-      `supabase.auth.token`,
-      `supabase-auth-token`,
-      `sb-auth-token`,
-      // Check for any keys starting with sb-
+      'supabase.auth.token',
+      'supabase-auth-token',
+      'sb-auth-token',
     ];
     
-    // Remove all matching keys
-    keysToCheck.forEach(key => {
+    allPossibleKeys.forEach(key => {
       try {
         localStorage.removeItem(key);
       } catch (e) {
-        // Silently fail
+        // Ignore errors
       }
     });
     
-    // Also scan for any keys containing 'supabase' or 'sb-' and remove if corrupted
+    // Scan and remove ALL keys containing supabase/sb- regardless of validity
     try {
+      const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('sb-'))) {
-          try {
-            const value = localStorage.getItem(key);
-            if (value) {
-              JSON.parse(value); // Test if it's valid JSON
-            }
-          } catch (e) {
-            // If parsing fails, remove the corrupted data
-            console.warn(`Removing corrupted storage key: ${key}`);
-            localStorage.removeItem(key);
-          }
+        if (key && (key.toLowerCase().includes('supabase') || key.toLowerCase().includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          // Ignore
+        }
+      });
+    } catch (error) {
+      // Ignore errors
+    }
+    
+    // Clean URL completely of any auth-related parameters
+    try {
+      if (window.location.hash || window.location.search) {
+        const currentPath = window.location.pathname;
+        // Only clean if we're not on a callback URL that legitimately needs these params
+        if (!currentPath.includes('/auth/callback')) {
+          window.history.replaceState({}, document.title, currentPath);
         }
       }
     } catch (error) {
-      console.error('Error scanning localStorage:', error);
-    }
-    
-    // Clean up URL parameters that might cause issues
-    if (window.location.hash || window.location.search) {
-      const url = new URL(window.location.href);
-      const hasAuthParams = url.searchParams.has('access_token') || 
-                           url.searchParams.has('refresh_token') ||
-                           url.hash.includes('access_token') ||
-                           url.hash.includes('refresh_token');
-      
-      // If we have auth params but they might be malformed, clean the URL
-      if (hasAuthParams) {
-        try {
-          // Try to parse the params - if this fails, we need to clean the URL
-          const hashParams = new URLSearchParams(url.hash.substring(1));
-          const searchParams = url.searchParams;
-          
-          // Check if tokens exist and are valid strings
-          const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
-          
-          if ((accessToken && typeof accessToken !== 'string') || 
-              (refreshToken && typeof refreshToken !== 'string')) {
-            // Malformed tokens - clean the URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-          }
-        } catch (error) {
-          // If parsing fails, clean the URL completely
-          console.warn('Cleaning malformed URL parameters');
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
+      // Ignore URL cleaning errors
     }
   } catch (error) {
-    console.error('Error during Supabase cleanup:', error);
+    console.error('Error during localStorage cleanup:', error);
   }
 }
+
+// Create a safe storage implementation that never throws
+const createSafeStorage = () => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  return {
+    getItem: (key: string) => {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn('Storage getItem error:', e);
+        return null;
+      }
+    },
+    setItem: (key: string, value: string) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn('Storage setItem error:', e);
+      }
+    },
+    removeItem: (key: string) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('Storage removeItem error:', e);
+      }
+    },
+  };
+};
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false, // Disable URL detection to prevent parsing errors
-    flowType: 'pkce',
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: `sb-${SUPABASE_URL.split('//')[1]?.split('.')[0]}-auth-token`,
-  }
-});
+let supabaseClient: ReturnType<typeof createClient<Database>>;
+
+try {
+  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false, // Critical: Disable URL parsing to prevent formatUrl errors
+      flowType: 'pkce',
+      storage: createSafeStorage(),
+      storageKey: `sb-ypwxsmytkvaefmmlkspf-auth-token`,
+      debug: false, // Disable debug to prevent log spam
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'cateringms-web',
+      },
+    },
+  });
+} catch (error) {
+  console.error('Fatal error creating Supabase client:', error);
+  // Create a minimal fallback client
+  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+export const supabase = supabaseClient;
