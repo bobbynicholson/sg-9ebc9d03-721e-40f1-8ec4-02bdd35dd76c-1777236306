@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { UserRole } from "@/types";
@@ -16,6 +15,29 @@ export interface DepartmentAssignment {
 }
 
 export const userManagementService = {
+  /**
+   * Check if a user profile exists
+   */
+  async userExists(userId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error("Error checking if user exists:", error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error("Error in userExists:", error);
+      return false;
+    }
+  },
+
   /**
    * Get all users with their assigned departments
    */
@@ -64,7 +86,14 @@ export const userManagementService = {
         .eq("id", userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        if (profileError.code === "PGRST116") {
+          // No rows returned
+          return null;
+        }
+        throw profileError;
+      }
+      
       if (!profile) return null;
 
       const { data: departments, error: deptError } = await supabase
@@ -97,7 +126,20 @@ export const userManagementService = {
     assignedBy: string
   ): Promise<void> {
     try {
-      // First, delete all existing departments for the user
+      // CRITICAL: Verify the user exists before attempting to assign departments
+      const exists = await this.userExists(userId);
+      if (!exists) {
+        throw new Error(`User with ID ${userId} does not exist in the profiles table. Cannot assign departments.`);
+      }
+
+      // Verify the assignedBy user also exists
+      const assignerExists = await this.userExists(assignedBy);
+      if (!assignerExists) {
+        console.warn(`Assigner user ${assignedBy} does not exist, but proceeding with assignment`);
+        // Don't throw here, just log - the assignment might still be valid
+      }
+
+      // Delete existing departments for the user
       const { error: deleteError } = await supabase
         .from("user_departments")
         .delete()
@@ -105,10 +147,10 @@ export const userManagementService = {
 
       if (deleteError) {
         console.error("Error deleting existing departments:", deleteError);
-        throw deleteError;
+        throw new Error(`Failed to remove existing department assignments: ${deleteError.message}`);
       }
       
-      // Then, insert the new department assignments
+      // Insert new department assignments
       if (departments.length > 0) {
         const newDepartmentsData = departments.map(dept => ({
           user_id: userId,
@@ -123,7 +165,15 @@ export const userManagementService = {
 
         if (insertError) {
           console.error("Error inserting new departments:", insertError);
-          throw insertError;
+          
+          // Provide more specific error messages
+          if (insertError.code === "23503") {
+            throw new Error("Foreign key constraint violation: User profile does not exist");
+          } else if (insertError.code === "23505") {
+            throw new Error("Duplicate department assignment detected");
+          }
+          
+          throw new Error(`Failed to assign departments: ${insertError.message}`);
         }
       }
 
@@ -187,6 +237,12 @@ export const userManagementService = {
    */
   async updateUserStatus(userId: string, isActive: boolean): Promise<void> {
     try {
+      // Verify user exists first
+      const exists = await this.userExists(userId);
+      if (!exists) {
+        throw new Error(`User with ID ${userId} does not exist`);
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({ is_active: isActive })
