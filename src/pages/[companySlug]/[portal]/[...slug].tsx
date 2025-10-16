@@ -1,3 +1,4 @@
+
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +13,7 @@ import AdminDashboard from "@/components/portals/admin/Dashboard";
 import AdminUsers from "@/components/portals/admin/Users";
 import AdminReports from "@/components/portals/admin/Reports";
 import AdminSettings from "@/components/portals/admin/Settings";
+import AdminOnboarding from "@/components/portals/admin/Onboarding";
 
 import DriverDashboard from "@/components/portals/driver/Dashboard";
 import DriverRoutes from "@/components/portals/driver/Routes";
@@ -33,7 +35,6 @@ import KitchenMenu from "@/components/portals/kitchen/Menu";
 import KitchenStock from "@/components/portals/kitchen/Stock";
 import KitchenPrepList from "@/components/portals/kitchen/PrepList";
 
-// Portal route configuration - maps portal names to allowed roles and routes
 const PORTAL_ROUTES = {
   admin: {
     allowedRoles: ["admin", "owner", "super_admin"],
@@ -42,6 +43,7 @@ const PORTAL_ROUTES = {
       users: AdminUsers,
       reports: AdminReports,
       settings: AdminSettings,
+      onboarding: AdminOnboarding,
     },
     defaultRoute: "dashboard",
   },
@@ -95,33 +97,28 @@ export default function PortalPage() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get the current route from slug array or default to dashboard
   const currentRoute = Array.isArray(slug) ? slug[0] : (slug || "dashboard");
   
   useEffect(() => {
     if (authLoading) return;
 
-    // Check if user is authenticated
     if (!user) {
       router.push(`/${companySlug}/auth/login?redirect=${router.asPath}`);
       return;
     }
 
-    // Verify company slug matches user's company
     if (user.company_slug && user.company_slug !== companySlug) {
       console.warn("Company slug mismatch - redirecting to user's company");
       router.push(`/${user.company_slug}/${portal}/${currentRoute}`);
       return;
     }
 
-    // Check if portal exists in configuration
     const portalConfig = PORTAL_ROUTES[portal as string];
     if (!portalConfig) {
       setIsLoading(false);
       return;
     }
 
-    // Check if user has ANY role that grants access to this portal
     const userRolesList = userRoles.map(r => r.department);
     const hasAccess = portalConfig.allowedRoles.some(role => 
       userRolesList.includes(role as any)
@@ -130,13 +127,11 @@ export default function PortalPage() {
     setIsAuthorized(hasAccess);
     setIsLoading(false);
 
-    // If user has access but current route doesn't exist, redirect to default
     if (hasAccess && !portalConfig.routes[currentRoute]) {
       router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
     }
   }, [user, userRoles, authLoading, companySlug, portal, currentRoute, router]);
 
-  // Loading state
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -150,7 +145,6 @@ export default function PortalPage() {
     );
   }
 
-  // Portal doesn't exist
   const portalConfig = PORTAL_ROUTES[portal as string];
   if (!portalConfig) {
     return (
@@ -171,7 +165,6 @@ export default function PortalPage() {
     );
   }
 
-  // User not authorized for this portal
   if (!isAuthorized) {
     const userRolesList = userRoles.map(r => roleService.getRoleDisplayName(r.department)).join(", ");
     
@@ -210,7 +203,6 @@ export default function PortalPage() {
     );
   }
 
-  // Get the component for current route
   const RouteComponent = portalConfig.routes[currentRoute];
   
   if (!RouteComponent) {
@@ -232,7 +224,6 @@ export default function PortalPage() {
     );
   }
 
-  // Render the portal page with the component
   return (
     <RouteComponent 
       companySlug={companySlug as string}
