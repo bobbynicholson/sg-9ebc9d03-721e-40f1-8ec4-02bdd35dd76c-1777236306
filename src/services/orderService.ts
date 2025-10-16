@@ -1,17 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-
-// Note: Many of these types are also in /types/index.ts and could be consolidated
-// For now, we will export AppOrder to fix the immediate issue.
-export type AppOrder = Database["public"]["Tables"]["orders"]["Row"] & {
-  // Add any additional frontend-specific fields here
-  clientName?: string;
-  driverName?: string;
-  totalAmount?: number;
-  eventLocation?: string;
-  menuItems?: any[];
-  equipmentItems?: any[];
-};
+import type { Order, AppOrder, ConvertQuoteToOrderParams, OrderStatusUpdate } from "@/types/index";
 
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];

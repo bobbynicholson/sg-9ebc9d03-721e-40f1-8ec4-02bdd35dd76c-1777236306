@@ -33,7 +33,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
-import { orderService, AppOrder } from "@/services/orderService";
+import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { complaintService } from "@/services/complaintService";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
@@ -45,6 +45,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppOrder } from "@/types";
 
 function ClientPortalPage() {
   const { user, profile } = useAuth();
@@ -65,19 +66,15 @@ function ClientPortalPage() {
   }, [router.query]);
 
   useEffect(() => {
-    const mockOrders: AppOrder[] = [
+    const mockOrdersData: AppOrder[] = [
       {
         id: "ORD-001",
-        quoteId: "Q-001",
-        client: "Sarah Johnson",
-        clientName: "Sarah Johnson",
-        eventDate: new Date().toISOString().split("T")[0],
-        date: new Date().toISOString().split("T")[0],
-        venue: "Grand Palace Hotel",
-        location: "123 Main St, Cape Town",
-        eventLocation: "123 Main St, Cape Town",
-        guestCount: 150,
-        menuItems: [
+        quote_id: "Q-001",
+        client_name: "Sarah Johnson",
+        event_date: new Date().toISOString().split("T")[0],
+        venue_address: "Grand Palace Hotel",
+        guest_count: 150,
+        menu_items: [
           {
             id: "m1",
             name: "Braai Platter",
@@ -87,7 +84,7 @@ function ClientPortalPage() {
             ingredients: [],
           },
         ],
-        equipmentItems: [
+        equipment_items: [
           {
             id: "eq1",
             name: "Dinner Plates",
@@ -110,23 +107,18 @@ function ClientPortalPage() {
           },
         ],
         status: "confirmed",
-        kitchenInstructions: "",
+        internal_notes: "",
         total: 38700,
-        totalAmount: 38700,
-        createdAt: new Date().toISOString(),
-      },
+        created_at: new Date().toISOString(),
+      } as AppOrder,
       {
         id: "ORD-002",
-        quoteId: "Q-002",
-        client: "Sarah Johnson",
-        clientName: "Sarah Johnson",
-        eventDate: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-        date: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-        venue: "Beach Club Venue",
-        location: "45 Beach Road, Cape Town",
-        eventLocation: "45 Beach Road, Cape Town",
-        guestCount: 80,
-        menuItems: [
+        quote_id: "Q-002",
+        client_name: "Sarah Johnson",
+        event_date: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
+        venue_address: "Beach Club Venue",
+        guest_count: 80,
+        menu_items: [
           {
             id: "m2",
             name: "Seafood Buffet",
@@ -136,17 +128,16 @@ function ClientPortalPage() {
             ingredients: [],
           },
         ],
-        equipmentItems: [],
-        kitchenInstructions: "",
+        equipment_items: [],
+        internal_notes: "",
         status: "preparing",
         total: 28000,
-        totalAmount: 28000,
-        createdAt: new Date().toISOString(),
-      },
+        created_at: new Date().toISOString(),
+      } as AppOrder,
     ];
 
     const stored = localStorage.getItem("client_orders");
-    setOrders(stored ? JSON.parse(stored) : mockOrders);
+    setOrders(stored ? JSON.parse(stored) : mockOrdersData);
   }, []);
 
   const getStatusColor = (status: AppOrder["status"]) => {
@@ -186,24 +177,15 @@ function ClientPortalPage() {
     setPaymentError(null);
 
     try {
-      const result = await paymentProcessingService.initiatePayment({
-        orderId: order.id,
-        amount: order.totalAmount || 0,
-        currency: "ZAR",
-        customerEmail: "client@example.com",
-        customerName: order.clientName,
-        description: `Payment for ${order.venue} event`,
-        metadata: {
-          quoteId: order.quoteId,
-          eventDate: order.eventDate,
-          venue: order.venue
-        }
-      });
+      const result = await paymentProcessingService.generatePaymentLink(
+        order.id,
+        order.deposit_paid ? "balance" : "deposit"
+      );
 
-      if (result.success && result.paymentUrl) {
-        window.location.href = result.paymentUrl;
+      if (result) {
+        window.location.href = result;
       } else {
-        setPaymentError(result.errorMessage || "Payment processing failed");
+        setPaymentError("Payment processing failed");
       }
     } catch (error) {
       setPaymentError("Unable to process payment. Please try again.");
@@ -282,7 +264,7 @@ function ClientPortalPage() {
                     <div>
                       <p className="text-sm text-slate-600">Upcoming Events</p>
                       <p className="text-2xl font-bold text-purple-600">
-                        {orders.filter((o) => new Date(o.eventDate) > new Date()).length}
+                        {orders.filter((o) => new Date(o.event_date) > new Date()).length}
                       </p>
                     </div>
                     <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -329,17 +311,17 @@ function ClientPortalPage() {
                       <JobProgressTracker
                         currentStatus={order.status}
                         orderData={{
-                          quote_sent: order.createdAt,
-                          quote_accepted: order.status !== "pending" ? order.createdAt : undefined,
-                          payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                          kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                          driver_assigned: ["ready", "delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                          in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                          delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
-                          equipment_returned: order.status === "completed" ? order.createdAt : undefined,
+                          quote_sent: order.created_at,
+                          quote_accepted: order.status !== "pending" ? order.created_at : undefined,
+                          payment_confirmed: ["confirmed", "preparing", "ready", "delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                          kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                          driver_assigned: ["ready", "delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                          in_transit: ["delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                          delivered: order.status === "delivered" || order.status === "completed" ? order.created_at : undefined,
+                          equipment_returned: order.status === "completed" ? order.created_at : undefined,
                         }}
-                        clientName={order.clientName}
-                        eventDate={order.eventDate}
+                        clientName={order.client_name || ""}
+                        eventDate={order.event_date}
                         orderNumber={order.id}
                       />
 
@@ -350,7 +332,7 @@ function ClientPortalPage() {
                             <div className="flex items-center gap-3">
                               {getStatusIcon(order.status)}
                               <div>
-                                <CardTitle className="text-xl">{order.venue}</CardTitle>
+                                <CardTitle className="text-xl">{order.venue_address}</CardTitle>
                                 <p className="text-sm text-slate-600 mt-1">Order #{order.id}</p>
                               </div>
                             </div>
@@ -364,7 +346,7 @@ function ClientPortalPage() {
                               <div>
                                 <p className="text-xs text-slate-500">Event Date</p>
                                 <p className="text-sm font-medium">
-                                  {new Date(order.eventDate).toLocaleDateString()}
+                                  {new Date(order.event_date).toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
@@ -372,7 +354,7 @@ function ClientPortalPage() {
                               <User className="w-4 h-4 text-slate-500" />
                               <div>
                                 <p className="text-xs text-slate-500">Guests</p>
-                                <p className="text-sm font-medium">{order.guestCount}</p>
+                                <p className="text-sm font-medium">{order.guest_count}</p>
                               </div>
                             </div>
                           </div>
@@ -381,7 +363,7 @@ function ClientPortalPage() {
                             <MapPin className="w-4 h-4 text-slate-500 mt-1" />
                             <div>
                               <p className="text-xs text-slate-500">Location</p>
-                              <p className="text-sm font-medium">{order.eventLocation}</p>
+                              <p className="text-sm font-medium">{order.venue_address}</p>
                             </div>
                           </div>
 
@@ -389,7 +371,7 @@ function ClientPortalPage() {
                             <div className="flex items-center justify-between">
                               <span className="text-sm text-slate-600">Total Amount</span>
                               <span className="text-lg font-bold text-slate-900">
-                                R{order.totalAmount?.toLocaleString()}
+                                R{order.total?.toLocaleString()}
                               </span>
                             </div>
                           </div>
@@ -413,7 +395,7 @@ function ClientPortalPage() {
                                 ) : (
                                   <>
                                     <CreditCard className="w-4 h-4 mr-2" />
-                                    Pay R{order.totalAmount?.toLocaleString()}
+                                    Pay R{order.total?.toLocaleString()}
                                   </>
                                 )}
                               </Button>
@@ -437,22 +419,22 @@ function ClientPortalPage() {
 
               <TabsContent value="upcoming" className="space-y-4">
                 {orders
-                  .filter((o) => new Date(o.eventDate) > new Date())
+                  .filter((o) => new Date(o.event_date) > new Date())
                   .map((order) => (
                     <Card key={order.id} className="border-0 shadow-lg">
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-xl">{order.venue}</CardTitle>
+                          <CardTitle className="text-xl">{order.venue_address}</CardTitle>
                           <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-600">
-                            {new Date(order.eventDate).toLocaleDateString()} • {order.guestCount} guests
+                            {new Date(order.event_date).toLocaleDateString()} • {order.guest_count} guests
                           </span>
                           <span className="font-semibold text-slate-900">
-                            R{order.totalAmount?.toLocaleString()}
+                            R{order.total?.toLocaleString()}
                           </span>
                         </div>
                       </CardContent>
@@ -472,14 +454,14 @@ function ClientPortalPage() {
                     <Card key={order.id} className="border-0 shadow-lg">
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-xl">{order.venue}</CardTitle>
+                          <CardTitle className="text-xl">{order.venue_address}</CardTitle>
                           <Badge className="bg-green-100 text-green-800">Completed</Badge>
                         </div>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-slate-600">
-                            {new Date(order.eventDate).toLocaleDateString()}
+                            {new Date(order.event_date).toLocaleDateString()}
                           </span>
                           <Button variant="outline" size="sm">
                             Leave Review

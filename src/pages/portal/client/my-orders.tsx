@@ -34,8 +34,8 @@ function MyOrdersPage() {
     }
   }, []);
 
-  const upcomingOrders = orders.filter((o) => new Date(o.eventDate) >= new Date());
-  const pastOrders = orders.filter((o) => new Date(o.eventDate) < new Date());
+  const upcomingOrders = orders.filter((o) => new Date(o.event_date) >= new Date());
+  const pastOrders = orders.filter((o) => new Date(o.event_date) < new Date());
 
   return (
     <>
@@ -101,18 +101,18 @@ function MyOrdersPage() {
                     key={order.id}
                     currentStatus={order.status}
                     orderData={{
-                      payment_confirmed: order.createdAt,
+                      payment_confirmed: order.created_at,
                       kitchen_assigned: ["preparing", "ready", "delivered", "completed"].includes(order.status)
-                        ? order.createdAt
+                        ? order.created_at
                         : undefined,
                       driver_assigned: ["ready", "delivered", "completed"].includes(order.status)
-                        ? order.createdAt
+                        ? order.created_at
                         : undefined,
-                      in_transit: ["delivered", "completed"].includes(order.status) ? order.createdAt : undefined,
-                      delivered: order.status === "delivered" || order.status === "completed" ? order.createdAt : undefined,
+                      in_transit: ["delivered", "completed"].includes(order.status) ? order.created_at : undefined,
+                      delivered: order.status === "delivered" || order.status === "completed" ? order.created_at : undefined,
                     }}
                     clientName="Your Order"
-                    eventDate={order.eventDate}
+                    eventDate={order.event_date}
                     orderNumber={order.id}
                     userRole="client"
                   />
@@ -138,10 +138,10 @@ function MyOrdersPage() {
                             <Badge className="bg-gray-600 text-white">Completed</Badge>
                           </div>
                           <p className="text-sm text-gray-600">
-                            {order.venue} • {new Date(order.eventDate).toLocaleDateString()}
+                            {order.venue_address} • {new Date(order.event_date).toLocaleDateString()}
                           </p>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/tracking/client?order=${order.id}`)}>
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/tracking/client?orderId=${order.id}`)}>
                           View Details
                         </Button>
                       </div>

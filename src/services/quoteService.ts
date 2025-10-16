@@ -1,9 +1,9 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
-import { type Order } from "@/services/orderService";
+import type { Database } from "@/integrations/supabase/types";
+import { Quote, AppOrder as Order } from "@/types";
+import { regionService } from "./regionService";
 
-export type Quote = Tables<"quotes">;
+type QuoteItem = Database["public"]["Tables"]["quote_items"]["Row"];
 
 export const quoteService = {
   async getQuotes(userId: string): Promise<Quote[]> {

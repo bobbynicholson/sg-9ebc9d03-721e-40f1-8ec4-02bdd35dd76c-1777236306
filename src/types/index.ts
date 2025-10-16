@@ -1,9 +1,23 @@
+
 import { Tables } from "@/integrations/supabase/types";
 
 export type Profile = Tables<"profiles"> & { currency?: string };
 export type Lead = Tables<"leads">;
 export type Quote = Tables<"quotes">;
+
 export type Order = Tables<"orders">;
+export type OrderStatusUpdate = {
+  orderId: string;
+  newStatus: Order["status"];
+  notes?: string;
+};
+export type ConvertQuoteToOrderParams = {
+  quoteId: string;
+  depositPercentage: number;
+  balanceDueDaysBeforeEvent: number;
+  lastChangeDaysBeforeEvent: number;
+};
+
 
 export interface DisplayLead {
   id: string;
@@ -118,53 +132,14 @@ export interface EquipmentItem {
   nextAvailableAt?: string;
 }
 
-export interface AppOrder {
-  id: string;
-  quoteId: string;
-  client: string;
-  clientName: string;
-  eventDate: string;
-  eventTime?: string;
-  date: string;
-  venue: string;
-  location: string;
-  eventLocation: string;
-  guestCount: number;
-  originalGuestCount?: number;
-  menuItems: MenuItem[];
-  equipmentItems: EquipmentItem[];
-  kitchenInstructions: string;
-  status: "pending" | "confirmed" | "in_preparation" | "preparing" | "ready" | "in_progress" | "delivered" | "completed";
-  total: number;
+export type AppOrder = Order & {
+  clientName?: string;
+  driverName?: string;
   totalAmount?: number;
-  depositAmount?: number;
-  depositPaid?: boolean;
-  depositPaidAt?: string;
-  balanceAmount?: number;
-  balanceDueDate?: string;
-  balancePaid?: boolean;
-  balancePaidAt?: string;
-  finalOrderChangeDate?: string;
-  orderModifications?: OrderModification[];
-  assignedDriver?: string | null;
-  driverName?: string | null;
-  driverPhone?: string | null;
-  deliveryTime?: string;
-  createdAt: string;
-  requiresWaiter?: boolean;
-  waiterDurationHours?: 1 | 2 | 3;
-  waiterHourlyRate?: number;
-  waiterTotalFee?: number;
-  equipmentReturnMethod?: "waiter_return" | "later_collection";
-  delivery_rate_per_km?: number;
-  waiter_service_required?: boolean;
-  needsWaiter?: boolean;
-  waiterDuration?: number;
-  waiterRate?: number;
-  deliveryDistance?: number;
-  deliveryRate?: number;
-  region_id?: string;
-}
+  eventLocation?: string;
+  menuItems?: any[];
+  equipmentItems?: any[];
+};
 
 export interface OrderModification {
   id: string;

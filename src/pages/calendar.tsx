@@ -19,7 +19,7 @@ import {
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { orderService, Order as SupabaseOrder } from "@/services/orderService";
+import { orderService } from "@/services/orderService";
 import { AppOrder } from "@/types";
 import { format } from "date-fns";
 import {
@@ -45,11 +45,10 @@ interface CalendarEvent {
 export default function CalendarPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [events, setEvents] = useState<AppOrder[]>([]);
+  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [selectedEvent, setSelectedEvent] = useState<AppOrder | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
-  );
   const [calendarKey, setCalendarKey] = useState(0); // Add state for re-rendering
 
   useEffect(() => {
