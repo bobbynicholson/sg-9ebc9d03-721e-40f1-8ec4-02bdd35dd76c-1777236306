@@ -48,7 +48,7 @@ export default function CalendarPage() {
   const loadEvents = async () => {
     if (!user?.id) return;
     setLoading(true);
-    const orders: AppOrder[] = await orderService.getOrders(user.id);
+    const orders: AppOrder[] = await orderService.getOrders({ userId: user.id });
     setEvents(orders);
     setLoading(false);
     setCalendarKey(prev => prev + 1); 

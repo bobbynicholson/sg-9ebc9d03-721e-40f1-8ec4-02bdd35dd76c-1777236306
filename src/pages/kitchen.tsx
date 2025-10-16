@@ -95,7 +95,7 @@ export default function KitchenPage() {
   }, [user]);
 
   const loadKitchenData = async (userId: string) => {
-    const orders = await orderService.getOrders(userId);
+    const orders = await orderService.getOrders({ userId });
     const filteredOrders = orders.filter(o => ['preparing', 'confirmed'].includes(o.status));
     const sortedOrders = filteredOrders.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
     setOrders(sortedOrders);

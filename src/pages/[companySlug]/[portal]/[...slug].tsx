@@ -55,7 +55,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   shopping: {
-    allowedRoles: ["shopping_staff", "admin"],
+    allowedRoles: ["shopping", "shopping_staff", "admin"],
     routes: {
       dashboard: ShoppingDashboard,
       orders: ShoppingOrders,
@@ -65,7 +65,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   cleaning: {
-    allowedRoles: ["cleaning_staff", "admin"],
+    allowedRoles: ["cleaning", "cleaning_staff", "admin"],
     routes: {
       dashboard: CleaningDashboard,
       tasks: CleaningTasks,
@@ -75,7 +75,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   kitchen: {
-    allowedRoles: ["kitchen_staff", "admin"],
+    allowedRoles: ["kitchen", "kitchen_staff", "admin"],
     routes: {
       dashboard: KitchenDashboard,
       menu: KitchenMenu,
