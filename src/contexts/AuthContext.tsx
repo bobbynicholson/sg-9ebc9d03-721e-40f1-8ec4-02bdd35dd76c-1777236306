@@ -217,20 +217,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     };
   }, [isDemoMode, getDemoUser, router]);
 
-  const handleInvalidSession = async () => {
-    console.log("Handling invalid session - clearing and redirecting to login");
-    
-    setUser(null);
-    setProfile(null);
-    setLoading(false);
-    
-    await supabase.auth.signOut();
-    
-    if (!router.pathname.includes("/auth/")) {
-      router.push("/auth/login?message=session_expired");
-    }
-  };
-  
   const switchRole = async (newRole: string) => {
     if (isDemoMode || !user) return;
 

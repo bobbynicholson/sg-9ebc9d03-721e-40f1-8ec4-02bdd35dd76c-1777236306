@@ -21,6 +21,7 @@ import {
   ChefHat,
   Crown,
   Shield,
+  Loader2,
 } from "lucide-react";
 
 // Role icons mapping
@@ -95,8 +96,17 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
             className="gap-2"
             disabled={switching}
           >
-            {currentRoleIcon}
-            <ChevronDown className="h-3 w-3 opacity-50" />
+            {switching ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-xs">Switching...</span>
+              </>
+            ) : (
+              <>
+                {currentRoleIcon}
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
@@ -138,13 +148,22 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           className="gap-2 min-w-[180px] justify-between"
           disabled={switching}
         >
-          <div className="flex items-center gap-2">
-            {currentRoleIcon}
-            {showLabel && (
-              <span className="font-medium">{currentRoleName}</span>
-            )}
-          </div>
-          <ChevronDown className="h-4 w-4 opacity-50" />
+          {switching ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="font-medium">Switching...</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                {currentRoleIcon}
+                {showLabel && (
+                  <span className="font-medium">{currentRoleName}</span>
+                )}
+              </div>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
