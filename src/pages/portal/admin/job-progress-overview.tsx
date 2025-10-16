@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { calculateUrgencyScore, getUrgencyColorClasses, getUrgencyEmoji, sortByU
 import { orderService } from "@/services/orderService";
 import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
+import { GetServerSideProps } from 'next';
 
 interface PriorityTask {
   orderId: string;
@@ -57,30 +58,7 @@ export default function JobProgressOverviewPage() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  useEffect(() => {
-    // Set a timeout for loading state
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-        setError("Loading timed out. Please refresh the page or check your connection.");
-      }
-    }, 10000); // 10 second timeout
-
-    if (user) {
-      loadRegions();
-      loadOrders();
-    } else if (user === null) {
-      // User is explicitly null (not authenticated)
-      setLoading(false);
-      setError("Please log in to view job progress.");
-    }
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [user]);
-
-  const loadRegions = async () => {
+  const loadRegions = useCallback(async () => {
     try {
       if (!user?.id) return;
       
@@ -100,9 +78,9 @@ export default function JobProgressOverviewPage() {
         variant: "destructive",
       });
     }
-  };
+  }, []);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       if (!user?.id) {
         setLoading(false);
@@ -124,7 +102,15 @@ export default function JobProgressOverviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user) {
+      setLoading(true);
+      loadRegions();
+      loadOrders();
+    }
+  }, [user, loadRegions, loadOrders]);
 
   const handleOverrideComplete = async (orderId: string) => {
     try {
@@ -215,7 +201,9 @@ export default function JobProgressOverviewPage() {
     return priorityTasks.some((task) => task.orderId === orderId);
   };
 
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = useMemo(() => {
+    let result = orders;
+
     const matchesSearch =
       order.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -227,7 +215,7 @@ export default function JobProgressOverviewPage() {
       order.region_id === selectedRegion;
 
     return matchesSearch && matchesFilter && matchesRegion;
-  }).slice(0, itemsPerPage);
+  }, [orders, searchTerm, selectedRegion, statusFilter, dateRange]);
 
   const calculateOrderUrgency = (order: AppOrder): UrgencyScore => {
     const eventDate = new Date(order.eventDate);
@@ -779,7 +767,7 @@ export default function JobProgressOverviewPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps = async () => {
   return {
     props: {},
   };
