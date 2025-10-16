@@ -1,0 +1,346 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type Company = Database["public"]["Tables"]["companies"]["Row"];
+type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
+type CompanyUpdate = Database["public"]["Tables"]["companies"]["Update"];
+
+export interface CompanyWithOwner extends Company {
+  owner_email?: string;
+  owner_name?: string;
+}
+
+export const companyService = {
+  /**
+   * Create a new company (used during admin signup)
+   */
+  async createCompany(data: {
+    name: string;
+    slug: string;
+    owner_id: string;
+    email?: string;
+    phone?: string;
+    currency?: string;
+    timezone?: string;
+  }): Promise<Company> {
+    try {
+      const companyData: CompanyInsert = {
+        name: data.name,
+        slug: data.slug,
+        owner_id: data.owner_id,
+        email: data.email,
+        phone: data.phone,
+        currency: data.currency || "ZAR",
+        timezone: data.timezone || "Africa/Johannesburg",
+        subscription_status: "trial",
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        is_active: true,
+        onboarding_completed: false,
+      };
+
+      const { data: company, error } = await supabase
+        .from("companies")
+        .insert(companyData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!company) throw new Error("Failed to create company");
+
+      return company;
+    } catch (error) {
+      console.error("Error creating company:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get company by slug
+   */
+  async getCompanyBySlug(slug: string): Promise<Company | null> {
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("slug", slug)
+        .eq("is_active", true)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") return null; // Not found
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching company by slug:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get company by ID
+   */
+  async getCompanyById(id: string): Promise<Company | null> {
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") return null;
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching company by ID:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user's company
+   */
+  async getUserCompany(userId: string): Promise<Company | null> {
+    try {
+      // First check if user owns a company
+      const { data: ownedCompany, error: ownerError } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("owner_id", userId)
+        .single();
+
+      if (!ownerError && ownedCompany) {
+        return ownedCompany;
+      }
+
+      // Otherwise check if user is part of a company via profile
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", userId)
+        .single();
+
+      if (profileError || !profile?.company_id) {
+        return null;
+      }
+
+      return this.getCompanyById(profile.company_id);
+    } catch (error) {
+      console.error("Error fetching user company:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Check if slug is available
+   */
+  async isSlugAvailable(slug: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return !data; // Available if no data found
+    } catch (error) {
+      console.error("Error checking slug availability:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Update company
+   */
+  async updateCompany(
+    companyId: string,
+    updates: CompanyUpdate
+  ): Promise<Company> {
+    try {
+      const { data, error } = await supabase
+        .from("companies")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", companyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Failed to update company");
+
+      return data;
+    } catch (error) {
+      console.error("Error updating company:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all companies (for CateringMS admin portal)
+   */
+  async getAllCompanies(): Promise<CompanyWithOwner[]> {
+    try {
+      const { data: companies, error: companiesError } = await supabase
+        .from("companies")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (companiesError) throw companiesError;
+
+      // Get owner profiles for each company
+      const ownerIds = companies
+        .map((c) => c.owner_id)
+        .filter((id): id is string => id !== null);
+
+      if (ownerIds.length === 0) return companies;
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", ownerIds);
+
+      if (profilesError) throw profilesError;
+
+      // Merge owner data with companies
+      const companiesWithOwners: CompanyWithOwner[] = companies.map((company) => {
+        const owner = profiles?.find((p) => p.id === company.owner_id);
+        return {
+          ...company,
+          owner_email: owner?.email || undefined,
+          owner_name: owner?.full_name || undefined,
+        };
+      });
+
+      return companiesWithOwners;
+    } catch (error) {
+      console.error("Error fetching all companies:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get company staff members
+   */
+  async getCompanyStaff(companyId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching company staff:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update company subscription status
+   */
+  async updateSubscriptionStatus(
+    companyId: string,
+    status: "trial" | "active" | "past_due" | "cancelled",
+    plan?: string
+  ): Promise<void> {
+    try {
+      const updates: CompanyUpdate = {
+        subscription_status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (plan) {
+        updates.subscription_plan = plan;
+      }
+
+      const { error } = await supabase
+        .from("companies")
+        .update(updates)
+        .eq("id", companyId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating subscription status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Complete company onboarding
+   */
+  async completeOnboarding(companyId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", companyId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deactivate company
+   */
+  async deactivateCompany(companyId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", companyId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error deactivating company:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Generate a unique slug from company name
+   */
+  generateSlug(companyName: string): string {
+    return companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/-+/g, "-") // Replace multiple hyphens with single
+      .replace(/^-|-$/g, "") // Remove leading/trailing hyphens
+      .trim();
+  },
+
+  /**
+   * Generate a unique slug (checks availability)
+   */
+  async generateUniqueSlug(companyName: string): Promise<string> {
+    let slug = this.generateSlug(companyName);
+    let counter = 1;
+
+    while (!(await this.isSlugAvailable(slug))) {
+      slug = `${this.generateSlug(companyName)}-${counter}`;
+      counter++;
+    }
+
+    return slug;
+  },
+};
