@@ -10,8 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Subscription } from "@/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import Head from "next/head";
+import { ClientNav } from "@/components/client/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-export default function SubscriptionInvoicesPage() {
+function SubscriptionInvoicesPage() {
   const { user } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,11 +107,16 @@ export default function SubscriptionInvoicesPage() {
 
   return (
     <>
+      <Head>
+        <title>My Subscriptions & Invoices</title>
+      </Head>
       <NoIndexMeta />
-      <div className="min-h-screen flex flex-col bg-slate-50">
-        <Header />
-        
-        <main className="flex-grow container mx-auto px-4 py-8">
+      <ClientNav />
+      <div className="min-h-screen bg-gray-50 lg:pl-64 xl:pl-72">
+        <main className="container mx-auto p-4 md:p-8">
+          <h1 className="text-3xl font-bold mb-6 text-gray-800">
+            Subscriptions & Invoices
+          </h1>
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -186,9 +194,15 @@ export default function SubscriptionInvoicesPage() {
             )}
           </div>
         </main>
-
-        <Footer />
       </div>
     </>
   );
+}
+
+export default function ProtectedSubscriptionInvoicesPage() {
+    return (
+        <ProtectedRoute allowedRoles={["client"]}>
+            <SubscriptionInvoicesPage />
+        </ProtectedRoute>
+    );
 }

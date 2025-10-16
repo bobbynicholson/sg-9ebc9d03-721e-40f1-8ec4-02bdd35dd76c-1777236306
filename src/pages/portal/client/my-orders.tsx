@@ -1,18 +1,26 @@
 import { useState, useEffect } from "react";
-import Head from "next/head";
-import { useRouter } from "next/router";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { AppOrder, orderService } from "@/services/orderService";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { JobProgressTracker } from "@/components/JobProgressTracker";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { AppOrder } from "@/types";
-import { Calendar, Package, Clock } from "lucide-react";
+import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { ClientNav } from "@/components/client/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { Calendar, Package, Clock } from "lucide-react";
 
-export default function ClientMyOrdersPage() {
-  const router = useRouter();
+function MyOrdersPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
 
   useEffect(() => {
@@ -29,15 +37,13 @@ export default function ClientMyOrdersPage() {
   return (
     <>
       <Head>
-        <title>My Orders | Client Portal</title>
-        <meta name="robots" content="noindex, nofollow" />
+        <title>My Orders - Client Portal</title>
       </Head>
       <NoIndexMeta />
-
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <Header />
-
-        <main className="container mx-auto px-4 py-8">
+      <ClientNav />
+      <div className="min-h-screen bg-gray-50 lg:pl-64 xl:pl-72">
+        <main className="container mx-auto p-4 md:p-8">
+          <h1 className="text-3xl font-bold mb-6 text-gray-800">My Orders</h1>
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
@@ -156,9 +162,15 @@ export default function ClientMyOrdersPage() {
             </Card>
           )}
         </main>
-
-        <Footer />
       </div>
     </>
   );
+}
+
+export default function ProtectedMyOrdersPage() {
+    return (
+        <ProtectedRoute allowedRoles={["client"]}>
+            <MyOrdersPage />
+        </ProtectedRoute>
+    );
 }

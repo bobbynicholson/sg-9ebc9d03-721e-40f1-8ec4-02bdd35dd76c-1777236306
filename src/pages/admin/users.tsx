@@ -29,7 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments, DepartmentAssignment } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DepartmentType } from "@/types";
+import { UserRole as DepartmentType } from "@/types";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
@@ -40,7 +40,7 @@ function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<Record<DepartmentType, number> | null>(null);
+  const [stats, setStats] = useState<Partial<Record<DepartmentType, number>> | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 

@@ -1,18 +1,17 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { UserRole } from "@/types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type UserDepartment = Database["public"]["Tables"]["user_departments"]["Row"];
-type DepartmentType = "admin" | "kitchen" | "driver" | "cleaning" | "buyer" | "client";
 
 export interface UserWithDepartments extends Profile {
-  departments: DepartmentType[];
-  primary_department?: DepartmentType;
+  departments: UserRole[];
+  primary_department?: UserRole;
 }
 
 export interface DepartmentAssignment {
-  department: DepartmentType;
+  department: UserRole;
   is_primary: boolean;
 }
 
@@ -37,8 +36,8 @@ export const userManagementService = {
 
       const usersWithDepts: UserWithDepartments[] = profiles.map((profile) => {
         const userDepts = departments?.filter((d) => d.user_id === profile.id) || [];
-        const deptList = userDepts.map((d) => d.department as DepartmentType);
-        const primaryDept = userDepts.find((d) => d.is_primary)?.department as DepartmentType | undefined;
+        const deptList = userDepts.map((d) => d.department as UserRole);
+        const primaryDept = userDepts.find((d) => d.is_primary)?.department as UserRole | undefined;
 
         return {
           ...profile,
@@ -75,8 +74,8 @@ export const userManagementService = {
 
       if (deptError) throw deptError;
 
-      const deptList = departments?.map((d) => d.department as DepartmentType) || [];
-      const primaryDept = departments?.find((d) => d.is_primary)?.department as DepartmentType | undefined;
+      const deptList = departments?.map((d) => d.department as UserRole) || [];
+      const primaryDept = departments?.find((d) => d.is_primary)?.department as UserRole | undefined;
 
       return {
         ...profile,
@@ -137,7 +136,7 @@ export const userManagementService = {
   /**
    * Get users by department
    */
-  async getUsersByDepartment(department: DepartmentType): Promise<UserWithDepartments[]> {
+  async getUsersByDepartment(department: UserRole): Promise<UserWithDepartments[]> {
     try {
       const { data: deptAssignments, error: deptError } = await supabase
         .from("user_departments")
@@ -166,8 +165,8 @@ export const userManagementService = {
 
       const usersWithDepts: UserWithDepartments[] = profiles.map((profile) => {
         const userDepts = allDepartments?.filter((d) => d.user_id === profile.id) || [];
-        const deptList = userDepts.map((d) => d.department as DepartmentType);
-        const primaryDept = userDepts.find((d) => d.is_primary)?.department as DepartmentType | undefined;
+        const deptList = userDepts.map((d) => d.department as UserRole);
+        const primaryDept = userDepts.find((d) => d.is_primary)?.department as UserRole | undefined;
 
         return {
           ...profile,
@@ -226,8 +225,8 @@ export const userManagementService = {
 
       const usersWithDepts: UserWithDepartments[] = profiles.map((profile) => {
         const userDepts = departments?.filter((d) => d.user_id === profile.id) || [];
-        const deptList = userDepts.map((d) => d.department as DepartmentType);
-        const primaryDept = userDepts.find((d) => d.is_primary)?.department as DepartmentType | undefined;
+        const deptList = userDepts.map((d) => d.department as UserRole);
+        const primaryDept = userDepts.find((d) => d.is_primary)?.department as UserRole | undefined;
 
         return {
           ...profile,
@@ -254,17 +253,10 @@ export const userManagementService = {
 
       if (error) throw error;
 
-      const stats: Record<DepartmentType, number> = {
-        admin: 0,
-        kitchen: 0,
-        driver: 0,
-        cleaning: 0,
-        buyer: 0,
-        client: 0,
-      };
+      const stats: Partial<Record<UserRole, number>> = {};
 
       departments?.forEach((dept) => {
-        const deptType = dept.department as DepartmentType;
+        const deptType = dept.department as UserRole;
         stats[deptType] = (stats[deptType] || 0) + 1;
       });
 

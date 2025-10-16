@@ -6,8 +6,10 @@ import { Card } from "@/components/ui/card";
 import { PaymentScheduleCard } from "@/components/orders/PaymentScheduleCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { paymentProcessingService, PaymentSchedule } from "@/services/paymentProcessingService";
+import { ClientNav } from "@/components/client/ClientNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-export default function PaymentSchedulePage() {
+function PaymentSchedulePage() {
   const router = useRouter();
   const { orderId } = router.query;
   const { user } = useAuth();
@@ -91,4 +93,12 @@ export default function PaymentSchedulePage() {
       </div>
     </div>
   );
+}
+
+export default function ProtectedPaymentSchedulePage() {
+    return (
+        <ProtectedRoute allowedRoles={["client"]}>
+            <PaymentSchedulePage />
+        </ProtectedRoute>
+    );
 }
