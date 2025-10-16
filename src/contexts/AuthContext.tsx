@@ -46,6 +46,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           company_name: "Bob's Catering",
+          company_slug: "bobs-catering",
           phone: "+27 21 555 1234",
           phone_number: "+27 21 555 1234",
           is_active: true,

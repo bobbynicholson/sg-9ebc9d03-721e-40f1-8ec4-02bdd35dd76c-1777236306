@@ -1,5 +1,5 @@
-
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, FC } from "react";
+import React from "react";
 import Link from "next/link";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
