@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -28,10 +28,11 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments, DepartmentAssignment } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-type DepartmentType = "admin" | "kitchen" | "driver" | "cleaning" | "buyer" | "client";
+type DepartmentType = "admin" | "kitchen" | "driver" | "cleaning" | "shopping" | "client";
 
-export default function UserManagementPage() {
+function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function UserManagementPage() {
   const roleConfig = [
     { value: "admin" as DepartmentType, label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700 border-purple-200" },
     { value: "kitchen" as DepartmentType, label: "Kitchen Team", icon: ChefHat, color: "bg-orange-100 text-orange-700 border-orange-200" },
-    { value: "buyer" as DepartmentType, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
+    { value: "shopping" as DepartmentType, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
     { value: "driver" as DepartmentType, label: "Driver", icon: Truck, color: "bg-blue-100 text-blue-700 border-blue-200" },
     { value: "cleaning" as DepartmentType, label: "Cleaning Team", icon: Sparkles, color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
     { value: "client" as DepartmentType, label: "Client", icon: UserCircle, color: "bg-slate-100 text-slate-700 border-slate-200" }
@@ -192,8 +193,9 @@ export default function UserManagementPage() {
           <title>User Management - CateringMS Admin</title>
         </Head>
         
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-          <Header />
+        <AdminNav />
+        
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
           <div className="container mx-auto px-4 py-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -202,7 +204,6 @@ export default function UserManagementPage() {
               </div>
             </div>
           </div>
-          <Footer />
         </div>
       </>
     );
@@ -217,8 +218,9 @@ export default function UserManagementPage() {
           <title>User Management - CateringMS Admin</title>
         </Head>
         
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-          <Header />
+        <AdminNav />
+        
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
           <div className="container mx-auto px-4 py-8">
             <Card className="border-2 border-red-200 bg-red-50">
               <CardContent className="pt-12 pb-12 text-center">
@@ -233,7 +235,6 @@ export default function UserManagementPage() {
               </CardContent>
             </Card>
           </div>
-          <Footer />
         </div>
       </>
     );
@@ -491,5 +492,13 @@ export default function UserManagementPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function ProtectedUsersPage() {
+  return (
+    <ProtectedRoute allowedRoles={["admin"]}>
+      <AdminUsersPage />
+    </ProtectedRoute>
   );
 }
