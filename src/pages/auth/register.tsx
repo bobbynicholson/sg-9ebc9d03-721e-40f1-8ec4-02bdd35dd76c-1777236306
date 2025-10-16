@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, CheckCircle, DollarSign, Mail } from "lucide-react";
+import { UserPlus, CheckCircle, DollarSign, Shield, ChefHat, ShoppingCart, Truck, Sparkles, User } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
+import { UserRole } from "@/types";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
@@ -18,6 +19,15 @@ const CURRENCIES = [
   { code: "EUR", name: "Euro", symbol: "€" },
   { code: "GBP", name: "British Pound", symbol: "£" },
   { code: "AUD", name: "Australian Dollar", symbol: "A$" }
+];
+
+const ROLES = [
+  { value: "admin", label: "Admin", icon: Shield, description: "Full system access" },
+  { value: "kitchen", label: "Kitchen Team", icon: ChefHat, description: "Kitchen operations" },
+  { value: "buyer", label: "Shopping Team", icon: ShoppingCart, description: "Purchasing & inventory" },
+  { value: "driver", label: "Driver", icon: Truck, description: "Deliveries & logistics" },
+  { value: "cleaning", label: "Cleaning Team", icon: Sparkles, description: "Equipment cleaning" },
+  { value: "client", label: "Client", icon: User, description: "Client access" }
 ];
 
 export default function RegisterPage() {
@@ -28,7 +38,8 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    currency: "ZAR"
+    currency: "ZAR",
+    role: "client" as UserRole
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,7 +51,7 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency || !formData.role) {
       setError("Please fill in all required fields");
       setLoading(false);
       return;
@@ -59,12 +70,12 @@ export default function RegisterPage() {
     }
 
     try {
-      // Step 1: Sign up the user
+      // Step 1: Sign up the user with selected role
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
-        "client",
+        formData.role,
         formData.currency,
         formData.phone
       );
@@ -90,7 +101,7 @@ export default function RegisterPage() {
           id: user.id,
           email: formData.email,
           full_name: formData.name,
-          role: "client",
+          role: formData.role,
           currency: formData.currency,
           phone_number: formData.phone,
           company_name: formData.name,
@@ -138,6 +149,9 @@ export default function RegisterPage() {
     }
   };
 
+  const selectedRole = ROLES.find(r => r.value === formData.role);
+  const RoleIcon = selectedRole?.icon || User;
+
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
@@ -148,7 +162,7 @@ export default function RegisterPage() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Account Created Successfully!</h2>
             <p className="text-slate-600 mb-4">
-              Your account has been created for <strong>{formData.email}</strong>
+              Your <strong>{selectedRole?.label}</strong> account has been created for <strong>{formData.email}</strong>
             </p>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-800">
@@ -158,7 +172,7 @@ export default function RegisterPage() {
             <p className="text-sm text-slate-500">
               Your account is set up with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency and includes a 14-day free trial.
             </p>
-            <p className="text-xs text-slate-400 mt-4">Redirecting to login in 3 seconds...</p>
+            <p className="text-xs text-slate-400 mt-4">Redirecting to login in 2 seconds...</p>
           </CardContent>
         </Card>
       </div>
@@ -222,6 +236,39 @@ export default function RegisterPage() {
                   Or sign up with email
                 </span>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role" className="text-slate-700 font-medium">
+                Account Role *
+              </Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+              >
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((role) => {
+                    const Icon = role.icon;
+                    return (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4" />
+                          <div>
+                            <div className="font-semibold">{role.label}</div>
+                            <div className="text-xs text-slate-500">{role.description}</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500 mt-1">
+                Choose the role that matches your access level
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -329,7 +376,7 @@ export default function RegisterPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Your account will be created with client access and a 14-day free trial. An admin can assign additional roles (kitchen, driver, cleaning, etc.) after registration.
+                <strong>Note:</strong> Your account will be created with <strong>{selectedRole?.label}</strong> access and a 14-day free trial. An admin can modify roles after registration if needed.
               </p>
             </div>
 
