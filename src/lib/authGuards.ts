@@ -47,7 +47,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/staff/job-progress",
     "/notifications"
   ],
-  buyer: [
+  shopping: [
     "/shopping",
     "/inventory",
     "/orders",
@@ -77,27 +77,39 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/client/payment-schedule",
     "/client/subscription-invoices",
     "/notifications"
-  ]
+  ],
+  // @ts-ignore - temp fix
+  get buyer() {
+    return this.shopping;
+  },
 };
 
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
   admin: "Administrator",
   kitchen: "Kitchen Team",
-  buyer: "Shopping Team",
+  shopping: "Shopping Team",
   driver: "Driver",
   cleaning: "Cleaning Team",
-  client: "Client"
+  client: "Client",
+  // @ts-ignore - temp fix
+  get buyer() {
+    return this.shopping;
+  },
 };
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, string> = {
   admin: "/admin/dashboard",
   kitchen: "/kitchen",
-  buyer: "/shopping",
+  shopping: "/shopping",
   driver: "/drivers",
   cleaning: "/cleaning",
-  client: "/client-portal"
+  client: "/client-portal",
+  // @ts-ignore - temp fix
+  get buyer() {
+    return this.shopping;
+  },
 };
 
 /**
