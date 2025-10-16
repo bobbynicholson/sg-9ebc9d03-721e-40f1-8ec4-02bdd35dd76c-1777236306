@@ -78,31 +78,26 @@ export const authService = {
       });
 
       if (error) {
-        // Handle email confirmation errors more gracefully
-        if (error.message.includes("Email link is invalid") || 
-            error.message.includes("confirmation") ||
-            error.message.includes("verify")) {
-          // If it's just an email confirmation issue but user was created, treat as success
-          if (data.user) {
-            const authUser = {
-              id: data.user.id,
-              email: data.user.email || "",
-              user_metadata: data.user.user_metadata,
-              created_at: data.user.created_at,
-            };
-            return { user: authUser, error: null };
-          }
-          return { 
-            user: null, 
-            error: { 
-              message: "Account created successfully! You can now sign in. (Email confirmation is disabled for testing)", 
-              code: "email_not_confirmed" 
-            } 
-          };
-        }
-        
+        // Handle specific error cases
         if (error.message.includes("User already registered")) {
           return { user: null, error: { message: "A user with this email address already exists." } };
+        }
+        
+        // If we get any email-related error but user was created, treat as success
+        if (data.user && (
+          error.message.includes("Email") || 
+          error.message.includes("confirmation") ||
+          error.message.includes("verify") ||
+          error.message.includes("link is invalid")
+        )) {
+          // User was created successfully, email confirmation is just disabled
+          const authUser = {
+            id: data.user.id,
+            email: data.user.email || "",
+            user_metadata: data.user.user_metadata,
+            created_at: data.user.created_at,
+          };
+          return { user: authUser, error: null };
         }
         
         return {
