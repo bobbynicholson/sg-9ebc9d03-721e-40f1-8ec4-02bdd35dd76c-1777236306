@@ -184,6 +184,24 @@ export const companyService = {
   },
 
   /**
+   * Update company slug (with validation)
+   */
+  async updateCompanySlug(companyId: string, newSlug: string): Promise<Company> {
+    try {
+      // Check if new slug is available
+      const available = await this.isSlugAvailable(newSlug);
+      if (!available) {
+        throw new Error("This company slug is already in use. Please choose a different name.");
+      }
+
+      return await this.updateCompany(companyId, { slug: newSlug });
+    } catch (error) {
+      console.error("Error updating company slug:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Get all companies (for CateringMS admin portal)
    */
   async getAllCompanies(): Promise<CompanyWithOwner[]> {

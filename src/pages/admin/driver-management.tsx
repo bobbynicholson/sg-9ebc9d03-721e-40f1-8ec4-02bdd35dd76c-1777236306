@@ -16,6 +16,7 @@ import { profileService } from "@/services/profileService";
 import { userManagementService } from "@/services/userManagementService";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Driver {
   id: string;
@@ -181,87 +182,93 @@ export default function DriverManagementPage() {
               <p className="text-slate-600">Manage your delivery drivers and their accounts</p>
             </div>
 
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add New Driver
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Driver</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddDriver} className="space-y-4">
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      value={newDriver.name}
-                      onChange={(e) => setNewDriver({ ...newDriver, name: e.target.value })}
-                      placeholder="John Doe"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newDriver.email}
-                      onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
-                      placeholder="john.doe@example.com"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={newDriver.phone}
-                      onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
-                      placeholder="+27 12 345 6789"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newDriver.password}
-                      onChange={(e) => setNewDriver({ ...newDriver, password: e.target.value })}
-                      placeholder="At least 6 characters"
-                      required
-                    />
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> The driver will receive their login credentials and can access the driver portal immediately.
-                    </p>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={addDriverLoading}
-                  >
-                    {addDriverLoading ? "Adding Driver..." : "Add Driver"}
+            <div className="flex items-center gap-2">
+              <InfoTooltip 
+                content="Create a new driver account with login credentials. The driver will be able to access their portal immediately."
+                side="left"
+              />
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add New Driver
                   </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Driver</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddDriver} className="space-y-4">
+                    {error && (
+                      <Alert variant="destructive">
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name *</Label>
+                      <Input
+                        id="name"
+                        value={newDriver.name}
+                        onChange={(e) => setNewDriver({ ...newDriver, name: e.target.value })}
+                        placeholder="John Doe"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newDriver.email}
+                        onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
+                        placeholder="john.doe@example.com"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={newDriver.phone}
+                        onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
+                        placeholder="+27 12 345 6789"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={newDriver.password}
+                        onChange={(e) => setNewDriver({ ...newDriver, password: e.target.value })}
+                        placeholder="At least 6 characters"
+                        required
+                      />
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> The driver will receive their login credentials and can access the driver portal immediately.
+                      </p>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={addDriverLoading}
+                    >
+                      {addDriverLoading ? "Adding Driver..." : "Add Driver"}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {/* Stats */}
@@ -388,6 +395,11 @@ export default function DriverManagementPage() {
                             {driver.is_active ? "Active" : "Inactive"}
                           </Badge>
 
+                          <InfoTooltip 
+                            content={driver.is_active ? "Deactivate this driver to prevent them from logging in and seeing jobs." : "Activate this driver to allow them to login and access jobs."}
+                            side="left"
+                          />
+                          
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
