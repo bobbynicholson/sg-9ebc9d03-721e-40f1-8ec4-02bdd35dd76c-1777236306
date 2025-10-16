@@ -56,8 +56,8 @@ export default function AuthPage() {
       if (authType === "login") {
         await signIn(email, password);
       } else if (authType === "register") {
-        // Fix: Added role and currency arguments to match function signature
-        await signUp(email, password, fullName, "admin", "ZAR", phone);
+        // Everyone registers as "client" by default - admin assigns roles later
+        await signUp(email, password, fullName, "client", "ZAR", phone);
       } else if (authType === "forgot-password") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/${companySlug}/auth/reset-password`,
@@ -164,6 +164,11 @@ export default function AuthPage() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                  <p className="text-xs text-blue-800">
+                    <strong>Note:</strong> Your account will be created as a standard user. An admin can assign you to specific departments after registration.
+                  </p>
                 </div>
               </>
             )}
