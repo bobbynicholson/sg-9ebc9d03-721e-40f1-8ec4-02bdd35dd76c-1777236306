@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { AppOrder, orderService } from "@/services/orderService";
+import { orderService } from "@/services/orderService";
+import type { AppOrder } from "@/services/orderService";
 import {
   Card,
   CardHeader,

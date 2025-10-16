@@ -7,14 +7,16 @@ import { AppOrder, Driver, GPSLocation } from "@/types";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { supabase } from "@/lib/supabase";
-import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminTrackingDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [showMap, setShowMap] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const getLatestDeliveries = useCallback(async () => {
     setLoading(true);

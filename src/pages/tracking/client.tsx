@@ -5,6 +5,8 @@ import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,8 @@ import {
   MapPin,
   Clock,
   Bell,
+  MessageSquare,
+  Star,
 } from "lucide-react";
 import { AppOrder, orderService } from "@/services/orderService";
 import { Header } from "@/components/Header";

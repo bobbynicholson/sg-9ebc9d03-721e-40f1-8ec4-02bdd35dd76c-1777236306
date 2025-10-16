@@ -27,20 +27,17 @@ export default function KitchenPage() {
   const [staffSessions, setStaffSessions] = useState<any[]>([]);
   const [period, setPeriod] = useState<"week" | "month">("week");
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const mockOrders: AppOrder[] = [
       {
         id: "ORD-001",
-        quoteId: "Q-001",
-        client: "Sarah Johnson",
-        clientName: "Sarah Johnson",
-        eventDate: new Date().toISOString().split("T")[0],
-        date: new Date().toISOString().split("T")[0],
-        venue: "Grand Palace Hotel",
-        location: "123 Main St, Cape Town",
-        eventLocation: "123 Main St, Cape Town",
-        guestCount: 150,
+        quote_id: "Q-001",
+        client_name: "Sarah Johnson",
+        event_date: new Date().toISOString().split("T")[0],
+        venue_address: "Grand Palace Hotel",
+        guest_count: 150,
         menuItems: [
           {
             id: "m1",
@@ -77,10 +74,10 @@ export default function KitchenPage() {
           },
         ],
         equipmentItems: [],
-        kitchenInstructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
+        kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
         status: "pending",
         total: 37500,
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
     ];
 
@@ -92,7 +89,7 @@ export default function KitchenPage() {
   useEffect(() => {
     if (user?.id) {
       loadKitchenData(user.id);
-      loadStaffHours(user.id);
+      loadStaffHours();
     }
   }, [user]);
 
@@ -330,9 +327,9 @@ export default function KitchenPage() {
                     <CardHeader className="pb-3 md:pb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg md:text-xl truncate">{order.clientName}</CardTitle>
+                          <CardTitle className="text-lg md:text-xl truncate">{order.client_name}</CardTitle>
                           <p className="text-xs md:text-sm text-slate-600 mt-1 truncate">
-                            {order.guestCount} guests • {order.venue}
+                            {order.guest_count} guests • {order.venue_address}
                           </p>
                         </div>
                         <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
@@ -342,7 +339,7 @@ export default function KitchenPage() {
                       {/* Menu Items */}
                       <div>
                         <h4 className="font-semibold text-sm md:text-base mb-2">Menu Items</h4>
-                        {order.menuItems.map((item) => (
+                        {order.menu_items.map((item) => (
                           <div key={item.id} className="bg-slate-50 p-3 rounded-lg mb-2">
                             <p className="font-medium text-sm md:text-base">{item.name}</p>
                             <p className="text-xs md:text-sm text-slate-600">Quantity: {item.quantity}</p>
@@ -366,10 +363,10 @@ export default function KitchenPage() {
                       </div>
 
                       {/* Kitchen Instructions */}
-                      {order.kitchenInstructions && (
+                      {order.kitchen_instructions && (
                         <div className="bg-yellow-50 p-3 rounded-lg">
                           <p className="text-xs md:text-sm font-medium text-yellow-900 mb-1">Instructions:</p>
-                          <p className="text-xs md:text-sm text-yellow-800">{order.kitchenInstructions}</p>
+                          <p className="text-xs md:text-sm text-yellow-800">{order.kitchen_instructions}</p>
                         </div>
                       )}
 
@@ -417,9 +414,9 @@ export default function KitchenPage() {
                     <CardHeader className="pb-3 md:pb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg md:text-xl truncate">{order.clientName}</CardTitle>
+                          <CardTitle className="text-lg md:text-xl truncate">{order.client_name}</CardTitle>
                           <p className="text-xs md:text-sm text-slate-600 mt-1">
-                            {new Date(order.eventDate).toLocaleDateString()} • {order.guestCount} guests
+                            {new Date(order.event_date).toLocaleDateString()} • {order.guest_count} guests
                           </p>
                         </div>
                         <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
@@ -455,9 +452,9 @@ export default function KitchenPage() {
                     <CardHeader className="pb-3 md:pb-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg md:text-xl truncate">{order.clientName}</CardTitle>
+                          <CardTitle className="text-lg md:text-xl truncate">{order.client_name}</CardTitle>
                           <p className="text-xs md:text-sm text-slate-600 mt-1">
-                            {new Date(order.eventDate).toLocaleDateString()} • {order.guestCount} guests
+                            {new Date(order.event_date).toLocaleDateString()} • {order.guest_count} guests
                           </p>
                         </div>
                         <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
