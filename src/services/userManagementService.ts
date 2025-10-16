@@ -1,9 +1,9 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { UserRole } from "@/types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-type UserDepartment = Database["public"]["Tables"]["user_departments"]["Row"];
 
 export interface UserWithDepartments extends Profile {
   departments: UserRole[];
@@ -97,72 +97,36 @@ export const userManagementService = {
     assignedBy: string
   ): Promise<void> {
     try {
-      // First, fetch existing departments to know what to delete
-      const { data: existingDepts, error: fetchError } = await supabase
+      // First, delete all existing departments for the user
+      const { error: deleteError } = await supabase
         .from("user_departments")
-        .select("id, department")
+        .delete()
         .eq("user_id", userId);
 
-      if (fetchError) {
-        console.error("Error fetching existing departments:", fetchError);
-        throw fetchError;
+      if (deleteError) {
+        console.error("Error deleting existing departments:", deleteError);
+        throw deleteError;
       }
-
-      const existingDeptTypes = existingDepts?.map(d => d.department) || [];
-      const newDeptTypes = departments.map(d => d.department);
-
-      // Delete departments that are no longer assigned
-      const deptsToDelete = existingDeptTypes.filter(dept => !newDeptTypes.includes(dept));
       
-      if (deptsToDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("user_departments")
-          .delete()
-          .eq("user_id", userId)
-          .in("department", deptsToDelete);
-
-        if (deleteError) {
-          console.error("Error deleting departments:", deleteError);
-          throw deleteError;
-        }
-      }
-
-      // Update existing or insert new departments
-      for (const dept of departments) {
-        const existingDept = existingDepts?.find(d => d.department === dept.department);
+      // Then, insert the new department assignments
+      if (departments.length > 0) {
+        const newDepartmentsData = departments.map(dept => ({
+          user_id: userId,
+          department: dept.department,
+          is_primary: dept.is_primary,
+          assigned_by: assignedBy,
+        }));
         
-        if (existingDept) {
-          // Update existing department
-          const { error: updateError } = await supabase
-            .from("user_departments")
-            .update({
-              is_primary: dept.is_primary,
-              assigned_by: assignedBy,
-              assigned_at: new Date().toISOString(),
-            })
-            .eq("id", existingDept.id);
+        const { error: insertError } = await supabase
+          .from("user_departments")
+          .insert(newDepartmentsData);
 
-          if (updateError) {
-            console.error("Error updating department:", updateError);
-            throw updateError;
-          }
-        } else {
-          // Insert new department
-          const { error: insertError } = await supabase
-            .from("user_departments")
-            .insert({
-              user_id: userId,
-              department: dept.department,
-              is_primary: dept.is_primary,
-              assigned_by: assignedBy,
-            });
-
-          if (insertError) {
-            console.error("Error inserting department:", insertError);
-            throw insertError;
-          }
+        if (insertError) {
+          console.error("Error inserting new departments:", insertError);
+          throw insertError;
         }
       }
+
     } catch (error) {
       console.error("Error assigning departments:", error);
       throw error;
