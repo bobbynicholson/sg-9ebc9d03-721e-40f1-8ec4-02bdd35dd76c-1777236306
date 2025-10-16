@@ -25,6 +25,7 @@ import {
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types";
 
 function AdminDashboardPage() {
@@ -103,7 +104,9 @@ function AdminDashboardPage() {
         <title>Analytics Dashboard | CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-7xl">
           <Link href="/">
             <Button variant="ghost" className="mb-4" size="sm">
