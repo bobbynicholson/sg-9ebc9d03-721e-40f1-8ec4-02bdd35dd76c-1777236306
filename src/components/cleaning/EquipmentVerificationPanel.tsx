@@ -12,6 +12,7 @@ import {
   Loader2,
   Search
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { useAuth } from "@/contexts/AuthContext";
 
