@@ -97,7 +97,16 @@ export default function LoginPage() {
       const { user, error: signInError } = await authService.signIn(email, password);
 
       if (signInError) {
-        setError(signInError.message);
+        // Provide more user-friendly error messages
+        if (signInError.message.includes("Invalid login credentials")) {
+          setError("The email or password you entered is incorrect. Please check your credentials and try again.");
+        } else if (signInError.message.includes("Email not confirmed")) {
+          setError("Please confirm your email address before signing in. Check your inbox for the confirmation link.");
+        } else if (signInError.message.includes("User not found")) {
+          setError("No account found with this email address. Please register first or check your email.");
+        } else {
+          setError(signInError.message);
+        }
         setLoading(false);
         return;
       }
@@ -326,6 +335,15 @@ export default function LoginPage() {
               <Link href="/auth/register" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
                 Don&apos;t have an account? Register here
               </Link>
+            </div>
+
+            <div className="text-center pt-2">
+              <p className="text-xs text-slate-500">
+                Having trouble signing in?{" "}
+                <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
+                  Contact Support
+                </Link>
+              </p>
             </div>
           </form>
         </CardContent>
