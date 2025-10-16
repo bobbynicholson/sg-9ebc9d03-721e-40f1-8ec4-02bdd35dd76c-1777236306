@@ -260,6 +260,59 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_generators: {
+        Row: {
+          auto_start_enabled: boolean | null
+          capacity_kw: number | null
+          company_id: string
+          created_at: string | null
+          fuel_type: string | null
+          id: string
+          last_service_date: string | null
+          location: string | null
+          model: string | null
+          name: string
+          next_service_date: string | null
+          status: string | null
+        }
+        Insert: {
+          auto_start_enabled?: boolean | null
+          capacity_kw?: number | null
+          company_id: string
+          created_at?: string | null
+          fuel_type?: string | null
+          id?: string
+          last_service_date?: string | null
+          location?: string | null
+          model?: string | null
+          name: string
+          next_service_date?: string | null
+          status?: string | null
+        }
+        Update: {
+          auto_start_enabled?: boolean | null
+          capacity_kw?: number | null
+          company_id?: string
+          created_at?: string | null
+          fuel_type?: string | null
+          id?: string
+          last_service_date?: string | null
+          location?: string | null
+          model?: string | null
+          name?: string
+          next_service_date?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_generators_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       batch_cooking_logs: {
         Row: {
           batch_number: string
@@ -554,6 +607,72 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cleaning_supplies: {
+        Row: {
+          auto_reorder_enabled: boolean | null
+          category: string | null
+          company_id: string
+          cost_per_unit: number | null
+          created_at: string | null
+          current_quantity: number
+          id: string
+          last_reorder_date: string | null
+          minimum_stock_level: number
+          notes: string | null
+          reorder_trigger_level: number
+          supplier_id: string | null
+          supply_name: string
+          unit: string
+        }
+        Insert: {
+          auto_reorder_enabled?: boolean | null
+          category?: string | null
+          company_id: string
+          cost_per_unit?: number | null
+          created_at?: string | null
+          current_quantity: number
+          id?: string
+          last_reorder_date?: string | null
+          minimum_stock_level: number
+          notes?: string | null
+          reorder_trigger_level: number
+          supplier_id?: string | null
+          supply_name: string
+          unit?: string
+        }
+        Update: {
+          auto_reorder_enabled?: boolean | null
+          category?: string | null
+          company_id?: string
+          cost_per_unit?: number | null
+          created_at?: string | null
+          current_quantity?: number
+          id?: string
+          last_reorder_date?: string | null
+          minimum_stock_level?: number
+          notes?: string | null
+          reorder_trigger_level?: number
+          supplier_id?: string | null
+          supply_name?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_supplies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_supplies_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -940,6 +1059,73 @@ export type Database = {
           },
         ]
       }
+      delivery_crates: {
+        Row: {
+          assigned_to_driver: string | null
+          assigned_to_event: string | null
+          barcode: string
+          capacity_liters: number | null
+          company_id: string
+          crate_type: string | null
+          created_at: string | null
+          id: string
+          last_cleaned_date: string | null
+          location: string | null
+          notes: string | null
+          status: string | null
+        }
+        Insert: {
+          assigned_to_driver?: string | null
+          assigned_to_event?: string | null
+          barcode: string
+          capacity_liters?: number | null
+          company_id: string
+          crate_type?: string | null
+          created_at?: string | null
+          id?: string
+          last_cleaned_date?: string | null
+          location?: string | null
+          notes?: string | null
+          status?: string | null
+        }
+        Update: {
+          assigned_to_driver?: string | null
+          assigned_to_event?: string | null
+          barcode?: string
+          capacity_liters?: number | null
+          company_id?: string
+          crate_type?: string | null
+          created_at?: string | null
+          id?: string
+          last_cleaned_date?: string | null
+          location?: string | null
+          notes?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_crates_assigned_to_driver_fkey"
+            columns: ["assigned_to_driver"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_crates_assigned_to_event_fkey"
+            columns: ["assigned_to_event"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_crates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_route_stops: {
         Row: {
           added_by_admin: boolean | null
@@ -1011,6 +1197,66 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dishwasher_cycles: {
+        Row: {
+          company_id: string
+          completed: boolean | null
+          created_at: string | null
+          cycle_duration_minutes: number | null
+          cycle_end_time: string | null
+          cycle_start_time: string
+          id: string
+          load_type: string | null
+          machine_name: string
+          notes: string | null
+          operator_id: string | null
+          temperature_celsius: number | null
+        }
+        Insert: {
+          company_id: string
+          completed?: boolean | null
+          created_at?: string | null
+          cycle_duration_minutes?: number | null
+          cycle_end_time?: string | null
+          cycle_start_time: string
+          id?: string
+          load_type?: string | null
+          machine_name: string
+          notes?: string | null
+          operator_id?: string | null
+          temperature_celsius?: number | null
+        }
+        Update: {
+          company_id?: string
+          completed?: boolean | null
+          created_at?: string | null
+          cycle_duration_minutes?: number | null
+          cycle_end_time?: string | null
+          cycle_start_time?: string
+          id?: string
+          load_type?: string | null
+          machine_name?: string
+          notes?: string | null
+          operator_id?: string | null
+          temperature_celsius?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dishwasher_cycles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dishwasher_cycles_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1280,6 +1526,69 @@ export type Database = {
           {
             foreignKeyName: "driver_replacement_requests_original_driver_id_fkey"
             columns: ["original_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      driver_rest_logs: {
+        Row: {
+          company_id: string
+          compliant: boolean | null
+          created_at: string | null
+          driver_id: string
+          id: string
+          notes: string | null
+          rest_breaks_taken: number | null
+          rest_duration_minutes: number | null
+          shift_date: string
+          shift_end_time: string | null
+          shift_start_time: string
+          total_driving_hours: number | null
+          violations: string | null
+        }
+        Insert: {
+          company_id: string
+          compliant?: boolean | null
+          created_at?: string | null
+          driver_id: string
+          id?: string
+          notes?: string | null
+          rest_breaks_taken?: number | null
+          rest_duration_minutes?: number | null
+          shift_date: string
+          shift_end_time?: string | null
+          shift_start_time: string
+          total_driving_hours?: number | null
+          violations?: string | null
+        }
+        Update: {
+          company_id?: string
+          compliant?: boolean | null
+          created_at?: string | null
+          driver_id?: string
+          id?: string
+          notes?: string | null
+          rest_breaks_taken?: number | null
+          rest_duration_minutes?: number | null
+          shift_date?: string
+          shift_end_time?: string | null
+          shift_start_time?: string
+          total_driving_hours?: number | null
+          violations?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_rest_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_rest_logs_driver_id_fkey"
+            columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2591,6 +2900,126 @@ export type Database = {
         }
         Relationships: []
       }
+      floor_safety_inspections: {
+        Row: {
+          area: string
+          company_id: string
+          corrective_actions: string | null
+          created_at: string | null
+          drainage_working: boolean | null
+          id: string
+          inspection_date: string
+          inspector_id: string | null
+          issues_found: string | null
+          mat_condition: string | null
+          next_inspection_date: string | null
+          photo_urls: string[] | null
+          slip_risk_level: string | null
+        }
+        Insert: {
+          area: string
+          company_id: string
+          corrective_actions?: string | null
+          created_at?: string | null
+          drainage_working?: boolean | null
+          id?: string
+          inspection_date: string
+          inspector_id?: string | null
+          issues_found?: string | null
+          mat_condition?: string | null
+          next_inspection_date?: string | null
+          photo_urls?: string[] | null
+          slip_risk_level?: string | null
+        }
+        Update: {
+          area?: string
+          company_id?: string
+          corrective_actions?: string | null
+          created_at?: string | null
+          drainage_working?: boolean | null
+          id?: string
+          inspection_date?: string
+          inspector_id?: string | null
+          issues_found?: string | null
+          mat_condition?: string | null
+          next_inspection_date?: string | null
+          photo_urls?: string[] | null
+          slip_risk_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_safety_inspections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_safety_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fuel_stockpile: {
+        Row: {
+          company_id: string
+          fuel_type: string
+          id: string
+          last_restock_date: string | null
+          location: string | null
+          minimum_stock_level: number | null
+          notes: string | null
+          quantity: number
+          supplier_id: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          fuel_type: string
+          id?: string
+          last_restock_date?: string | null
+          location?: string | null
+          minimum_stock_level?: number | null
+          notes?: string | null
+          quantity?: number
+          supplier_id?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          fuel_type?: string
+          id?: string
+          last_restock_date?: string | null
+          location?: string | null
+          minimum_stock_level?: number | null
+          notes?: string | null
+          quantity?: number
+          supplier_id?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_stockpile_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_stockpile_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gamification_achievements: {
         Row: {
           achievement_description: string | null
@@ -2670,6 +3099,59 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      glassware_catalog: {
+        Row: {
+          capacity_ml: number | null
+          company_id: string
+          created_at: string | null
+          glass_type: string
+          id: string
+          minimum_stock_level: number | null
+          notes: string | null
+          photo_url: string | null
+          quantity_available: number | null
+          quantity_owned: number | null
+          style_name: string | null
+          suitable_for: string[] | null
+        }
+        Insert: {
+          capacity_ml?: number | null
+          company_id: string
+          created_at?: string | null
+          glass_type: string
+          id?: string
+          minimum_stock_level?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          quantity_available?: number | null
+          quantity_owned?: number | null
+          style_name?: string | null
+          suitable_for?: string[] | null
+        }
+        Update: {
+          capacity_ml?: number | null
+          company_id?: string
+          created_at?: string | null
+          glass_type?: string
+          id?: string
+          minimum_stock_level?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          quantity_available?: number | null
+          quantity_owned?: number | null
+          style_name?: string | null
+          suitable_for?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glassware_catalog_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -2791,6 +3273,63 @@ export type Database = {
           },
         ]
       }
+      ice_tracking: {
+        Row: {
+          arrival_condition: string | null
+          company_id: string
+          cooler_type: string | null
+          created_at: string | null
+          departure_condition: string | null
+          event_id: string | null
+          ice_type: string | null
+          id: string
+          quantity_kg: number
+          temperature_on_arrival_celsius: number | null
+          transport_duration_minutes: number | null
+        }
+        Insert: {
+          arrival_condition?: string | null
+          company_id: string
+          cooler_type?: string | null
+          created_at?: string | null
+          departure_condition?: string | null
+          event_id?: string | null
+          ice_type?: string | null
+          id?: string
+          quantity_kg: number
+          temperature_on_arrival_celsius?: number | null
+          transport_duration_minutes?: number | null
+        }
+        Update: {
+          arrival_condition?: string | null
+          company_id?: string
+          cooler_type?: string | null
+          created_at?: string | null
+          departure_condition?: string | null
+          event_id?: string | null
+          ice_type?: string | null
+          id?: string
+          quantity_kg?: number
+          temperature_on_arrival_celsius?: number | null
+          transport_duration_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ice_tracking_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ice_tracking_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredient_substitutions: {
         Row: {
           allergen_impact: string | null
@@ -2840,6 +3379,65 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          company_id: string
+          coverage_amount: number | null
+          created_at: string | null
+          currency: string | null
+          documents_url: string | null
+          expiry_date: string
+          id: string
+          notes: string | null
+          policy_number: string
+          policy_type: string
+          premium_amount: number | null
+          premium_frequency: string | null
+          provider_name: string
+          start_date: string
+        }
+        Insert: {
+          company_id: string
+          coverage_amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          documents_url?: string | null
+          expiry_date: string
+          id?: string
+          notes?: string | null
+          policy_number: string
+          policy_type: string
+          premium_amount?: number | null
+          premium_frequency?: string | null
+          provider_name: string
+          start_date: string
+        }
+        Update: {
+          company_id?: string
+          coverage_amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          documents_url?: string | null
+          expiry_date?: string
+          id?: string
+          notes?: string | null
+          policy_number?: string
+          policy_type?: string
+          premium_amount?: number | null
+          premium_frequency?: string | null
+          provider_name?: string
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3381,6 +3979,278 @@ export type Database = {
           },
         ]
       }
+      lighting_tests: {
+        Row: {
+          action_taken: string | null
+          area_tested: string
+          company_id: string
+          compliant: boolean | null
+          created_at: string | null
+          id: string
+          lux_measurement: number
+          minimum_required_lux: number | null
+          next_test_date: string | null
+          remedial_action_required: boolean | null
+          test_date: string
+          tester_name: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          area_tested: string
+          company_id: string
+          compliant?: boolean | null
+          created_at?: string | null
+          id?: string
+          lux_measurement: number
+          minimum_required_lux?: number | null
+          next_test_date?: string | null
+          remedial_action_required?: boolean | null
+          test_date: string
+          tester_name?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          area_tested?: string
+          company_id?: string
+          compliant?: boolean | null
+          created_at?: string | null
+          id?: string
+          lux_measurement?: number
+          minimum_required_lux?: number | null
+          next_test_date?: string | null
+          remedial_action_required?: boolean | null
+          test_date?: string
+          tester_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_tests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linen_inventory: {
+        Row: {
+          color: string | null
+          company_id: string
+          created_at: string | null
+          id: string
+          item_type: string
+          last_laundry_date: string | null
+          laundry_cycle_days: number | null
+          next_laundry_date: string | null
+          notes: string | null
+          quantity_clean: number | null
+          quantity_dirty: number | null
+          quantity_in_laundry: number | null
+          quantity_total: number
+          size: string | null
+        }
+        Insert: {
+          color?: string | null
+          company_id: string
+          created_at?: string | null
+          id?: string
+          item_type: string
+          last_laundry_date?: string | null
+          laundry_cycle_days?: number | null
+          next_laundry_date?: string | null
+          notes?: string | null
+          quantity_clean?: number | null
+          quantity_dirty?: number | null
+          quantity_in_laundry?: number | null
+          quantity_total: number
+          size?: string | null
+        }
+        Update: {
+          color?: string | null
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          item_type?: string
+          last_laundry_date?: string | null
+          laundry_cycle_days?: number | null
+          next_laundry_date?: string | null
+          notes?: string | null
+          quantity_clean?: number | null
+          quantity_dirty?: number | null
+          quantity_in_laundry?: number | null
+          quantity_total?: number
+          size?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linen_inventory_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      load_plans: {
+        Row: {
+          cold_zone_items: string[] | null
+          company_id: string
+          created_at: string | null
+          created_by: string | null
+          event_id: string
+          hot_zone_items: string[] | null
+          id: string
+          loading_sequence: number[] | null
+          special_instructions: string | null
+          temperature_requirements: string | null
+          vehicle_id: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          cold_zone_items?: string[] | null
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
+          event_id: string
+          hot_zone_items?: string[] | null
+          id?: string
+          loading_sequence?: number[] | null
+          special_instructions?: string | null
+          temperature_requirements?: string | null
+          vehicle_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          cold_zone_items?: string[] | null
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          event_id?: string
+          hot_zone_items?: string[] | null
+          id?: string
+          loading_sequence?: number[] | null
+          special_instructions?: string | null
+          temperature_requirements?: string | null
+          vehicle_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "load_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_plans_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_plans_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "load_plans_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loadoff_verifications: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          driver_id: string | null
+          event_id: string
+          id: string
+          items_damaged: string[] | null
+          items_missing: string[] | null
+          manifest_verified: boolean | null
+          notes: string | null
+          signature_collected: boolean | null
+          signature_image_url: string | null
+          unloading_sequence_followed: boolean | null
+          venue_arrival_time: string
+          venue_contact_name: string | null
+          venue_contact_phone: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          driver_id?: string | null
+          event_id: string
+          id?: string
+          items_damaged?: string[] | null
+          items_missing?: string[] | null
+          manifest_verified?: boolean | null
+          notes?: string | null
+          signature_collected?: boolean | null
+          signature_image_url?: string | null
+          unloading_sequence_followed?: boolean | null
+          venue_arrival_time: string
+          venue_contact_name?: string | null
+          venue_contact_phone?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          driver_id?: string | null
+          event_id?: string
+          id?: string
+          items_damaged?: string[] | null
+          items_missing?: string[] | null
+          manifest_verified?: boolean | null
+          notes?: string | null
+          signature_collected?: boolean | null
+          signature_image_url?: string | null
+          unloading_sequence_followed?: boolean | null
+          venue_arrival_time?: string
+          venue_contact_name?: string | null
+          venue_contact_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loadoff_verifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loadoff_verifications_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loadoff_verifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           active: boolean | null
@@ -3872,6 +4742,63 @@ export type Database = {
           },
         ]
       }
+      pat_testing: {
+        Row: {
+          certificate_number: string | null
+          company_id: string
+          created_at: string | null
+          equipment_id: string | null
+          equipment_name: string
+          id: string
+          next_test_date: string
+          notes: string | null
+          test_date: string
+          test_result: string | null
+          tester_name: string | null
+        }
+        Insert: {
+          certificate_number?: string | null
+          company_id: string
+          created_at?: string | null
+          equipment_id?: string | null
+          equipment_name: string
+          id?: string
+          next_test_date: string
+          notes?: string | null
+          test_date: string
+          test_result?: string | null
+          tester_name?: string | null
+        }
+        Update: {
+          certificate_number?: string | null
+          company_id?: string
+          created_at?: string | null
+          equipment_id?: string | null
+          equipment_name?: string
+          id?: string
+          next_test_date?: string
+          notes?: string | null
+          test_date?: string
+          test_result?: string | null
+          tester_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pat_testing_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pat_testing_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_gateways: {
         Row: {
           config: Json | null
@@ -4191,6 +5118,68 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pest_control_logs: {
+        Row: {
+          activity_detected: boolean | null
+          areas_inspected: string[] | null
+          certificate_number: string | null
+          company_id: string
+          company_name: string | null
+          created_at: string | null
+          findings: string | null
+          follow_up_required: boolean | null
+          id: string
+          inspection_date: string
+          inspector_name: string | null
+          next_inspection_date: string
+          report_url: string | null
+          treatment_applied: boolean | null
+          treatment_details: string | null
+        }
+        Insert: {
+          activity_detected?: boolean | null
+          areas_inspected?: string[] | null
+          certificate_number?: string | null
+          company_id: string
+          company_name?: string | null
+          created_at?: string | null
+          findings?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          inspection_date: string
+          inspector_name?: string | null
+          next_inspection_date: string
+          report_url?: string | null
+          treatment_applied?: boolean | null
+          treatment_details?: string | null
+        }
+        Update: {
+          activity_detected?: boolean | null
+          areas_inspected?: string[] | null
+          certificate_number?: string | null
+          company_id?: string
+          company_name?: string | null
+          created_at?: string | null
+          findings?: string | null
+          follow_up_required?: boolean | null
+          id?: string
+          inspection_date?: string
+          inspector_name?: string | null
+          next_inspection_date?: string
+          report_url?: string | null
+          treatment_applied?: boolean | null
+          treatment_details?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pest_control_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -4907,6 +5896,89 @@ export type Database = {
           },
         ]
       }
+      return_load_tracking: {
+        Row: {
+          arrival_time: string | null
+          company_id: string
+          created_at: string | null
+          departure_time: string
+          driver_id: string | null
+          event_id: string
+          id: string
+          items_damaged: string[] | null
+          items_expected: string[] | null
+          items_missing: string[] | null
+          items_returned: string[] | null
+          notes: string | null
+          scan_verification_complete: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          arrival_time?: string | null
+          company_id: string
+          created_at?: string | null
+          departure_time: string
+          driver_id?: string | null
+          event_id: string
+          id?: string
+          items_damaged?: string[] | null
+          items_expected?: string[] | null
+          items_missing?: string[] | null
+          items_returned?: string[] | null
+          notes?: string | null
+          scan_verification_complete?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          arrival_time?: string | null
+          company_id?: string
+          created_at?: string | null
+          departure_time?: string
+          driver_id?: string | null
+          event_id?: string
+          id?: string
+          items_damaged?: string[] | null
+          items_expected?: string[] | null
+          items_missing?: string[] | null
+          items_returned?: string[] | null
+          notes?: string | null
+          scan_verification_complete?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "return_load_tracking_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_load_tracking_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_load_tracking_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "return_load_tracking_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       safety_checks: {
         Row: {
           actions_required: string | null
@@ -4966,6 +6038,59 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_equipment: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          equipment_type: string
+          expiry_date: string | null
+          id: string
+          installation_date: string | null
+          last_inspection_date: string | null
+          location: string
+          next_inspection_date: string
+          notes: string | null
+          serial_number: string | null
+          status: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          equipment_type: string
+          expiry_date?: string | null
+          id?: string
+          installation_date?: string | null
+          last_inspection_date?: string | null
+          location: string
+          next_inspection_date: string
+          notes?: string | null
+          serial_number?: string | null
+          status?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          equipment_type?: string
+          expiry_date?: string | null
+          id?: string
+          installation_date?: string | null
+          last_inspection_date?: string | null
+          location?: string
+          next_inspection_date?: string
+          notes?: string | null
+          serial_number?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_equipment_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -5475,6 +6600,56 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storage_racks: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          current_contents: string | null
+          id: string
+          map_position_x: number | null
+          map_position_y: number | null
+          notes: string | null
+          rack_number: string
+          shelf_count: number | null
+          temperature_controlled: boolean | null
+          zone: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          current_contents?: string | null
+          id?: string
+          map_position_x?: number | null
+          map_position_y?: number | null
+          notes?: string | null
+          rack_number: string
+          shelf_count?: number | null
+          temperature_controlled?: boolean | null
+          zone: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          current_contents?: string | null
+          id?: string
+          map_position_x?: number | null
+          map_position_y?: number | null
+          notes?: string | null
+          rack_number?: string
+          shelf_count?: number | null
+          temperature_controlled?: boolean | null
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_racks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -6229,6 +7404,76 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utensil_tracking: {
+        Row: {
+          checked_in_at: string | null
+          checked_out_at: string | null
+          checked_out_by: string | null
+          company_id: string
+          created_at: string | null
+          event_id: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          qr_code: string
+          quantity: number | null
+          status: string | null
+          utensil_type: string
+        }
+        Insert: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          checked_out_by?: string | null
+          company_id: string
+          created_at?: string | null
+          event_id?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          qr_code: string
+          quantity?: number | null
+          status?: string | null
+          utensil_type: string
+        }
+        Update: {
+          checked_in_at?: string | null
+          checked_out_at?: string | null
+          checked_out_by?: string | null
+          company_id?: string
+          created_at?: string | null
+          event_id?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          qr_code?: string
+          quantity?: number | null
+          status?: string | null
+          utensil_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utensil_tracking_checked_out_by_fkey"
+            columns: ["checked_out_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utensil_tracking_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "utensil_tracking_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
