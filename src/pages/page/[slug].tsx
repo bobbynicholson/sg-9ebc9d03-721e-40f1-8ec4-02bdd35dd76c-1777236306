@@ -135,24 +135,13 @@ export default function CMSPageView({ page }: PageProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  try {
-    const pages = await cmsService.getAllPages(true);
-    
-    const paths = pages.map((page) => ({
-      params: { slug: page.slug }
-    }));
-
-    return {
-      paths,
-      fallback: "blocking"
-    };
-  } catch (error) {
-    console.error("Error generating static paths:", error);
-    return {
-      paths: [],
-      fallback: "blocking"
-    };
-  }
+  // By returning an empty paths array and setting fallback to 'blocking',
+  // we tell Next.js to generate pages on-demand instead of at build time.
+  // This is crucial for preventing memory issues with a large number of CMS pages.
+  return {
+    paths: [],
+    fallback: "blocking"
+  };
 };
 
 export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
@@ -170,7 +159,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
       props: {
         page
       },
-      revalidate: 3600
+      revalidate: 3600 // Re-generate the page in the background every hour
     };
   } catch (error) {
     console.error("Error fetching page:", error);

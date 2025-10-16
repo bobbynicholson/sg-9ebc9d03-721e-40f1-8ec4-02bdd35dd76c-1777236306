@@ -242,12 +242,9 @@ const PostPage = ({ post, relatedPosts }: PostProps) => {
 };
 
 export const getStaticPaths: GetStaticPaths<Params> = async () => {
-  const posts = blogPosts as Post[];
-  const paths = posts.map((post) => ({
-    params: { slug: post.slug },
-  }));
-
-  return { paths, fallback: false };
+  // We'll let ISR handle generating pages on demand.
+  // This avoids building all pages at once and causing memory issues.
+  return { paths: [], fallback: 'blocking' };
 };
 
 export const getStaticProps: GetStaticProps<PostProps, Params> = async ({ params }) => {
@@ -271,6 +268,7 @@ export const getStaticProps: GetStaticProps<PostProps, Params> = async ({ params
       post,
       relatedPosts,
     },
+    revalidate: 3600, // Re-generate the page in the background every hour
   };
 };
 
