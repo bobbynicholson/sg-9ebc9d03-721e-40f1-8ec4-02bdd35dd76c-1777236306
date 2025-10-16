@@ -68,6 +68,23 @@ export const profileService = {
     return data;
   },
 
+  async getProfiles(filters: { role: string }): Promise<Profile[]> {
+    let query = supabase.from("profiles").select("*");
+
+    if (filters.role) {
+      query = query.eq("role", filters.role);
+    }
+
+    const { data, error } = await query.order("full_name");
+
+    if (error) {
+      console.error("Error fetching profiles:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
   async updateProfile(userId: string, updates: Partial<Profile>): Promise<Profile | null> {
     const { data, error } = await supabase
       .from("profiles")

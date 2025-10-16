@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,16 @@ import {
 } from "lucide-react";
 import { kitchenDutyService } from "@/services/kitchenDutyService";
 import { useAuth } from "@/contexts/AuthContext";
+import { Database } from "@/integrations/supabase/types";
+
+type TaskCompletionWithStaff = Database["public"]["Tables"]["kitchen_task_completions"]["Row"] & {
+  staff: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+    email: string | null;
+  } | null;
+};
 
 interface TaskCompletionButtonsProps {
   orderId: string;
@@ -83,7 +92,7 @@ export function TaskCompletionButtons({
     try {
       const completions = await kitchenDutyService.getOrderTaskCompletions(orderId);
       const taskStatuses = TASK_TYPES.map(taskType => {
-        const completion = completions.find(c => c.task_type === taskType.type);
+        const completion = completions.find(c => c.task_type === taskType.type) as TaskCompletionWithStaff | undefined;
         return {
           type: taskType.type,
           completed: !!completion,

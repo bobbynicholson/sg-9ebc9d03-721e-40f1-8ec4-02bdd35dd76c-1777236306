@@ -248,7 +248,7 @@ export interface Payment {
   reconciled: boolean;
 }
 
-export type UserRole = "admin" | "kitchen" | "driver" | "client" | "cleaning" | "shopping";
+export type UserRole = "admin" | "kitchen" | "driver" | "client" | "cleaning" | "shopping" | "owner" | "super_admin" | "shopping_staff" | "cleaning_staff" | "kitchen_staff";
 
 export interface User {
   id: string;

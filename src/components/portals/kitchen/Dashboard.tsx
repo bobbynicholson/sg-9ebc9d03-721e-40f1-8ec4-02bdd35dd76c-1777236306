@@ -8,18 +8,9 @@ import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButton
 import { ChefHat, Calendar, Clock, AlertCircle } from "lucide-react";
 import { orderService } from "@/services/orderService";
 import { useAuth } from "@/contexts/AuthContext";
+import { Order } from "@/types";
 
-interface Order {
-  id: string;
-  order_number: string;
-  client_name: string;
-  event_date: string;
-  event_time: string;
-  status: string;
-  guest_count: number;
-}
-
-export function Dashboard() {
+function Dashboard() {
   const { user } = useAuth();
   const [todaysOrders, setTodaysOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,10 +25,12 @@ export function Dashboard() {
     try {
       const today = new Date().toISOString().split("T")[0];
       const orders = await orderService.getOrders({
-        eventDate: today,
-        status: "confirmed",
+        filters: {
+          event_date: today,
+          status: "confirmed",
+        },
       });
-      setTodaysOrders(orders);
+      setTodaysOrders(orders as any);
     } catch (error) {
       console.error("Error loading today's orders:", error);
     } finally {
@@ -63,11 +56,11 @@ export function Dashboard() {
           </p>
         </div>
         <Badge variant="outline" className="text-lg px-4 py-2">
-          {new Date().toLocaleDateString("en-US", { 
-            weekday: "long", 
-            year: "numeric", 
-            month: "long", 
-            day: "numeric" 
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
           })}
         </Badge>
       </div>
@@ -128,7 +121,7 @@ export function Dashboard() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-3xl font-bold">
-                      {todaysOrders.reduce((sum, order) => sum + order.guest_count, 0)}
+                      {todaysOrders.reduce((sum, order) => sum + (order.guest_count || 0), 0)}
                     </p>
                   </CardContent>
                 </Card>
@@ -143,8 +136,8 @@ export function Dashboard() {
                   <TaskCompletionButtons
                     key={order.id}
                     orderId={order.id}
-                    orderNumber={order.order_number}
-                    clientName={order.client_name}
+                    orderNumber={order.order_number || ""}
+                    clientName={order.client_name || ""}
                   />
                 ))}
               </div>
@@ -191,3 +184,5 @@ export function Dashboard() {
     </div>
   );
 }
+
+export default Dashboard;
