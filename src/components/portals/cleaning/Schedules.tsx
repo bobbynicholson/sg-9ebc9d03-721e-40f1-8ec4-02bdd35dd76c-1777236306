@@ -1,0 +1,26 @@
+import React from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+
+interface PortalComponentProps {
+  companySlug: string;
+  portal: string;
+  currentRoute: string;
+}
+
+const CleaningSchedules: React.FC<PortalComponentProps> = (props) => {
+  return (
+    <div className="container mx-auto p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Cleaning Schedules</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>This is the placeholder for the Cleaning Schedules page.</p>
+          <pre className="mt-4 bg-slate-100 p-2 rounded">{JSON.stringify(props, null, 2)}</pre>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default CleaningSchedules;

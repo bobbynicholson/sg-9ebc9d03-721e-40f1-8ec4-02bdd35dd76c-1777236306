@@ -56,7 +56,8 @@ export default function AuthPage() {
       if (authType === "login") {
         await signIn(email, password);
       } else if (authType === "register") {
-        await signUp(email, password, fullName, phone);
+        // Fix: Added role and currency arguments to match function signature
+        await signUp(email, password, fullName, "admin", "ZAR", phone);
       } else if (authType === "forgot-password") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/${companySlug}/auth/reset-password`,
