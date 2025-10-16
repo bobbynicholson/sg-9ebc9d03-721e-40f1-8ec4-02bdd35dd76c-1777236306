@@ -4,7 +4,12 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Notification = Tables<"notifications">;
 
 export const notificationService = {
-  async getNotifications(userId: string, unreadOnly: boolean = false): Promise<Notification[]> {
+  // NEW: Get notifications filtered by active role
+  async getNotifications(
+    userId: string, 
+    unreadOnly: boolean = false,
+    activeRole?: string // NEW: Filter by active role
+  ): Promise<Notification[]> {
     let query = supabase
       .from("notifications")
       .select("*")
@@ -12,6 +17,11 @@ export const notificationService = {
 
     if (unreadOnly) {
       query = query.eq("is_read", false);
+    }
+
+    // NEW: Filter by role if provided
+    if (activeRole) {
+      query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false });
@@ -43,8 +53,9 @@ export const notificationService = {
     return data;
   },
 
-  async markAllAsRead(userId: string): Promise<boolean> {
-    const { error } = await supabase
+  // NEW: Mark all as read for specific role
+  async markAllAsRead(userId: string, activeRole?: string): Promise<boolean> {
+    let query = supabase
       .from("notifications")
       .update({
         is_read: true,
@@ -52,6 +63,13 @@ export const notificationService = {
       })
       .eq("recipient_id", userId)
       .eq("is_read", false);
+
+    // NEW: Filter by role if provided
+    if (activeRole) {
+      query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error("Error marking all notifications as read:", error);
@@ -61,15 +79,17 @@ export const notificationService = {
     return true;
   },
 
+  // NEW: Create notification with target role
   async createNotification(
     notification: {
       recipient_id: string;
-      user_id?: string; // sender
+      user_id?: string;
       type: string;
       title: string;
       message: string;
       link?: string;
       priority?: string;
+      target_role?: string; // NEW: Target specific role
       metadata?: Record<string, unknown>;
     }
   ): Promise<Notification | null> {
@@ -83,6 +103,7 @@ export const notificationService = {
         message: notification.message,
         link: notification.link || null,
         priority: notification.priority || "normal",
+        target_role: notification.target_role || null, // NEW
         metadata: (notification.metadata || {}) as unknown as never
       })
       .select()
@@ -96,9 +117,14 @@ export const notificationService = {
     return data;
   },
 
-  async subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
+  // NEW: Subscribe to role-filtered notifications
+  async subscribeToNotifications(
+    userId: string, 
+    callback: (notification: Notification) => void,
+    activeRole?: string // NEW: Subscribe to specific role notifications
+  ) {
     const channel = supabase
-      .channel(`notifications:${userId}`)
+      .channel(`notifications:${userId}:${activeRole || "all"}`)
       .on(
         "postgres_changes",
         {
@@ -108,7 +134,11 @@ export const notificationService = {
           filter: `recipient_id=eq.${userId}`
         },
         (payload) => {
-          callback(payload.new as Notification);
+          const notification = payload.new as Notification;
+          // Filter by role on client side as well
+          if (!activeRole || !notification.target_role || notification.target_role === activeRole) {
+            callback(notification);
+          }
         }
       )
       .subscribe();
@@ -118,12 +148,20 @@ export const notificationService = {
     };
   },
 
-  async getUnreadCount(userId: string): Promise<number> {
-    const { count, error } = await supabase
+  // NEW: Get unread count for specific role
+  async getUnreadCount(userId: string, activeRole?: string): Promise<number> {
+    let query = supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
       .eq("recipient_id", userId)
       .eq("is_read", false);
+
+    // NEW: Filter by role if provided
+    if (activeRole) {
+      query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
+    }
+
+    const { count, error } = await query;
 
     if (error) {
       console.error("Error getting unread count:", error);
