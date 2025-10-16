@@ -90,19 +90,45 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       }
 
       try {
-        const [profileData, roles, active] = await Promise.all([
-          profileService.getProfile(session.user.id),
-          roleService.getUserRoles(session.user.id),
-          roleService.getActiveRole(session.user.id),
-        ]);
+        // Load profile first - this is the most critical
+        let profileData = null;
+        try {
+          profileData = await profileService.getProfile(session.user.id);
+        } catch (profileError) {
+          console.error("Error loading profile:", profileError);
+          // Profile is critical - if it fails, we can't proceed
+          setUser(null);
+          setLoading(false);
+          return;
+        }
 
+        // Merge user with profile data
         const mergedUser = { ...session.user, ...profileData } as AuthenticatedUser;
         setUser(mergedUser);
-        setUserRoles(roles);
-        setActiveRole(active);
+
+        // Load roles - non-critical, use defaults if fails
+        let roles: RoleAssignment[] = [];
+        try {
+          roles = await roleService.getUserRoles(session.user.id);
+          setUserRoles(roles);
+        } catch (rolesError) {
+          console.error("Error loading user roles:", rolesError);
+          setUserRoles([]);
+        }
+
+        // Load active role - non-critical, use default if fails
+        let active = "client";
+        try {
+          active = await roleService.getActiveRole(session.user.id);
+          setActiveRole(active);
+        } catch (activeRoleError) {
+          console.error("Error loading active role:", activeRoleError);
+          setActiveRole("client");
+        }
 
       } catch (error) {
         console.error("Error loading user session data:", error);
+        // If something went very wrong, at least set the basic user
         setUser(session.user as AuthenticatedUser);
       } finally {
         setLoading(false);
