@@ -43,9 +43,16 @@ const statusLabels: { [key: string]: string } = {
   lost: "Lost"
 };
 
-export default function LeadsPage() {
+interface LeadsPageProps {
+  companySlug?: string;
+  portal?: string;
+  currentRoute?: string;
+}
+
+export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPageProps = {}) {
   const router = useRouter();
   const { user } = useAuth();
+  const companySlug = propCompanySlug || user?.company_slug;
   const [leads, setLeads] = useState<DisplayLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -136,7 +143,7 @@ export default function LeadsPage() {
               <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
               <p className="text-slate-600 mb-6">Please sign in to access lead management.</p>
-              <Link href="/auth/login">
+              <Link href={companySlug ? `/${companySlug}/auth/login` : "/auth/login"}>
                 <Button>Sign In</Button>
               </Link>
             </CardContent>
@@ -146,13 +153,18 @@ export default function LeadsPage() {
     );
   }
 
+  const dashboardUrl = companySlug ? `/${companySlug}/admin/dashboard` : "/";
+  const newLeadUrl = companySlug ? `/${companySlug}/admin/leads/new` : "/leads/new";
+  const newQuoteUrl = (leadId: string) => 
+    companySlug ? `/${companySlug}/admin/quotes/new?leadId=${leadId}` : `/quotes/new?leadId=${leadId}`;
+
   return (
     <>
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="mb-8">
-            <Link href="/">
+            <Link href={dashboardUrl}>
               <Button variant="ghost" className="mb-4">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
@@ -170,7 +182,7 @@ export default function LeadsPage() {
                   <p className="text-slate-600 mt-1">Track and manage all your catering inquiries</p>
                 </div>
               </div>
-              <Link href="/leads/new">
+              <Link href={newLeadUrl}>
                 <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                   <Plus className="w-5 h-5 mr-2" />
                   New Lead
@@ -241,7 +253,7 @@ export default function LeadsPage() {
                         ? "Try adjusting your search or filters" 
                         : "Get started by adding your first lead"}
                     </p>
-                    <Link href="/leads/new">
+                    <Link href={newLeadUrl}>
                       <Button>
                         <Plus className="w-4 h-4 mr-2" />
                         Add New Lead
@@ -274,7 +286,7 @@ export default function LeadsPage() {
                                 <p><strong>Budget:</strong> {lead.budget ? `R${lead.budget.toFixed(2)}` : 'N/A'}</p>
                               </div>
                               <div className="flex justify-end mt-4">
-                                <Link href={`/quotes/new?leadId=${lead.id}`} passHref>
+                                <Link href={newQuoteUrl(lead.id)} passHref>
                                   <Button size="sm">
                                     Create Quote
                                   </Button>
