@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { roleService } from "@/services/roleService";
 
-// Portal Components (to be created/imported)
+// Portal Components
 import AdminDashboard from "@/components/portals/admin/Dashboard";
 import AdminUsers from "@/components/portals/admin/Users";
 import AdminReports from "@/components/portals/admin/Reports";
@@ -32,10 +33,10 @@ import KitchenMenu from "@/components/portals/kitchen/Menu";
 import KitchenStock from "@/components/portals/kitchen/Stock";
 import KitchenPrepList from "@/components/portals/kitchen/PrepList";
 
-// Portal route configuration
+// Portal route configuration - maps portal names to allowed roles and routes
 const PORTAL_ROUTES = {
   admin: {
-    allowedRoles: ["admin", "super_admin"],
+    allowedRoles: ["admin", "owner", "super_admin"],
     routes: {
       dashboard: AdminDashboard,
       users: AdminUsers,
@@ -45,7 +46,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   driver: {
-    allowedRoles: ["driver", "admin"],
+    allowedRoles: ["driver", "admin", "owner"],
     routes: {
       dashboard: DriverDashboard,
       routes: DriverRoutes,
@@ -55,7 +56,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   shopping: {
-    allowedRoles: ["shopping", "shopping_staff", "admin"],
+    allowedRoles: ["shopping", "shopping_staff", "admin", "owner"],
     routes: {
       dashboard: ShoppingDashboard,
       orders: ShoppingOrders,
@@ -65,7 +66,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   cleaning: {
-    allowedRoles: ["cleaning", "cleaning_staff", "admin"],
+    allowedRoles: ["cleaning", "cleaning_staff", "admin", "owner"],
     routes: {
       dashboard: CleaningDashboard,
       tasks: CleaningTasks,
@@ -75,7 +76,7 @@ const PORTAL_ROUTES = {
     defaultRoute: "dashboard",
   },
   kitchen: {
-    allowedRoles: ["kitchen", "kitchen_staff", "admin"],
+    allowedRoles: ["kitchen", "kitchen_staff", "admin", "owner"],
     routes: {
       dashboard: KitchenDashboard,
       menu: KitchenMenu,
@@ -88,13 +89,13 @@ const PORTAL_ROUTES = {
 
 export default function PortalPage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, userRoles, activeRole, loading: authLoading } = useAuth();
   const { companySlug, portal, slug } = router.query;
   
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get the current route from slug array
+  // Get the current route from slug array or default to dashboard
   const currentRoute = Array.isArray(slug) ? slug[0] : (slug || "dashboard");
   
   useEffect(() => {
@@ -106,25 +107,34 @@ export default function PortalPage() {
       return;
     }
 
-    // Check if portal exists
+    // Verify company slug matches user's company
+    if (profile.company_slug && profile.company_slug !== companySlug) {
+      console.warn("Company slug mismatch - redirecting to user's company");
+      router.push(`/${profile.company_slug}/${portal}/${currentRoute}`);
+      return;
+    }
+
+    // Check if portal exists in configuration
     const portalConfig = PORTAL_ROUTES[portal as string];
     if (!portalConfig) {
       setIsLoading(false);
       return;
     }
 
-    // Check if user has permission for this portal
-    const userRole = profile.role || "client";
-    const hasAccess = portalConfig.allowedRoles.includes(userRole);
+    // Check if user has ANY role that grants access to this portal
+    const userRolesList = userRoles.map(r => r.department);
+    const hasAccess = portalConfig.allowedRoles.some(role => 
+      userRolesList.includes(role as any)
+    );
     
     setIsAuthorized(hasAccess);
     setIsLoading(false);
 
-    // Redirect to default route if current route doesn't exist
+    // If user has access but current route doesn't exist, redirect to default
     if (hasAccess && !portalConfig.routes[currentRoute]) {
       router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
     }
-  }, [user, profile, authLoading, companySlug, portal, currentRoute, router]);
+  }, [user, profile, userRoles, authLoading, companySlug, portal, currentRoute, router]);
 
   // Loading state
   if (authLoading || isLoading) {
@@ -161,8 +171,10 @@ export default function PortalPage() {
     );
   }
 
-  // User not authorized
+  // User not authorized for this portal
   if (!isAuthorized) {
+    const userRolesList = userRoles.map(r => roleService.getRoleDisplayName(r.department)).join(", ");
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
         <Card className="w-full max-w-md">
@@ -172,20 +184,24 @@ export default function PortalPage() {
             <p className="text-slate-600 mb-4">
               You don't have permission to access the {portal} portal.
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2 mb-6">
               <p className="text-sm text-slate-500">
-                Required roles: {portalConfig.allowedRoles.join(", ")}
+                <strong>Required roles:</strong> {portalConfig.allowedRoles.map(r => 
+                  roleService.getRoleDisplayName(r as any)
+                ).join(", ")}
               </p>
               <p className="text-sm text-slate-500">
-                Your role: {profile?.role || "unknown"}
+                <strong>Your roles:</strong> {userRolesList || "No roles assigned"}
               </p>
             </div>
-            <div className="mt-6 space-y-2">
+            <div className="space-y-2">
+              {userRoles.length > 0 && (
+                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, profile?.company_slug || undefined)}>
+                  <Button className="w-full">Go to Your Dashboard</Button>
+                </Link>
+              )}
               <Link href="/">
-                <Button className="w-full">Return to Home</Button>
-              </Link>
-              <Link href={`/${companySlug}/auth/login`}>
-                <Button variant="outline" className="w-full">Switch Account</Button>
+                <Button variant="outline" className="w-full">Return to Home</Button>
               </Link>
             </div>
           </CardContent>

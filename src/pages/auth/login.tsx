@@ -35,7 +35,7 @@ const roleColors = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { message } = router.query;
+  const { message, redirect } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole | "">("");
@@ -126,36 +126,50 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if user's role matches the selected role
-      if (profile.role !== role) {
-        setError(`Your account does not have ${role} access. Please select the correct role or contact your administrator.`);
-        setLoading(false);
+      // Check if redirect URL was provided
+      if (redirect && typeof redirect === "string") {
+        router.push(redirect);
         return;
       }
 
-      // Successful login - redirect based on role
-      switch (role) {
+      // Redirect based on profile's company_slug and active_role
+      const companySlug = profile.company_slug || "my-company";
+      const activeRole = profile.active_role || profile.role || "client";
+
+      // Build dashboard URL based on active role
+      let dashboardUrl = "/";
+      
+      switch (activeRole) {
         case "admin":
-          router.push("/admin/dashboard");
-          break;
-        case "kitchen":
-          router.push("/kitchen");
-          break;
-        case "shopping":
-          router.push("/shopping");
+        case "owner":
+          dashboardUrl = `/${companySlug}/admin/dashboard`;
           break;
         case "driver":
-          router.push("/drivers");
+          dashboardUrl = `/${companySlug}/driver/dashboard`;
+          break;
+        case "kitchen":
+        case "kitchen_staff":
+          dashboardUrl = `/${companySlug}/kitchen/dashboard`;
+          break;
+        case "shopping":
+        case "shopping_staff":
+          dashboardUrl = `/${companySlug}/shopping/dashboard`;
           break;
         case "cleaning":
-          router.push("/cleaning");
+        case "cleaning_staff":
+          dashboardUrl = `/${companySlug}/cleaning/dashboard`;
           break;
         case "client":
-          router.push("/client-portal");
+          dashboardUrl = "/client-portal";
+          break;
+        case "super_admin":
+          dashboardUrl = "/platform/dashboard";
           break;
         default:
-          router.push("/");
+          dashboardUrl = "/";
       }
+
+      router.push(dashboardUrl);
     } catch (err) {
       console.error("Login error:", err);
       setError("Login failed. Please try again.");
