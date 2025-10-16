@@ -17,27 +17,84 @@ try {
   throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
 }
 
-// Clean up potentially corrupted Supabase session data
+// Aggressive cleanup of ALL Supabase-related storage to prevent URL parsing errors
 if (typeof window !== 'undefined') {
   try {
-    const storageKey = `sb-${SUPABASE_URL.split('//')[1]?.split('.')[0]}-auth-token`;
-    const storedData = localStorage.getItem(storageKey);
+    // Extract project ref from URL
+    const projectRef = SUPABASE_URL.split('//')[1]?.split('.')[0];
     
-    if (storedData) {
+    // Clear all possible Supabase storage keys
+    const keysToCheck = [
+      `sb-${projectRef}-auth-token`,
+      `supabase.auth.token`,
+      `supabase-auth-token`,
+      `sb-auth-token`,
+      // Check for any keys starting with sb-
+    ];
+    
+    // Remove all matching keys
+    keysToCheck.forEach(key => {
       try {
-        const parsed = JSON.parse(storedData);
-        // If data is corrupted or missing critical fields, clear it
-        if (!parsed || typeof parsed !== 'object') {
-          console.warn('Clearing corrupted Supabase session data');
-          localStorage.removeItem(storageKey);
-        }
+        localStorage.removeItem(key);
       } catch (e) {
-        console.warn('Clearing malformed Supabase session data');
-        localStorage.removeItem(storageKey);
+        // Silently fail
+      }
+    });
+    
+    // Also scan for any keys containing 'supabase' or 'sb-' and remove if corrupted
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          try {
+            const value = localStorage.getItem(key);
+            if (value) {
+              JSON.parse(value); // Test if it's valid JSON
+            }
+          } catch (e) {
+            // If parsing fails, remove the corrupted data
+            console.warn(`Removing corrupted storage key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error scanning localStorage:', error);
+    }
+    
+    // Clean up URL parameters that might cause issues
+    if (window.location.hash || window.location.search) {
+      const url = new URL(window.location.href);
+      const hasAuthParams = url.searchParams.has('access_token') || 
+                           url.searchParams.has('refresh_token') ||
+                           url.hash.includes('access_token') ||
+                           url.hash.includes('refresh_token');
+      
+      // If we have auth params but they might be malformed, clean the URL
+      if (hasAuthParams) {
+        try {
+          // Try to parse the params - if this fails, we need to clean the URL
+          const hashParams = new URLSearchParams(url.hash.substring(1));
+          const searchParams = url.searchParams;
+          
+          // Check if tokens exist and are valid strings
+          const accessToken = hashParams.get('access_token') || searchParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token') || searchParams.get('refresh_token');
+          
+          if ((accessToken && typeof accessToken !== 'string') || 
+              (refreshToken && typeof refreshToken !== 'string')) {
+            // Malformed tokens - clean the URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (error) {
+          // If parsing fails, clean the URL completely
+          console.warn('Cleaning malformed URL parameters');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       }
     }
   } catch (error) {
-    console.error('Error cleaning localStorage:', error);
+    console.error('Error during Supabase cleanup:', error);
   }
 }
 
@@ -48,7 +105,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
+    detectSessionInUrl: false, // Disable URL detection to prevent parsing errors
+    flowType: 'pkce',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: `sb-${SUPABASE_URL.split('//')[1]?.split('.')[0]}-auth-token`,
   }
 });
