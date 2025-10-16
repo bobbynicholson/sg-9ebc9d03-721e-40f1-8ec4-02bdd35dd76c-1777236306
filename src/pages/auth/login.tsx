@@ -104,7 +104,7 @@ export default function LoginPage() {
       setTimeout(() => {
         switch (role) {
           case "admin":
-            router.push("/");
+            router.push("/admin/dashboard");
             break;
           case "kitchen":
             router.push("/kitchen");
