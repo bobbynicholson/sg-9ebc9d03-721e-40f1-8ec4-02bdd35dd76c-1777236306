@@ -168,12 +168,9 @@ export const userManagementService = {
       const primaryDeptString = departments.find((d) => d.is_primary)?.department || departments[0]?.department;
       
       if (primaryDeptString) {
-        // Type assertion: we know department comes from DepartmentAssignment.department which is already UserRole
-        const roleValue: UserRole = primaryDeptString;
-        
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ role: roleValue })
+          .update({ role: primaryDeptString } as { role: UserRole })
           .eq("id", userId);
 
         if (updateError) {
