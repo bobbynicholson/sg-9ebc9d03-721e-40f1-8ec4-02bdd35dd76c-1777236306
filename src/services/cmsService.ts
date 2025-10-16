@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import type { BlogPost, Page, CMSPage } from "@/types/cms";
+import type { BlogPost, CMSPage } from "@/types/cms";
 
 export const cmsService = {
   async getAllBlogPosts(publishedOnly: boolean = true): Promise<BlogPost[]> {
@@ -84,7 +84,7 @@ export const cmsService = {
     }
   },
 
-  async getPageBySlug(slug: string): Promise<Page | null> {
+  async getPageBySlug(slug: string): Promise<CMSPage | null> {
     const { data, error } = await supabase
       .from("cms_pages")
       .select("*")
@@ -99,10 +99,10 @@ export const cmsService = {
       throw error;
     }
 
-    return data as Page;
+    return data as CMSPage;
   },
 
-  async getAllPages(publishedOnly: boolean = true): Promise<Page[]> {
+  async getAllPages(publishedOnly: boolean = true): Promise<CMSPage[]> {
     let query = supabase
       .from("cms_pages")
       .select("*")
@@ -119,7 +119,7 @@ export const cmsService = {
       throw error;
     }
 
-    return data as Page[];
+    return data as CMSPage[];
   },
 
   async createPage(page: Omit<CMSPage, "id" | "created_at" | "last_updated">): Promise<CMSPage> {
@@ -137,7 +137,7 @@ export const cmsService = {
     return data as CMSPage;
   },
 
-  async updatePage(id: string, updates: Partial<CMSPage>): Promise<CMSPage> {
+  async updatePage(id: string, updates: Partial<Omit<CMSPage, "id" | "created_at">>): Promise<CMSPage> {
     const { data, error } = await supabase
       .from("cms_pages")
       .update({ ...updates, last_updated: new Date().toISOString() })

@@ -58,16 +58,13 @@ export default function CMSPageManagement() {
 
   const handleSave = async () => {
     try {
+      // Exclude meta_keywords from the object sent to the service
+      const { meta_keywords, ...pageData } = formData;
+
       if (editingPage) {
-        await cmsService.updatePage(editingPage.id, {
-          ...formData,
-          last_updated: new Date().toISOString()
-        });
+        await cmsService.updatePage(editingPage.id, pageData);
       } else {
-        await cmsService.createPage({
-          ...formData,
-          last_updated: new Date().toISOString()
-        });
+        await cmsService.createPage(pageData);
       }
 
       await loadPages();

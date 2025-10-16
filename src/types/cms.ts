@@ -1,3 +1,4 @@
+
 export interface BlogPost {
   id: string;
   slug: string;
@@ -16,18 +17,6 @@ export interface BlogPost {
   read_time_minutes?: number;
 }
 
-export interface Page {
-  id: string;
-  slug: string;
-  title: string;
-  content: string;
-  meta_title?: string;
-  meta_description?: string;
-  is_published: boolean;
-  last_updated: string;
-  created_at: string;
-}
-
 export interface CMSSettings {
   site_name: string;
   site_description: string;
@@ -40,8 +29,9 @@ export interface CMSPage {
   slug: string;
   title: string;
   content: string;
-  meta_title: string | null;
-  meta_description: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  meta_keywords?: string | null;
   is_published: boolean;
   last_updated: string;
   created_at: string;
