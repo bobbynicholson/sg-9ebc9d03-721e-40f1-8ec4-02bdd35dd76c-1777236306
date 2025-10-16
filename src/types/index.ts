@@ -423,3 +423,25 @@ export interface EmailVariables {
   paymentMethod?: string;
   reviewLink?: string;
 }
+
+// ==========================================
+// OPERATIONAL STANDARDS - FLEET & EQUIPMENT
+// ==========================================
+
+export type Vehicle = Tables<"vehicles">;
+export type VehicleInsert = Omit<Vehicle, "id" | "created_at" | "updated_at">;
+
+export type VehicleMaintenance = Tables<"vehicle_maintenance">;
+export type VehicleMaintenanceInsert = Omit<VehicleMaintenance, "id" | "created_at">;
+
+export type VehicleLog = Tables<"vehicle_logs">;
+export type VehicleLogInsert = Omit<VehicleLog, "id" | "created_at">;
+
+export type EquipmentKit = Tables<"equipment_kits">;
+export type EquipmentKitInsert = Omit<EquipmentKit, "id" | "created_at">;
+
+export type EquipmentKitItem = Tables<"equipment_kit_items">;
+export type EquipmentKitItemInsert = Omit<EquipmentKitItem, "id">;
+
+export type FinancialDepreciation = Tables<"financial_depreciation">;
+export type FinancialDepreciationInsert = Omit<FinancialDepreciation, "id" | "created_at">;

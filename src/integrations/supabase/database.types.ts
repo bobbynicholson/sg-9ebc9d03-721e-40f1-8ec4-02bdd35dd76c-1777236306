@@ -2032,6 +2032,80 @@ export type Database = {
           },
         ]
       }
+      equipment_kit_items: {
+        Row: {
+          equipment_id: string
+          id: string
+          kit_id: string
+          notes: string | null
+          quantity: number
+        }
+        Insert: {
+          equipment_id: string
+          id?: string
+          kit_id: string
+          notes?: string | null
+          quantity: number
+        }
+        Update: {
+          equipment_id?: string
+          id?: string
+          kit_id?: string
+          notes?: string | null
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_kit_items_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_kit_items_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_kits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_kits: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          kit_size: string | null
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          kit_size?: string | null
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          kit_size?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_kits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_maintenance: {
         Row: {
           company_id: string
@@ -2429,6 +2503,57 @@ export type Database = {
           usd_to_zar_rate?: number
         }
         Relationships: []
+      }
+      financial_depreciation: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          depreciation_method: string | null
+          equipment_id: string
+          id: string
+          purchase_date: string
+          purchase_price: number
+          salvage_value: number | null
+          useful_life_years: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          depreciation_method?: string | null
+          equipment_id: string
+          id?: string
+          purchase_date: string
+          purchase_price: number
+          salvage_value?: number | null
+          useful_life_years: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          depreciation_method?: string | null
+          equipment_id?: string
+          id?: string
+          purchase_date?: string
+          purchase_price?: number
+          salvage_value?: number | null
+          useful_life_years?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_depreciation_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_depreciation_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_predictions: {
         Row: {
@@ -6104,6 +6229,172 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          log_date: string
+          log_type: string
+          logged_by: string | null
+          value_numeric: number | null
+          value_text: string | null
+          vehicle_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          log_date: string
+          log_type: string
+          logged_by?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+          vehicle_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          log_date?: string
+          log_type?: string
+          logged_by?: string | null
+          value_numeric?: number | null
+          value_text?: string | null
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_logs_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_maintenance: {
+        Row: {
+          cost: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          mileage_at_service: number | null
+          next_service_due_date: string | null
+          next_service_due_mileage: number | null
+          provider: string | null
+          service_date: string
+          service_type: string
+          vehicle_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mileage_at_service?: number | null
+          next_service_due_date?: string | null
+          next_service_due_mileage?: number | null
+          provider?: string | null
+          service_date: string
+          service_type: string
+          vehicle_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          mileage_at_service?: number | null
+          next_service_due_date?: string | null
+          next_service_due_mileage?: number | null
+          provider?: string | null
+          service_date?: string
+          service_type?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_maintenance_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          insurance_expiry_date: string | null
+          insurance_policy_number: string | null
+          insurance_provider: string | null
+          license_plate: string | null
+          make: string | null
+          mileage: number | null
+          model: string | null
+          name: string
+          purchase_date: string | null
+          purchase_price: number | null
+          status: string | null
+          updated_at: string | null
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          insurance_expiry_date?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
+          license_plate?: string | null
+          make?: string | null
+          mileage?: number | null
+          model?: string | null
+          name: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          insurance_expiry_date?: string | null
+          insurance_policy_number?: string | null
+          insurance_provider?: string | null
+          license_plate?: string | null
+          make?: string | null
+          mileage?: number | null
+          model?: string | null
+          name?: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]

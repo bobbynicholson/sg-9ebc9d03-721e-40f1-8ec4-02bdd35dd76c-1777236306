@@ -31,6 +31,21 @@ type WasteLogInsert = Database["public"]["Tables"]["waste_logs"]["Insert"];
 type IngredientSubstitution = Database["public"]["Tables"]["ingredient_substitutions"]["Row"];
 type IngredientSubstitutionInsert = Database["public"]["Tables"]["ingredient_substitutions"]["Insert"];
 
+// New types for Fleet & Equipment
+type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
+type VehicleInsert = Database["public"]["Tables"]["vehicles"]["Insert"];
+type VehicleMaintenance = Database["public"]["Tables"]["vehicle_maintenance"]["Row"];
+type VehicleMaintenanceInsert = Database["public"]["Tables"]["vehicle_maintenance"]["Insert"];
+type VehicleLog = Database["public"]["Tables"]["vehicle_logs"]["Row"];
+type VehicleLogInsert = Database["public"]["Tables"]["vehicle_logs"]["Insert"];
+type EquipmentKit = Database["public"]["Tables"]["equipment_kits"]["Row"];
+type EquipmentKitInsert = Database["public"]["Tables"]["equipment_kits"]["Insert"];
+type EquipmentKitItem = Database["public"]["Tables"]["equipment_kit_items"]["Row"];
+type EquipmentKitItemInsert = Database["public"]["Tables"]["equipment_kit_items"]["Insert"];
+type FinancialDepreciation = Database["public"]["Tables"]["financial_depreciation"]["Row"];
+type FinancialDepreciationInsert = Database["public"]["Tables"]["financial_depreciation"]["Insert"];
+
+
 export const operationsService = {
   // ==========================================
   // MENU PLANNING & RECIPES (#1, #2)
@@ -602,5 +617,154 @@ export const operationsService = {
       expiringInventory: inventory?.length || 0,
       temperatureAlerts: temperatures?.length || 0
     };
+  },
+
+  // ==========================================
+  // FLEET MANAGEMENT (#61, #62, #68, #69, #72)
+  // ==========================================
+
+  async getVehicles(companyId: string) {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data as Vehicle[];
+  },
+
+  async createVehicle(vehicle: VehicleInsert) {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .insert(vehicle)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Vehicle;
+  },
+
+  async updateVehicle(id: string, updates: Partial<Vehicle>) {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as Vehicle;
+  },
+
+  async getVehicleMaintenance(vehicleId: string) {
+    const { data, error } = await supabase
+      .from("vehicle_maintenance")
+      .select("*")
+      .eq("vehicle_id", vehicleId)
+      .order("service_date", { ascending: false });
+
+    if (error) throw error;
+    return data as VehicleMaintenance[];
+  },
+
+  async createVehicleMaintenance(maintenance: VehicleMaintenanceInsert) {
+    const { data, error } = await supabase
+      .from("vehicle_maintenance")
+      .insert(maintenance)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as VehicleMaintenance;
+  },
+
+  async getVehicleLogs(vehicleId: string) {
+    const { data, error } = await supabase
+      .from("vehicle_logs")
+      .select("*")
+      .eq("vehicle_id", vehicleId)
+      .order("log_date", { ascending: false });
+
+    if (error) throw error;
+    return data as VehicleLog[];
+  },
+
+  async createVehicleLog(log: VehicleLogInsert) {
+    const { data, error } = await supabase
+      .from("vehicle_logs")
+      .insert(log)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as VehicleLog;
+  },
+
+  // ==========================================
+  // EQUIPMENT KITS (#42, #70)
+  // ==========================================
+
+  async getEquipmentKits(companyId: string) {
+    const { data, error } = await supabase
+      .from("equipment_kits")
+      .select(`
+        *,
+        equipment_kit_items (
+          *,
+          equipment (*)
+        )
+      `)
+      .eq("company_id", companyId)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createEquipmentKit(kit: EquipmentKitInsert, items: Omit<EquipmentKitItemInsert, 'kit_id'>[]) {
+    const { data: kitData, error: kitError } = await supabase
+      .from("equipment_kits")
+      .insert(kit)
+      .select()
+      .single();
+
+    if (kitError) throw kitError;
+
+    if (items.length > 0) {
+      const kitItems = items.map(item => ({ ...item, kit_id: kitData.id }));
+      const { error: itemsError } = await supabase.from("equipment_kit_items").insert(kitItems);
+      if (itemsError) throw itemsError;
+    }
+
+    return kitData as EquipmentKit;
+  },
+
+  // ==========================================
+  // FINANCIAL & DEPRECIATION (#54)
+  // ==========================================
+
+  async getDepreciationSchedules(companyId: string) {
+    const { data, error } = await supabase
+      .from("financial_depreciation")
+      .select(`
+        *,
+        equipment (*)
+      `)
+      .eq("company_id", companyId);
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createDepreciationSchedule(schedule: FinancialDepreciationInsert) {
+    const { data, error } = await supabase
+      .from("financial_depreciation")
+      .insert(schedule)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as FinancialDepreciation;
   }
 };
