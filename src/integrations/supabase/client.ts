@@ -17,7 +17,7 @@ try {
   throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
 }
 
-// Nuclear option: Clear ALL localStorage on client side to ensure clean state
+// Smart cleanup: Only clear corrupted session data, not all Supabase data
 if (typeof window !== 'undefined') {
   try {
     // Extract project ref safely
@@ -34,60 +34,41 @@ if (typeof window !== 'undefined') {
       console.warn('Could not parse project ref from URL, using default');
     }
     
-    // Clear ALL possible Supabase keys without exception
-    const allPossibleKeys = [
-      `sb-${projectRef}-auth-token`,
-      'supabase.auth.token',
-      'supabase-auth-token',
-      'sb-auth-token',
-    ];
+    const storageKey = `sb-${projectRef}-auth-token`;
     
-    allPossibleKeys.forEach(key => {
-      try {
-        localStorage.removeItem(key);
-      } catch (e) {
-        // Ignore errors
-      }
-    });
-    
-    // Scan and remove ALL keys containing supabase/sb- regardless of validity
+    // Only check and clear if data appears corrupted
     try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.toLowerCase().includes('supabase') || key.toLowerCase().includes('sb-'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => {
+      const storedData = localStorage.getItem(storageKey);
+      
+      if (storedData) {
         try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          // Ignore
-        }
-      });
-    } catch (error) {
-      // Ignore errors
-    }
-    
-    // Clean URL completely of any auth-related parameters
-    try {
-      if (window.location.hash || window.location.search) {
-        const currentPath = window.location.pathname;
-        // Only clean if we're not on a callback URL that legitimately needs these params
-        if (!currentPath.includes('/auth/callback')) {
-          window.history.replaceState({}, document.title, currentPath);
+          const parsed = JSON.parse(storedData);
+          
+          // Check if the data structure is valid
+          // Valid session should have access_token and user
+          if (!parsed || typeof parsed !== 'object') {
+            console.warn('Clearing invalid session data structure');
+            localStorage.removeItem(storageKey);
+          } else if (parsed.access_token === undefined && parsed.refresh_token === undefined) {
+            // If tokens are missing but object exists, likely corrupted
+            console.warn('Clearing session data with missing tokens');
+            localStorage.removeItem(storageKey);
+          }
+        } catch (parseError) {
+          // If parsing fails, data is definitely corrupted
+          console.warn('Clearing malformed session JSON');
+          localStorage.removeItem(storageKey);
         }
       }
-    } catch (error) {
-      // Ignore URL cleaning errors
+    } catch (storageError) {
+      console.warn('Error checking session storage:', storageError);
     }
   } catch (error) {
-    console.error('Error during localStorage cleanup:', error);
+    console.error('Error during session validation:', error);
   }
 }
 
-// Create a safe storage implementation that never throws
+// Create a safe storage implementation that handles errors gracefully
 const createSafeStorage = () => {
   if (typeof window === 'undefined') {
     return undefined;
@@ -129,11 +110,11 @@ try {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false, // Critical: Disable URL parsing to prevent formatUrl errors
+      detectSessionInUrl: true, // Re-enable URL detection for OAuth callbacks
       flowType: 'pkce',
       storage: createSafeStorage(),
       storageKey: `sb-ypwxsmytkvaefmmlkspf-auth-token`,
-      debug: false, // Disable debug to prevent log spam
+      debug: false,
     },
     global: {
       headers: {
@@ -143,7 +124,7 @@ try {
   });
 } catch (error) {
   console.error('Fatal error creating Supabase client:', error);
-  // Create a minimal fallback client
+  // Create a minimal fallback client that won't throw errors
   supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       autoRefreshToken: false,
