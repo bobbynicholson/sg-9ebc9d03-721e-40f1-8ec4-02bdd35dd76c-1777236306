@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -1853,6 +1853,144 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kitchen_duty_shifts: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          order_id: string | null
+          shift_end: string | null
+          shift_start: string
+          staff_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          order_id?: string | null
+          shift_end?: string | null
+          shift_start?: string
+          staff_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          order_id?: string | null
+          shift_end?: string | null
+          shift_start?: string
+          staff_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_duty_shifts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_duty_shifts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_duty_shifts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kitchen_task_completions: {
+        Row: {
+          completed_at: string
+          created_at: string
+          duty_shift_id: string | null
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          notes: string | null
+          order_id: string
+          photo_url: string | null
+          staff_id: string
+          task_description: string | null
+          task_type: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          duty_shift_id?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          order_id: string
+          photo_url?: string | null
+          staff_id: string
+          task_description?: string | null
+          task_type: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          duty_shift_id?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          notes?: string | null
+          order_id?: string
+          photo_url?: string | null
+          staff_id?: string
+          task_description?: string | null
+          task_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_task_completions_duty_shift_id_fkey"
+            columns: ["duty_shift_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_duty_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_task_completions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_task_completions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_task_completions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
