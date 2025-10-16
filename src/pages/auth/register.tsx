@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserPlus, CheckCircle, DollarSign, Mail } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
+import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
 
 const CURRENCIES = [
@@ -58,6 +59,7 @@ export default function RegisterPage() {
     }
 
     try {
+      // Step 1: Sign up the user
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
@@ -66,15 +68,6 @@ export default function RegisterPage() {
         formData.currency,
         formData.phone
       );
-
-      // If email confirmation error but user was created, treat as success
-      if (signUpError && signUpError.code === "email_not_confirmed") {
-        setSuccess(true);
-        setTimeout(() => {
-          router.push("/auth/login?message=account_created");
-        }, 2000);
-        return;
-      }
 
       if (signUpError) {
         setError(signUpError.message);
@@ -86,6 +79,30 @@ export default function RegisterPage() {
         setError("Registration failed. Please try again.");
         setLoading(false);
         return;
+      }
+
+      // Step 2: Create/update the profile with correct data
+      try {
+        const trialEndsAt = new Date();
+        trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+        await profileService.createProfile({
+          id: user.id,
+          email: formData.email,
+          full_name: formData.name,
+          role: "client",
+          currency: formData.currency,
+          phone_number: formData.phone,
+          company_name: formData.name,
+          subscription_status: "trial",
+          subscription_plan: "trial",
+          trial_ends_at: trialEndsAt.toISOString(),
+          is_active: true,
+        });
+      } catch (profileError: any) {
+        console.error("Profile creation error:", profileError);
+        // Even if profile creation fails, user is created, so don't show error
+        // The trigger should have created it already
       }
 
       // Show success message

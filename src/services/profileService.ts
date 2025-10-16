@@ -4,16 +4,60 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Profile = Tables<"profiles">;
 
 export const profileService = {
-  async getProfile(userId: string): Promise<Profile | null> {
+  // Get user profile
+  async getProfile(userId: string) {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .maybeSingle();
+      .single();
 
     if (error) {
       console.error("Error fetching profile:", error);
       return null;
+    }
+
+    return data;
+  },
+
+  // Create or update user profile (upsert)
+  async createProfile(profileData: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+    currency: string;
+    phone_number?: string;
+    company_name?: string;
+    subscription_status?: string;
+    subscription_plan?: string;
+    trial_ends_at?: string;
+    is_active?: boolean;
+  }) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: profileData.id,
+          email: profileData.email,
+          full_name: profileData.full_name,
+          role: profileData.role,
+          currency: profileData.currency,
+          phone_number: profileData.phone_number || null,
+          company_name: profileData.company_name || null,
+          subscription_status: profileData.subscription_status || "trial",
+          subscription_plan: profileData.subscription_plan || "trial",
+          trial_ends_at: profileData.trial_ends_at || null,
+          is_active: profileData.is_active !== undefined ? profileData.is_active : true,
+        },
+        { onConflict: "id" }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating/updating profile:", error);
+      throw error;
     }
 
     return data;
@@ -29,21 +73,6 @@ export const profileService = {
 
     if (error) {
       console.error("Error updating profile:", error);
-      throw error;
-    }
-
-    return data;
-  },
-
-  async createProfile(profile: Omit<Profile, "created_at" | "updated_at">): Promise<Profile | null> {
-    const { data, error } = await supabase
-      .from("profiles")
-      .insert([profile])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating profile:", error);
       throw error;
     }
 
