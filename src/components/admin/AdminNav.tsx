@@ -146,20 +146,8 @@ const adminNavSections: NavSection[] = [
     ]
   },
   {
-    title: "Content & Branding",
+    title: "Branding",
     items: [
-      {
-        title: "CMS Blog",
-        href: "/admin/cms-blog",
-        icon: FileText,
-        description: "Manage blog content"
-      },
-      {
-        title: "CMS Pages",
-        href: "/admin/cms-pages",
-        icon: Globe,
-        description: "Manage static pages"
-      },
       {
         title: "White Label",
         href: "/admin/white-label",

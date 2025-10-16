@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Pencil, Trash2, Plus, ArrowLeft, Save, X, FileText } from "lucide-react";
+import { Pencil, Trash2, Plus, ArrowLeft, Save, X, FileText, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function CMSPageManagement() {
   const [pages, setPages] = useState<Page[]>([]);
@@ -111,15 +112,25 @@ export default function CMSPageManagement() {
       <>
         <Head>
           <meta name="robots" content="noindex, nofollow" />
-          <title>Page Management - CateringMS Admin</title>
+          <title>Page Management - CateringMS Platform Admin</title>
         </Head>
         
         <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
           <div className="max-w-4xl mx-auto">
+            <Alert className="mb-6 border-purple-200 bg-purple-50">
+              <AlertTriangle className="h-4 w-4 text-purple-600" />
+              <AlertDescription className="text-purple-800">
+                <strong>Platform Admin:</strong> This content appears on the CateringMS marketing website, not individual client portals.
+              </AlertDescription>
+            </Alert>
+
             <div className="mb-6 flex items-center justify-between">
-              <h1 className="text-3xl font-bold">
-                {editingPage ? "Edit Page" : "Create New Page"}
-              </h1>
+              <div>
+                <h1 className="text-3xl font-bold">
+                  {editingPage ? "Edit Page" : "Create New Page"}
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">CateringMS Marketing Website Content</p>
+              </div>
               <Button variant="ghost" onClick={handleCancel}>
                 <X className="mr-2 h-4 w-4" />
                 Cancel
@@ -223,21 +234,29 @@ export default function CMSPageManagement() {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Page Management - CateringMS Admin</title>
+        <title>Page Management - CateringMS Platform Admin</title>
       </Head>
       
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
         <div className="max-w-7xl mx-auto">
+          <Alert className="mb-6 border-purple-200 bg-purple-50">
+            <AlertTriangle className="h-4 w-4 text-purple-600" />
+            <AlertDescription className="text-purple-800">
+              <strong>Platform Admin Only:</strong> This page manages static pages for the CateringMS marketing website at cateringms.com. 
+              These pages are not visible in individual client portals - they are part of the main CateringMS site.
+            </AlertDescription>
+          </Alert>
+
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-2">Page Management</h1>
-              <p className="text-gray-600">Manage static pages and their content</p>
+              <p className="text-gray-600">Manage CateringMS website static pages and content</p>
             </div>
             <div className="flex gap-4">
-              <Link href="/admin/settings">
+              <Link href="/admin/catering-ms-dashboard">
                 <Button variant="outline">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Settings
+                  Back to Platform Dashboard
                 </Button>
               </Link>
               <Button onClick={() => setIsCreating(true)}>
