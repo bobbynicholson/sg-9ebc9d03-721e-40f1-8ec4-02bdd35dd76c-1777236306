@@ -10,7 +10,8 @@ import {
   Package,
   Droplets,
   Shield,
-  Calendar
+  Calendar,
+  Home
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,7 +24,7 @@ interface PortalComponentProps {
 const CleaningDashboard: React.FC<PortalComponentProps> = ({ companySlug }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50">
-      {/* Header */}
+      {/* Header with Portal Context */}
       <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -32,11 +33,23 @@ const CleaningDashboard: React.FC<PortalComponentProps> = ({ companySlug }) => {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Cleaning Portal</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-slate-900">Cleaning Portal</h1>
+                  <Badge className="bg-cyan-100 text-cyan-700 border-cyan-300">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Cleaning Dashboard
+                  </Badge>
+                </div>
                 <p className="text-sm text-slate-600">Equipment cleaning and maintenance tracking</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Link href={`/${companySlug}/admin/dashboard`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">Admin Dashboard</span>
+                </Button>
+              </Link>
               <Badge variant="outline" className="text-sm">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "short",

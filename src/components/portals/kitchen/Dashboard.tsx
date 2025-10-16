@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { DutyToggleWidget } from "@/components/kitchen/DutyToggleWidget";
 import { OnDutyBoard } from "@/components/kitchen/OnDutyBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
-import { ChefHat, Calendar, Clock, AlertCircle } from "lucide-react";
+import { ChefHat, Calendar, Clock, AlertCircle, Home } from "lucide-react";
 import { orderService } from "@/services/orderService";
 import { useAuth } from "@/contexts/AuthContext";
 import { Order } from "@/types";
+import Link from "next/link";
 
-function Dashboard() {
+interface PortalComponentProps {
+  companySlug: string;
+  portal: string;
+  currentRoute: string;
+}
+
+function Dashboard({ companySlug }: PortalComponentProps) {
   const { user } = useAuth();
   const [todaysOrders, setTodaysOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,8 +53,8 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
-      {/* Header */}
-      <div className="bg-white border-b shadow-sm mb-6">
+      {/* Header with Portal Context */}
+      <div className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -54,11 +62,23 @@ function Dashboard() {
                 <ChefHat className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Kitchen Portal</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-slate-900">Kitchen Portal</h1>
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+                    <ChefHat className="w-3 h-3 mr-1" />
+                    Kitchen Dashboard
+                  </Badge>
+                </div>
                 <p className="text-sm text-slate-600">Manage kitchen operations and track order progress</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Link href={`/${companySlug}/admin/dashboard`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Home className="w-4 h-4" />
+                  <span className="hidden sm:inline">Admin Dashboard</span>
+                </Button>
+              </Link>
               <Badge variant="outline" className="text-sm">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "short",
