@@ -6,14 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, CheckCircle, DollarSign, Shield, ChefHat, ShoppingCart, Truck, Sparkles, User, Loader2, AlertCircle } from "lucide-react";
+import { UserPlus, CheckCircle, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
-import { profileService } from "@/services/profileService";
 import { Separator } from "@/components/ui/separator";
-import { UserRole } from "@/types";
-import { userManagementService } from "@/services/userManagementService";
-import { companyService } from "@/services/companyService";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
@@ -21,15 +17,6 @@ const CURRENCIES = [
   { code: "EUR", name: "Euro", symbol: "€" },
   { code: "GBP", name: "British Pound", symbol: "£" },
   { code: "AUD", name: "Australian Dollar", symbol: "A$" }
-];
-
-const ROLES = [
-  { value: "admin", label: "Admin", icon: Shield, description: "Full system access" },
-  { value: "kitchen", label: "Kitchen Team", icon: ChefHat, description: "Kitchen operations" },
-  { value: "shopping", label: "Shopping Team", icon: ShoppingCart, description: "Purchasing & inventory" },
-  { value: "driver", label: "Driver", icon: Truck, description: "Deliveries & logistics" },
-  { value: "cleaning", label: "Cleaning Team", icon: Sparkles, description: "Equipment cleaning" },
-  { value: "client", label: "Client", icon: User, description: "Client access" }
 ];
 
 export default function RegisterPage() {
@@ -40,68 +27,20 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    currency: "ZAR",
-    role: "client" as UserRole,
-    companyName: ""
+    currency: "ZAR"
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [companySlug, setCompanySlug] = useState("");
-  const [slugChecking, setSlugChecking] = useState(false);
-  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-
-  // Generate company slug when company name changes and check availability
-  const handleCompanyNameChange = async (value: string) => {
-    setFormData({ ...formData, companyName: value });
-    
-    if (!value.trim()) {
-      setCompanySlug("");
-      setSlugAvailable(null);
-      return;
-    }
-
-    // Generate URL-friendly slug
-    const slug = companyService.generateSlug(value);
-    setCompanySlug(slug);
-
-    // Check if slug is available
-    if (slug) {
-      setSlugChecking(true);
-      try {
-        const available = await companyService.isSlugAvailable(slug);
-        setSlugAvailable(available);
-      } catch (error) {
-        console.error("Error checking slug availability:", error);
-        setSlugAvailable(null);
-      } finally {
-        setSlugChecking(false);
-      }
-    }
-  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency || !formData.role) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency) {
       setError("Please fill in all required fields");
-      setLoading(false);
-      return;
-    }
-
-    // Require company name for admin roles
-    if (formData.role === "admin" && !formData.companyName) {
-      setError("Please provide your company name");
-      setLoading(false);
-      return;
-    }
-
-    // Check slug availability for admin accounts
-    if (formData.role === "admin" && slugAvailable === false) {
-      setError("This company name is already taken. Please choose a different name.");
       setLoading(false);
       return;
     }
@@ -119,15 +58,15 @@ export default function RegisterPage() {
     }
 
     try {
-      // Sign up the user - company creation is now handled in authService
-      const { user, error: signUpError, companySlug: createdSlug } = await authService.signUp(
+      // Sign up the user - everyone registers as "client" by default
+      // Admin can change roles later in the admin panel
+      const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.name,
-        formData.role,
+        "client", // Default role for all new registrations
         formData.currency,
-        formData.phone,
-        formData.companyName
+        formData.phone
       );
 
       if (signUpError) {
@@ -140,11 +79,6 @@ export default function RegisterPage() {
         setError("Registration failed. Please try again.");
         setLoading(false);
         return;
-      }
-
-      // If company was created, store the slug for display
-      if (createdSlug) {
-        setCompanySlug(createdSlug);
       }
 
       // Show success message
@@ -180,9 +114,6 @@ export default function RegisterPage() {
     }
   };
 
-  const selectedRole = ROLES.find(r => r.value === formData.role);
-  const RoleIcon = selectedRole?.icon || User;
-
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
@@ -193,7 +124,7 @@ export default function RegisterPage() {
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Account Created Successfully!</h2>
             <p className="text-slate-600 mb-4">
-              Your <strong>{selectedRole?.label}</strong> account has been created for <strong>{formData.email}</strong>
+              Your account has been created for <strong>{formData.email}</strong>
             </p>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-800">
@@ -201,7 +132,7 @@ export default function RegisterPage() {
               </p>
             </div>
             <p className="text-sm text-slate-500">
-              Your account is set up with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency and includes a 14-day free trial.
+              Your account is set up with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency.
             </p>
             <p className="text-xs text-slate-400 mt-4">Redirecting to login in 2 seconds...</p>
           </CardContent>
@@ -221,7 +152,7 @@ export default function RegisterPage() {
             Create Account
           </CardTitle>
           <CardDescription className="text-center text-slate-600">
-            Join the catering management platform
+            Join your company&apos;s catering management platform
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,106 +199,6 @@ export default function RegisterPage() {
                 </span>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-slate-700 font-medium">
-                Account Role *
-              </Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
-              >
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => {
-                    const Icon = role.icon;
-                    return (
-                      <SelectItem key={role.value} value={role.value}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" />
-                          <div>
-                            <div className="font-semibold">{role.label}</div>
-                            <div className="text-xs text-slate-500">{role.description}</div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-500 mt-1">
-                Choose the role that matches your access level
-              </p>
-            </div>
-
-            {formData.role === "admin" && (
-              <div className="space-y-2">
-                <Label htmlFor="companyName" className="text-slate-700 font-medium">
-                  Company Name * <span className="text-xs text-slate-500">(Required for admin accounts)</span>
-                </Label>
-                <Input
-                  id="companyName"
-                  type="text"
-                  placeholder="Spit Braai Delivery"
-                  value={formData.companyName}
-                  onChange={(e) => handleCompanyNameChange(e.target.value)}
-                  className="h-12"
-                  required={formData.role === "admin"}
-                />
-                {companySlug && (
-                  <div className={`border rounded-lg p-3 mt-2 ${
-                    slugChecking ? "bg-blue-50 border-blue-200" :
-                    slugAvailable === true ? "bg-green-50 border-green-200" :
-                    slugAvailable === false ? "bg-red-50 border-red-200" :
-                    "bg-blue-50 border-blue-200"
-                  }`}>
-                    <div className="flex items-start gap-2">
-                      {slugChecking ? (
-                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin mt-0.5 flex-shrink-0" />
-                      ) : slugAvailable === true ? (
-                        <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                      ) : slugAvailable === false ? (
-                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                      ) : null}
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-semibold ${
-                          slugChecking ? "text-blue-800" :
-                          slugAvailable === true ? "text-green-800" :
-                          slugAvailable === false ? "text-red-800" :
-                          "text-blue-800"
-                        }`}>
-                          {slugChecking ? "Checking availability..." :
-                           slugAvailable === true ? "✓ Company name available!" :
-                           slugAvailable === false ? "✗ Company name already taken" :
-                           "Your portal URL:"}
-                        </p>
-                        {!slugChecking && (
-                          <>
-                            <p className={`text-xs break-all mt-1 ${
-                              slugAvailable === false ? "text-red-700" : "text-slate-700"
-                            }`}>
-                              <strong>cateringms.com/{companySlug}</strong>
-                            </p>
-                            {slugAvailable === false && (
-                              <p className="text-xs text-red-600 mt-1">
-                                Please choose a different company name
-                              </p>
-                            )}
-                            {slugAvailable === true && (
-                              <p className="text-xs text-green-600 mt-1">
-                                Your team and clients will access your portal at this URL
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-700 font-medium">
@@ -474,7 +305,7 @@ export default function RegisterPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Your account will be created with <strong>{selectedRole?.label}</strong> access and a 14-day free trial. An admin can modify roles after registration if needed.
+                <strong>Note:</strong> Your account will be registered as a standard user. An admin can assign you to specific departments (Kitchen, Cleaning, Driver, etc.) after you register.
               </p>
             </div>
 
@@ -486,10 +317,16 @@ export default function RegisterPage() {
               {loading ? "Creating Account..." : "Create Account"}
             </Button>
 
-            <div className="text-center">
-              <Link href="/auth/login" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+            <div className="text-center space-y-2">
+              <Link href="/auth/login" className="text-sm text-purple-600 hover:text-purple-700 font-medium block">
                 Already have an account? Sign in here
               </Link>
+              <div className="text-xs text-slate-500 pt-2 border-t">
+                <p>Are you a catering company looking to sign up?</p>
+                <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
+                  Register your catering business here
+                </Link>
+              </div>
             </div>
           </form>
         </CardContent>
