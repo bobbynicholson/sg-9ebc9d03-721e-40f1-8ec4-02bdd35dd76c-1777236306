@@ -171,8 +171,8 @@ export const userManagementService = {
         const { error: updateError } = await supabase
           .from("profiles")
           .update({ 
-            role: primaryDept as string
-          })
+            role: primaryDept
+          } as Database["public"]["Tables"]["profiles"]["Update"])
           .eq("id", userId);
 
         if (updateError) {
