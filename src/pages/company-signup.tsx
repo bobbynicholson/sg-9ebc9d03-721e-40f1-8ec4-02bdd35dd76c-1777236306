@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CheckCircle, DollarSign, AlertCircle } from "lucide-react";
+import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { companyService } from "@/services/companyService";
@@ -37,6 +37,7 @@ export default function CompanySignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
 
   // Generate slug from company name
   const generateSlug = (name: string) => {
@@ -172,13 +173,37 @@ export default function CompanySignupPage() {
       // 3. Update user profile with company_slug
       await companyService.updateUserCompany(user.id, companySlug);
 
+      // 4. Auto-login the user
+      const { error: signInError } = await authService.signIn(
+        formData.email,
+        formData.password
+      );
+
+      if (signInError) {
+        console.error("Auto-login failed:", signInError);
+        // Still show success and redirect to login
+        setSuccess(true);
+        setTimeout(() => {
+          router.push(`/${companySlug}/auth/login?message=company_created`);
+        }, 3000);
+        return;
+      }
+
       // Show success message
       setSuccess(true);
 
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push(`/${companySlug}/auth/login?message=company_created`);
-      }, 3000);
+      // Start countdown and redirect to onboarding
+      const countdownInterval = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            router.push(`/${companySlug}/admin/onboarding`);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
     } catch (err) {
       console.error("Company registration error:", err);
       setError("Registration failed. Please try again or contact support.");
@@ -191,12 +216,12 @@ export default function CompanySignupPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-0 shadow-2xl">
           <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6 animate-pulse">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Company Created Successfully!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Welcome to CateringMS!</h2>
             <p className="text-slate-600 mb-4">
-              <strong>{formData.companyName}</strong> has been registered!
+              <strong>{formData.companyName}</strong> has been successfully registered!
             </p>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-800 mb-2">
@@ -206,10 +231,18 @@ export default function CompanySignupPage() {
                 cateringms.com/{companySlug}
               </p>
             </div>
-            <p className="text-sm text-slate-600 mb-2">
-              You can now sign in and start managing your catering business!
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
+              <p className="text-sm text-blue-800">
+                Taking you to your onboarding dashboard...
+              </p>
+            </div>
+            <p className="text-xs text-slate-400 mt-4 flex items-center justify-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                {redirectCountdown}
+              </span>
+              Redirecting in {redirectCountdown} second{redirectCountdown !== 1 ? "s" : ""}
             </p>
-            <p className="text-xs text-slate-400 mt-4">Redirecting to login in 3 seconds...</p>
           </CardContent>
         </Card>
       </div>
@@ -282,7 +315,10 @@ export default function CompanySignupPage() {
                   />
                 </div>
                 {checkingSlug && (
-                  <p className="text-xs text-slate-500">Checking availability...</p>
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Checking availability...
+                  </p>
                 )}
                 {slugAvailable === true && companySlug.length >= 3 && (
                   <p className="text-xs text-green-600 flex items-center gap-1">
@@ -413,7 +449,14 @@ export default function CompanySignupPage() {
               className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold"
               disabled={loading || slugAvailable === false}
             >
-              {loading ? "Creating Your Company..." : "Register Company"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Creating Your Company...
+                </>
+              ) : (
+                "Register Company"
+              )}
             </Button>
 
             <div className="text-center space-y-2">
