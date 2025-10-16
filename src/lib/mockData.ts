@@ -2,6 +2,7 @@
 import { AppOrder, Delivery } from "@/types";
 
 const defaultOrderValues = {
+  company_id: "mock-company-id", // Added for multi-tenancy
   user_id: "user-123",
   client_id: "client-abc",
   client_email: "test@test.com",
@@ -199,6 +200,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 15000,
       user_id: "user-123",
       order_number: "ORD-101",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -213,6 +215,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 7500,
       user_id: "user-123",
       order_number: "ORD-102",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -227,6 +230,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 30000,
       user_id: "user-123",
       order_number: "ORD-103",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -241,6 +245,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 18000,
       user_id: "user-123",
       order_number: "ORD-104",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -255,6 +260,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 37500,
       user_id: "user-123",
       order_number: "ORD-105",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -269,6 +275,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 12000,
       user_id: "user-123",
       order_number: "ORD-106",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -283,6 +290,7 @@ export const fullMockOrders: AppOrder[] = [
       total: 22500,
       user_id: "user-123",
       order_number: "ORD-107",
+      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },

@@ -54,6 +54,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           currency: "ZAR",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          company_id: "demo-company-id", // Added to satisfy type
           company_name: "Bob's Catering",
           company_slug: "bobs-catering",
           phone: "+27 21 555 1234",

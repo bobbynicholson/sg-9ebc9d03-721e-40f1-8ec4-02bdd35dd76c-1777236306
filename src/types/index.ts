@@ -141,6 +141,7 @@ export interface DeliveryJob extends Quote {
 }
 
 export type AppOrder = Order & {
+  company_id: string; // Ensure company_id is always present
   clientName?: string;
   driverName?: string;
   totalAmount?: number;
