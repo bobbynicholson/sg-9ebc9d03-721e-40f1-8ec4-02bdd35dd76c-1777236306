@@ -1,22 +1,35 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 
 type MenuItem = Database["public"]["Tables"]["menu_items"]["Row"];
+type MenuItemInsert = Database["public"]["Tables"]["menu_items"]["Insert"];
 type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
+type RecipeInsert = Database["public"]["Tables"]["recipes"]["Insert"];
 type RecipeIngredient = Database["public"]["Tables"]["recipe_ingredients"]["Row"];
+type RecipeIngredientInsert = Database["public"]["Tables"]["recipe_ingredients"]["Insert"];
 type Allergen = Database["public"]["Tables"]["allergens"]["Row"];
 type InventoryBatch = Database["public"]["Tables"]["inventory_batches"]["Row"];
+type InventoryBatchInsert = Database["public"]["Tables"]["inventory_batches"]["Insert"];
 type StorageLocation = Database["public"]["Tables"]["storage_locations"]["Row"];
+type StorageLocationInsert = Database["public"]["Tables"]["storage_locations"]["Insert"];
 type TemperatureLog = Database["public"]["Tables"]["temperature_logs"]["Row"];
+type TemperatureLogInsert = Database["public"]["Tables"]["temperature_logs"]["Insert"];
 type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
+type SupplierInsert = Database["public"]["Tables"]["suppliers"]["Insert"];
 type EquipmentMaintenance = Database["public"]["Tables"]["equipment_maintenance"]["Row"];
+type EquipmentMaintenanceInsert = Database["public"]["Tables"]["equipment_maintenance"]["Insert"];
 type SafetyCheck = Database["public"]["Tables"]["safety_checks"]["Row"];
+type SafetyCheckInsert = Database["public"]["Tables"]["safety_checks"]["Insert"];
 type TrainingMaterial = Database["public"]["Tables"]["training_materials"]["Row"];
+type TrainingMaterialInsert = Database["public"]["Tables"]["training_materials"]["Insert"];
 type HealthCertificate = Database["public"]["Tables"]["health_certificates"]["Row"];
 type DailyPrepList = Database["public"]["Tables"]["daily_prep_lists"]["Row"];
+type DailyPrepListInsert = Database["public"]["Tables"]["daily_prep_lists"]["Insert"];
 type WasteLog = Database["public"]["Tables"]["waste_logs"]["Row"];
+type WasteLogInsert = Database["public"]["Tables"]["waste_logs"]["Insert"];
 type IngredientSubstitution = Database["public"]["Tables"]["ingredient_substitutions"]["Row"];
+type IngredientSubstitutionInsert = Database["public"]["Tables"]["ingredient_substitutions"]["Insert"];
 
 export const operationsService = {
   // ==========================================
@@ -35,10 +48,10 @@ export const operationsService = {
     return data as MenuItem[];
   },
 
-  async createMenuItem(menuItem: Partial<MenuItem>) {
+  async createMenuItem(menuItem: MenuItemInsert) {
     const { data, error } = await supabase
       .from("menu_items")
-      .insert([menuItem])
+      .insert(menuItem)
       .select()
       .single();
 
@@ -77,11 +90,11 @@ export const operationsService = {
     return data;
   },
 
-  async createRecipe(recipe: Partial<Recipe>, ingredients: Partial<RecipeIngredient>[], allergenIds: string[]) {
+  async createRecipe(recipe: RecipeInsert, ingredients: Omit<RecipeIngredientInsert, 'recipe_id'>[], allergenIds: string[]) {
     // Create recipe
     const { data: recipeData, error: recipeError } = await supabase
       .from("recipes")
-      .insert([recipe])
+      .insert(recipe)
       .select()
       .single();
 
@@ -149,10 +162,10 @@ export const operationsService = {
     return data as InventoryBatch[];
   },
 
-  async createInventoryBatch(batch: Partial<InventoryBatch>) {
+  async createInventoryBatch(batch: InventoryBatchInsert) {
     const { data, error } = await supabase
       .from("inventory_batches")
-      .insert([batch])
+      .insert(batch)
       .select()
       .single();
 
@@ -204,10 +217,10 @@ export const operationsService = {
     return data as StorageLocation[];
   },
 
-  async createStorageLocation(location: Partial<StorageLocation>) {
+  async createStorageLocation(location: StorageLocationInsert) {
     const { data, error } = await supabase
       .from("storage_locations")
-      .insert([location])
+      .insert(location)
       .select()
       .single();
 
@@ -215,10 +228,10 @@ export const operationsService = {
     return data as StorageLocation;
   },
 
-  async logTemperature(log: Partial<TemperatureLog>) {
+  async logTemperature(log: TemperatureLogInsert) {
     const { data, error } = await supabase
       .from("temperature_logs")
-      .insert([log])
+      .insert(log)
       .select()
       .single();
 
@@ -246,7 +259,7 @@ export const operationsService = {
       .from("temperature_logs")
       .select(`
         *,
-        storage_locations (*)
+        storage_locations!inner(company_id)
       `)
       .eq("alert_triggered", true)
       .eq("storage_locations.company_id", companyId)
@@ -261,10 +274,10 @@ export const operationsService = {
   // WASTE MANAGEMENT (#16)
   // ==========================================
 
-  async logWaste(wasteLog: Partial<WasteLog>) {
+  async logWaste(wasteLog: WasteLogInsert) {
     const { data, error } = await supabase
       .from("waste_logs")
-      .insert([wasteLog])
+      .insert(wasteLog)
       .select()
       .single();
 
@@ -291,20 +304,21 @@ export const operationsService = {
     if (error) throw error;
     return data as WasteLog[];
   },
+  
+  // TODO: Create the 'get_waste_analytics' RPC function in the database.
+  // async getWasteAnalytics(companyId: string, period: 'week' | 'month' | 'year') {
+  //   const { data, error } = await supabase
+  //     .rpc('get_waste_analytics', {
+  //       p_company_id: companyId,
+  //       p_period: period
+  //     });
 
-  async getWasteAnalytics(companyId: string, period: 'week' | 'month' | 'year') {
-    const { data, error } = await supabase
-      .rpc('get_waste_analytics', {
-        p_company_id: companyId,
-        p_period: period
-      });
-
-    if (error) {
-      console.error("Waste analytics error:", error);
-      return null;
-    }
-    return data;
-  },
+  //   if (error) {
+  //     console.error("Waste analytics error:", error);
+  //     return null;
+  //   }
+  //   return data;
+  // },
 
   // ==========================================
   // INGREDIENT SUBSTITUTIONS (#18)
@@ -321,10 +335,10 @@ export const operationsService = {
     return data as IngredientSubstitution[];
   },
 
-  async createSubstitution(substitution: Partial<IngredientSubstitution>) {
+  async createSubstitution(substitution: IngredientSubstitutionInsert) {
     const { data, error } = await supabase
       .from("ingredient_substitutions")
-      .insert([substitution])
+      .insert(substitution)
       .select()
       .single();
 
@@ -348,10 +362,10 @@ export const operationsService = {
     return data as Supplier[];
   },
 
-  async createSupplier(supplier: Partial<Supplier>) {
+  async createSupplier(supplier: SupplierInsert) {
     const { data, error } = await supabase
       .from("suppliers")
-      .insert([supplier])
+      .insert(supplier)
       .select()
       .single();
 
@@ -398,10 +412,10 @@ export const operationsService = {
     return data as EquipmentMaintenance[];
   },
 
-  async createEquipment(equipment: Partial<EquipmentMaintenance>) {
+  async createEquipment(equipment: EquipmentMaintenanceInsert) {
     const { data, error } = await supabase
       .from("equipment_maintenance")
-      .insert([equipment])
+      .insert(equipment)
       .select()
       .single();
 
@@ -447,10 +461,10 @@ export const operationsService = {
     return data as SafetyCheck[];
   },
 
-  async createSafetyCheck(check: Partial<SafetyCheck>) {
+  async createSafetyCheck(check: SafetyCheckInsert) {
     const { data, error } = await supabase
       .from("safety_checks")
-      .insert([check])
+      .insert(check)
       .select()
       .single();
 
@@ -474,10 +488,10 @@ export const operationsService = {
     return data as TrainingMaterial[];
   },
 
-  async createTrainingMaterial(material: Partial<TrainingMaterial>) {
+  async createTrainingMaterial(material: TrainingMaterialInsert) {
     const { data, error } = await supabase
       .from("training_materials")
-      .insert([material])
+      .insert(material)
       .select()
       .single();
 
@@ -490,7 +504,7 @@ export const operationsService = {
       .from("health_certificates")
       .select(`
         *,
-        profiles (full_name, email)
+        profiles!inner(company_id, full_name, email)
       `)
       .eq("profiles.company_id", companyId)
       .order("expiry_date", { ascending: true });
@@ -507,7 +521,7 @@ export const operationsService = {
       .from("health_certificates")
       .select(`
         *,
-        profiles (full_name, email, company_id)
+        profiles!inner(full_name, email, company_id)
       `)
       .eq("profiles.company_id", companyId)
       .lte("expiry_date", futureDate.toISOString().split('T')[0])
@@ -538,10 +552,10 @@ export const operationsService = {
     return data;
   },
 
-  async createPrepListItem(item: Partial<DailyPrepList>) {
+  async createPrepListItem(item: DailyPrepListInsert) {
     const { data, error } = await supabase
       .from("daily_prep_lists")
-      .insert([item])
+      .insert(item)
       .select()
       .single();
 

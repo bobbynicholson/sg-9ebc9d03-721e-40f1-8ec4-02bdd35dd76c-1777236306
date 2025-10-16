@@ -25,7 +25,8 @@ import {
   ChevronRight,
   Briefcase,
   MessageSquare,
-  Truck
+  Truck,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +98,12 @@ const adminNavSections: NavSection[] = [
   {
     title: "Operations",
     items: [
+      {
+        title: "Operations Hub",
+        href: "/admin/operations-hub",
+        icon: Layers,
+        description: "40 operational standards"
+      },
       {
         title: "Job Progress Overview",
         href: "/portal/admin/job-progress-overview",
