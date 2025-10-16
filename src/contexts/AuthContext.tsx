@@ -32,6 +32,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionError, setSessionError] = useState(false);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -90,6 +91,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUserRoles([]);
         setActiveRole("client");
         setLoading(false);
+        setSessionError(false);
         return;
       }
 
@@ -100,10 +102,14 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           profileData = await profileService.getProfile(session.user.id);
         } catch (profileError) {
           console.error("Error loading profile:", profileError);
-          // Profile is critical - if it fails, we can't proceed
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
+          // Profile is critical - if it fails, clear session and redirect
+          await handleInvalidSession();
+          return;
+        }
+
+        if (!profileData) {
+          console.error("Profile data is null for user:", session.user.id);
+          await handleInvalidSession();
           return;
         }
 
@@ -132,13 +138,35 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setActiveRole("client");
         }
 
+        setSessionError(false);
       } catch (error) {
         console.error("Error loading user session data:", error);
-        // If something went very wrong, at least set the basic user
-        setUser(session.user as AuthenticatedUser);
-        setProfile(null);
+        // If something went very wrong, clear session
+        await handleInvalidSession();
       } finally {
         setLoading(false);
+      }
+    };
+    
+    const handleInvalidSession = async () => {
+      console.log("Handling invalid session - clearing and redirecting to login");
+      
+      setUser(null);
+      setProfile(null);
+      setUserRoles([]);
+      setActiveRole("client");
+      setSessionError(true);
+      setLoading(false);
+      
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error("Error during cleanup signout:", signOutError);
+      }
+      
+      // Only redirect if not already on auth page
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
+        router.push("/auth/login?message=session_expired");
       }
     };
     
@@ -149,24 +177,14 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error("Error getting session:", error);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
+          await handleInvalidSession();
           return;
         }
         
         await loadUserSession(session);
       } catch (error) {
         console.error("Fatal error initializing auth:", error);
-        // Clear any corrupted session data
-        try {
-          await supabase.auth.signOut();
-        } catch (signOutError) {
-          console.error("Error during cleanup signout:", signOutError);
-        }
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
+        await handleInvalidSession();
       }
     };
 
@@ -180,9 +198,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           await loadUserSession(session);
         } catch (error) {
           console.error("Error in auth state change handler:", error);
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
+          await handleInvalidSession();
         }
       });
       subscription = data.subscription;

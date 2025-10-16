@@ -16,45 +16,55 @@ export interface AuthError {
 
 const getURL = () => {
   try {
-    // Check if we're in a browser environment
+    // BROWSER: Most reliable source
     if (typeof window !== "undefined") {
-      // In browser, use window.location.origin (most reliable)
       const origin = window.location.origin;
-      if (!origin || origin === "null") {
-        // Fallback for edge cases
-        return "http://localhost:3000/";
+      // Validate origin is not null or empty
+      if (origin && origin !== "null" && origin !== "undefined") {
+        return origin.endsWith("/") ? origin : `${origin}/`;
       }
-      return origin.endsWith("/") ? origin : `${origin}/`;
+      // Fallback for edge cases
+      console.warn("Invalid window.location.origin, using localhost fallback");
+      return "http://localhost:3000/";
     }
 
-    // Server-side: try environment variables with validation
-    let url =
+    // SERVER: Build URL from environment with validation
+    let rawUrl =
       process?.env?.NEXT_PUBLIC_VERCEL_URL ??
       process?.env?.NEXT_PUBLIC_SITE_URL ??
-      "http://localhost:3000";
+      "";
 
-    // Clean and validate the URL
-    url = url.trim();
+    // If no environment variables, use localhost
+    if (!rawUrl || rawUrl.trim() === "") {
+      return "http://localhost:3000/";
+    }
+
+    // Clean the URL
+    rawUrl = rawUrl.trim();
     
-    // Ensure URL has protocol
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      url = `https://${url}`;
+    // Add protocol if missing
+    if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+      rawUrl = `https://${rawUrl}`;
     }
     
-    // Ensure URL ends with slash
-    url = url.endsWith("/") ? url : `${url}/`;
+    // Ensure trailing slash
+    const finalUrl = rawUrl.endsWith("/") ? rawUrl : `${rawUrl}/`;
 
-    // Validate URL format before returning
+    // Validate URL is well-formed before returning
     try {
-      new URL(url);
-      return url;
+      const testUrl = new URL(finalUrl);
+      // Additional validation: ensure hostname is not empty
+      if (!testUrl.hostname || testUrl.hostname === "") {
+        throw new Error("Invalid hostname");
+      }
+      return finalUrl;
     } catch (urlError) {
-      console.error("Invalid URL generated:", url, urlError);
+      console.error("Invalid URL constructed:", finalUrl, urlError);
       return "http://localhost:3000/";
     }
   } catch (error) {
-    console.error("Error in getURL():", error);
-    // Safe fallback
+    // Catch-all safety net
+    console.error("Critical error in getURL():", error);
     return "http://localhost:3000/";
   }
 };

@@ -7,14 +7,25 @@ export const profileService = {
   // Get user profile
   async getProfile(userId: string) {
     try {
+      if (!userId || typeof userId !== "string" || userId.trim() === "") {
+        console.error("Invalid userId provided to getProfile:", userId);
+        return null;
+      }
+
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
+        .limit(1)
         .maybeSingle();
 
       if (error) {
         console.error("Error fetching profile:", error);
+        return null;
+      }
+
+      if (!data) {
+        console.warn("No profile found for user:", userId);
         return null;
       }
 

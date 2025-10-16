@@ -54,7 +54,8 @@ export const roleService = {
         .from("profiles")
         .select("active_role")
         .eq("id", userId)
-        .maybeSingle();
+        .limit(1)
+        .single();
 
       if (error) {
         console.error("Error fetching active role:", error);
@@ -101,7 +102,66 @@ export const roleService = {
     assignedBy: string,
     isPrimary: boolean = false
   ): Promise<void> {
-    // If setting as primary, unset other primary roles first
+    // STEP 1: Verify user exists in profiles table
+    const { data: profileExists, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError || !profileExists) {
+      console.error("User profile not found:", userId, profileError);
+      throw new Error("User profile must exist before assigning roles");
+    }
+
+    // STEP 2: Check if role already exists
+    const { data: existingRole, error: checkError } = await supabase
+      .from("user_departments")
+      .select("id, is_primary")
+      .eq("user_id", userId)
+      .eq("department", department)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Error checking existing role:", checkError);
+      throw checkError;
+    }
+
+    // STEP 3: If role exists, update it instead of inserting
+    if (existingRole) {
+      console.log(`Role ${department} already exists for user ${userId}, updating instead`);
+      
+      // If setting as primary, unset other primary roles first
+      if (isPrimary) {
+        await supabase
+          .from("user_departments")
+          .update({ is_primary: false })
+          .eq("user_id", userId);
+      }
+
+      // Update existing role
+      const { error: updateError } = await supabase
+        .from("user_departments")
+        .update({ is_primary: isPrimary })
+        .eq("id", existingRole.id);
+
+      if (updateError) {
+        console.error("Error updating role:", updateError);
+        throw updateError;
+      }
+
+      // Update active role if primary
+      if (isPrimary) {
+        await supabase
+          .from("profiles")
+          .update({ active_role: department })
+          .eq("id", userId);
+      }
+
+      return;
+    }
+
+    // STEP 4: If setting as primary, unset other primary roles first
     if (isPrimary) {
       await supabase
         .from("user_departments")
@@ -109,6 +169,7 @@ export const roleService = {
         .eq("user_id", userId);
     }
 
+    // STEP 5: Insert new role
     const insert: UserDepartmentInsert = {
       user_id: userId,
       department,
@@ -125,7 +186,7 @@ export const roleService = {
       throw error;
     }
 
-    // If this is the first role or is primary, set as active role
+    // STEP 6: If this is the first role or is primary, set as active role
     if (isPrimary) {
       await supabase
         .from("profiles")
