@@ -28,6 +28,7 @@ import type { Order, Profile } from "@/types";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -206,7 +207,8 @@ export default function FinancialDashboardPage() {
       </Head>
       <NoIndexMeta />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8">
+      <AdminNav />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:ml-64 xl:ml-72">
         <div className="max-w-7xl mx-auto">
           {/* Header with Health Score */}
           <div className="mb-8">

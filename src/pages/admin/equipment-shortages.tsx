@@ -34,6 +34,7 @@ import {
   Calendar
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface ShortageFlag {
   id: string;
@@ -206,7 +207,8 @@ export default function EquipmentShortagesPage() {
         <title>Equipment Shortages - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <AdminNav />
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:ml-64 xl:ml-72">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Equipment Shortage Flags</h1>

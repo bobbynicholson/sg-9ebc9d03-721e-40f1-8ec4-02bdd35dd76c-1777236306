@@ -14,6 +14,7 @@ import { defaultAfterSalesTemplates, interpolateEmailTemplate, getEmailVariables
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface EmailTemplate {
   id: string;
@@ -107,7 +108,8 @@ export default function AfterSalesEmailsPage() {
         <title>After-Sales Email Automation | Catering Platform</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <AdminNav />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:ml-64 xl:ml-72">
         <div className="container mx-auto px-4 py-6 md:py-8">
           {/* Header - Mobile Optimized */}
           <div className="mb-6 md:mb-8">

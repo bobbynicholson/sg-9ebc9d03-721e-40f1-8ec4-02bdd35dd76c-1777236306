@@ -27,6 +27,7 @@ import { defaultAfterSalesTemplates } from "@/lib/afterSalesTemplates";
 import { Footer } from "@/components/Footer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 export default function EmailAutomationDashboard() {
   const [queues, setQueues] = useState<AfterSalesEmailQueue[]>([]);
@@ -106,7 +107,8 @@ export default function EmailAutomationDashboard() {
         <title>Email Automation Dashboard | Catering Platform</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <AdminNav />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:ml-64 xl:ml-72">
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8">
             <Button

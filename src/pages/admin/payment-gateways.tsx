@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CreditCard, Globe, MapPin, Check, AlertCircle, Settings } from "lucide-react";
 import { PaymentGatewayConfig, PaymentGateway } from "@/types/payments";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 const gatewayDetails: Record<PaymentGateway, {
   name: string;
@@ -143,7 +144,8 @@ export default function PaymentGatewaysPage() {
         <title>Payment Gateways - CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6">
+      <AdminNav />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6 lg:ml-64 xl:ml-72">
         <div className="max-w-7xl mx-auto space-y-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">Payment Gateways</h1>

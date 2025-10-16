@@ -35,6 +35,7 @@ import { orderService } from "@/services/orderService";
 import { regionService, Region } from "@/services/regionService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface PriorityTask {
   orderId: string;
@@ -342,7 +343,8 @@ export default function JobProgressOverviewPage() {
       </Head>
       <NoIndexMeta />
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <AdminNav />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 lg:ml-64 xl:ml-72">
         <Header />
 
         <main className="container mx-auto px-4 py-8">

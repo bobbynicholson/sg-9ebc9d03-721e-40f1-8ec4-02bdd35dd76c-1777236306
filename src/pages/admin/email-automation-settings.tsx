@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Save, Send, Settings, Mail, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface EmailConfig {
   provider: string;
@@ -211,7 +212,8 @@ export default function EmailAutomationSettings() {
   return (
     <>
       <NoIndexMeta />
-      <div className="container mx-auto p-6 max-w-7xl">
+      <AdminNav />
+      <div className="container mx-auto p-6 max-w-7xl lg:ml-64 xl:ml-72">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Email Automation Settings</h1>
