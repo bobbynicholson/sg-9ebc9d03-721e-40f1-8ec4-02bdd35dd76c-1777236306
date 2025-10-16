@@ -34,6 +34,7 @@ import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function AdminSettingsPage() {
   const [saved, setSaved] = useState(false);
@@ -131,10 +132,16 @@ export default function AdminSettingsPage() {
                 <p className="text-sm md:text-base text-slate-600">Configure platform preferences</p>
               </div>
             </div>
-            <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700 w-full sm:w-auto" size="sm">
-              <Save className="w-4 h-4 mr-2" />
-              Save All
-            </Button>
+            <div className="flex items-center gap-2">
+              <InfoTooltip 
+                content="Save all your settings changes across all tabs. Your preferences will be applied immediately."
+                side="left"
+              />
+              <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700 w-full sm:w-auto" size="sm">
+                <Save className="w-4 h-4 mr-2" />
+                Save All
+              </Button>
+            </div>
           </div>
 
           {saved && (
@@ -178,12 +185,19 @@ export default function AdminSettingsPage() {
                       </div>
                     </div>
                   </div>
-                  <Link href="/admin/white-label" className="w-full md:w-auto">
-                    <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
-                      Customize Branding
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <InfoTooltip 
+                      content="Customize your company's branding including logo, colors, and visual identity to match your brand perfectly."
+                      side="left"
+                      className="text-white hover:text-white/80"
+                    />
+                    <Link href="/admin/white-label" className="w-full md:w-auto">
+                      <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                        Customize Branding
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -217,12 +231,19 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 md:gap-3">
-                    <Link href="/admin/regions" className="w-full">
-                      <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
-                        Manage Regions
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <InfoTooltip 
+                        content="Set up multiple regional operations with independent teams, kitchens, and drivers while maintaining centralized control."
+                        side="left"
+                        className="text-white hover:text-white/80"
+                      />
+                      <Link href="/admin/regions" className="w-full">
+                        <Button size="sm" className="bg-white text-purple-600 hover:bg-purple-50 w-full">
+                          Manage Regions
+                          <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      </Link>
+                    </div>
                     <Link href="/admin/order-assignments" className="w-full">
                       <Button size="sm" variant="outline" className="bg-white/80 hover:bg-white w-full border-white">
                         Assign Orders
@@ -258,12 +279,19 @@ export default function AdminSettingsPage() {
                       </div>
                     </div>
                   </div>
-                  <Link href="/admin/payment-gateways">
-                    <Button size="sm" className="bg-white text-green-600 hover:bg-green-50 w-full md:w-auto">
-                      Configure
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <InfoTooltip 
+                      content="Configure payment gateways to accept online payments from your clients. Support for local and international payment methods."
+                      side="left"
+                      className="text-white hover:text-white/80"
+                    />
+                    <Link href="/admin/payment-gateways">
+                      <Button size="sm" className="bg-white text-green-600 hover:bg-green-50 w-full md:w-auto">
+                        Configure
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>
