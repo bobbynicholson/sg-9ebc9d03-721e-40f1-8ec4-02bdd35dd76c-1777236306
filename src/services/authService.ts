@@ -15,46 +15,80 @@ export interface AuthError {
 }
 
 const getURL = () => {
-  // Check if we're in a browser environment
-  if (typeof window !== "undefined") {
-    // In browser, use window.location.origin
-    return window.location.origin + "/";
+  try {
+    // Check if we're in a browser environment
+    if (typeof window !== "undefined") {
+      // In browser, use window.location.origin (most reliable)
+      const origin = window.location.origin;
+      if (!origin || origin === "null") {
+        // Fallback for edge cases
+        return "http://localhost:3000/";
+      }
+      return origin.endsWith("/") ? origin : `${origin}/`;
+    }
+
+    // Server-side: try environment variables with validation
+    let url =
+      process?.env?.NEXT_PUBLIC_VERCEL_URL ??
+      process?.env?.NEXT_PUBLIC_SITE_URL ??
+      "http://localhost:3000";
+
+    // Clean and validate the URL
+    url = url.trim();
+    
+    // Ensure URL has protocol
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = `https://${url}`;
+    }
+    
+    // Ensure URL ends with slash
+    url = url.endsWith("/") ? url : `${url}/`;
+
+    // Validate URL format before returning
+    try {
+      new URL(url);
+      return url;
+    } catch (urlError) {
+      console.error("Invalid URL generated:", url, urlError);
+      return "http://localhost:3000/";
+    }
+  } catch (error) {
+    console.error("Error in getURL():", error);
+    // Safe fallback
+    return "http://localhost:3000/";
   }
-
-  // Server-side: try environment variables
-  let url =
-    process?.env?.NEXT_PUBLIC_VERCEL_URL ??
-    process?.env?.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
-
-  // Ensure URL has protocol
-  url = url.startsWith("http") ? url : `https://${url}`;
-  // Ensure URL ends with slash
-  url = url.endsWith("/") ? url : `${url}/`;
-
-  return url;
 };
 
 export const authService = {
   async getCurrentUser(): Promise<AuthUser | null> {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user
-      ? {
-          id: user.id,
-          email: user.email || "",
-          user_metadata: user.user_metadata,
-          created_at: user.created_at,
-        }
-      : null;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      return user
+        ? {
+            id: user.id,
+            email: user.email || "",
+            user_metadata: user.user_metadata,
+            created_at: user.created_at,
+          }
+        : null;
+    } catch (error) {
+      console.error("Error getting current user:", error);
+      return null;
+    }
   },
 
   async getCurrentSession(): Promise<Session | null> {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      return session;
+    } catch (error) {
+      console.error("Error getting current session:", error);
+      return null;
+    }
   },
 
   async signUp(
