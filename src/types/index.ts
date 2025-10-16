@@ -151,6 +151,9 @@ export type AppOrder = Order & {
   delivery_total_fee?: number;
   pickup_time?: string;
   waiterDuration?: number;
+  waiterRate?: number;
+  deliveryDistance?: number | null;
+  deliveryRate?: number | null;
 };
 
 export interface OrderModification {
