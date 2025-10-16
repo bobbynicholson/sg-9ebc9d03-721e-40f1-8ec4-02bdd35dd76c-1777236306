@@ -168,12 +168,9 @@ export const userManagementService = {
       const primaryDept = departments.find((d) => d.is_primary)?.department || departments[0]?.department;
       
       if (primaryDept) {
-        // Explicitly type the role as string to match database schema
-        const roleValue: string = primaryDept as string;
-        
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ role: roleValue })
+          .update({ role: primaryDept } as { role: string })
           .eq("id", userId);
 
         if (updateError) {
