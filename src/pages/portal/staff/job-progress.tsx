@@ -45,7 +45,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-002",
         quote_id: "Q-002",
@@ -61,7 +61,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-003",
         quote_id: "Q-003",
@@ -77,7 +77,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-004",
         quote_id: "Q-004",
@@ -93,7 +93,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 10).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-005",
         quote_id: "Q-005",
@@ -109,7 +109,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-006",
         quote_id: "Q-006",
@@ -125,7 +125,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
       {
         id: "ORD-007",
         quote_id: "Q-007",
@@ -141,7 +141,7 @@ export default function StaffJobProgressPage() {
         created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
         deposit_paid: true,
         balance_paid: true,
-      },
+      } as unknown as AppOrder,
     ];
 
     console.log("🍽️ Bob's Catering - Setting dummy orders:", dummyOrders.length);
