@@ -322,7 +322,7 @@ export function Header() {
             </Link>
 
             {/* Sign Up CTA */}
-            <Link href="/company-signup">
+            <Link href="/pricing">
               <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg">
                 Start Free Trial
                 <ArrowRight className="w-4 h-4 ml-2" />
