@@ -26,6 +26,24 @@ export default function AuthPage() {
   const [companyInfo, setCompanyInfo] = useState<{id: string; name: string; currency: string} | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
 
+  // **NEW: Auto-fill demo credentials from sessionStorage**
+  useEffect(() => {
+    if (typeof window !== "undefined" && authType === "login") {
+      const demoEmail = sessionStorage.getItem("demo_email");
+      const demoPassword = sessionStorage.getItem("demo_password");
+      
+      if (demoEmail && demoPassword) {
+        setEmail(demoEmail);
+        setPassword(demoPassword);
+        
+        // Clear sessionStorage after using
+        sessionStorage.removeItem("demo_email");
+        sessionStorage.removeItem("demo_password");
+        sessionStorage.removeItem("demo_role");
+      }
+    }
+  }, [authType]);
+
   // Load company information when component mounts
   useEffect(() => {
     async function loadCompanyInfo() {
