@@ -64,7 +64,7 @@ export default function InventoryManagementPage() {
                 Track every ingredient and piece of equipment with automatic expiry alerts and availability monitoring
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-6 text-lg">
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -198,7 +198,7 @@ export default function InventoryManagementPage() {
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
               Food waste kills your margins. CateringMS tracks expiry dates and helps you use ingredients before they go bad.
             </p>
-            <Link href="/auth/register">
+            <Link href="/company-signup">
               <Button size="lg" className="bg-white text-green-600 hover:bg-green-50 px-10 py-6 text-lg">
                 Start Saving Money Today
                 <ArrowRight className="w-5 h-5 ml-2" />

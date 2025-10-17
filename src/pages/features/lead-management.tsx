@@ -67,7 +67,7 @@ export default function LeadManagementPage() {
                 Capture leads automatically, generate quotes in 60 seconds, and increase conversions with smart follow-ups
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button size="lg" className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-8 py-6 text-lg">
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -201,7 +201,7 @@ export default function LeadManagementPage() {
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
               The faster you respond, the higher your conversion rate. CateringMS helps you respond to every lead within minutes, not hours.
             </p>
-            <Link href="/auth/register">
+            <Link href="/company-signup">
               <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 px-10 py-6 text-lg">
                 Start Converting More Leads Today
                 <ArrowRight className="w-5 h-5 ml-2" />

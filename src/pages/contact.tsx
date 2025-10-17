@@ -406,7 +406,7 @@ export default function ContactPage() {
                   </p>
                   
                   <div className="flex flex-col gap-3">
-                    <Link href="/auth/register" className="block">
+                    <Link href="/company-signup" className="block">
                       <Button className="w-full h-11 sm:h-12 bg-gradient-to-r from-purple-600 to-pink-600 text-sm sm:text-base hover:opacity-90 transition-opacity">
                         Start Free Trial
                         <ArrowRight className="w-4 h-4 ml-2" />

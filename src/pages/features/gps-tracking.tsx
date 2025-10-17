@@ -64,7 +64,7 @@ export default function GPSTrackingPage() {
                 Give your clients peace of mind with live GPS tracking. Reduce tracking calls by 65% with automatic notifications
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button size="lg" className="bg-gradient-to-r from-red-600 to-orange-600 text-white px-8 py-6 text-lg">
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -198,7 +198,7 @@ export default function GPSTrackingPage() {
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
               Stop fielding tracking calls. Give clients the Uber-style experience they expect with real-time GPS tracking.
             </p>
-            <Link href="/auth/register">
+            <Link href="/company-signup">
               <Button size="lg" className="bg-white text-red-600 hover:bg-red-50 px-10 py-6 text-lg">
                 Enable GPS Tracking Today
                 <ArrowRight className="w-5 h-5 ml-2" />

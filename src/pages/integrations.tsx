@@ -235,7 +235,7 @@ export default function IntegrationsPage({ companySlug: propCompanySlug }: Integ
                 Seamlessly integrate with the apps you already use. Automate workflows and scale your business effortlessly.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-6 text-lg hover:shadow-2xl transition-all hover:scale-105">
                     Get Started Free
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -390,7 +390,7 @@ export default function IntegrationsPage({ companySlug: propCompanySlug }: Integ
                   Start your free trial and connect all your favorite apps in minutes. No credit card required.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href={companySlug ? `/${companySlug}/auth/register` : "/auth/register"}>
+                  <Link href="/company-signup">
                     <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50 px-10 py-6 text-lg shadow-2xl hover:scale-105 transition-all">
                       Start Free Trial
                       <ArrowRight className="w-5 h-5 ml-2" />

@@ -64,7 +64,7 @@ export default function KitchenManagementPage() {
                 Smart prep schedules, automated shopping lists, and team coordination that keeps your kitchen running efficiently
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button size="lg" className="bg-gradient-to-r from-pink-600 to-rose-600 text-white px-8 py-6 text-lg">
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -198,7 +198,7 @@ export default function KitchenManagementPage() {
             <p className="text-xl mb-8 max-w-2xl mx-auto opacity-95">
               Stop the chaos. Give your team clear timelines, tasks, and coordination tools that keep production flowing smoothly.
             </p>
-            <Link href="/auth/register">
+            <Link href="/company-signup">
               <Button size="lg" className="bg-white text-pink-600 hover:bg-pink-50 px-10 py-6 text-lg">
                 Organize Your Kitchen Today
                 <ArrowRight className="w-5 h-5 ml-2" />
