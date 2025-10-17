@@ -1,116 +1,103 @@
 import { UserRole } from "@/types";
 import type { Profile } from "@/services/profileService";
 
-// Role-based route permissions
+// Role-based route permissions - UPDATED TO MATCH NEW URL STRUCTURE
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
+  // SUPER_ADMIN: CateringMS Platform Admin (access to /cateringms-platform/*)
+  super_admin: [
+    "/cateringms-platform",
+    "/cateringms-platform/dashboard",
+    "/cateringms-platform/subscription-management",
+    "/cateringms-platform/pricing-management",
+    "/cateringms-platform/currency-monitoring",
+    "/cateringms-platform/trial-management",
+    "/cateringms-platform/cms-blog",
+    "/cateringms-platform/cms-pages",
+    "/", // Can access main site
+    "/pricing",
+    "/features",
+    "/contact",
+    "/support",
+  ],
+  
+  // ADMIN/OWNER: Catering Company Admin (access to /[company-slug]/admin/*)
   admin: [
-    "/admin",
-    "/admin/dashboard",
-    "/admin/users",
-    "/admin/settings",
-    "/admin/email-templates",
-    "/admin/after-sales-emails",
-    "/admin/email-automation-dashboard",
-    "/admin/email-automation-settings",
-    "/admin/regions",
-    "/admin/order-assignments",
-    "/admin/payment-gateways",
-    "/cateringms-platform/cms-blog",
-    "/cateringms-platform/cms-pages",
-    "/admin/equipment-shortages",
-    "/admin/white-label",
-    "/admin/subscription",
-    "/admin/catering-ms-dashboard",
-    "/admin/currency-monitoring",
-    "/admin/client-search",
-    "/admin/staff-hours",
-    "/admin/financial-dashboard",
-    "/portal/admin/job-progress-overview",
-    "/portal/admin/notification-settings",
-    "/orders",
+    "/admin", // Will be prefixed with company slug in middleware
+    "/users",
+    "/settings",
+    "/onboarding",
+    "/leads",
     "/quotes",
     "/calendar",
+    "/notifications",
+    "/integrations",
+    "/orders",
     "/inventory",
-    "/leads",
     "/drivers",
     "/kitchen",
     "/shopping",
     "/cleaning",
     "/tracking/admin",
-    "/notifications"
-  ],
-  owner: [ // same as admin
-    "/admin",
-    "/admin/dashboard",
-    "/admin/users",
-    "/admin/settings",
-    "/admin/email-templates",
-    "/admin/after-sales-emails",
-    "/admin/email-automation-dashboard",
-    "/admin/email-automation-settings",
-    "/admin/regions",
-    "/admin/order-assignments",
-    "/admin/payment-gateways",
-    "/cateringms-platform/cms-blog",
-    "/cateringms-platform/cms-pages",
-    "/admin/equipment-shortages",
-    "/admin/white-label",
-    "/admin/subscription",
-    "/admin/catering-ms-dashboard",
-    "/admin/currency-monitoring",
-    "/admin/client-search",
-    "/admin/staff-hours",
-    "/admin/financial-dashboard",
+    "/email-templates",
+    "/after-sales-emails",
+    "/email-automation-dashboard",
+    "/email-automation-settings",
+    "/regions",
+    "/order-assignments",
+    "/payment-gateways",
+    "/equipment-shortages",
+    "/white-label",
+    "/subscription",
+    "/client-search",
+    "/staff-hours",
+    "/financial-dashboard",
+    "/driver-management",
+    "/kitchen-duty-tracking",
+    "/operations-hub",
+    "/operations-standards",
     "/portal/admin/job-progress-overview",
     "/portal/admin/notification-settings",
-    "/orders",
+  ],
+  
+  owner: [ // Same as admin
+    "/admin",
+    "/users",
+    "/settings",
+    "/onboarding",
+    "/leads",
     "/quotes",
     "/calendar",
+    "/notifications",
+    "/integrations",
+    "/orders",
     "/inventory",
-    "/leads",
     "/drivers",
     "/kitchen",
     "/shopping",
     "/cleaning",
     "/tracking/admin",
-    "/notifications"
-  ],
-  super_admin: [ // same as admin
-    "/admin",
-    "/admin/dashboard",
-    "/admin/users",
-    "/admin/settings",
-    "/admin/email-templates",
-    "/admin/after-sales-emails",
-    "/admin/email-automation-dashboard",
-    "/admin/email-automation-settings",
-    "/admin/regions",
-    "/admin/order-assignments",
-    "/admin/payment-gateways",
-    "/cateringms-platform/cms-blog",
-    "/cateringms-platform/cms-pages",
-    "/admin/equipment-shortages",
-    "/admin/white-label",
-    "/admin/subscription",
-    "/admin/catering-ms-dashboard",
-    "/admin/currency-monitoring",
-    "/admin/client-search",
-    "/admin/staff-hours",
-    "/admin/financial-dashboard",
+    "/email-templates",
+    "/after-sales-emails",
+    "/email-automation-dashboard",
+    "/email-automation-settings",
+    "/regions",
+    "/order-assignments",
+    "/payment-gateways",
+    "/equipment-shortages",
+    "/white-label",
+    "/subscription",
+    "/client-search",
+    "/staff-hours",
+    "/financial-dashboard",
+    "/driver-management",
+    "/kitchen-duty-tracking",
+    "/operations-hub",
+    "/operations-standards",
     "/portal/admin/job-progress-overview",
     "/portal/admin/notification-settings",
-    "/orders",
-    "/quotes",
-    "/calendar",
-    "/inventory",
-    "/leads",
-    "/drivers",
-    "/kitchen",
-    "/shopping",
-    "/cleaning",
-    "/tracking/admin",
-    "/notifications"
   ],
+  
+  // KITCHEN ROLES
   kitchen: [
     "/kitchen",
     "/orders",
@@ -127,6 +114,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/staff/job-progress",
     "/notifications"
   ],
+  
+  // SHOPPING ROLES
   shopping: [
     "/shopping",
     "/inventory",
@@ -143,7 +132,10 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/staff/job-progress",
     "/notifications"
   ],
+  
+  // DRIVER ROLE
   driver: [
+    "/driver",
     "/drivers",
     "/tracking/driver",
     "/orders",
@@ -151,6 +143,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/staff/job-progress",
     "/notifications"
   ],
+  
+  // CLEANING ROLES
   cleaning: [
     "/cleaning",
     "/orders",
@@ -165,6 +159,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/portal/staff/job-progress",
     "/notifications"
   ],
+  
+  // CLIENT ROLE
   client: [
     "/client-portal",
     "/tracking/client",
@@ -179,30 +175,30 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
 export const ROLE_NAMES: Record<UserRole, string> = {
   admin: "Administrator",
   owner: "Owner",
-  super_admin: "Super Admin",
-  kitchen: "Kitchen Team",
+  super_admin: "Platform Administrator",
+  kitchen: "Kitchen Manager",
   kitchen_staff: "Kitchen Staff",
-  shopping: "Shopping Team",
+  shopping: "Shopping Manager",
   shopping_staff: "Shopping Staff",
-  driver: "Driver",
-  cleaning: "Cleaning Team",
+  driver: "Driver/Waiter",
+  cleaning: "Cleaning Manager",
   cleaning_staff: "Cleaning Staff",
   client: "Client",
 };
 
-// Default landing pages for each role
-export const ROLE_LANDING_PAGES: Record<UserRole, string> = {
-  admin: "/admin/dashboard",
-  owner: "/admin/dashboard",
-  super_admin: "/admin/dashboard",
-  kitchen: "/kitchen",
-  kitchen_staff: "/kitchen",
-  shopping: "/shopping",
-  shopping_staff: "/shopping",
-  driver: "/drivers",
-  cleaning: "/cleaning",
-  cleaning_staff: "/cleaning",
-  client: "/client-portal",
+// Default landing pages for each role - FIXED TO USE COMPANY-SCOPED URLs
+export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
+  super_admin: () => "/cateringms-platform/dashboard",
+  admin: (slug) => `/${slug || "my-company"}/admin/dashboard`,
+  owner: (slug) => `/${slug || "my-company"}/admin/dashboard`,
+  kitchen: (slug) => `/${slug || "my-company"}/kitchen/dashboard`,
+  kitchen_staff: (slug) => `/${slug || "my-company"}/kitchen/dashboard`,
+  shopping: (slug) => `/${slug || "my-company"}/shopping/dashboard`,
+  shopping_staff: (slug) => `/${slug || "my-company"}/shopping/dashboard`,
+  driver: (slug) => `/${slug || "my-company"}/driver/dashboard`,
+  cleaning: (slug) => `/${slug || "my-company"}/cleaning/dashboard`,
+  cleaning_staff: (slug) => `/${slug || "my-company"}/cleaning/dashboard`,
+  client: () => "/client-portal",
 };
 
 /**
@@ -223,8 +219,9 @@ export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
 /**
  * Get the default landing page for a user role
  */
-export function getRoleLandingPage(userRole: UserRole): string {
-  return ROLE_LANDING_PAGES[userRole];
+export function getRoleLandingPage(userRole: UserRole, companySlug?: string): string {
+  const landingPageFn = ROLE_LANDING_PAGES[userRole];
+  return landingPageFn(companySlug);
 }
 
 /**
@@ -247,4 +244,33 @@ export function hasRole(profile: Profile | null, ...requiredRoles: UserRole[]): 
  */
 export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: string): string {
   return `Access Denied: Your ${getRoleName(userRole)} account does not have permission to access ${attemptedRoute}. Please contact your administrator if you believe this is an error.`;
+}
+
+/**
+ * Check if role is a CateringMS platform admin role
+ */
+export function isPlatformAdmin(userRole: UserRole): boolean {
+  return userRole === "super_admin";
+}
+
+/**
+ * Check if role is a company admin role
+ */
+export function isCompanyAdmin(userRole: UserRole): boolean {
+  return userRole === "admin" || userRole === "owner";
+}
+
+/**
+ * Check if role is a staff role (non-admin, non-client)
+ */
+export function isStaffRole(userRole: UserRole): boolean {
+  return [
+    "driver",
+    "kitchen",
+    "kitchen_staff",
+    "shopping",
+    "shopping_staff",
+    "cleaning",
+    "cleaning_staff"
+  ].includes(userRole);
 }
