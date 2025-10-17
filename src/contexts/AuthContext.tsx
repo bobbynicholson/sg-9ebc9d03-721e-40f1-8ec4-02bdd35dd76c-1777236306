@@ -25,6 +25,47 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * BUG FIX #2: Retry profile loading with exponential backoff
+ * When a new user signs up, the database trigger creates the profile asynchronously.
+ * This can cause a race condition where we try to load the profile before it exists.
+ * Solution: Retry with increasing delays (100ms, 200ms, 400ms, 800ms, 1600ms)
+ */
+async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<Profile | null> {
+  let lastError: any = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const profile = await profileService.getProfile(userId);
+      
+      if (profile) {
+        console.log(`Profile loaded successfully on attempt ${attempt + 1}`);
+        return profile;
+      }
+      
+      // Profile doesn't exist yet, wait before retrying
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000); // Max 2 seconds
+        console.log(`Profile not found, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    } catch (error) {
+      lastError = error;
+      console.error(`Error loading profile (attempt ${attempt + 1}/${maxRetries}):`, error);
+      
+      // If it's a network error or temporary issue, retry
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // After all retries, return null
+  console.error(`Failed to load profile after ${maxRetries} attempts:`, lastError);
+  return null;
+}
+
 function AuthProviderInner({ children }: { children: ReactNode }) {
   const { isDemoMode, getDemoUser } = useDemoMode();
   const router = useRouter();
@@ -34,7 +75,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<string>("client");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [companySlug, setCompanySlug] = useState<string | null>(null);
-  const [sessionError, setSessionError] = useState(false);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -95,23 +135,27 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUserRoles([]);
         setActiveRole("client");
         setLoading(false);
-        setSessionError(false);
         return;
       }
 
       try {
-        let profileData = null;
-        try {
-          profileData = await profileService.getProfile(session.user.id);
-        } catch (profileError) {
-          console.error("Error loading profile:", profileError);
-          await handleInvalidSession();
-          return;
-        }
+        // BUG FIX #2: Use retry logic to handle profile creation race condition
+        const profileData = await loadProfileWithRetry(session.user.id);
 
         if (!profileData) {
-          console.error("Profile data is null for user:", session.user.id);
-          await handleInvalidSession();
+          console.error("Profile data is null after retries for user:", session.user.id);
+          // Only redirect if we're not on an auth page (to avoid loops)
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
+            await handleInvalidSession();
+          } else {
+            // On auth pages, just clear state but don't redirect
+            setUser(null);
+            setProfile(null);
+            setCompanySlug(null);
+            setUserRoles([]);
+            setActiveRole("client");
+            setLoading(false);
+          }
           return;
         }
 
@@ -120,6 +164,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setProfile(profileData);
         setCompanySlug(profileData.company_slug || null);
 
+        // Load user roles (with error handling)
         let roles: RoleAssignment[] = [];
         try {
           roles = await roleService.getUserRoles(session.user.id);
@@ -129,6 +174,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setUserRoles([]);
         }
 
+        // Load active role (with error handling)
         let active = "client";
         try {
           active = await roleService.getActiveRole(session.user.id);
@@ -138,7 +184,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setActiveRole("client");
         }
 
-        setSessionError(false);
       } catch (error) {
         console.error("Error loading user session data:", error);
         await handleInvalidSession();
@@ -155,7 +200,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       setCompanySlug(null);
       setUserRoles([]);
       setActiveRole("client");
-      setSessionError(true);
       setLoading(false);
       
       try {
