@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { UserRole } from "@/types"; // FIX: Import manual UserRole type
+import type { UserRole } from "@/types";
+import { getRoleLandingPage } from "@/lib/authGuards";
 
 type UserDepartment = Database["public"]["Tables"]["user_departments"]["Row"];
 type UserDepartmentInsert = Database["public"]["Tables"]["user_departments"]["Insert"];
@@ -15,9 +16,6 @@ export interface RoleAssignment {
 }
 
 export const roleService = {
-  /**
-   * Get all roles assigned to a user
-   */
   async getUserRoles(userId: string): Promise<RoleAssignment[]> {
     try {
       const { data, error } = await supabase
@@ -45,9 +43,6 @@ export const roleService = {
     }
   },
 
-  /**
-   * Get user's active role from profile
-   */
   async getActiveRole(userId: string): Promise<UserRole> {
     try {
       const { data, error } = await supabase
@@ -69,11 +64,7 @@ export const roleService = {
     }
   },
 
-  /**
-   * Switch user's active role
-   */
   async switchRole(userId: string, newRole: UserRole): Promise<void> {
-    // First verify user has this role assigned
     const roles = await this.getUserRoles(userId);
     const hasRole = roles.some((r) => r.department === newRole);
 
@@ -81,7 +72,6 @@ export const roleService = {
       throw new Error(`User does not have ${newRole} role assigned`);
     }
 
-    // Update active role in profile
     const { error } = await supabase
       .from("profiles")
       .update({ active_role: newRole })
@@ -93,16 +83,12 @@ export const roleService = {
     }
   },
 
-  /**
-   * Assign a new role to a user (Admin only)
-   */
   async assignRole(
     userId: string,
     department: UserRole,
     assignedBy: string,
     isPrimary: boolean = false
   ): Promise<void> {
-    // STEP 1: Verify user exists in profiles table
     const { data: profileExists, error: profileError } = await supabase
       .from("profiles")
       .select("id")
@@ -114,7 +100,6 @@ export const roleService = {
       throw new Error("User profile must exist before assigning roles");
     }
 
-    // STEP 2: Check if role already exists
     const { data: existingRole, error: checkError } = await supabase
       .from("user_departments")
       .select("id, is_primary")
@@ -127,11 +112,9 @@ export const roleService = {
       throw checkError;
     }
 
-    // STEP 3: If role exists, update it instead of inserting
     if (existingRole) {
       console.log(`Role ${department} already exists for user ${userId}, updating instead`);
       
-      // If setting as primary, unset other primary roles first
       if (isPrimary) {
         await supabase
           .from("user_departments")
@@ -139,7 +122,6 @@ export const roleService = {
           .eq("user_id", userId);
       }
 
-      // Update existing role
       const { error: updateError } = await supabase
         .from("user_departments")
         .update({ is_primary: isPrimary })
@@ -150,7 +132,6 @@ export const roleService = {
         throw updateError;
       }
 
-      // Update active role if primary
       if (isPrimary) {
         await supabase
           .from("profiles")
@@ -161,7 +142,6 @@ export const roleService = {
       return;
     }
 
-    // STEP 4: If setting as primary, unset other primary roles first
     if (isPrimary) {
       await supabase
         .from("user_departments")
@@ -169,7 +149,6 @@ export const roleService = {
         .eq("user_id", userId);
     }
 
-    // STEP 5: Insert new role
     const insert: UserDepartmentInsert = {
       user_id: userId,
       department,
@@ -186,7 +165,6 @@ export const roleService = {
       throw error;
     }
 
-    // STEP 6: If this is the first role or is primary, set as active role
     if (isPrimary) {
       await supabase
         .from("profiles")
@@ -195,9 +173,6 @@ export const roleService = {
     }
   },
 
-  /**
-   * Remove a role from a user (Admin only)
-   */
   async removeRole(userId: string, department: UserRole): Promise<void> {
     const { error } = await supabase
       .from("user_departments")
@@ -210,7 +185,6 @@ export const roleService = {
       throw error;
     }
 
-    // If removed role was active, switch to primary role or first available
     const activeRole = await this.getActiveRole(userId);
     if (activeRole === department) {
       const roles = await this.getUserRoles(userId);
@@ -221,11 +195,7 @@ export const roleService = {
     }
   },
 
-  /**
-   * Set a role as primary for a user
-   */
   async setPrimaryRole(userId: string, department: UserRole): Promise<void> {
-    // Verify user has this role
     const roles = await this.getUserRoles(userId);
     const hasRole = roles.some((r) => r.department === department);
 
@@ -233,13 +203,11 @@ export const roleService = {
       throw new Error(`User does not have ${department} role assigned`);
     }
 
-    // Unset all primary flags
     await supabase
       .from("user_departments")
       .update({ is_primary: false })
       .eq("user_id", userId);
 
-    // Set new primary role
     const { error } = await supabase
       .from("user_departments")
       .update({ is_primary: true })
@@ -251,36 +219,13 @@ export const roleService = {
       throw error;
     }
 
-    // Also update active role
     await this.switchRole(userId, department);
   },
 
-  /**
-   * Get role-specific dashboard URL
-   */
   getRoleDashboardUrl(role: UserRole, companySlug?: string): string {
-    const slug = companySlug || "my-company";
-    
-    const roleUrls: Record<UserRole, string> = {
-      admin: `/${slug}/admin/dashboard`,
-      driver: `/${slug}/driver/dashboard`,
-      client: "/client-portal",
-      cleaning: `/${slug}/cleaning/dashboard`,
-      shopping: `/${slug}/shopping/dashboard`,
-      kitchen: `/${slug}/kitchen/dashboard`,
-      owner: `/${slug}/admin/dashboard`,
-      super_admin: "/cateringms-platform/dashboard",
-      shopping_staff: `/${slug}/shopping/dashboard`,
-      cleaning_staff: `/${slug}/cleaning/dashboard`,
-      kitchen_staff: `/${slug}/kitchen/dashboard`,
-    };
-
-    return roleUrls[role] || "/";
+    return getRoleLandingPage(role, companySlug);
   },
 
-  /**
-   * Get role display name
-   */
   getRoleDisplayName(role: UserRole): string {
     const roleNames: Record<UserRole, string> = {
       admin: "Admin",
@@ -298,4 +243,8 @@ export const roleService = {
 
     return roleNames[role] || role;
   },
+};
+
+export const getRedirectUrl = (role: string, companySlug?: string): string => {
+  return roleService.getRoleDashboardUrl(role as UserRole, companySlug);
 };

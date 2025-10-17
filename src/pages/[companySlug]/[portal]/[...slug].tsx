@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Shield } from "lucide-react";
 import Link from "next/link";
 import { roleService } from "@/services/roleService";
 
@@ -33,7 +33,7 @@ import AdminDashboard from "@/components/portals/admin/Dashboard";
 
 const PORTAL_ROUTES = {
   admin: {
-    allowedRoles: ["admin", "owner", "super_admin"],
+    allowedRoles: ["admin", "owner"],
     routes: {
       dashboard: AdminDashboard,
     },
@@ -123,34 +123,47 @@ const PORTAL_ROUTES = {
 
 export default function PortalPage() {
   const router = useRouter();
-  const { user, userRoles, activeRole, loading: authLoading } = useAuth();
+  const { user, userRoles, activeRole, loading: authLoading, companySlug: userCompanySlug } = useAuth();
   const { companySlug, portal, slug } = router.query;
   
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [securityError, setSecurityError] = useState<string | null>(null);
 
   const currentRoute = Array.isArray(slug) ? slug.join("/") : (slug || "dashboard");
   
   useEffect(() => {
     if (authLoading) return;
 
+    // CRITICAL: User must be logged in to access any portal
     if (!user) {
-      router.push(`/${companySlug}/auth/login?redirect=${router.asPath}`);
+      router.push(`/${companySlug}/auth/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
 
-    if (user.company_slug && user.company_slug !== companySlug) {
-      console.warn("Company slug mismatch - redirecting to user's company");
-      router.push(`/${user.company_slug}/${portal}/${currentRoute}`);
+    // CRITICAL SECURITY: Validate company_slug matches user's company
+    // This prevents users from accessing other companies' data
+    if (!userCompanySlug) {
+      setSecurityError("No company associated with your account. Please contact support.");
+      setIsLoading(false);
       return;
     }
 
+    if (userCompanySlug !== companySlug) {
+      console.error(`SECURITY: User from company '${userCompanySlug}' attempted to access '${companySlug}'`);
+      setSecurityError("You don't have permission to access this company's portal.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate portal exists
     const portalConfig = PORTAL_ROUTES[portal as string];
     if (!portalConfig) {
       setIsLoading(false);
       return;
     }
 
+    // Check if user has any role that grants access to this portal
     const userRolesList = userRoles.map(r => r.department);
     const hasAccess = portalConfig.allowedRoles.some(role => 
       userRolesList.includes(role as any)
@@ -158,7 +171,9 @@ export default function PortalPage() {
     
     setIsAuthorized(hasAccess);
     setIsLoading(false);
+    setSecurityError(null);
 
+    // Handle redirects and route validation
     if (hasAccess) {
       if (portalConfig.redirectRoutes && portalConfig.redirectRoutes[currentRoute]) {
         router.push(portalConfig.redirectRoutes[currentRoute]);
@@ -169,8 +184,9 @@ export default function PortalPage() {
         router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
       }
     }
-  }, [user, userRoles, authLoading, companySlug, portal, currentRoute, router]);
+  }, [user, userRoles, authLoading, companySlug, userCompanySlug, portal, currentRoute, router]);
 
+  // Loading state
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -184,6 +200,32 @@ export default function PortalPage() {
     );
   }
 
+  // Security error (company mismatch)
+  if (securityError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 px-4">
+        <Card className="w-full max-w-md border-red-200">
+          <CardContent className="pt-6 text-center">
+            <Shield className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
+            <p className="text-red-700 mb-4">{securityError}</p>
+            <div className="space-y-2">
+              {userCompanySlug && (
+                <Link href={`/${userCompanySlug}/${portal}/dashboard`}>
+                  <Button className="w-full">Go to Your Company Portal</Button>
+                </Link>
+              )}
+              <Link href="/">
+                <Button variant="outline" className="w-full">Return to Home</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Portal not found
   const portalConfig = PORTAL_ROUTES[portal as string];
   if (!portalConfig) {
     return (
@@ -204,6 +246,7 @@ export default function PortalPage() {
     );
   }
 
+  // Not authorized for this portal
   if (!isAuthorized) {
     const userRolesList = userRoles.map(r => roleService.getRoleDisplayName(r.department)).join(", ");
     
@@ -228,7 +271,7 @@ export default function PortalPage() {
             </div>
             <div className="space-y-2">
               {userRoles.length > 0 && (
-                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, user?.company_slug || undefined)}>
+                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, userCompanySlug || undefined)}>
                   <Button className="w-full">Go to Your Dashboard</Button>
                 </Link>
               )}
@@ -242,6 +285,7 @@ export default function PortalPage() {
     );
   }
 
+  // Route component not found
   const RouteComponent = portalConfig.routes[currentRoute];
   
   if (!RouteComponent) {
@@ -263,6 +307,7 @@ export default function PortalPage() {
     );
   }
 
+  // Render the portal component
   return (
     <RouteComponent 
       companySlug={companySlug as string}

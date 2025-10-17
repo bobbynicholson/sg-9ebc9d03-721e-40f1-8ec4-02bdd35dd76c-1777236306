@@ -12,6 +12,7 @@ export type AuthenticatedUser = SupabaseUser & Profile;
 interface AuthContextType {
   user: AuthenticatedUser | null;
   profile: Profile | null;
+  companySlug: string | null;
   loading: boolean;
   userRoles: RoleAssignment[];
   activeRole: string;
@@ -32,6 +33,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [companySlug, setCompanySlug] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState(false);
 
   useEffect(() => {
@@ -69,6 +71,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         
         setUser(fullDemoUser);
         setProfile(fullDemoUser);
+        setCompanySlug("bobs-catering");
         
         setUserRoles([{ 
           id: "demo-role", 
@@ -88,6 +91,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       if (!session?.user) {
         setUser(null);
         setProfile(null);
+        setCompanySlug(null);
         setUserRoles([]);
         setActiveRole("client");
         setLoading(false);
@@ -96,13 +100,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       }
 
       try {
-        // Load profile first - this is the most critical
         let profileData = null;
         try {
           profileData = await profileService.getProfile(session.user.id);
         } catch (profileError) {
           console.error("Error loading profile:", profileError);
-          // Profile is critical - if it fails, clear session and redirect
           await handleInvalidSession();
           return;
         }
@@ -113,12 +115,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Merge user with profile data
         const mergedUser = { ...session.user, ...profileData } as AuthenticatedUser;
         setUser(mergedUser);
         setProfile(profileData);
+        setCompanySlug(profileData.company_slug || null);
 
-        // Load roles - non-critical, use defaults if fails
         let roles: RoleAssignment[] = [];
         try {
           roles = await roleService.getUserRoles(session.user.id);
@@ -128,7 +129,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setUserRoles([]);
         }
 
-        // Load active role - non-critical, use default if fails
         let active = "client";
         try {
           active = await roleService.getActiveRole(session.user.id);
@@ -141,7 +141,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setSessionError(false);
       } catch (error) {
         console.error("Error loading user session data:", error);
-        // If something went very wrong, clear session
         await handleInvalidSession();
       } finally {
         setLoading(false);
@@ -153,6 +152,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       
       setUser(null);
       setProfile(null);
+      setCompanySlug(null);
       setUserRoles([]);
       setActiveRole("client");
       setSessionError(true);
@@ -164,13 +164,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         console.error("Error during cleanup signout:", signOutError);
       }
       
-      // Only redirect if not already on auth page
       if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
         router.push("/auth/login?message=session_expired");
       }
     };
     
-    // Wrap in try-catch to handle Supabase internal errors
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -190,7 +188,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 
     initializeAuth();
 
-    // Wrap auth state change listener in try-catch as well
     let subscription: any;
     try {
       const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -226,7 +223,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       
       const dashboardUrl = roleService.getRoleDashboardUrl(
         newRole as any, 
-        user?.company_slug || undefined
+        companySlug || undefined
       );
       router.push(dashboardUrl);
     } catch (error) {
@@ -254,6 +251,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     await authService.signOut();
     setUser(null);
     setProfile(null);
+    setCompanySlug(null);
     setUserRoles([]);
     setActiveRole("client");
   };
@@ -264,6 +262,9 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     if (updatedProfile) {
       setUser({ ...user, ...updatedProfile });
       setProfile({ ...profile, ...updatedProfile } as Profile);
+      if (updates.company_slug !== undefined) {
+        setCompanySlug(updates.company_slug || null);
+      }
     }
   };
 
@@ -271,6 +272,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       user, 
       profile,
+      companySlug,
       loading, 
       userRoles,
       activeRole,
