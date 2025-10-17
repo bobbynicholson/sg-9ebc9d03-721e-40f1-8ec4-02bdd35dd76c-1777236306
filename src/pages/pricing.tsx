@@ -258,7 +258,7 @@ export default function PricingPage() {
                   </ul>
 
                   {/* Mobile-Optimized CTA Button */}
-                  <Link href="/auth/register" className="block mt-6">
+                  <Link href="/company-signup" className="block mt-6">
                     <Button 
                       className="w-full h-12 text-base"
                       variant={index === 1 ? "default" : "outline"}
@@ -397,7 +397,7 @@ export default function PricingPage() {
           
           {/* Mobile-Optimized CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center max-w-md mx-auto">
-            <Link href="/auth/register" className="w-full sm:w-auto">
+            <Link href="/company-signup" className="w-full sm:w-auto">
               <Button 
                 size="lg" 
                 className="w-full sm:w-auto bg-white text-purple-600 hover:bg-purple-50 h-12 px-8 text-base"

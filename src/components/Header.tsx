@@ -322,7 +322,7 @@ export function Header() {
             </Link>
 
             {/* Sign Up CTA */}
-            <Link href="/auth/register">
+            <Link href="/company-signup">
               <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg">
                 Start Free Trial
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -467,7 +467,7 @@ export function Header() {
                 <div className="flex justify-center">
                   <RegionSwitcher />
                 </div>
-                <Link href="/auth/register">
+                <Link href="/company-signup">
                   <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12 text-base">
                     Start Free Trial
                     <ArrowRight className="w-5 h-5 ml-2" />

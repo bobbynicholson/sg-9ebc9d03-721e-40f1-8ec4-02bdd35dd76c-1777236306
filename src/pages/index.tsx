@@ -368,7 +368,7 @@ export default function HomePage() {
               
               {/* Mobile-Optimized CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch sm:items-center mb-8 px-4 sm:px-0">
-                <Link href="/auth/register" className="w-full sm:w-auto">
+                <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button 
                     size="lg" 
                     className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 h-14 sm:h-12 text-lg hover:shadow-2xl transition-all hover:scale-105"
@@ -822,7 +822,7 @@ export default function HomePage() {
                 
                 {/* Mobile-Optimized Final CTA Buttons */}
                 <div className="flex flex-col gap-4 mb-8">
-                  <Link href="/auth/register" className="w-full">
+                  <Link href="/company-signup" className="w-full">
                     <Button 
                       size="lg" 
                       className="w-full bg-white text-purple-600 hover:bg-purple-50 px-10 h-14 sm:h-12 text-lg shadow-2xl hover:scale-105 transition-all"

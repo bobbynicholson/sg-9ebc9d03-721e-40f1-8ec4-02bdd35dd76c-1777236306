@@ -7837,6 +7837,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_company_trial_status: {
+        Args: { p_company_id: string }
+        Returns: {
+          days_remaining: number
+          is_in_trial: boolean
+          last_notification_type: string
+          notifications_sent: number
+          subscription_status: string
+          trial_ends_at: string
+        }[]
+      }
       get_order_total: {
         Args: { order_id: string }
         Returns: number
