@@ -10,6 +10,7 @@ import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2 } from "lucide
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { companyService } from "@/services/companyService";
+import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 
 const CURRENCIES = [
@@ -39,10 +40,8 @@ export default function CompanySignupPage() {
   const [success, setSuccess] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   
-  // Use ref to store timeout ID so we can clear it
   const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Generate slug from company name
   const generateSlug = (name: string) => {
     return name
       .toLowerCase()
@@ -50,7 +49,6 @@ export default function CompanySignupPage() {
       .replace(/^-+|-+$/g, "");
   };
 
-  // Check if slug is available
   const checkSlugAvailability = async (slug: string) => {
     if (!slug || slug.length < 3) {
       setSlugAvailable(null);
@@ -69,21 +67,17 @@ export default function CompanySignupPage() {
     }
   };
 
-  // Handle company name change and auto-generate slug
   const handleCompanyNameChange = (name: string) => {
     setFormData({ ...formData, companyName: name });
     const newSlug = generateSlug(name);
     setCompanySlug(newSlug);
     
-    // Clear any existing timeout
     if (slugCheckTimeoutRef.current) {
       clearTimeout(slugCheckTimeoutRef.current);
     }
     
-    // Reset availability state immediately
     setSlugAvailable(null);
     
-    // Check slug availability after a short delay
     if (newSlug.length >= 3) {
       setCheckingSlug(true);
       slugCheckTimeoutRef.current = setTimeout(() => {
@@ -95,17 +89,14 @@ export default function CompanySignupPage() {
     }
   };
 
-  // Handle manual slug change
   const handleSlugChange = (slug: string) => {
     const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "");
     setCompanySlug(cleanSlug);
     
-    // Clear any existing timeout
     if (slugCheckTimeoutRef.current) {
       clearTimeout(slugCheckTimeoutRef.current);
     }
     
-    // Reset availability state immediately
     setSlugAvailable(null);
     
     if (cleanSlug.length >= 3) {
@@ -119,7 +110,6 @@ export default function CompanySignupPage() {
     }
   };
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (slugCheckTimeoutRef.current) {
@@ -170,7 +160,7 @@ export default function CompanySignupPage() {
         formData.email,
         formData.password,
         formData.ownerName,
-        "admin", // Company owners are admins
+        "admin",
         formData.currency,
         formData.phone
       );
@@ -207,7 +197,16 @@ export default function CompanySignupPage() {
       // 3. Update user profile with company_slug
       await companyService.updateUserCompany(user.id, companySlug);
 
-      // 4. Auto-login the user
+      // 4. **BUG FIX**: Assign admin role to user_departments table
+      try {
+        await roleService.assignRole(user.id, "admin", user.id, true);
+        console.log("Successfully assigned admin role to company owner");
+      } catch (roleError) {
+        console.error("Error assigning admin role:", roleError);
+        // Don't fail the signup, but log the error
+      }
+
+      // 5. Auto-login the user
       const { error: signInError } = await authService.signIn(
         formData.email,
         formData.password
@@ -215,7 +214,6 @@ export default function CompanySignupPage() {
 
       if (signInError) {
         console.error("Auto-login failed:", signInError);
-        // Still show success and redirect to login
         setSuccess(true);
         setTimeout(() => {
           router.push(`/${companySlug}/auth/login?message=company_created`);
