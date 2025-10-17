@@ -1,226 +1,279 @@
-# 🚀 Quick Start - Testing CateringMS
 
-## 📝 TL;DR - Get Testing in 5 Minutes
+# 🚀 Quick Start: Register Your First Demo User NOW
 
-### Step 1: Create Test Users (2 minutes)
-Go to Supabase Dashboard → Authentication → Add User (manually)
+## ⚠️ Current Issue - "Invalid login credentials"
 
-Create these 6 users (skip email confirmation for all):
+You're getting "Invalid login credentials" because **the demo users don't exist in Supabase Auth yet**.
+
+**Why this happens:**
+- The demo page shows credentials, but those users haven't been registered yet
+- Supabase Auth requires users to be created through their authentication API
+- We cannot create authentication records directly in the database (security requirement)
+
+**The Solution:** Register the admin user first (takes 2 minutes) ⬇️
+
+---
+
+## ✅ STEP 1: Register the Admin User (DO THIS FIRST)
+
+### 1.1 Open Registration Page
+
+**Click this link or paste it in your browser:**
+```
+https://cateringms.com/test-company/auth/register
+```
+
+### 1.2 Fill in the Registration Form
+
+Use these **exact credentials**:
 
 ```
-1. admin@testcatering.com / TestAdmin123!
-2. driver@testcatering.com / TestDriver123!
-3. kitchen@testcatering.com / TestKitchen123!
-4. cleaning@testcatering.com / TestCleaning123!
-5. shopping@testcatering.com / TestShopping123!
-6. client@testcatering.com / TestClient123!
+Email: admin@test-company.com
+Password: testadmin123
+Full Name: Demo Admin
+Phone: +27 11 111 1111
 ```
 
-### Step 2: Get User IDs (1 minute)
-After creating each user, copy their UUID from the Supabase dashboard.
+### 1.3 Click "Sign Up"
 
-### Step 3: Run SQL Scripts (2 minutes)
-Open Supabase SQL Editor and run the scripts from `TEST_DATA_SETUP_GUIDE.md`, replacing the UUIDs with the actual user IDs you copied.
-
-The scripts will:
-- Create profiles for each user
-- Link them to "Test Catering" company
-- Assign their departments/roles
-
-### Step 4: Start Testing! 🎉
+Wait for the success message (should take 2-3 seconds)
 
 ---
 
-## 🔗 Test URLs
+## ✅ STEP 2: Assign Admin Role
 
-### Admin Portal
-**URL**: `https://cateringms.com/test-catering/admin/dashboard`
-**Login**: `admin@testcatering.com` / `TestAdmin123!`
-**Test**: Create orders, manage users, view all data
+After registration, the user is created with "client" role by default. You need to assign the admin role.
 
-### Driver Portal
-**URL**: `https://cateringms.com/test-catering/driver/dashboard`
-**Login**: `driver@testcatering.com` / `TestDriver123!`
-**Test**: View assigned deliveries, update delivery status
+### Option A: Use Supabase Dashboard (RECOMMENDED - Takes 1 minute)
 
-### Kitchen Portal
-**URL**: `https://cateringms.com/test-catering/kitchen/dashboard`
-**Login**: `kitchen@testcatering.com` / `TestKitchen123!`
-**Test**: Mark on duty, complete prep tasks, track food prep
+1. **Go to your Supabase Dashboard**
+   - Navigate to: `https://supabase.com/dashboard`
+   - Select your project
 
-### Cleaning Portal
-**URL**: `https://cateringms.com/test-catering/cleaning/dashboard`
-**Login**: `cleaning@testcatering.com` / `TestCleaning123!`
-**Test**: Verify equipment, mark items broken/lost, complete cleaning tasks
+2. **Open the profiles table**
+   - Go to: **Table Editor** → **profiles**
+   - Find the user with email `admin@test-company.com`
+   - **Copy their `id`** (you'll need this in the next step)
 
-### Shopping Portal
-**URL**: `https://cateringms.com/test-catering/shopping/dashboard`
-**Login**: `shopping@testcatering.com` / `TestShopping123!`
-**Test**: Create shopping lists, manage suppliers, track orders
+3. **Insert admin role**
+   - Go to: **Table Editor** → **user_departments**
+   - Click **Insert** → **Insert row**
+   - Fill in:
+     ```
+     user_id: [paste the id you copied]
+     department: admin
+     is_primary: true
+     assigned_by: [paste the same id]
+     ```
+   - Click **Save**
 
-### Client Portal
-**URL**: `https://cateringms.com/test-catering/client/my-orders`
-**Login**: `client@testcatering.com` / `TestClient123!`
-**Test**: View orders, track delivery, make payments
+4. **Update active role**
+   - Go back to: **Table Editor** → **profiles**
+   - Find the admin user row
+   - Click **Edit**
+   - Set `active_role` to: `admin`
+   - Click **Save**
 
----
+### Option B: Use SQL Editor in Supabase Dashboard (Alternative)
 
-## ✅ Testing Checklist
+1. **Go to Supabase Dashboard** → **SQL Editor**
 
-### Authentication & Access
-- [ ] Each user can login to their portal
-- [ ] Users see only their company's data
-- [ ] Correct permissions for each role
-- [ ] Role switcher works for multi-role users
+2. **Run this query** (replace USER_ID_HERE with the actual user ID):
 
-### Admin Portal
-- [ ] Can view dashboard with company overview
-- [ ] Can create new orders
-- [ ] Can add/edit users
-- [ ] Can assign departments to users
-- [ ] Can view job progress overview
-- [ ] Can access all admin settings
+```sql
+-- Step 1: Get the user ID (run this first to get the ID)
+SELECT id FROM profiles WHERE email = 'admin@test-company.com';
 
-### Driver Portal
-- [ ] Can see assigned deliveries
-- [ ] Can update delivery status
-- [ ] GPS tracking works
-- [ ] Can confirm pickup/dropoff
-- [ ] Can request replacement
+-- Step 2: Copy the ID from the result above, then run these queries:
+-- (Replace USER_ID_HERE with the actual ID)
 
-### Kitchen Portal
-- [ ] Can mark "on duty"
-- [ ] Can see prep tasks for functions
-- [ ] Can mark tasks complete
-- [ ] Equipment handoff tracking works
-- [ ] On-duty board shows current staff
+-- Insert admin role into user_departments
+INSERT INTO user_departments (user_id, department, is_primary, assigned_by)
+VALUES ('USER_ID_HERE', 'admin', true, 'USER_ID_HERE')
+ON CONFLICT (user_id, department) 
+DO UPDATE SET is_primary = true;
 
-### Cleaning Portal
-- [ ] Can mark "on duty"
-- [ ] Can verify returned equipment
-- [ ] Can mark items as broken/lost
-- [ ] Equipment tracking through workflow
-- [ ] Broken equipment dashboard shows costs
-
-### Shopping Portal
-- [ ] Can create shopping lists
-- [ ] Can manage suppliers
-- [ ] Can track inventory
-- [ ] Can place orders
-
-### Client Portal
-- [ ] Can view their orders
-- [ ] Can track delivery status
-- [ ] Can see payment schedule
-- [ ] Can view invoices
+-- Update active role in profiles
+UPDATE profiles 
+SET active_role = 'admin' 
+WHERE email = 'admin@test-company.com';
+```
 
 ---
 
-## 🐛 Common Issues & Quick Fixes
+## ✅ STEP 3: Test Admin Login
 
-### "Invalid login credentials"
-- ✅ Make sure you created the user in Supabase Auth
-- ✅ Check email spelling matches exactly
-- ✅ Verify password is correct
+1. **Visit the login page:**
+   ```
+   https://cateringms.com/test-company/auth/login
+   ```
 
-### "Access denied" or blank screen
-- ✅ Run the SQL scripts to create profiles
-- ✅ Verify user_departments table has entries
-- ✅ Check company_id is set correctly
+2. **Login with admin credentials:**
+   ```
+   Email: admin@test-company.com
+   Password: testadmin123
+   ```
 
-### "No data showing"
-- ✅ Verify company_id matches in all tables
-- ✅ Check RLS policies are enabled
-- ✅ Create sample orders for testing
+3. **You should be redirected to:**
+   ```
+   https://cateringms.com/test-company/admin/dashboard
+   ```
 
-### User can't switch roles
-- ✅ Check user_departments table has multiple entries
-- ✅ Verify RoleSwitcher component is visible
-- ✅ Check active_role is updating in profiles
+4. **Success!** 🎉 You now have admin access.
 
 ---
 
-## 📊 Sample Data Creation (Optional)
+## 🎯 STEP 4: Register the Other 5 Demo Users
 
-Once users are set up, you can create sample data:
+Now that you have admin access, register the remaining demo users:
 
-### Create a Test Order (as Admin)
-1. Login as admin@testcatering.com
-2. Go to Orders → Create New Order
-3. Fill in event details
-4. Assign equipment and staff
-5. Save order
+**Visit:** `https://cateringms.com/test-company/auth/register`
 
-### Add Equipment Items (as Admin)
-1. Go to Inventory
-2. Click "Add Equipment"
-3. Enter item details (plates, cutlery, etc.)
-4. Set quantities
+Register each user:
 
-### Create Shopping List (as Shopping Staff)
-1. Login as shopping@testcatering.com
-2. Go to Shopping Dashboard
-3. Create new shopping list
-4. Add items needed
+### 2️⃣ Driver User
+```
+Email: driver@test-company.com
+Password: testdriver123
+Full Name: Demo Driver
+Phone: +27 22 222 2222
+```
 
----
+### 3️⃣ Kitchen User
+```
+Email: kitchen@test-company.com
+Password: testkitchen123
+Full Name: Demo Kitchen Manager
+Phone: +27 33 333 3333
+```
 
-## 🎯 What to Look For During Testing
+### 4️⃣ Shopping User
+```
+Email: shopping@test-company.com
+Password: testshopping123
+Full Name: Demo Shopping Manager
+Phone: +27 44 444 4444
+```
 
-### User Experience
-- Is navigation intuitive?
-- Are role switches smooth?
-- Do buttons respond quickly?
-- Are error messages helpful?
+### 5️⃣ Cleaning User
+```
+Email: cleaning@test-company.com
+Password: testcleaning123
+Full Name: Demo Cleaning Manager
+Phone: +27 55 555 5555
+```
 
-### Data Accuracy
-- Do totals calculate correctly?
-- Are counts accurate?
-- Does equipment tracking work end-to-end?
-- Are timestamps correct?
-
-### Security
-- Can users access other companies' data? (they shouldn't)
-- Can clients see admin features? (they shouldn't)
-- Do RLS policies work correctly?
-
-### Performance
-- Do pages load quickly?
-- Are there any console errors?
-- Does real-time data update?
-
----
-
-## 📞 Need Help?
-
-### Documentation
-- **Architecture**: `CATERINGMS_ARCHITECTURE.md`
-- **Test Setup**: `TEST_DATA_SETUP_GUIDE.md`
-- **Complete Summary**: `COMPLETE_REQUEST_SUMMARY.md`
-
-### Database
-- Check Supabase Dashboard for data
-- Review RLS policies in Database → Policies
-- Check Auth logs for login issues
+### 6️⃣ Client User
+```
+Email: client@test-company.com
+Password: testclient123
+Full Name: Demo Client
+Phone: +27 66 666 6666
+```
 
 ---
 
-## 🎉 Success Criteria
+## ✅ STEP 5: Assign Roles to All Users
 
-You'll know the system is working when:
+After registering all users:
 
-✅ All 6 test users can login to their portals
-✅ Each portal shows appropriate data and features
-✅ Users can complete their core tasks
-✅ Role switching works smoothly
-✅ Equipment tracking flows through all departments
-✅ No security leaks between companies
-✅ Real-time updates work correctly
+1. **Login as admin** at: `https://cateringms.com/test-company/auth/login`
+
+2. **Go to User Management:**
+   ```
+   https://cateringms.com/test-company/admin/users
+   ```
+
+3. **For each user, assign their role:**
+
+   | User Email | Role to Assign | Set as Primary |
+   |-----------|----------------|----------------|
+   | driver@test-company.com | **Driver** | ✅ Yes |
+   | kitchen@test-company.com | **Kitchen Team** | ✅ Yes |
+   | shopping@test-company.com | **Shopping Team** | ✅ Yes |
+   | cleaning@test-company.com | **Cleaning Team** | ✅ Yes |
+   | client@test-company.com | **Client** | ✅ Yes |
+
+4. **Click "Edit Departments"** for each user, assign the role, and click **"Save Departments"**
 
 ---
 
-**Ready to test?** Start with Step 1 above and work through the checklist! 🚀
+## 🎉 STEP 6: Test the Complete Demo System
 
-**Questions?** Check the detailed guides or review the database in Supabase Dashboard.
+1. **Visit the demo page:**
+   ```
+   https://cateringms.com/demo
+   ```
 
-**Good luck with testing!** 💪
+2. **Click "Login as Demo User" on any portal**
+
+3. **Verify:**
+   - ✅ Credentials auto-fill
+   - ✅ Login succeeds
+   - ✅ Correct dashboard loads
+   - ✅ Portal features work
+
+**Success!** Your demo system is now fully operational! 🚀
+
+---
+
+## 🛠️ Troubleshooting
+
+### Still getting "Invalid login credentials"?
+
+**Check these things:**
+
+1. ✅ **User was registered** - Go to Supabase Dashboard → Authentication → Users. Look for the email.
+
+2. ✅ **Using correct URL** - Must be `/test-company/auth/login`, NOT `/auth/login`
+
+3. ✅ **Email confirmation disabled** - Go to Supabase Dashboard → Authentication → Settings. If "Enable email confirmations" is ON, you need to confirm the email first.
+
+4. ✅ **Password is correct** - Passwords are case-sensitive. Double-check you're using the exact password.
+
+### "Profile not found" after registration?
+
+This means the database trigger didn't create the profile yet. Wait 2-3 seconds and refresh. The retry logic should handle this.
+
+### Wrong dashboard after login?
+
+1. Go to `/test-company/admin/users`
+2. Click "Edit Departments" on the user
+3. Make sure the correct role is marked as "Primary"
+4. Save, then log out and log back in
+
+### Auto-fill not working?
+
+1. Click the "Login as Demo User" button again from `/demo`
+2. Check browser console for errors
+3. Try clearing browser cache
+
+---
+
+## 📞 Need More Help?
+
+If you're stuck after following these steps:
+
+1. **Check Supabase Dashboard** → Authentication → Users
+   - Verify the user exists
+   - Check their email confirmation status
+
+2. **Check Supabase Dashboard** → Table Editor → profiles
+   - Verify the profile was created
+   - Check `company_slug` = `test-company`
+   - Check `active_role` is set
+
+3. **Share the error message** - Copy the exact error from the browser console and share it
+
+---
+
+## 🚀 What Happens After Setup?
+
+Once all demo users are set up:
+
+1. ✅ Demo page at `/demo` will work perfectly
+2. ✅ "Login as Demo User" buttons will auto-fill and login
+3. ✅ Each portal will be fully functional
+4. ✅ Role-based access control will work correctly
+
+You'll have a complete, working demo environment to showcase CateringMS! 🎉
