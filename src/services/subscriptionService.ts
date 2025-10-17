@@ -289,21 +289,156 @@ export const subscriptionService = {
     isInTrial: boolean;
     daysRemaining: number;
     trialEndsAt: string | null;
+    hasUnreadNotifications: boolean;
   }> {
     const subscription = await this.getSubscription(userId);
 
     if (!subscription || subscription.status !== "trial" || !subscription.trial_ends_at) {
-      return { isInTrial: false, daysRemaining: 0, trialEndsAt: null };
+      return { 
+        isInTrial: false, 
+        daysRemaining: 0, 
+        trialEndsAt: null,
+        hasUnreadNotifications: false 
+      };
     }
 
     const now = new Date();
     const trialEnd = new Date(subscription.trial_ends_at);
     const daysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 
+    // Check for unread trial notifications
+    const { data: user } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", user?.user?.id || "")
+      .single();
+
+    let hasUnreadNotifications = false;
+    if (profile?.company_id) {
+      const { data: notifications } = await supabase
+        .from("trial_expiry_notifications")
+        .select("id")
+        .eq("company_id", profile.company_id)
+        .eq("dashboard_seen", false)
+        .limit(1)
+        .maybeSingle();
+
+      hasUnreadNotifications = !!notifications;
+    }
+
     return {
       isInTrial: daysRemaining > 0,
       daysRemaining,
-      trialEndsAt: subscription.trial_ends_at
+      trialEndsAt: subscription.trial_ends_at,
+      hasUnreadNotifications
+    };
+  },
+
+  async getTrialExpiryNotifications(companyId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("trial_expiry_notifications")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("sent_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Error fetching trial notifications:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async markTrialNotificationSeen(notificationId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("trial_expiry_notifications")
+      .update({
+        dashboard_seen: true,
+        dashboard_seen_at: new Date().toISOString()
+      })
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("Error marking notification as seen:", error);
+      return false;
+    }
+
+    return true;
+  },
+
+  async triggerTrialExpiryCheck(): Promise<{ success: boolean; message: string }> {
+    try {
+      const { error } = await supabase.rpc("check_trial_expiry_notifications");
+
+      if (error) {
+        console.error("Error triggering trial expiry check:", error);
+        return {
+          success: false,
+          message: `Failed to check trial expirations: ${error.message}`
+        };
+      }
+
+      return {
+        success: true,
+        message: "Trial expiry notifications checked successfully"
+      };
+    } catch (err) {
+      console.error("Error in triggerTrialExpiryCheck:", err);
+      return {
+        success: false,
+        message: "An unexpected error occurred while checking trial expirations"
+      };
+    }
+  },
+
+  async getCompanyTrialStatus(companyId: string): Promise<{
+    isInTrial: boolean;
+    daysRemaining: number;
+    trialEndsAt: string | null;
+    subscriptionStatus: string;
+    notificationsSent: number;
+    lastNotificationType: string | null;
+  }> {
+    // Get company info
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .select("trial_ends_at, subscription_status")
+      .eq("id", companyId)
+      .single();
+
+    if (companyError || !company) {
+      return {
+        isInTrial: false,
+        daysRemaining: 0,
+        trialEndsAt: null,
+        subscriptionStatus: "unknown",
+        notificationsSent: 0,
+        lastNotificationType: null
+      };
+    }
+
+    const now = new Date();
+    const trialEnd = company.trial_ends_at ? new Date(company.trial_ends_at) : null;
+    const daysRemaining = trialEnd 
+      ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    // Get notification stats
+    const { data: notifications } = await supabase
+      .from("trial_expiry_notifications")
+      .select("notification_type")
+      .eq("company_id", companyId)
+      .order("sent_at", { ascending: false });
+
+    return {
+      isInTrial: company.subscription_status === "trial" && daysRemaining > 0,
+      daysRemaining,
+      trialEndsAt: company.trial_ends_at,
+      subscriptionStatus: company.subscription_status || "unknown",
+      notificationsSent: notifications?.length || 0,
+      lastNotificationType: notifications?.[0]?.notification_type || null
     };
   },
 

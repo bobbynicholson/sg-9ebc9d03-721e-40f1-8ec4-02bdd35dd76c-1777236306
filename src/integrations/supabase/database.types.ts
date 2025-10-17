@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -7294,6 +7294,59 @@ export type Database = {
           },
         ]
       }
+      trial_expiry_notifications: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          dashboard_seen: boolean | null
+          dashboard_seen_at: string | null
+          days_remaining: number
+          email_sent: boolean | null
+          email_sent_at: string | null
+          id: string
+          notification_method: string | null
+          notification_type: string
+          sent_at: string | null
+          trial_ends_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          dashboard_seen?: boolean | null
+          dashboard_seen_at?: string | null
+          days_remaining: number
+          email_sent?: boolean | null
+          email_sent_at?: string | null
+          id?: string
+          notification_method?: string | null
+          notification_type: string
+          sent_at?: string | null
+          trial_ends_at: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          dashboard_seen?: boolean | null
+          dashboard_seen_at?: string | null
+          days_remaining?: number
+          email_sent?: boolean | null
+          email_sent_at?: string | null
+          id?: string
+          notification_method?: string | null
+          notification_type?: string
+          sent_at?: string | null
+          trial_ends_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_expiry_notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uniform_inventory: {
         Row: {
           company_id: string
@@ -7744,6 +7797,10 @@ export type Database = {
     Functions: {
       accept_price_change: {
         Args: { p_subscription_id: string }
+        Returns: undefined
+      }
+      check_trial_expiry_notifications: {
+        Args: Record<PropertyKey, never>
         Returns: undefined
       }
       decrement_equipment_quantity: {
