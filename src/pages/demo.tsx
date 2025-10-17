@@ -47,8 +47,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Equipment and inventory tracking",
       "Email automation and templates"
     ],
-    email: "test+admin@cateringms.com",
-    password: "demo123",
+    email: "admin@test-company.com",
+    password: "testadmin123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-purple-500 to-pink-500"
   },
@@ -66,8 +66,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Real-time notifications",
       "Earnings and hours tracking"
     ],
-    email: "test+driver@cateringms.com",
-    password: "demo123",
+    email: "driver@test-company.com",
+    password: "testdriver123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-blue-500 to-cyan-500"
   },
@@ -85,8 +85,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Equipment readiness tracking",
       "Order timeline coordination"
     ],
-    email: "test+kitchen@cateringms.com",
-    password: "demo123",
+    email: "kitchen@test-company.com",
+    password: "testkitchen123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-orange-500 to-red-500"
   },
@@ -104,8 +104,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Cost management",
       "Delivery scheduling"
     ],
-    email: "test+shopping@cateringms.com",
-    password: "demo123",
+    email: "shopping@test-company.com",
+    password: "testshopping123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-green-500 to-emerald-500"
   },
@@ -123,8 +123,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Cleaning workflow tracker",
       "Maintenance logs"
     ],
-    email: "test+cleaning@cateringms.com",
-    password: "demo123",
+    email: "cleaning@test-company.com",
+    password: "testcleaning123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-cyan-500 to-blue-500"
   },
@@ -142,8 +142,8 @@ const DEMO_PORTALS: DemoPortal[] = [
       "Event details",
       "Support tickets"
     ],
-    email: "test+client@cateringms.com",
-    password: "demo123",
+    email: "client@test-company.com",
+    password: "testclient123",
     loginUrl: "/test-company/auth/login",
     bgGradient: "from-violet-500 to-purple-500"
   }
