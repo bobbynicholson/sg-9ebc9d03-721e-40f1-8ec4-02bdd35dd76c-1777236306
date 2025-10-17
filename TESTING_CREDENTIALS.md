@@ -1,252 +1,296 @@
-# 🧪 CateringMS Role Testing Credentials
 
-## Quick Start Guide
+# 🎯 CateringMS Testing Credentials & Setup Guide
 
-### Step 1: Register Test Users
-Go to: `https://cateringms.com/spit-braai-delivery/auth/register`
+## 📊 Current System Status
 
-Register each of the following accounts:
+### ✅ What's Working
+- **Demo Page**: `/demo` displays all 6 portals with credentials
+- **Test Company**: Database record exists (slug: `test-company`)
+- **Auto-fill System**: SessionStorage pre-fills credentials on login
+- **Login URLs**: All portals redirect to `/test-company/auth/login`
+- **Company Registration**: `/company-signup` is functional
+- **Role Assignment**: Admin can assign roles at `/test-company/admin/users`
+
+### ⚠️ What Needs Setup
+- **Demo Users**: All 6 demo users need to be manually registered (see instructions below)
+- **Role Assignments**: After registration, roles must be assigned by admin
+
+---
+
+## 🚀 Complete Setup Process
+
+### **STEP 1: Register All Demo Users**
+
+Visit: `https://cateringms.com/test-company/auth/register`
+
+Register each of these 6 users using the registration form:
 
 #### 1️⃣ Admin User
-- **Email:** `admin@test.cateringms.com`
-- **Password:** `TestAdmin123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/admin/dashboard`
-
-#### 2️⃣ Driver User
-- **Email:** `driver@test.cateringms.com`
-- **Password:** `TestDriver123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/driver/dashboard`
-
-#### 3️⃣ Shopping Manager
-- **Email:** `shopping@test.cateringms.com`
-- **Password:** `TestShopping123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/shopping/dashboard`
-
-#### 4️⃣ Kitchen Staff
-- **Email:** `kitchen@test.cateringms.com`
-- **Password:** `TestKitchen123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/kitchen/dashboard`
-
-#### 5️⃣ Cleaning Staff
-- **Email:** `cleaning@test.cateringms.com`
-- **Password:** `TestCleaning123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/cleaning/dashboard`
-
-#### 6️⃣ Multi-Role User (Access All Portals)
-- **Email:** `multirole@test.cateringms.com`
-- **Password:** `TestMulti123!`
-- **Company Name:** `Spit Braai Delivery`
-- **Portal URL:** `https://cateringms.com/spit-braai-delivery/admin/dashboard`
-- **Special:** Can switch between ALL portal types
-
----
-
-### Step 2: Assign Roles (SQL Script)
-
-After registering all users above, run this SQL script in your Supabase SQL Editor:
-
-```sql
--- ROLE ASSIGNMENT SQL SCRIPT
--- Run this script AFTER registering the test users
-
--- 1. Admin User
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'admin', true
-FROM profiles
-WHERE email = 'admin@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'admin', active_role = 'admin', company_slug = 'spit-braai-delivery'
-WHERE email = 'admin@test.cateringms.com';
-
--- 2. Driver User
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'driver', true
-FROM profiles
-WHERE email = 'driver@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'driver', active_role = 'driver', company_slug = 'spit-braai-delivery'
-WHERE email = 'driver@test.cateringms.com';
-
--- 3. Shopping Manager
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'shopping', true
-FROM profiles
-WHERE email = 'shopping@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'shopping', active_role = 'shopping', company_slug = 'spit-braai-delivery'
-WHERE email = 'shopping@test.cateringms.com';
-
--- 4. Kitchen Staff
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'kitchen', true
-FROM profiles
-WHERE email = 'kitchen@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'kitchen', active_role = 'kitchen', company_slug = 'spit-braai-delivery'
-WHERE email = 'kitchen@test.cateringms.com';
-
--- 5. Cleaning Staff
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'cleaning', true
-FROM profiles
-WHERE email = 'cleaning@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'cleaning', active_role = 'cleaning', company_slug = 'spit-braai-delivery'
-WHERE email = 'cleaning@test.cateringms.com';
-
--- 6. Multi-Role User (ALL departments)
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'admin', true
-FROM profiles
-WHERE email = 'multirole@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'driver', false
-FROM profiles
-WHERE email = 'multirole@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'shopping', false
-FROM profiles
-WHERE email = 'multirole@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'kitchen', false
-FROM profiles
-WHERE email = 'multirole@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-INSERT INTO user_departments (user_id, department, is_primary)
-SELECT id, 'cleaning', false
-FROM profiles
-WHERE email = 'multirole@test.cateringms.com'
-ON CONFLICT (user_id, department) DO NOTHING;
-
-UPDATE profiles
-SET role = 'admin', active_role = 'admin', company_slug = 'spit-braai-delivery'
-WHERE email = 'multirole@test.cateringms.com';
-
--- Verify the setup
-SELECT 
-  p.email,
-  p.role,
-  p.active_role,
-  p.company_slug,
-  array_agg(ud.department ORDER BY ud.is_primary DESC) as departments
-FROM profiles p
-LEFT JOIN user_departments ud ON p.id = ud.user_id
-WHERE p.email LIKE '%@test.cateringms.com'
-GROUP BY p.id, p.email, p.role, p.active_role, p.company_slug
-ORDER BY p.email;
+```
+Email: admin@test-company.com
+Password: testadmin123
+Full Name: Demo Admin
+Phone: +27 11 111 1111
 ```
 
----
+#### 2️⃣ Driver User
+```
+Email: driver@test-company.com
+Password: testdriver123
+Full Name: Demo Driver
+Phone: +27 22 222 2222
+```
 
-### Step 3: Test Each Portal
+#### 3️⃣ Kitchen User
+```
+Email: kitchen@test-company.com
+Password: testkitchen123
+Full Name: Demo Kitchen Manager
+Phone: +27 33 333 3333
+```
 
-Visit the testing dashboard: `https://cateringms.com/admin/role-testing`
+#### 4️⃣ Shopping User
+```
+Email: shopping@test-company.com
+Password: testshopping123
+Full Name: Demo Shopping Manager
+Phone: +27 44 444 4444
+```
 
-Or manually test each account:
+#### 5️⃣ Cleaning User
+```
+Email: cleaning@test-company.com
+Password: testcleaning123
+Full Name: Demo Cleaning Manager
+Phone: +27 55 555 5555
+```
 
-1. **Admin Portal Test**
-   - Login: `admin@test.cateringms.com` / `TestAdmin123!`
-   - Should see: Admin navigation with Users, Reports, Settings
-   - Access: Full system management
+#### 6️⃣ Client User
+```
+Email: client@test-company.com
+Password: testclient123
+Full Name: Demo Client
+Phone: +27 66 666 6666
+```
 
-2. **Driver Portal Test**
-   - Login: `driver@test.cateringms.com` / `TestDriver123!`
-   - Should see: Driver navigation with Routes, Deliveries, Profile
-   - Access: Delivery operations only
-
-3. **Shopping Portal Test**
-   - Login: `shopping@test.cateringms.com` / `TestShopping123!`
-   - Should see: Shopping navigation with Orders, Suppliers, Inventory
-   - Access: Procurement operations only
-
-4. **Kitchen Portal Test**
-   - Login: `kitchen@test.cateringms.com` / `TestKitchen123!`
-   - Should see: Kitchen navigation with Menu, Stock, Prep List
-   - Access: Kitchen operations only
-
-5. **Cleaning Portal Test**
-   - Login: `cleaning@test.cateringms.com` / `TestCleaning123!`
-   - Should see: Cleaning navigation with Tasks, Schedules, Supplies
-   - Access: Cleaning operations only
-
-6. **Multi-Role Portal Test**
-   - Login: `multirole@test.cateringms.com` / `TestMulti123!`
-   - Should see: RoleSwitcher component in header
-   - Can toggle: Between all 5 portal types
-   - Test: Switch between portals and verify correct content loads
-
----
-
-## Testing Checklist
-
-For each role, verify:
-
-- ✅ User can login successfully
-- ✅ Correct portal dashboard loads
-- ✅ Portal-specific navigation appears
-- ✅ Only authorized actions are available
-- ✅ Notifications are portal-specific
-- ✅ User data is scoped correctly
-
-For multi-role user specifically:
-
-- ✅ RoleSwitcher component appears in header
-- ✅ Can switch between all 5 portals
-- ✅ Portal content changes when switching
-- ✅ Notifications update based on active role
-- ✅ Navigation menu updates based on active role
+**IMPORTANT**: All users will be created with "client" role by default. You'll need to assign proper roles in the next step.
 
 ---
 
-## Common Issues & Solutions
+### **STEP 2: Assign Roles**
 
-### Issue: "Invalid login credentials"
-**Solution:** Make sure you've completed Step 1 (registration) first
+1. **Login as Admin** (or as the test-company owner if different)
+   - URL: `https://cateringms.com/test-company/auth/login`
+   - Use admin credentials
 
-### Issue: Wrong portal appears after login
-**Solution:** Run the SQL script from Step 2 to assign correct roles
+2. **Navigate to User Management**
+   - Go to: `https://cateringms.com/test-company/admin/users`
 
-### Issue: RoleSwitcher not appearing for multi-role user
-**Solution:** Verify all departments were assigned in Step 2
+3. **Assign Roles to Each User**
 
-### Issue: "Access denied" or blank dashboard
-**Solution:** Check that company_slug is set to 'spit-braai-delivery' in profiles table
+For each user, click "Edit Departments" and assign:
+
+| User Email | Department Role | Set as Primary? |
+|-----------|----------------|----------------|
+| admin@test-company.com | Admin | ✅ Yes |
+| driver@test-company.com | Driver | ✅ Yes |
+| kitchen@test-company.com | Kitchen Team | ✅ Yes |
+| shopping@test-company.com | Shopping Team | ✅ Yes |
+| cleaning@test-company.com | Cleaning Team | ✅ Yes |
+| client@test-company.com | Client | ✅ Yes |
+
+4. **Click "Save Departments"** for each user
 
 ---
 
-## Next Steps After Testing
+### **STEP 3: Test the Demo System**
 
-1. Document any bugs or UX issues found
-2. Test role switching functionality thoroughly
-3. Verify permissions are enforced correctly
-4. Test notification system per role
-5. Validate data isolation between roles
+#### Test Each Portal:
+
+1. **Visit Demo Page**: `https://cateringms.com/demo`
+
+2. **Test Each Portal Login:**
+
+**Admin Portal**
+- Click "Login as Demo admin" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/admin/dashboard`
+
+**Driver Portal**
+- Click "Login as Demo driver" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/driver/dashboard`
+
+**Kitchen Portal**
+- Click "Login as Demo kitchen" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/kitchen/dashboard`
+
+**Shopping Portal**
+- Click "Login as Demo shopping" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/shopping/dashboard`
+
+**Cleaning Portal**
+- Click "Login as Demo cleaning" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/cleaning/dashboard`
+
+**Client Portal**
+- Click "Login as Demo client" button
+- Should auto-fill credentials
+- Should redirect to `/test-company/client/my-orders`
 
 ---
 
-## Support
+## 🔐 Complete Credentials Reference
 
-For issues with testing setup, contact Softgen Support or check the admin dashboard at:
-`https://cateringms.com/admin/role-testing`
+### Test Company Details
+- **Company Name**: Test Company
+- **Company Slug**: `test-company`
+- **Base URL**: `https://cateringms.com/test-company`
+
+### All Demo User Credentials
+
+| Role | Email | Password | Dashboard URL |
+|------|-------|----------|--------------|
+| Admin | admin@test-company.com | testadmin123 | /test-company/admin/dashboard |
+| Driver | driver@test-company.com | testdriver123 | /test-company/driver/dashboard |
+| Kitchen | kitchen@test-company.com | testkitchen123 | /test-company/kitchen/dashboard |
+| Shopping | shopping@test-company.com | testshopping123 | /test-company/shopping/dashboard |
+| Cleaning | cleaning@test-company.com | testcleaning123 | /test-company/cleaning/dashboard |
+| Client | client@test-company.com | testclient123 | /test-company/client/my-orders |
+
+---
+
+## 🛠️ Troubleshooting
+
+### Issue: "Profile not found" after registration
+**Cause**: Database trigger delay
+**Solution**: Wait 2-3 seconds, then refresh. The retry logic should handle this automatically.
+
+### Issue: Can't login after registration
+**Cause**: Email confirmation may be enabled
+**Solution**: 
+1. Check Supabase Auth settings
+2. Disable email confirmation for demo users
+3. Or check email inbox for confirmation link
+
+### Issue: Wrong dashboard after login
+**Cause**: Role not set as primary or multiple roles assigned
+**Solution**:
+1. Go to `/test-company/admin/users`
+2. Edit the user's departments
+3. Ensure correct role is set as "Primary"
+4. User must log out and log back in
+
+### Issue: "Access Denied" when trying to access portal
+**Cause**: Role not assigned correctly
+**Solution**:
+1. Verify role assignment in admin panel
+2. Check that role is set as "Primary"
+3. Ensure user is linked to `test-company`
+
+### Issue: Auto-fill not working on login
+**Cause**: SessionStorage not set or cleared
+**Solution**:
+1. Click the "Login as Demo User" button again from `/demo` page
+2. Check browser console for errors
+3. Try clearing browser cache
+
+---
+
+## 📋 Quick Testing Checklist
+
+Use this checklist when testing the demo system:
+
+### Registration & Setup
+- [ ] All 6 demo users registered at `/test-company/auth/register`
+- [ ] All users linked to `test-company` company
+- [ ] Admin user assigned "Admin" role as primary
+- [ ] Driver user assigned "Driver" role as primary
+- [ ] Kitchen user assigned "Kitchen Team" role as primary
+- [ ] Shopping user assigned "Shopping Team" role as primary
+- [ ] Cleaning user assigned "Cleaning Team" role as primary
+- [ ] Client user assigned "Client" role as primary
+
+### Demo Page Testing
+- [ ] Demo page loads at `/demo`
+- [ ] All 6 portal cards displayed
+- [ ] Credentials visible on each card
+- [ ] "Copy Credentials" button works
+- [ ] "Login as Demo User" button works for each portal
+
+### Login Flow Testing
+- [ ] Auto-fill credentials works
+- [ ] Login succeeds for each user
+- [ ] Correct dashboard loads after login
+- [ ] Portal features are accessible
+- [ ] Navigation works correctly
+
+### Role-Based Access Testing
+- [ ] Admin can access all admin pages
+- [ ] Driver can only access driver portal
+- [ ] Kitchen can only access kitchen portal
+- [ ] Shopping can only access shopping portal
+- [ ] Cleaning can only access cleaning portal
+- [ ] Client can only access client portal
+
+---
+
+## 🎉 Success Criteria
+
+The demo system is fully functional when:
+
+1. ✅ All 6 users can login successfully
+2. ✅ Each user lands on their correct dashboard
+3. ✅ Auto-fill works from demo page
+4. ✅ Role-based access control is enforced
+5. ✅ Users can navigate their assigned portals
+6. ✅ No console errors or authentication issues
+
+---
+
+## 📞 Next Steps After Demo Setup
+
+Once demo is working:
+
+1. **Add Sample Data**
+   - Create sample orders for demonstration
+   - Add sample equipment inventory
+   - Populate with realistic demo data
+
+2. **Test Key Features**
+   - Order creation and management
+   - Driver assignments
+   - Kitchen prep lists
+   - Equipment tracking
+   - Client order viewing
+
+3. **Document User Journeys**
+   - Create guided tours for each portal
+   - Document common workflows
+   - Prepare demo scripts for sales
+
+4. **Prepare for First Real Client**
+   - Test complete onboarding flow
+   - Verify trial system works
+   - Ensure support channels ready
+
+---
+
+## 🔗 Important Links
+
+- **Demo Page**: https://cateringms.com/demo
+- **Registration**: https://cateringms.com/test-company/auth/register
+- **Login**: https://cateringms.com/test-company/auth/login
+- **Admin Panel**: https://cateringms.com/test-company/admin/users
+- **Company Signup**: https://cateringms.com/company-signup
+
+---
+
+## 🚨 Security Note
+
+⚠️ **IMPORTANT**: These demo credentials are publicly visible on the `/demo` page and in this documentation. They should ONLY be used with the `test-company` demo environment. Never use these credentials with real client data or production systems.
+
+The test-company should be treated as a sandbox environment for demonstrations and testing only.
