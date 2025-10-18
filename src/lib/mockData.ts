@@ -1,4 +1,4 @@
-import type { AppOrder, Delivery } from "@/types/app";
+import type { AppOrder, Delivery, MenuItem, EquipmentItem, ShoppingItem } from "@/types/app";
 
 const defaultOrderValues = {
   company_id: "mock-company-id",
@@ -159,7 +159,7 @@ export const mockOrders: AppOrder[] = [
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     updated_at: new Date().toISOString(),
     client_id: "client-456",
-    driverId: "driver-789",
+    driver_id: "driver-789",
     driverName: "John Doe",
   },
   {
@@ -188,7 +188,7 @@ export const mockOrders: AppOrder[] = [
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date().toISOString(),
     client_id: "client-789",
-    driverId: "driver-101",
+    driver_id: "driver-101",
     driverName: "Jane Smith",
   },
   {
@@ -217,6 +217,7 @@ export const mockOrders: AppOrder[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     client_id: "client-111",
+    ...defaultOrderValues,
   },
 ];
 

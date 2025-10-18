@@ -38,7 +38,7 @@ import {
 import { realtimeNotificationService } from "@/services/realtimeNotificationService";
 import { UserRole } from "@/types/app";
 
-function ClientTrackingPage() {
+function ClientTrackingPageContent() {
   const router = useRouter();
   const { user } = useAuth();
   const { orderId } = router.query;
@@ -438,7 +438,7 @@ function ClientTrackingPage() {
 export default function ClientTrackingPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
-      <ClientTrackingPage />
+      <ClientTrackingPageContent />
     </ProtectedRoute>
   );
 }

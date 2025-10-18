@@ -70,17 +70,20 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
   });
 
   useEffect(() => {
-    if (user) {
-      const storedLeads = await leadService.getLeads(user.id);
-      const displayLeads: DisplayLead[] = storedLeads.map((lead) => ({
-        ...lead,
-        _original: lead,
-      }));
-      setLeads(displayLeads);
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
+    const loadLeads = async () => {
+      if (user) {
+        const storedLeads = await leadService.getLeads(user.id);
+        const displayLeads: DisplayLead[] = storedLeads.map((lead) => ({
+          ...lead,
+          _original: lead,
+        }));
+        setLeads(displayLeads);
+        setLoading(false);
+      } else {
+        setLoading(false);
+      }
+    };
+    loadLeads();
   }, [user]);
 
   const fetchLeads = async () => {

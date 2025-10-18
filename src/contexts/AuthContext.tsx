@@ -125,7 +125,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUserRoles([{ 
           id: "demo-role", 
           user_id: demoUser.id, 
-          department: demoUser.role as any,
+          department: demoUser.role,
           is_primary: true,
           assigned_at: new Date().toISOString(),
           assigned_by: "system",
