@@ -1,5 +1,5 @@
-import type { Database as DB } from './database.types';
-export type { Database } from "./database.types";
+import type { Database as DB } from '../integrations/supabase/database.types';
+export type { Database } from "../integrations/supabase/database.types";
 
 // Re-export commonly used types for convenience
 export type Tables<T extends keyof DB['public']['Tables']> = DB['public']['Tables'][T]['Row'];
@@ -153,8 +153,7 @@ export interface AppOrder extends Order {
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
   deliveryRate?: number | null;
-  menu_items: any[] | null; // Explicitly type as any[] or a proper interface
-  equipment_items: any[] | null; // Explicitly type as any[] or a proper interface
+  // Let menu_items and equipment_items be inherited from Order, which already defines them as Json | null
 }
 
 export interface OrderModification {
