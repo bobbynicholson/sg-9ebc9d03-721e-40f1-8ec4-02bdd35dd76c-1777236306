@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { emailAutomationService } from "./emailAutomationService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
 
 type EquipmentHandover = Database["public"]["Tables"]["equipment_handovers"]["Row"];
 type EquipmentDamage = Database["public"]["Tables"]["equipment_damages"]["Row"];
@@ -160,14 +162,21 @@ export const equipmentTrackingService = {
       throw error;
     }
 
-    // Notify admin
+    // Get order and equipment details for notifications
     const { data: order } = await supabase
       .from("orders")
-      .select("user_id, order_number")
+      .select("user_id, order_number, client_name")
       .eq("id", params.orderId)
       .single();
 
+    const { data: equipment } = await supabase
+      .from("equipment")
+      .select("name, category")
+      .eq("id", params.equipmentId)
+      .single();
+
     if (order) {
+      // 1. In-portal notification (existing - keep it)
       await supabase.from("notifications").insert({
         user_id: order.user_id,
         recipient_id: order.user_id,
@@ -177,6 +186,86 @@ export const equipmentTrackingService = {
         priority: "high",
         order_id: params.orderId,
       });
+
+      // ✅ FIX BUG #7.1: Send email notification to admin
+      try {
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("email, full_name, company_name, phone, phone_number")
+          .eq("id", order.user_id)
+          .single();
+
+        if (adminProfile?.email) {
+          const subject = `🔧 Equipment Damage Alert - Order ${order.order_number}`;
+          const equipmentName = equipment?.name || "Unknown Equipment";
+          const body = `Dear ${adminProfile.full_name || "Admin"},
+
+⚠️ Equipment Damage Reported
+
+Order Number: ${order.order_number}
+Client: ${order.client_name || "Unknown"}
+
+Damage Details:
+- Equipment: ${equipmentName} (${equipment?.category || "Unknown Category"})
+- Quantity Damaged: ${params.quantityDamaged}
+- Damage Type: ${params.damageType.toUpperCase()}
+- Stage: ${params.damageStage}
+- Unit Cost: R${params.unitCost.toFixed(2)}
+- Total Cost: R${totalCost.toFixed(2)}
+
+${params.responsibleName ? `Responsible Person: ${params.responsibleName}\n` : ""}${params.description ? `Description: ${params.description}\n` : ""}${params.notes ? `Notes: ${params.notes}\n` : ""}${params.photoUrl ? `Photo: ${params.photoUrl}\n` : ""}
+Action Required:
+1. Review the damage report
+2. Assess repair vs replacement options
+3. Update equipment inventory
+4. Contact ${params.responsibleName || "responsible party"} if needed
+
+View Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/admin/equipment-management
+
+This equipment has been removed from available inventory until resolved.
+
+Best regards,
+${adminProfile.company_name || "CateringMS Platform"}`;
+
+          await emailAutomationService.sendEmail(
+            order.user_id,
+            adminProfile.email,
+            subject,
+            body,
+            {
+              orderNumber: order.order_number,
+              companyName: adminProfile.company_name || "CateringMS"
+            }
+          );
+          console.log("✅ Equipment damage email sent to admin:", adminProfile.email);
+        }
+
+        // ✅ FIX BUG #7.2: Send WhatsApp notification to admin (when configured)
+        const adminPhone = adminProfile?.phone || adminProfile?.phone_number;
+        if (adminPhone) {
+          try {
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: adminPhone,
+              type: "text",
+              text: {
+                body: `🔧 Equipment Damage Alert\n\n` +
+                      `Order: ${order.order_number}\n` +
+                      `Equipment: ${equipmentName}\n` +
+                      `Quantity: ${params.quantityDamaged}x ${params.damageType}\n` +
+                      `Stage: ${params.damageStage}\n` +
+                      `Cost: R${totalCost.toFixed(2)}\n\n` +
+                      `${params.responsibleName ? `Responsible: ${params.responsibleName}\n\n` : ""}` +
+                      `Action required - equipment removed from inventory.`
+              }
+            });
+            console.log("✅ Equipment damage WhatsApp sent to admin:", adminPhone);
+          } catch (whatsappError) {
+            console.error("⚠️ WhatsApp notification failed (non-blocking - email sent):", whatsappError);
+          }
+        }
+      } catch (notificationError) {
+        console.error("⚠️ Failed to send equipment damage notification (non-blocking):", notificationError);
+      }
     }
 
     return data;
