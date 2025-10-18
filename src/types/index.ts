@@ -160,12 +160,12 @@ export interface AppOrder extends Tables<"orders"> {
   kitchen_instructions?: string | null;
   driver_notes?: string | null;
   driver_id?: string | null; // Keep this for backward compatibility if needed.
-  assigned_driver_id: string | null;
+  assigned_driver_id?: string | null;
   driverName?: string | null; // From join
   eventLocation?: string; // For mock data compatibility
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
-  client_email?: string; // FIX: Make optional to match base type
+  client_email?: string | null; // FIX: Make optional to match base type
   deliveryRate?: number | null; // FIX: Added missing property
 }
 
