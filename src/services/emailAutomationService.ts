@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { EmailVariables } from "@/types";
 
 // Directly use the generated Supabase types to prevent deep instantiation errors
 type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];

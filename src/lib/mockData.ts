@@ -359,4 +359,4 @@ export const fullMockOrders: AppOrder[] = [
       equipment_items: [],
       driver_id: null,
     },
-].map(o => ({ ...defaultOrderValues, ...o, id: o.id || '' })); // Pad with default fields to satisfy type
+];
