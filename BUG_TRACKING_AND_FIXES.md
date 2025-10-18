@@ -140,6 +140,47 @@
   - Add multi-channel notification helper function
 - **Priority:** HIGH - Affects customer experience
 
+### 🔴 BUG #18: Company Signup Missing Welcome Email Call - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Critical onboarding gap
+- **Location:** `src/services/companyService.ts` → `createCompany()`
+- **Issue:** Company creation succeeds but never calls email service
+- **Impact:** New company admins don't receive welcome email with login instructions
+- **Evidence:** 
+  ```typescript
+  // Current code:
+  const { data: company, error } = await supabase
+    .from("companies")
+    .insert(companyData)
+    .select()
+    .single();
+  
+  return { success: true, company };
+  // Missing: await sendCompanyWelcomeEmail(company, ownerEmail);
+  ```
+- **Fix Required:**
+  - Import `emailAutomationService`
+  - Call `sendCompanyWelcomeEmail()` after successful creation
+  - Include company slug and login URL in email
+  - Add error handling (log but don't block signup)
+- **Priority:** CRITICAL - First impression for new customers
+
+### 🔴 BUG #19: Lead Service Missing Notification Triggers - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Missing critical alerts
+- **Location:** `src/services/leadService.ts`
+- **Issue:** Lead operations don't trigger any notifications
+- **Impact:** Admins miss new inquiries, clients don't get confirmation
+- **Missing Notifications:**
+  1. `createLead()` - No admin notification when new lead comes in
+  2. `createLead()` - No auto-reply confirmation to client
+  3. `convertLeadToQuote()` - No notification when lead becomes quote
+  4. `updateLead()` status change - No notifications for status updates
+- **Fix Required:**
+  - Import notification services (email, WhatsApp, realtime)
+  - Add multi-channel admin alerts for new leads (URGENT)
+  - Add client confirmation email when lead created
+  - Add notifications for status changes
+- **Priority:** HIGH - Core sales funnel communication
+
 ### 🔴 BUG #4: WhatsApp Integration Missing Credentials - **PENDING**
 - **Status:** NOT FIXED - Requires external setup
 - **Location:** `.env.local`, WhatsApp services
