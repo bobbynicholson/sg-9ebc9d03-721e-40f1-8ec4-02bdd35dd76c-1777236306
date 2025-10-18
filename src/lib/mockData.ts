@@ -282,9 +282,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 120,
       status: 'preparing',
       total: 18000,
-      user_id: "user-123",
       order_number: "ORD-104",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
@@ -302,9 +300,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 250,
       status: 'confirmed',
       total: 37500,
-      user_id: "user-123",
       order_number: "ORD-105",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
@@ -322,9 +318,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 80,
       status: 'confirmed',
       total: 12000,
-      user_id: "user-123",
       order_number: "ORD-106",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
@@ -342,9 +336,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 150,
       status: 'preparing',
       total: 22500,
-      user_id: "user-123",
       order_number: "ORD-107",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,

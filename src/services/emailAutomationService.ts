@@ -11,7 +11,7 @@ interface SendEmailPayload {
   subject: string;
   template?: string; // slug of the email template
   body?: string; // if no template is used
-  variables?: Record<string, any>;
+  variables?: Record<string, any>; // Simplified to prevent deep type instantiation
 }
 
 export const emailAutomationService = {
@@ -28,11 +28,13 @@ export const emailAutomationService = {
       return null;
     }
     
+    // Safely parse smtp_port to a number if it's a string
     if (data && typeof data.smtp_port === 'string') {
-        data.smtp_port = parseInt(data.smtp_port, 10);
+        const port = parseInt(data.smtp_port, 10);
+        (data as any).smtp_port = isNaN(port) ? null : port;
     }
 
-    return data;
+    return data as EmailSettings | null;
   },
 
   replaceVariables(template: string, variables: Record<string, any> = {}): string {
