@@ -213,31 +213,28 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
       <NoIndexMeta />
       <ClientNav />
       <div className="min-h-screen bg-gray-50 lg:pl-64 xl:pl-72">
-        <div className="p-4 md:p-8">
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">Client Portal</h1>
-          </header>
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="p-3 sm:p-4 md:p-8">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                  <User className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-slate-900">My Events</h1>
-                  <p className="text-slate-600">Track your catering orders</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">My Events</h1>
+                  <p className="text-sm sm:text-base text-slate-600">Track your catering orders</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={() => setShowGame(true)}
-                  className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
+                  className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 w-full sm:w-auto h-11"
                 >
                   <Gamepad2 className="w-4 h-4 mr-2" />
                   Play Game
                 </Button>
-                <Link href="/quotes/new">
-                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600">
+                <Link href="/quotes/new" className="w-full sm:w-auto">
+                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 w-full h-11">
                     Request New Quote
                   </Button>
                 </Link>
@@ -246,50 +243,50 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
 
             {paymentError && (
               <Alert variant="destructive">
-                <AlertDescription>{paymentError}</AlertDescription>
+                <AlertDescription className="text-sm">{paymentError}</AlertDescription>
               </Alert>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
               <Card className="border-0 shadow-lg">
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600">Active Orders</p>
-                      <p className="text-2xl font-bold text-slate-900">{activeOrders.length}</p>
+                      <p className="text-xs sm:text-sm text-slate-600">Active Orders</p>
+                      <p className="text-xl sm:text-2xl font-bold text-slate-900">{activeOrders.length}</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                      <Package className="w-6 h-6 text-blue-600" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-0 shadow-lg">
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600">Upcoming Events</p>
-                      <p className="text-2xl font-bold text-purple-600">
+                      <p className="text-xs sm:text-sm text-slate-600">Upcoming Events</p>
+                      <p className="text-xl sm:text-2xl font-bold text-purple-600">
                         {orders.filter((o) => new Date(o.event_date) > new Date()).length}
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-purple-600" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-0 shadow-lg">
-                <CardContent className="pt-6">
+                <CardContent className="p-4 sm:pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-slate-600">Completed</p>
-                      <p className="text-2xl font-bold text-green-600">{completedOrders.length}</p>
+                      <p className="text-xs sm:text-sm text-slate-600">Completed</p>
+                      <p className="text-xl sm:text-2xl font-bold text-green-600">{completedOrders.length}</p>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -297,23 +294,25 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="active">Active Orders</TabsTrigger>
-                <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-                <TabsTrigger value="complaints">Complaints</TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto">
+                <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-4">
+                  <TabsTrigger value="active" className="text-xs sm:text-sm whitespace-nowrap">Active Orders</TabsTrigger>
+                  <TabsTrigger value="upcoming" className="text-xs sm:text-sm whitespace-nowrap">Upcoming</TabsTrigger>
+                  <TabsTrigger value="completed" className="text-xs sm:text-sm whitespace-nowrap">Completed</TabsTrigger>
+                  <TabsTrigger value="complaints" className="text-xs sm:text-sm whitespace-nowrap">Complaints</TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="active" className="space-y-4">
+              <TabsContent value="active" className="space-y-4 sm:space-y-6">
                 {activeOrders.length === 0 ? (
                   <Card>
-                    <CardContent className="pt-6 text-center text-slate-600">
+                    <CardContent className="py-8 sm:py-12 text-center text-sm sm:text-base text-slate-600">
                       No active orders
                     </CardContent>
                   </Card>
                 ) : (
                   activeOrders.map((order) => (
-                    <div key={order.id} className="space-y-4">
+                    <div key={order.id} className="space-y-3 sm:space-y-4">
                       {/* Job Progress Tracker */}
                       <JobProgressTracker
                         currentStatus={order.status}
@@ -334,31 +333,33 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
 
                       {/* Order Details Card */}
                       <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {getStatusIcon(order.status)}
-                              <div>
-                                <CardTitle className="text-xl">{order.venue_address}</CardTitle>
-                                <p className="text-sm text-slate-600 mt-1">Order #{order.id}</p>
+                        <CardHeader className="p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <div className="mt-1 flex-shrink-0">
+                                {getStatusIcon(order.status)}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <CardTitle className="text-base sm:text-xl break-words">{order.venue_address}</CardTitle>
+                                <p className="text-xs sm:text-sm text-slate-600 mt-1">Order #{order.id}</p>
                               </div>
                             </div>
-                            <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                            <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
+                        <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4 text-slate-500" />
-                              <div>
+                              <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                              <div className="min-w-0">
                                 <p className="text-xs text-slate-500">Event Date</p>
-                                <p className="text-sm font-medium">
+                                <p className="text-sm font-medium truncate">
                                   {new Date(order.event_date).toLocaleDateString()}
                                 </p>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-slate-500" />
+                              <User className="w-4 h-4 text-slate-500 flex-shrink-0" />
                               <div>
                                 <p className="text-xs text-slate-500">Guests</p>
                                 <p className="text-sm font-medium">{order.guest_count}</p>
@@ -367,35 +368,35 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
                           </div>
 
                           <div className="flex items-start gap-2">
-                            <MapPin className="w-4 h-4 text-slate-500 mt-1" />
-                            <div>
+                            <MapPin className="w-4 h-4 text-slate-500 mt-1 flex-shrink-0" />
+                            <div className="min-w-0">
                               <p className="text-xs text-slate-500">Location</p>
-                              <p className="text-sm font-medium">{order.venue_address}</p>
+                              <p className="text-sm font-medium break-words">{order.venue_address}</p>
                             </div>
                           </div>
 
-                          <div className="pt-4 border-t">
+                          <div className="pt-3 sm:pt-4 border-t">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-slate-600">Total Amount</span>
-                              <span className="text-lg font-bold text-slate-900">
+                              <span className="text-xs sm:text-sm text-slate-600">Total Amount</span>
+                              <span className="text-lg sm:text-xl font-bold text-slate-900">
                                 R{order.total?.toLocaleString()}
                               </span>
                             </div>
                           </div>
 
                           {needsPayment(order) && (
-                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div className="p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                               <div className="flex items-center gap-2 mb-2">
-                                <DollarSign className="w-4 h-4 text-yellow-600" />
+                                <DollarSign className="w-4 h-4 text-yellow-600 flex-shrink-0" />
                                 <span className="text-sm font-medium text-yellow-900">Payment Required</span>
                               </div>
-                              <p className="text-xs text-yellow-700 mb-3">
+                              <p className="text-xs sm:text-sm text-yellow-700 mb-3 break-words">
                                 Complete payment to confirm your booking and reserve your event date
                               </p>
                               <Button 
                                 onClick={() => handlePayment(order)}
                                 disabled={processingPayment === order.id}
-                                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 h-11"
                               >
                                 {processingPayment === order.id ? (
                                   <>Processing...</>
@@ -409,13 +410,13 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
                             </div>
                           )}
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <Link href={`/tracking/client?orderId=${order.id}`} className="flex-1">
-                              <Button variant="outline" className="w-full">
+                              <Button variant="outline" className="w-full h-11">
                                 Track Delivery
                               </Button>
                             </Link>
-                            <Button className="flex-1">View Details</Button>
+                            <Button className="flex-1 h-11">View Details</Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -424,23 +425,23 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
                 )}
               </TabsContent>
 
-              <TabsContent value="upcoming" className="space-y-4">
+              <TabsContent value="upcoming" className="space-y-3 sm:space-y-4">
                 {orders
                   .filter((o) => new Date(o.event_date) > new Date())
                   .map((order) => (
                     <Card key={order.id} className="border-0 shadow-lg">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-xl">{order.venue_address}</CardTitle>
-                          <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                      <CardHeader className="p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <CardTitle className="text-base sm:text-xl break-words">{order.venue_address}</CardTitle>
+                          <Badge className={`${getStatusColor(order.status)} text-xs flex-shrink-0`}>{order.status}</Badge>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <span className="text-xs sm:text-sm text-slate-600">
                             {new Date(order.event_date).toLocaleDateString()} • {order.guest_count} guests
                           </span>
-                          <span className="font-semibold text-slate-900">
+                          <span className="text-base sm:text-lg font-semibold text-slate-900">
                             R{order.total?.toLocaleString()}
                           </span>
                         </div>
@@ -449,28 +450,28 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
                   ))}
               </TabsContent>
 
-              <TabsContent value="completed" className="space-y-4">
+              <TabsContent value="completed" className="space-y-3 sm:space-y-4">
                 {completedOrders.length === 0 ? (
                   <Card>
-                    <CardContent className="pt-6 text-center text-slate-600">
+                    <CardContent className="py-8 sm:py-12 text-center text-sm sm:text-base text-slate-600">
                       No completed orders
                     </CardContent>
                   </Card>
                 ) : (
                   completedOrders.map((order) => (
                     <Card key={order.id} className="border-0 shadow-lg">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-xl">{order.venue_address}</CardTitle>
-                          <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                      <CardHeader className="p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <CardTitle className="text-base sm:text-xl break-words">{order.venue_address}</CardTitle>
+                          <Badge className="bg-green-100 text-green-800 text-xs flex-shrink-0">Completed</Badge>
                         </div>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <span className="text-xs sm:text-sm text-slate-600">
                             {new Date(order.event_date).toLocaleDateString()}
                           </span>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto h-11">
                             Leave Review
                           </Button>
                         </div>
