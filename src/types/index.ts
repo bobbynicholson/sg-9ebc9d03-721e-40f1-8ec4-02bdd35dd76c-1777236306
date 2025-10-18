@@ -402,6 +402,7 @@ export interface WaiterServiceConfig {
 
 export interface EmailVariables {
   clientName?: string;
+  driverName?: string;
   eventDate?: string;
   quoteNumber?: string;
   orderNumber?: string;
