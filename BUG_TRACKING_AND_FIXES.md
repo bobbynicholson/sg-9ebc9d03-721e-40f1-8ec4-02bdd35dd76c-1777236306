@@ -138,26 +138,41 @@
   - Add multi-channel notification helper function
 - **Priority:** HIGH - Affects customer experience
 
-### 🔴 BUG #18: Company Signup Missing Welcome Email Call - **NEWLY DISCOVERED**
-- **Status:** NOT FIXED - Critical onboarding gap
-- **Location:** `src/services/companyService.ts` → `createCompany()`
-- **Issue:** Company creation succeeds but never calls email service
-- **Impact:** New company admins don't receive welcome email with login instructions
-- **Evidence:** 
+### ✅ BUG #18: Company Signup Missing Welcome Email Call - **FIXED**
+- **Status:** FIXED
+- **Location:** `src/services/companyService.ts`
+- **Issue:** Company creation succeeded but never called email service
+- **Impact:** New company admins didn't receive welcome email with login instructions
+- **Fix Applied:**
+  - Added import of `emailAutomationService`
+  - Implemented welcome email call after successful company creation
+  - Included company slug and login URL in email
+  - Added proper error handling (logs but doesn't block signup)
+  - Fetches admin name from profile for personalization
+- **Implementation Details:**
   ```typescript
-  const { data: company, error } = await supabase
-    .from("companies")
-    .insert(companyData)
-    .select()
-    .single();
-  
-  return { success: true, company };
+  if (data.email) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.owner_id)
+        .single();
+
+      await emailAutomationService.sendCompanyWelcomeEmail(
+        data.email,
+        data.name,
+        data.slug,
+        profile?.full_name || "there"
+      );
+      console.log("✅ Welcome email sent to new company:", data.email);
+    } catch (emailError) {
+      console.error("⚠️ Failed to send welcome email (non-blocking):", emailError);
+    }
+  }
   ```
-- **Fix Required:**
-  - Import `emailAutomationService`
-  - Call `sendCompanyWelcomeEmail()` after successful creation
-  - Include company slug and login URL in email
-  - Add error handling (log but don't block signup)
+- **Note:** Email provider credentials still need to be configured for actual sending
+- **Files Modified:** `src/services/companyService.ts`
 - **Priority:** CRITICAL - First impression for new customers
 
 ### 🔴 BUG #19: Lead Service Missing Notification Triggers - **NEWLY DISCOVERED**
@@ -399,6 +414,7 @@
 - [ ] Bug #1: Payment Integration (PayFast)
 - [ ] Bug #2: Email Provider (SendGrid)
 - [ ] Bug #3: Company Signup Email
+- [x] Bug #18: Company Welcome Email - **COMPLETED**
 - [ ] Bug #6: Trial Expiry Automation
 - [ ] Bug #21: Payment Email Notifications
 - [ ] Bug #22: Payment Link Generation
@@ -408,7 +424,6 @@
 - [ ] Bug #5: Google Maps API
 - [ ] Bug #15: Order Service Email Triggers
 - [ ] Bug #16: Quote Service Email Integration
-- [ ] Bug #18: Company Welcome Email
 - [ ] Bug #19: Lead Notification Triggers
 - [ ] Bug #20: Driver Email Fallback
 - [ ] Test all critical flows end-to-end
