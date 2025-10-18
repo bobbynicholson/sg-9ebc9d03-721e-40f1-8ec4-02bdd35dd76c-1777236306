@@ -380,11 +380,12 @@ export const kitchenDutyService = {
       await realtimeNotificationService.createNotification({
         company_id: staff.company_id,
         user_id: shift.user_id,
+        recipient_id: shift.user_id, // Notify the user who started the shift (admin)
         title: "Kitchen Staff Clocked In",
         message: `${staff.full_name} has clocked in for kitchen duty`,
-        type: "info",
+        notification_type: "info",
         priority: "low",
-        action_url: `/admin/kitchen-duty-tracking`,
+        link: `/admin/kitchen-duty-tracking`,
       });
     } catch (error) {
       console.error("Error sending staff clocked in notification:", error);
@@ -436,11 +437,12 @@ export const kitchenDutyService = {
       await realtimeNotificationService.createNotification({
         company_id: staff.company_id,
         user_id: shift.user_id,
+        recipient_id: shift.user_id,
         title: "Kitchen Staff Clocked Out",
         message: `${staff.full_name} has clocked out. Duration: ${duration.toFixed(2)} hours`,
-        type: "info",
+        notification_type: "info",
         priority: "low",
-        action_url: `/admin/kitchen-duty-tracking`,
+        link: `/admin/kitchen-duty-tracking`,
       });
     } catch (error) {
       console.error("Error sending staff clocked out notification:", error);
@@ -468,11 +470,12 @@ export const kitchenDutyService = {
       await realtimeNotificationService.createNotification({
         company_id: staff.company_id,
         user_id: task.user_id,
+        recipient_id: task.user_id,
         title: "Kitchen Task Completed",
         message: `${staff.full_name} completed: ${task.task_type} for order ${order?.order_number || "N/A"}`,
-        type: "success",
+        notification_type: "success",
         priority: "medium",
-        action_url: `/orders/${task.order_id}`,
+        link: `/orders/${task.order_id}`,
       });
     } catch (error) {
       console.error("Error sending task completed notification:", error);
@@ -536,12 +539,13 @@ export const kitchenDutyService = {
       // Portal notification to driver
       await realtimeNotificationService.createNotification({
         company_id: order.company_id,
-        user_id: driver.id,
+        user_id: order.user_id, // The user who triggered the original action
+        recipient_id: driver.id,
         title: "Kitchen Milestone Reached",
         message: `${milestoneMessage} for order ${order.order_number}`,
-        type: "info",
+        notification_type: "info",
         priority: "high",
-        action_url: `/orders/${order.id}`,
+        link: `/orders/${order.id}`,
       });
     } catch (error) {
       console.error("Error sending milestone notification to driver:", error);
@@ -601,11 +605,12 @@ export const kitchenDutyService = {
       await realtimeNotificationService.createNotification({
         company_id: staff.company_id,
         user_id: userId,
+        recipient_id: userId,
         title: `🚨 Kitchen Emergency: ${emergencyType}`,
         message: `${staff.full_name} reported: ${description}`,
-        type: "error",
+        notification_type: "error",
         priority: "urgent",
-        action_url: `/orders/${orderId}`,
+        link: `/orders/${orderId}`,
       });
     } catch (error) {
       console.error("Error sending emergency notification:", error);

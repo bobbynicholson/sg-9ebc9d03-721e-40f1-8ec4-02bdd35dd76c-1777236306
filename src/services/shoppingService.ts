@@ -304,11 +304,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "Shopping List Created",
         message: `A new shopping list has been created for ${list.list_date}`,
-        type: "info",
+        notification_type: "info",
         priority: "medium",
-        action_url: `/shopping/${list.id}`,
+        link: `/shopping/${list.id}`,
       });
     } catch (error) {
       console.error("Error sending shopping list created notification:", error);
@@ -349,12 +350,13 @@ export const shoppingService = {
       if (list.shopper_id) {
         await realtimeNotificationService.createNotification({
           company_id: list.company_id,
-          user_id: list.shopper_id,
+          user_id: list.user_id,
+          recipient_id: list.shopper_id,
           title: "Shopping Assignment",
           message: `You have been assigned a shopping list for ${list.list_date}`,
-          type: "info",
+          notification_type: "info",
           priority: "high",
-          action_url: `/shopping/${list.id}`,
+          link: `/shopping/${list.id}`,
         });
       }
     } catch (error) {
@@ -368,11 +370,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "Shopping Started",
         message: `Shopping has started for the list dated ${list.list_date}`,
-        type: "info",
+        notification_type: "info",
         priority: "medium",
-        action_url: `/shopping/${list.id}`,
+        link: `/shopping/${list.id}`,
       });
     } catch (error) {
       console.error("Error sending shopping started notification:", error);
@@ -410,11 +413,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "Shopping Completed",
         message: `Shopping has been completed for ${list.list_date}. Total cost: ${list.total_cost || "N/A"}`,
-        type: "success",
+        notification_type: "success",
         priority: "high",
-        action_url: `/shopping/${list.id}`,
+        link: `/shopping/${list.id}`,
       });
 
       // Portal notification to kitchen staff
@@ -428,12 +432,13 @@ export const shoppingService = {
         for (const staff of kitchenStaff) {
           await realtimeNotificationService.createNotification({
             company_id: list.company_id,
-            user_id: staff.id,
+            user_id: list.user_id,
+            recipient_id: staff.id,
             title: "Shopping Delivered",
             message: `Shopping for ${list.list_date} has been completed and is ready for use`,
-            type: "info",
+            notification_type: "info",
             priority: "medium",
-            action_url: `/shopping/${list.id}`,
+            link: `/shopping/${list.id}`,
           });
         }
       }
@@ -457,11 +462,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "Item Purchased",
         message: `${item.item_name} has been purchased - ${item.quantity} ${item.unit}`,
-        type: "info",
+        notification_type: "info",
         priority: "low",
-        action_url: `/shopping/${item.shopping_list_id}`,
+        link: `/shopping/${item.shopping_list_id}`,
       });
     } catch (error) {
       console.error("Error sending item purchased notification:", error);
@@ -500,11 +506,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "Receipt Uploaded",
         message: `Shopping receipt for ${list.list_date} has been uploaded. Total: ${list.total_cost || "N/A"}. Please review.`,
-        type: "info",
+        notification_type: "info",
         priority: "high",
-        action_url: `/shopping/${list.id}`,
+        link: `/shopping/${list.id}`,
       });
     } catch (error) {
       console.error("Error sending receipt uploaded notification:", error);
@@ -556,11 +563,12 @@ export const shoppingService = {
       await realtimeNotificationService.createNotification({
         company_id: list.company_id,
         user_id: list.user_id,
+        recipient_id: list.user_id,
         title: "⚠️ Budget Exceeded",
         message: `Shopping for ${list.list_date} exceeded budget by ${overagePercentage}%. Estimated: ${estimatedBudget}, Actual: ${actualCost}`,
-        type: "warning",
+        notification_type: "warning",
         priority: "urgent",
-        action_url: `/shopping/${listId}`,
+        link: `/shopping/${listId}`,
       });
     } catch (error) {
       console.error("Error sending budget exceeded notification:", error);

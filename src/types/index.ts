@@ -141,8 +141,7 @@ export interface DeliveryJob extends Quote {
 }
 
 export interface AppOrder extends Tables<"orders"> {
-  // Add missing properties here if they don't exist in the DB table
-  driver_id: string | null;
+  // All properties should now come directly from the DB types
 }
 
 export interface OrderModification {

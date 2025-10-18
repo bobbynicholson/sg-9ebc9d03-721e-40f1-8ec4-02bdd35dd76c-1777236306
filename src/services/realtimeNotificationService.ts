@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, Json } from "@/integrations/supabase/types";
 
 export type Notification = Tables<"notifications">;
-export type NotificationInsert = Omit<Notification, "id" | "created_at" | "is_read" | "read_at">;
+export type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
 
 class RealtimeNotificationService {
   private subscriptions: Map<string, any> = new Map();
