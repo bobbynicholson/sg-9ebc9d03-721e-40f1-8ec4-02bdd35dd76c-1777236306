@@ -338,7 +338,7 @@ export const driverService = {
       menu_items: (order.menu_items as any) || [],
       equipment_items: (order.equipment_items as any) || [],
       waiter_service_required: order.waiter_service_required,
-      waiterDuration: order.waiter_duration_hours,
+      waiter_duration_hours: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       deliveryDistance: order.delivery_distance_km,
       deliveryRate: order.delivery_rate_per_km,

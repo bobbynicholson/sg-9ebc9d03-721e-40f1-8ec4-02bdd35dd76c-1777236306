@@ -174,7 +174,7 @@ export const driverConfirmationService = {
 
     const { data: order } = await supabase
       .from('orders')
-      .select('order_number, event_date, event_time')
+      .select('order_number, event_date, event_time, user_id, company_id')
       .eq('id', orderId)
       .single();
 

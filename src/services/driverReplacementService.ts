@@ -185,8 +185,8 @@ export const driverReplacementService = {
       title: '🚨 Driver Replacement Requested',
       message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
       priority: 'urgent',
-      orderId: request.order_id,
-      actionUrl: '/admin/order-assignments',
+      order_id: request.order_id,
+      link: '/admin/order-assignments',
       metadata: { requestId, orderId: request.order_id }
     });
   },

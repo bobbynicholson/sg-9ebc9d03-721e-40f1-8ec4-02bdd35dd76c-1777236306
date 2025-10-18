@@ -120,8 +120,7 @@ export default function DriversPage({ companySlug: propCompanySlug }: DriversPag
         terms: "Standard mock terms.",
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         company_id: order.company_id,
-        lead_id: null,
-        client_id: null
+        lead_id: null
       };
     };
 

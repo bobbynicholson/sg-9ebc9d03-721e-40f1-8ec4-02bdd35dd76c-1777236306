@@ -6,6 +6,10 @@ import { profileService, Profile } from "@/services/profileService";
 import { useDemoMode } from "@/contexts/DemoModeContext";
 import { useRouter } from "next/router";
 import { roleService, RoleAssignment } from "@/services/roleService";
+import { companyService } from "@/services/companyService";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Company = Tables<"companies">;
 
 export type AuthenticatedUser = SupabaseUser & Profile;
 
@@ -20,7 +24,7 @@ interface AuthContextType {
   activeRole: string;
   switchRole: (newRole: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
-  signUp: (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }, isOwner?: boolean, companyName?: string, companyId?: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -295,11 +299,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     return await authService.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }) => {
+  const signUp = async (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }, isOwner?: boolean, companyName?: string, companyId?: string) => {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
-    return await authService.signUp(email, password, metadata.full_name, metadata.phone, metadata.company_slug);
+    return await authService.signUp(email, password, metadata.full_name, metadata.phone, metadata.company_slug, isOwner, companyName);
   };
 
   const signOut = async () => {
@@ -332,6 +336,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       company,
       companySlug,
       loading, 
+      error,
       userRoles,
       activeRole,
       switchRole,
