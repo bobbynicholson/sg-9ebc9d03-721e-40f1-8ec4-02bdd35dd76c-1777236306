@@ -1,17 +1,41 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 
-// Directly use the generated Supabase types to prevent deep instantiation errors
-type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
-type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
+// Use basic types instead of importing complex generated types
+interface EmailLog {
+  id: string;
+  user_id: string;
+  order_id?: string | null;
+  quote_id?: string | null;
+  template_type: string;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  status: string;
+  created_at?: string;
+}
+
+interface EmailSettings {
+  id: string;
+  user_id: string;
+  enabled: boolean;
+  provider: string | null;
+  from_name: string | null;
+  from_email: string | null;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_user: string | null;
+  smtp_password: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 interface SendEmailPayload {
   companyId: string;
   to: string;
   subject: string;
-  template?: string; // slug of the email template
-  body?: string; // if no template is used
-  variables?: Record<string, any>; // Simplified to prevent deep type instantiation
+  template?: string;
+  body?: string;
+  variables?: any; // Explicit any to prevent deep type instantiation
 }
 
 export const emailAutomationService = {
