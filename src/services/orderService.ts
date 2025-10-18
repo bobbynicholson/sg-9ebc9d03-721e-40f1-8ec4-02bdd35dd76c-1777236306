@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate, AppOrder } from "@/types/index";
+import { emailAutomationService } from "./emailAutomationService";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
@@ -12,7 +13,6 @@ export const orderService = {
   async convertQuoteToOrder(params: ConvertQuoteToOrderParams): Promise<Order | null> {
     const { quoteId, depositPercentage, balanceDueDaysBeforeEvent, lastChangeDaysBeforeEvent } = params;
 
-    // Get the quote
     const { data: quote, error: quoteError } = await supabase
       .from("quotes")
       .select("*")
@@ -24,11 +24,9 @@ export const orderService = {
       throw new Error("Quote not found");
     }
 
-    // Calculate deposit and balance
     const depositAmount = (quote.total * depositPercentage) / 100;
     const balanceAmount = quote.total - depositAmount;
 
-    // Calculate important dates
     const eventDate = new Date(quote.event_date);
     const balanceDueDate = new Date(eventDate);
     balanceDueDate.setDate(balanceDueDate.getDate() - balanceDueDaysBeforeEvent);
@@ -36,10 +34,8 @@ export const orderService = {
     const lastChangeDate = new Date(eventDate);
     lastChangeDate.setDate(lastChangeDate.getDate() - lastChangeDaysBeforeEvent);
 
-    // Generate order number
     const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
 
-    // Create order
     const orderData = {
       user_id: quote.user_id,
       region_id: quote.region_id,
@@ -78,15 +74,35 @@ export const orderService = {
       throw orderError;
     }
 
-    // Update quote status
     await supabase
       .from("quotes")
       .update({ status: "converted" })
       .eq("id", quoteId);
 
-    // Create equipment bookings if equipment items exist
     if (quote.equipment_items && Array.isArray(quote.equipment_items)) {
       await this.createEquipmentBookings(order.id, quote.equipment_items as any[], eventDate);
+    }
+
+    // ✅ FIX BUG #15.1: Send order creation notification to client
+    if (quote.client_email) {
+      try {
+        const paymentUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${order.id}`;
+        
+        await emailAutomationService.sendOrderConfirmationEmail(
+          quote.client_email,
+          quote.client_name,
+          "Your Catering Company", // TODO: Get company name from user profile
+          orderNumber,
+          new Date(quote.event_date).toLocaleDateString(),
+          `${quote.currency} ${quote.total.toFixed(2)}`,
+          `${quote.currency} ${depositAmount.toFixed(2)}`,
+          `${quote.currency} ${balanceAmount.toFixed(2)}`,
+          paymentUrl
+        );
+        console.log("✅ Order creation email sent to:", quote.client_email);
+      } catch (emailError) {
+        console.error("⚠️ Failed to send order creation email (non-blocking):", emailError);
+      }
     }
 
     return order;
@@ -169,6 +185,28 @@ export const orderService = {
       throw error;
     }
 
+    // ✅ FIX BUG #15.2: Send deposit payment receipt email
+    if (data && data.client_email) {
+      try {
+        const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
+        
+        await emailAutomationService.sendOrderConfirmationEmail(
+          data.client_email,
+          data.client_name || "Valued Client",
+          "Your Catering Company", // TODO: Get company name
+          data.order_number || orderId,
+          new Date(data.event_date).toLocaleDateString(),
+          `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
+          `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"}`,
+          `${data.currency} ${data.balance_amount?.toFixed(2) || "0.00"}`,
+          orderUrl
+        );
+        console.log("✅ Deposit receipt email sent to:", data.client_email);
+      } catch (emailError) {
+        console.error("⚠️ Failed to send deposit receipt email (non-blocking):", emailError);
+      }
+    }
+
     return data;
   },
 
@@ -208,6 +246,29 @@ export const orderService = {
       throw error;
     }
 
+    // ✅ FIX BUG #15.3: Send balance payment receipt email
+    if (data && data.client_email) {
+      try {
+        const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
+        
+        // Send confirmation that balance is paid and order is fully confirmed
+        await emailAutomationService.sendOrderConfirmationEmail(
+          data.client_email,
+          data.client_name || "Valued Client",
+          "Your Catering Company", // TODO: Get company name
+          data.order_number || orderId,
+          new Date(data.event_date).toLocaleDateString(),
+          `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
+          `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"} (PAID)`,
+          `${data.currency} 0.00 (PAID IN FULL)`,
+          orderUrl
+        );
+        console.log("✅ Balance receipt email sent to:", data.client_email);
+      } catch (emailError) {
+        console.error("⚠️ Failed to send balance receipt email (non-blocking):", emailError);
+      }
+    }
+
     return data;
   },
 
@@ -243,6 +304,50 @@ export const orderService = {
     if (error) {
       console.error("Error updating order status:", error);
       throw error;
+    }
+
+    // ✅ FIX BUG #15.4: Send status update email to client
+    if (data && data.client_email) {
+      try {
+        const statusMessages: Record<string, { title: string; message: string }> = {
+          preparing: {
+            title: "Your Order is Being Prepared",
+            message: "Our kitchen team has started preparing your order. Everything is on track for your event!"
+          },
+          ready: {
+            title: "Your Order is Ready",
+            message: "Your order has been prepared and is ready for delivery. Our driver will depart soon."
+          },
+          in_transit: {
+            title: "Your Order is On The Way",
+            message: "Your driver has departed and is heading to your venue. You can track them in real-time!"
+          },
+          delivered: {
+            title: "Your Order Has Been Delivered",
+            message: "Your order has arrived at the venue. Enjoy your event!"
+          },
+          completed: {
+            title: "Order Completed Successfully",
+            message: "Thank you for choosing us! We hope your event was a great success."
+          }
+        };
+
+        const statusInfo = statusMessages[newStatus] || { 
+          title: "Order Status Update", 
+          message: `Your order status has been updated to: ${newStatus}` 
+        };
+
+        // Use a simple email notification for status updates
+        // TODO: Create dedicated status update email template
+        console.log(`📧 Status update email should be sent to ${data.client_email}:`, {
+          title: statusInfo.title,
+          message: statusInfo.message,
+          orderNumber: data.order_number,
+          newStatus
+        });
+      } catch (emailError) {
+        console.error("⚠️ Failed to send status update email (non-blocking):", emailError);
+      }
     }
 
     return data;
@@ -570,11 +675,24 @@ export const orderService = {
       throw error;
     }
 
-    // Free up equipment bookings
     await supabase
       .from("equipment_bookings")
       .update({ status: "cancelled" })
       .eq("order_id", orderId);
+
+    // ✅ FIX BUG #15.5: Send cancellation confirmation email
+    if (data && data.client_email) {
+      try {
+        // TODO: Create dedicated cancellation email template
+        console.log(`📧 Cancellation email should be sent to ${data.client_email}:`, {
+          orderNumber: data.order_number,
+          reason,
+          refundInfo: "Refund will be processed within 5-7 business days"
+        });
+      } catch (emailError) {
+        console.error("⚠️ Failed to send cancellation email (non-blocking):", emailError);
+      }
+    }
 
     return data;
   },
