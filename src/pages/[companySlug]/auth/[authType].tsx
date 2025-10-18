@@ -135,7 +135,8 @@ export default function AuthPage() {
 
         // CRITICAL FIX: Assign "client" role to user_departments table
         try {
-          await roleService.assignRole(result.user.id, "client" as UserRole, result.user.id, true);
+          const clientRole: UserRole = "client";
+          await roleService.assignRole(result.user.id, clientRole, result.user.id, true);
           console.log(`Client role assigned to user ${result.user.id}`);
         } catch (roleError) {
           console.error("Error assigning client role:", roleError);

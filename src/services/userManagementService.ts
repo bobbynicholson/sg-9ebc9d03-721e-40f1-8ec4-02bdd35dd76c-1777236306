@@ -117,18 +117,25 @@ export const userManagementService = {
 
       // 6. Send invitation email
       const { billingEmailService } = await import("./billingEmailService");
-      const emailSent = await billingEmailService.sendStaffInvitationEmail(
-        email,
-        invitedBy,
-        company?.company_name || "the company",
-        invitationUrl,
-        companyId
-      );
+      // FIX: Check if email was sent successfully
+      let emailError = null;
+      try {
+        await billingEmailService.sendStaffInvitationEmail(
+            email,
+            invitedBy,
+            company?.company_name || "the company",
+            invitationUrl,
+            companyId
+        );
+      } catch (e: any) {
+        emailError = e.message;
+        console.error("Failed to send staff invitation email:", e);
+      }
 
       return { 
         success: true, 
         invitationId: invitation.id,
-        error: emailSent ? undefined : "Invitation created but email failed to send"
+        error: emailError ? `Invitation created but email failed to send: ${emailError}` : undefined
       };
 
     } catch (error) {

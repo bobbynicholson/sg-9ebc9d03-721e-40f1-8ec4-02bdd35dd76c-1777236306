@@ -104,22 +104,28 @@ export const authService = {
   async signUp(
     email: string,
     password: string,
-    fullName: string,
-    role: string,
-    currency: string,
-    phone: string,
-    companyName?: string
+    metadata: {
+      full_name: string;
+      role?: string;
+      currency?: string;
+      phone_number?: string;
+      company_name?: string;
+      company_slug?: string;
+    },
+    isOwner: boolean = false,
+    companyName?: string,
+    companyId?: string
   ): Promise<{ user: AuthUser | null; error: AuthError | null; companySlug?: string }> {
     try {
-      const metadata: Record<string, any> = {
-        full_name: fullName,
-        role: role,
-        currency: currency,
-        phone_number: phone,
+      const authMetadata: Record<string, any> = {
+        full_name: metadata.full_name,
+        role: metadata.role || (isOwner ? "owner" : "client"),
+        currency: metadata.currency || "ZAR",
+        phone_number: metadata.phone_number,
       };
 
-      if (companyName) {
-        metadata.company_name = companyName;
+      if (companyName || metadata.company_name) {
+        authMetadata.company_name = companyName || metadata.company_name;
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -127,7 +133,7 @@ export const authService = {
         password,
         options: {
           emailRedirectTo: `${getURL()}auth/callback`,
-          data: metadata,
+          data: authMetadata,
         },
       });
 
@@ -168,19 +174,20 @@ export const authService = {
         created_at: data.user.created_at,
       };
 
-      let companySlug: string | undefined;
+      let companySlug: string | undefined = metadata.company_slug;
 
-      if (role === "admin" && companyName) {
+      if ((isOwner || authMetadata.role === 'admin') && (companyName || metadata.company_name)) {
         try {
-          const slug = await companyService.generateUniqueSlug(companyName);
+          const finalCompanyName = companyName || metadata.company_name!;
+          const slug = await companyService.generateUniqueSlug(finalCompanyName);
           
           const companyResult = await companyService.createCompany({
-            name: companyName,
+            name: finalCompanyName,
             slug: slug,
             owner_id: data.user.id,
             email: email,
-            phone: phone,
-            currency: currency,
+            phone: metadata.phone_number,
+            currency: metadata.currency,
           });
 
           if (companyResult.success && companyResult.company) {

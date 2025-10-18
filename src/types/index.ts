@@ -166,6 +166,7 @@ export interface AppOrder extends Tables<"orders"> {
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
   client_email?: string; // FIX: Make optional to match base type
+  deliveryRate?: number | null; // FIX: Added missing property
 }
 
 export interface OrderModification {
@@ -435,6 +436,8 @@ export interface EmailVariables {
   paymentDate?: string;
   paymentMethod?: string;
   reviewLink?: string;
+  loginUrl?: string; // FIX: Add missing loginUrl property for welcome emails
+  adminName?: string; // FIX: Add missing adminName property for welcome emails
 }
 
 // ==========================================
