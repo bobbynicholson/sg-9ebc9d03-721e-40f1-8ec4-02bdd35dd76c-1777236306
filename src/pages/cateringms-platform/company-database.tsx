@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -42,126 +42,134 @@ import {
   AlertCircle,
   Filter,
   RefreshCw,
+  Pencil,
 } from "lucide-react";
 import { companyService, type CompanyWithOwner } from "@/services/companyService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toast } from "@/hooks/use-toast";
 
-export default function CompanyDatabase() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+const CompanyDatabasePage: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyWithOwner[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<CompanyWithOwner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<CompanyWithOwner | null>(null);
-  const [newCompany, setNewCompany] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    owner_email: "",
-  });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof CompanyWithOwner, direction: "ascending" | "descending" } | null>({ key: 'created_at', direction: 'descending' });
 
-  useEffect(() => {
-    if (user) {
-      loadCompanies();
-    }
-  }, [user]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<CompanyWithOwner | null>(null);
 
-  useEffect(() => {
-    filterCompanies();
-  }, [companies, searchTerm, statusFilter]);
-
-  const loadCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const data = await companyService.getAllCompanies();
+      const data = await companyService.getAllCompaniesWithOwner();
       setCompanies(data);
-    } catch (error) {
-      console.error("Error loading companies:", error);
+    } catch (err: any) {
+      setError(err.message);
       toast({
-        title: "Error",
-        description: "Failed to load companies",
+        title: "Error fetching companies",
+        description: err.message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
+  
+  const handleEdit = (company: CompanyWithOwner) => {
+    setEditingCompany(company);
+    setIsModalOpen(true);
+  };
+  
+  const handleDelete = async (companyId: string, companyName: string) => {
+    if (window.confirm(`Are you sure you want to delete ${companyName}? This action cannot be undone.`)) {
+      try {
+        await companyService.deleteCompany(companyId);
+        toast({
+          title: "Company Deleted",
+          description: `${companyName} has been successfully deleted.`,
+        });
+        fetchCompanies();
+      } catch (err: any) {
+        setError(err.message);
+        toast({
+          title: "Error deleting company",
+          description: err.message,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
-  const filterCompanies = () => {
+  const handleSave = async (updatedCompany: Partial<CompanyWithOwner>) => {
+    if (!editingCompany) return;
+
+    try {
+      await companyService.updateCompany(editingCompany.id, updatedCompany);
+      toast({
+        title: "Company Updated",
+        description: `${editingCompany.company_name} has been updated.`,
+      });
+      fetchCompanies();
+      setIsModalOpen(false);
+      setEditingCompany(null);
+    } catch (err: any) {
+      setError(err.message);
+      toast({
+        title: "Error updating company",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredAndSortedCompanies = useMemo(() => {
     let filtered = [...companies];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (company) =>
-          company.name.toLowerCase().includes(term) ||
+          company.company_name.toLowerCase().includes(term) ||
           company.slug.toLowerCase().includes(term) ||
           company.email?.toLowerCase().includes(term) ||
           company.owner_email?.toLowerCase().includes(term)
       );
     }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((company) => company.subscription_status === statusFilter);
-    }
+    if (sortConfig) {
+      const { key, direction } = sortConfig;
+      filtered.sort((a, b) => {
+        let aValue = a[key];
+        let bValue = b[key];
 
-    setFilteredCompanies(filtered);
-  };
-
-  const handleAddCompany = async () => {
-    if (!newCompany.name || !newCompany.owner_email) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide company name and owner email",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const slug = await companyService.generateUniqueSlug(newCompany.name);
-      
-      toast({
-        title: "Manual Company Creation",
-        description: "Please contact the owner to complete signup through the platform",
-      });
-      
-      setAddDialogOpen(false);
-      setNewCompany({ name: "", email: "", phone: "", owner_email: "" });
-    } catch (error) {
-      console.error("Error adding company:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add company",
-        variant: "destructive",
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue?.toLowerCase() ?? '';
+          bValue = bValue?.toLowerCase() ?? '';
+        }
+    
+        if (aValue < bValue) {
+          return direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
       });
     }
-  };
 
-  const handleDeleteCompany = async () => {
-    if (!selectedCompany) return;
+    return filtered;
+  }, [companies, searchTerm, sortConfig]);
 
-    try {
-      await companyService.deactivateCompany(selectedCompany.id);
-      await loadCompanies();
-      setDeleteDialogOpen(false);
-      setSelectedCompany(null);
-      toast({
-        title: "Success",
-        description: "Company deactivated successfully",
-      });
-    } catch (error) {
-      console.error("Error deleting company:", error);
-      toast({
-        title: "Error",
-        description: "Failed to deactivate company",
-        variant: "destructive",
-      });
+  const requestSort = (key: keyof CompanyWithOwner) => {
+    if (sortConfig && sortConfig.key === key) {
+      setSortConfig({ ...sortConfig, direction: sortConfig.direction === 'ascending' ? 'descending' : 'ascending' });
+    } else {
+      setSortConfig({ key, direction: 'ascending' });
     }
   };
 
@@ -258,61 +266,36 @@ export default function CompanyDatabase() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Slug</TableHead>
+                    <TableHead onClick={() => requestSort('company_name')}>Company Name</TableHead>
+                    <TableHead onClick={() => requestSort('slug')}>Slug</TableHead>
                     <TableHead>Owner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Trial Ends</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead onClick={() => requestSort('created_at')}>Created At</TableHead>
+                    <TableHead onClick={() => requestSort('subscription_status')}>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCompanies.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                        No companies found
-                      </TableCell>
-                    </TableRow>
+                  {loading ? (
+                    <TableRow><TableCell colSpan={6}>Loading...</TableCell></TableRow>
+                  ) : error ? (
+                    <TableRow><TableCell colSpan={6} className="text-red-500">{error}</TableCell></TableRow>
                   ) : (
-                    filteredCompanies.map((company) => (
+                    filteredAndSortedCompanies.map((company) => (
                       <TableRow key={company.id}>
+                        <TableCell className="font-medium">{company.company_name}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                              <Building2 className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">{company.name}</p>
-                              {company.email && (
-                                <p className="text-sm text-slate-500">{company.email}</p>
-                              )}
-                            </div>
-                          </div>
+                          <a href={`/${company.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                            /{company.slug}
+                          </a>
                         </TableCell>
+                        <TableCell>{company.owner?.email || 'N/A'}</TableCell>
+                        <TableCell>{new Date(company.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <code className="text-xs bg-slate-100 px-2 py-1 rounded">
-                            {company.slug}
-                          </code>
+                          <Badge variant={company.subscription_status === 'active' ? 'default' : 'secondary'}>
+                            {company.subscription_status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
-                          <div>
-                            {company.owner_name && (
-                              <p className="text-sm font-medium">{company.owner_name}</p>
-                            )}
-                            {company.owner_email && (
-                              <p className="text-xs text-slate-500">{company.owner_email}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(company.subscription_status || "trial")}</TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(company.trial_ends_at)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {formatDate(company.created_at)}
-                        </TableCell>
-                        <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"
@@ -413,7 +396,7 @@ export default function CompanyDatabase() {
                 Deactivate Company
               </DialogTitle>
               <DialogDescription>
-                Are you sure you want to deactivate {selectedCompany?.name}? This will prevent
+                Are you sure you want to deactivate {selectedCompany?.company_name}? This will prevent
                 access to their platform but preserve all data.
               </DialogDescription>
             </DialogHeader>
@@ -430,4 +413,6 @@ export default function CompanyDatabase() {
       </div>
     </div>
   );
-}
+};
+
+export default CompanyDatabasePage;

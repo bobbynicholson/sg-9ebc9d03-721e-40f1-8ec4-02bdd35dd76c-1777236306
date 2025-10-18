@@ -11,17 +11,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, ArrowLeft, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
+import Head from "next/head";
 
 export default function AuthPage() {
   const router = useRouter();
   const { companySlug, authType } = router.query;
-  const { user, signIn, signUp, userRoles, activeRole } = useAuth();
+  const { user, company, loading, error: authError } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [companyInfo, setCompanyInfo] = useState<{id: string; name: string; currency: string} | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
@@ -57,7 +58,7 @@ export default function AuthPage() {
         if (company) {
           setCompanyInfo({
             id: company.id,
-            name: company.name,
+            name: company.company_name,
             currency: company.currency || "ZAR"
           });
         } else {
@@ -80,25 +81,10 @@ export default function AuthPage() {
 
   // Redirect if already authenticated - USE NEW MULTI-ROLE SYSTEM
   useEffect(() => {
-    if (user && userRoles.length > 0) {
-      const redirect = router.query.redirect as string;
-      if (redirect) {
-        router.push(redirect);
-      } else {
-        // Find primary role or use active role
-        const primaryRole = userRoles.find(r => r.isPrimary);
-        const roleToUse = primaryRole?.department || activeRole || userRoles[0].department;
-        
-        // Use roleService to get the correct dashboard URL
-        const dashboardUrl = roleService.getRoleDashboardUrl(
-          roleToUse as any,
-          companySlug as string
-        );
-        
-        router.push(dashboardUrl);
-      }
+    if (user && company) {
+      router.push(`/${companySlug}/admin/dashboard`);
     }
-  }, [user, userRoles, activeRole, router, companySlug]);
+  }, [user, company, companySlug, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

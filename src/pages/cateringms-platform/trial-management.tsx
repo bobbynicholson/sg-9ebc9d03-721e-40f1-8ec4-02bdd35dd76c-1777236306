@@ -332,7 +332,7 @@ export default function TrialManagementPage() {
                   <TableRow key={company.id}>
                     <TableCell className="font-medium">
                       <div>
-                        <div>{company.name}</div>
+                        <div>{company.company_name}</div>
                         <div className="text-sm text-muted-foreground">/{company.slug}</div>
                       </div>
                     </TableCell>

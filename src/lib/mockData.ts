@@ -1,4 +1,3 @@
-
 import { AppOrder, Delivery } from "@/types";
 
 const defaultOrderValues = {
@@ -78,6 +77,7 @@ export const mockOrders: AppOrder[] = [
     totalAmount: 38700,
     kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
     // driver_notes: "Traffic is heavy on the M1.",
+    driver_id: "driver-b",
   },
   {
     ...defaultOrderValues,
@@ -118,6 +118,7 @@ export const mockOrders: AppOrder[] = [
     payment_reference: "PAY-456",
     amount_paid: 16100,
     requires_waiter: true,
+    driver_id: null,
   },
   {
     ...defaultOrderValues,
@@ -162,6 +163,7 @@ export const mockOrders: AppOrder[] = [
     delivery_time: new Date(Date.now() - 86400000 * 2).toISOString(),
     amount_paid: 62100,
     requires_waiter: false,
+    driver_id: "driver-c",
   },
 ];
 

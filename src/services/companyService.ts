@@ -277,6 +277,107 @@ export const companyService = {
     }
   },
 
+  async updateCompany(id: string, updates: Partial<CompanyUpdate>): Promise<Company | null> {
+    const { data, error } = await supabase
+      .from("companies")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating company:", error);
+      throw error;
+    }
+
+    return data;
+  },
+  
+  async createCompanyAndOwner(
+    email: string,
+    password: string,
+    fullName: string,
+    companyName: string,
+    companySlug: string,
+    planId: string,
+    trialDays: number
+  ): Promise<{ user: User; company: Company; session: Session }> {
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          is_owner: true,
+        },
+      },
+    });
+
+    if (signUpError) {
+      console.error("Error signing up owner:", signUpError);
+      throw signUpError;
+    }
+
+    if (!signUpData.user || !signUpData.session) {
+      throw new Error("Could not create user or session.");
+    }
+    const user = signUpData.user;
+    
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .insert([
+        {
+          owner_id: user.id,
+          company_name: companyName,
+          slug: companySlug,
+          email: email,
+          subscription_plan_id: planId,
+          subscription_status: 'trialing',
+          trial_ends_at: trialEndsAt.toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (companyError) {
+      console.error("Error creating company:", companyError);
+      // Attempt to clean up the created user if company creation fails
+      // This is important to avoid orphaned users.
+      // In a production app, you might want a more robust cleanup mechanism.
+      await supabase.auth.admin.deleteUser(user.id);
+      throw companyError;
+    }
+    
+    // Update profile with company_id
+    const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ company_id: company.id, roles: ['admin', 'owner'] })
+        .eq('id', user.id);
+
+    if (profileError) {
+        // Handle error - maybe rollback company creation
+        console.error("Error updating profile with company_id:", profileError);
+    }
+    
+    // Send welcome email
+    await emailAutomationService.sendCompanyWelcomeEmail(
+      email,
+      companyName,
+      company.id,
+      company.slug,
+      fullName
+    );
+    
+    return { user, company, session: signUpData.session };
+  },
+
+  async deleteCompany(id: string): Promise<void> {
+    // This is a very destructive action.
+  },
+
   /**
    * Update company slug (with validation)
    */

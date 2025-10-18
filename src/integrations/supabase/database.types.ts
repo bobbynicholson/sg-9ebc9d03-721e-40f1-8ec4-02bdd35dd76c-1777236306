@@ -718,6 +718,7 @@ export type Database = {
           address: string | null
           brand_color: string | null
           city: string | null
+          company_name: string | null
           country: string | null
           created_at: string | null
           currency: string | null
@@ -725,7 +726,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           logo_url: string | null
-          name: string
           onboarding_completed: boolean | null
           owner_id: string | null
           phone: string | null
@@ -741,6 +741,7 @@ export type Database = {
           address?: string | null
           brand_color?: string | null
           city?: string | null
+          company_name?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -748,7 +749,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
-          name: string
           onboarding_completed?: boolean | null
           owner_id?: string | null
           phone?: string | null
@@ -764,6 +764,7 @@ export type Database = {
           address?: string | null
           brand_color?: string | null
           city?: string | null
+          company_name?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -771,7 +772,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
-          name?: string
           onboarding_completed?: boolean | null
           owner_id?: string | null
           phone?: string | null
@@ -4463,6 +4463,7 @@ export type Database = {
           deposit_amount: number | null
           deposit_paid: boolean | null
           deposit_paid_at: string | null
+          driver_id: string | null
           equipment_items: Json | null
           equipment_return_method: string | null
           event_date: string
@@ -4526,6 +4527,7 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
+          driver_id?: string | null
           equipment_items?: Json | null
           equipment_return_method?: string | null
           event_date: string
@@ -4589,6 +4591,7 @@ export type Database = {
           deposit_amount?: number | null
           deposit_paid?: boolean | null
           deposit_paid_at?: string | null
+          driver_id?: string | null
           equipment_items?: Json | null
           equipment_return_method?: string | null
           event_date?: string
@@ -4653,6 +4656,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -6171,9 +6181,13 @@ export type Database = {
           list_date: string
           notes: string | null
           order_id: string | null
+          receipt_url: string | null
           region_id: string | null
+          shopper_id: string | null
+          started_at: string | null
           status: string | null
           total_actual_cost: number | null
+          total_cost: number | null
           total_estimated_cost: number | null
           updated_at: string | null
           user_id: string
@@ -6187,9 +6201,13 @@ export type Database = {
           list_date: string
           notes?: string | null
           order_id?: string | null
+          receipt_url?: string | null
           region_id?: string | null
+          shopper_id?: string | null
+          started_at?: string | null
           status?: string | null
           total_actual_cost?: number | null
+          total_cost?: number | null
           total_estimated_cost?: number | null
           updated_at?: string | null
           user_id: string
@@ -6203,9 +6221,13 @@ export type Database = {
           list_date?: string
           notes?: string | null
           order_id?: string | null
+          receipt_url?: string | null
           region_id?: string | null
+          shopper_id?: string | null
+          started_at?: string | null
           status?: string | null
           total_actual_cost?: number | null
+          total_cost?: number | null
           total_estimated_cost?: number | null
           updated_at?: string | null
           user_id?: string
@@ -6237,6 +6259,13 @@ export type Database = {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_lists_shopper_id_fkey"
+            columns: ["shopper_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

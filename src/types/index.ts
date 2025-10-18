@@ -140,22 +140,10 @@ export interface DeliveryJob extends Quote {
   lead_id: string; // Added to satisfy required property from Quote
 }
 
-export type AppOrder = Order & {
-  company_id: string; // Ensure company_id is always present
-  clientName?: string;
-  driverName?: string;
-  totalAmount?: number;
-  eventLocation?: string;
-  menuItems?: any[];
-  equipmentItems?: any[];
-  kitchen_instructions?: string;
-  delivery_total_fee?: number;
-  pickup_time?: string;
-  waiterDuration?: number;
-  waiterRate?: number;
-  deliveryDistance?: number | null;
-  deliveryRate?: number | null;
-};
+export interface AppOrder extends Tables<"orders"> {
+  // Add missing properties here if they don't exist in the DB table
+  driver_id: string | null;
+}
 
 export interface OrderModification {
   id: string;
