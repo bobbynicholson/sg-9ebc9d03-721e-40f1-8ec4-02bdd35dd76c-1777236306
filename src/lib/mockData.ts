@@ -176,7 +176,6 @@ export const mockOrders: AppOrder[] = [
     internal_notes: "",
     special_instructions: "",
     assigned_chef_id: "chef-b",
-    assigned_driver_id: "driver-c",
     created_at: new Date(Date.now() - 86400000 * 22).toISOString(),
     updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
     region_id: "kzn-durban",
