@@ -7,6 +7,7 @@ import {
   getOrderModificationStatus
 } from "@/lib/payfastService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { emailAutomationService } from "./emailAutomationService";
 
 export interface PaymentSchedule {
   orderId: string;
@@ -152,14 +153,61 @@ class PaymentProcessingService {
         .single();
 
       if (order && order.payment_schedules) {
-        // Send payment received notification
+        const schedule = order.payment_schedules as any;
+
+        // Send in-portal payment received notification
         await realtimeNotificationService.sendPaymentReceivedNotification(
           userId,
           orderId,
           "deposit",
-          (order.payment_schedules as any).deposit_amount,
-          (order.payment_schedules as any).currency
+          schedule.deposit_amount,
+          schedule.currency
         );
+
+        // ✅ FIX BUG #21.1: Send deposit receipt email
+        if (order.client_email) {
+          try {
+            const subject = `Deposit Payment Received - Order ${order.order_number}`;
+            const body = `Dear ${order.client_name || "Valued Client"},
+
+✅ Your deposit payment has been received successfully!
+
+Order Number: ${order.order_number}
+Deposit Amount: ${schedule.currency} ${schedule.deposit_amount.toFixed(2)}
+Transaction ID: ${transactionId}
+Payment Date: ${new Date().toLocaleDateString()}
+Payment Method: ${gateway}
+
+Event Date: ${new Date(order.event_date).toLocaleDateString()}
+
+Remaining Balance: ${schedule.currency} ${schedule.balance_amount.toFixed(2)}
+Balance Due Date: ${new Date(schedule.balance_due_date).toLocaleDateString()}
+
+Your event is now confirmed! We look forward to serving you.
+
+View Order Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}
+
+Thank you for your payment!
+
+Best regards,
+Your Catering Company`;
+
+            await emailAutomationService.sendEmail(
+              userId,
+              order.client_email,
+              subject,
+              body,
+              {
+                clientName: order.client_name || "Valued Client",
+                orderNumber: order.order_number,
+                companyName: "Your Catering Company"
+              }
+            );
+            console.log("✅ Deposit receipt email sent to:", order.client_email);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send deposit receipt email (non-blocking):", emailError);
+          }
+        }
 
         // Schedule balance payment reminders
         await this.scheduleBalanceReminders(orderId, userId);
@@ -221,14 +269,61 @@ class PaymentProcessingService {
         .single();
 
       if (order && order.payment_schedules) {
-        // Send payment received notification
+        const schedule = order.payment_schedules as any;
+
+        // Send in-portal payment received notification
         await realtimeNotificationService.sendPaymentReceivedNotification(
           userId,
           orderId,
           "balance",
-          (order.payment_schedules as any).balance_amount,
-          (order.payment_schedules as any).currency
+          schedule.balance_amount,
+          schedule.currency
         );
+
+        // ✅ FIX BUG #21.2: Send balance payment receipt email
+        if (order.client_email) {
+          try {
+            const subject = `✅ Payment Complete - Order ${order.order_number} Fully Paid`;
+            const body = `Dear ${order.client_name || "Valued Client"},
+
+🎉 Congratulations! Your order is now fully paid!
+
+Order Number: ${order.order_number}
+Balance Amount: ${schedule.currency} ${schedule.balance_amount.toFixed(2)}
+Total Paid: ${schedule.currency} ${schedule.total_amount.toFixed(2)}
+Transaction ID: ${transactionId}
+Payment Date: ${new Date().toLocaleDateString()}
+Payment Method: ${gateway}
+
+Event Date: ${new Date(order.event_date).toLocaleDateString()}
+
+✅ PAYMENT STATUS: PAID IN FULL
+
+Your event is fully confirmed and our team is preparing everything for your special day!
+
+View Order Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}
+
+Thank you for your business! We look forward to making your event a success.
+
+Best regards,
+Your Catering Company`;
+
+            await emailAutomationService.sendEmail(
+              userId,
+              order.client_email,
+              subject,
+              body,
+              {
+                clientName: order.client_name || "Valued Client",
+                orderNumber: order.order_number,
+                companyName: "Your Catering Company"
+              }
+            );
+            console.log("✅ Balance payment receipt email sent to:", order.client_email);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send balance payment receipt email (non-blocking):", emailError);
+          }
+        }
       }
 
       return true;
@@ -335,7 +430,7 @@ class PaymentProcessingService {
           continue;
         }
 
-        // Send notification
+        // Send in-portal notification
         await realtimeNotificationService.sendPaymentReminderNotification(
           reminder.user_id,
           reminder.order_id,
@@ -343,6 +438,51 @@ class PaymentProcessingService {
           orderData.payment_schedules.currency,
           orderData.payment_schedules.balance_due_date
         );
+
+        // ✅ FIX BUG #21.3: Send balance reminder email
+        if (orderData.client_email) {
+          try {
+            const daysUntilDue = Math.ceil(
+              (new Date(orderData.payment_schedules.balance_due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+            );
+            const urgency = daysUntilDue <= 1 ? "⚠️ URGENT: " : "";
+            const subject = `${urgency}Payment Reminder - Balance Due ${daysUntilDue === 1 ? "Tomorrow" : `in ${daysUntilDue} Days`}`;
+            
+            const body = `Dear ${orderData.client_name || "Valued Client"},
+
+${urgency}Payment Reminder
+
+Order Number: ${orderData.order_number}
+Event Date: ${new Date(orderData.event_date).toLocaleDateString()}
+
+Balance Due: ${orderData.payment_schedules.currency} ${orderData.payment_schedules.balance_amount.toFixed(2)}
+Due Date: ${new Date(orderData.payment_schedules.balance_due_date).toLocaleDateString()}
+${daysUntilDue <= 1 ? "\n⚠️ THIS PAYMENT IS DUE TOMORROW!\n" : ""}
+To ensure your event proceeds smoothly, please complete your payment by the due date.
+
+Pay Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${reminder.order_id}&type=balance
+
+Questions? Contact us immediately.
+
+Thank you,
+Your Catering Company`;
+
+            await emailAutomationService.sendEmail(
+              reminder.user_id,
+              orderData.client_email,
+              subject,
+              body,
+              {
+                clientName: orderData.client_name || "Valued Client",
+                orderNumber: orderData.order_number,
+                companyName: "Your Catering Company"
+              }
+            );
+            console.log(`✅ Balance reminder email sent to ${orderData.client_email} - ${daysUntilDue} days until due`);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send balance reminder email (non-blocking):", emailError);
+          }
+        }
 
         // Mark as sent
         await supabase
@@ -401,12 +541,63 @@ class PaymentProcessingService {
             .single();
 
           if (!existingReminder) {
+            // Send in-portal notification
             await realtimeNotificationService.sendModificationDeadlineReminder(
               orderData.user_id,
               schedule.order_id,
               schedule.final_order_change_date,
               status.daysRemaining
             );
+
+            // ✅ FIX BUG #21.4: Send modification deadline warning email
+            if (orderData.client_email) {
+              try {
+                const urgency = status.daysRemaining <= 1 ? "⚠️ FINAL NOTICE: " : "";
+                const subject = `${urgency}Last Chance to Modify Your Order - ${status.daysRemaining} ${status.daysRemaining === 1 ? "Day" : "Days"} Remaining`;
+                
+                const body = `Dear ${orderData.client_name || "Valued Client"},
+
+${urgency}Important: Order Modification Deadline Approaching
+
+Order Number: ${orderData.order_number}
+Event Date: ${new Date(orderData.event_date).toLocaleDateString()}
+
+⏰ Modification Deadline: ${new Date(schedule.final_order_change_date).toLocaleDateString()}
+⏰ Days Remaining: ${status.daysRemaining} ${status.daysRemaining === 1 ? "day" : "days"}
+
+After this date, we can no longer accept changes to:
+- Guest numbers
+- Menu selections
+- Event details
+- Venue address
+
+${status.daysRemaining <= 1 ? "\n⚠️ THIS IS YOUR FINAL NOTICE - Changes MUST be made by tomorrow!\n" : ""}
+Why the deadline? 
+We begin preparations ${status.daysRemaining + 2} days before your event to ensure everything is perfect.
+
+Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${schedule.order_id}
+
+Questions? Contact us immediately.
+
+Best regards,
+Your Catering Company`;
+
+                await emailAutomationService.sendEmail(
+                  orderData.user_id,
+                  orderData.client_email,
+                  subject,
+                  body,
+                  {
+                    clientName: orderData.client_name || "Valued Client",
+                    orderNumber: orderData.order_number,
+                    companyName: "Your Catering Company"
+                  }
+                );
+                console.log(`✅ Modification deadline warning email sent to ${orderData.client_email} - ${status.daysRemaining} days remaining`);
+              } catch (emailError) {
+                console.error("⚠️ Failed to send modification deadline email (non-blocking):", emailError);
+              }
+            }
 
             // Log the reminder
             await supabase.from("payment_reminders").insert([{
