@@ -17,7 +17,8 @@ import {
   ShoppingCart,
   Sparkles,
   Copy,
-  Check
+  Check,
+  Database
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
@@ -264,12 +265,22 @@ export default function OnboardingPage() {
               </Card>
             </Link>
 
-            <Link href={`/${companySlug}/admin/leads`}>
+            <Link href={`/${companySlug}/admin/client-database`}>
               <Card className="border-2 border-blue-200 hover:border-blue-400 transition-colors cursor-pointer h-full">
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold text-slate-900 mb-2">Client Database</h3>
+                  <p className="text-sm text-slate-600">View all clients who interacted with your platform</p>
+                  <ArrowRight className="w-5 h-5 text-blue-600 mt-3" />
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href={`/${companySlug}/admin/leads`}>
+              <Card className="border-2 border-cyan-200 hover:border-cyan-400 transition-colors cursor-pointer h-full">
                 <CardContent className="pt-6">
                   <h3 className="font-semibold text-slate-900 mb-2">Manage Leads</h3>
                   <p className="text-sm text-slate-600">Track potential clients and quotes</p>
-                  <ArrowRight className="w-5 h-5 text-blue-600 mt-3" />
+                  <ArrowRight className="w-5 h-5 text-cyan-600 mt-3" />
                 </CardContent>
               </Card>
             </Link>

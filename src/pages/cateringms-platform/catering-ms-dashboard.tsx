@@ -26,7 +26,8 @@ import {
   ArrowDownRight,
   RefreshCw,
   FileText,
-  BookOpen
+  BookOpen,
+  Building2
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -225,7 +226,7 @@ export default function CateringMSDashboard() {
               <Button
                 variant="outline"
                 className="h-auto p-4 justify-start hover:bg-white hover:border-purple-300"
-                onClick={() => router.push("/cms-blog")}
+                onClick={() => router.push("/cateringms-platform/cms-blog")}
               >
                 <div className="flex items-start gap-3 w-full">
                   <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
@@ -243,7 +244,7 @@ export default function CateringMSDashboard() {
               <Button
                 variant="outline"
                 className="h-auto p-4 justify-start hover:bg-white hover:border-purple-300"
-                onClick={() => router.push("/cms-pages")}
+                onClick={() => router.push("/cateringms-platform/cms-pages")}
               >
                 <div className="flex items-start gap-3 w-full">
                   <div className="h-10 w-10 rounded-lg bg-pink-100 flex items-center justify-center flex-shrink-0">
@@ -258,6 +259,37 @@ export default function CateringMSDashboard() {
                 </div>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-8 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-blue-600" />
+              Company Database Management
+            </CardTitle>
+            <CardDescription>
+              View and manage all catering companies signed up to the CateringMS platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full h-auto p-4 justify-start hover:bg-white hover:border-blue-300"
+              onClick={() => router.push("/cateringms-platform/company-database")}
+            >
+              <div className="flex items-start gap-3 w-full">
+                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Building2 className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-semibold text-slate-900 mb-1">View All Companies</p>
+                  <p className="text-sm text-slate-600">
+                    See all catering companies, their status, and manage accounts
+                  </p>
+                </div>
+              </div>
+            </Button>
           </CardContent>
         </Card>
 
