@@ -22,7 +22,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { leadService } from "@/services/leadService";
-import { DisplayLead } from "@/types";
+import type { DisplayLead } from "@/types/app";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";

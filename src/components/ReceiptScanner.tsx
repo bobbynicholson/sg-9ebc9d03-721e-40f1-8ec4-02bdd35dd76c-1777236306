@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,8 @@ import {
   Loader2,
   TrendingDown
 } from "lucide-react";
-import { ScannedReceipt, ReceiptItem } from "@/types";
+import { inventoryService } from "@/services/inventoryService";
+import type { ScannedReceipt, ReceiptItem } from "@/types/app";
 
 interface ReceiptScannerProps {
   onReceiptProcessed: (receipt: ScannedReceipt) => void;

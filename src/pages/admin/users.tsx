@@ -26,32 +26,32 @@ import {
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
-import { userManagementService, UserWithDepartments, DepartmentAssignment } from "@/services/userManagementService";
+import { userManagementService, UserWithDepartments } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole as DepartmentType } from "@/types";
+import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 function AdminUsersPage() {
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [selectedDepartments, setSelectedDepartments] = useState<DepartmentType[]>([]);
-  const [primaryDepartment, setPrimaryDepartment] = useState<DepartmentType | null>(null);
+  const [selectedDepartments, setSelectedDepartments] = useState<UserRole[]>([]);
+  const [primaryDepartment, setPrimaryDepartment] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<Partial<Record<DepartmentType, number>> | null>(null);
+  const [stats, setStats] = useState<Partial<Record<UserRole, number>> | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const roleConfig = [
-    { value: "admin" as DepartmentType, label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700 border-purple-200" },
-    { value: "kitchen" as DepartmentType, label: "Kitchen Team", icon: ChefHat, color: "bg-orange-100 text-orange-700 border-orange-200" },
-    { value: "shopping" as DepartmentType, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
-    { value: "driver" as DepartmentType, label: "Driver", icon: Truck, color: "bg-blue-100 text-blue-700 border-blue-200" },
-    { value: "cleaning" as DepartmentType, label: "Cleaning Team", icon: Sparkles, color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
-    { value: "client" as DepartmentType, label: "Client", icon: UserCircle, color: "bg-slate-100 text-slate-700 border-slate-200" }
+    { value: "admin" as UserRole, label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700 border-purple-200" },
+    { value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat, color: "bg-orange-100 text-orange-700 border-orange-200" },
+    { value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
+    { value: "driver" as UserRole, label: "Driver", icon: Truck, color: "bg-blue-100 text-blue-700 border-blue-200" },
+    { value: "cleaning" as UserRole, label: "Cleaning Team", icon: Sparkles, color: "bg-cyan-100 text-cyan-700 border-cyan-200" },
+    { value: "client" as UserRole, label: "Client", icon: UserCircle, color: "bg-slate-100 text-slate-700 border-slate-200" }
   ];
 
   useEffect(() => {
@@ -152,7 +152,7 @@ function AdminUsersPage() {
     }
   };
 
-  const handleDepartmentToggle = (dept: DepartmentType) => {
+  const handleDepartmentToggle = (dept: UserRole) => {
     setSelectedDepartments(prev => {
       if (prev.includes(dept)) {
         const newDepts = prev.filter(d => d !== dept);
@@ -171,7 +171,7 @@ function AdminUsersPage() {
     });
   };
 
-  const handleSetPrimary = (dept: DepartmentType) => {
+  const handleSetPrimary = (dept: UserRole) => {
     if (selectedDepartments.includes(dept)) {
       setPrimaryDepartment(dept);
     }

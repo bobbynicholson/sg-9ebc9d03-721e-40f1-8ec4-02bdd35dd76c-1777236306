@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import {
   CheckCircle,
   AlertCircle
 } from "lucide-react";
-import { DriverEarnings as DriverEarningsType } from "@/types";
+import type { DriverEarnings as DriverEarningsType } from "@/types/app";
 
 interface DriverEarningsProps {
   driverId: string;

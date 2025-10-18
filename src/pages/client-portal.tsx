@@ -33,19 +33,22 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import { SmoothCompletionCelebration } from "@/components/SmoothCompletionCelebration";
+import { CateringDashGame } from "@/components/games/CateringDashGame";
+import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
+import type { AppOrder } from "@/types/app";
+import { realtimeNotificationService } from "@/services/realtimeNotificationService";
 import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { complaintService } from "@/services/complaintService";
 import { ComplaintPortal } from "@/components/ComplaintPortal";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
-import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppOrder } from "@/types"; // Bug fix 1: Correcting the invalid import statement
 
 interface ClientPortalPageProps {
   companySlug?: string;

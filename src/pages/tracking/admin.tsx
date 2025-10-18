@@ -3,12 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Truck, Clock, Phone, Mail, Navigation, Map } from "lucide-react";
-import { AppOrder, Driver, GPSLocation } from "@/types";
+import { AppOrder, Driver, GPSLocation } from "@/types/app";
 import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { driverService } from "@/services/driverService";
+import { realtimeNotificationService } from "@/services/realtimeNotificationService";
+
+type DriverWithLocation = Driver & {
+  location: GPSLocation | null;
+};
 
 export default function AdminTrackingDashboard() {
   const [activeDeliveries, setActiveDeliveries] = useState<any[]>([]);

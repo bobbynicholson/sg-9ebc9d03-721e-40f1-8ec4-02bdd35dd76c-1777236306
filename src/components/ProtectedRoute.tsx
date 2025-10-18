@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserRole } from "@/types";
+import { UserRole } from "@/types/app";
 import { canAccessRoute, getRoleLandingPage, getUnauthorizedMessage } from "@/lib/authGuards";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Loader2 } from "lucide-react";

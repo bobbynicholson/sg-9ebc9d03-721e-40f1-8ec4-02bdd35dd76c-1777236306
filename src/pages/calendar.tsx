@@ -16,9 +16,16 @@ import {
 } from "@/components/ui/dialog";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
-import { AppOrder } from "@/types";
 import { format } from "date-fns";
 import {
   MapPin,

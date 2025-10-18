@@ -1,19 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import type { UserRole } from "@/types";
+import type { Tables } from "@/integrations/supabase/types";
+import { UserRole } from "@/types/app";
 import { getRoleLandingPage } from "@/lib/authGuards";
 
-type UserDepartment = Database["public"]["Tables"]["user_departments"]["Row"];
-type UserDepartmentInsert = Database["public"]["Tables"]["user_departments"]["Insert"];
-
-export interface RoleAssignment {
-  id: string;
-  userId: string;
-  department: UserRole;
-  isPrimary: boolean;
-  assignedAt: string;
-  assignedBy: string | null;
-}
+export type RoleAssignment = Tables<"user_departments">;
 
 export const roleService = {
   async getUserRoles(userId: string): Promise<RoleAssignment[]> {

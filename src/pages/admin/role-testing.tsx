@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { UserRole } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { roleService } from "@/services/roleService";
+import { UserRole } from "@/types/app";
 
 interface TestAccount {
   role: UserRole;

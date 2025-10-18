@@ -1,4 +1,6 @@
-import { UserRole } from "@/types";
+import { UserRole } from "@/types/app";
+import { roleService } from "@/services/roleService";
+import { companyService } from "@/services/companyService";
 import type { Profile } from "@/services/profileService";
 
 // Role-based route permissions - UPDATED TO MATCH NEW URL STRUCTURE

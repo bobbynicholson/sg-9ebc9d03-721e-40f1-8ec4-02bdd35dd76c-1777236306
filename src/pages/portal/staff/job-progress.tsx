@@ -15,7 +15,7 @@ import {
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { AppOrder } from "@/types";
+import type { AppOrder } from "@/types/app";
 import { Search, Calendar, Filter, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 

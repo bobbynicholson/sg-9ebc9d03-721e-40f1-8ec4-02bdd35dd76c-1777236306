@@ -24,6 +24,16 @@ import { InvoiceGenerator } from "@/components/InvoiceGenerator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { AppOrder } from "@/types/app";
+import type { InventoryItem } from "@/types/app";
+import { orderService } from "@/services/orderService";
 
 interface OrdersPageProps {
   companySlug?: string;

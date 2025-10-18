@@ -1,4 +1,4 @@
-import { InventoryItem } from "@/types";
+import { InventoryItem } from "@/types/app";
 
 export function calculateExpiryStatus(item: InventoryItem): {
   status: "fresh" | "warning" | "critical" | "expired";

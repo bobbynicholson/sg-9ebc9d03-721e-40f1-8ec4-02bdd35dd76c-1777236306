@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
-import type { AppOrder } from "@/types";
+import type { AppOrder } from "@/types/app";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

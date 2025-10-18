@@ -6,15 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
-  SelectContent,
-  SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectContent,
+  SelectItem,
 } from "@/components/ui/select";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { AppOrder } from "@/types";
+import { AppOrder } from "@/types/app";
 import { 
   Search, 
   Calendar, 

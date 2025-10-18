@@ -1,15 +1,11 @@
+// starterInventory.ts
+import { InventoryItem } from "@/types/app";
 
-import { InventoryItem } from "@/types";
-
-export const starterInventory: InventoryItem[] = [
+export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "lastRestocked">[] = [
   {
-    id: "INV001",
     name: "Chicken Breast",
     category: "meat",
-    currentStock: 50,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 25,
     averageCost: 89.99,
     supplierPrices: [
@@ -19,13 +15,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV002",
     name: "Beef Brisket",
     category: "meat",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 20,
     averageCost: 145.00,
     supplierPrices: [
@@ -34,13 +26,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV003",
     name: "Lamb Chops",
     category: "meat",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 15,
     averageCost: 189.99,
     supplierPrices: [
@@ -49,13 +37,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV004",
     name: "Pork Ribs",
     category: "meat",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-08",
     reorderPoint: 25,
     averageCost: 119.99,
     supplierPrices: [
@@ -64,13 +48,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV005",
     name: "Salmon Fillets",
     category: "meat",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 249.99,
     supplierPrices: [
@@ -79,13 +59,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV006",
     name: "Prawns",
     category: "meat",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 299.99,
     supplierPrices: [
@@ -94,13 +70,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV007",
     name: "Turkey Breast",
     category: "meat",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-07",
     reorderPoint: 12,
     averageCost: 95.00,
     supplierPrices: [
@@ -108,13 +80,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV008",
     name: "Sausages (Boerewors)",
     category: "meat",
-    currentStock: 35,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 20,
     averageCost: 79.99,
     supplierPrices: [
@@ -123,13 +91,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV009",
     name: "Potatoes",
     category: "vegetables",
-    currentStock: 60,
-    unit: "kg",
     minimumStock: 30,
-    lastRestocked: "2025-01-09",
     reorderPoint: 40,
     averageCost: 15.99,
     supplierPrices: [
@@ -138,13 +102,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV010",
     name: "Onions",
     category: "vegetables",
-    currentStock: 45,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 25,
     averageCost: 12.99,
     supplierPrices: [
@@ -153,13 +113,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV011",
     name: "Tomatoes",
     category: "vegetables",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 25,
     averageCost: 22.99,
     supplierPrices: [
@@ -168,13 +124,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV012",
     name: "Lettuce",
     category: "vegetables",
-    currentStock: 30,
-    unit: "heads",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 20,
     averageCost: 8.99,
     supplierPrices: [
@@ -182,13 +134,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV013",
     name: "Carrots",
     category: "vegetables",
-    currentStock: 35,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 20,
     averageCost: 14.99,
     supplierPrices: [
@@ -197,13 +145,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV014",
     name: "Bell Peppers",
     category: "vegetables",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-10",
     reorderPoint: 15,
     averageCost: 35.99,
     supplierPrices: [
@@ -212,13 +156,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV015",
     name: "Broccoli",
     category: "vegetables",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 28.99,
     supplierPrices: [
@@ -226,13 +166,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV016",
     name: "Cauliflower",
     category: "vegetables",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 25.99,
     supplierPrices: [
@@ -240,13 +176,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV017",
     name: "Green Beans",
     category: "vegetables",
-    currentStock: 22,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 32.99,
     supplierPrices: [
@@ -254,13 +186,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV018",
     name: "Butternut Squash",
     category: "vegetables",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 18,
     averageCost: 18.99,
     supplierPrices: [
@@ -268,13 +196,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV019",
     name: "Milk (Full Cream)",
     category: "dairy",
-    currentStock: 50,
-    unit: "liters",
     minimumStock: 25,
-    lastRestocked: "2025-01-10",
     reorderPoint: 30,
     averageCost: 16.99,
     supplierPrices: [
@@ -283,13 +207,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV020",
     name: "Cream",
     category: "dairy",
-    currentStock: 30,
-    unit: "liters",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 18,
     averageCost: 45.99,
     supplierPrices: [
@@ -297,13 +217,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV021",
     name: "Butter",
     category: "dairy",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 89.99,
     supplierPrices: [
@@ -312,13 +228,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV022",
     name: "Cheddar Cheese",
     category: "dairy",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 125.99,
     supplierPrices: [
@@ -326,13 +238,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV023",
     name: "Mozzarella Cheese",
     category: "dairy",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-09",
     reorderPoint: 10,
     averageCost: 139.99,
     supplierPrices: [
@@ -340,13 +248,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV024",
     name: "Yogurt (Plain)",
     category: "dairy",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 25,
     averageCost: 32.99,
     supplierPrices: [
@@ -354,13 +258,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV025",
     name: "Rice (White)",
     category: "staples",
-    currentStock: 100,
-    unit: "kg",
     minimumStock: 50,
-    lastRestocked: "2025-01-08",
     reorderPoint: 60,
     averageCost: 18.99,
     supplierPrices: [
@@ -369,13 +269,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV026",
     name: "Pasta (Penne)",
     category: "staples",
-    currentStock: 80,
-    unit: "kg",
     minimumStock: 40,
-    lastRestocked: "2025-01-09",
     reorderPoint: 50,
     averageCost: 22.99,
     supplierPrices: [
@@ -383,13 +279,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV027",
     name: "Flour (All Purpose)",
     category: "staples",
-    currentStock: 120,
-    unit: "kg",
     minimumStock: 60,
-    lastRestocked: "2025-01-07",
     reorderPoint: 70,
     averageCost: 12.99,
     supplierPrices: [
@@ -398,13 +290,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV028",
     name: "Sugar (White)",
     category: "staples",
-    currentStock: 90,
-    unit: "kg",
     minimumStock: 45,
-    lastRestocked: "2025-01-08",
     reorderPoint: 55,
     averageCost: 16.99,
     supplierPrices: [
@@ -412,13 +300,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV029",
     name: "Salt",
     category: "staples",
-    currentStock: 60,
-    unit: "kg",
     minimumStock: 30,
-    lastRestocked: "2025-01-05",
     reorderPoint: 35,
     averageCost: 8.99,
     supplierPrices: [
@@ -426,13 +310,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV030",
     name: "Olive Oil",
     category: "staples",
-    currentStock: 40,
-    unit: "liters",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 25,
     averageCost: 89.99,
     supplierPrices: [
@@ -441,13 +321,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV031",
     name: "Vegetable Oil",
     category: "staples",
-    currentStock: 50,
-    unit: "liters",
     minimumStock: 25,
-    lastRestocked: "2025-01-10",
     reorderPoint: 30,
     averageCost: 45.99,
     supplierPrices: [
@@ -455,13 +331,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV032",
     name: "Bread Rolls",
     category: "bakery",
-    currentStock: 200,
-    unit: "units",
     minimumStock: 100,
-    lastRestocked: "2025-01-10",
     reorderPoint: 120,
     averageCost: 3.99,
     supplierPrices: [
@@ -470,13 +342,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV033",
     name: "Burger Buns",
     category: "bakery",
-    currentStock: 150,
-    unit: "units",
     minimumStock: 75,
-    lastRestocked: "2025-01-10",
     reorderPoint: 90,
     averageCost: 2.99,
     supplierPrices: [
@@ -484,13 +352,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV034",
     name: "Garlic Bread",
     category: "bakery",
-    currentStock: 80,
-    unit: "units",
     minimumStock: 40,
-    lastRestocked: "2025-01-09",
     reorderPoint: 50,
     averageCost: 12.99,
     supplierPrices: [
@@ -498,13 +362,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV035",
     name: "Black Pepper",
     category: "spices",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-05",
     reorderPoint: 6,
     averageCost: 189.99,
     supplierPrices: [
@@ -512,13 +372,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV036",
     name: "Paprika",
     category: "spices",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-06",
     reorderPoint: 5,
     averageCost: 145.99,
     supplierPrices: [
@@ -526,13 +382,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV037",
     name: "Curry Powder",
     category: "spices",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-07",
     reorderPoint: 7,
     averageCost: 125.99,
     supplierPrices: [
@@ -540,13 +392,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV038",
     name: "Garlic Powder",
     category: "spices",
-    currentStock: 7,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-08",
     reorderPoint: 4,
     averageCost: 95.99,
     supplierPrices: [
@@ -554,13 +402,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV039",
     name: "Oregano",
     category: "spices",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-04",
     reorderPoint: 3,
     averageCost: 145.99,
     supplierPrices: [
@@ -568,13 +412,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV040",
     name: "Basil (Dried)",
     category: "spices",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-05",
     reorderPoint: 4,
     averageCost: 165.99,
     supplierPrices: [
@@ -582,13 +422,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV041",
     name: "Coca-Cola (2L)",
     category: "beverages",
-    currentStock: 100,
-    unit: "bottles",
     minimumStock: 50,
-    lastRestocked: "2025-01-10",
     reorderPoint: 60,
     averageCost: 18.99,
     supplierPrices: [
@@ -597,13 +433,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV042",
     name: "Sprite (2L)",
     category: "beverages",
-    currentStock: 80,
-    unit: "bottles",
     minimumStock: 40,
-    lastRestocked: "2025-01-10",
     reorderPoint: 50,
     averageCost: 18.99,
     supplierPrices: [
@@ -611,13 +443,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV043",
     name: "Orange Juice (1L)",
     category: "beverages",
-    currentStock: 60,
-    unit: "bottles",
     minimumStock: 30,
-    lastRestocked: "2025-01-09",
     reorderPoint: 35,
     averageCost: 22.99,
     supplierPrices: [
@@ -625,13 +453,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV044",
     name: "Still Water (500ml)",
     category: "beverages",
-    currentStock: 200,
-    unit: "bottles",
     minimumStock: 100,
-    lastRestocked: "2025-01-10",
     reorderPoint: 120,
     averageCost: 5.99,
     supplierPrices: [
@@ -640,13 +464,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV045",
     name: "Sparkling Water (500ml)",
     category: "beverages",
-    currentStock: 150,
-    unit: "bottles",
     minimumStock: 75,
-    lastRestocked: "2025-01-10",
     reorderPoint: 90,
     averageCost: 7.99,
     supplierPrices: [
@@ -654,13 +474,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV046",
     name: "Coffee Beans",
     category: "beverages",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-07",
     reorderPoint: 10,
     averageCost: 189.99,
     supplierPrices: [
@@ -668,13 +484,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV047",
     name: "Tea Bags (Black)",
     category: "beverages",
-    currentStock: 500,
-    unit: "bags",
     minimumStock: 250,
-    lastRestocked: "2025-01-08",
     reorderPoint: 300,
     averageCost: 0.89,
     supplierPrices: [
@@ -682,13 +494,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV048",
     name: "Frozen Peas",
     category: "frozen",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-06",
     reorderPoint: 25,
     averageCost: 28.99,
     supplierPrices: [
@@ -696,13 +504,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV049",
     name: "Frozen Mixed Vegetables",
     category: "frozen",
-    currentStock: 50,
-    unit: "kg",
     minimumStock: 25,
-    lastRestocked: "2025-01-07",
     reorderPoint: 30,
     averageCost: 32.99,
     supplierPrices: [
@@ -710,13 +514,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV050",
     name: "Ice Cream (Vanilla)",
     category: "frozen",
-    currentStock: 30,
-    unit: "liters",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 18,
     averageCost: 45.99,
     supplierPrices: [
@@ -724,13 +524,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV051",
     name: "Bacon",
     category: "meat",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 115.99,
     supplierPrices: [
@@ -738,13 +534,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV052",
     name: "Ground Beef",
     category: "meat",
-    currentStock: 35,
-    unit: "kg",
     minimumStock: 18,
-    lastRestocked: "2025-01-09",
     reorderPoint: 22,
     averageCost: 95.99,
     supplierPrices: [
@@ -753,13 +545,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV053",
     name: "Steak (Sirloin)",
     category: "meat",
-    currentStock: 28,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 18,
     averageCost: 189.99,
     supplierPrices: [
@@ -768,13 +556,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV054",
     name: "Chicken Thighs",
     category: "meat",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 25,
     averageCost: 69.99,
     supplierPrices: [
@@ -782,13 +566,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV055",
     name: "Duck Breast",
     category: "meat",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-08",
     reorderPoint: 8,
     averageCost: 225.99,
     supplierPrices: [
@@ -796,13 +576,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV056",
     name: "Tuna Steaks",
     category: "meat",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-10",
     reorderPoint: 6,
     averageCost: 279.99,
     supplierPrices: [
@@ -810,13 +586,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV057",
     name: "Calamari",
     category: "meat",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-09",
     reorderPoint: 10,
     averageCost: 189.99,
     supplierPrices: [
@@ -824,13 +596,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV058",
     name: "Mussels",
     category: "meat",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 145.99,
     supplierPrices: [
@@ -838,13 +606,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV059",
     name: "Asparagus",
     category: "vegetables",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 89.99,
     supplierPrices: [
@@ -852,13 +616,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV060",
     name: "Zucchini",
     category: "vegetables",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 24.99,
     supplierPrices: [
@@ -866,13 +626,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV061",
     name: "Eggplant",
     category: "vegetables",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 28.99,
     supplierPrices: [
@@ -880,13 +636,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV062",
     name: "Spinach",
     category: "vegetables",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 35.99,
     supplierPrices: [
@@ -894,13 +646,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV063",
     name: "Mushrooms (Button)",
     category: "vegetables",
-    currentStock: 22,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 55.99,
     supplierPrices: [
@@ -908,13 +656,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV064",
     name: "Sweet Corn",
     category: "vegetables",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-08",
     reorderPoint: 18,
     averageCost: 22.99,
     supplierPrices: [
@@ -922,13 +666,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV065",
     name: "Cucumber",
     category: "vegetables",
-    currentStock: 28,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 18,
     averageCost: 18.99,
     supplierPrices: [
@@ -936,13 +676,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV066",
     name: "Sweet Potato",
     category: "vegetables",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 25,
     averageCost: 19.99,
     supplierPrices: [
@@ -950,13 +686,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV067",
     name: "Celery",
     category: "vegetables",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 24.99,
     supplierPrices: [
@@ -964,13 +696,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV068",
     name: "Leeks",
     category: "vegetables",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-08",
     reorderPoint: 8,
     averageCost: 35.99,
     supplierPrices: [
@@ -978,13 +706,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV069",
     name: "Parmesan Cheese",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-09",
     reorderPoint: 6,
     averageCost: 225.99,
     supplierPrices: [
@@ -992,13 +716,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV070",
     name: "Feta Cheese",
     category: "dairy",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-10",
     reorderPoint: 8,
     averageCost: 145.99,
     supplierPrices: [
@@ -1006,13 +726,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV071",
     name: "Sour Cream",
     category: "dairy",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-10",
     reorderPoint: 15,
     averageCost: 45.99,
     supplierPrices: [
@@ -1020,13 +736,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV072",
     name: "Eggs (Large)",
     category: "dairy",
-    currentStock: 300,
-    unit: "units",
     minimumStock: 150,
-    lastRestocked: "2025-01-10",
     reorderPoint: 180,
     averageCost: 2.99,
     supplierPrices: [
@@ -1035,13 +747,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV073",
     name: "Condensed Milk",
     category: "dairy",
-    currentStock: 20,
-    unit: "cans",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 18.99,
     supplierPrices: [
@@ -1049,13 +757,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV074",
     name: "Evaporated Milk",
     category: "dairy",
-    currentStock: 25,
-    unit: "cans",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 14.99,
     supplierPrices: [
@@ -1063,13 +767,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV075",
     name: "Basmati Rice",
     category: "staples",
-    currentStock: 70,
-    unit: "kg",
     minimumStock: 35,
-    lastRestocked: "2025-01-07",
     reorderPoint: 42,
     averageCost: 32.99,
     supplierPrices: [
@@ -1077,13 +777,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV076",
     name: "Quinoa",
     category: "staples",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-08",
     reorderPoint: 18,
     averageCost: 89.99,
     supplierPrices: [
@@ -1091,13 +787,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV077",
     name: "Couscous",
     category: "staples",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 24,
     averageCost: 35.99,
     supplierPrices: [
@@ -1105,13 +797,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV078",
     name: "Lentils (Red)",
     category: "staples",
-    currentStock: 35,
-    unit: "kg",
     minimumStock: 18,
-    lastRestocked: "2025-01-07",
     reorderPoint: 22,
     averageCost: 28.99,
     supplierPrices: [
@@ -1119,13 +807,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV079",
     name: "Chickpeas (Dried)",
     category: "staples",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-08",
     reorderPoint: 24,
     averageCost: 32.99,
     supplierPrices: [
@@ -1133,13 +817,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV080",
     name: "Balsamic Vinegar",
     category: "staples",
-    currentStock: 15,
-    unit: "liters",
     minimumStock: 8,
-    lastRestocked: "2025-01-06",
     reorderPoint: 10,
     averageCost: 65.99,
     supplierPrices: [
@@ -1147,13 +827,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV081",
     name: "Soy Sauce",
     category: "staples",
-    currentStock: 20,
-    unit: "liters",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 45.99,
     supplierPrices: [
@@ -1161,13 +837,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV082",
     name: "Worcestershire Sauce",
     category: "staples",
-    currentStock: 12,
-    unit: "liters",
     minimumStock: 6,
-    lastRestocked: "2025-01-07",
     reorderPoint: 8,
     averageCost: 55.99,
     supplierPrices: [
@@ -1175,13 +847,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV083",
     name: "Honey",
     category: "staples",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 125.99,
     supplierPrices: [
@@ -1189,13 +857,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV084",
     name: "Maple Syrup",
     category: "staples",
-    currentStock: 10,
-    unit: "liters",
     minimumStock: 5,
-    lastRestocked: "2025-01-05",
     reorderPoint: 6,
     averageCost: 189.99,
     supplierPrices: [
@@ -1203,13 +867,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV085",
     name: "Tomato Paste",
     category: "staples",
-    currentStock: 50,
-    unit: "cans",
     minimumStock: 25,
-    lastRestocked: "2025-01-09",
     reorderPoint: 30,
     averageCost: 8.99,
     supplierPrices: [
@@ -1217,13 +877,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV086",
     name: "Diced Tomatoes (Canned)",
     category: "staples",
-    currentStock: 60,
-    unit: "cans",
     minimumStock: 30,
-    lastRestocked: "2025-01-10",
     reorderPoint: 36,
     averageCost: 12.99,
     supplierPrices: [
@@ -1231,13 +887,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV087",
     name: "Coconut Milk",
     category: "staples",
-    currentStock: 40,
-    unit: "cans",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 24,
     averageCost: 18.99,
     supplierPrices: [
@@ -1245,13 +897,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV088",
     name: "Peanut Butter",
     category: "staples",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-08",
     reorderPoint: 15,
     averageCost: 65.99,
     supplierPrices: [
@@ -1259,13 +907,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV089",
     name: "Croissants",
     category: "bakery",
-    currentStock: 100,
-    unit: "units",
     minimumStock: 50,
-    lastRestocked: "2025-01-10",
     reorderPoint: 60,
     averageCost: 6.99,
     supplierPrices: [
@@ -1273,13 +917,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV090",
     name: "Muffins (Blueberry)",
     category: "bakery",
-    currentStock: 80,
-    unit: "units",
     minimumStock: 40,
-    lastRestocked: "2025-01-10",
     reorderPoint: 48,
     averageCost: 8.99,
     supplierPrices: [
@@ -1287,13 +927,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV091",
     name: "Bagels",
     category: "bakery",
-    currentStock: 120,
-    unit: "units",
     minimumStock: 60,
-    lastRestocked: "2025-01-09",
     reorderPoint: 72,
     averageCost: 4.99,
     supplierPrices: [
@@ -1301,13 +937,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV092",
     name: "Cake (Chocolate)",
     category: "bakery",
-    currentStock: 10,
-    unit: "units",
     minimumStock: 5,
-    lastRestocked: "2025-01-10",
     reorderPoint: 6,
     averageCost: 189.99,
     supplierPrices: [
@@ -1315,13 +947,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV093",
     name: "Cupcakes (Assorted)",
     category: "bakery",
-    currentStock: 60,
-    unit: "units",
     minimumStock: 30,
-    lastRestocked: "2025-01-10",
     reorderPoint: 36,
     averageCost: 12.99,
     supplierPrices: [
@@ -1329,13 +957,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV094",
     name: "Cookies (Chocolate Chip)",
     category: "bakery",
-    currentStock: 100,
-    unit: "units",
     minimumStock: 50,
-    lastRestocked: "2025-01-09",
     reorderPoint: 60,
     averageCost: 3.99,
     supplierPrices: [
@@ -1343,13 +967,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV095",
     name: "Cinnamon",
     category: "spices",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 135.99,
     supplierPrices: [
@@ -1357,13 +977,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV096",
     name: "Cumin",
     category: "spices",
-    currentStock: 7,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-07",
     reorderPoint: 4,
     averageCost: 115.99,
     supplierPrices: [
@@ -1371,13 +987,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV097",
     name: "Turmeric",
     category: "spices",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-05",
     reorderPoint: 3,
     averageCost: 125.99,
     supplierPrices: [
@@ -1385,13 +997,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV098",
     name: "Chili Powder",
     category: "spices",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-08",
     reorderPoint: 5,
     averageCost: 95.99,
     supplierPrices: [
@@ -1399,13 +1007,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV099",
     name: "Thyme",
     category: "spices",
-    currentStock: 4,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-04",
     reorderPoint: 3,
     averageCost: 155.99,
     supplierPrices: [
@@ -1413,13 +1017,9 @@ export const starterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV100",
     name: "Rosemary",
     category: "spices",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-05",
     reorderPoint: 3,
     averageCost: 165.99,
     supplierPrices: [
@@ -1428,15 +1028,11 @@ export const starterInventory: InventoryItem[] = [
   }
 ];
 
-export const remainingStarterInventory: InventoryItem[] = [
+export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock" | "lastRestocked">[] = [
   {
-    id: "INV101",
     name: "Bay Leaves",
     category: "spices",
-    currentStock: 3,
-    unit: "kg",
     minimumStock: 1,
-    lastRestocked: "2025-01-03",
     reorderPoint: 2,
     averageCost: 175.99,
     supplierPrices: [
@@ -1444,13 +1040,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV102",
     name: "Nutmeg",
     category: "spices",
-    currentStock: 2,
-    unit: "kg",
     minimumStock: 1,
-    lastRestocked: "2025-01-02",
     reorderPoint: 1,
     averageCost: 285.99,
     supplierPrices: [
@@ -1458,13 +1050,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV103",
     name: "Ginger (Ground)",
     category: "spices",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 145.99,
     supplierPrices: [
@@ -1472,13 +1060,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV104",
     name: "Mustard Powder",
     category: "spices",
-    currentStock: 4,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-04",
     reorderPoint: 3,
     averageCost: 95.99,
     supplierPrices: [
@@ -1486,13 +1070,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV105",
     name: "Cayenne Pepper",
     category: "spices",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-05",
     reorderPoint: 3,
     averageCost: 125.99,
     supplierPrices: [
@@ -1500,13 +1080,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV106",
     name: "Red Wine",
     category: "beverages",
-    currentStock: 40,
-    unit: "bottles",
     minimumStock: 20,
-    lastRestocked: "2025-01-08",
     reorderPoint: 24,
     averageCost: 89.99,
     supplierPrices: [
@@ -1514,13 +1090,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV107",
     name: "White Wine",
     category: "beverages",
-    currentStock: 35,
-    unit: "bottles",
     minimumStock: 18,
-    lastRestocked: "2025-01-08",
     reorderPoint: 22,
     averageCost: 85.99,
     supplierPrices: [
@@ -1528,13 +1100,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV108",
     name: "Champagne",
     category: "beverages",
-    currentStock: 20,
-    unit: "bottles",
     minimumStock: 10,
-    lastRestocked: "2025-01-07",
     reorderPoint: 12,
     averageCost: 189.99,
     supplierPrices: [
@@ -1542,13 +1110,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV109",
     name: "Beer (Lager)",
     category: "beverages",
-    currentStock: 100,
-    unit: "bottles",
     minimumStock: 50,
-    lastRestocked: "2025-01-10",
     reorderPoint: 60,
     averageCost: 18.99,
     supplierPrices: [
@@ -1556,13 +1120,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV110",
     name: "Lemonade (2L)",
     category: "beverages",
-    currentStock: 70,
-    unit: "bottles",
     minimumStock: 35,
-    lastRestocked: "2025-01-10",
     reorderPoint: 42,
     averageCost: 16.99,
     supplierPrices: [
@@ -1570,13 +1130,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV111",
     name: "Apple Juice (1L)",
     category: "beverages",
-    currentStock: 50,
-    unit: "bottles",
     minimumStock: 25,
-    lastRestocked: "2025-01-09",
     reorderPoint: 30,
     averageCost: 24.99,
     supplierPrices: [
@@ -1584,13 +1140,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV112",
     name: "Cranberry Juice (1L)",
     category: "beverages",
-    currentStock: 40,
-    unit: "bottles",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 24,
     averageCost: 28.99,
     supplierPrices: [
@@ -1598,13 +1150,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV113",
     name: "Iced Tea (1L)",
     category: "beverages",
-    currentStock: 60,
-    unit: "bottles",
     minimumStock: 30,
-    lastRestocked: "2025-01-10",
     reorderPoint: 36,
     averageCost: 19.99,
     supplierPrices: [
@@ -1612,13 +1160,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV114",
     name: "Energy Drinks",
     category: "beverages",
-    currentStock: 80,
-    unit: "cans",
     minimumStock: 40,
-    lastRestocked: "2025-01-10",
     reorderPoint: 48,
     averageCost: 22.99,
     supplierPrices: [
@@ -1626,13 +1170,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV115",
     name: "French Fries (Frozen)",
     category: "frozen",
-    currentStock: 60,
-    unit: "kg",
     minimumStock: 30,
-    lastRestocked: "2025-01-08",
     reorderPoint: 36,
     averageCost: 35.99,
     supplierPrices: [
@@ -1640,13 +1180,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV116",
     name: "Pizza Bases (Frozen)",
     category: "frozen",
-    currentStock: 50,
-    unit: "units",
     minimumStock: 25,
-    lastRestocked: "2025-01-09",
     reorderPoint: 30,
     averageCost: 18.99,
     supplierPrices: [
@@ -1654,13 +1190,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV117",
     name: "Chicken Nuggets (Frozen)",
     category: "frozen",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 24,
     averageCost: 65.99,
     supplierPrices: [
@@ -1668,13 +1200,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV118",
     name: "Spring Rolls (Frozen)",
     category: "frozen",
-    currentStock: 35,
-    unit: "kg",
     minimumStock: 18,
-    lastRestocked: "2025-01-08",
     reorderPoint: 22,
     averageCost: 55.99,
     supplierPrices: [
@@ -1682,13 +1210,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV119",
     name: "Samosas (Frozen)",
     category: "frozen",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-09",
     reorderPoint: 24,
     averageCost: 45.99,
     supplierPrices: [
@@ -1696,13 +1220,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV120",
     name: "Garlic (Fresh)",
     category: "vegetables",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 45.99,
     supplierPrices: [
@@ -1710,13 +1230,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV121",
     name: "Ginger (Fresh)",
     category: "vegetables",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 55.99,
     supplierPrices: [
@@ -1724,13 +1240,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV122",
     name: "Kale",
     category: "vegetables",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-10",
     reorderPoint: 6,
     averageCost: 38.99,
     supplierPrices: [
@@ -1738,13 +1250,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV123",
     name: "Arugula",
     category: "vegetables",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-10",
     reorderPoint: 5,
     averageCost: 42.99,
     supplierPrices: [
@@ -1752,13 +1260,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV124",
     name: "Cabbage",
     category: "vegetables",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 12.99,
     supplierPrices: [
@@ -1766,13 +1270,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV125",
     name: "Radishes",
     category: "vegetables",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-08",
     reorderPoint: 6,
     averageCost: 22.99,
     supplierPrices: [
@@ -1780,13 +1280,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV126",
     name: "Beets",
     category: "vegetables",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 24.99,
     supplierPrices: [
@@ -1794,13 +1290,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV127",
     name: "Pumpkin",
     category: "vegetables",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-08",
     reorderPoint: 18,
     averageCost: 16.99,
     supplierPrices: [
@@ -1808,13 +1300,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV128",
     name: "Avocado",
     category: "fresh_produce",
-    currentStock: 40,
-    unit: "units",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 24,
     averageCost: 12.99,
     supplierPrices: [
@@ -1822,13 +1310,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV129",
     name: "Lemons",
     category: "fresh_produce",
-    currentStock: 50,
-    unit: "kg",
     minimumStock: 25,
-    lastRestocked: "2025-01-10",
     reorderPoint: 30,
     averageCost: 18.99,
     supplierPrices: [
@@ -1836,13 +1320,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV130",
     name: "Limes",
     category: "fresh_produce",
-    currentStock: 40,
-    unit: "kg",
     minimumStock: 20,
-    lastRestocked: "2025-01-10",
     reorderPoint: 24,
     averageCost: 22.99,
     supplierPrices: [
@@ -1850,13 +1330,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV131",
     name: "Oranges",
     category: "fresh_produce",
-    currentStock: 60,
-    unit: "kg",
     minimumStock: 30,
-    lastRestocked: "2025-01-09",
     reorderPoint: 36,
     averageCost: 16.99,
     supplierPrices: [
@@ -1864,13 +1340,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV132",
     name: "Apples (Granny Smith)",
     category: "fresh_produce",
-    currentStock: 50,
-    unit: "kg",
     minimumStock: 25,
-    lastRestocked: "2025-01-09",
     reorderPoint: 30,
     averageCost: 19.99,
     supplierPrices: [
@@ -1878,13 +1350,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV133",
     name: "Bananas",
     category: "fresh_produce",
-    currentStock: 70,
-    unit: "kg",
     minimumStock: 35,
-    lastRestocked: "2025-01-10",
     reorderPoint: 42,
     averageCost: 14.99,
     supplierPrices: [
@@ -1892,13 +1360,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV134",
     name: "Strawberries",
     category: "fresh_produce",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-10",
     reorderPoint: 15,
     averageCost: 55.99,
     supplierPrices: [
@@ -1906,13 +1370,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV135",
     name: "Blueberries",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 89.99,
     supplierPrices: [
@@ -1920,13 +1380,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV136",
     name: "Raspberries",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 95.99,
     supplierPrices: [
@@ -1934,13 +1390,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV137",
     name: "Grapes (Green)",
     category: "fresh_produce",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 18,
     averageCost: 35.99,
     supplierPrices: [
@@ -1948,13 +1400,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV138",
     name: "Watermelon",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "units",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 45.99,
     supplierPrices: [
@@ -1962,13 +1410,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV139",
     name: "Pineapple",
     category: "fresh_produce",
-    currentStock: 25,
-    unit: "units",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 28.99,
     supplierPrices: [
@@ -1976,13 +1420,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV140",
     name: "Mango",
     category: "fresh_produce",
-    currentStock: 30,
-    unit: "units",
     minimumStock: 15,
-    lastRestocked: "2025-01-10",
     reorderPoint: 18,
     averageCost: 22.99,
     supplierPrices: [
@@ -1990,13 +1430,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV141",
     name: "Peaches",
     category: "fresh_produce",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 32.99,
     supplierPrices: [
@@ -2004,13 +1440,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV142",
     name: "Plums",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 28.99,
     supplierPrices: [
@@ -2018,13 +1450,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV143",
     name: "Cherries",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 125.99,
     supplierPrices: [
@@ -2032,13 +1460,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV144",
     name: "Kiwi",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 45.99,
     supplierPrices: [
@@ -2046,13 +1470,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV145",
     name: "Pears",
     category: "fresh_produce",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 18,
     averageCost: 25.99,
     supplierPrices: [
@@ -2060,13 +1480,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV146",
     name: "Cantaloupe",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "units",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 35.99,
     supplierPrices: [
@@ -2074,13 +1490,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV147",
     name: "Papaya",
     category: "fresh_produce",
-    currentStock: 12,
-    unit: "units",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 28.99,
     supplierPrices: [
@@ -2088,13 +1500,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV148",
     name: "Passion Fruit",
     category: "fresh_produce",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 65.99,
     supplierPrices: [
@@ -2102,13 +1510,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV149",
     name: "Coconut (Fresh)",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "units",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 18.99,
     supplierPrices: [
@@ -2116,13 +1520,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV150",
     name: "Dates",
     category: "fresh_produce",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-07",
     reorderPoint: 6,
     averageCost: 95.99,
     supplierPrices: [
@@ -2130,13 +1530,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV151",
     name: "Figs (Dried)",
     category: "fresh_produce",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-06",
     reorderPoint: 5,
     averageCost: 125.99,
     supplierPrices: [
@@ -2144,13 +1540,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV152",
     name: "Almonds",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 189.99,
     supplierPrices: [
@@ -2158,13 +1550,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV153",
     name: "Cashews",
     category: "fresh_produce",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-08",
     reorderPoint: 8,
     averageCost: 225.99,
     supplierPrices: [
@@ -2172,13 +1560,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV154",
     name: "Walnuts",
     category: "fresh_produce",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-07",
     reorderPoint: 6,
     averageCost: 195.99,
     supplierPrices: [
@@ -2186,13 +1570,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV155",
     name: "Pecans",
     category: "fresh_produce",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-06",
     reorderPoint: 5,
     averageCost: 245.99,
     supplierPrices: [
@@ -2200,41 +1580,29 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV156",
     name: "Pistachios",
     category: "fresh_produce",
-    currentStock: 10,
-    unit: "kg",
-    minimumStock: 5,
-    lastRestocked: "2025-01-08",
-    reorderPoint: 6,
+    minimumStock: 10,
+    reorderPoint: 12,
     averageCost: 285.99,
     supplierPrices: [
       { supplierId: "SUP010", supplierName: "Bulk Foods SA", price: 285.99, lastUpdated: "2025-01-08" }
     ]
   },
   {
-    id: "INV157",
     name: "Sunflower Seeds",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-09",
     reorderPoint: 10,
     averageCost: 65.99,
     supplierPrices: [
-      { supplierId: "SUP010", supplierName: "Bulk Foods SA", price: 65.99, lastUpdated: "2025-01-09" }
+      { supplierId: "SUP010", supplierName: "Bulk Foods SA", price: 65.99, lastUpdated: "2025-01-08" }
     ]
   },
   {
-    id: "INV158",
     name: "Pumpkin Seeds",
     category: "fresh_produce",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-08",
     reorderPoint: 8,
     averageCost: 85.99,
     supplierPrices: [
@@ -2242,13 +1610,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV159",
     name: "Chia Seeds",
     category: "fresh_produce",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-07",
     reorderPoint: 6,
     averageCost: 125.99,
     supplierPrices: [
@@ -2256,13 +1620,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV160",
     name: "Flaxseeds",
     category: "fresh_produce",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-06",
     reorderPoint: 5,
     averageCost: 95.99,
     supplierPrices: [
@@ -2270,13 +1630,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV161",
     name: "Raisins",
     category: "fresh_produce",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 55.99,
     supplierPrices: [
@@ -2284,13 +1640,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV162",
     name: "Cranberries (Dried)",
     category: "fresh_produce",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 85.99,
     supplierPrices: [
@@ -2298,13 +1650,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV163",
     name: "Apricots (Dried)",
     category: "fresh_produce",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-07",
     reorderPoint: 8,
     averageCost: 95.99,
     supplierPrices: [
@@ -2312,13 +1660,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV164",
     name: "Prunes",
     category: "fresh_produce",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-06",
     reorderPoint: 6,
     averageCost: 75.99,
     supplierPrices: [
@@ -2326,13 +1670,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV165",
     name: "Chocolate Chips",
     category: "bakery",
-    currentStock: 20,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 125.99,
     supplierPrices: [
@@ -2340,13 +1680,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV166",
     name: "Cocoa Powder",
     category: "bakery",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 189.99,
     supplierPrices: [
@@ -2354,13 +1690,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV167",
     name: "Vanilla Extract",
     category: "bakery",
-    currentStock: 8,
-    unit: "liters",
     minimumStock: 4,
-    lastRestocked: "2025-01-07",
     reorderPoint: 5,
     averageCost: 285.99,
     supplierPrices: [
@@ -2368,13 +1700,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV168",
     name: "Baking Powder",
     category: "bakery",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-08",
     reorderPoint: 8,
     averageCost: 45.99,
     supplierPrices: [
@@ -2382,13 +1710,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV169",
     name: "Baking Soda",
     category: "bakery",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-07",
     reorderPoint: 6,
     averageCost: 35.99,
     supplierPrices: [
@@ -2396,13 +1720,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV170",
     name: "Yeast (Active Dry)",
     category: "bakery",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 125.99,
     supplierPrices: [
@@ -2410,13 +1730,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV171",
     name: "Cornstarch",
     category: "bakery",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-08",
     reorderPoint: 10,
     averageCost: 32.99,
     supplierPrices: [
@@ -2424,13 +1740,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV172",
     name: "Icing Sugar",
     category: "bakery",
-    currentStock: 25,
-    unit: "kg",
     minimumStock: 12,
-    lastRestocked: "2025-01-09",
     reorderPoint: 15,
     averageCost: 28.99,
     supplierPrices: [
@@ -2438,13 +1750,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV173",
     name: "Brown Sugar",
     category: "bakery",
-    currentStock: 30,
-    unit: "kg",
     minimumStock: 15,
-    lastRestocked: "2025-01-09",
     reorderPoint: 18,
     averageCost: 24.99,
     supplierPrices: [
@@ -2452,13 +1760,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV174",
     name: "Gelatin",
     category: "bakery",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-07",
     reorderPoint: 5,
     averageCost: 145.99,
     supplierPrices: [
@@ -2466,13 +1770,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV175",
     name: "Food Coloring (Assorted)",
     category: "bakery",
-    currentStock: 20,
-    unit: "bottles",
     minimumStock: 10,
-    lastRestocked: "2025-01-08",
     reorderPoint: 12,
     averageCost: 18.99,
     supplierPrices: [
@@ -2480,13 +1780,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV176",
     name: "Whipped Cream",
     category: "dairy",
-    currentStock: 35,
-    unit: "cans",
     minimumStock: 18,
-    lastRestocked: "2025-01-10",
     reorderPoint: 22,
     averageCost: 22.99,
     supplierPrices: [
@@ -2494,13 +1790,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV177",
     name: "Cream Cheese",
     category: "dairy",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-09",
     reorderPoint: 12,
     averageCost: 95.99,
     supplierPrices: [
@@ -2508,13 +1800,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV178",
     name: "Mascarpone",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-08",
     reorderPoint: 6,
     averageCost: 165.99,
     supplierPrices: [
@@ -2522,13 +1810,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV179",
     name: "Ricotta Cheese",
     category: "dairy",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 85.99,
     supplierPrices: [
@@ -2536,13 +1820,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV180",
     name: "Blue Cheese",
     category: "dairy",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-08",
     reorderPoint: 5,
     averageCost: 195.99,
     supplierPrices: [
@@ -2550,13 +1830,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV181",
     name: "Goat Cheese",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-09",
     reorderPoint: 6,
     averageCost: 185.99,
     supplierPrices: [
@@ -2564,13 +1840,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV182",
     name: "Brie Cheese",
     category: "dairy",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-07",
     reorderPoint: 4,
     averageCost: 225.99,
     supplierPrices: [
@@ -2578,13 +1850,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV183",
     name: "Camembert",
     category: "dairy",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-06",
     reorderPoint: 3,
     averageCost: 245.99,
     supplierPrices: [
@@ -2592,13 +1860,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV184",
     name: "Provolone",
     category: "dairy",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 155.99,
     supplierPrices: [
@@ -2606,13 +1870,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV185",
     name: "Swiss Cheese",
     category: "dairy",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 165.99,
     supplierPrices: [
@@ -2620,13 +1880,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV186",
     name: "Colby Jack Cheese",
     category: "dairy",
-    currentStock: 18,
-    unit: "kg",
     minimumStock: 10,
-    lastRestocked: "2025-01-10",
     reorderPoint: 12,
     averageCost: 135.99,
     supplierPrices: [
@@ -2634,13 +1890,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV187",
     name: "Monterey Jack Cheese",
     category: "dairy",
-    currentStock: 14,
-    unit: "kg",
     minimumStock: 7,
-    lastRestocked: "2025-01-09",
     reorderPoint: 9,
     averageCost: 145.99,
     supplierPrices: [
@@ -2648,13 +1900,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV188",
     name: "Pepper Jack Cheese",
     category: "dairy",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 155.99,
     supplierPrices: [
@@ -2662,13 +1910,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV189",
     name: "Havarti Cheese",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-08",
     reorderPoint: 6,
     averageCost: 175.99,
     supplierPrices: [
@@ -2676,13 +1920,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV190",
     name: "Gruyere Cheese",
     category: "dairy",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-07",
     reorderPoint: 5,
     averageCost: 265.99,
     supplierPrices: [
@@ -2690,13 +1930,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV191",
     name: "Emmental Cheese",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-08",
     reorderPoint: 6,
     averageCost: 185.99,
     supplierPrices: [
@@ -2704,13 +1940,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV192",
     name: "Manchego Cheese",
     category: "dairy",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 245.99,
     supplierPrices: [
@@ -2718,13 +1950,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV193",
     name: "Halloumi Cheese",
     category: "dairy",
-    currentStock: 12,
-    unit: "kg",
     minimumStock: 6,
-    lastRestocked: "2025-01-09",
     reorderPoint: 8,
     averageCost: 165.99,
     supplierPrices: [
@@ -2732,13 +1960,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV194",
     name: "Paneer",
     category: "dairy",
-    currentStock: 15,
-    unit: "kg",
     minimumStock: 8,
-    lastRestocked: "2025-01-10",
     reorderPoint: 10,
     averageCost: 125.99,
     supplierPrices: [
@@ -2746,13 +1970,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV195",
     name: "Queso Fresco",
     category: "dairy",
-    currentStock: 10,
-    unit: "kg",
     minimumStock: 5,
-    lastRestocked: "2025-01-08",
     reorderPoint: 6,
     averageCost: 95.99,
     supplierPrices: [
@@ -2760,13 +1980,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV196",
     name: "Cotija Cheese",
     category: "dairy",
-    currentStock: 8,
-    unit: "kg",
     minimumStock: 4,
-    lastRestocked: "2025-01-07",
     reorderPoint: 5,
     averageCost: 115.99,
     supplierPrices: [
@@ -2774,13 +1990,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV197",
     name: "Boursin Cheese",
     category: "dairy",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 225.99,
     supplierPrices: [
@@ -2788,13 +2000,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV198",
     name: "Gorgonzola",
     category: "dairy",
-    currentStock: 7,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-07",
     reorderPoint: 4,
     averageCost: 205.99,
     supplierPrices: [
@@ -2802,13 +2010,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV199",
     name: "Roquefort",
     category: "dairy",
-    currentStock: 5,
-    unit: "kg",
     minimumStock: 2,
-    lastRestocked: "2025-01-05",
     reorderPoint: 3,
     averageCost: 285.99,
     supplierPrices: [
@@ -2816,13 +2020,9 @@ export const remainingStarterInventory: InventoryItem[] = [
     ]
   },
   {
-    id: "INV200",
     name: "Stilton",
     category: "dairy",
-    currentStock: 6,
-    unit: "kg",
     minimumStock: 3,
-    lastRestocked: "2025-01-06",
     reorderPoint: 4,
     averageCost: 265.99,
     supplierPrices: [

@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { UserRole } from "@/types";
+import type { UserRole } from "@/types/app";
+import { realtimeNotificationService } from "./realtimeNotificationService";
 
 export type Notification = Tables<"notifications">;
 

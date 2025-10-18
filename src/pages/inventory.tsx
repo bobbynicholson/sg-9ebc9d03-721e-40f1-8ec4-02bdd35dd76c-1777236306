@@ -25,7 +25,9 @@ import {
   AlertCircle,
   X
 } from "lucide-react";
-import { InventoryItem, SupplierComparison, ScannedReceipt } from "@/types";
+import { Progress } from "@/components/ui/progress";
+import { inventoryService } from "@/services/inventoryService";
+import type { InventoryItem, SupplierComparison, ScannedReceipt } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { ReceiptScanner } from "@/components/ReceiptScanner";
 import { fullStarterInventory } from "@/lib/starterInventory";
@@ -34,7 +36,6 @@ import { getUserCurrency, formatCurrency } from "@/lib/currencyUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
-import { inventoryService } from "@/services/inventoryService";
 import { GetServerSideProps } from "next";
 
 interface InventoryPageProps {

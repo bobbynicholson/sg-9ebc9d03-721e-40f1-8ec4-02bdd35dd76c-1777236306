@@ -17,7 +17,9 @@ import {
   MapPin,
   TrendingUp
 } from "lucide-react";
-import { MenuItem, EquipmentItem } from "@/types";
+import { inventoryService } from "@/services/inventoryService";
+import { useToast } from "@/hooks/use-toast";
+import { MenuItem, EquipmentItem } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 

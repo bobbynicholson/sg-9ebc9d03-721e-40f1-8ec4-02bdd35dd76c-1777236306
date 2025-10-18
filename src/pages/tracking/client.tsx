@@ -17,7 +17,7 @@ import {
   MessageSquare,
   Star,
 } from "lucide-react";
-import { AppOrder } from "@/types";
+import { AppOrder } from "@/types/app";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import Head from "next/head";
@@ -28,6 +28,14 @@ import { Notification } from "@/types/tracking";
 import { mockOrders, mockDeliveries } from "@/lib/mockData";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { realtimeNotificationService } from "@/services/realtimeNotificationService";
 
 function ClientTrackingPage() {
   const router = useRouter();
