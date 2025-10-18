@@ -69,7 +69,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
   const router = useRouter();
   const { user } = useAuth();
   const companySlug = propCompanySlug || user?.company_slug;
-  const [leads, setLeads] = useState<DisplayLead[]>([]);
+  const [leads, setLeads] = useState<Tables<'leads'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -91,7 +91,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
         leadService.getLeads(user.id),
         leadService.getLeadStats(user.id)
       ]);
-      setLeads(leadsData.map(toDisplayLead));
+      setLeads(leadsData);
       setStats(statsData);
     } catch (err) {
       console.error("Error fetching leads:", err);
@@ -121,7 +121,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
     try {
       setLoading(true);
       const searchResults = await leadService.searchLeads(user.id, searchTerm);
-      setLeads(searchResults.map(toDisplayLead));
+      setLeads(searchResults);
     } catch (err) {
       console.error("Error searching leads:", err);
       setError("Failed to search leads. Please try again.");
@@ -149,7 +149,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
     if (!acc[status]) {
       acc[status] = [];
     }
-    acc[status].push(lead);
+    acc[status].push(toDisplayLead(lead));
     return acc;
   }, {} as { [key: string]: DisplayLead[] });
 

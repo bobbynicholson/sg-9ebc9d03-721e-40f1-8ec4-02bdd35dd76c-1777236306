@@ -1,4 +1,3 @@
-
 import type { AppOrder, Delivery, MenuItem, EquipmentItem, ShoppingItem, Quote } from "@/types/app";
 
 const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'client_name' | 'event_date' | 'venue_address' | 'guest_count' | 'menu_items' | 'equipment_items' | 'status' | 'total' | 'created_at' > = {
@@ -158,8 +157,8 @@ export const mockOrders: AppOrder[] = [
     internal_notes: "VIP Client, handle with care.",
     total: 38700,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    client_id: "client-456",
     driver_id: "driver-789",
-    driverName: "John Doe",
   },
   {
     ...defaultOrderValues,
@@ -185,8 +184,8 @@ export const mockOrders: AppOrder[] = [
     status: "delivered",
     total: 28000,
     created_at: new Date(Date.now() - 86400000).toISOString(),
+    client_id: "client-789",
     driver_id: "driver-101",
-    driverName: "Jane Smith",
   },
   {
     ...defaultOrderValues,
