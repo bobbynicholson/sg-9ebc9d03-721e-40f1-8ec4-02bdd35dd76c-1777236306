@@ -27,13 +27,17 @@ import { profileService } from "@/services/profileService";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/user";
+import { UserRole } from "@/types/app";
 
 interface StaffMember {
   id: string;
   full_name: string;
   avatar_url?: string;
   email: string;
+}
+
+function KitchenDutyTracking() {
+  return <div>Kitchen Duty Tracking Content</div>;
 }
 
 export default function KitchenDutyTrackingPage() {

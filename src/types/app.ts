@@ -1,38 +1,21 @@
 import type { Tables } from "@/integrations/supabase/types";
 
-// Keep this commented out or remove if it causes conflicts.
-// import type { Lead, Order, Quote as BaseQuote } from "./index";
-
 // Define it locally and export it.
-export interface Quote extends Tables<'quotes'> {}
+export type Quote = Tables<'quotes'>;
 
 // Extended Application Types
 export interface AppOrder extends Omit<Tables<'orders'>, 'menu_items' | 'equipment_items'> {
-  menu_items: MenuItemRequest[];
-  equipment_items: EquipmentRequest[];
+  menu_items: MenuItem[];
+  equipment_items: EquipmentItem[];
   driverName?: string | null;
   eventLocation?: string; 
   totalAmount?: number;
   waiterRate?: number | null;
-  // deliveryRate?: number | null; This was removed in a previous fix
 }
 
 // Interfaces for UI and Services
-export interface DisplayLead {
-  id: string;
-  userId: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string | null;
-  eventDate: string;
-  eventType: string;
-  guestCount: number;
-  budget: number | null;
-  specialRequests: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  _original: Lead;
+export interface DisplayLead extends Tables<'leads'> {
+  _original: Tables<'leads'>;
 }
 
 export interface MenuItem {
@@ -79,6 +62,30 @@ export interface InventoryItem {
   expiryDate?: string;
   expiryStatus?: "fresh" | "warning" | "critical" | "expired";
   daysUntilExpiry?: number;
+}
+
+export interface MenuItemRequest {
+  id: string;
+  name: string;
+  category: "appetizer" | "main" | "side" | "dessert" | "beverage";
+  pricePerPerson: number;
+  quantity: number;
+  ingredients: Ingredient[];
+}
+
+export interface EquipmentRequest {
+  id: string;
+  name: string;
+  category: "chafing" | "serving" | "utensil" | "cutlery" | "crockery" | "other";
+  quantity: number;
+  available: number;
+  condition: "excellent" | "good" | "fair" | "poor";
+  rentalPrice: number;
+  pricePerItem?: number;
+  requiresCleaning?: boolean;
+  cleaningTimeHours?: number;
+  lastCleaned?: string;
+  nextAvailableAt?: string;
 }
 
 export interface ReceiptItem {
@@ -396,7 +403,7 @@ export interface EmailVariables {
 
 export type OrderStatusUpdate = {
   orderId: string;
-  newStatus: Order["status"];
+  newStatus: Tables<'orders'>["status"];
   notes?: string;
 };
 
