@@ -166,14 +166,14 @@ export default function CompanyDatabase() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      trial: { variant: "default" as const, label: "Trial" },
-      active: { variant: "default" as const, label: "Active", className: "bg-green-500" },
-      past_due: { variant: "destructive" as const, label: "Past Due" },
-      cancelled: { variant: "secondary" as const, label: "Cancelled" },
+    const statusConfig: { [key: string]: { variant: "default" | "destructive" | "secondary", label: string, className?: string } } = {
+      trial: { variant: "default", label: "Trial" },
+      active: { variant: "default", label: "Active", className: "bg-green-500 hover:bg-green-600 text-white" },
+      past_due: { variant: "destructive", label: "Past Due" },
+      cancelled: { variant: "secondary", label: "Cancelled" },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.trial;
+    const config = statusConfig[status] || statusConfig.trial;
     
     return (
       <Badge variant={config.variant} className={config.className}>

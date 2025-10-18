@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Lead = Database["public"]["Tables"]["leads"]["Row"];
 
 export interface ClientWithActivity extends Profile {
   total_orders: number;
@@ -182,69 +183,52 @@ export const clientManagementService = {
   },
 
   /**
-   * Add a new client manually to the company
+   * Add a new client manually to the company by creating a lead.
    */
   async addClient(
     companyId: string,
+    userId: string,
     clientData: {
       email: string;
       full_name: string;
       phone?: string;
     }
-  ): Promise<Profile> {
+  ): Promise<Lead> {
     try {
-      // Check if user already exists by email
-      const { data: existingUser, error: checkError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("email", clientData.email)
+      // Check if a lead already exists for this email and company
+      const { data: existingLead, error: checkError } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("client_email", clientData.email)
         .maybeSingle();
 
       if (checkError) throw checkError;
 
-      if (existingUser) {
-        // User exists, just associate with company if not already
-        if (existingUser.company_id !== companyId) {
-          const { data: updated, error: updateError } = await supabase
-            .from("profiles")
-            .update({ company_id: companyId })
-            .eq("id", existingUser.id)
-            .select()
-            .single();
-
-          if (updateError) throw updateError;
-          return updated;
-        }
-        return existingUser;
+      if (existingLead) {
+        throw new Error("A client with this email already exists as a lead.");
       }
 
-      // Create new profile entry for manual client addition
-      // Note: This creates a profile without auth user - they'll need to sign up separately
-      const { data: newProfile, error: createError } = await supabase
-        .from("profiles")
+      // Create a new lead for the client
+      const { data: newLead, error: createError } = await supabase
+        .from("leads")
         .insert({
-          email: clientData.email,
-          full_name: clientData.full_name,
-          phone: clientData.phone,
           company_id: companyId,
-          role: "client",
-          is_active: true,
+          user_id: userId, // The admin/owner creating the lead
+          client_name: clientData.full_name,
+          client_email: clientData.email,
+          client_phone: clientData.phone,
+          status: 'manual_add',
+          source: 'manual',
         })
         .select()
         .single();
 
-      if (createError) {
-        if (createError.code === "23503") {
-          throw new Error(
-            "Cannot create profile without authentication. Client must sign up first."
-          );
-        }
-        throw createError;
-      }
+      if (createError) throw createError;
 
-      return newProfile;
+      return newLead;
     } catch (error) {
-      console.error("Error adding client:", error);
+      console.error("Error adding client as lead:", error);
       throw error;
     }
   },

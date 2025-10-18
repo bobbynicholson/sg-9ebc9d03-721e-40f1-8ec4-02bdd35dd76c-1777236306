@@ -159,17 +159,17 @@ export default function ClientDatabase() {
   };
 
   const handleAddClient = async () => {
-    if (!companyId || !newClient.email || !newClient.full_name) {
+    if (!companyId || !newClient.email || !newClient.full_name || !user) {
       toast({
         title: "Missing Information",
-        description: "Please provide client name and email",
+        description: "Client name, email, and user session are required.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await clientManagementService.addClient(companyId, newClient);
+      await clientManagementService.addClient(companyId, user.id, newClient);
       await loadClients(companyId);
       await loadStats(companyId);
       setAddDialogOpen(false);
