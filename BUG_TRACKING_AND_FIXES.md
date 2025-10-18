@@ -463,7 +463,7 @@
   - "First to accept" creates competition and faster response
   - Email fallback ensures delivery even without WhatsApp
 - **Note:** Email and WhatsApp delivery requires provider credentials to be configured
-- **Files Modified:** `src/services/driverReplacementService.ts`
+- **Files Modified:** `src/services/driverReplacementService.ts`, `src/types/index.ts`
 - **Priority:** MEDIUM - Critical for emergency situations
 
 ### 🔴 BUG #10: Onboarding Not Mandatory - **PENDING**
