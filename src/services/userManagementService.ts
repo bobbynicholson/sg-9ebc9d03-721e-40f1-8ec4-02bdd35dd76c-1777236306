@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { UserRole } from "@/types";
+import { emailAutomationService } from "./emailAutomationService";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -35,6 +36,217 @@ export const userManagementService = {
     } catch (error) {
       console.error("Error in userExists:", error);
       return false;
+    }
+  },
+
+  /**
+   * Invite a staff member to join the company
+   * CRITICAL: This function was missing and is essential for staff onboarding
+   */
+  async inviteStaffMember(
+    companyId: string,
+    email: string,
+    role: UserRole,
+    fullName: string,
+    invitedBy: string
+  ): Promise<{ success: boolean; error?: string; invitationId?: string }> {
+    try {
+      // 1. Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return { success: false, error: "Invalid email format" };
+      }
+
+      // 2. Check if user already exists in the company
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("id, email, company_id")
+        .eq("email", email)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error("Error checking existing user:", checkError);
+        return { success: false, error: "Failed to check existing user" };
+      }
+
+      if (existingUser) {
+        return { success: false, error: "User already exists in this company" };
+      }
+
+      // 3. Create invitation record
+      const invitationToken = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+      const { data: invitation, error: invitationError } = await supabase
+        .from("staff_invitations")
+        .insert({
+          company_id: companyId,
+          email: email,
+          role: role,
+          full_name: fullName,
+          invitation_token: invitationToken,
+          invited_by: invitedBy,
+          expires_at: expiresAt.toISOString(),
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (invitationError) {
+        console.error("Error creating invitation:", invitationError);
+        return { success: false, error: "Failed to create invitation" };
+      }
+
+      // 4. Get company details for the invitation email
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select("name, company_slug")
+        .eq("id", companyId)
+        .single();
+
+      if (companyError || !company) {
+        console.error("Error fetching company:", companyError);
+        // Still try to send email even if company fetch fails
+      }
+
+      // 5. Generate invitation URL
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://cateringms.com";
+      const invitationUrl = `${baseUrl}/${company?.company_slug || companyId}/signup?invitation=${invitationToken}&email=${encodeURIComponent(email)}`;
+
+      // 6. Send invitation email
+      const emailSent = await emailAutomationService.sendStaffInvitationEmail(
+        email,
+        fullName,
+        company?.name || "the company",
+        role,
+        invitationUrl,
+        expiresAt
+      );
+
+      if (!emailSent) {
+        console.warn("Failed to send invitation email, but invitation created");
+        // Don't fail the entire operation if email fails
+      }
+
+      return { 
+        success: true, 
+        invitationId: invitation.id,
+        error: emailSent ? undefined : "Invitation created but email failed to send"
+      };
+
+    } catch (error) {
+      console.error("Error in inviteStaffMember:", error);
+      return { success: false, error: "An unexpected error occurred" };
+    }
+  },
+
+  /**
+   * Get all pending invitations for a company
+   */
+  async getPendingInvitations(companyId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("staff_invitations")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching pending invitations:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Validate and accept an invitation
+   */
+  async acceptInvitation(invitationToken: string, userId: string): Promise<{ success: boolean; error?: string; companyId?: string; role?: UserRole }> {
+    try {
+      // 1. Get invitation details
+      const { data: invitation, error: invitationError } = await supabase
+        .from("staff_invitations")
+        .select("*")
+        .eq("invitation_token", invitationToken)
+        .eq("status", "pending")
+        .single();
+
+      if (invitationError || !invitation) {
+        return { success: false, error: "Invalid or expired invitation" };
+      }
+
+      // 2. Check if invitation has expired
+      const expiresAt = new Date(invitation.expires_at);
+      if (expiresAt < new Date()) {
+        await supabase
+          .from("staff_invitations")
+          .update({ status: "expired" })
+          .eq("id", invitation.id);
+        
+        return { success: false, error: "Invitation has expired" };
+      }
+
+      // 3. Update user's company_id and role
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ 
+          company_id: invitation.company_id,
+          role: invitation.role 
+        })
+        .eq("id", userId);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+        return { success: false, error: "Failed to update user profile" };
+      }
+
+      // 4. Assign department to user
+      await this.assignDepartments(
+        userId,
+        [{ department: invitation.role as UserRole, is_primary: true }],
+        invitation.invited_by
+      );
+
+      // 5. Mark invitation as accepted
+      await supabase
+        .from("staff_invitations")
+        .update({ 
+          status: "accepted",
+          accepted_at: new Date().toISOString(),
+          accepted_by: userId 
+        })
+        .eq("id", invitation.id);
+
+      return { 
+        success: true, 
+        companyId: invitation.company_id,
+        role: invitation.role as UserRole 
+      };
+
+    } catch (error) {
+      console.error("Error in acceptInvitation:", error);
+      return { success: false, error: "An unexpected error occurred" };
+    }
+  },
+
+  /**
+   * Cancel/revoke an invitation
+   */
+  async cancelInvitation(invitationId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from("staff_invitations")
+        .update({ status: "cancelled" })
+        .eq("id", invitationId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error cancelling invitation:", error);
+      throw error;
     }
   },
 
