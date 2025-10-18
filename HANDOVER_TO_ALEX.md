@@ -32,9 +32,24 @@ A complete B2B SaaS platform that allows catering companies to:
 
 ### 1. Email Configuration (15 minutes)
 
+**IMPORTANT: Internal CateringMS Email Setup**
+
+For all internal CateringMS email settings and 3rd-party service signups:
+- ✅ **Email Account**: `hello@cateringms.com`
+- ✅ **Server Access**: Alex has full server logins for cateringMS.com
+- ✅ **Usage**: Use `hello@cateringms.com` when signing up for:
+  - Resend.com
+  - Any email service providers
+  - Any 3rd-party integrations
+  - Any platform services
+
+This centralizes all CateringMS platform communications through one professional email address.
+
+---
+
 **Option A: Resend (Recommended)**
 ```bash
-# 1. Sign up at resend.com (free tier: 3,000 emails/month)
+# 1. Sign up at resend.com using hello@cateringms.com
 # 2. Verify your domain or use resend.dev for testing
 # 3. Get API key from dashboard
 # 4. Add to Vercel environment variables:

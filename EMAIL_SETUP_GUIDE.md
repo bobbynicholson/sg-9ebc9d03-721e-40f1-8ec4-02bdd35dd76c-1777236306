@@ -1,5 +1,25 @@
 # 📧 Email Configuration Guide for Alex
 
+## 🔐 Internal CateringMS Email Setup (READ THIS FIRST!)
+
+**For all CateringMS platform email configurations:**
+
+- ✅ **Official Email**: `hello@cateringms.com`
+- ✅ **Server Access**: You have full server logins for cateringMS.com
+- ✅ **Usage Guidelines**:
+  - Use `hello@cateringms.com` when signing up for Resend
+  - Use `hello@cateringms.com` for all 3rd-party service integrations
+  - This is the official platform email for CateringMS
+  - All platform-related communications should come from this address
+
+**Why this matters:**
+- Professional, consistent branding across all services
+- Centralized email management
+- Easier to track platform communications
+- Single point of contact for customers
+
+---
+
 ## Overview
 
 The email infrastructure is **100% production-ready** and requires **zero code changes**. You just need to configure your email provider and add environment variables.
