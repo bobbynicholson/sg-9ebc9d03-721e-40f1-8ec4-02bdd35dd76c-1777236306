@@ -141,16 +141,18 @@ export default function CalendarPage({ companySlug: propCompanySlug }: CalendarP
       </Head>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Events Calendar</h1>
-            <p className="text-muted-foreground">
-              A top-level view of all scheduled functions.
-            </p>
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-8 gap-3">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Events Calendar</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                A top-level view of all scheduled functions.
+              </p>
+            </div>
           </div>
 
           <Card className="overflow-hidden">
-            <CardContent className="p-2 md:p-6">
+            <CardContent className="p-2 sm:p-4 md:p-6">
               {loading ? (
                 <div className="flex justify-center items-center h-96">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -165,10 +167,21 @@ export default function CalendarPage({ companySlug: propCompanySlug }: CalendarP
                     Day: DayWithEvents,
                   }}
                   classNames={{
-                    day: "h-16 w-16 md:h-20 md:w-20 lg:h-24 lg:w-24 relative text-lg rounded-md focus-within:relative focus-within:z-20",
+                    day: "h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20 lg:h-24 lg:w-24 relative text-sm sm:text-base md:text-lg rounded-md focus-within:relative focus-within:z-20",
                     day_selected: "bg-primary text-primary-foreground",
                     day_today: "bg-accent text-accent-foreground",
                     day_outside: "text-muted-foreground opacity-50",
+                    months: "space-y-4",
+                    month: "space-y-4",
+                    caption: "flex justify-center pt-1 relative items-center",
+                    caption_label: "text-sm sm:text-base font-medium",
+                    nav: "space-x-1 flex items-center",
+                    nav_button: "h-7 w-7 sm:h-8 sm:w-8 bg-transparent p-0 opacity-50 hover:opacity-100",
+                    table: "w-full border-collapse space-y-1",
+                    head_row: "flex",
+                    head_cell: "text-muted-foreground rounded-md w-12 sm:w-16 md:w-20 lg:w-24 font-normal text-xs sm:text-sm",
+                    row: "flex w-full mt-2",
+                    cell: "relative p-0 text-center text-xs sm:text-sm focus-within:relative focus-within:z-20",
                   }}
                 />
               )}
@@ -187,55 +200,55 @@ export default function CalendarPage({ companySlug: propCompanySlug }: CalendarP
             }
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           {selectedDate && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl">
+              <DialogHeader className="px-4 sm:px-6">
+                <DialogTitle className="text-lg sm:text-xl md:text-2xl pr-8">
                   Events for {format(selectedDate, "EEEE, MMMM dd, yyyy")}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs sm:text-sm">
                   {selectedDayEvents.length} function(s) scheduled for this day.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-4">
+              <div className="space-y-4 sm:space-y-6 py-4 px-4 sm:px-6 max-h-[60vh] overflow-y-auto">
                 {selectedDayEvents.map(event => (
-                    <div key={event.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                            <h3 className="font-semibold text-lg">Order #{event.order_number || event.id.substring(0, 6)}</h3>
+                    <div key={event.id} className="p-3 sm:p-4 border rounded-lg hover:shadow-md transition-shadow">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 gap-2">
+                            <h3 className="font-semibold text-base sm:text-lg">Order #{event.order_number || event.id.substring(0, 6)}</h3>
                             {getStatusBadge(event.status)}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-3">
-                                <Users className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                                <div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
+                                <div className="min-w-0">
                                     <p className="text-xs text-muted-foreground">Client</p>
-                                    <p className="font-medium">{event.client_name}</p>
+                                    <p className="font-medium truncate">{event.client_name}</p>
                                 </div>
                             </div>
-                             <div className="flex items-center gap-3">
-                                <Clock className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                             <div className="flex items-center gap-2 sm:gap-3">
+                                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
                                 <div>
                                     <p className="text-xs text-muted-foreground">Event Time</p>
                                     <p className="font-medium">{event.event_time ? format(new Date(`1970-01-01T${event.event_time}`), 'p') : 'Not set'}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 col-span-1 md:col-span-2">
-                                <MapPin className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                                <div>
+                            <div className="flex items-start gap-2 sm:gap-3 col-span-1 sm:col-span-2">
+                                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                <div className="min-w-0">
                                     <p className="text-xs text-muted-foreground">Venue</p>
-                                    <p className="font-medium">{event.venue_address}</p>
+                                    <p className="font-medium break-words">{event.venue_address}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <Package className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
                                 <div>
                                     <p className="text-xs text-muted-foreground">Guest Count</p>
                                     <p className="font-medium">{event.guest_count} guests</p>
                                 </div>
                             </div>
                         </div>
-                        <Button onClick={() => handleViewOrder(event.id)} className="w-full mt-4">
+                        <Button onClick={() => handleViewOrder(event.id)} className="w-full mt-4 h-11 text-sm">
                             View Full Order & Planning Details
                             <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
