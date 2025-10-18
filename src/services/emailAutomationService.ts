@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
+import { emailService } from "./emailService";
 
-// Use basic types instead of importing complex generated types
-interface EmailLog {
+export interface EmailLog {
   id: string;
   user_id: string;
   order_id?: string | null;
@@ -14,124 +14,7 @@ interface EmailLog {
   created_at?: string;
 }
 
-interface EmailSettings {
-  id: string;
-  user_id: string;
-  enabled: boolean;
-  provider: string | null;
-  from_name: string | null;
-  from_email: string | null;
-  smtp_host: string | null;
-  smtp_port: number | null;
-  smtp_user: string | null;
-  smtp_password: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-interface SendEmailPayload {
-  companyId: string;
-  to: string;
-  subject: string;
-  template?: string;
-  body?: string;
-  variables?: any; // Explicit any to prevent deep type instantiation
-}
-
 export const emailAutomationService = {
-  
-  async getEmailConfig(companyId: string): Promise<EmailSettings | null> {
-    const { data, error } = await supabase
-      .from("email_settings")
-      .select("*")
-      .eq("user_id", companyId)
-      .single();
-
-    if (error && error.code !== "PGRST116") {
-      console.error("Error fetching email config:", error);
-      return null;
-    }
-
-    if (!data) {
-        return null;
-    }
-    
-    // Safely parse smtp_port to a number if it's a string or other type
-    const port = data.smtp_port ? parseInt(String(data.smtp_port), 10) : null;
-
-    const settings: EmailSettings = {
-        ...data,
-        smtp_port: port && !isNaN(port) ? port : null,
-    };
-
-    return settings;
-  },
-
-  replaceVariables(template: string, variables: any = {}): string {
-    let result = template;
-    if (variables) {
-      for (const [key, value] of Object.entries(variables)) {
-        if (value !== undefined && value !== null) {
-          result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
-        }
-      }
-    }
-    result = result.replace(/{[^}]+}/g, "");
-    return result;
-  },
-
-  async sendEmail(payload: SendEmailPayload): Promise<boolean> {
-    const config = await this.getEmailConfig(payload.companyId);
-
-    if (!config || !config.enabled) {
-      console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
-      // For signups, we might want a fallback system email, but for now, we'll just log.
-      return false;
-    }
-
-    let finalBody = payload.body || "";
-
-    if (payload.template) {
-        // Explicitly type templateData to prevent deep type instantiation errors
-        const { data: templateData, error: templateError } = await supabase
-            .from("email_templates")
-            .select("body")
-            .eq("user_id", payload.companyId)
-            .eq("slug", payload.template)
-            .single<{ body: string }>();
-        
-        if (templateError || !templateData) {
-            console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);
-            return false;
-        }
-        finalBody = templateData.body;
-    }
-    
-    const finalSubject = this.replaceVariables(payload.subject, payload.variables);
-    finalBody = this.replaceVariables(finalBody, payload.variables);
-
-    // In a real scenario, you'd use a service like Nodemailer with the SMTP settings
-    // Here we simulate the send and log it.
-    console.log("----- SIMULATING EMAIL SEND -----");
-    console.log(`From: "${config.from_name}" <${config.from_email}>`);
-    console.log(`To: ${payload.to}`);
-    console.log(`Subject: ${finalSubject}`);
-    console.log(`Body: ${finalBody.substring(0, 100)}...`);
-    console.log(`Provider: ${config.provider}`);
-    console.log("---------------------------------");
-    
-    // Log the email being sent
-    await this.logEmailSent(
-      payload.companyId,
-      payload.template || 'custom',
-      payload.to,
-      payload.variables?.clientName || "N/A",
-      payload.subject
-    );
-
-    return true;
-  },
-
   async sendCompanyWelcomeEmail(
     recipientEmail: string,
     companyName: string,
@@ -141,13 +24,11 @@ export const emailAutomationService = {
   ): Promise<boolean> {
     const loginUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/${companySlug}/auth/login`;
     
-    // This welcome email should probably be sent from a system-level email, not the company's own config yet.
-    // For now, we'll try to use the company's own config but a fallback would be needed.
-    return this.sendEmail({
+    return emailService.sendEmail({
       companyId: companyId,
       to: recipientEmail,
       subject: `Welcome to CateringMS, ${companyName}! 🎉`,
-      template: 'company-welcome', // Assuming a template with this slug exists
+      template: 'company-welcome',
       variables: {
         adminName: adminName,
         companyName: companyName,

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { emailAutomationService } from "./emailAutomationService";
+import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 
@@ -231,7 +231,7 @@ This equipment has been removed from available inventory until resolved.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-          await emailAutomationService.sendEmail({
+          await emailService.sendEmail({
             companyId: order.user_id,
             to: adminProfile.email,
             subject,
@@ -639,7 +639,7 @@ View Inventory: ${typeof window !== "undefined" ? window.location.origin : "http
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-              await emailAutomationService.sendEmail({
+              await emailService.sendEmail({
                 companyId: order.user_id,
                 to: adminProfile.email,
                 subject,

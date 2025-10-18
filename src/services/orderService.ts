@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate, AppOrder } from "@/types/index";
-import { emailAutomationService } from "./emailAutomationService";
+import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 
@@ -90,7 +90,7 @@ export const orderService = {
       try {
         const paymentUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${order.id}`;
         
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: `Order Confirmation - #${orderNumber}`,
@@ -196,7 +196,7 @@ export const orderService = {
       try {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: data.user_id,
             to: data.client_email,
             subject: `Deposit Paid - Order #${data.order_number}`,
@@ -261,7 +261,7 @@ export const orderService = {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
         // Send confirmation that balance is paid and order is fully confirmed
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: data.user_id,
             to: data.client_email,
             subject: `Payment Complete - Order #${data.order_number}`,
@@ -814,7 +814,7 @@ ${mappedStatus === "in_transit" ? `Track your driver in real-time: ${trackingUrl
 Best regards,
 Your Catering Company`;
 
-          await emailAutomationService.sendEmail({
+          await emailService.sendEmail({
             companyId: order.user_id,
             to: order.client_email,
             subject,

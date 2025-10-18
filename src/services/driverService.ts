@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { emailAutomationService } from "./emailAutomationService";
+import { emailService } from "./emailService";
 import { AppOrder } from "@/types";
 import { Order } from "@/types/index";
 
@@ -508,7 +508,7 @@ export const driverService = {
         // ✅ FIX BUG #20.1: Send EMAIL notification first (critical fallback)
         if (clientEmail) {
           try {
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: orderDetails.user_id,
               to: clientEmail,
               subject: `🚗 Your Driver is on the way! - Order ${orderDetails.order_number}`,
@@ -640,7 +640,7 @@ Your order is being delivered now. Enjoy your event! 🎉
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: orderDetails.user_id,
               to: clientEmail,
               subject,
@@ -849,7 +849,7 @@ The order has been marked as completed in the system.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
           companyId: order.user_id,
           to: adminProfile.email,
           subject,
@@ -884,7 +884,7 @@ We look forward to serving you again for your next event!
 Best regards,
 Your Catering Company`;
 
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
           companyId: order.user_id,
           to: order.client_email,
           subject,
@@ -1128,7 +1128,7 @@ The driver will arrive at the kitchen shortly to collect the prepared order.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-          await emailAutomationService.sendEmail({
+          await emailService.sendEmail({
             companyId: order.user_id,
             to: adminProfile.email,
             subject,
@@ -1159,7 +1159,7 @@ Your order is being prepared and will be on its way to you soon. We'll notify yo
 Best regards,
 Your Catering Company`;
 
-          await emailAutomationService.sendEmail({
+          await emailService.sendEmail({
             companyId: order.user_id,
             to: order.client_email,
             subject,
@@ -1250,7 +1250,7 @@ Your order is being collected and prepared for delivery. You'll receive another 
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: orderDetails.user_id,
               to: clientEmail,
               subject,
