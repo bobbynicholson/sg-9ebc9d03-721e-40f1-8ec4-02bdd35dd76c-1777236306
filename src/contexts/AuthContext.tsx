@@ -25,8 +25,8 @@ interface AuthContextType {
   userRoles: RoleAssignment[];
   activeRole: string;
   switchRole: (newRole: UserRole) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
-  signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise<{ user: AuthUser | null; error: AuthError | null, companySlug?: string }>;
+  signIn: (email: string, password: string) => Promise&lt;{ user: AuthUser | null; error: AuthError | null }&gt;;
+  signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise&lt;{ user: AuthUser | null; error: AuthError | null, companySlug?: string }&gt;;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<profile>) => Promise<void>;
 }
@@ -320,7 +320,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     setActiveRole("client");
   };
 
-  const updateProfile = async (updates: Partial<Profile>) => {
+  const updateProfile = async (updates: Partial<profile>) => {
     if (isDemoMode || !user) return;
     const updatedProfile = await profileService.updateProfile(user.id, updates);
     if (updatedProfile) {
@@ -333,7 +333,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ 
+    <authcontext.provider value="{{" 
       user, 
       profile,
       company,
@@ -347,14 +347,14 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       signUp, 
       signOut, 
       updateProfile 
-    }}>
+    }}&gt;
       {children}
-    </AuthContext.Provider>
+    </authcontext.provider>
   );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  return <AuthProviderInner>{children}</AuthProviderInner>;
+  return <authproviderinner>{children}</authproviderinner>;
 }
 
 export function useAuth() {
