@@ -527,9 +527,9 @@ function AdminUsersPage() {
   );
 }
 
-export default function ProtectedUsersPage() {
+export default function UsersPage() {
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       <AdminUsersPage />
     </ProtectedRoute>
   );

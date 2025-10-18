@@ -52,6 +52,7 @@ import { userManagementService } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/lib/userManagement";
 
 interface StaffAssignment {
   orderId: string;
@@ -711,7 +712,7 @@ function OrderAssignmentsPage() {
 
 export default function ProtectedOrderAssignmentsPage() {
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
       <OrderAssignmentsPage />
     </ProtectedRoute>
   );

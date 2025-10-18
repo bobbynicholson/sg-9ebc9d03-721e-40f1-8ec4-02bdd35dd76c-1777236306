@@ -76,7 +76,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
     return null;
   }
 
-  const handleRoleSwitch = async (newRole: string) => {
+  const handleRoleSwitch = async (newRole: UserRole) => {
     if (newRole === activeRole || switching) return;
 
     try {
@@ -123,7 +123,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           {userRoles.map((role) => (
             <DropdownMenuItem
               key={role.id}
-              onClick={() => handleRoleSwitch(role.department)}
+              onClick={() => handleRoleSwitch(role.department as UserRole)}
               disabled={role.department === activeRole || switching}
               className="gap-2"
             >
@@ -189,7 +189,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           return (
             <DropdownMenuItem
               key={role.id}
-              onClick={() => handleRoleSwitch(role.department)}
+              onClick={() => handleRoleSwitch(role.department as UserRole)}
               disabled={isActive || switching}
               className="gap-3 py-3 cursor-pointer"
             >

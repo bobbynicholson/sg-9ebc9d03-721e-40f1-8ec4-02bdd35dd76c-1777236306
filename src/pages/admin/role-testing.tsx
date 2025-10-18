@@ -37,7 +37,7 @@ interface TestAccount {
 
 const testAccounts: TestAccount[] = [
   {
-    role: "admin",
+    role: UserRole.ADMIN,
     name: "Admin User",
     email: "admin@test.cateringms.com",
     password: "TestAdmin123!",
@@ -49,7 +49,7 @@ const testAccounts: TestAccount[] = [
     departments: ["admin"]
   },
   {
-    role: "driver",
+    role: UserRole.DRIVER,
     name: "Driver User",
     email: "driver@test.cateringms.com",
     password: "TestDriver123!",
@@ -61,7 +61,7 @@ const testAccounts: TestAccount[] = [
     departments: ["driver"]
   },
   {
-    role: "shopping",
+    role: UserRole.SHOPPING,
     name: "Shopping Manager",
     email: "shopping@test.cateringms.com",
     password: "TestShopping123!",
@@ -73,7 +73,7 @@ const testAccounts: TestAccount[] = [
     departments: ["shopping"]
   },
   {
-    role: "kitchen",
+    role: UserRole.KITCHEN,
     name: "Kitchen Staff",
     email: "kitchen@test.cateringms.com",
     password: "TestKitchen123!",
@@ -85,7 +85,7 @@ const testAccounts: TestAccount[] = [
     departments: ["kitchen"]
   },
   {
-    role: "cleaning",
+    role: UserRole.CLEANING,
     name: "Cleaning Staff",
     email: "cleaning@test.cateringms.com",
     password: "TestCleaning123!",
@@ -97,7 +97,7 @@ const testAccounts: TestAccount[] = [
     departments: ["cleaning"]
   },
   {
-    role: "client",
+    role: UserRole.CLIENT,
     name: "Multi-Role User",
     email: "multirole@test.cateringms.com",
     password: "TestMulti123!",

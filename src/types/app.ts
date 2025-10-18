@@ -1,12 +1,20 @@
-import type { Lead, Order, Quote } from './index';
+import type { Tables } from "@/integrations/supabase/types";
+
+// Keep this commented out or remove if it causes conflicts.
+// import type { Lead, Order, Quote as BaseQuote } from "./index";
+
+// Define it locally and export it.
+export interface Quote extends Tables<'quotes'> {}
 
 // Extended Application Types
-export interface AppOrder extends Order {
+export interface AppOrder extends Omit<Tables<'orders'>, 'menu_items' | 'equipment_items'> {
+  menu_items: MenuItemRequest[];
+  equipment_items: EquipmentRequest[];
   driverName?: string | null;
   eventLocation?: string; 
   totalAmount?: number;
   waiterRate?: number | null;
-  deliveryRate?: number | null;
+  // deliveryRate?: number | null; This was removed in a previous fix
 }
 
 // Interfaces for UI and Services
@@ -225,17 +233,17 @@ export interface Payment {
 }
 
 export enum UserRole {
-  SUPER_ADMIN = 'super_admin',
-  OWNER = 'owner',
-  ADMIN = 'admin',
-  KITCHEN = 'kitchen',
-  KITCHEN_STAFF = 'kitchen_staff',
-  CLEANING = 'cleaning',
-  CLEANING_STAFF = 'cleaning_staff',
-  SHOPPING = 'shopping',
-  SHOPPING_STAFF = 'shopping_staff',
-  DRIVER = 'driver',
-  CLIENT = 'client',
+  SUPER_ADMIN = "super_admin",
+  OWNER = "owner",
+  ADMIN = "admin",
+  KITCHEN = "kitchen",
+  KITCHEN_STAFF = "kitchen_staff",
+  CLEANING = "cleaning",
+  CLEANING_STAFF = "cleaning_staff",
+  SHOPPING = "shopping",
+  SHOPPING_STAFF = "shopping_staff",
+  DRIVER = "driver",
+  CLIENT = "client",
 }
 
 export interface User {

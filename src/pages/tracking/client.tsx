@@ -36,6 +36,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { realtimeNotificationService } from "@/services/realtimeNotificationService";
+import { UserRole } from "@/types/user";
 
 function ClientTrackingPage() {
   const router = useRouter();
@@ -434,10 +435,10 @@ function ClientTrackingPage() {
   );
 }
 
-export default function ProtectedClientTrackingPage() {
-    return (
-        <ProtectedRoute allowedRoles={["client"]}>
-            <ClientTrackingPage />
-        </ProtectedRoute>
-    );
+export default function ClientTrackingPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+      <ClientTrackingPage />
+    </ProtectedRoute>
+  );
 }

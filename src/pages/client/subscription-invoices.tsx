@@ -13,6 +13,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
 function SubscriptionInvoicesPage() {
   const { user } = useAuth();
@@ -199,10 +200,10 @@ function SubscriptionInvoicesPage() {
   );
 }
 
-export default function ProtectedSubscriptionInvoicesPage() {
-    return (
-        <ProtectedRoute allowedRoles={["client"]}>
-            <SubscriptionInvoicesPage />
-        </ProtectedRoute>
-    );
+export default function ClientSubscriptionInvoicesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+      <SubscriptionInvoicesPage />
+    </ProtectedRoute>
+  );
 }

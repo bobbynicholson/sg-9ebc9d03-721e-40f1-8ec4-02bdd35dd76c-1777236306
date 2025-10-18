@@ -1,4 +1,3 @@
-
 import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ClientNav } from "@/components/client/ClientNav";
@@ -20,7 +19,7 @@ function ClientGamePage() {
 
 export default function ProtectedClientGamePage() {
   return (
-    <ProtectedRoute allowedRoles={["client"]}>
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
       <ClientGamePage />
     </ProtectedRoute>
   );

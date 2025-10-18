@@ -49,6 +49,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface ClientPortalPageProps {
   companySlug?: string;
@@ -499,10 +500,10 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
   );
 }
 
-export default function ProtectedClientPortalPage() {
-    return (
-        <ProtectedRoute allowedRoles={["client"]}>
-            <ClientPortalPage />
-        </ProtectedRoute>
-    );
+export default function ClientPortalPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+      <ClientPortalPage />
+    </ProtectedRoute>
+  );
 }

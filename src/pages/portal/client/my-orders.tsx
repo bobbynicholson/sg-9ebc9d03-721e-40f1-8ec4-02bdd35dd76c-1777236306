@@ -20,6 +20,7 @@ import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Calendar, Package, Clock } from "lucide-react";
 import { JobProgressTracker } from "@/components/JobProgressTracker";
+import { UserRole } from "@/types/app";
 
 function MyOrdersPage() {
   const { user } = useAuth();
@@ -114,7 +115,7 @@ function MyOrdersPage() {
                     clientName="Your Order"
                     eventDate={order.event_date}
                     orderNumber={order.id}
-                    userRole="client"
+                    userRole={UserRole.CLIENT}
                   />
                 ))}
               </div>
@@ -170,10 +171,10 @@ function MyOrdersPage() {
   );
 }
 
-export default function ProtectedMyOrdersPage() {
-    return (
-        <ProtectedRoute allowedRoles={["client"]}>
-            <MyOrdersPage />
-        </ProtectedRoute>
-    );
+export default function ClientMyOrdersPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+      <MyOrdersPage />
+    </ProtectedRoute>
+  );
 }
