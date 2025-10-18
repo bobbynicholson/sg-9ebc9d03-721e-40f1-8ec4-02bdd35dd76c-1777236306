@@ -130,9 +130,7 @@
 - **Impact:** Clients might miss critical order status updates
 - **Evidence:**
   ```typescript
-  // Current code only creates in-portal notification
   await supabase.from("notifications").insert({ ... });
-  // Missing email/WhatsApp integration
   ```
 - **Fix Required:**
   - Add `emailAutomationService.sendOrderStatusUpdate()`
@@ -147,7 +145,6 @@
 - **Impact:** New company admins don't receive welcome email with login instructions
 - **Evidence:** 
   ```typescript
-  // Current code:
   const { data: company, error } = await supabase
     .from("companies")
     .insert(companyData)
@@ -155,7 +152,6 @@
     .single();
   
   return { success: true, company };
-  // Missing: await sendCompanyWelcomeEmail(company, ownerEmail);
   ```
 - **Fix Required:**
   - Import `emailAutomationService`
@@ -188,11 +184,7 @@
 - **Impact:** If WhatsApp not configured (requires Business API), clients receive NO delivery notifications via email
 - **Evidence:**
   ```typescript
-  // Current: Only WhatsApp (lines 560-580, 660-680, etc.)
   await whatsappIntegrationService.sendWhatsAppMessage({...});
-  
-  // Missing: Email fallback
-  await emailAutomationService.sendDeliveryStatusEmail({...});
   ```
 - **Missing Email Triggers:**
   1. `confirmReadyToDepart()` - Email client "Driver departed from kitchen"
@@ -211,6 +203,71 @@
   - Many businesses don't have WhatsApp Business API set up
   - Email serves as critical fallback channel
 - **Priority:** HIGH - Email is essential communication fallback
+
+### 🔴 BUG #21: Payment Processing Missing Email Notifications - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - CRITICAL payment communication gap
+- **Location:** `src/services/paymentProcessingService.ts`
+- **Issue:** All payment events only send in-portal notifications, no email/WhatsApp
+- **Impact:** Clients don't receive payment receipts or balance reminders via email
+- **Missing Email Triggers:**
+  1. `processDepositPayment()` - No deposit receipt email sent
+  2. `processBalancePayment()` - No final payment receipt email sent
+  3. `processDueReminders()` - No email reminders (only in-portal)
+  4. `checkModificationDeadlines()` - No email warnings about deadline
+- **Evidence:**
+  ```typescript
+  await realtimeNotificationService.sendPaymentReceivedNotification(...);
+  ```
+- **Fix Required:**
+  - Import `emailAutomationService`
+  - Add email notifications after deposit payment with receipt
+  - Add email notifications after balance payment with receipt
+  - Add email to `processDueReminders()` for balance reminders
+  - Add email to `checkModificationDeadlines()` for deadline warnings
+  - Multi-channel strategy: Email + In-Portal + WhatsApp (when available)
+- **Why Critical:**
+  - Payment confirmations MUST be emailed (legal requirement)
+  - Clients expect email receipts after payment
+  - Balance reminders need email for visibility
+  - In-portal notifications alone are insufficient
+- **Priority:** CRITICAL - Legal and user expectation requirement
+
+### 🔴 BUG #22: Payment Link Generation Incomplete - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Blocks online payments
+- **Location:** `src/services/paymentProcessingService.ts` → `generatePaymentLink()`
+- **Issue:** Function returns basic local URL instead of actual PayFast payment form/link
+- **Impact:** Clients can't complete payments via generated links
+- **Current Implementation:**
+  ```typescript
+  return `/checkout?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+  ```
+- **Required Implementation:**
+  ```typescript
+  import { generatePaymentForm } from "@/lib/payfastService";
+  
+  async generatePaymentLink(...) {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("*, profiles!inner(*)")
+      .eq("id", orderId)
+      .single();
+    
+    return await generatePaymentForm({
+      amount,
+      item_name: `Order #${orderId} - ${paymentType} payment`,
+      email_address: order.profiles.email,
+      m_payment_id: `${orderId}-${paymentType}`,
+    });
+  }
+  ```
+- **Fix Required:**
+  - Import `payfastService` functions
+  - Get order and user details from database
+  - Call `generatePaymentForm()` with proper parameters
+  - Return actual PayFast payment URL or form HTML
+  - Include payment type in callback data
+- **Integration Note:** Requires PayFast credentials to be configured
+- **Priority:** CRITICAL - Required for accepting online payments
 
 ### 🔴 BUG #4: WhatsApp Integration Missing Credentials - **PENDING**
 - **Status:** NOT FIXED - Requires external setup
@@ -343,10 +400,17 @@
 - [ ] Bug #2: Email Provider (SendGrid)
 - [ ] Bug #3: Company Signup Email
 - [ ] Bug #6: Trial Expiry Automation
+- [ ] Bug #21: Payment Email Notifications
+- [ ] Bug #22: Payment Link Generation
 
 ### Week 2: High Priority Features
 - [ ] Bug #4: WhatsApp Integration
 - [ ] Bug #5: Google Maps API
+- [ ] Bug #15: Order Service Email Triggers
+- [ ] Bug #16: Quote Service Email Integration
+- [ ] Bug #18: Company Welcome Email
+- [ ] Bug #19: Lead Notification Triggers
+- [ ] Bug #20: Driver Email Fallback
 - [ ] Test all critical flows end-to-end
 
 ### Week 3: Medium Priority Fixes
@@ -390,6 +454,7 @@
 - [ ] Final payment flow works
 - [ ] Payment webhook properly handled
 - [ ] Receipt generation works
+- [ ] Payment link generation with PayFast integration
 
 ### Notification System Verification
 - [ ] In-portal notifications work
@@ -410,7 +475,7 @@
    - No SQL injection vulnerabilities
    - Proper error handling throughout
    - Note: Missing `get_waste_analytics` RPC function in database (TODO)
-   - **Status:** Production-ready, exceptionally well-written
+   - Status: Production-ready, exceptionally well-written
 
 2. **subscriptionService.ts (663 lines)** - Subscription lifecycle management
    - Complete trial management flow
@@ -421,7 +486,7 @@
    - Account deletion with 30-day grace period
    - Price change management
    - Uses RPC function for trial expiry checks
-   - **Status:** Production-ready, well-architected
+   - Status: Production-ready, well-architected
 
 3. **onboardingService.ts (605 lines)** - First-time setup and data import
    - Multi-step onboarding flow with 10 guided steps
@@ -432,11 +497,11 @@
    - Sample CSV generation for each import type
    - Progress tracking with localStorage persistence
    - Multi-language support (English + Afrikaans)
-   - **Note:** Import functions validate only - actual DB insertion in other services
-   - **Status:** Production-ready, excellent UX design
+   - Note: Import functions validate only - actual DB insertion in other services
+   - Status: Production-ready, excellent UX design
 
 4. **emailAutomationService.ts (1,144 lines)** - Complete email automation system
-   - **EXCEPTIONAL SERVICE** - Comprehensive email lifecycle coverage
+   - EXCEPTIONAL SERVICE - Comprehensive email lifecycle coverage
    - 7 staff management email functions (invitations, welcome, trial warnings)
    - 4 client journey email functions (quote requests, custom quotes, confirmations, tracking)
    - 4 order lifecycle automation functions (balance reminders, event reminders, deadlines, follow-ups)
@@ -445,38 +510,57 @@
    - Template management with variable replacement
    - Email logging and statistics tracking
    - Multi-channel ready (Email + WhatsApp integration points)
-   - **Current State:** All functions implemented and tested - console.log only (no actual sending yet)
-   - **Production Ready:** Just needs email provider credentials (SendGrid/Resend/AWS SES)
-   - **Integration Path:** Clear documentation for SendGrid integration
-   - **Cron Job Needed:** Edge Function to call `processPendingEmails()` daily
-   - **Status:** Production-ready, waiting for email provider setup
+   - Current State: All functions implemented and tested - console.log only (no actual sending yet)
+   - Production Ready: Just needs email provider credentials (SendGrid/Resend/AWS SES)
+   - Integration Path: Clear documentation for SendGrid integration
+   - Cron Job Needed: Edge Function to call `processPendingEmails()` daily
+   - Status: Production-ready, waiting for email provider setup
+
+5. **clientManagementService.ts (318 lines)** - Client database management
+   - Complete CRUD operations for client records
+   - Search and filtering capabilities
+   - Client history tracking
+   - Export functionality
+   - Proper error handling
+   - Status: Clean, production-ready
+
+6. **paymentProcessingService.ts (499 lines)** - Payment workflow management
+   - EXCELLENT ARCHITECTURE - Comprehensive payment lifecycle
+   - Payment schedule management (deposit + balance split)
+   - Deposit and balance payment processing
+   - Automated balance reminders (14, 7, 3, 1 days before due)
+   - Order modification deadline warnings
+   - Transaction ID tracking
+   - Cron job processor for scheduled reminders
+   - Issues: Missing email notifications (Bug #21), incomplete payment link generation (Bug #22)
+   - Note: Uses realtime notifications only, needs email integration
+   - Cron Jobs Needed: Daily reminders processor, modification deadline checker
+   - Status: Architecturally excellent, needs email integration
 
 ### ✅ AUDITED SERVICES - BUGS FOUND & DOCUMENTED
 
-2. **orderService.ts (745 lines)** - Order lifecycle management
+1. **orderService.ts (745 lines)** - Order lifecycle management
    - Bug #15: Missing email triggers (5 locations)
    - Bug #17: Only in-portal notifications
 
-3. **quoteService.ts (123 lines)** - Quote management
+2. **quoteService.ts (123 lines)** - Quote management
    - Bug #16: Missing email integration
 
-4. **companyService.ts (434 lines)** - Company management
+3. **companyService.ts (434 lines)** - Company management
    - Bug #18: Missing welcome email call
 
-5. **clientManagementService.ts (318 lines)** - Client database management
-   - Status: Clean, no bugs found
-
-6. **leadService.ts (141 lines)** - Lead/inquiry management
+4. **leadService.ts (141 lines)** - Lead/inquiry management
    - Bug #19: Missing notification triggers
 
-6. **driverService.ts (1,037 lines)** - Driver management and delivery tracking
+5. **driverService.ts (1,037 lines)** - Driver management and delivery tracking
    - Bug #20: Missing email notification fallback (WhatsApp-only)
 
 ### ⏳ PENDING AUDIT
 
-7. onboardingService.ts (605 lines)
-8. emailAutomationService.ts (1,144 lines) - Partially audited
-9. Other smaller services
+1. realtimeNotificationService.ts (431 lines)
+2. equipmentTrackingService.ts (589 lines)
+3. userManagementService.ts (537 lines)
+4. Other smaller services
 
 ---
 
@@ -484,12 +568,7 @@
 
 1. ✅ Create this bug tracking document
 2. ⏳ Continue systematic code review of remaining services
-3. ⏳ Identify any additional bugs in:
-   - Order workflow services
-   - Quote workflow services
-   - Driver services
-   - Equipment services
-   - Client portal flows
+3. ⏳ Identify any additional bugs in remaining services
 4. ⏳ Document all integration requirements
 5. ⏳ Create integration setup guide for Alex
 6. ⏳ Test critical user journeys
