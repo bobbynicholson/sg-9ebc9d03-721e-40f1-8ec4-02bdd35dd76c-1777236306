@@ -290,41 +290,54 @@
 - **Files Modified:** `src/services/paymentProcessingService.ts`
 - **Priority:** CRITICAL - Legal requirement and user expectation
 
-### 🔴 BUG #22: Payment Link Generation Incomplete - **NEWLY DISCOVERED**
-- **Status:** NOT FIXED - Blocks online payments
+### ✅ BUG #22: Payment Link Generation Incomplete - **FIXED**
+- **Status:** FIXED
 - **Location:** `src/services/paymentProcessingService.ts` → `generatePaymentLink()`
-- **Issue:** Function returns basic local URL instead of actual PayFast payment form/link
-- **Impact:** Clients can't complete payments via generated links
-- **Current Implementation:**
+- **Issue:** Function returned basic local URL instead of actual PayFast payment form/link
+- **Impact:** Clients couldn't complete payments via generated links
+- **Fix Applied:**
+  - Imported `PayFastService` from payfastService
+  - Fetches complete order and user details from database
+  - Initializes PayFast service with merchant credentials
+  - Generates proper payment parameters including:
+    * Return URLs with order ID and payment type
+    * Cancel URLs for failed payments
+    * Notify URL for webhook processing
+    * User details (name, email)
+    * Custom fields for order tracking (orderId, paymentType, userId)
+    * Email confirmation enabled
+  - Generates secure signature for payment verification
+  - Returns actual PayFast payment form HTML for auto-submission
+  - Includes intelligent fallback to local checkout if PayFast not configured
+- **Implementation Details:**
   ```typescript
-  return `/checkout?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+  // PayFast integration with full parameters
+  - merchant_id, merchant_key (from env)
+  - return_url: /subscription/success?orderId=X&type=deposit
+  - cancel_url: /subscription/cancelled?orderId=X&type=deposit
+  - notify_url: /api/webhooks/payment-confirmation
+  - custom_str1: orderId (for webhook processing)
+  - custom_str2: paymentType (deposit/balance)
+  - custom_str3: userId (company identification)
+  - Signature generation for security
   ```
-- **Required Implementation:**
-  ```typescript
-  import { generatePaymentForm } from "@/lib/payfastService";
-  
-  async generatePaymentLink(...) {
-    const { data: order } = await supabase
-      .from("orders")
-      .select("*, profiles!inner(*)")
-      .eq("id", orderId)
-      .single();
-    
-    return await generatePaymentForm({
-      amount,
-      item_name: `Order #${orderId} - ${paymentType} payment`,
-      email_address: order.profiles.email,
-      m_payment_id: `${orderId}-${paymentType}`,
-    });
-  }
+- **Fallback Strategy:**
+  - If PayFast credentials not configured, returns local checkout URL
+  - Logs warning but doesn't block payment flow
+  - Allows testing without PayFast setup
+- **Environment Variables Required:**
   ```
-- **Fix Required:**
-  - Import `payfastService` functions
-  - Get order and user details from database
-  - Call `generatePaymentForm()` with proper parameters
-  - Return actual PayFast payment URL or form HTML
-  - Include payment type in callback data
-- **Integration Note:** Requires PayFast credentials to be configured
+  NEXT_PUBLIC_PAYFAST_MERCHANT_ID=your_merchant_id
+  NEXT_PUBLIC_PAYFAST_MERCHANT_KEY=your_merchant_key
+  NEXT_PUBLIC_PAYFAST_PASSPHRASE=your_passphrase (optional)
+  ```
+- **Why Critical:**
+  - Blocks all online payment functionality without this fix
+  - PayFast is the primary payment gateway for South African clients
+  - Proper signature generation required for payment security
+  - Webhook integration depends on correct custom fields
+- **Integration Note:** Requires PayFast merchant account credentials to be configured
+- **Files Modified:** `src/services/paymentProcessingService.ts`
 - **Priority:** CRITICAL - Required for accepting online payments
 
 ### 🔴 BUG #4: WhatsApp Integration Missing Credentials - **PENDING**
@@ -465,7 +478,7 @@
 - [x] Bug #17: Order Progress Multi-Channel Notifications - **COMPLETED**
 - [x] Bug #21: Payment Email Notifications - **COMPLETED** ✅
 - [ ] Bug #6: Trial Expiry Automation
-- [ ] Bug #22: Payment Link Generation
+- [x] Bug #22: Payment Link Generation - **COMPLETED** ✅
 
 ### Week 2: High Priority Features
 - [ ] Bug #4: WhatsApp Integration

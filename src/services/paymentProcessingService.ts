@@ -8,6 +8,7 @@ import {
 } from "@/lib/payfastService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { emailAutomationService } from "./emailAutomationService";
+import { PayFastService } from "@/lib/payfastService";
 
 export interface PaymentSchedule {
   orderId: string;
@@ -664,6 +665,7 @@ Your Catering Company`;
 
   /**
    * Generate payment link for deposit or balance
+   * Bug #22 FIX: Integrate with PayFast to generate actual payment form/URL
    */
   async generatePaymentLink(
     orderId: string,
@@ -671,15 +673,85 @@ Your Catering Company`;
   ): Promise<string | null> {
     try {
       const schedule = await this.getPaymentSchedule(orderId);
-      if (!schedule) return null;
+      if (!schedule) {
+        console.error("Payment schedule not found for order:", orderId);
+        return null;
+      }
 
       const amount = paymentType === "deposit" 
         ? schedule.depositAmount 
         : schedule.balanceAmount;
 
+      // Get order details
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select("*, profiles!inner(*)")
+        .eq("id", orderId)
+        .single();
+
+      if (orderError || !order) {
+        console.error("Error fetching order for payment link:", orderError);
+        return null;
+      }
+
+      // Check if PayFast is configured
+      const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+      const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
+      const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
+      const testMode = process.env.NODE_ENV !== "production";
+
+      if (!merchantId || !merchantKey) {
+        console.warn("PayFast credentials not configured - returning checkout URL");
+        // Fallback to local checkout page if PayFast not configured
+        return `/checkout?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+      }
+
+      // Initialize PayFast service
+      const payFastService = new PayFastService({
+        merchantId,
+        merchantKey,
+        passphrase: passphrase || "",
+        testMode
+      });
+
+      // Get user details from profile
+      const profile = order.profiles as any;
+      const [firstName, ...lastNameParts] = (profile.full_name || "").split(" ");
+      const lastName = lastNameParts.join(" ") || "Customer";
+
       // Generate PayFast payment form
-      // This would integrate with the PayFast service
-      return `/checkout?orderId=${orderId}&type=${paymentType}&amount=${amount}`;
+      const paymentParams = {
+        merchant_id: merchantId,
+        merchant_key: merchantKey,
+        return_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/subscription/success?orderId=${orderId}&type=${paymentType}`,
+        cancel_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/subscription/cancelled?orderId=${orderId}&type=${paymentType}`,
+        notify_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/payment-confirmation`,
+        name_first: firstName || "Customer",
+        name_last: lastName,
+        email_address: profile.email,
+        amount: amount.toFixed(2),
+        item_name: `Order ${order.order_number} - ${paymentType === "deposit" ? "Deposit" : "Balance"} Payment`,
+        item_description: `Payment for catering order on ${new Date(order.event_date).toLocaleDateString()}`,
+        custom_str1: orderId, // Order ID for webhook processing
+        custom_str2: paymentType, // Payment type (deposit/balance)
+        custom_str3: order.user_id, // Company user ID
+        email_confirmation: "1",
+        confirmation_address: profile.email,
+      };
+
+      // Generate signature
+      const signature = payFastService.generateSignature(paymentParams);
+      
+      // Return PayFast payment form HTML
+      const paymentFormHtml = payFastService.generatePaymentForm({
+        ...paymentParams,
+        signature
+      } as any);
+
+      console.log(`✅ PayFast payment link generated for Order ${orderId} - ${paymentType} payment (${schedule.currency} ${amount})`);
+      
+      return paymentFormHtml;
+
     } catch (error) {
       console.error("Error generating payment link:", error);
       return null;
