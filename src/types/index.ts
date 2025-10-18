@@ -5,10 +5,10 @@ export type { Database } from "../integrations/supabase/database.types";
 export type Tables<T extends keyof DB['public']['Tables']> = DB['public']['Tables'][T]['Row'];
 
 // Directly use the generated Supabase types to avoid conflicts and deep instantiation errors.
-export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & { currency?: string };
-export type Lead = Database["public"]["Tables"]["leads"]["Row"];
-export type Quote = Database["public"]["Tables"]["quotes"]["Row"];
-export type Order = Database["public"]["Tables"]["orders"]["Row"];
+export type Profile = DB["public"]["Tables"]["profiles"]["Row"] & { currency?: string };
+export type Lead = DB["public"]["Tables"]["leads"]["Row"];
+export type Quote = DB["public"]["Tables"]["quotes"]["Row"];
+export type Order = DB["public"]["Tables"]["orders"]["Row"];
 
 export type OrderStatusUpdate = {
   orderId: string;

@@ -57,7 +57,6 @@ const defaultOrderValues = {
 export const mockOrders: AppOrder[] = [
   {
     ...defaultOrderValues,
-    id: "1",
     user_id: "user-123",
     company_id: "comp-456",
     quote_id: "quote-789",
@@ -81,7 +80,6 @@ export const mockOrders: AppOrder[] = [
   },
   {
     ...defaultOrderValues,
-    id: "ORD-001",
     quote_id: "Q-001",
     order_number: "ORD-001",
     client_name: "Sarah Johnson",
@@ -105,7 +103,6 @@ export const mockOrders: AppOrder[] = [
   },
   {
     ...defaultOrderValues,
-    id: "ORD-002",
     quote_id: "Q-002",
     order_number: "ORD-002",
     client_name: "Mike Williams",
@@ -147,7 +144,6 @@ export const mockOrders: AppOrder[] = [
   },
   {
     ...defaultOrderValues,
-    id: "ORD-003",
     quote_id: "Q-003",
     order_number: "ORD-003",
     client_name: "Emily Brown",
@@ -219,7 +215,6 @@ export const mockDeliveries: Delivery[] = [
 export const fullMockOrders: AppOrder[] = [
     {
       ...defaultOrderValues,
-      id: 'ORD-101',
       quote_id: 'Q-101',
       client_name: 'TechCorp Inc.',
       event_date: new Date(Date.now() + 86400000 * 3).toISOString(),
@@ -237,7 +232,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-102',
       quote_id: 'Q-102',
       client_name: 'Innovate LLC',
       event_date: new Date(Date.now() + 86400000 * 5).toISOString(),
@@ -255,7 +249,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-103',
       quote_id: 'Q-103',
       client_name: 'Solutions Ltd.',
       event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
@@ -273,7 +266,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-104',
       quote_id: 'Q-104',
       client_name: 'Future Systems',
       event_date: new Date(Date.now() + 86400000 * 1).toISOString(),
@@ -291,7 +283,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-105',
       quote_id: 'Q-105',
       client_name: 'Global Ventures',
       event_date: new Date(Date.now() + 86400000 * 12).toISOString(),
@@ -309,7 +300,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-106',
       quote_id: 'Q-106',
       client_name: 'Data Dynamics',
       event_date: new Date(Date.now() + 86400000 * 20).toISOString(),
@@ -327,7 +317,6 @@ export const fullMockOrders: AppOrder[] = [
     },
     {
       ...defaultOrderValues,
-      id: 'ORD-107',
       quote_id: 'Q-107',
       client_name: 'Creative Minds',
       event_date: new Date(Date.now() + 86400000 * 2).toISOString(),
