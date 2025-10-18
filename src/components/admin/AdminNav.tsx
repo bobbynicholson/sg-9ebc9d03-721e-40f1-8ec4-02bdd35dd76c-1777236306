@@ -210,6 +210,12 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       title: "Client Portal",
       items: [
         {
+          title: "Client Database",
+          href: `/${companySlug}/admin/client-database`,
+          icon: Users,
+          description: "Complete client management and history"
+        },
+        {
           title: "Client Portal Management",
           href: `/${companySlug}/admin/client-portal`,
           icon: Users,
