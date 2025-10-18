@@ -211,62 +211,64 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
 
     return (
       <Card className="border-0 shadow-lg hover:shadow-xl transition-all">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-xl font-semibold text-slate-900">{order.client_name}</h3>
-                {daysUntil >= 0 && daysUntil <= 7 && (
-                  <Badge className="bg-orange-100 text-orange-700 border-orange-200">
-                    {daysUntil === 0 ? "Today" : `${daysUntil} days`}
-                  </Badge>
-                )}
-                {stockAlreadyDeducted ? (
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Stock Deducted
-                  </Badge>
-                ) : !hasStock ? (
-                  <Badge className="bg-red-100 text-red-700 border-red-200">
-                    <AlertTriangle className="w-3 h-3 mr-1" />
-                    Low Stock
-                  </Badge>
-                ) : (
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                    <Package className="w-3 h-3 mr-1" />
-                    Stock Available
-                  </Badge>
-                )}
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+            <div className="flex-1 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900">{order.client_name}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {daysUntil >= 0 && daysUntil <= 7 && (
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                      {daysUntil === 0 ? "Today" : `${daysUntil} days`}
+                    </Badge>
+                  )}
+                  {stockAlreadyDeducted ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Stock Deducted
+                    </Badge>
+                  ) : !hasStock ? (
+                    <Badge className="bg-red-100 text-red-700 border-red-200">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Low Stock
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                      <Package className="w-3 h-3 mr-1" />
+                      Stock Available
+                    </Badge>
+                  )}
+                </div>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <Calendar className="w-4 h-4" />
-                  <span>{new Date(order.event_date).toLocaleDateString()}</span>
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{new Date(order.event_date).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <Users className="w-4 h-4" />
+                  <Users className="w-4 h-4 flex-shrink-0" />
                   <span>{order.guest_count} guests</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <ClipboardList className="w-4 h-4" />
+                  <ClipboardList className="w-4 h-4 flex-shrink-0" />
                   <span>{(Array.isArray(order.menu_items) ? order.menu_items.length : 0)} items</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="w-4 h-4 flex-shrink-0" />
                   <span>{ingredients.length} ingredients</span>
                 </div>
               </div>
 
-              <div className="bg-slate-50 rounded-lg p-4 mb-4">
+              <div className="bg-slate-50 rounded-lg p-3 sm:p-4">
                 <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                   <ChefHat className="w-4 h-4" />
                   Menu Items
                 </h4>
                 <div className="space-y-1">
                   {Array.isArray(order.menu_items) && order.menu_items.map((item: any, idx) => (
-                    <div key={idx} className="text-sm text-slate-600 flex justify-between">
-                      <span>{item.name} ({item.category})</span>
+                    <div key={idx} className="text-sm text-slate-600 flex flex-col sm:flex-row sm:justify-between gap-1">
+                      <span className="break-words">{item.name} ({item.category})</span>
                       <span className="font-medium">×{item.quantity}</span>
                     </div>
                   ))}
@@ -274,23 +276,23 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
               </div>
 
               {ingredients.length > 0 && (
-                <div className={`rounded-lg p-4 ${!hasStock && !stockAlreadyDeducted ? 'bg-red-50 border border-red-200' : 'bg-blue-50'}`}>
+                <div className={`rounded-lg p-3 sm:p-4 ${!hasStock && !stockAlreadyDeducted ? 'bg-red-50 border border-red-200' : 'bg-blue-50'}`}>
                   <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                     <ShoppingCart className="w-4 h-4" />
                     Required Ingredients
                   </h4>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {ingredients.slice(0, 6).map((ingredient, idx) => (
                       <div 
                         key={idx} 
-                        className={`text-sm flex items-center gap-1 ${
+                        className={`text-sm flex items-start gap-1 break-words ${
                           !ingredient.inStock && !stockAlreadyDeducted ? 'text-red-600 font-medium' : 'text-slate-600'
                         }`}
                       >
                         {!ingredient.inStock && !stockAlreadyDeducted && (
-                          <AlertTriangle className="w-3 h-3" />
+                          <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         )}
-                        • {ingredient.name}: {ingredient.quantity} {ingredient.unit}
+                        <span>• {ingredient.name}: {ingredient.quantity} {ingredient.unit}</span>
                       </div>
                     ))}
                   </div>
@@ -303,14 +305,14 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
               )}
             </div>
 
-            <div className="ml-4 space-y-2">
-              <Link href={`/orders/${order.id}`}>
-                <Button variant="outline" size="sm" className="w-full">
+            <div className="flex flex-row lg:flex-col gap-2 lg:ml-4 lg:min-w-[160px]">
+              <Link href={`/orders/${order.id}`} className="flex-1 lg:flex-none">
+                <Button variant="outline" size="sm" className="w-full h-11 lg:h-9">
                   View Details
                 </Button>
               </Link>
               
-              <div className="pt-2">
+              <div className="flex-1 lg:flex-none lg:pt-2">
                 <InvoiceGenerator
                   orderId={order.id}
                   orderNumber={order.id.substring(0, 8).toUpperCase()}
@@ -321,30 +323,33 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
               {!stockAlreadyDeducted && hasStock && (
                 <Button 
                   size="sm" 
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="flex-1 lg:flex-none w-full h-11 lg:h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                   onClick={() => deductStockForOrder(order)}
                 >
                   <Package className="w-4 h-4 mr-2" />
-                  Deduct Stock
+                  <span className="hidden sm:inline">Deduct Stock</span>
+                  <span className="sm:hidden">Deduct</span>
                 </Button>
               )}
               {!stockAlreadyDeducted && !hasStock && (
                 <Button 
                   size="sm" 
                   variant="outline"
-                  className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                  className="flex-1 lg:flex-none w-full h-11 lg:h-9 border-red-300 text-red-700 hover:bg-red-50"
                   disabled
                 >
                   <AlertTriangle className="w-4 h-4 mr-2" />
-                  Insufficient Stock
+                  <span className="hidden sm:inline">Insufficient Stock</span>
+                  <span className="sm:hidden">Low Stock</span>
                 </Button>
               )}
               <Button 
                 size="sm" 
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="flex-1 lg:flex-none w-full h-11 lg:h-9 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Complete Order
+                <span className="hidden sm:inline">Complete Order</span>
+                <span className="sm:hidden">Complete</span>
               </Button>
             </div>
           </div>
@@ -357,29 +362,30 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
     <>
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
           <Link href="/">
-            <Button variant="ghost" className="mb-4">
+            <Button variant="ghost" className="mb-4 h-11">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              <span className="hidden sm:inline">Back to Dashboard</span>
+              <span className="sm:hidden">Back</span>
             </Button>
           </Link>
 
-          <div className="mb-8">
-            <div className="flex items-center gap-3">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="p-3 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl shadow-lg">
-                <ClipboardList className="w-8 h-8 text-white" />
+                <ClipboardList className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                   Order Management
                 </h1>
-                <p className="text-slate-600 mt-1">Manage orders and track inventory deduction</p>
+                <p className="text-sm sm:text-base text-slate-600 mt-1">Manage orders and track inventory deduction</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1">Total Orders</p>
@@ -401,10 +407,10 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
           </div>
 
           {upcomingOrders.some(order => !checkStockAvailability(order) && !(order as any).stockDeducted) && (
-            <Card className="mb-6 border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+            <Card className="mb-4 sm:mb-6 border-red-200 bg-red-50">
+              <CardContent className="p-4 sm:pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 sm:mt-0.5" />
                   <div>
                     <h3 className="font-semibold text-red-900 mb-1">Stock Alert</h3>
                     <p className="text-sm text-red-700">
@@ -416,25 +422,27 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
             </Card>
           )}
 
-          <Tabs defaultValue="upcoming" className="space-y-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+          <Tabs defaultValue="upcoming" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2 h-11">
               <TabsTrigger value="upcoming" className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                Upcoming
+                <span className="hidden sm:inline">Upcoming</span>
+                <span className="sm:hidden">Active</span>
               </TabsTrigger>
               <TabsTrigger value="completed" className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4" />
-                Completed
+                <span className="hidden sm:inline">Completed</span>
+                <span className="sm:hidden">Done</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="upcoming" className="space-y-4">
               {upcomingOrders.length === 0 ? (
                 <Card className="border-2 border-dashed">
-                  <CardContent className="p-12 text-center">
-                    <ClipboardList className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No upcoming orders</h3>
-                    <p className="text-slate-600">Orders will appear here once quotes are accepted</p>
+                  <CardContent className="p-8 sm:p-12 text-center">
+                    <ClipboardList className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">No upcoming orders</h3>
+                    <p className="text-sm sm:text-base text-slate-600">Orders will appear here once quotes are accepted</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -447,10 +455,10 @@ export default function OrdersPage({ companySlug: propCompanySlug }: OrdersPageP
             <TabsContent value="completed" className="space-y-4">
               {pastOrders.length === 0 ? (
                 <Card className="border-2 border-dashed">
-                  <CardContent className="p-12 text-center">
-                    <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2">No completed orders</h3>
-                    <p className="text-slate-600">Completed orders will appear here</p>
+                  <CardContent className="p-8 sm:p-12 text-center">
+                    <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-slate-300 mx-auto mb-4" />
+                    <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">No completed orders</h3>
+                    <p className="text-sm sm:text-base text-slate-600">Completed orders will appear here</p>
                   </CardContent>
                 </Card>
               ) : (
