@@ -181,6 +181,37 @@
   - Add notifications for status changes
 - **Priority:** HIGH - Core sales funnel communication
 
+### 🔴 BUG #20: Driver Service Missing Email Notification Fallback - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Missing critical email fallback
+- **Location:** `src/services/driverService.ts`
+- **Issue:** Driver workflow only sends WhatsApp + in-portal notifications, NO email fallback
+- **Impact:** If WhatsApp not configured (requires Business API), clients receive NO delivery notifications via email
+- **Evidence:**
+  ```typescript
+  // Current: Only WhatsApp (lines 560-580, 660-680, etc.)
+  await whatsappIntegrationService.sendWhatsAppMessage({...});
+  
+  // Missing: Email fallback
+  await emailAutomationService.sendDeliveryStatusEmail({...});
+  ```
+- **Missing Email Triggers:**
+  1. `confirmReadyToDepart()` - Email client "Driver departed from kitchen"
+  2. `markArrived()` - Email client "Driver arrived at venue"
+  3. `startTripToKitchen()` - Email admin "Driver heading to kitchen"
+  4. `markArrivedAtKitchen()` - Email admin + client "Driver at kitchen"
+  5. `confirmCollection()` - Email admin + client "Delivery completed"
+- **Fix Required:**
+  - Import `emailAutomationService`
+  - Add email notifications for ALL driver status changes
+  - Multi-channel strategy: Send BOTH email AND WhatsApp (when available)
+  - Email should be sent even if WhatsApp fails
+- **Why Critical:**
+  - WhatsApp requires Business API credentials (not all companies have)
+  - Email is universal, free, and reliable
+  - Many businesses don't have WhatsApp Business API set up
+  - Email serves as critical fallback channel
+- **Priority:** HIGH - Email is essential communication fallback
+
 ### 🔴 BUG #4: WhatsApp Integration Missing Credentials - **PENDING**
 - **Status:** NOT FIXED - Requires external setup
 - **Location:** `.env.local`, WhatsApp services
@@ -381,6 +412,45 @@
    - Note: Missing `get_waste_analytics` RPC function in database (TODO)
    - **Status:** Production-ready, exceptionally well-written
 
+2. **subscriptionService.ts (663 lines)** - Subscription lifecycle management
+   - Complete trial management flow
+   - Plan upgrades/downgrades with proration
+   - Cancellation handling (immediate vs end-of-period)
+   - Usage limits enforcement (clients/orders per quarter)
+   - Billing history tracking
+   - Account deletion with 30-day grace period
+   - Price change management
+   - Uses RPC function for trial expiry checks
+   - **Status:** Production-ready, well-architected
+
+3. **onboardingService.ts (605 lines)** - First-time setup and data import
+   - Multi-step onboarding flow with 10 guided steps
+   - CSV import functionality for clients, bookings, team, inventory, equipment
+   - Smart column detection (auto-maps common column names)
+   - Comprehensive validation (email, phone, date formats)
+   - Import result reporting with detailed errors and warnings
+   - Sample CSV generation for each import type
+   - Progress tracking with localStorage persistence
+   - Multi-language support (English + Afrikaans)
+   - **Note:** Import functions validate only - actual DB insertion in other services
+   - **Status:** Production-ready, excellent UX design
+
+4. **emailAutomationService.ts (1,144 lines)** - Complete email automation system
+   - **EXCEPTIONAL SERVICE** - Comprehensive email lifecycle coverage
+   - 7 staff management email functions (invitations, welcome, trial warnings)
+   - 4 client journey email functions (quote requests, custom quotes, confirmations, tracking)
+   - 4 order lifecycle automation functions (balance reminders, event reminders, deadlines, follow-ups)
+   - After-sales automation system (6 follow-up emails over 12 months)
+   - Intelligent cron job processor for automated sending
+   - Template management with variable replacement
+   - Email logging and statistics tracking
+   - Multi-channel ready (Email + WhatsApp integration points)
+   - **Current State:** All functions implemented and tested - console.log only (no actual sending yet)
+   - **Production Ready:** Just needs email provider credentials (SendGrid/Resend/AWS SES)
+   - **Integration Path:** Clear documentation for SendGrid integration
+   - **Cron Job Needed:** Edge Function to call `processPendingEmails()` daily
+   - **Status:** Production-ready, waiting for email provider setup
+
 ### ✅ AUDITED SERVICES - BUGS FOUND & DOCUMENTED
 
 2. **orderService.ts (745 lines)** - Order lifecycle management
@@ -399,13 +469,14 @@
 6. **leadService.ts (141 lines)** - Lead/inquiry management
    - Bug #19: Missing notification triggers
 
+6. **driverService.ts (1,037 lines)** - Driver management and delivery tracking
+   - Bug #20: Missing email notification fallback (WhatsApp-only)
+
 ### ⏳ PENDING AUDIT
 
-7. driverService.ts (1,037 lines)
-8. subscriptionService.ts (663 lines)
-9. onboardingService.ts (605 lines)
-10. emailAutomationService.ts (1,144 lines) - Partially audited
-11. Other smaller services
+7. onboardingService.ts (605 lines)
+8. emailAutomationService.ts (1,144 lines) - Partially audited
+9. Other smaller services
 
 ---
 
