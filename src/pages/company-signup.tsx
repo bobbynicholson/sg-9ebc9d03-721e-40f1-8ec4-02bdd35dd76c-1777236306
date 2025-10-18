@@ -13,6 +13,44 @@ import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * BUG FIX: Retry profile operations with exponential backoff
+ * The database trigger creates profiles asynchronously, causing race conditions
+ */
+async function retryProfileOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 5,
+  operationName: string = "operation"
+): Promise<T> {
+  let lastError: any = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await operation();
+      if (result) {
+        console.log(`✅ ${operationName} succeeded on attempt ${attempt + 1}`);
+        return result;
+      }
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        console.log(`⏳ ${operationName} returned null, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    } catch (error) {
+      lastError = error;
+      console.error(`❌ ${operationName} failed (attempt ${attempt + 1}/${maxRetries}):`, error);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`${operationName} failed after ${maxRetries} attempts`);
+}
+
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
   { code: "USD", name: "US Dollar", symbol: "$" },
@@ -165,8 +203,14 @@ export default function CompanySignupPage() {
       return;
     }
 
+    let userId: string | null = null;
+    let companyId: string | null = null;
+
     try {
-      // Step 1: Create auth user with auto-confirm (no email verification required)
+      console.log("🚀 Starting company registration process...");
+
+      // Step 1: Create auth user
+      console.log("📝 Step 1: Creating auth user...");
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -183,8 +227,16 @@ export default function CompanySignupPage() {
       });
 
       if (signUpError) {
-        console.error("Signup error:", signUpError);
-        setError(signUpError.message);
+        console.error("❌ Signup error:", signUpError);
+        
+        // Handle specific error cases
+        if (signUpError.message.includes("already registered") || signUpError.message.includes("already exists")) {
+          setError("An account with this email already exists. Please use a different email or try logging in.");
+        } else if (signUpError.message.includes("email") && signUpError.message.includes("confirm")) {
+          setError("Email confirmation is required. Please check your email inbox and verify your account before logging in.");
+        } else {
+          setError(signUpError.message);
+        }
         setLoading(false);
         return;
       }
@@ -195,16 +247,40 @@ export default function CompanySignupPage() {
         return;
       }
 
-      console.log("✅ User created:", authData.user.id);
+      userId = authData.user.id;
+      console.log("✅ User created:", userId);
 
-      // Step 2: Wait for profile to be created by database trigger
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Step 2: Wait for profile to be created by database trigger (with retry)
+      console.log("⏳ Step 2: Waiting for profile creation...");
+      try {
+        await retryProfileOperation(
+          async () => {
+            const { data: profileCheck, error: profileError } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("id", userId)
+              .maybeSingle();
+            
+            if (profileError) throw profileError;
+            return profileCheck;
+          },
+          5,
+          "Profile verification"
+        );
+        console.log("✅ Profile exists and verified");
+      } catch (profileError) {
+        console.error("❌ Profile verification failed:", profileError);
+        setError("Account created but profile setup failed. Please contact support with your email address.");
+        setLoading(false);
+        return;
+      }
 
       // Step 3: Create company record
+      console.log("🏢 Step 3: Creating company record...");
       const companyResult = await companyService.createCompany({
         name: formData.companyName,
         slug: companySlug,
-        owner_id: authData.user.id,
+        owner_id: userId,
         currency: formData.currency,
         phone: formData.phone,
         email: formData.email,
@@ -212,61 +288,103 @@ export default function CompanySignupPage() {
       });
 
       if (!companyResult.success || !companyResult.company) {
+        console.error("❌ Company creation failed:", companyResult.error);
         setError(companyResult.error || "Failed to create company. Please contact support.");
         setLoading(false);
         return;
       }
 
-      console.log("✅ Company created:", companyResult.company.id);
+      companyId = companyResult.company.id;
+      console.log("✅ Company created:", companyId);
 
-      // Step 4: Update user profile with company linkage
-      const { error: profileUpdateError } = await supabase
-        .from("profiles")
-        .update({
-          company_id: companyResult.company.id,
-          company_slug: companySlug,
-          active_role: "admin",
-          full_name: formData.ownerName,
-          phone: formData.phone
-        })
-        .eq("id", authData.user.id);
+      // Step 4: Link profile to company (with retry)
+      console.log("🔗 Step 4: Linking profile to company...");
+      try {
+        await retryProfileOperation(
+          async () => {
+            const { data: updateResult, error: profileUpdateError } = await supabase
+              .from("profiles")
+              .update({
+                company_id: companyId,
+                company_slug: companySlug,
+                active_role: "admin",
+                full_name: formData.ownerName,
+                phone: formData.phone
+              })
+              .eq("id", userId)
+              .select()
+              .single();
 
-      if (profileUpdateError) {
-        console.error("Profile update error:", profileUpdateError);
-        throw profileUpdateError;
+            if (profileUpdateError) throw profileUpdateError;
+            return updateResult;
+          },
+          5,
+          "Profile company linkage"
+        );
+        console.log("✅ Profile linked to company");
+      } catch (linkError) {
+        console.error("❌ Profile linking failed:", linkError);
+        setError("Company created but failed to link your account. Please contact support.");
+        setLoading(false);
+        return;
       }
 
-      console.log("✅ Profile linked to company");
-
-      // Step 5: Assign admin role
+      // Step 5: Assign admin role (non-blocking - can fail without breaking flow)
+      console.log("👤 Step 5: Assigning admin role...");
       try {
-        await roleService.assignRole(authData.user.id, "admin", authData.user.id, true);
+        await roleService.assignRole(userId, "admin", userId, true);
         console.log("✅ Admin role assigned");
       } catch (roleError) {
-        console.error("Error assigning admin role:", roleError);
+        console.warn("⚠️ Admin role assignment failed (non-critical):", roleError);
+        // Don't fail the whole process for this
       }
 
-      // Step 6: Auto-login the user
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password
-      });
+      // Step 6: Attempt auto-login (non-blocking)
+      console.log("🔐 Step 6: Attempting auto-login...");
+      let autoLoginSucceeded = false;
+      try {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password
+        });
 
-      if (signInError) {
-        console.error("Auto-login failed:", signInError);
-        // Don't fail the whole process, just show them the login URL
+        if (signInError) {
+          console.warn("⚠️ Auto-login failed:", signInError);
+          // Check if it's because of email confirmation
+          if (signInError.message.includes("email") && (signInError.message.includes("confirm") || signInError.message.includes("verified"))) {
+            console.log("📧 Email confirmation required - user will need to verify email first");
+          }
+        } else {
+          autoLoginSucceeded = true;
+          console.log("✅ User auto-logged in");
+        }
+      } catch (loginError) {
+        console.warn("⚠️ Auto-login error (non-critical):", loginError);
       }
 
-      console.log("✅ User auto-logged in");
-
-      // Step 7: Show success page with company URL
+      // Step 7: Show success page
+      console.log("🎉 Step 7: Registration complete!");
       const fullUrl = `${window.location.origin}/${companySlug}`;
       setCompanyUrl(fullUrl);
       setSuccess(true);
 
+      // If auto-login failed, user will need to login manually (success page handles this)
+
     } catch (err) {
-      console.error("Company registration error:", err);
-      setError("Registration failed. Please try again or contact support.");
+      console.error("💥 Unexpected registration error:", err);
+      
+      // Provide helpful error message based on what we know
+      let errorMessage = "Registration failed. ";
+      
+      if (userId && !companyId) {
+        errorMessage += "Your account was created but company setup failed. Please contact support with your email address.";
+      } else if (userId && companyId) {
+        errorMessage += "Your company was created but there was an issue with the final setup. Please try logging in or contact support.";
+      } else {
+        errorMessage += "Please try again or contact support if the problem persists.";
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };
