@@ -128,7 +128,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           department: demoUser.role as any,
           is_primary: true,
           assigned_at: new Date().toISOString(),
-          assigned_by: null,
+          assigned_by: "system",
           created_at: new Date().toISOString()
         }]);
         setActiveRole(demoUser.role);

@@ -333,7 +333,7 @@ export default function CompanySignupPage() {
       // Step 5: Assign admin role (non-blocking - can fail without breaking flow)
       console.log("👤 Step 5: Assigning admin role...");
       try {
-        await roleService.assignRole(userId, "admin", userId, true);
+        await roleService.assignRole(userId, UserRole.ADMIN, userId, true);
         console.log("✅ Admin role assigned");
       } catch (roleError) {
         console.warn("⚠️ Admin role assignment failed (non-critical):", roleError);

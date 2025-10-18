@@ -36,7 +36,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { realtimeNotificationService } from "@/services/realtimeNotificationService";
-import { UserRole } from "@/types/user";
+import { UserRole } from "@/types/app";
 
 function ClientTrackingPage() {
   const router = useRouter();

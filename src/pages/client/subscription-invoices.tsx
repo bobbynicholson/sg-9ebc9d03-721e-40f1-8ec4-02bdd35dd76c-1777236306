@@ -8,12 +8,14 @@ import { Download, Loader2, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Subscription } from "@/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types";
+import { UserRole } from "@/types/app";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Subscription = Tables<'subscriptions'>;
 
 function SubscriptionInvoicesPage() {
   const { user } = useAuth();

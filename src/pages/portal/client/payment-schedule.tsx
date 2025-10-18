@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { paymentProcessingService, PaymentSchedule } from "@/services/paymentProcessingService";
 import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/enums/UserRole";
+import { UserRole } from "@/types/app";
 
 function PaymentSchedulePage() {
   const router = useRouter();

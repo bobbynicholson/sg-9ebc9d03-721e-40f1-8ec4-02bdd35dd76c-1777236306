@@ -114,7 +114,7 @@ export default function AuthPage() {
             phone_number: phone,
             company_slug: companySlug as string,
             company_name: companyInfo?.name,
-            role: 'client', // Explicitly set role for clarity
+            role: "client", // Explicitly set role for clarity
           }
         );
 
@@ -137,7 +137,7 @@ export default function AuthPage() {
 
         // CRITICAL FIX: Assign "client" role to user_departments table
         try {
-          const clientRole: UserRole = "client";
+          const clientRole: UserRole = UserRole.CLIENT;
           await roleService.assignRole(result.user.id, clientRole, result.user.id, true);
           console.log(`Client role assigned to user ${result.user.id}`);
         } catch (roleError) {

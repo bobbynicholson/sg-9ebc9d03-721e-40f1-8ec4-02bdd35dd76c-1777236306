@@ -2,6 +2,7 @@ import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ClientNav } from "@/components/client/ClientNav";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
+import { UserRole } from "@/types/app";
 
 function ClientGamePage() {
   return (
