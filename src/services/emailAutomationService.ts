@@ -1,16 +1,42 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 
-// Directly use the generated Supabase types to prevent deep instantiation errors
-type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
-type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
+// Use simple, explicit types to prevent deep instantiation errors
+interface EmailLog {
+  id: string;
+  user_id: string;
+  order_id?: string | null;
+  quote_id?: string | null;
+  template_type: string;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  status: string;
+  created_at?: string;
+  [key: string]: any;
+}
+
+interface EmailSettings {
+  id: string;
+  user_id: string;
+  enabled: boolean;
+  provider: string;
+  from_email: string;
+  from_name: string;
+  smtp_host?: string | null;
+  smtp_port?: number | null;
+  smtp_username?: string | null;
+  smtp_password?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
 
 interface SendEmailPayload {
   companyId: string;
   to: string;
   subject: string;
-  template?: string; // slug of the email template
-  body?: string; // if no template is used
+  template?: string;
+  body?: string;
   variables?: Record<string, any>;
 }
 
@@ -19,11 +45,11 @@ export const emailAutomationService = {
   async getEmailConfig(companyId: string): Promise<EmailSettings | null> {
     const { data, error } = await supabase
       .from("email_settings")
-      .select("*") // Select all fields to match the 'EmailSettings' type
-      .eq("user_id", companyId) // Corrected from company_id to user_id
+      .select("*")
+      .eq("user_id", companyId)
       .single();
 
-    if (error && error.code !== "PGRST116") { // PGRST116 means no rows found, which is not an error here
+    if (error && error.code !== "PGRST116") {
       console.error("Error fetching email config:", error);
       return null;
     }
@@ -38,7 +64,6 @@ export const emailAutomationService = {
         result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
       }
     }
-    // Remove any leftover placeholders
     result = result.replace(/{[^}]+}/g, "");
     return result;
   },

@@ -1,7 +1,5 @@
-import { AppOrder, Delivery } from "@/types";
-
 const defaultOrderValues = {
-  company_id: "mock-company-id", // Added for multi-tenancy
+  company_id: "mock-company-id",
   user_id: "user-123",
   client_id: "client-abc",
   client_email: "test@test.com",
@@ -36,8 +34,8 @@ const defaultOrderValues = {
   amount_paid: 19350,
   requires_waiter: false,
   collection_time: null,
-  pickup_time: null, // Added missing property
-  delivery_total_fee: 0, // Added missing property
+  pickup_time: null,
+  delivery_total_fee: 0,
   currency: 'ZAR',
   delivery_distance_km: null,
   delivery_duration_minutes: null,
@@ -51,7 +49,7 @@ const defaultOrderValues = {
   whatsapp_notifications_sent: [],
   xero_invoice_id: null,
   xero_synced_at: null,
-  driver_id: null, // Keep for backward compatibility if needed, but assigned_driver_id is preferred
+  driver_id: null,
 };
 
 export const mockOrders: AppOrder[] = [
@@ -228,9 +226,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 100,
       status: 'confirmed',
       total: 15000,
-      user_id: "user-123",
       order_number: "ORD-101",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
@@ -248,9 +244,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 50,
       status: 'preparing',
       total: 7500,
-      user_id: "user-123",
       order_number: "ORD-102",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
@@ -268,9 +262,7 @@ export const fullMockOrders: AppOrder[] = [
       guest_count: 200,
       status: 'confirmed',
       total: 30000,
-      user_id: "user-123",
       order_number: "ORD-103",
-      company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
