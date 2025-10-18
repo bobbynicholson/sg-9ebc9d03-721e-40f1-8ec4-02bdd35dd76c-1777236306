@@ -174,6 +174,8 @@ export const equipmentTrackingService = {
       .select("name, category")
       .eq("id", params.equipmentId)
       .single();
+      
+    const equipmentName = equipment?.name || "Unknown Equipment";
 
     if (order) {
       // 1. In-portal notification (existing - keep it)
@@ -197,7 +199,6 @@ export const equipmentTrackingService = {
 
         if (adminProfile?.email) {
           const subject = `🔧 Equipment Damage Alert - Order ${order.order_number}`;
-          const equipmentName = equipment?.name || "Unknown Equipment";
           const body = `Dear ${adminProfile.full_name || "Admin"},
 
 ⚠️ Equipment Damage Reported
