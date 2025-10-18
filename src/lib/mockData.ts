@@ -56,6 +56,7 @@ const defaultOrderValues = {
 
 export const mockOrders: AppOrder[] = [
   {
+    id: "ord-mock-1",
     ...defaultOrderValues,
     user_id: "user-123",
     company_id: "comp-456",
@@ -79,6 +80,7 @@ export const mockOrders: AppOrder[] = [
     kitchen_instructions: "Please ensure all chicken is well-done. One guest has a nut allergy.",
   },
   {
+    id: "ord-mock-2",
     ...defaultOrderValues,
     quote_id: "Q-001",
     order_number: "ORD-001",
@@ -102,6 +104,7 @@ export const mockOrders: AppOrder[] = [
     driver_id: "driver-b", // Added for consistency
   },
   {
+    id: "ord-mock-3",
     ...defaultOrderValues,
     quote_id: "Q-002",
     order_number: "ORD-002",
@@ -143,6 +146,7 @@ export const mockOrders: AppOrder[] = [
     driver_id: null, // Added for consistency
   },
   {
+    id: "ord-mock-4",
     ...defaultOrderValues,
     quote_id: "Q-003",
     order_number: "ORD-003",
@@ -214,6 +218,7 @@ export const mockDeliveries: Delivery[] = [
 
 export const fullMockOrders: AppOrder[] = [
     {
+      id: 'f-ord-1',
       ...defaultOrderValues,
       quote_id: 'Q-101',
       client_name: 'TechCorp Inc.',
@@ -231,6 +236,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-2',
       ...defaultOrderValues,
       quote_id: 'Q-102',
       client_name: 'Innovate LLC',
@@ -248,6 +254,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-3',
       ...defaultOrderValues,
       quote_id: 'Q-103',
       client_name: 'Solutions Ltd.',
@@ -265,6 +272,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-4',
       ...defaultOrderValues,
       quote_id: 'Q-104',
       client_name: 'Future Systems',
@@ -282,6 +290,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-5',
       ...defaultOrderValues,
       quote_id: 'Q-105',
       client_name: 'Global Ventures',
@@ -299,6 +308,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-6',
       ...defaultOrderValues,
       quote_id: 'Q-106',
       client_name: 'Data Dynamics',
@@ -316,6 +326,7 @@ export const fullMockOrders: AppOrder[] = [
       driver_id: null,
     },
     {
+      id: 'f-ord-7',
       ...defaultOrderValues,
       quote_id: 'Q-107',
       client_name: 'Creative Minds',

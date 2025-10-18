@@ -1,28 +1,28 @@
-import type { Database as DB } from '../integrations/supabase/database.types';
-export type { Database } from "../integrations/supabase/database.types";
+import type { Database as DB } from "@/integrations/supabase/database.types";
 
-// Re-export commonly used types for convenience
-export type Tables<T extends keyof DB['public']['Tables']> = DB['public']['Tables'][T]['Row'];
+// Base Supabase types
+export type { Database, Json } from "@/integrations/supabase/database.types";
+export type Tables<T extends keyof DB["public"]["Tables"]> = DB["public"]["Tables"][T]["Row"];
+export type Enums<T extends keyof DB["public"]["Enums"]> = DB["public"]["Enums"][T];
+export type Functions<T extends keyof DB["public"]["Functions"]> = DB["public"]["Functions"][T];
 
-// Directly use the generated Supabase types to avoid conflicts and deep instantiation errors.
-export type Profile = DB["public"]["Tables"]["profiles"]["Row"] & { currency?: string };
-export type Lead = DB["public"]["Tables"]["leads"]["Row"];
-export type Quote = DB["public"]["Tables"]["quotes"]["Row"];
-export type Order = DB["public"]["Tables"]["orders"]["Row"];
+// Core Entity Types
+export type Profile = Tables<"profiles"> & { currency?: string };
+export type Lead = Tables<"leads">;
+export type Quote = Tables<"quotes">;
+export type Order = Tables<"orders">;
+export type Company = Tables<"companies">;
 
-export type OrderStatusUpdate = {
-  orderId: string;
-  newStatus: Order["status"];
-  notes?: string;
-};
-export type ConvertQuoteToOrderParams = {
-  quoteId: string;
-  depositPercentage: number;
-  balanceDueDaysBeforeEvent: number;
-  lastChangeDaysBeforeEvent: number;
-};
+// Extended Application Types
+export interface AppOrder extends Order {
+  driverName?: string | null;
+  eventLocation?: string; 
+  totalAmount?: number;
+  waiterRate?: number | null;
+  deliveryRate?: number | null;
+}
 
-
+// Interfaces for UI and Services
 export interface DisplayLead {
   id: string;
   userId: string;
@@ -143,17 +143,6 @@ export interface DeliveryJob extends Quote {
   deliveryTime: string;
   address: string;
   driverAssigned?: string;
-}
-
-// FIX: Simplify AppOrder to be an extension of the base Order type, adding only frontend-specific properties.
-// This prevents redeclaring properties and causing conflicts.
-export interface AppOrder extends Order {
-  driverName?: string | null; // From join
-  eventLocation?: string; // For mock data compatibility
-  totalAmount?: number; // For mock data compatibility
-  waiterRate?: number | null;
-  deliveryRate?: number | null;
-  // Let menu_items and equipment_items be inherited from Order, which already defines them as Json | null
 }
 
 export interface OrderModification {
@@ -427,24 +416,29 @@ export interface EmailVariables {
   adminName?: string;
 }
 
-// ==========================================
-// OPERATIONAL STANDARDS - FLEET & EQUIPMENT
-// ==========================================
+export type OrderStatusUpdate = {
+  orderId: string;
+  newStatus: Order["status"];
+  notes?: string;
+};
 
-export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
-export type VehicleInsert = Omit<Vehicle, "id" | "created_at" | "updated_at">;
+export type ConvertQuoteToOrderParams = {
+  quoteId: string;
+  depositPercentage: number;
+  balanceDueDaysBeforeEvent: number;
+  lastChangeDaysBeforeEvent: number;
+};
 
-export type VehicleMaintenance = Database["public"]["Tables"]["vehicle_maintenance"]["Row"];
-export type VehicleMaintenanceInsert = Omit<VehicleMaintenance, "id" | "created_at">;
-
-export type VehicleLog = Database["public"]["Tables"]["vehicle_logs"]["Row"];
-export type VehicleLogInsert = Omit<VehicleLog, "id" | "created_at">;
-
-export type EquipmentKit = Database["public"]["Tables"]["equipment_kits"]["Row"];
-export type EquipmentKitInsert = Omit<EquipmentKit, "id" | "created_at">;
-
-export type EquipmentKitItem = Database["public"]["Tables"]["equipment_kit_items"]["Row"];
-export type EquipmentKitItemInsert = Omit<EquipmentKitItem, "id">;
-
-export type FinancialDepreciation = Database["public"]["Tables"]["financial_depreciation"]["Row"];
-export type FinancialDepreciationInsert = Omit<FinancialDepreciation, "id" | "created_at">;
+// Operational Standards Types
+export type Vehicle = Tables<"vehicles">;
+export type VehicleInsert = DB["public"]["Tables"]["vehicles"]["Insert"];
+export type VehicleMaintenance = Tables<"vehicle_maintenance">;
+export type VehicleMaintenanceInsert = DB["public"]["Tables"]["vehicle_maintenance"]["Insert"];
+export type VehicleLog = Tables<"vehicle_logs">;
+export type VehicleLogInsert = DB["public"]["Tables"]["vehicle_logs"]["Insert"];
+export type EquipmentKit = Tables<"equipment_kits">;
+export type EquipmentKitInsert = DB["public"]["Tables"]["equipment_kits"]["Insert"];
+export type EquipmentKitItem = Tables<"equipment_kit_items">;
+export type EquipmentKitItemInsert = DB["public"]["Tables"]["equipment_kit_items"]["Insert"];
+export type FinancialDepreciation = Tables<"financial_depreciation">;
+export type FinancialDepreciationInsert = DB["public"]["Tables"]["financial_depreciation"]["Insert"];
