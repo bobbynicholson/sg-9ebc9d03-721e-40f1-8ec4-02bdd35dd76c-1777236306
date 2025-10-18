@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -27,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { leadService } from "@/services/leadService";
 import type { DisplayLead } from "@/types/app";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { Tables } from "@/integrations/supabase/types";
 
 type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";
 
@@ -52,6 +54,11 @@ interface LeadsPageProps {
   currentRoute?: string;
 }
 
+const toDisplayLead = (lead: Tables<'leads'>): DisplayLead => ({
+  ...lead,
+  _original: lead,
+});
+
 export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPageProps = {}) {
   const router = useRouter();
   const { user } = useAuth();
@@ -69,34 +76,6 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
     lost: 0
   });
 
-  useEffect(() => {
-    const loadLeads = async () => {
-      if (user) {
-        const storedLeads = await leadService.getLeads(user.id);
-        const displayLeads: DisplayLead[] = storedLeads.map((lead) => ({
-          ...lead,
-          _original: lead,
-        }));
-        setLeads(displayLeads);
-        setLoading(false);
-      } else {
-        setLoading(false);
-      }
-    };
-    loadLeads();
-  }, [user]);
-
-  const fetchLeads = async () => {
-    if (user) {
-      const fetchedLeads = await leadService.getLeads(user.id);
-      const displayLeads: DisplayLead[] = fetchedLeads.map((lead) => ({
-        ...lead,
-        _original: lead,
-      }));
-      setLeads(displayLeads);
-    }
-  };
-
   const fetchLeadsAndStats = async () => {
     if (!user) return;
 
@@ -106,7 +85,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
         leadService.getLeads(user.id),
         leadService.getLeadStats(user.id)
       ]);
-      setLeads(leadsData);
+      setLeads(leadsData.map(toDisplayLead));
       setStats(statsData);
     } catch (err) {
       console.error("Error fetching leads:", err);
@@ -115,6 +94,15 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+        fetchLeadsAndStats();
+    } else {
+        setLoading(false);
+    }
+  }, [user]);
+
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +115,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
     try {
       setLoading(true);
       const searchResults = await leadService.searchLeads(user.id, searchTerm);
-      setLeads(searchResults);
+      setLeads(searchResults.map(toDisplayLead));
     } catch (err) {
       console.error("Error searching leads:", err);
       setError("Failed to search leads. Please try again.");
@@ -138,12 +126,16 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
 
   const filteredLeads = leads.filter(lead => {
     const term = searchTerm.toLowerCase();
-    return (
-      lead.client_name.toLowerCase().includes(term) ||
-      lead.client_email.toLowerCase().includes(term) ||
+    const matchesTerm = (
+      lead.client_name?.toLowerCase().includes(term) ||
+      lead.client_email?.toLowerCase().includes(term) ||
       (lead.client_phone && lead.client_phone.includes(term)) ||
-      (lead.status && lead.status.toLowerCase().includes(searchTerm.toLowerCase()))
+      (lead.status && lead.status.toLowerCase().includes(term))
     );
+
+    const matchesStatus = filterStatus === 'all' || lead.status === filterStatus;
+
+    return matchesTerm && matchesStatus;
   });
 
   const groupedLeads = filteredLeads.reduce((acc, lead) => {
@@ -178,9 +170,9 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
   }
 
   const dashboardUrl = companySlug ? `/${companySlug}/admin/dashboard` : "/";
-  const newLeadUrl = companySlug ? `/${companySlug}/admin/leads/new` : "/leads/new";
+  const newLeadUrl = companySlug ? `/${companySlug}/leads/new` : "/leads/new";
   const newQuoteUrl = (leadId: string) => 
-    companySlug ? `/${companySlug}/admin/quotes/new?leadId=${leadId}` : `/quotes/new?leadId=${leadId}`;
+    companySlug ? `/${companySlug}/quotes/new?leadId=${leadId}` : `/quotes/new?leadId=${leadId}`;
 
   return (
     <>
@@ -221,7 +213,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             {Object.entries(stats).map(([status, count]) => (
               <Card 
                 key={status}
@@ -231,8 +223,8 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
                 onClick={() => setFilterStatus(status)}
               >
                 <CardContent className="p-4">
-                  <p className="text-sm text-slate-600 capitalize mb-1">{statusLabels[status] || status} Leads</p>
-                  <p className={`text-2xl font-bold ${statusColors[status] || 'text-slate-900'}`}>{count}</p>
+                  <p className="text-sm text-slate-600 capitalize mb-1">{statusLabels[status] || status}</p>
+                  <p className={`text-2xl font-bold`}>{count}</p>
                 </CardContent>
               </Card>
             ))}
@@ -240,7 +232,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
 
           <Card className="mb-6 border-0 shadow-lg">
             <CardContent className="p-6">
-              <div className="flex gap-4">
+              <form onSubmit={handleSearch} className="flex gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                   <Input
@@ -250,11 +242,18 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
                     className="pl-10"
                   />
                 </div>
-                <Button variant="outline">
-                  <Filter className="w-4 h-4 mr-2" />
-                  More Filters
-                </Button>
-              </div>
+                <Button type="submit">Search</Button>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {statusOrder.map(s => <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </form>
             </CardContent>
           </Card>
 
@@ -289,7 +288,7 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
                 statusOrder.map((status) => (
                   groupedLeads[status] && groupedLeads[status].length > 0 && (
                     <div key={status}>
-                      <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${statusColors[status] || 'text-slate-900'}`}>
+                      <h2 className={`text-lg font-semibold mb-3 flex items-center gap-2`}>
                         <span className={`w-3 h-3 rounded-full ${statusColors[status] || 'bg-slate-200'}`}></span>
                         {statusLabels[status]} ({groupedLeads[status].length})
                       </h2>
@@ -299,15 +298,15 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
                             <CardContent className="p-4">
                               <div className="flex justify-between items-start">
                                 <h3 className="font-bold text-slate-900">{lead.client_name}</h3>
-                                <Badge className={statusColors[lead.status]}>
-                                  {statusLabels[lead.status]}
+                                <Badge className={statusColors[lead.status!]}>
+                                  {statusLabels[lead.status!]}
                                 </Badge>
                               </div>
                               <p className="text-sm text-slate-500 mb-2">{lead.client_email}</p>
                               <div className="text-sm space-y-1 text-slate-600">
-                                <p><strong>Event:</strong> {lead.event_type} on {new Date(lead.event_date).toLocaleDateString()}</p>
-                                <p><strong>Guests:</strong> {lead.guest_count}</p>
-                                <p><strong>Budget:</strong> {lead.budget ? `R${lead.budget.toFixed(2)}` : 'N/A'}</p>
+                                {lead.event_type && <p><strong>Event:</strong> {lead.event_type} on {new Date(lead.event_date!).toLocaleDateString()}</p>}
+                                {lead.guest_count && <p><strong>Guests:</strong> {lead.guest_count}</p>}
+                                {lead.budget && <p><strong>Budget:</strong> R{lead.budget.toFixed(2)}</p>}
                               </div>
                               <div className="flex justify-end mt-4">
                                 <Link href={newQuoteUrl(lead.id)} passHref>

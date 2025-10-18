@@ -1,6 +1,7 @@
-import type { AppOrder, Delivery, MenuItem, EquipmentItem, ShoppingItem } from "@/types/app";
 
-const defaultOrderValues = {
+import type { AppOrder, Delivery, MenuItem, EquipmentItem, ShoppingItem, Quote } from "@/types/app";
+
+const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'client_name' | 'event_date' | 'venue_address' | 'guest_count' | 'menu_items' | 'equipment_items' | 'status' | 'total' | 'created_at' > = {
   company_id: "mock-company-id",
   user_id: "user-123",
   client_id: "client-abc",
@@ -11,7 +12,6 @@ const defaultOrderValues = {
   venue_lng: 28.056702,
   subtotal: 37500,
   tax: 1200,
-  total: 38700,
   deposit_amount: 19350,
   deposit_paid: true,
   deposit_paid_at: new Date(Date.now() - 86400000 * 10).toISOString(),
@@ -19,8 +19,8 @@ const defaultOrderValues = {
   balance_due_date: new Date(Date.now() + 86400000 * 5).toISOString(),
   balance_paid: false,
   balance_paid_at: null,
-  payment_status: "partial" as "pending" | "partial" | "paid" | "refunded",
-  delivery_status: "in_transit" as "pending" | "in_transit" | "delivered" | "completed",
+  payment_status: "partial",
+  delivery_status: "in_transit",
   internal_notes: "Client has a nut allergy. Ensure no cross-contamination.",
   special_instructions: "Please set up the buffet by the main stage.",
   assigned_chef_id: "chef-a",
@@ -52,6 +52,7 @@ const defaultOrderValues = {
   xero_invoice_id: null,
   xero_synced_at: null,
   driver_id: null,
+  kitchen_instructions: null,
 };
 
 export const mockMenuItems: MenuItem[] = [
@@ -113,6 +114,7 @@ export const mockShoppingList: ShoppingItem[] = [];
 
 export const mockOrders: AppOrder[] = [
   {
+    ...defaultOrderValues,
     id: "ORD-001",
     quote_id: "Q-001",
     order_number: "ORD-001",
@@ -157,12 +159,12 @@ export const mockOrders: AppOrder[] = [
     internal_notes: "VIP Client, handle with care.",
     total: 38700,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date().toISOString(),
     client_id: "client-456",
     driver_id: "driver-789",
     driverName: "John Doe",
   },
   {
+    ...defaultOrderValues,
     id: "ORD-002",
     order_number: "ORD-002",
     quote_id: "Q-002",
@@ -186,12 +188,12 @@ export const mockOrders: AppOrder[] = [
     status: "delivered",
     total: 28000,
     created_at: new Date(Date.now() - 86400000).toISOString(),
-    updated_at: new Date().toISOString(),
     client_id: "client-789",
     driver_id: "driver-101",
     driverName: "Jane Smith",
   },
   {
+    ...defaultOrderValues,
     id: "ORD-003",
     order_number: "ORD-003",
     quote_id: "Q-003",
@@ -215,9 +217,7 @@ export const mockOrders: AppOrder[] = [
     status: "confirmed",
     total: 75000,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     client_id: "client-111",
-    ...defaultOrderValues,
   },
 ];
 
@@ -246,8 +246,8 @@ export const mockDeliveries: Delivery[] = [
 
 export const fullMockOrders: AppOrder[] = [
     {
-      id: 'f-ord-1',
       ...defaultOrderValues,
+      id: 'f-ord-1',
       quote_id: 'Q-101',
       client_name: 'TechCorp Inc.',
       event_date: new Date(Date.now() + 86400000 * 3).toISOString(),
@@ -257,15 +257,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 15000,
       order_number: "ORD-101",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-2',
       ...defaultOrderValues,
+      id: 'f-ord-2',
       quote_id: 'Q-102',
       client_name: 'Innovate LLC',
       event_date: new Date(Date.now() + 86400000 * 5).toISOString(),
@@ -275,15 +273,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 7500,
       order_number: "ORD-102",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-3',
       ...defaultOrderValues,
+      id: 'f-ord-3',
       quote_id: 'Q-103',
       client_name: 'Solutions Ltd.',
       event_date: new Date(Date.now() + 86400000 * 10).toISOString(),
@@ -293,15 +289,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 30000,
       order_number: "ORD-103",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-4',
       ...defaultOrderValues,
+      id: 'f-ord-4',
       quote_id: 'Q-104',
       client_name: 'Future Systems',
       event_date: new Date(Date.now() + 86400000 * 1).toISOString(),
@@ -311,15 +305,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 18000,
       order_number: "ORD-104",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-5',
       ...defaultOrderValues,
+      id: 'f-ord-5',
       quote_id: 'Q-105',
       client_name: 'Global Ventures',
       event_date: new Date(Date.now() + 86400000 * 12).toISOString(),
@@ -329,15 +321,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 37500,
       order_number: "ORD-105",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-6',
       ...defaultOrderValues,
+      id: 'f-ord-6',
       quote_id: 'Q-106',
       client_name: 'Data Dynamics',
       event_date: new Date(Date.now() + 86400000 * 20).toISOString(),
@@ -347,15 +337,13 @@ export const fullMockOrders: AppOrder[] = [
       total: 12000,
       order_number: "ORD-106",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
     {
-      id: 'f-ord-7',
       ...defaultOrderValues,
+      id: 'f-ord-7',
       quote_id: 'Q-107',
       client_name: 'Creative Minds',
       event_date: new Date(Date.now() + 86400000 * 2).toISOString(),
@@ -365,10 +353,8 @@ export const fullMockOrders: AppOrder[] = [
       total: 22500,
       order_number: "ORD-107",
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       kitchen_instructions: null,
       menu_items: [],
       equipment_items: [],
-      driver_id: null,
     },
 ];

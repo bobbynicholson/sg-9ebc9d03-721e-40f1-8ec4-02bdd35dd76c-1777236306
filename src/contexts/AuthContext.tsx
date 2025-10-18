@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -130,7 +131,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           assigned_at: new Date().toISOString(),
           assigned_by: "system",
           created_at: new Date().toISOString()
-        }]);
+        } as RoleAssignment]);
         setActiveRole(demoUser.role);
       }
       setLoading(false);
