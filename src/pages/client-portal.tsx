@@ -57,7 +57,7 @@ interface ClientPortalPageProps {
   currentRoute?: string;
 }
 
-function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProps = {}) {
+function ClientPortal({ companySlug: propCompanySlug }: ClientPortalPageProps = {}) {
   const { user } = useAuth();
   const companySlug = propCompanySlug || user?.company_slug;
   const [recentOrder, setRecentOrder] = useState<AppOrder | null>(null);
@@ -503,7 +503,7 @@ function ClientPortalPage({ companySlug: propCompanySlug }: ClientPortalPageProp
 export default function ClientPortalPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
-      <ClientPortalPage />
+      <ClientPortal />
     </ProtectedRoute>
   );
 }

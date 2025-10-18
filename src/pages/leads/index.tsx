@@ -16,7 +16,10 @@ import {
   Filter,
   ArrowLeft,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  UserPlus,
+  FilePlus2,
+  Tag
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -68,11 +71,28 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
 
   useEffect(() => {
     if (user) {
-      fetchLeadsAndStats();
+      const storedLeads = await leadService.getLeads(user.id);
+      const displayLeads: DisplayLead[] = storedLeads.map((lead) => ({
+        ...lead,
+        _original: lead,
+      }));
+      setLeads(displayLeads);
+      setLoading(false);
     } else {
       setLoading(false);
     }
   }, [user]);
+
+  const fetchLeads = async () => {
+    if (user) {
+      const fetchedLeads = await leadService.getLeads(user.id);
+      const displayLeads: DisplayLead[] = fetchedLeads.map((lead) => ({
+        ...lead,
+        _original: lead,
+      }));
+      setLeads(displayLeads);
+    }
+  };
 
   const fetchLeadsAndStats = async () => {
     if (!user) return;
@@ -116,9 +136,10 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
   const filteredLeads = leads.filter(lead => {
     const term = searchTerm.toLowerCase();
     return (
-      lead.clientName.toLowerCase().includes(term) ||
-      lead.clientEmail.toLowerCase().includes(term) ||
-      (lead.clientPhone && lead.clientPhone.includes(term))
+      lead.client_name.toLowerCase().includes(term) ||
+      lead.client_email.toLowerCase().includes(term) ||
+      (lead.client_phone && lead.client_phone.includes(term)) ||
+      (lead.status && lead.status.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   });
 
@@ -274,15 +295,15 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
                           <Card key={lead.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
                             <CardContent className="p-4">
                               <div className="flex justify-between items-start">
-                                <h3 className="font-bold text-slate-900">{lead.clientName}</h3>
+                                <h3 className="font-bold text-slate-900">{lead.client_name}</h3>
                                 <Badge className={statusColors[lead.status]}>
                                   {statusLabels[lead.status]}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-slate-500 mb-2">{lead.clientEmail}</p>
+                              <p className="text-sm text-slate-500 mb-2">{lead.client_email}</p>
                               <div className="text-sm space-y-1 text-slate-600">
-                                <p><strong>Event:</strong> {lead.eventType} on {new Date(lead.eventDate).toLocaleDateString()}</p>
-                                <p><strong>Guests:</strong> {lead.guestCount}</p>
+                                <p><strong>Event:</strong> {lead.event_type} on {new Date(lead.event_date).toLocaleDateString()}</p>
+                                <p><strong>Guests:</strong> {lead.guest_count}</p>
                                 <p><strong>Budget:</strong> {lead.budget ? `R${lead.budget.toFixed(2)}` : 'N/A'}</p>
                               </div>
                               <div className="flex justify-end mt-4">

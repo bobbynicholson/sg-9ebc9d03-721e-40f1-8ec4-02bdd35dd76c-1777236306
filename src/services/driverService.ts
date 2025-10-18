@@ -340,7 +340,6 @@ export const driverService = {
       waiter_duration_hours: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
       delivery_distance_km: order.delivery_distance_km,
-      deliveryRate: order.delivery_rate_per_km,
     }));
   },
 
@@ -1245,7 +1244,7 @@ Your Catering Company`;
 
 Order Number: ${orderDetails.order_number}
 
-Your order is being collected and prepared for delivery. You'll receive another update when the driver departs for your venue. 📦
+Your order is being collected and prepared for delivery. You'll receive another update when the driver departs. 📦
 
 Best regards,
 Your Catering Company`;
