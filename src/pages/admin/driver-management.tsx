@@ -89,10 +89,14 @@ export default function DriverManagementPage() {
       const { user: newUser, error: signUpError } = await authService.signUp(
         newDriver.email,
         newDriver.password,
-        newDriver.name,
-        "driver",
-        user?.currency || "ZAR",
-        newDriver.phone
+        {
+          full_name: newDriver.name,
+          role: "driver",
+          currency: user?.currency || "ZAR",
+          phone_number: newDriver.phone,
+          company_slug: user?.company_slug || undefined,
+          company_name: user?.company_name || undefined,
+        }
       );
 
       if (signUpError) {

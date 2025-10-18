@@ -83,7 +83,7 @@ export default function AuthPage() {
   // Redirect if already authenticated - USE NEW MULTI-ROLE SYSTEM
   useEffect(() => {
     if (user) {
-      const dashboardUrl = roleService.getRoleDashboardUrl(user.active_role, user.company_slug);
+      const dashboardUrl = roleService.getRoleDashboardUrl(user.active_role as UserRole, user.company_slug);
       router.push(dashboardUrl);
     }
   }, [user, router]);
@@ -111,8 +111,10 @@ export default function AuthPage() {
           password,
           {
             full_name: fullName,
-            phone: phone,
+            phone_number: phone,
             company_slug: companySlug as string,
+            company_name: companyInfo?.name,
+            role: 'client', // Explicitly set role for clarity
           }
         );
 

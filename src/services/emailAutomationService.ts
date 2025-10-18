@@ -22,7 +22,7 @@ export const emailAutomationService = {
   async getEmailConfig(companyId: string): Promise<EmailSettings | null> {
     const { data, error } = await supabase
       .from("email_settings")
-      .select("*")
+      .select("from_name, from_email, provider, enabled, smtp_user, smtp_pass, smtp_host, smtp_port, smtp_secure")
       .eq("company_id", companyId)
       .single();
 
@@ -46,7 +46,7 @@ export const emailAutomationService = {
   async sendEmail(payload: SendEmailPayload): Promise<boolean> {
     const { data: config, error: configError } = await supabase
         .from("email_settings")
-        .select("*")
+        .select("from_name, from_email, provider, enabled")
         .eq("company_id", payload.companyId)
         .maybeSingle();
 
@@ -140,7 +140,7 @@ export const emailAutomationService = {
       .from("email_automation_log")
       .insert([
         {
-          user_id: companyId, // FIX: Use user_id as it is the company owner
+          company_id: companyId, // FIX: Use company_id instead of user_id
           order_id: orderId || null,
           quote_id: quoteId || null,
           template_type: templateType,

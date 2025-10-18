@@ -51,10 +51,13 @@ export default function DriverSignupPage() {
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
-        formData.name,
-        "driver",
-        "ZAR",
-        formData.phone
+        {
+          full_name: formData.name,
+          role: "driver",
+          currency: "ZAR", // This should ideally be fetched from company settings
+          phone_number: formData.phone,
+          company_slug: companySlug as string,
+        }
       );
 
       if (signUpError) {

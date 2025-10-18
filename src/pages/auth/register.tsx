@@ -63,10 +63,12 @@ export default function RegisterPage() {
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
-        formData.name,
-        "client", // Default role for all new registrations
-        formData.currency,
-        formData.phone
+        {
+          full_name: formData.name,
+          role: "client", // Default role for all new registrations
+          currency: formData.currency,
+          phone_number: formData.phone
+        }
       );
 
       if (signUpError) {
