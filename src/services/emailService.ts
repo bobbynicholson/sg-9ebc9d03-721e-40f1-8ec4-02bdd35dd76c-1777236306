@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { emailAutomationService } from "./emailAutomationService";
 
 export interface EmailSettings {
   id: string;
@@ -23,6 +22,21 @@ export interface SendEmailPayload {
   template?: string;
   body?: string;
   variables?: Record<string, any>;
+  orderId?: string,
+  quoteId?: string,
+}
+
+export interface EmailLog {
+  id: string;
+  user_id: string;
+  order_id?: string | null;
+  quote_id?: string | null;
+  template_type: string;
+  recipient_email: string;
+  recipient_name: string;
+  subject: string;
+  status: string;
+  created_at?: string;
 }
 
 export const emailService = {
@@ -62,6 +76,40 @@ export const emailService = {
     return result;
   },
 
+  async logEmailSent(
+    companyId: string,
+    templateType: string,
+    recipientEmail: string,
+    recipientName: string,
+    subject: string,
+    orderId?: string,
+    quoteId?: string
+  ): Promise<EmailLog | null> {
+    const { data, error } = await supabase
+      .from("email_automation_log")
+      .insert([
+        {
+          user_id: companyId,
+          order_id: orderId || null,
+          quote_id: quoteId || null,
+          template_type: templateType,
+          recipient_email: recipientEmail,
+          recipient_name: recipientName,
+          subject: subject,
+          status: "sent"
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error logging email:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
   async sendEmail(payload: SendEmailPayload): Promise<boolean> {
     const config = await this.getEmailConfig(payload.companyId);
 
@@ -73,6 +121,7 @@ export const emailService = {
     let finalBody = payload.body || "";
 
     if (payload.template) {
+      // The explicit type here is critical to prevent deep instantiation errors.
       const { data: templateData, error: templateError } = await supabase
         .from("email_templates")
         .select("body")
@@ -98,12 +147,14 @@ export const emailService = {
     console.log(`Provider: ${config.provider}`);
     console.log("---------------------------------");
     
-    await emailAutomationService.logEmailSent(
+    await this.logEmailSent(
       payload.companyId,
       payload.template || 'custom',
       payload.to,
       payload.variables?.clientName || "N/A",
-      payload.subject
+      finalSubject,
+      payload.orderId,
+      payload.quoteId
     );
 
     return true;

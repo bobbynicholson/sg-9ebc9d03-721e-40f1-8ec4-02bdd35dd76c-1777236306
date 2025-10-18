@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
+import { emailService } from "./emailService";
 
 export interface DriverReplacementRequest {
   id: string;

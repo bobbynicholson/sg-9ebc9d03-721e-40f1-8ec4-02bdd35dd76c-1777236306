@@ -9,6 +9,7 @@ import {
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { emailAutomationService } from "./emailAutomationService";
 import { PayFastService } from "@/lib/payfastService";
+import { emailService } from "./emailService";
 
 export interface PaymentSchedule {
   orderId: string;
@@ -171,32 +172,10 @@ class PaymentProcessingService {
         // ✅ FIX BUG #21.1: Send deposit receipt email
         if (order.client_email) {
           try {
-            const subject = `Deposit Payment Received - Order ${order.order_number}`;
-            const body = `Dear ${order.client_name || "Valued Client"},
+            const subject = `Deposit Payment Received - Order #${order.order_number}`;
+            const body = `Dear ${order.client_name}, your deposit of ${order.currency} ${schedule.deposit_amount.toFixed(2)} for order #${order.order_number} has been received.`;
 
-✅ Your deposit payment has been received successfully!
-
-Order Number: ${order.order_number}
-Deposit Amount: ${schedule.currency} ${schedule.deposit_amount.toFixed(2)}
-Transaction ID: ${transactionId}
-Payment Date: ${new Date().toLocaleDateString()}
-Payment Method: ${gateway}
-
-Event Date: ${new Date(order.event_date).toLocaleDateString()}
-
-Remaining Balance: ${schedule.currency} ${schedule.balance_amount.toFixed(2)}
-Balance Due Date: ${new Date(schedule.balance_due_date).toLocaleDateString()}
-
-Your event is now confirmed! We look forward to serving you.
-
-View Order Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}
-
-Thank you for your payment!
-
-Best regards,
-Your Catering Company`;
-
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: userId,
               to: order.client_email,
               subject,
@@ -290,32 +269,10 @@ Your Catering Company`;
         // ✅ FIX BUG #21.2: Send balance payment receipt email
         if (order.client_email) {
           try {
-            const subject = `✅ Payment Complete - Order ${order.order_number} Fully Paid`;
-            const body = `Dear ${order.client_name || "Valued Client"},
+            const subject = `Final Payment Received - Order #${order.order_number}`;
+            const body = `Dear ${order.client_name}, your final payment for order #${order.order_number} has been received. Your order is now fully confirmed.`;
 
-🎉 Congratulations! Your order is now fully paid!
-
-Order Number: ${order.order_number}
-Balance Amount: ${schedule.currency} ${schedule.balance_amount.toFixed(2)}
-Total Paid: ${schedule.currency} ${schedule.total_amount.toFixed(2)}
-Transaction ID: ${transactionId}
-Payment Date: ${new Date().toLocaleDateString()}
-Payment Method: ${gateway}
-
-Event Date: ${new Date(order.event_date).toLocaleDateString()}
-
-✅ PAYMENT STATUS: PAID IN FULL
-
-Your event is fully confirmed and our team is preparing everything for your special day!
-
-View Order Details: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}
-
-Thank you for your business! We look forward to making your event a success.
-
-Best regards,
-Your Catering Company`;
-
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: userId,
               to: order.client_email,
               subject,

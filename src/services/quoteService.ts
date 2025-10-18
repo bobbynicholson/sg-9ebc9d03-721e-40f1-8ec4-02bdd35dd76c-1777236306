@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { emailService } from "./emailService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
+import { realtimeNotificationService } from "./realtimeNotificationService";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { Quote, AppOrder } from "@/types";
 import { regionService } from "./regionService";
 import { emailAutomationService } from "./emailAutomationService";

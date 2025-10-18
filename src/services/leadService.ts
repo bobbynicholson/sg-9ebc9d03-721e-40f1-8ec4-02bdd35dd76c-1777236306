@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import { emailAutomationService } from "./emailAutomationService";
+import { emailService } from "./emailService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
+import type { Database } from "@/integrations/supabase/types";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -101,30 +101,15 @@ export const leadService = {
 
         // 2. Email notification to admin
         if (adminProfile?.email) {
-          const subject = `🎉 New Lead Request - ${lead.client_name || lead.client_email}`;
-          const body = `You have a new catering inquiry!
-
-Client: ${lead.client_name || "Unknown"}
+          const subject = `New Lead Captured: ${lead.client_name}`;
+          const body = `A new lead has been captured:
+Name: ${lead.client_name}
 Email: ${lead.client_email}
-Phone: ${lead.client_phone || "Not provided"}
-Event Date: ${lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "Not specified"}
-Event Type: ${lead.event_type || "Not specified"}
-Guest Count: ${lead.guest_count || "Not specified"}
-Budget: ${lead.budget || "Not specified"}
+Event Date: ${new Date(lead.event_date).toLocaleDateString()}
+Guests: ${lead.guest_count}`;
 
-Special Requests:
-${lead.special_requests || "None"}
-
-Action Required:
-Review this lead and create a custom quote as soon as possible.
-
-View Lead: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/leads?leadId=${data.id}
-
-Best regards,
-CateringMS Platform`;
-
-          await emailAutomationService.sendEmail({
-            companyId: lead.company_id,
+          await emailService.sendEmail({
+            companyId: lead.user_id,
             to: adminProfile.email,
             subject,
             body,
