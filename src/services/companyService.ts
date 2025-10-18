@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { emailAutomationService } from "./emailAutomationService";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
@@ -73,6 +74,29 @@ export const companyService = {
           success: false,
           error: "Failed to create company"
         };
+      }
+
+      // ✅ FIX BUG #18: Send welcome email to company admin
+      if (data.email) {
+        try {
+          // Get admin name from profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", data.owner_id)
+            .single();
+
+          await emailAutomationService.sendCompanyWelcomeEmail(
+            data.email,
+            data.name,
+            data.slug,
+            profile?.full_name || "there"
+          );
+          console.log("✅ Welcome email sent to new company:", data.email);
+        } catch (emailError) {
+          // Log but don't block signup if email fails
+          console.error("⚠️ Failed to send welcome email (non-blocking):", emailError);
+        }
       }
 
       return {
