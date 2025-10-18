@@ -528,7 +528,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="mt-10 flex flex-col gap-4 px-4 sm:px-0">
-                  <Link href="/auth/register" className="w-full sm:w-auto sm:mx-auto">
+                  <Link href="/company-signup" className="w-full sm:w-auto sm:mx-auto">
                     <Button 
                       size="lg" 
                       className="w-full sm:w-auto bg-white text-purple-900 hover:bg-purple-50 px-8 h-14 sm:h-12 text-lg shadow-xl"
