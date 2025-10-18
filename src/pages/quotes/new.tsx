@@ -213,80 +213,80 @@ export default function NewQuotePage() {
     <>
       <NoIndexMeta />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl">
           <Link href="/leads">
-            <Button variant="ghost" className="mb-4">
+            <Button variant="ghost" className="mb-3 sm:mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Leads
             </Button>
           </Link>
 
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
-                  <DollarSign className="w-8 h-8 text-white" />
+          <div className="mb-4 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-2 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl sm:rounded-2xl shadow-lg flex-shrink-0">
+                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                     Create Quote
                   </h1>
-                  <p className="text-slate-600 mt-1">Generate a detailed quote for the client</p>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5 sm:mt-1">Generate a detailed quote for the client</p>
                 </div>
               </div>
               {leadId && (
-                <Badge variant="outline" className="px-4 py-2">
+                <Badge variant="outline" className="px-3 py-1.5 text-xs w-fit">
                   Lead: {leadId}
                 </Badge>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Client Information</CardTitle>
-                  <CardDescription>Event and contact details</CardDescription>
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="text-base sm:text-lg">Client Information</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Event and contact details</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <Label>Client Name</Label>
-                      <Input value={formData.clientName} readOnly className="bg-slate-50" />
+                      <Label className="text-xs sm:text-sm">Client Name</Label>
+                      <Input value={formData.clientName} readOnly className="bg-slate-50 text-sm h-10" />
                     </div>
                     <div>
-                      <Label>Email</Label>
-                      <Input value={formData.email} readOnly className="bg-slate-50" />
+                      <Label className="text-xs sm:text-sm">Email</Label>
+                      <Input value={formData.email} readOnly className="bg-slate-50 text-sm h-10" />
                     </div>
                     <div>
-                      <Label>Event Date</Label>
-                      <Input value={formData.eventDate} readOnly className="bg-slate-50" />
+                      <Label className="text-xs sm:text-sm">Event Date</Label>
+                      <Input value={formData.eventDate} readOnly className="bg-slate-50 text-sm h-10" />
                     </div>
                     <div>
-                      <Label>Guest Count</Label>
-                      <Input value={formData.guestCount} readOnly className="bg-slate-50" />
+                      <Label className="text-xs sm:text-sm">Guest Count</Label>
+                      <Input value={formData.guestCount} readOnly className="bg-slate-50 text-sm h-10" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
                     Delivery Address
                   </CardTitle>
-                  <CardDescription>Calculate delivery distance and fees automatically</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">Calculate delivery distance and fees automatically</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                   <div>
-                    <Label>Full Delivery Address</Label>
+                    <Label className="text-xs sm:text-sm">Full Delivery Address</Label>
                     <Input
                       value={formData.deliveryAddress}
                       onChange={(e) => handleDeliveryAddressChange(e.target.value)}
                       placeholder="123 Main Street, Johannesburg, 2000"
-                      className="bg-white"
+                      className="bg-white text-sm h-10"
                     />
                     <p className="text-xs text-slate-600 mt-1">
                       Enter the complete delivery address to calculate distance and fees
@@ -294,24 +294,24 @@ export default function NewQuotePage() {
                   </div>
 
                   {deliveryDetails.distance > 0 && (
-                    <div className="p-4 bg-white rounded-lg border border-blue-200">
-                      <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-3 sm:p-4 bg-white rounded-lg border border-blue-200">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
                         <div>
-                          <div className="text-2xl font-bold text-blue-600">{deliveryDetails.distance}km</div>
+                          <div className="text-xl sm:text-2xl font-bold text-blue-600">{deliveryDetails.distance}km</div>
                           <div className="text-xs text-slate-600">Distance</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-green-600">R{deliveryDetails.costPerKm.toFixed(2)}</div>
+                          <div className="text-xl sm:text-2xl font-bold text-green-600">R{deliveryDetails.costPerKm.toFixed(2)}</div>
                           <div className="text-xs text-slate-600">Per Km</div>
                         </div>
                         <div>
-                          <div className="text-2xl font-bold text-purple-600">R{deliveryDetails.deliveryFee.toFixed(2)}</div>
-                          <div className="text-xs text-slate-600">Delivery Fee</div>
+                          <div className="text-xl sm:text-2xl font-bold text-purple-600">R{deliveryDetails.deliveryFee.toFixed(2)}</div>
+                          <div className="text-xs text-slate-600">Fee</div>
                         </div>
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
-                        <TrendingUp className="w-4 h-4" />
-                        Calculated from kitchen to delivery location
+                      <div className="mt-2 sm:mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-slate-600">
+                        <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="text-center">Calculated from kitchen to delivery</span>
                       </div>
                     </div>
                   )}
@@ -319,44 +319,46 @@ export default function NewQuotePage() {
               </Card>
 
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
+                <CardHeader className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <CardTitle>Menu Items</CardTitle>
-                      <CardDescription>Food and beverage offerings</CardDescription>
+                      <CardTitle className="text-base sm:text-lg">Menu Items</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Food and beverage offerings</CardDescription>
                     </div>
-                    <Button onClick={addMenuItem} size="sm">
+                    <Button onClick={addMenuItem} size="sm" className="w-full sm:w-auto h-9 text-xs">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Item
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                   {menuItems.map((item, index) => (
-                    <div key={item.id} className="p-4 border rounded-lg bg-slate-50">
+                    <div key={item.id} className="p-3 sm:p-4 border rounded-lg bg-slate-50">
                       <div className="flex items-start justify-between mb-3">
-                        <span className="text-sm font-medium text-slate-600">Item {index + 1}</span>
+                        <span className="text-xs sm:text-sm font-medium text-slate-600">Item {index + 1}</span>
                         {menuItems.length > 1 && (
                           <Button 
                             variant="ghost" 
                             size="sm"
                             onClick={() => removeMenuItem(item.id)}
+                            className="h-8 w-8 p-0"
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Item Name</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs sm:text-sm">Item Name</Label>
                           <Input
                             value={item.name}
                             onChange={(e) => updateMenuItem(item.id, "name", e.target.value)}
                             placeholder="Grilled Chicken"
+                            className="text-sm h-10"
                           />
                         </div>
                         <div>
-                          <Label>Category</Label>
+                          <Label className="text-xs sm:text-sm">Category</Label>
                           <select
                             value={item.category}
                             onChange={(e) => updateMenuItem(item.id, "category", e.target.value)}
@@ -370,7 +372,7 @@ export default function NewQuotePage() {
                           </select>
                         </div>
                         <div>
-                          <Label>Price per Person</Label>
+                          <Label className="text-xs sm:text-sm">Price per Person</Label>
                           <Input
                             type="number"
                             min="0"
@@ -378,22 +380,24 @@ export default function NewQuotePage() {
                             value={item.pricePerPerson}
                             onChange={(e) => updateMenuItem(item.id, "pricePerPerson", parseFloat(e.target.value) || 0)}
                             placeholder="15.00"
+                            className="text-sm h-10"
                           />
                         </div>
-                        <div>
-                          <Label>Quantity</Label>
+                        <div className="sm:col-span-2">
+                          <Label className="text-xs sm:text-sm">Quantity</Label>
                           <Input
                             type="number"
                             min="0"
                             value={item.quantity}
                             onChange={(e) => updateMenuItem(item.id, "quantity", parseInt(e.target.value) || 0)}
                             placeholder={formData.guestCount.toString()}
+                            className="text-sm h-10"
                           />
                         </div>
                       </div>
                       <div className="mt-2 text-right">
-                        <span className="text-sm text-slate-600">Subtotal: </span>
-                        <span className="font-semibold text-green-600">
+                        <span className="text-xs sm:text-sm text-slate-600">Subtotal: </span>
+                        <span className="text-sm sm:text-base font-semibold text-green-600">
                           R{(item.pricePerPerson * item.quantity).toFixed(2)}
                         </span>
                       </div>
@@ -403,67 +407,73 @@ export default function NewQuotePage() {
               </Card>
 
               <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
+                <CardHeader className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <CardTitle>Equipment Rental</CardTitle>
-                      <CardDescription>Chafing dishes, serving ware, etc.</CardDescription>
+                      <CardTitle className="text-base sm:text-lg">Equipment Rental</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Chafing dishes, serving ware, etc.</CardDescription>
                     </div>
-                    <Button onClick={addEquipmentItem} size="sm" variant="outline">
+                    <Button onClick={addEquipmentItem} size="sm" variant="outline" className="w-full sm:w-auto h-9 text-xs">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Equipment
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                   {equipmentItems.map((item, index) => (
-                    <div key={item.id} className="p-4 border rounded-lg bg-slate-50">
+                    <div key={item.id} className="p-3 sm:p-4 border rounded-lg bg-slate-50">
                       <div className="flex items-start justify-between mb-3">
-                        <span className="text-sm font-medium text-slate-600">Equipment {index + 1}</span>
+                        <span className="text-xs sm:text-sm font-medium text-slate-600">Equipment {index + 1}</span>
                         {equipmentItems.length > 1 && (
                           <Button 
                             variant="ghost" 
                             size="sm"
                             onClick={() => removeEquipmentItem(item.id)}
+                            className="h-8 w-8 p-0"
                           >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
                         )}
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-2 sm:gap-3">
                         <div>
-                          <Label>Equipment Name</Label>
+                          <Label className="text-xs sm:text-sm">Equipment Name</Label>
                           <Input
                             value={item.name}
                             onChange={(e) => updateEquipmentItem(item.id, "name", e.target.value)}
                             placeholder="Chafing Dish"
+                            className="text-sm h-10"
                           />
                         </div>
-                        <div>
-                          <Label>Quantity</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={item.quantity}
-                            onChange={(e) => updateEquipmentItem(item.id, "quantity", parseInt(e.target.value) || 0)}
-                            placeholder="4"
-                          />
-                        </div>
-                        <div>
-                          <Label>Rental Price (each)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.rentalPrice}
-                            onChange={(e) => updateEquipmentItem(item.id, "rentalPrice", parseFloat(e.target.value) || 0)}
-                            placeholder="25.00"
-                          />
+                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                          <div>
+                            <Label className="text-xs sm:text-sm">Quantity</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={item.quantity}
+                              onChange={(e) => updateEquipmentItem(item.id, "quantity", parseInt(e.target.value) || 0)}
+                              placeholder="4"
+                              className="text-sm h-10"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs sm:text-sm">Rental Price</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.rentalPrice}
+                              onChange={(e) => updateEquipmentItem(item.id, "rentalPrice", parseFloat(e.target.value) || 0)}
+                              placeholder="25.00"
+                              className="text-sm h-10"
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="mt-2 text-right">
-                        <span className="text-sm text-slate-600">Subtotal: </span>
-                        <span className="font-semibold text-green-600">
+                        <span className="text-xs sm:text-sm text-slate-600">Subtotal: </span>
+                        <span className="text-sm sm:text-base font-semibold text-green-600">
                           R{(item.rentalPrice * item.quantity).toFixed(2)}
                         </span>
                       </div>
@@ -473,45 +483,45 @@ export default function NewQuotePage() {
               </Card>
             </div>
 
-            <div className="space-y-6">
-              <Card className="border-0 shadow-lg sticky top-4">
-                <CardHeader className="bg-gradient-to-br from-green-50 to-emerald-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="w-5 h-5 text-green-600" />
+            <div className="space-y-4 sm:space-y-6">
+              <Card className="border-0 shadow-lg lg:sticky lg:top-4">
+                <CardHeader className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                     Quote Summary
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-slate-600">
+                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex justify-between text-slate-600 text-sm sm:text-base">
                       <span>Items Subtotal</span>
                       <span className="font-medium">R{subtotal.toFixed(2)}</span>
                     </div>
                     
                     {deliveryDetails.distance > 0 && (
-                      <div className="flex justify-between text-slate-600 bg-blue-50 -mx-2 px-2 py-2 rounded">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-blue-600" />
-                          <span>Delivery Fee ({deliveryDetails.distance}km)</span>
+                      <div className="flex justify-between text-slate-600 bg-blue-50 -mx-2 px-2 py-2 rounded text-sm sm:text-base">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                          <span className="text-xs sm:text-sm">Delivery ({deliveryDetails.distance}km)</span>
                         </div>
-                        <span className="font-medium text-blue-600">R{deliveryFee.toFixed(2)}</span>
+                        <span className="font-medium text-blue-600 text-xs sm:text-sm">R{deliveryFee.toFixed(2)}</span>
                       </div>
                     )}
                     
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-600 text-sm sm:text-base">
                       <span>VAT (15%)</span>
                       <span className="font-medium">R{tax.toFixed(2)}</span>
                     </div>
                     <div className="h-px bg-slate-200" />
-                    <div className="flex justify-between text-lg font-bold text-slate-900">
+                    <div className="flex justify-between text-base sm:text-lg font-bold text-slate-900">
                       <span>Total</span>
                       <span className="text-green-600">R{total.toFixed(2)}</span>
                     </div>
                   </div>
 
-                  <div className="pt-4 space-y-3">
+                  <div className="pt-3 sm:pt-4 space-y-2 sm:space-y-3">
                     <Button 
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 h-11 text-sm"
                       onClick={() => handleSaveQuote(true)}
                     >
                       <Send className="w-4 h-4 mr-2" />
@@ -519,7 +529,7 @@ export default function NewQuotePage() {
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="w-full"
+                      className="w-full h-11 text-sm"
                       onClick={() => handleSaveQuote(false)}
                     >
                       <Save className="w-4 h-4 mr-2" />
@@ -527,7 +537,7 @@ export default function NewQuotePage() {
                     </Button>
                   </div>
 
-                  <div className="pt-4 border-t text-sm text-slate-600">
+                  <div className="pt-3 sm:pt-4 border-t text-xs sm:text-sm text-slate-600">
                     <p className="mb-2 font-medium">Quote includes:</p>
                     <ul className="space-y-1 text-xs">
                       <li>• {menuItems.filter(i => i.name).length} menu items</li>
