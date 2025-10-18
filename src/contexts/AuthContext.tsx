@@ -145,7 +145,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 
         if (!profileData) {
           console.error("Profile data is null after retries for user:", session.user.id);
-          if (typeof window !== "undefined" &amp;&amp; !window.location.pathname.includes("/auth/")) {
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
             await handleInvalidSession();
           } else {
             setUser(null);
@@ -212,7 +212,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         console.error("Error during cleanup signout:", signOutError);
       }
       
-      if (typeof window !== "undefined" &amp;&amp; !window.location.pathname.includes("/auth/")) {
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
         router.push("/auth/login?message=session_expired");
       }
     };
