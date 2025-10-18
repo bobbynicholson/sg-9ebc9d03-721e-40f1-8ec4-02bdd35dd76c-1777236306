@@ -92,11 +92,12 @@ export default function KitchenPage() {
       loadKitchenData(user.id);
       loadStaffHours();
     }
-  }, [user]);
+  }, [user, period]);
 
   const loadKitchenData = async (userId: string) => {
-    const orders = await orderService.getOrders({ userId });
-    const filteredOrders = orders.filter(o => ['preparing', 'confirmed'].includes(o.status));
+    setLoading(true);
+    const allOrders = await orderService.getAllOrders(userId);
+    const filteredOrders = allOrders.filter(o => ['preparing', 'confirmed', 'ready'].includes(o.status));
     const sortedOrders = filteredOrders.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
     setOrders(sortedOrders);
     setLoading(false);

@@ -184,7 +184,12 @@ export const quoteService = {
       }
     }
 
-    return newOrder;
+    // Transform to fix type issues before returning
+    return {
+        ...newOrder,
+        menu_items: typeof newOrder.menu_items === 'string' ? JSON.parse(newOrder.menu_items) : (newOrder.menu_items || []),
+        equipment_items: typeof newOrder.equipment_items === 'string' ? JSON.parse(newOrder.equipment_items) : (newOrder.equipment_items || []),
+    };
   },
 
   /**

@@ -1,4 +1,8 @@
-import type { Database } from "@/integrations/supabase/types";
+import type { Database as DB } from './database.types';
+export type { Database } from "./database.types";
+
+// Re-export commonly used types for convenience
+export type Tables<T extends keyof DB['public']['Tables']> = DB['public']['Tables'][T]['Row'];
 
 // Directly use the generated Supabase types to avoid conflicts and deep instantiation errors.
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & { currency?: string };

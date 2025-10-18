@@ -8,6 +8,15 @@ import { realtimeNotificationService } from "./realtimeNotificationService";
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
 
+// Helper to safely parse JSON columns
+const transformOrder = (order: SupabaseOrder): AppOrder => {
+  return {
+    ...order,
+    menu_items: typeof order.menu_items === "string" ? JSON.parse(order.menu_items) : (order.menu_items || []),
+    equipment_items: typeof order.equipment_items === "string" ? JSON.parse(order.equipment_items) : (order.equipment_items || []),
+  };
+};
+
 export const orderService = {
   /**
    * Convert a quote to an order after payment confirmation
@@ -506,7 +515,7 @@ export const orderService = {
       return [];
     }
     
-    return data || [];
+    return (data || []).map(transformOrder);
   },
 
   /**
