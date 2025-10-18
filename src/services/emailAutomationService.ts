@@ -1,42 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-// Use simple, explicit types to prevent deep instantiation errors
-interface EmailLog {
-  id: string;
-  user_id: string;
-  order_id?: string | null;
-  quote_id?: string | null;
-  template_type: string;
-  recipient_email: string;
-  recipient_name: string;
-  subject: string;
-  status: string;
-  created_at?: string;
-  [key: string]: any;
-}
-
-interface EmailSettings {
-  id: string;
-  user_id: string;
-  enabled: boolean;
-  provider: string;
-  from_email: string;
-  from_name: string;
-  smtp_host?: string | null;
-  smtp_port?: number | null;
-  smtp_username?: string | null;
-  smtp_password?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: any;
-}
+// Directly use the generated Supabase types to prevent deep instantiation errors
+type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
+type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
 
 interface SendEmailPayload {
   companyId: string;
   to: string;
   subject: string;
-  template?: string;
-  body?: string;
+  template?: string; // slug of the email template
+  body?: string; // if no template is used
   variables?: Record<string, any>;
 }
 
@@ -52,6 +26,10 @@ export const emailAutomationService = {
     if (error && error.code !== "PGRST116") {
       console.error("Error fetching email config:", error);
       return null;
+    }
+    
+    if (data && typeof data.smtp_port === 'string') {
+        data.smtp_port = parseInt(data.smtp_port, 10);
     }
 
     return data;
@@ -113,7 +91,7 @@ export const emailAutomationService = {
       payload.template || 'custom',
       payload.to,
       payload.variables?.clientName || "N/A",
-      finalSubject
+      payload.subject
     );
 
     return true;
@@ -129,7 +107,7 @@ export const emailAutomationService = {
     const loginUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/${companySlug}/auth/login`;
     
     // This welcome email should probably be sent from a system-level email, not the company's own config yet.
-    // For now, we'll try to use the company's config but a fallback would be needed.
+    // For now, we'll try to use the company's own config but a fallback would be needed.
     return this.sendEmail({
       companyId: companyId,
       to: recipientEmail,
