@@ -92,12 +92,13 @@ export const emailAutomationService = {
     let finalBody = payload.body || "";
 
     if (payload.template) {
+        // Explicitly type templateData to prevent deep type instantiation errors
         const { data: templateData, error: templateError } = await supabase
             .from("email_templates")
             .select("body")
-            .eq("user_id", payload.companyId) // Corrected from company_id
+            .eq("user_id", payload.companyId)
             .eq("slug", payload.template)
-            .single();
+            .single<{ body: string }>();
         
         if (templateError || !templateData) {
             console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);
