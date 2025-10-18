@@ -12,7 +12,7 @@ import { authService } from "@/services/authService";
 import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
