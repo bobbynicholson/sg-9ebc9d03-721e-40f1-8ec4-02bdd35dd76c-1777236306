@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleService } from "@/services/roleService";
 import {
@@ -23,6 +23,14 @@ import {
   Shield,
   Loader2,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { UserRole } from "@/types/app";
 
 // Role icons mapping
 const roleIcons: Record<string, React.ReactNode> = {
@@ -121,14 +129,14 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
             >
               {roleIcons[role.department]}
               <span className="flex-1">
-                {roleService.getRoleDisplayName(role.department)}
+                {roleService.getRoleDisplayName(role.department as UserRole)}
               </span>
               {role.department === activeRole && (
                 <Badge variant="secondary" className="text-xs">
                   Active
                 </Badge>
               )}
-              {role.isPrimary && role.department !== activeRole && (
+              {role.is_primary && role.department !== activeRole && (
                 <Badge variant="outline" className="text-xs">
                   Primary
                 </Badge>
@@ -189,7 +197,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">
-                    {roleService.getRoleDisplayName(role.department)}
+                    {roleService.getRoleDisplayName(role.department as UserRole)}
                   </span>
                   {isActive && (
                     <Badge className={`text-xs ${currentRoleColor}`}>
@@ -197,7 +205,7 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
                     </Badge>
                   )}
                 </div>
-                {role.isPrimary && !isActive && (
+                {role.is_primary && !isActive && (
                   <p className="text-xs text-muted-foreground">
                     Primary dashboard
                   </p>

@@ -2,8 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
-import type { Database, Quote } from "@/integrations/supabase/types";
-import { AppOrder } from "@/types/app";
+import { AppOrder, Quote } from "@/types/app";
 import { regionService } from "./regionService";
 
 export const quoteService = {

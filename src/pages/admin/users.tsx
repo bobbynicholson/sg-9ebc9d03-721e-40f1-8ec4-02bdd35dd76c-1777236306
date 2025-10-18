@@ -27,6 +27,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService, UserWithDepartments } from "@/services/userManagementService";
+import type { DepartmentAssignment } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -123,7 +124,7 @@ function AdminUsersPage() {
     try {
       setSaving(true);
 
-      const assignments: DepartmentAssignment[] = selectedDepartments.map(dept => ({
+      const assignments: { department: UserRole; is_primary: boolean; }[] = selectedDepartments.map(dept => ({
         department: dept,
         is_primary: dept === primaryDepartment,
       }));

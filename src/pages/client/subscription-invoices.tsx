@@ -49,7 +49,7 @@ function SubscriptionInvoicesPage() {
     }
   };
 
-  const handleDownloadInvoice = async (subscriptionId: string, planType: string) => {
+  const handleDownloadInvoice = async (subscriptionId: string, planName: string) => {
     try {
       setDownloadingId(subscriptionId);
       const blob = await invoiceService.generateSubscriptionInvoice(subscriptionId);
@@ -148,7 +148,7 @@ function SubscriptionInvoicesPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg">
-                            {subscription.plan_type} Plan
+                            {subscription.plan_name} Plan
                           </CardTitle>
                           <p className="text-sm text-slate-600 mt-1">
                             Invoice Date: {formatDate(subscription.created_at)}
@@ -175,7 +175,7 @@ function SubscriptionInvoicesPage() {
                           </p>
                         </div>
                         <Button
-                          onClick={() => handleDownloadInvoice(subscription.id, subscription.plan_type)}
+                          onClick={() => handleDownloadInvoice(subscription.id, subscription.plan_name)}
                           disabled={downloadingId === subscription.id}
                           size="sm"
                         >

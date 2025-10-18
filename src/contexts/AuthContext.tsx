@@ -22,7 +22,7 @@ interface AuthContextType {
   error: string | null;
   userRoles: RoleAssignment[];
   activeRole: string;
-  switchRole: (newRole: string) => Promise<void>;
+  switchRole: (newRole: UserRole) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise<{ user: AuthUser | null; error: AuthError | null, companySlug?: string }>;
   signOut: () => Promise<void>;
@@ -123,11 +123,12 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         
         setUserRoles([{ 
           id: "demo-role", 
-          userId: demoUser.id, 
+          user_id: demoUser.id, 
           department: demoUser.role as any,
-          isPrimary: true,
-          assignedAt: new Date().toISOString(),
-          assignedBy: null
+          is_primary: true,
+          assigned_at: new Date().toISOString(),
+          assigned_by: null,
+          created_at: new Date().toISOString()
         }]);
         setActiveRole(demoUser.role);
       }
@@ -274,11 +275,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     };
   }, [isDemoMode, getDemoUser, router]);
 
-  const switchRole = async (newRole: string) => {
+  const switchRole = async (newRole: UserRole) => {
     if (isDemoMode || !user) return;
 
     try {
-      await roleService.switchRole(user.id, newRole as any);
+      await roleService.switchRole(user.id, newRole);
       setActiveRole(newRole);
       
       const dashboardUrl = roleService.getRoleDashboardUrl(

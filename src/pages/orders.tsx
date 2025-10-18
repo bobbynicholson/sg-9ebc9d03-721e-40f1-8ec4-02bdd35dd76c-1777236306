@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   Package
 } from "lucide-react";
-import { Quote, InventoryItem } from "@/types";
 import { Footer } from "@/components/Footer";
 import { mockOrders } from "@/lib/mockData";
 import { regionManagement } from "@/lib/regionManagement";
@@ -31,8 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AppOrder } from "@/types/app";
-import type { InventoryItem } from "@/types/app";
+import type { AppOrder, InventoryItem, Quote } from "@/types/app";
 import { orderService } from "@/services/orderService";
 
 interface OrdersPageProps {

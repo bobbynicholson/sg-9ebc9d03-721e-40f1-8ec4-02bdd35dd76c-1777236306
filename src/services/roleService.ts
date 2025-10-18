@@ -1,12 +1,23 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Database, Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 import { getRoleLandingPage } from "@/lib/authGuards";
 
 export type RoleAssignment = Tables<"user_departments">;
+export type UserDepartmentInsert = Database["public"]["Tables"]["user_departments"]["Insert"];
+
+const transformRoleAssignment = (role: RoleAssignment) => ({
+  id: role.id,
+  userId: role.user_id,
+  department: role.department as UserRole,
+  isPrimary: role.is_primary,
+  assignedAt: role.assigned_at,
+  assignedBy: role.assigned_by,
+  createdAt: role.created_at,
+});
 
 export const roleService = {
-  async getUserRoles(userId: string): Promise<RoleAssignment[]> {
+  async getUserRoles(userId: string): Promise<ReturnType<typeof transformRoleAssignment>[]> {
     try {
       const { data, error } = await supabase
         .from("user_departments")
@@ -19,14 +30,7 @@ export const roleService = {
         return [];
       }
 
-      return (data || []).map((dept) => ({
-        id: dept.id,
-        userId: dept.user_id,
-        department: dept.department as UserRole,
-        isPrimary: dept.is_primary || false,
-        assignedAt: dept.assigned_at || new Date().toISOString(),
-        assignedBy: dept.assigned_by,
-      }));
+      return (data || []).map(transformRoleAssignment);
     } catch (error) {
       console.error("Fatal error in getUserRoles:", error);
       return [];
@@ -139,7 +143,7 @@ export const roleService = {
         .eq("user_id", userId);
     }
 
-    const insert: UserDepartmentInsert = {
+    const insertData: UserDepartmentInsert = {
       user_id: userId,
       department,
       is_primary: isPrimary,
@@ -148,7 +152,7 @@ export const roleService = {
 
     const { error } = await supabase
       .from("user_departments")
-      .insert(insert);
+      .insert(insertData);
 
     if (error) {
       console.error("Error assigning role:", error);

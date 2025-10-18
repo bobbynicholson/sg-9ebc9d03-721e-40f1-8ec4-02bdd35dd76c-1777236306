@@ -5,6 +5,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Chicken Breast",
     category: "meat",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 89.99,
@@ -17,6 +18,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Beef Brisket",
     category: "meat",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 20,
     averageCost: 145.00,
@@ -28,6 +30,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Lamb Chops",
     category: "meat",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 15,
     averageCost: 189.99,
@@ -39,6 +42,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Pork Ribs",
     category: "meat",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 119.99,
@@ -50,6 +54,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Salmon Fillets",
     category: "meat",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 249.99,
@@ -61,6 +66,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Prawns",
     category: "meat",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 299.99,
@@ -72,6 +78,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Turkey Breast",
     category: "meat",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 95.00,
@@ -82,6 +89,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sausages (Boerewors)",
     category: "meat",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 20,
     averageCost: 79.99,
@@ -93,6 +101,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Potatoes",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 30,
     reorderPoint: 40,
     averageCost: 15.99,
@@ -104,6 +113,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Onions",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 12.99,
@@ -115,6 +125,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Tomatoes",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 22.99,
@@ -126,6 +137,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Lettuce",
     category: "vegetables",
+    unit: "heads",
     minimumStock: 15,
     reorderPoint: 20,
     averageCost: 8.99,
@@ -136,6 +148,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Carrots",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 20,
     averageCost: 14.99,
@@ -147,6 +160,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Bell Peppers",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 35.99,
@@ -158,6 +172,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Broccoli",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 28.99,
@@ -168,6 +183,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cauliflower",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 25.99,
@@ -178,6 +194,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Green Beans",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 32.99,
@@ -188,6 +205,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Butternut Squash",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 18.99,
@@ -198,6 +216,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Milk (Full Cream)",
     category: "dairy",
+    unit: "L",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 16.99,
@@ -209,6 +228,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cream",
     category: "dairy",
+    unit: "L",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 45.99,
@@ -219,6 +239,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Butter",
     category: "dairy",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 89.99,
@@ -230,6 +251,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cheddar Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 125.99,
@@ -240,6 +262,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Mozzarella Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 139.99,
@@ -250,6 +273,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Yogurt (Plain)",
     category: "dairy",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 32.99,
@@ -260,6 +284,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Rice (White)",
     category: "staples",
+    unit: "kg",
     minimumStock: 50,
     reorderPoint: 60,
     averageCost: 18.99,
@@ -271,6 +296,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Pasta (Penne)",
     category: "staples",
+    unit: "kg",
     minimumStock: 40,
     reorderPoint: 50,
     averageCost: 22.99,
@@ -281,6 +307,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Flour (All Purpose)",
     category: "staples",
+    unit: "kg",
     minimumStock: 60,
     reorderPoint: 70,
     averageCost: 12.99,
@@ -292,6 +319,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sugar (White)",
     category: "staples",
+    unit: "kg",
     minimumStock: 45,
     reorderPoint: 55,
     averageCost: 16.99,
@@ -302,6 +330,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Salt",
     category: "staples",
+    unit: "kg",
     minimumStock: 30,
     reorderPoint: 35,
     averageCost: 8.99,
@@ -312,6 +341,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Olive Oil",
     category: "staples",
+    unit: "L",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 89.99,
@@ -323,6 +353,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Vegetable Oil",
     category: "staples",
+    unit: "L",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 45.99,
@@ -333,6 +364,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Bread Rolls",
     category: "bakery",
+    unit: "units",
     minimumStock: 100,
     reorderPoint: 120,
     averageCost: 3.99,
@@ -344,6 +376,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Burger Buns",
     category: "bakery",
+    unit: "units",
     minimumStock: 75,
     reorderPoint: 90,
     averageCost: 2.99,
@@ -354,6 +387,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Garlic Bread",
     category: "bakery",
+    unit: "units",
     minimumStock: 40,
     reorderPoint: 50,
     averageCost: 12.99,
@@ -364,6 +398,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Black Pepper",
     category: "spices",
+    unit: "g",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 189.99,
@@ -374,6 +409,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Paprika",
     category: "spices",
+    unit: "g",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 145.99,
@@ -384,6 +420,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Curry Powder",
     category: "spices",
+    unit: "g",
     minimumStock: 6,
     reorderPoint: 7,
     averageCost: 125.99,
@@ -394,6 +431,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Garlic Powder",
     category: "spices",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 95.99,
@@ -404,6 +442,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Oregano",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 145.99,
@@ -414,6 +453,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Basil (Dried)",
     category: "spices",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 165.99,
@@ -424,6 +464,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Coca-Cola (2L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 50,
     reorderPoint: 60,
     averageCost: 18.99,
@@ -435,6 +476,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sprite (2L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 40,
     reorderPoint: 50,
     averageCost: 18.99,
@@ -445,6 +487,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Orange Juice (1L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 30,
     reorderPoint: 35,
     averageCost: 22.99,
@@ -455,6 +498,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Still Water (500ml)",
     category: "beverages",
+    unit: "units",
     minimumStock: 100,
     reorderPoint: 120,
     averageCost: 5.99,
@@ -466,6 +510,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sparkling Water (500ml)",
     category: "beverages",
+    unit: "units",
     minimumStock: 75,
     reorderPoint: 90,
     averageCost: 7.99,
@@ -476,6 +521,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Coffee Beans",
     category: "beverages",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 189.99,
@@ -486,6 +532,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Tea Bags (Black)",
     category: "beverages",
+    unit: "units",
     minimumStock: 250,
     reorderPoint: 300,
     averageCost: 0.89,
@@ -496,6 +543,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Frozen Peas",
     category: "frozen",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 28.99,
@@ -506,6 +554,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Frozen Mixed Vegetables",
     category: "frozen",
+    unit: "kg",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 32.99,
@@ -516,6 +565,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Ice Cream (Vanilla)",
     category: "frozen",
+    unit: "L",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 45.99,
@@ -526,6 +576,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Bacon",
     category: "meat",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 115.99,
@@ -536,6 +587,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Ground Beef",
     category: "meat",
+    unit: "kg",
     minimumStock: 18,
     reorderPoint: 22,
     averageCost: 95.99,
@@ -547,6 +599,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Steak (Sirloin)",
     category: "meat",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 189.99,
@@ -558,6 +611,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Chicken Thighs",
     category: "meat",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 69.99,
@@ -568,6 +622,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Duck Breast",
     category: "meat",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 225.99,
@@ -578,6 +633,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Tuna Steaks",
     category: "meat",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 279.99,
@@ -588,6 +644,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Calamari",
     category: "meat",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 189.99,
@@ -598,6 +655,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Mussels",
     category: "meat",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 145.99,
@@ -608,6 +666,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Asparagus",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 89.99,
@@ -618,6 +677,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Zucchini",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 24.99,
@@ -628,6 +688,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Eggplant",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 28.99,
@@ -638,6 +699,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Spinach",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 35.99,
@@ -648,6 +710,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Mushrooms (Button)",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 55.99,
@@ -658,6 +721,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sweet Corn",
     category: "vegetables",
+    unit: "units",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 22.99,
@@ -668,6 +732,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cucumber",
     category: "vegetables",
+    unit: "units",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 18.99,
@@ -678,6 +743,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sweet Potato",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 25,
     averageCost: 19.99,
@@ -688,6 +754,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Celery",
     category: "vegetables",
+    unit: "stalks",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 24.99,
@@ -698,6 +765,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Leeks",
     category: "vegetables",
+    unit: "stalks",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 35.99,
@@ -708,6 +776,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Parmesan Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 225.99,
@@ -718,6 +787,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Feta Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 145.99,
@@ -728,6 +798,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Sour Cream",
     category: "dairy",
+    unit: "L",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 45.99,
@@ -738,6 +809,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Eggs (Large)",
     category: "dairy",
+    unit: "units",
     minimumStock: 150,
     reorderPoint: 180,
     averageCost: 2.99,
@@ -749,6 +821,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Condensed Milk",
     category: "dairy",
+    unit: "cans",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 18.99,
@@ -759,6 +832,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Evaporated Milk",
     category: "dairy",
+    unit: "cans",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 14.99,
@@ -769,6 +843,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Basmati Rice",
     category: "staples",
+    unit: "kg",
     minimumStock: 35,
     reorderPoint: 42,
     averageCost: 32.99,
@@ -779,6 +854,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Quinoa",
     category: "staples",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 89.99,
@@ -789,6 +865,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Couscous",
     category: "staples",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 35.99,
@@ -799,6 +876,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Lentils (Red)",
     category: "staples",
+    unit: "kg",
     minimumStock: 18,
     reorderPoint: 22,
     averageCost: 28.99,
@@ -809,6 +887,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Chickpeas (Dried)",
     category: "staples",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 32.99,
@@ -819,6 +898,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Balsamic Vinegar",
     category: "staples",
+    unit: "L",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 65.99,
@@ -829,6 +909,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Soy Sauce",
     category: "staples",
+    unit: "L",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 45.99,
@@ -839,6 +920,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Worcestershire Sauce",
     category: "staples",
+    unit: "L",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 55.99,
@@ -849,6 +931,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Honey",
     category: "staples",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 125.99,
@@ -859,6 +942,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Maple Syrup",
     category: "staples",
+    unit: "L",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 189.99,
@@ -869,6 +953,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Tomato Paste",
     category: "staples",
+    unit: "g",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 8.99,
@@ -879,6 +964,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Diced Tomatoes (Canned)",
     category: "staples",
+    unit: "cans",
     minimumStock: 30,
     reorderPoint: 36,
     averageCost: 12.99,
@@ -889,6 +975,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Coconut Milk",
     category: "staples",
+    unit: "cans",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 18.99,
@@ -899,6 +986,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Peanut Butter",
     category: "staples",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 65.99,
@@ -909,6 +997,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Croissants",
     category: "bakery",
+    unit: "units",
     minimumStock: 50,
     reorderPoint: 60,
     averageCost: 6.99,
@@ -919,6 +1008,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Muffins (Blueberry)",
     category: "bakery",
+    unit: "units",
     minimumStock: 40,
     reorderPoint: 48,
     averageCost: 8.99,
@@ -929,6 +1019,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Bagels",
     category: "bakery",
+    unit: "units",
     minimumStock: 60,
     reorderPoint: 72,
     averageCost: 4.99,
@@ -939,6 +1030,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cake (Chocolate)",
     category: "bakery",
+    unit: "units",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 189.99,
@@ -949,6 +1041,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cupcakes (Assorted)",
     category: "bakery",
+    unit: "units",
     minimumStock: 30,
     reorderPoint: 36,
     averageCost: 12.99,
@@ -959,6 +1052,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cookies (Chocolate Chip)",
     category: "bakery",
+    unit: "units",
     minimumStock: 50,
     reorderPoint: 60,
     averageCost: 3.99,
@@ -969,6 +1063,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cinnamon",
     category: "spices",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 135.99,
@@ -979,6 +1074,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Cumin",
     category: "spices",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 115.99,
@@ -989,6 +1085,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Turmeric",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 125.99,
@@ -999,6 +1096,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Chili Powder",
     category: "spices",
+    unit: "g",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 95.99,
@@ -1009,6 +1107,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Thyme",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 155.99,
@@ -1019,6 +1118,7 @@ export const starterInventory: Omit<InventoryItem, "id" | "currentStock" | "last
   {
     name: "Rosemary",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 165.99,
@@ -1032,6 +1132,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Bay Leaves",
     category: "spices",
+    unit: "g",
     minimumStock: 1,
     reorderPoint: 2,
     averageCost: 175.99,
@@ -1042,6 +1143,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Nutmeg",
     category: "spices",
+    unit: "g",
     minimumStock: 1,
     reorderPoint: 1,
     averageCost: 285.99,
@@ -1052,6 +1154,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Ginger (Ground)",
     category: "spices",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 145.99,
@@ -1062,6 +1165,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Mustard Powder",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 95.99,
@@ -1072,6 +1176,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cayenne Pepper",
     category: "spices",
+    unit: "g",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 125.99,
@@ -1082,6 +1187,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Red Wine",
     category: "beverages",
+    unit: "bottles",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 89.99,
@@ -1092,6 +1198,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "White Wine",
     category: "beverages",
+    unit: "bottles",
     minimumStock: 18,
     reorderPoint: 22,
     averageCost: 85.99,
@@ -1102,6 +1209,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Champagne",
     category: "beverages",
+    unit: "bottles",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 189.99,
@@ -1112,6 +1220,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Beer (Lager)",
     category: "beverages",
+    unit: "cases",
     minimumStock: 50,
     reorderPoint: 60,
     averageCost: 18.99,
@@ -1122,6 +1231,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Lemonade (2L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 35,
     reorderPoint: 42,
     averageCost: 16.99,
@@ -1132,6 +1242,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Apple Juice (1L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 24.99,
@@ -1142,6 +1253,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cranberry Juice (1L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 28.99,
@@ -1152,6 +1264,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Iced Tea (1L)",
     category: "beverages",
+    unit: "L",
     minimumStock: 30,
     reorderPoint: 36,
     averageCost: 19.99,
@@ -1162,6 +1275,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Energy Drinks",
     category: "beverages",
+    unit: "cans",
     minimumStock: 40,
     reorderPoint: 48,
     averageCost: 22.99,
@@ -1172,6 +1286,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "French Fries (Frozen)",
     category: "frozen",
+    unit: "kg",
     minimumStock: 30,
     reorderPoint: 36,
     averageCost: 35.99,
@@ -1182,6 +1297,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pizza Bases (Frozen)",
     category: "frozen",
+    unit: "units",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 18.99,
@@ -1192,6 +1308,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Chicken Nuggets (Frozen)",
     category: "frozen",
+    unit: "kg",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 65.99,
@@ -1202,6 +1319,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Spring Rolls (Frozen)",
     category: "frozen",
+    unit: "units",
     minimumStock: 18,
     reorderPoint: 22,
     averageCost: 55.99,
@@ -1212,6 +1330,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Samosas (Frozen)",
     category: "frozen",
+    unit: "units",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 45.99,
@@ -1222,6 +1341,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Garlic (Fresh)",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 45.99,
@@ -1232,6 +1352,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Ginger (Fresh)",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 55.99,
@@ -1242,6 +1363,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Kale",
     category: "vegetables",
+    unit: "bunches",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 38.99,
@@ -1252,6 +1374,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Arugula",
     category: "vegetables",
+    unit: "g",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 42.99,
@@ -1262,6 +1385,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cabbage",
     category: "vegetables",
+    unit: "heads",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 12.99,
@@ -1272,6 +1396,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Radishes",
     category: "vegetables",
+    unit: "bunches",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 22.99,
@@ -1282,6 +1407,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Beets",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 24.99,
@@ -1292,6 +1418,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pumpkin",
     category: "vegetables",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 16.99,
@@ -1302,6 +1429,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Avocado",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 12.99,
@@ -1312,6 +1440,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Lemons",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 18.99,
@@ -1322,6 +1451,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Limes",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 20,
     reorderPoint: 24,
     averageCost: 22.99,
@@ -1332,6 +1462,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Oranges",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 30,
     reorderPoint: 36,
     averageCost: 16.99,
@@ -1342,6 +1473,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Apples (Granny Smith)",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 25,
     reorderPoint: 30,
     averageCost: 19.99,
@@ -1352,6 +1484,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Bananas",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 35,
     reorderPoint: 42,
     averageCost: 14.99,
@@ -1362,6 +1495,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Strawberries",
     category: "fresh_produce",
+    unit: "punnets",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 55.99,
@@ -1372,6 +1506,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Blueberries",
     category: "fresh_produce",
+    unit: "punnets",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 89.99,
@@ -1382,6 +1517,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Raspberries",
     category: "fresh_produce",
+    unit: "punnets",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 95.99,
@@ -1392,6 +1528,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Grapes (Green)",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 35.99,
@@ -1402,6 +1539,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Watermelon",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 45.99,
@@ -1412,6 +1550,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pineapple",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 28.99,
@@ -1422,6 +1561,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Mango",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 22.99,
@@ -1432,6 +1572,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Peaches",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 32.99,
@@ -1442,6 +1583,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Plums",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 28.99,
@@ -1452,6 +1594,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cherries",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 125.99,
@@ -1462,6 +1605,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Kiwi",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 45.99,
@@ -1472,6 +1616,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pears",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 25.99,
@@ -1482,6 +1627,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cantaloupe",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 35.99,
@@ -1492,6 +1638,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Papaya",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 28.99,
@@ -1502,6 +1649,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Passion Fruit",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 65.99,
@@ -1512,6 +1660,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Coconut (Fresh)",
     category: "fresh_produce",
+    unit: "units",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 18.99,
@@ -1522,6 +1671,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Dates",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 95.99,
@@ -1532,6 +1682,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Figs (Dried)",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 125.99,
@@ -1542,6 +1693,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Almonds",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 189.99,
@@ -1552,6 +1704,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cashews",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 225.99,
@@ -1562,6 +1715,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Walnuts",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 195.99,
@@ -1572,6 +1726,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pecans",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 245.99,
@@ -1582,6 +1737,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pistachios",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 285.99,
@@ -1592,6 +1748,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Sunflower Seeds",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 65.99,
@@ -1602,6 +1759,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pumpkin Seeds",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 85.99,
@@ -1612,6 +1770,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Chia Seeds",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 125.99,
@@ -1622,6 +1781,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Flaxseeds",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 95.99,
@@ -1632,6 +1792,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Raisins",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 55.99,
@@ -1642,6 +1803,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cranberries (Dried)",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 85.99,
@@ -1652,6 +1814,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Apricots (Dried)",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 95.99,
@@ -1662,6 +1825,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Prunes",
     category: "fresh_produce",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 75.99,
@@ -1672,6 +1836,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Chocolate Chips",
     category: "bakery",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 125.99,
@@ -1682,6 +1847,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cocoa Powder",
     category: "bakery",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 189.99,
@@ -1692,6 +1858,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Vanilla Extract",
     category: "bakery",
+    unit: "L",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 285.99,
@@ -1702,6 +1869,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Baking Powder",
     category: "bakery",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 45.99,
@@ -1712,6 +1880,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Baking Soda",
     category: "bakery",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 35.99,
@@ -1722,6 +1891,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Yeast (Active Dry)",
     category: "bakery",
+    unit: "g",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 125.99,
@@ -1732,6 +1902,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cornstarch",
     category: "bakery",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 32.99,
@@ -1742,6 +1913,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Icing Sugar",
     category: "bakery",
+    unit: "kg",
     minimumStock: 12,
     reorderPoint: 15,
     averageCost: 28.99,
@@ -1752,6 +1924,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Brown Sugar",
     category: "bakery",
+    unit: "kg",
     minimumStock: 15,
     reorderPoint: 18,
     averageCost: 24.99,
@@ -1762,6 +1935,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Gelatin",
     category: "bakery",
+    unit: "g",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 145.99,
@@ -1772,6 +1946,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Food Coloring (Assorted)",
     category: "bakery",
+    unit: "bottles",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 18.99,
@@ -1782,6 +1957,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Whipped Cream",
     category: "dairy",
+    unit: "cans",
     minimumStock: 18,
     reorderPoint: 22,
     averageCost: 22.99,
@@ -1792,6 +1968,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cream Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 95.99,
@@ -1802,6 +1979,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Mascarpone",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 165.99,
@@ -1812,6 +1990,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Ricotta Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 85.99,
@@ -1822,6 +2001,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Blue Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 195.99,
@@ -1832,6 +2012,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Goat Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 185.99,
@@ -1842,6 +2023,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Brie Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 225.99,
@@ -1852,6 +2034,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Camembert",
     category: "dairy",
+    unit: "kg",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 245.99,
@@ -1862,6 +2045,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Provolone",
     category: "dairy",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 155.99,
@@ -1872,6 +2056,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Swiss Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 165.99,
@@ -1882,6 +2067,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Colby Jack Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 10,
     reorderPoint: 12,
     averageCost: 135.99,
@@ -1892,6 +2078,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Monterey Jack Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 7,
     reorderPoint: 9,
     averageCost: 145.99,
@@ -1902,6 +2089,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Pepper Jack Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 155.99,
@@ -1912,6 +2100,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Havarti Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 175.99,
@@ -1922,6 +2111,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Gruyere Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 265.99,
@@ -1932,6 +2122,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Emmental Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 185.99,
@@ -1942,6 +2133,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Manchego Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 245.99,
@@ -1952,6 +2144,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Halloumi Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 6,
     reorderPoint: 8,
     averageCost: 165.99,
@@ -1962,6 +2155,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Paneer",
     category: "dairy",
+    unit: "kg",
     minimumStock: 8,
     reorderPoint: 10,
     averageCost: 125.99,
@@ -1972,6 +2166,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Queso Fresco",
     category: "dairy",
+    unit: "kg",
     minimumStock: 5,
     reorderPoint: 6,
     averageCost: 95.99,
@@ -1982,6 +2177,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Cotija Cheese",
     category: "dairy",
+    unit: "kg",
     minimumStock: 4,
     reorderPoint: 5,
     averageCost: 115.99,
@@ -1992,6 +2188,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Boursin Cheese",
     category: "dairy",
+    unit: "units",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 225.99,
@@ -2002,6 +2199,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Gorgonzola",
     category: "dairy",
+    unit: "kg",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 205.99,
@@ -2012,6 +2210,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Roquefort",
     category: "dairy",
+    unit: "kg",
     minimumStock: 2,
     reorderPoint: 3,
     averageCost: 285.99,
@@ -2022,6 +2221,7 @@ export const remainingStarterInventory: Omit<InventoryItem, "id" | "currentStock
   {
     name: "Stilton",
     category: "dairy",
+    unit: "kg",
     minimumStock: 3,
     reorderPoint: 4,
     averageCost: 265.99,

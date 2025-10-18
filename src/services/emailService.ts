@@ -127,7 +127,7 @@ export const emailService = {
         .select("body")
         .eq("user_id", payload.companyId)
         .eq("slug", payload.template)
-        .single<{ body: string }>();
+        .single();
 
       if (templateError || !templateData) {
         console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, Shield } from "lucide-react";
 import Link from "next/link";
 import { roleService } from "@/services/roleService";
+import { UserRole } from "@/types/app";
 
 // Portal Components for Driver, Shopping, Cleaning, Kitchen
 import DriverDashboard from "@/components/portals/driver/Dashboard";
@@ -175,12 +176,12 @@ export default function PortalPage() {
 
     // Handle redirects and route validation
     if (hasAccess) {
-      if (portalConfig.redirectRoutes && portalConfig.redirectRoutes[currentRoute]) {
-        router.push(portalConfig.redirectRoutes[currentRoute]);
+      if (portalConfig.redirectRoutes && (portalConfig.redirectRoutes as any)[currentRoute]) {
+        router.push((portalConfig.redirectRoutes as any)[currentRoute]);
         return;
       }
 
-      if (!portalConfig.routes[currentRoute]) {
+      if (!(portalConfig.routes as any)[currentRoute]) {
         router.push(`/${companySlug}/${portal}/${portalConfig.defaultRoute}`);
       }
     }
@@ -248,7 +249,7 @@ export default function PortalPage() {
 
   // Not authorized for this portal
   if (!isAuthorized) {
-    const userRolesList = userRoles.map(r => roleService.getRoleDisplayName(r.department)).join(", ");
+    const userRolesList = userRoles.map(r => roleService.getRoleDisplayName(r.department as UserRole)).join(", ");
     
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
@@ -262,7 +263,7 @@ export default function PortalPage() {
             <div className="space-y-2 mb-6">
               <p className="text-sm text-slate-500">
                 <strong>Required roles:</strong> {portalConfig.allowedRoles.map(r => 
-                  roleService.getRoleDisplayName(r as any)
+                  roleService.getRoleDisplayName(r as UserRole)
                 ).join(", ")}
               </p>
               <p className="text-sm text-slate-500">
@@ -271,7 +272,7 @@ export default function PortalPage() {
             </div>
             <div className="space-y-2">
               {userRoles.length > 0 && (
-                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department, userCompanySlug || undefined)}>
+                <Link href={roleService.getRoleDashboardUrl(userRoles[0].department as UserRole, userCompanySlug || undefined)}>
                   <Button className="w-full">Go to Your Dashboard</Button>
                 </Link>
               )}
@@ -286,7 +287,7 @@ export default function PortalPage() {
   }
 
   // Route component not found
-  const RouteComponent = portalConfig.routes[currentRoute];
+  const RouteComponent = (portalConfig.routes as any)[currentRoute];
   
   if (!RouteComponent) {
     return (
