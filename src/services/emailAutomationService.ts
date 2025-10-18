@@ -12,7 +12,7 @@ interface SendEmailPayload {
   subject: string;
   template?: string; // slug of the email template
   body?: string; // if no template is used
-  variables?: EmailVariables;
+  variables?: Record<string, any>;
 }
 
 export const emailAutomationService = {
@@ -32,7 +32,7 @@ export const emailAutomationService = {
     return data;
   },
 
-  replaceVariables(template: string, variables: EmailVariables = {}): string {
+  replaceVariables(template: string, variables: Record<string, any> = {}): string {
     let result = template;
     for (const [key, value] of Object.entries(variables)) {
       if (value !== undefined && value !== null) {

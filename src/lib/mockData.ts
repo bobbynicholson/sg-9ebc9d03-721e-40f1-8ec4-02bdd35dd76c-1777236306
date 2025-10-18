@@ -51,11 +51,13 @@ const defaultOrderValues = {
   whatsapp_notifications_sent: [],
   xero_invoice_id: null,
   xero_synced_at: null,
+  driver_id: null, // Keep for backward compatibility if needed, but assigned_driver_id is preferred
 };
 
 export const mockOrders: AppOrder[] = [
   {
-    // id: "1", // Duplicate removed
+    ...defaultOrderValues,
+    id: "1",
     user_id: "user-123",
     company_id: "comp-456",
     quote_id: "quote-789",
@@ -76,11 +78,8 @@ export const mockOrders: AppOrder[] = [
         { id: 'equip-1', name: 'Chafing Dish', quantity: 5, category: 'chafing' },
     ],
     kitchen_instructions: "Please ensure all chicken is well-done. One guest has a nut allergy.",
-    ...defaultOrderValues,
-    id: "1",
   },
   {
-    // id: "2", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-001",
     quote_id: "Q-001",
@@ -101,10 +100,10 @@ export const mockOrders: AppOrder[] = [
     driverName: "John Doe",
     total: 38700,
     kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
-    assigned_driver_id: "driver-b", // Corrected from driver_id
+    assigned_driver_id: "driver-b",
+    driver_id: "driver-b", // Added for consistency
   },
   {
-    // id: "3", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-002",
     quote_id: "Q-002",
@@ -143,11 +142,11 @@ export const mockOrders: AppOrder[] = [
     payment_reference: "PAY-456",
     amount_paid: 16100,
     requires_waiter: true,
-    kitchen_instructions: null, // Added missing property
-    assigned_driver_id: null, // Corrected from driver_id
+    kitchen_instructions: null,
+    assigned_driver_id: null,
+    driver_id: null, // Added for consistency
   },
   {
-    // id: "4", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-003",
     quote_id: "Q-003",
@@ -190,8 +189,9 @@ export const mockOrders: AppOrder[] = [
     delivery_time: new Date(Date.now() - 86400000 * 2).toISOString(),
     amount_paid: 62100,
     requires_waiter: false,
-    kitchen_instructions: null, // Added missing property
-    assigned_driver_id: "driver-c", // Corrected from driver_id
+    kitchen_instructions: null,
+    assigned_driver_id: "driver-c",
+    driver_id: "driver-c", // Added for consistency
   },
 ];
 
@@ -220,6 +220,7 @@ export const mockDeliveries: Delivery[] = [
 
 export const fullMockOrders: AppOrder[] = [
     {
+      ...defaultOrderValues,
       id: 'ORD-101',
       quote_id: 'Q-101',
       client_name: 'TechCorp Inc.',
@@ -234,8 +235,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-102',
       quote_id: 'Q-102',
       client_name: 'Innovate LLC',
@@ -250,8 +255,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-103',
       quote_id: 'Q-103',
       client_name: 'Solutions Ltd.',
@@ -266,8 +275,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-104',
       quote_id: 'Q-104',
       client_name: 'Future Systems',
@@ -282,8 +295,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-105',
       quote_id: 'Q-105',
       client_name: 'Global Ventures',
@@ -298,8 +315,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-106',
       quote_id: 'Q-106',
       client_name: 'Data Dynamics',
@@ -314,8 +335,12 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
     {
+      ...defaultOrderValues,
       id: 'ORD-107',
       quote_id: 'Q-107',
       client_name: 'Creative Minds',
@@ -330,5 +355,8 @@ export const fullMockOrders: AppOrder[] = [
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       kitchen_instructions: null,
+      menu_items: [],
+      equipment_items: [],
+      driver_id: null,
     },
 ].map(o => ({ ...defaultOrderValues, ...o, id: o.id || '' })); // Pad with default fields to satisfy type
