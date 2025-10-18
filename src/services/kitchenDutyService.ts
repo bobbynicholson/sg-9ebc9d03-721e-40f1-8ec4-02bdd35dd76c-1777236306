@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { emailAutomationService } from "./emailAutomationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { billingEmailService } from "./billingEmailService";
 
 type DutyShift = Database["public"]["Tables"]["kitchen_duty_shifts"]["Row"];
 type DutyShiftInsert = Database["public"]["Tables"]["kitchen_duty_shifts"]["Insert"];
@@ -69,7 +70,18 @@ export const kitchenDutyService = {
     if (error) throw error;
 
     // NOTIFICATION: Kitchen staff clocked in → Notification to admin
-    await this.sendStaffClockedInNotification(data);
+    if(data) {
+        await realtimeNotificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.user_id, // Admin
+            title: "Kitchen Staff Clocked In",
+            message: `A staff member has clocked in for kitchen duty.`,
+            notification_type: "info",
+            priority: "low",
+            link: `/admin/kitchen-duty-tracking`,
+        });
+    }
 
     return data;
   },
@@ -91,7 +103,18 @@ export const kitchenDutyService = {
     if (error) throw error;
 
     // NOTIFICATION: Kitchen staff clocked out → Notification to admin
-    await this.sendStaffClockedOutNotification(data);
+    if (data) {
+        await realtimeNotificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.user_id, // Admin
+            title: "Kitchen Staff Clocked Out",
+            message: `A staff member has clocked out from kitchen duty.`,
+            notification_type: "info",
+            priority: "low",
+            link: `/admin/kitchen-duty-tracking`,
+        });
+    }
 
     return data;
   },
@@ -183,11 +206,34 @@ export const kitchenDutyService = {
     if (error) throw error;
 
     // NOTIFICATION: Kitchen task completed → Notification to admin
-    await this.sendTaskCompletedNotification(data);
+    if (data) {
+        await realtimeNotificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.user_id, // Admin
+            title: "Kitchen Task Completed",
+            message: `Task "${data.task_type}" for order ${data.order_id} has been completed.`,
+            notification_type: "success",
+            priority: "medium",
+            link: `/orders/${data.order_id}`,
+        });
+    }
 
     // Check if this is a milestone task that affects driver
-    if (taskType === "prep_completed" || taskType === "all_tasks_completed") {
-      await this.sendMilestoneNotificationToDriver(data);
+    if ((taskType === "prep_completed" || taskType === "all_tasks_completed") && data.order_id) {
+        const { data: order } = await supabase.from('orders').select('assigned_driver_id').eq('id', data.order_id).single();
+        if (order?.assigned_driver_id) {
+            await realtimeNotificationService.createNotification({
+                company_id: data.company_id,
+                user_id: data.user_id,
+                recipient_id: order.assigned_driver_id,
+                title: `Order ${data.order_id} Ready for Pickup`,
+                message: `Kitchen tasks for order ${data.order_id} are complete.`,
+                notification_type: "info",
+                priority: "high",
+                link: `/drivers/deliveries`,
+            });
+        }
     }
 
     return data;
@@ -332,288 +378,20 @@ export const kitchenDutyService = {
     userId: string,
     staffId: string,
     orderId: string,
+    companyId: string,
     emergencyType: string,
     description: string
   ): Promise<void> {
     // NOTIFICATION: Kitchen emergency/issue → Urgent notification to admin
-    await this.sendEmergencyNotification(userId, staffId, orderId, emergencyType, description);
-  },
-
-  // NOTIFICATION METHODS
-
-  async sendStaffClockedInNotification(shift: DutyShift): Promise<void> {
-    try {
-      // Get staff and company details
-      const { data: staff } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, company_id")
-        .eq("id", shift.staff_id)
-        .single();
-
-      if (!staff) return;
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", staff.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Email to admin
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: "Kitchen Staff Clocked In",
-          template: "staff_clocked_in",
-          variables: {
-            companyName: company.company_name,
-            staffName: staff.full_name,
-            clockInTime: new Date(shift.shift_start).toLocaleString(),
-            orderId: shift.order_id || "N/A",
-          },
-          companyId: staff.company_id,
-        });
-      }
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: staff.company_id,
-        user_id: shift.user_id,
-        recipient_id: shift.user_id, // Notify the user who started the shift (admin)
-        title: "Kitchen Staff Clocked In",
-        message: `${staff.full_name} has clocked in for kitchen duty`,
-        notification_type: "info",
-        priority: "low",
-        link: `/admin/kitchen-duty-tracking`,
-      });
-    } catch (error) {
-      console.error("Error sending staff clocked in notification:", error);
-    }
-  },
-
-  async sendStaffClockedOutNotification(shift: DutyShift): Promise<void> {
-    try {
-      // Get staff and company details
-      const { data: staff } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, company_id")
-        .eq("id", shift.staff_id)
-        .single();
-
-      if (!staff) return;
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", staff.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Calculate shift duration
-      const duration = shift.shift_end
-        ? (new Date(shift.shift_end).getTime() - new Date(shift.shift_start).getTime()) / (1000 * 60 * 60)
-        : 0;
-
-      // Email to admin
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: "Kitchen Staff Clocked Out",
-          template: "staff_clocked_out",
-          variables: {
-            companyName: company.company_name,
-            staffName: staff.full_name,
-            clockOutTime: shift.shift_end ? new Date(shift.shift_end).toLocaleString() : "N/A",
-            duration: duration.toFixed(2),
-            notes: shift.notes || "No notes",
-          },
-          companyId: staff.company_id,
-        });
-      }
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: staff.company_id,
-        user_id: shift.user_id,
-        recipient_id: shift.user_id,
-        title: "Kitchen Staff Clocked Out",
-        message: `${staff.full_name} has clocked out. Duration: ${duration.toFixed(2)} hours`,
-        notification_type: "info",
-        priority: "low",
-        link: `/admin/kitchen-duty-tracking`,
-      });
-    } catch (error) {
-      console.error("Error sending staff clocked out notification:", error);
-    }
-  },
-
-  async sendTaskCompletedNotification(task: TaskCompletion): Promise<void> {
-    try {
-      // Get staff, order, and company details
-      const { data: staff } = await supabase
-        .from("profiles")
-        .select("id, full_name, company_id")
-        .eq("id", task.staff_id)
-        .single();
-
-      if (!staff) return;
-
-      const { data: order } = await supabase
-        .from("orders")
-        .select("id, order_number, client_name")
-        .eq("id", task.order_id)
-        .single();
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: staff.company_id,
-        user_id: task.user_id,
-        recipient_id: task.user_id,
-        title: "Kitchen Task Completed",
-        message: `${staff.full_name} completed: ${task.task_type} for order ${order?.order_number || "N/A"}`,
-        notification_type: "success",
-        priority: "medium",
-        link: `/orders/${task.order_id}`,
-      });
-    } catch (error) {
-      console.error("Error sending task completed notification:", error);
-    }
-  },
-
-  async sendMilestoneNotificationToDriver(task: TaskCompletion): Promise<void> {
-    try {
-      // Get order and driver details
-      const { data: order } = await supabase
-        .from("orders")
-        .select("id, order_number, driver_id, company_id")
-        .eq("id", task.order_id)
-        .single();
-
-      if (!order || !order.driver_id) return;
-
-      const { data: driver } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, phone")
-        .eq("id", order.driver_id)
-        .single();
-
-      if (!driver) return;
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name")
-        .eq("id", order.company_id)
-        .single();
-
-      if (!company) return;
-
-      const milestoneMessage = task.task_type === "all_tasks_completed"
-        ? "All kitchen tasks are complete! Ready for pickup."
-        : "Kitchen prep milestone reached";
-
-      // Email to driver
-      if (driver.email) {
-        await emailAutomationService.sendEmail({
-          to: driver.email,
-          subject: "Kitchen Update - Order Ready",
-          template: "kitchen_milestone",
-          variables: {
-            companyName: company.company_name,
-            driverName: driver.full_name,
-            orderNumber: order.order_number,
-            milestone: milestoneMessage,
-            orderUrl: `${window.location.origin}/orders/${order.id}`,
-          },
-          companyId: order.company_id,
-        });
-      }
-
-      // WhatsApp to driver (if phone provided)
-      if (driver.phone) {
-        // WhatsApp integration would go here
-        console.log("WhatsApp notification to driver:", driver.phone);
-      }
-
-      // Portal notification to driver
-      await realtimeNotificationService.createNotification({
-        company_id: order.company_id,
-        user_id: order.user_id, // The user who triggered the original action
-        recipient_id: driver.id,
-        title: "Kitchen Milestone Reached",
-        message: `${milestoneMessage} for order ${order.order_number}`,
-        notification_type: "info",
-        priority: "high",
-        link: `/orders/${order.id}`,
-      });
-    } catch (error) {
-      console.error("Error sending milestone notification to driver:", error);
-    }
-  },
-
-  async sendEmergencyNotification(
-    userId: string,
-    staffId: string,
-    orderId: string,
-    emergencyType: string,
-    description: string
-  ): Promise<void> {
-    try {
-      // Get staff, order, and company details
-      const { data: staff } = await supabase
-        .from("profiles")
-        .select("id, full_name, company_id")
-        .eq("id", staffId)
-        .single();
-
-      if (!staff) return;
-
-      const { data: order } = await supabase
-        .from("orders")
-        .select("id, order_number, client_name")
-        .eq("id", orderId)
-        .single();
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", staff.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Urgent email to admin
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: `🚨 URGENT: Kitchen Emergency - ${emergencyType}`,
-          template: "kitchen_emergency",
-          variables: {
-            companyName: company.company_name,
-            staffName: staff.full_name,
-            emergencyType: emergencyType,
-            description: description,
-            orderNumber: order?.order_number || "N/A",
-            orderUrl: `${window.location.origin}/orders/${orderId}`,
-          },
-          companyId: staff.company_id,
-        });
-      }
-
-      // Urgent portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: staff.company_id,
-        user_id: userId,
-        recipient_id: userId,
-        title: `🚨 Kitchen Emergency: ${emergencyType}`,
-        message: `${staff.full_name} reported: ${description}`,
+    await realtimeNotificationService.createNotification({
+        company_id: companyId,
+        user_id: staffId,
+        recipient_id: userId, // Admin
+        title: `🚨 KITCHEN EMERGENCY: ${emergencyType}`,
+        message: `Emergency reported for order ${orderId}: ${description}`,
         notification_type: "error",
         priority: "urgent",
         link: `/orders/${orderId}`,
-      });
-    } catch (error) {
-      console.error("Error sending emergency notification:", error);
-    }
+    });
   },
 };

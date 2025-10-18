@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { emailAutomationService } from "./emailAutomationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { billingEmailService } from "./billingEmailService";
 
 export type ShoppingList = Tables<"shopping_lists">;
 export type ShoppingListItem = Tables<"shopping_list_items">;
@@ -51,9 +52,17 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping list created → Notification to shopper
     if (data) {
-      await this.sendShoppingListCreatedNotification(data);
+       await realtimeNotificationService.createNotification({
+        company_id: data.company_id,
+        user_id: data.user_id,
+        recipient_id: data.user_id, // Admin
+        title: "New Shopping List Created",
+        message: `A new shopping list for ${new Date(data.list_date).toLocaleDateString()} has been created.`,
+        notification_type: "info",
+        priority: "low",
+        link: `/shopping?list_id=${data.id}`,
+      });
     }
 
     return data;
@@ -75,9 +84,33 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping list assigned → Email + WhatsApp to assigned shopper
-    if (data && shopperEmail) {
-      await this.sendShoppingListAssignedNotification(data, shopperEmail, shopperPhone);
+    if (data && data.shopper_id) {
+        const { data: shopperProfile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", data.shopper_id)
+            .single();
+
+        if (shopperProfile?.email) {
+            await billingEmailService.sendStaffInvitationEmail(
+                shopperProfile.email,
+                "Admin", // placeholder
+                "Your Company", // placeholder
+                `${window.location.origin}/shopping?list_id=${listId}`,
+                data.company_id
+            );
+        }
+
+        await realtimeNotificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.shopper_id,
+            title: "You've been assigned a shopping list",
+            message: `You have been assigned the shopping list for ${new Date(data.list_date).toLocaleDateString()}`,
+            notification_type: "info",
+            priority: "medium",
+            link: `/shopping?list_id=${listId}`,
+        });
     }
 
     return data;
@@ -100,9 +133,17 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping started → Notification to admin
     if (data) {
-      await this.sendShoppingStartedNotification(data);
+       await realtimeNotificationService.createNotification({
+        company_id: data.company_id,
+        user_id: data.user_id,
+        recipient_id: data.user_id, // Admin
+        title: "Shopping Has Started",
+        message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} has begun.`,
+        notification_type: "info",
+        priority: "low",
+        link: `/shopping?list_id=${listId}`,
+      });
     }
 
     return data;
@@ -126,9 +167,17 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping completed → Notification to admin + kitchen
     if (data) {
-      await this.sendShoppingCompletedNotification(data);
+        await realtimeNotificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.user_id, // Admin
+            title: "Shopping Completed",
+            message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} is complete.`,
+            notification_type: "success",
+            priority: "medium",
+            link: `/shopping?list_id=${listId}`,
+        });
     }
 
     return data;
@@ -285,293 +334,5 @@ export const shoppingService = {
     }
 
     return data;
-  },
-
-  // NOTIFICATION METHODS
-
-  async sendShoppingListCreatedNotification(list: ShoppingList): Promise<void> {
-    try {
-      // Get company details
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name")
-        .eq("id", list.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "Shopping List Created",
-        message: `A new shopping list has been created for ${list.list_date}`,
-        notification_type: "info",
-        priority: "medium",
-        link: `/shopping/${list.id}`,
-      });
-    } catch (error) {
-      console.error("Error sending shopping list created notification:", error);
-    }
-  },
-
-  async sendShoppingListAssignedNotification(list: ShoppingList, shopperEmail: string, shopperPhone?: string): Promise<void> {
-    try {
-      // Get company details
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name")
-        .eq("id", list.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Email to assigned shopper
-      await emailAutomationService.sendEmail({
-        to: shopperEmail,
-        subject: "Shopping Assignment",
-        template: "shopping_assignment",
-        variables: {
-          companyName: company.company_name,
-          listDate: list.list_date,
-          listUrl: `${window.location.origin}/shopping/${list.id}`,
-        },
-        companyId: list.company_id,
-      });
-
-      // WhatsApp to assigned shopper (if phone provided)
-      if (shopperPhone) {
-        // WhatsApp integration would go here
-        console.log("WhatsApp notification to shopper:", shopperPhone);
-      }
-
-      // Portal notification to shopper
-      if (list.shopper_id) {
-        await realtimeNotificationService.createNotification({
-          company_id: list.company_id,
-          user_id: list.user_id,
-          recipient_id: list.shopper_id,
-          title: "Shopping Assignment",
-          message: `You have been assigned a shopping list for ${list.list_date}`,
-          notification_type: "info",
-          priority: "high",
-          link: `/shopping/${list.id}`,
-        });
-      }
-    } catch (error) {
-      console.error("Error sending shopping list assigned notification:", error);
-    }
-  },
-
-  async sendShoppingStartedNotification(list: ShoppingList): Promise<void> {
-    try {
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "Shopping Started",
-        message: `Shopping has started for the list dated ${list.list_date}`,
-        notification_type: "info",
-        priority: "medium",
-        link: `/shopping/${list.id}`,
-      });
-    } catch (error) {
-      console.error("Error sending shopping started notification:", error);
-    }
-  },
-
-  async sendShoppingCompletedNotification(list: ShoppingList): Promise<void> {
-    try {
-      // Get company details
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", list.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Email to admin
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: "Shopping Completed",
-          template: "shopping_completed",
-          variables: {
-            companyName: company.company_name,
-            listDate: list.list_date,
-            totalCost: list.total_cost?.toString() || "N/A",
-            listUrl: `${window.location.origin}/shopping/${list.id}`,
-          },
-          companyId: list.company_id,
-        });
-      }
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "Shopping Completed",
-        message: `Shopping has been completed for ${list.list_date}. Total cost: ${list.total_cost || "N/A"}`,
-        notification_type: "success",
-        priority: "high",
-        link: `/shopping/${list.id}`,
-      });
-
-      // Portal notification to kitchen staff
-      const { data: kitchenStaff } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("company_id", list.company_id)
-        .eq("role", "kitchen");
-
-      if (kitchenStaff) {
-        for (const staff of kitchenStaff) {
-          await realtimeNotificationService.createNotification({
-            company_id: list.company_id,
-            user_id: list.user_id,
-            recipient_id: staff.id,
-            title: "Shopping Delivered",
-            message: `Shopping for ${list.list_date} has been completed and is ready for use`,
-            notification_type: "info",
-            priority: "medium",
-            link: `/shopping/${list.id}`,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error sending shopping completed notification:", error);
-    }
-  },
-
-  async sendItemPurchasedNotification(item: ShoppingListItem): Promise<void> {
-    try {
-      // Get shopping list details
-      const { data: list } = await supabase
-        .from("shopping_lists")
-        .select("company_id, user_id")
-        .eq("id", item.shopping_list_id)
-        .single();
-
-      if (!list) return;
-
-      // Real-time portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "Item Purchased",
-        message: `${item.item_name} has been purchased - ${item.quantity} ${item.unit}`,
-        notification_type: "info",
-        priority: "low",
-        link: `/shopping/${item.shopping_list_id}`,
-      });
-    } catch (error) {
-      console.error("Error sending item purchased notification:", error);
-    }
-  },
-
-  async sendReceiptUploadedNotification(list: ShoppingList): Promise<void> {
-    try {
-      // Get company details
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", list.company_id)
-        .single();
-
-      if (!company) return;
-
-      // Email to admin for approval
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: "Receipt Uploaded - Approval Required",
-          template: "receipt_uploaded",
-          variables: {
-            companyName: company.company_name,
-            listDate: list.list_date,
-            totalCost: list.total_cost?.toString() || "N/A",
-            receiptUrl: list.receipt_url || "",
-            listUrl: `${window.location.origin}/shopping/${list.id}`,
-          },
-          companyId: list.company_id,
-        });
-      }
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "Receipt Uploaded",
-        message: `Shopping receipt for ${list.list_date} has been uploaded. Total: ${list.total_cost || "N/A"}. Please review.`,
-        notification_type: "info",
-        priority: "high",
-        link: `/shopping/${list.id}`,
-      });
-    } catch (error) {
-      console.error("Error sending receipt uploaded notification:", error);
-    }
-  },
-
-  async sendBudgetExceededNotification(listId: string, estimatedBudget: number, actualCost: number): Promise<void> {
-    try {
-      // Get shopping list and company details
-      const { data: list } = await supabase
-        .from("shopping_lists")
-        .select("company_id, user_id, list_date")
-        .eq("id", listId)
-        .single();
-
-      if (!list) return;
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, company_name, admin_email")
-        .eq("id", list.company_id)
-        .single();
-
-      if (!company) return;
-
-      const overage = actualCost - estimatedBudget;
-      const overagePercentage = ((overage / estimatedBudget) * 100).toFixed(1);
-
-      // Email alert to admin
-      if (company.admin_email) {
-        await emailAutomationService.sendEmail({
-          to: company.admin_email,
-          subject: "⚠️ Shopping Budget Exceeded",
-          template: "budget_exceeded",
-          variables: {
-            companyName: company.company_name,
-            listDate: list.list_date,
-            estimatedBudget: estimatedBudget.toString(),
-            actualCost: actualCost.toString(),
-            overage: overage.toString(),
-            overagePercentage: overagePercentage,
-            listUrl: `${window.location.origin}/shopping/${listId}`,
-          },
-          companyId: list.company_id,
-        });
-      }
-
-      // Portal notification to admin
-      await realtimeNotificationService.createNotification({
-        company_id: list.company_id,
-        user_id: list.user_id,
-        recipient_id: list.user_id,
-        title: "⚠️ Budget Exceeded",
-        message: `Shopping for ${list.list_date} exceeded budget by ${overagePercentage}%. Estimated: ${estimatedBudget}, Actual: ${actualCost}`,
-        notification_type: "warning",
-        priority: "urgent",
-        link: `/shopping/${listId}`,
-      });
-    } catch (error) {
-      console.error("Error sending budget exceeded notification:", error);
-    }
   },
 };

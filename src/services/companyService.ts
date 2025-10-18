@@ -90,6 +90,7 @@ export const companyService = {
           await emailAutomationService.sendCompanyWelcomeEmail(
             data.email,
             data.name,
+            company.id, // Pass companyId
             data.slug,
             profile?.full_name || "there"
           );

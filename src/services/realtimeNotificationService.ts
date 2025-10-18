@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, Json } from "@/integrations/supabase/types";
+import type { Tables, Json, Database } from "@/integrations/supabase/types";
 
 export type Notification = Tables<"notifications">;
 export type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"];
