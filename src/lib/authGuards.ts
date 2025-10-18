@@ -186,18 +186,21 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   client: "Client",
 };
 
-// Default landing pages for each role - FIXED TO USE COMPANY-SCOPED URLs
+// Default landing pages for each role - FIXED TO USE ACTUAL WORKING PORTAL URLS
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   super_admin: () => "/cateringms-platform/dashboard",
   admin: (slug) => `/${slug || "my-company"}/admin/dashboard`,
   owner: (slug) => `/${slug || "my-company"}/admin/dashboard`,
-  kitchen: (slug) => `/${slug || "my-company"}/kitchen/dashboard`,
-  kitchen_staff: (slug) => `/${slug || "my-company"}/kitchen/dashboard`,
-  shopping: (slug) => `/${slug || "my-company"}/shopping/dashboard`,
-  shopping_staff: (slug) => `/${slug || "my-company"}/shopping/dashboard`,
-  driver: (slug) => `/${slug || "my-company"}/driver/dashboard`,
-  cleaning: (slug) => `/${slug || "my-company"}/cleaning/dashboard`,
-  cleaning_staff: (slug) => `/${slug || "my-company"}/cleaning/dashboard`,
+  
+  // STAFF PORTALS: Use actual working URLs (not company-scoped)
+  kitchen: () => "/kitchen",
+  kitchen_staff: () => "/kitchen",
+  shopping: () => "/shopping",
+  shopping_staff: () => "/shopping",
+  driver: () => "/drivers",
+  cleaning: () => "/cleaning",
+  cleaning_staff: () => "/cleaning",
+  
   client: () => "/client-portal",
 };
 
