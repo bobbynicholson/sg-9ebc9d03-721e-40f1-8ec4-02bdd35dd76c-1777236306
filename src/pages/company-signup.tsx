@@ -12,6 +12,7 @@ import { authService } from "@/services/authService";
 import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
+import { supabase } from "@/lib/supabase";
 
 const CURRENCIES = [
   { code: "ZAR", name: "South African Rand", symbol: "R" },
@@ -155,14 +156,15 @@ export default function CompanySignupPage() {
     }
 
     try {
-      // 1. Create user account with "admin" role
+      // 1. Create user account with "admin" role and company metadata
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         formData.ownerName,
         "admin",
         formData.currency,
-        formData.phone
+        formData.phone,
+        formData.companyName  // Pass company name to auth service
       );
 
       if (signUpError) {
@@ -177,6 +179,8 @@ export default function CompanySignupPage() {
         return;
       }
 
+      console.log("✅ User created:", user.id);
+
       // 2. Create company record
       const companyResult = await companyService.createCompany({
         name: formData.companyName,
@@ -188,25 +192,51 @@ export default function CompanySignupPage() {
         status: "active"
       });
 
-      if (!companyResult.success) {
+      if (!companyResult.success || !companyResult.company) {
         setError(companyResult.error || "Failed to create company. Please contact support.");
         setLoading(false);
         return;
       }
 
-      // 3. Update user profile with company_slug
-      await companyService.updateUserCompany(user.id, companySlug);
+      console.log("✅ Company created:", companyResult.company.id);
 
-      // 4. **BUG FIX**: Assign admin role to user_departments table
+      // 3. **CRITICAL FIX**: Wait a moment for profile to be created by database trigger
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 4. **CRITICAL FIX**: Update user profile with company linkage
       try {
-        await roleService.assignRole(user.id, "admin", user.id, true);
-        console.log("Successfully assigned admin role to company owner");
-      } catch (roleError) {
-        console.error("Error assigning admin role:", roleError);
-        // Don't fail the signup, but log the error
+        const { error: profileUpdateError } = await supabase
+          .from("profiles")
+          .update({
+            company_id: companyResult.company.id,
+            company_slug: companySlug,
+            active_role: "admin"
+          })
+          .eq("id", user.id);
+
+        if (profileUpdateError) {
+          console.error("Profile update error:", profileUpdateError);
+          throw profileUpdateError;
+        }
+
+        console.log("✅ Profile linked to company");
+      } catch (profileError) {
+        console.error("Critical error linking profile to company:", profileError);
+        setError("Account created but failed to link to company. Please contact support with reference: " + user.id);
+        setLoading(false);
+        return;
       }
 
-      // 5. Auto-login the user
+      // 5. **CRITICAL FIX**: Assign admin role to user_departments table
+      try {
+        await roleService.assignRole(user.id, "admin", user.id, true);
+        console.log("✅ Admin role assigned to user_departments");
+      } catch (roleError) {
+        console.error("Error assigning admin role:", roleError);
+        // Don't fail the signup for role assignment issues
+      }
+
+      // 6. Auto-login the user
       const { error: signInError } = await authService.signIn(
         formData.email,
         formData.password
@@ -220,6 +250,8 @@ export default function CompanySignupPage() {
         }, 3000);
         return;
       }
+
+      console.log("✅ User auto-logged in");
 
       // Show success message
       setSuccess(true);
