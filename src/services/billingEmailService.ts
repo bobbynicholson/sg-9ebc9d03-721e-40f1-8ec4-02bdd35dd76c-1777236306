@@ -294,7 +294,7 @@ export class BillingEmailService {
       subject: "CateringMS Notification",
       body: "<p>You have a notification from CateringMS.</p>"
     };
-  },
+  }
 
   // ==================== EMAIL SENDING ====================
 
@@ -328,7 +328,7 @@ export class BillingEmailService {
       console.error("Error sending email:", error);
       return false;
     }
-  },
+  }
 
   // ==================== AUTOMATED NOTIFICATIONS ====================
 
@@ -349,7 +349,7 @@ export class BillingEmailService {
       nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
       subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
-  },
+  }
 
   async notifyPaymentSucceeded(userId: string, payment: any) {
     const { data: profile } = await supabase
@@ -370,7 +370,7 @@ export class BillingEmailService {
       nextBillingDate: payment.next_billing_date ? new Date(payment.next_billing_date).toLocaleDateString() : 'N/A',
       invoiceUrl: payment.invoice_pdf_url || `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
-  },
+  }
 
   async notifyPaymentFailed(userId: string, payment: any) {
     const { data: profile } = await supabase
@@ -388,7 +388,7 @@ export class BillingEmailService {
       failureReason: payment.failed_reason || "Payment method declined",
       updatePaymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
-  },
+  }
 
   async notifyTrialEnding(userId: string, daysRemaining: number, trialEndDate: string, stats: any) {
     const { data: profile } = await supabase
@@ -408,7 +408,7 @@ export class BillingEmailService {
       ordersCreated: stats.orders || 0,
       pricingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`
     });
-  },
+  }
 
   async notifySubscriptionExpiring(userId: string, subscription: any, daysUntilRenewal: number) {
     const { data: profile } = await supabase
@@ -428,7 +428,7 @@ export class BillingEmailService {
       paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
       subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
-  },
+  }
 
   async notifyPriceChange(userId: string, priceChange: any) {
     const { data: profile } = await supabase
@@ -448,7 +448,7 @@ export class BillingEmailService {
       explanation: priceChange.exchange_rate_info || "To maintain service quality and continue development of new features.",
       subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
-  },
+  }
 
   async notifySubscriptionCancelled(userId: string, subscription: any, cancelType: string) {
     const { data: profile } = await supabase
@@ -468,7 +468,7 @@ export class BillingEmailService {
       reactivateUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`,
       feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/feedback`
     });
-  },
+  }
 
   async notifySubscriptionReactivated(userId: string, subscription: any) {
     const { data: profile } = await supabase
@@ -486,7 +486,7 @@ export class BillingEmailService {
       nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
       dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard`
     });
-  },
+  }
 
   async notifyAccountDeletionScheduled(userId: string, deletionRequest: any) {
     const { data: profile } = await supabase
@@ -557,7 +557,7 @@ export class BillingEmailService {
     });
   }
 
-  async sendStaffInvitationEmail(to: string, inviterName: string, companyName: string, joinUrl: string): Promise<void> {
+  async sendStaffInvitationEmail(to: string, inviterName: string, companyName: string, joinUrl: string, companyId?: string): Promise<void> {
     await this.sendEmail(to, "staff_invitation", {
       inviterName,
       companyName,
