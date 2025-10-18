@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -29,6 +28,13 @@ import { leadService } from "@/services/leadService";
 import type { DisplayLead } from "@/types/app";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Tables } from "@/integrations/supabase/types";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";
 

@@ -126,12 +126,12 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUserRoles([{ 
           id: "demo-role", 
           user_id: demoUser.id, 
-          department: demoUser.role,
+          department: demoUser.role as UserRole,
           is_primary: true,
           assigned_at: new Date().toISOString(),
           assigned_by: "system",
           created_at: new Date().toISOString()
-        } as RoleAssignment]);
+        }]);
         setActiveRole(demoUser.role);
       }
       setLoading(false);
