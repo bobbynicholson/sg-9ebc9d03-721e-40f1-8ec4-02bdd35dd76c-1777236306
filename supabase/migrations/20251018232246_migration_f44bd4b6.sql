@@ -1,3 +1,4 @@
+-- Apply the corrected migration
 -- Create default email templates for new companies
 -- This migration ensures every company has the necessary email templates
 -- Using correct template_type values from the constraint

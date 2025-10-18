@@ -7889,6 +7889,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_default_email_templates: {
+        Args: { company_user_id: string }
+        Returns: undefined
+      }
       decrement_equipment_quantity: {
         Args: { p_equipment_id: string; p_quantity_to_decrement: number }
         Returns: undefined
