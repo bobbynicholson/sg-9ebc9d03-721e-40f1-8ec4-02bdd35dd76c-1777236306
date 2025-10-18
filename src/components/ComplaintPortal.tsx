@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -127,35 +126,36 @@ export function ComplaintPortal() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-orange-50">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg">
-                <AlertTriangle className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <CardTitle className="text-2xl">Complaint Portal</CardTitle>
-                <p className="text-sm text-slate-600">We take your feedback seriously</p>
+                <CardTitle className="text-xl sm:text-2xl">Complaint Portal</CardTitle>
+                <p className="text-xs sm:text-sm text-slate-600">We take your feedback seriously</p>
               </div>
             </div>
             <Dialog open={showNewComplaintForm} onOpenChange={setShowNewComplaintForm}>
               <DialogTrigger asChild>
-                <Button className="bg-red-600 hover:bg-red-700">
+                <Button className="bg-red-600 hover:bg-red-700 w-full sm:w-auto h-11">
                   <AlertTriangle className="w-4 h-4 mr-2" />
                   Submit Complaint
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Submit a Complaint</DialogTitle>
+              <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader className="pb-4">
+                  <DialogTitle className="text-lg sm:text-xl">Submit a Complaint</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Order ID</Label>
+                    <Label className="text-sm sm:text-base">Order ID</Label>
                     <Input
                       placeholder="ORD-001"
+                      className="h-11"
                       value={newComplaint.orderId || ""}
                       onChange={(e) =>
                         setNewComplaint({ ...newComplaint, orderId: e.target.value })
@@ -164,14 +164,14 @@ export function ComplaintPortal() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label className="text-sm sm:text-base">Category</Label>
                     <Select
                       value={newComplaint.category}
                       onValueChange={(value) =>
                         setNewComplaint({ ...newComplaint, category: value as Complaint["category"] })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -186,14 +186,14 @@ export function ComplaintPortal() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Priority</Label>
+                    <Label className="text-sm sm:text-base">Priority</Label>
                     <Select
                       value={newComplaint.priority}
                       onValueChange={(value) =>
                         setNewComplaint({ ...newComplaint, priority: value as Complaint["priority"] })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -205,9 +205,10 @@ export function ComplaintPortal() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Subject</Label>
+                    <Label className="text-sm sm:text-base">Subject</Label>
                     <Input
                       placeholder="Brief description of the issue"
+                      className="h-11"
                       value={newComplaint.subject || ""}
                       onChange={(e) =>
                         setNewComplaint({ ...newComplaint, subject: e.target.value })
@@ -216,10 +217,11 @@ export function ComplaintPortal() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Detailed Description</Label>
+                    <Label className="text-sm sm:text-base">Detailed Description</Label>
                     <Textarea
                       placeholder="Please provide as much detail as possible about your complaint..."
                       rows={6}
+                      className="min-h-[120px]"
                       value={newComplaint.description || ""}
                       onChange={(e) =>
                         setNewComplaint({ ...newComplaint, description: e.target.value })
@@ -228,21 +230,22 @@ export function ComplaintPortal() {
                   </div>
 
                   <Alert>
-                    <AlertDescription>
+                    <AlertDescription className="text-xs sm:text-sm">
                       We aim to respond to all complaints within 24 hours. High priority issues will be addressed immediately.
                     </AlertDescription>
                   </Alert>
 
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-4">
                     <Button
                       variant="outline"
+                      className="w-full sm:w-auto h-11"
                       onClick={() => setShowNewComplaintForm(false)}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSubmitComplaint}
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-red-600 hover:bg-red-700 w-full sm:w-auto h-11"
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Submit Complaint
@@ -255,70 +258,74 @@ export function ComplaintPortal() {
         </CardHeader>
       </Card>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {complaints.length === 0 ? (
           <Card className="border-0 shadow-lg">
-            <CardContent className="pt-12 pb-12 text-center">
-              <CheckCircle2 className="w-16 h-16 mx-auto text-green-500 mb-4" />
-              <p className="text-lg font-semibold text-slate-900 mb-2">No complaints submitted</p>
-              <p className="text-slate-600">We're glad everything is going smoothly!</p>
+            <CardContent className="py-8 sm:py-12 text-center px-4">
+              <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-green-500 mb-3 sm:mb-4" />
+              <p className="text-base sm:text-lg font-semibold text-slate-900 mb-2">No complaints submitted</p>
+              <p className="text-sm sm:text-base text-slate-600">We're glad everything is going smoothly!</p>
             </CardContent>
           </Card>
         ) : (
           complaints.map((complaint) => (
             <Card key={complaint.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg">{complaint.subject}</h3>
-                      <Badge className={getStatusColor(complaint.status)}>
-                        {getStatusIcon(complaint.status)}
-                        <span className="ml-1">{complaint.status.replace("_", " ")}</span>
-                      </Badge>
-                      <Badge className={getPriorityColor(complaint.priority)}>
-                        {complaint.priority} priority
-                      </Badge>
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="space-y-2 min-w-0 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <h3 className="font-semibold text-base sm:text-lg break-words">{complaint.subject}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={`${getStatusColor(complaint.status)} text-xs`}>
+                          {getStatusIcon(complaint.status)}
+                          <span className="ml-1">{complaint.status.replace("_", " ")}</span>
+                        </Badge>
+                        <Badge className={`${getPriorityColor(complaint.priority)} text-xs`}>
+                          {complaint.priority} priority
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-600">
                       <span className="flex items-center gap-1">
-                        <FileText className="w-4 h-4" />
+                        <FileText className="w-4 h-4 flex-shrink-0" />
                         Order: {complaint.orderId}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
+                        <Calendar className="w-4 h-4 flex-shrink-0" />
                         {new Date(complaint.submittedAt).toLocaleDateString()}
                       </span>
-                      <Badge variant="outline">{getCategoryLabel(complaint.category)}</Badge>
+                      <Badge variant="outline" className="text-xs w-fit">{getCategoryLabel(complaint.category)}</Badge>
                     </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                 <div>
-                  <p className="text-sm font-medium text-slate-700 mb-1">Description:</p>
-                  <p className="text-slate-600">{complaint.description}</p>
+                  <p className="text-xs sm:text-sm font-medium text-slate-700 mb-1">Description:</p>
+                  <p className="text-xs sm:text-sm text-slate-600 break-words">{complaint.description}</p>
                 </div>
 
                 {complaint.adminResponse && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <MessageSquare className="w-5 h-5 text-green-600" />
-                      <p className="font-semibold text-green-900">Admin Response</p>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+                        <p className="font-semibold text-sm sm:text-base text-green-900">Admin Response</p>
+                      </div>
                       {complaint.resolvedAt && (
-                        <span className="text-sm text-green-700">
+                        <span className="text-xs sm:text-sm text-green-700">
                           • Resolved {new Date(complaint.resolvedAt).toLocaleDateString()}
                         </span>
                       )}
                     </div>
-                    <p className="text-slate-700">{complaint.adminResponse}</p>
+                    <p className="text-xs sm:text-sm text-slate-700 break-words">{complaint.adminResponse}</p>
                   </div>
                 )}
 
                 {complaint.status === "submitted" && (
                   <Alert>
-                    <Clock className="w-4 h-4" />
-                    <AlertDescription>
+                    <Clock className="w-4 h-4 flex-shrink-0" />
+                    <AlertDescription className="text-xs sm:text-sm">
                       Your complaint has been received. Our team will review it and respond within 24 hours.
                     </AlertDescription>
                   </Alert>
@@ -326,8 +333,8 @@ export function ComplaintPortal() {
 
                 {complaint.status === "in_review" && (
                   <Alert>
-                    <MessageSquare className="w-4 h-4" />
-                    <AlertDescription>
+                    <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                    <AlertDescription className="text-xs sm:text-sm">
                       Our team is currently reviewing your complaint and will provide a resolution soon.
                     </AlertDescription>
                   </Alert>
