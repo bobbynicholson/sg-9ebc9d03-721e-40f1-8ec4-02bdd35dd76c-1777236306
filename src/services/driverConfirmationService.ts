@@ -181,16 +181,15 @@ export const driverConfirmationService = {
     if (!driver || !order) return;
 
     // Send notification to admin (using realtime service)
-    await realtimeNotificationService.sendNotification({
-      userId: driverId,
-      recipientId: 'admin',
-      type: 'system_alert',
-      title: '⚠️ Driver Not En-Route',
-      message: `${driver.full_name} has not confirmed en-route for Order #${order.order_number}. Function time: ${order.event_time}`,
-      priority: 'high',
-      orderId: orderId,
-      actionUrl: `/admin/order-assignments?orderId=${orderId}`,
-      metadata: { driverId, orderNumber: order.order_number }
+    await realtimeNotificationService.createNotification({
+      company_id: order.company_id,
+      user_id: "system",
+      recipient_id: order.user_id, // Admin
+      title: `Driver Confirmed: ${order.order_number}`,
+      message: `${driver.full_name} confirmed the job.`,
+      notification_type: "success",
+      priority: "high",
+      link: `/admin/order-assignments`,
     });
   },
 

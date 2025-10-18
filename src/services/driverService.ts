@@ -1092,7 +1092,7 @@ Your Catering Company`;
 
     if (order) {
       // In-portal notification
-      await realtimeNotificationService.sendNotification({
+      await realtimeNotificationService.createNotification({
         userId: order.user_id,
         recipientId: order.user_id,
         type: "driver_departure",

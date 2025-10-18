@@ -123,7 +123,7 @@ async function checkProximityAndNotify(
       await markArrived(assignmentId);
 
       if (order.user_id) {
-        await realtimeNotificationService.sendNotification({
+        await realtimeNotificationService.createNotification({
           userId: order.user_id,
           recipientId: order.client_id || order.user_id,
           type: "driver_arrived",
@@ -152,7 +152,7 @@ async function checkProximityAndNotify(
 
       if (count === 0) {
           if(order.user_id){
-             await realtimeNotificationService.sendNotification({
+             await realtimeNotificationService.createNotification({
                 userId: order.user_id,
                 recipientId: order.client_id || order.user_id,
                 type: "driver_10_minutes_away",

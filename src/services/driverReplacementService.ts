@@ -178,7 +178,7 @@ export const driverReplacementService = {
 
     if (!request) return;
 
-    await realtimeNotificationService.sendNotification({
+    await realtimeNotificationService.createNotification({
       userId: request.original_driver_id,
       recipientId: 'admin',
       type: 'system_alert',

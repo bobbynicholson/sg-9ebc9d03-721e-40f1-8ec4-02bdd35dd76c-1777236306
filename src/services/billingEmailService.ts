@@ -5,7 +5,7 @@ interface EmailTemplate {
   body: string;
 }
 
-export const billingEmailService = {
+export class BillingEmailService {
   // ==================== EMAIL TEMPLATES ====================
 
   getEmailTemplate(type: string, data: Record<string, any>): EmailTemplate {
@@ -504,4 +504,103 @@ export const billingEmailService = {
       cancelDeletionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
     });
   }
-};
+
+  async sendDriverDepartureEmail(to: string, clientName: string, driverName: string, orderId: string, companyId: string): Promise<void> {
+    const trackingUrl = `${this.getBaseUrl()}/tracking/client?orderId=${orderId}`;
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: "Your Catering Order is on its Way! 🚚",
+      template: "driver_departure",
+      variables: {
+        clientName,
+        driverName,
+        trackingUrl,
+      },
+    });
+  }
+
+  async sendDriverArrivalEmail(to: string, clientName: string, driverName: string, orderId: string, companyId: string): Promise<void> {
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: "Your Driver Has Arrived!",
+      template: "driver_arrival",
+      variables: {
+        clientName,
+        driverName,
+      },
+    });
+  }
+
+  async sendDeliveryTrackingEmail(to: string, clientName: string, driverName: string, orderId: string, companyId: string): Promise<void> {
+    const trackingUrl = `${this.getBaseUrl()}/tracking/client?orderId=${orderId}`;
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: "Track Your Catering Delivery",
+      template: "delivery_tracking",
+      variables: {
+        clientName,
+        driverName,
+        trackingUrl,
+      },
+    });
+  }
+
+  async sendPostEventEmail(to: string, clientName: string, orderNumber: string, companyId: string): Promise<void> {
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: "Thank You for Choosing Us!",
+      template: "post_event_thank_you",
+      variables: {
+        clientName,
+        orderNumber,
+      },
+    });
+  }
+
+  async sendQuoteRequestConfirmation(to: string, clientName: string, quoteNumber: string, companyId: string): Promise<void> {
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: `Your Quote Request #${quoteNumber} Has Been Received`,
+      template: "quote_request_confirmation",
+      variables: {
+        clientName,
+        quoteNumber,
+      },
+    });
+  }
+
+  async sendCustomQuoteEmail(to: string, clientName: string, quoteNumber: string, quoteUrl: string, companyId: string): Promise<void> {
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: `Your Custom Quote #${quoteNumber} is Ready!`,
+      template: "custom_quote_ready",
+      variables: {
+        clientName,
+        quoteNumber,
+        quoteUrl,
+      },
+    });
+  }
+
+  async sendStaffInvitationEmail(to: string, inviterName: string, companyName: string, joinUrl: string, companyId: string): Promise<void> {
+    await this.sendEmail({
+      to,
+      companyId,
+      subject: `You're invited to join ${companyName} on CateringMS`,
+      template: "staff_invitation",
+      variables: {
+        inviterName,
+        companyName,
+        joinUrl,
+      },
+    });
+  }
+}
+
+export const billingEmailService = new BillingEmailService();

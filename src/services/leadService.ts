@@ -88,7 +88,7 @@ export const leadService = {
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
         // 1. In-portal URGENT notification
-        await realtimeNotificationService.sendNotification({
+        await realtimeNotificationService.createNotification({
           userId: lead.user_id,
           recipientId: lead.user_id,
           type: "quote_sent", // Use existing type for lead-related activity
@@ -218,7 +218,7 @@ CateringMS Platform`;
         const statusMessage = statusMessages[updates.status] || `Status updated to ${updates.status}`;
 
         // In-portal notification
-        await realtimeNotificationService.sendNotification({
+        await realtimeNotificationService.createNotification({
           userId: data.user_id,
           recipientId: data.user_id,
           type: "system_alert",
@@ -255,7 +255,7 @@ CateringMS Platform`;
 
     // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
-      await realtimeNotificationService.sendNotification({
+      await realtimeNotificationService.createNotification({
         userId: lead._original.user_id,
         recipientId: lead._original.user_id,
         type: "quote_sent",

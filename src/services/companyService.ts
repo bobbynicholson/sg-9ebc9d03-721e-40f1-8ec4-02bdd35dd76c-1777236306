@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { emailAutomationService } from "./emailAutomationService";
+import type { User, Session } from "@supabase/supabase-js";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
@@ -275,22 +276,6 @@ export const companyService = {
       console.error("Error updating company:", error);
       throw error;
     }
-  },
-
-  async updateCompany(id: string, updates: Partial<CompanyUpdate>): Promise<Company | null> {
-    const { data, error } = await supabase
-      .from("companies")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating company:", error);
-      throw error;
-    }
-
-    return data;
   },
   
   async createCompanyAndOwner(

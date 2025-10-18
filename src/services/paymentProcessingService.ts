@@ -157,13 +157,16 @@ class PaymentProcessingService {
         const schedule = order.payment_schedules as any;
 
         // Send in-portal payment received notification
-        await realtimeNotificationService.sendPaymentReceivedNotification(
-          userId,
-          orderId,
-          "deposit",
-          schedule.deposit_amount,
-          schedule.currency
-        );
+        await realtimeNotificationService.createNotification({
+          company_id: order.company_id,
+          user_id: order.user_id, // This should be the user who initiated the payment
+          recipient_id: order.user_id, // Should go to company admin
+          title: `Payment Received: ${schedule.currency} ${schedule.deposit_amount.toFixed(2)}`,
+          message: `A payment was successfully processed for order ${order.order_number}.`,
+          notification_type: "success",
+          priority: "high",
+          link: `/orders/${orderId}`,
+        });
 
         // ✅ FIX BUG #21.1: Send deposit receipt email
         if (order.client_email) {
@@ -273,13 +276,16 @@ Your Catering Company`;
         const schedule = order.payment_schedules as any;
 
         // Send in-portal payment received notification
-        await realtimeNotificationService.sendPaymentReceivedNotification(
-          userId,
-          orderId,
-          "balance",
-          schedule.balance_amount,
-          schedule.currency
-        );
+        await realtimeNotificationService.createNotification({
+          company_id: order.company_id,
+          user_id: order.user_id,
+          recipient_id: order.user_id, // Admin
+          title: "Final Payment Received",
+          message: `The final balance for order ${order.order_number} has been paid.`,
+          notification_type: "success",
+          priority: "high",
+          link: `/orders/${orderId}`,
+        });
 
         // ✅ FIX BUG #21.2: Send balance payment receipt email
         if (order.client_email) {
@@ -432,13 +438,16 @@ Your Catering Company`;
         }
 
         // Send in-portal notification
-        await realtimeNotificationService.sendPaymentReminderNotification(
-          reminder.user_id,
-          reminder.order_id,
-          orderData.payment_schedules.balance_amount,
-          orderData.payment_schedules.currency,
-          orderData.payment_schedules.balance_due_date
-        );
+        await realtimeNotificationService.createNotification({
+          company_id: orderData.company_id,
+          user_id: "system",
+          recipient_id: orderData.user_id, // Admin
+          title: `Payment Reminder Sent for Order ${orderData.order_number}`,
+          message: `A payment reminder was sent to ${orderData.client_email}.`,
+          notification_type: "info",
+          priority: "medium",
+          link: `/orders/${reminder.order_id}`,
+        });
 
         // ✅ FIX BUG #21.3: Send balance reminder email
         if (orderData.client_email) {
@@ -543,12 +552,16 @@ Your Catering Company`;
 
           if (!existingReminder) {
             // Send in-portal notification
-            await realtimeNotificationService.sendModificationDeadlineReminder(
-              orderData.user_id,
-              schedule.order_id,
-              schedule.final_order_change_date,
-              status.daysRemaining
-            );
+            await realtimeNotificationService.createNotification({
+              company_id: orderData.company_id,
+              user_id: "system",
+              recipient_id: orderData.user_id, // Admin
+              title: "Modification Deadline Reminder Sent",
+              message: `A modification deadline reminder for order ${orderData.order_number} was sent to ${orderData.client_email}.`,
+              notification_type: "info",
+              priority: "medium",
+              link: `/orders/${schedule.order_id}`,
+            });
 
             // ✅ FIX BUG #21.4: Send modification deadline warning email
             if (orderData.client_email) {
