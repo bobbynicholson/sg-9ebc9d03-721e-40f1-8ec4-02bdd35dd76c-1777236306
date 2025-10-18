@@ -4473,6 +4473,7 @@ export type Database = {
           guest_count: number
           id: string
           internal_notes: string | null
+          kitchen_instructions: string | null
           last_change_allowed_date: string | null
           menu_items: Json | null
           order_number: string
@@ -4537,6 +4538,7 @@ export type Database = {
           guest_count: number
           id?: string
           internal_notes?: string | null
+          kitchen_instructions?: string | null
           last_change_allowed_date?: string | null
           menu_items?: Json | null
           order_number: string
@@ -4601,6 +4603,7 @@ export type Database = {
           guest_count?: number
           id?: string
           internal_notes?: string | null
+          kitchen_instructions?: string | null
           last_change_allowed_date?: string | null
           menu_items?: Json | null
           order_number?: string

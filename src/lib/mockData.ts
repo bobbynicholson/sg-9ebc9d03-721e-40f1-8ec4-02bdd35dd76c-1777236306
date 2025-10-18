@@ -55,6 +55,30 @@ const defaultOrderValues = {
 
 export const mockOrders: AppOrder[] = [
   {
+    id: "1",
+    user_id: "user-123",
+    company_id: "comp-456",
+    quote_id: "quote-789",
+    client_name: "John Doe",
+    client_email: "john.doe@example.com",
+    event_date: "2025-11-15",
+    venue_address: "123 Main St, Anytown",
+    guest_count: 50,
+    total: 2500,
+    status: "confirmed",
+    order_number: "ORD-001",
+    created_at: "2025-10-10T10:00:00Z",
+    menu_items: [
+      { id: "item-1", name: "Mini Quiches", quantity: 100, category: "appetizer" },
+      { id: "item-2", name: "Chicken Skewers", quantity: 50, category: "main" },
+    ],
+    equipment_items: [
+        { id: 'equip-1', name: 'Chafing Dish', quantity: 5, category: 'chafing' },
+    ],
+    kitchen_instructions: "Please ensure all chicken is well-done. One guest has a nut allergy.",
+  },
+  {
+    id: "2",
     ...defaultOrderValues,
     id: "ORD-001",
     quote_id: "Q-001",
@@ -78,6 +102,7 @@ export const mockOrders: AppOrder[] = [
     driver_id: "driver-b",
   },
   {
+    id: "3",
     ...defaultOrderValues,
     id: "ORD-002",
     quote_id: "Q-002",
@@ -119,6 +144,7 @@ export const mockOrders: AppOrder[] = [
     driver_id: null,
   },
   {
+    id: "4",
     ...defaultOrderValues,
     id: "ORD-003",
     quote_id: "Q-003",
