@@ -55,7 +55,7 @@ const defaultOrderValues = {
 
 export const mockOrders: AppOrder[] = [
   {
-    id: "1",
+    // id: "1", // Duplicate removed
     user_id: "user-123",
     company_id: "comp-456",
     quote_id: "quote-789",
@@ -76,9 +76,11 @@ export const mockOrders: AppOrder[] = [
         { id: 'equip-1', name: 'Chafing Dish', quantity: 5, category: 'chafing' },
     ],
     kitchen_instructions: "Please ensure all chicken is well-done. One guest has a nut allergy.",
+    ...defaultOrderValues,
+    id: "1",
   },
   {
-    id: "2",
+    // id: "2", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-001",
     quote_id: "Q-001",
@@ -99,10 +101,10 @@ export const mockOrders: AppOrder[] = [
     driverName: "John Doe",
     total: 38700,
     kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
-    driver_id: "driver-b",
+    assigned_driver_id: "driver-b", // Corrected from driver_id
   },
   {
-    id: "3",
+    // id: "3", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-002",
     quote_id: "Q-002",
@@ -141,10 +143,11 @@ export const mockOrders: AppOrder[] = [
     payment_reference: "PAY-456",
     amount_paid: 16100,
     requires_waiter: true,
-    driver_id: null,
+    kitchen_instructions: null, // Added missing property
+    assigned_driver_id: null, // Corrected from driver_id
   },
   {
-    id: "4",
+    // id: "4", // Duplicate removed
     ...defaultOrderValues,
     id: "ORD-003",
     quote_id: "Q-003",
@@ -187,7 +190,8 @@ export const mockOrders: AppOrder[] = [
     delivery_time: new Date(Date.now() - 86400000 * 2).toISOString(),
     amount_paid: 62100,
     requires_waiter: false,
-    driver_id: "driver-c",
+    kitchen_instructions: null, // Added missing property
+    assigned_driver_id: "driver-c", // Corrected from driver_id
   },
 ];
 
@@ -229,6 +233,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-102',
@@ -244,6 +249,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-103',
@@ -259,6 +265,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-104',
@@ -274,6 +281,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-105',
@@ -289,6 +297,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-106',
@@ -304,6 +313,7 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
     {
       id: 'ORD-107',
@@ -319,5 +329,6 @@ export const fullMockOrders: AppOrder[] = [
       company_id: "mock-company-id", // Added for multi-tenancy
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      kitchen_instructions: null,
     },
-].map(o => ({ ...mockOrders[0], ...o })); // Pad with default fields to satisfy type
+].map(o => ({ ...defaultOrderValues, ...o, id: o.id || '' })); // Pad with default fields to satisfy type
