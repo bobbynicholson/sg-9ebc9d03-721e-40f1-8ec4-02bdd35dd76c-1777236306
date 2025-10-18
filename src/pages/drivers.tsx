@@ -89,12 +89,10 @@ export default function DriversPage({ companySlug: propCompanySlug }: DriversPag
       if (!order) return null;
       
       return {
-        ...order,
         id: order.id,
-        lead_id: `L-${order.id}`,
         user_id: "mock-user-id",
         client_name: order.client_name,
-        client_email: order.client_name.toLowerCase().replace(/\s+/g, '.') + "@example.com",
+        client_email: order.client_email || "unknown@example.com",
         event_date: order.event_date,
         guest_count: order.guest_count,
         pickupTime: "14:00",
@@ -121,6 +119,9 @@ export default function DriversPage({ companySlug: propCompanySlug }: DriversPag
         quote_number: `QT-${order.id}`,
         terms: "Standard mock terms.",
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        company_id: order.company_id,
+        lead_id: null,
+        client_id: null
       };
     };
 

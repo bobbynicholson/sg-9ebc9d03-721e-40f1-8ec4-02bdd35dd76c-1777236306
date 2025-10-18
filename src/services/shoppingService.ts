@@ -40,7 +40,7 @@ export const shoppingService = {
     return data;
   },
 
-  async createShoppingList(list: Omit<ShoppingList, "id" | "created_at" | "updated_at">): Promise<ShoppingList | null> {
+  async createShoppingList(list: ShoppingList): Promise<ShoppingList | null> {
     const { data, error } = await supabase
       .from("shopping_lists")
       .insert([list])
@@ -198,7 +198,7 @@ export const shoppingService = {
     return data || [];
   },
 
-  async addShoppingListItem(item: Omit<ShoppingListItem, "id" | "created_at" | "updated_at">): Promise<ShoppingListItem | null> {
+  async addShoppingListItem(item: ShoppingListItem): Promise<ShoppingListItem | null> {
     const { data, error } = await supabase
       .from("shopping_list_items")
       .insert([item])
@@ -281,7 +281,7 @@ export const shoppingService = {
     return data || [];
   },
 
-  async addPurchaseHistory(purchase: Omit<PurchaseHistory, "id" | "created_at" | "updated_at">): Promise<PurchaseHistory | null> {
+  async addPurchaseHistory(purchase: PurchaseHistory): Promise<PurchaseHistory | null> {
     const { data, error } = await supabase
       .from("purchase_history")
       .insert([purchase])

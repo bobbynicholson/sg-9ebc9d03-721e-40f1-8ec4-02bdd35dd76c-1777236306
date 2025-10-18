@@ -137,37 +137,31 @@ export interface DeliveryJob extends Quote {
   deliveryTime: string;
   address: string;
   driverAssigned?: string;
-  lead_id: string; // Added to satisfy required property from Quote
 }
 
 // FIX: Added all expected properties to AppOrder to resolve type errors across the app.
 // This interface now correctly represents a hydrated order object.
 export interface AppOrder extends Tables<"orders"> {
-  id: string;
-  quote_id: string | null;
+  // id, user_id, company_id, created_at, updated_at, etc. are inherited from Tables<"orders">
+  quote_id?: string | null;
   client_name: string;
+  client_phone?: string | null;
   event_date: string;
+  event_time?: string | null;
   venue_address: string;
   guest_count: number;
-  menu_items: any; // Assuming Json type for now
-  equipment_items: any; // Assuming Json type for now
+  menu_items?: any; // Assuming Json type for now
+  equipment_items?: any; // Assuming Json type for now
   total: number;
   status: string;
-  created_at: string;
-  updated_at: string;
   order_number: string;
   kitchen_instructions?: string | null;
   driver_notes?: string | null;
+  driver_id?: string | null; // Keep this for backward compatibility if needed.
   assigned_driver_id?: string | null;
   driverName?: string | null; // From join
-  event_time?: string | null;
-  deposit_paid?: boolean | null;
-  region_id?: string | null;
-  menuItems?: any;
-  user_id: string;
-  company_id: string;
-  client_id?: string | null;
-  client_email?: string | null;
+  eventLocation?: string; // For mock data compatibility
+  totalAmount?: number; // For mock data compatibility
 }
 
 export interface OrderModification {

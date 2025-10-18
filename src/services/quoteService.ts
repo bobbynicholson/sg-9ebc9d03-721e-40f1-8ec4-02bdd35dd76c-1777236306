@@ -35,7 +35,7 @@ export const quoteService = {
     return data;
   },
 
-  async createQuote(quote: Omit<Quote, "id" | "created_at" | "updated_at">): Promise<Quote | null> {
+  async createQuote(quote: Quote): Promise<Quote | null> {
     const { data, error } = await supabase
       .from("quotes")
       .insert([quote])

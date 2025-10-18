@@ -34,7 +34,7 @@ export const complaintService = {
     return data;
   },
 
-  async createComplaint(complaint: Omit<Complaint, "id" | "created_at" | "updated_at">): Promise<Complaint | null> {
+  async createComplaint(complaint: Complaint): Promise<Complaint | null> {
     const { data, error } = await supabase
       .from("complaints")
       .insert([complaint])

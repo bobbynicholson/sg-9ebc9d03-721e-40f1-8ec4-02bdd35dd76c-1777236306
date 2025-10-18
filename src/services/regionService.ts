@@ -34,7 +34,7 @@ export const regionService = {
     return data;
   },
 
-  async createRegion(region: Omit<Region, "id" | "created_at" | "updated_at">): Promise<Region | null> {
+  async createRegion(region: Region): Promise<Region | null> {
     const { data, error } = await supabase
       .from("regions")
       .insert([region])

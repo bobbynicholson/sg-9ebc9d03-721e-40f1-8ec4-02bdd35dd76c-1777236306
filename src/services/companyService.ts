@@ -37,7 +37,7 @@ export const companyService = {
       }
 
       const companyData: CompanyInsert = {
-        name: data.name,
+        company_name: data.name,
         slug: data.slug,
         owner_id: data.owner_id,
         email: data.email,

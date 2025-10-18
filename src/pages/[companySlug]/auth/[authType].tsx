@@ -16,7 +16,7 @@ import Head from "next/head";
 export default function AuthPage() {
   const router = useRouter();
   const { companySlug, authType } = router.query;
-  const { user, company, loading, error: authError } = useAuth();
+  const { user, loading, error: authError, signIn, signUp, company } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,9 +82,9 @@ export default function AuthPage() {
   // Redirect if already authenticated - USE NEW MULTI-ROLE SYSTEM
   useEffect(() => {
     if (user && company) {
-      router.push(`/${companySlug}/admin/dashboard`);
+      router.push(`/${company.slug}/admin/dashboard`);
     }
-  }, [user, company, companySlug, router]);
+  }, [user, company, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +93,7 @@ export default function AuthPage() {
 
     try {
       if (authType === "login") {
-        const result = await signIn(email, password);
+        const result = await signIn(email, password, companySlug as string);
         if (result.error) {
           throw new Error(result.error.message);
         }
@@ -107,10 +107,11 @@ export default function AuthPage() {
         const result = await signUp(
           email, 
           password, 
-          fullName, 
-          "client", 
-          companyInfo.currency, 
-          phone
+          {
+            full_name: fullName,
+            phone: phone,
+            company_slug: companySlug as string,
+          }
         );
 
         if (result.error) {

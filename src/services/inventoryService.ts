@@ -39,7 +39,7 @@ export const inventoryService = {
     return data;
   },
 
-  async createInventoryItem(item: Omit<Inventory, "id" | "created_at" | "updated_at">): Promise<Inventory | null> {
+  async createInventoryItem(item: Inventory): Promise<Inventory | null> {
     const { data, error } = await supabase
       .from("inventory")
       .insert([item])

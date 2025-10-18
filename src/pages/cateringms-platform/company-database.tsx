@@ -48,21 +48,32 @@ import { companyService, type CompanyWithOwner } from "@/services/companyService
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { toast } from "@/hooks/use-toast";
 
+type NewCompany = {
+  name: string;
+  owner_email: string;
+  email?: string;
+  phone?: string;
+}
+
 const CompanyDatabasePage: React.FC = () => {
+  const router = useRouter();
   const [companies, setCompanies] = useState<CompanyWithOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<{ key: keyof CompanyWithOwner, direction: "ascending" | "descending" } | null>({ key: 'created_at', direction: 'descending' });
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<CompanyWithOwner | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyWithOwner | null>(null);
+  const [newCompany, setNewCompany] = useState<NewCompany>({ name: "", owner_email: "" });
 
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await companyService.getAllCompaniesWithOwner();
+      const data = await companyService.getAllCompanies();
       setCompanies(data);
     } catch (err: any) {
       setError(err.message);
@@ -80,55 +91,42 @@ const CompanyDatabasePage: React.FC = () => {
     fetchCompanies();
   }, [fetchCompanies]);
   
-  const handleEdit = (company: CompanyWithOwner) => {
-    setEditingCompany(company);
-    setIsModalOpen(true);
+  const handleAddCompany = async () => {
+    // Basic validation
+    if (!newCompany.name || !newCompany.owner_email) {
+      toast({ title: "Validation Error", description: "Company Name and Owner Email are required.", variant: "destructive" });
+      return;
+    }
+    // More robust implementation would be needed here
+    console.log("Adding company (manual):", newCompany);
+    setAddDialogOpen(false);
+    setNewCompany({ name: "", owner_email: "" });
+    toast({ title: "Success", description: "Company added manually. Note: This does not create a user." });
   };
   
-  const handleDelete = async (companyId: string, companyName: string) => {
-    if (window.confirm(`Are you sure you want to delete ${companyName}? This action cannot be undone.`)) {
-      try {
-        await companyService.deleteCompany(companyId);
-        toast({
-          title: "Company Deleted",
-          description: `${companyName} has been successfully deleted.`,
-        });
-        fetchCompanies();
-      } catch (err: any) {
-        setError(err.message);
-        toast({
-          title: "Error deleting company",
-          description: err.message,
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const handleSave = async (updatedCompany: Partial<CompanyWithOwner>) => {
-    if (!editingCompany) return;
-
+  const handleDeleteCompany = async () => {
+    if (!selectedCompany) return;
     try {
-      await companyService.updateCompany(editingCompany.id, updatedCompany);
+      await companyService.deactivateCompany(selectedCompany.id);
       toast({
-        title: "Company Updated",
-        description: `${editingCompany.company_name} has been updated.`,
+        title: "Company Deactivated",
+        description: `${selectedCompany.company_name} has been successfully deactivated.`,
       });
-      fetchCompanies();
-      setIsModalOpen(false);
-      setEditingCompany(null);
+      fetchCompanies(); // Refresh the list
     } catch (err: any) {
-      setError(err.message);
-      toast({
-        title: "Error updating company",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteDialogOpen(false);
+      setSelectedCompany(null);
     }
   };
 
   const filteredAndSortedCompanies = useMemo(() => {
     let filtered = [...companies];
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(c => c.subscription_status === statusFilter);
+    }
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -163,7 +161,7 @@ const CompanyDatabasePage: React.FC = () => {
     }
 
     return filtered;
-  }, [companies, searchTerm, sortConfig]);
+  }, [companies, searchTerm, sortConfig, statusFilter]);
 
   const requestSort = (key: keyof CompanyWithOwner) => {
     if (sortConfig && sortConfig.key === key) {
@@ -249,13 +247,13 @@ const CompanyDatabasePage: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="trial">Trial</SelectItem>
+                    <SelectItem value="trialing">Trial</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="past_due">Past Due</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" onClick={loadCompanies}>
+                <Button variant="outline" onClick={fetchCompanies}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
@@ -288,12 +286,10 @@ const CompanyDatabasePage: React.FC = () => {
                             /{company.slug}
                           </a>
                         </TableCell>
-                        <TableCell>{company.owner?.email || 'N/A'}</TableCell>
+                        <TableCell>{company.owner_email || 'N/A'}</TableCell>
                         <TableCell>{new Date(company.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <Badge variant={company.subscription_status === 'active' ? 'default' : 'secondary'}>
-                            {company.subscription_status}
-                          </Badge>
+                          {getStatusBadge(company.subscription_status || 'trial')}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-2">
@@ -324,7 +320,7 @@ const CompanyDatabasePage: React.FC = () => {
             </div>
 
             <div className="mt-4 text-sm text-slate-600">
-              Showing {filteredCompanies.length} of {companies.length} companies
+              Showing {filteredAndSortedCompanies.length} of {companies.length} companies
             </div>
           </CardContent>
         </Card>

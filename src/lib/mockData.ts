@@ -73,10 +73,8 @@ export const mockOrders: AppOrder[] = [
     status: "in_transit",
     created_at: new Date(Date.now() - 86400000 * 12).toISOString(),
     driverName: "John Doe",
-    eventLocation: "Grand Palace Hotel, Ballroom A",
-    totalAmount: 38700,
+    total: 38700,
     kitchen_instructions: "Prepare 2 hours before event. Marinate meat 24h in advance.",
-    // driver_notes: "Traffic is heavy on the M1.",
     driver_id: "driver-b",
   },
   {
