@@ -124,13 +124,14 @@ async function checkProximityAndNotify(
 
       if (order.user_id) {
         await realtimeNotificationService.createNotification({
-          userId: order.user_id,
-          recipientId: order.client_id || order.user_id,
-          type: "driver_arrived",
+          company_id: order.company_id,
+          user_id: order.user_id,
+          recipient_id: order.client_id || order.user_id,
+          notification_type: "driver_arrived",
           title: "Driver Has Arrived! 🎉",
           message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
           priority: "high",
-          orderId: order.id,
+          link: `/orders/${order.id}`,
         });
       }
     }
@@ -153,13 +154,14 @@ async function checkProximityAndNotify(
       if (count === 0) {
           if(order.user_id){
              await realtimeNotificationService.createNotification({
-                userId: order.user_id,
-                recipientId: order.client_id || order.user_id,
-                type: "driver_10_minutes_away",
+                company_id: order.company_id,
+                user_id: order.user_id,
+                recipient_id: order.client_id || order.user_id,
+                notification_type: "driver_10_minutes_away",
                 title: "Driver 10 Minutes Away ⏰",
                 message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
                 priority: "high",
-                orderId: order.id,
+                link: `/orders/${order.id}`,
             });
           }
       }

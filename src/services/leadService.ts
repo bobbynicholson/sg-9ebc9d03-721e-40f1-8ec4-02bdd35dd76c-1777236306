@@ -89,13 +89,14 @@ export const leadService = {
 
         // 1. In-portal URGENT notification
         await realtimeNotificationService.createNotification({
-          userId: lead.user_id,
-          recipientId: lead.user_id,
-          type: "quote_sent", // Use existing type for lead-related activity
+          company_id: lead.company_id,
+          user_id: lead.user_id,
+          recipient_id: lead.user_id,
+          notification_type: "quote_sent", // Use existing type for lead-related activity
           title: "🎉 New Lead Request!",
           message: `New inquiry from ${lead.client_name || lead.client_email} - ${lead.guest_count || "N/A"} guests${lead.event_date ? ` on ${new Date(lead.event_date).toLocaleDateString()}` : ""}`,
           priority: "urgent",
-          actionUrl: `/leads?leadId=${data.id}`,
+          link: `/leads?leadId=${data.id}`,
         });
 
         // 2. Email notification to admin
@@ -122,16 +123,16 @@ View Lead: ${typeof window !== "undefined" ? window.location.origin : "https://c
 Best regards,
 CateringMS Platform`;
 
-          await emailAutomationService.sendEmail(
-            lead.user_id,
-            adminProfile.email,
+          await emailAutomationService.sendEmail({
+            companyId: lead.company_id,
+            to: adminProfile.email,
             subject,
             body,
-            {
+            variables: {
               clientName: lead.client_name || lead.client_email,
               companyName
             }
-          );
+          });
           console.log("✅ Admin notification email sent for new lead");
         }
 
@@ -172,12 +173,17 @@ CateringMS Platform`;
 
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
-        await emailAutomationService.sendQuoteRequestConfirmation(
-          lead.client_email,
-          lead.client_name || "there",
-          companyName,
-          data.id
-        );
+        await emailAutomationService.sendEmail({
+            companyId: data.company_id,
+            to: lead.client_email,
+            subject: `Thank you for your inquiry, ${lead.client_name || 'friend'}!`,
+            template: 'quote-request-confirmation',
+            variables: {
+              clientName: lead.client_name || 'there',
+              companyName: companyName,
+              quoteNumber: data.id,
+            }
+        });
         console.log("✅ Lead request confirmation email sent to client:", lead.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send client confirmation email (non-blocking):", emailError);
@@ -219,9 +225,10 @@ CateringMS Platform`;
 
         // In-portal notification
         await realtimeNotificationService.createNotification({
-          userId: data.user_id,
-          recipientId: data.user_id,
-          type: "system_alert",
+          company_id: data.company_id,
+          user_id: data.user_id,
+          recipient_id: data.user_id,
+          notification_type: "system_alert",
           title: "Lead Status Updated",
           message: `${data.client_name || data.client_email}: ${statusMessage}`,
           priority: updates.status === "converted" ? "high" : "medium",
@@ -256,9 +263,10 @@ CateringMS Platform`;
     // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
       await realtimeNotificationService.createNotification({
-        userId: lead._original.user_id,
-        recipientId: lead._original.user_id,
-        type: "quote_sent",
+        company_id: lead._original.company_id,
+        user_id: lead._original.user_id,
+        recipient_id: lead._original.user_id,
+        notification_type: "quote_sent",
         title: "Lead Converted to Quote",
         message: `${lead.clientName || lead.clientEmail} has been converted to a quote`,
         priority: "medium",

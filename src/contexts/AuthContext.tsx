@@ -12,13 +12,15 @@ export type AuthenticatedUser = SupabaseUser & Profile;
 interface AuthContextType {
   user: AuthenticatedUser | null;
   profile: Profile | null;
+  company: Company | null;
   companySlug: string | null;
   loading: boolean;
+  error: string | null;
   userRoles: RoleAssignment[];
   activeRole: string;
   switchRole: (newRole: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
-  signUp: (email: string, password: string, fullName: string, role: string, currency: string, phone: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
@@ -71,9 +73,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [companySlug, setCompanySlug] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,6 +135,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       if (!session?.user) {
         setUser(null);
         setProfile(null);
+        setCompany(null);
         setCompanySlug(null);
         setUserRoles([]);
         setActiveRole("client");
@@ -151,6 +156,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
             // On auth pages, just clear state but don't redirect
             setUser(null);
             setProfile(null);
+            setCompany(null);
             setCompanySlug(null);
             setUserRoles([]);
             setActiveRole("client");
@@ -163,6 +169,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         setUser(mergedUser);
         setProfile(profileData);
         setCompanySlug(profileData.company_slug || null);
+
+        if (profileData.company_id) {
+            const companyData = await companyService.getCompanyById(profileData.company_id);
+            setCompany(companyData);
+        }
 
         // Load user roles (with error handling)
         let roles: RoleAssignment[] = [];
@@ -197,6 +208,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       
       setUser(null);
       setProfile(null);
+      setCompany(null);
       setCompanySlug(null);
       setUserRoles([]);
       setActiveRole("client");
@@ -283,11 +295,11 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     return await authService.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: string, currency: string, phone: string) => {
+  const signUp = async (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }) => {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
-    return await authService.signUp(email, password, fullName, role, currency, phone);
+    return await authService.signUp(email, password, metadata.full_name, metadata.phone, metadata.company_slug);
   };
 
   const signOut = async () => {
@@ -295,6 +307,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     await authService.signOut();
     setUser(null);
     setProfile(null);
+    setCompany(null);
     setCompanySlug(null);
     setUserRoles([]);
     setActiveRole("client");
@@ -316,6 +329,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       user, 
       profile,
+      company,
       companySlug,
       loading, 
       userRoles,

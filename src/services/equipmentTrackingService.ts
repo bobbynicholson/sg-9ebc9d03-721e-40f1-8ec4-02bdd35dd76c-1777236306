@@ -598,14 +598,15 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
           const equipmentName = (statusData as any).equipment?.name || "Equipment";
           
           // 1. In-portal notification (existing - keep it)
-          await supabase.from("notifications").insert({
+          await realtimeNotificationService.createNotification({
+            company_id: order.company_id,
             user_id: order.user_id,
             recipient_id: order.user_id,
             notification_type: "cleaning_completed",
             title: "✨ Equipment Ready for Use",
             message: `${equipmentName} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
             priority: "low",
-            order_id: statusData.order_id,
+            link: `/orders/${statusData.order_id}`,
           });
 
           // ✅ FIX BUG #8: Send email notification to admin

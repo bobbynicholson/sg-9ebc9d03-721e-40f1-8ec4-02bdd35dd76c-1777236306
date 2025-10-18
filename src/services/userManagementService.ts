@@ -119,10 +119,9 @@ export const userManagementService = {
       const emailSent = await emailAutomationService.sendStaffInvitationEmail(
         email,
         fullName,
-        company?.name || "the company",
-        role,
+        company?.company_name || "the company",
         invitationUrl,
-        expiresAt
+        companyId
       );
 
       if (!emailSent) {

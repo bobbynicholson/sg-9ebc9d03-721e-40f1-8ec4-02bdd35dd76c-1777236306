@@ -179,9 +179,9 @@ export const driverReplacementService = {
     if (!request) return;
 
     await realtimeNotificationService.createNotification({
-      userId: request.original_driver_id,
-      recipientId: 'admin',
-      type: 'system_alert',
+      user_id: request.original_driver_id,
+      recipient_id: 'admin',
+      notification_type: 'system_alert',
       title: '🚨 Driver Replacement Requested',
       message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
       priority: 'urgent',
@@ -289,17 +289,17 @@ ${companyName}`;
           // Import emailAutomationService at top of file if not already imported
           const { emailAutomationService } = await import("./emailAutomationService");
           
-          await emailAutomationService.sendEmail(
-            request.original_driver_id,
-            driver.email,
+          await emailAutomationService.sendEmail({
+            companyId: request.profiles?.company_id || '',
+            to: driver.email,
             subject,
             body,
-            {
+            variables: {
               driverName: driver.full_name,
               orderNumber: request.orders?.order_number || requestId,
               companyName
             }
-          );
+          });
           console.log(`✅ Replacement request email sent to driver: ${driver.email}`);
         } catch (emailError) {
           console.error(`⚠️ Failed to send email to driver ${driver.email} (non-blocking):`, emailError);

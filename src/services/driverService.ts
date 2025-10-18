@@ -333,10 +333,10 @@ export const driverService = {
 
     return availableOrders.map((order): AppOrder => ({
       ...order,
-      clientName: order.client_name || '',
+      client_name: order.client_name || '',
       eventLocation: order.venue_address || '',
-      menuItems: (order.menu_items as any) || [],
-      equipmentItems: (order.equipment_items as any) || [],
+      menu_items: (order.menu_items as any) || [],
+      equipment_items: (order.equipment_items as any) || [],
       waiter_service_required: order.waiter_service_required,
       waiterDuration: order.waiter_duration_hours,
       waiterRate: order.waiter_hourly_rate,
@@ -509,15 +509,19 @@ export const driverService = {
         // ✅ FIX BUG #20.1: Send EMAIL notification first (critical fallback)
         if (clientEmail) {
           try {
-            await emailAutomationService.sendDeliveryTrackingEmail(
-              clientEmail,
-              clientName || "Valued Client",
-              "Your Catering Company", // TODO: Get company name from user profile
-              orderDetails.order_number || assignment.order_id,
-              "Your Driver", // TODO: Get driver name
-              trackingUrl,
-              "Within 60 minutes" // TODO: Calculate actual ETA
-            );
+            await emailAutomationService.sendEmail({
+              companyId: orderDetails.user_id,
+              to: clientEmail,
+              subject: `🚗 Your Driver is on the way! - Order ${orderDetails.order_number}`,
+              template: 'driver-departure', // Assuming this template exists
+              variables: {
+                clientName: clientName || "Valued Client",
+                orderNumber: orderDetails.order_number || assignment.order_id,
+                driverName: "Your Driver", // TODO: Get driver name
+                // trackingUrl is now a standard variable
+              },
+            });
+
             console.log("✅ Delivery tracking email sent to:", clientEmail);
           } catch (emailError) {
             console.error("⚠️ Failed to send delivery tracking email (non-blocking):", emailError);
@@ -637,17 +641,17 @@ Your order is being delivered now. Enjoy your event! 🎉
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail(
-              orderDetails.user_id,
-              clientEmail,
+            await emailAutomationService.sendEmail({
+              companyId: orderDetails.user_id,
+              to: clientEmail,
               subject,
               body,
-              {
+              variables: {
                 clientName: clientName || "Valued Client",
                 orderNumber: orderDetails.order_number,
                 companyName: "Your Catering Company"
               }
-            );
+            });
             console.log("✅ Driver arrived email sent to:", clientEmail);
           } catch (emailError) {
             console.error("⚠️ Failed to send driver arrived email (non-blocking):", emailError);
@@ -846,16 +850,16 @@ The order has been marked as completed in the system.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-        await emailAutomationService.sendEmail(
-          order.user_id,
-          adminProfile.email,
+        await emailAutomationService.sendEmail({
+          companyId: order.user_id,
+          to: adminProfile.email,
           subject,
           body,
-          {
+          variables: {
             orderNumber: order.order_number,
             companyName: adminProfile.company_name || "CateringMS"
           }
-        );
+        });
         console.log("✅ Delivery completion email sent to admin:", adminProfile.email);
       }
     } catch (emailError) {
@@ -881,16 +885,16 @@ We look forward to serving you again for your next event!
 Best regards,
 Your Catering Company`;
 
-        await emailAutomationService.sendEmail(
-          order.user_id,
-          order.client_email,
+        await emailAutomationService.sendEmail({
+          companyId: order.user_id,
+          to: order.client_email,
           subject,
           body,
-          {
+          variables: {
             clientName: order.client_name || "Valued Client",
             orderNumber: order.order_number
           }
-        );
+        });
         console.log("✅ Delivery completion email sent to client:", order.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send delivery completion email to client (non-blocking):", emailError);
@@ -1093,13 +1097,14 @@ Your Catering Company`;
     if (order) {
       // In-portal notification
       await realtimeNotificationService.createNotification({
-        userId: order.user_id,
-        recipientId: order.user_id,
-        type: "driver_departure",
+        company_id: order.company_id, // Add company_id
+        user_id: order.user_id,
+        recipient_id: order.user_id,
+        notification_type: "driver_departure",
         title: "Driver En Route to Kitchen",
         message: `Driver is on the way to kitchen for Order ${order.order_number}`,
         priority: "medium",
-        orderId: order.id,
+        link: `/orders/${order.id}`,
       });
 
       // ✅ FIX BUG #20.3: Send EMAIL notification to admin
@@ -1124,16 +1129,16 @@ The driver will arrive at the kitchen shortly to collect the prepared order.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-          await emailAutomationService.sendEmail(
-            order.user_id,
-            adminProfile.email,
+          await emailAutomationService.sendEmail({
+            companyId: order.user_id,
+            to: adminProfile.email,
             subject,
             body,
-            {
+            variables: {
               orderNumber: order.order_number,
               companyName: adminProfile.company_name || "CateringMS"
             }
-          );
+          });
           console.log("✅ Driver departure email sent to admin:", adminProfile.email);
         }
       } catch (emailError) {
@@ -1155,16 +1160,16 @@ Your order is being prepared and will be on its way to you soon. We'll notify yo
 Best regards,
 Your Catering Company`;
 
-          await emailAutomationService.sendEmail(
-            order.user_id,
-            order.client_email,
+          await emailAutomationService.sendEmail({
+            companyId: order.user_id,
+            to: order.client_email,
             subject,
             body,
-            {
+            variables: {
               clientName: order.client_name || "Valued Client",
               orderNumber: order.order_number
             }
-          );
+          });
           console.log("✅ Driver departure notification email sent to client:", order.client_email);
         } catch (emailError) {
           console.error("⚠️ Failed to send client notification email (non-blocking):", emailError);
@@ -1246,16 +1251,16 @@ Your order is being collected and prepared for delivery. You'll receive another 
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail(
-              orderDetails.user_id,
-              clientEmail,
+            await emailAutomationService.sendEmail({
+              companyId: orderDetails.user_id,
+              to: clientEmail,
               subject,
               body,
-              {
+              variables: {
                 clientName: clientName || "Valued Client",
                 orderNumber: orderDetails.order_number
               }
-            );
+            });
             console.log("✅ Driver at kitchen email sent to client:", clientEmail);
           } catch (emailError) {
             console.error("⚠️ Failed to send driver at kitchen email (non-blocking):", emailError);

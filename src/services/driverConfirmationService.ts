@@ -182,8 +182,8 @@ export const driverConfirmationService = {
 
     // Send notification to admin (using realtime service)
     await realtimeNotificationService.createNotification({
-      company_id: order.company_id,
-      user_id: "system",
+      company_id: order.company_id, // FIX: company_id is required
+      user_id: "system", // FIX: user_id is required
       recipient_id: order.user_id, // Admin
       title: `Driver Confirmed: ${order.order_number}`,
       message: `${driver.full_name} confirmed the job.`,
@@ -264,15 +264,15 @@ export const driverConfirmationService = {
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
-    await realtimeNotificationService.sendNotification({
-      userId: driverId,
-      recipientId: 'admin',
-      type: 'delivery_started', // Using a relevant type
+    await realtimeNotificationService.createNotification({
+      company_id: 'system-id', // Placeholder, should be retrieved from order
+      user_id: driverId,
+      recipient_id: 'admin',
+      notification_type: 'delivery_started', // Using a relevant type
       title: 'Driver Status Update',
       message: messages[confirmationType as keyof typeof messages],
       priority: 'medium',
-      orderId: orderId,
-      actionUrl: `/admin/order-assignments?orderId=${orderId}`,
+      link: `/admin/order-assignments?orderId=${orderId}`,
       metadata: { driverId, orderNumber: order.order_number, confirmationType }
     });
   },

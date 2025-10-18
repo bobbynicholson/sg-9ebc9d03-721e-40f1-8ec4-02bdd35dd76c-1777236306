@@ -255,6 +255,23 @@ export class BillingEmailService {
           <p>Best regards,<br>The CateringMS Team</p>
         `
       },
+      
+      staff_invitation: {
+        subject: `You're Invited to Join ${data.companyName} on CateringMS`,
+        body: `
+          <h2>You've Been Invited!</h2>
+          <p>Hi ${data.userName},</p>
+          <p>You have been invited by <strong>${data.inviterName}</strong> to join <strong>${data.companyName}</strong> on the CateringMS platform as a <strong>${data.role}</strong>.</p>
+          
+          <p>To accept your invitation and set up your account, please click the link below. This link will expire in 7 days.</p>
+          
+          <p><a href="${data.joinUrl}" style="background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation & Join Team</a></p>
+          
+          <p>If you have any questions, please contact your manager.</p>
+          
+          <p>Welcome aboard,<br>The CateringMS Team</p>
+        `
+      },
 
       account_deletion_scheduled: {
         subject: "Account Deletion Scheduled - 30 Day Grace Period",
@@ -549,16 +566,20 @@ export class BillingEmailService {
     });
   }
 
-  async sendCustomQuoteEmail(to: string, clientName: string, quoteNumber: string, quoteUrl: string): Promise<void> {
+  async sendCustomQuoteEmail(to: string, clientName: string, companyName: string, quoteNumber: string, totalAmount: string, quoteUrl: string, pdfUrl?: string): Promise<void> {
     await this.sendEmail(to, "custom_quote_ready", {
       clientName,
+      companyName,
       quoteNumber,
+      totalAmount,
       quoteUrl,
+      pdfUrl,
     });
   }
 
   async sendStaffInvitationEmail(to: string, inviterName: string, companyName: string, joinUrl: string, companyId?: string): Promise<void> {
     await this.sendEmail(to, "staff_invitation", {
+      userName: to,
       inviterName,
       companyName,
       joinUrl,

@@ -425,7 +425,7 @@ export default function KitchenPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {order.menuItems.map((item) => (
+                        {order.menu_items && Array.isArray(order.menu_items) && order.menu_items.map((item) => (
                           <div key={item.id} className="flex justify-between items-center text-sm md:text-base">
                             <span className="truncate mr-2">{item.name}</span>
                             <span className="text-slate-600 flex-shrink-0">x{item.quantity}</span>

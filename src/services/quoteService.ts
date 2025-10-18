@@ -57,12 +57,19 @@ export const quoteService = {
           .eq("id", quote.user_id)
           .single();
 
-        await emailAutomationService.sendQuoteRequestConfirmation(
-          quote.client_email,
-          quote.client_name,
-          profile?.company_name || profile?.full_name || "Your Catering Company",
-          data.id
-        );
+        const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
+
+        await emailAutomationService.sendEmail({
+            companyId: quote.user_id,
+            to: quote.client_email,
+            subject: 'Quote Request Confirmation',
+            template: 'quote-request-confirmation',
+            variables: {
+                clientName: quote.client_name,
+                companyName: companyName,
+                quoteNumber: data.id,
+            }
+        });
         console.log("✅ Quote request confirmation email sent to:", quote.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send quote request confirmation (non-blocking):", emailError);
@@ -152,17 +159,23 @@ export const quoteService = {
           .eq("id", quote.user_id)
           .single();
 
-        await emailAutomationService.sendOrderConfirmationEmail(
-          quote.client_email,
-          quote.client_name,
-          profile?.company_name || profile?.full_name || "Your Catering Company",
-          newOrder.order_number || newOrder.id,
-          new Date(quote.event_date).toLocaleDateString(),
-          `${quote.currency} ${quote.total.toFixed(2)}`,
-          `${quote.currency} 0.00`, // Deposit to be paid
-          `${quote.currency} ${quote.total.toFixed(2)}`, // Full balance due
-          paymentUrl
-        );
+        const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
+
+        await emailAutomationService.sendEmail({
+            companyId: quote.user_id,
+            to: quote.client_email,
+            subject: `Order Confirmed - #${newOrder.order_number}`,
+            template: 'order-confirmation',
+            variables: {
+                clientName: quote.client_name,
+                orderNumber: newOrder.order_number || newOrder.id,
+                eventDate: new Date(quote.event_date).toLocaleDateString(),
+                totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+                // depositAmount: `${quote.currency} 0.00`,
+                // balanceAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+                // paymentUrl
+            }
+        });
         console.log("✅ Order confirmation email sent after quote acceptance to:", quote.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send order confirmation email (non-blocking):", emailError);
@@ -200,15 +213,20 @@ export const quoteService = {
       // TODO: Generate PDF quote and get download URL
       const pdfUrl = undefined; // Will be implemented with PDF generation
 
-      await emailAutomationService.sendCustomQuoteEmail(
-        quote.client_email,
-        quote.client_name,
-        companyName,
-        quoteId,
-        `${quote.currency} ${quote.total.toFixed(2)}`,
-        quoteUrl,
-        pdfUrl
-      );
+      await emailAutomationService.sendEmail({
+        companyId: quote.user_id,
+        to: quote.client_email,
+        subject: `Your Quote from ${companyName} is Ready!`,
+        template: 'custom-quote-ready',
+        variables: {
+          clientName: quote.client_name,
+          companyName: companyName,
+          quoteNumber: quoteId,
+          totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+          // quoteUrl,
+          // pdfUrl,
+        }
+      });
 
       // Update quote status to 'sent'
       await this.updateQuote(quoteId, { 

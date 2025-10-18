@@ -89,17 +89,21 @@ export const orderService = {
       try {
         const paymentUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${order.id}`;
         
-        await emailAutomationService.sendOrderConfirmationEmail(
-          quote.client_email,
-          quote.client_name,
-          "Your Catering Company", // TODO: Get company name from user profile
-          orderNumber,
-          new Date(quote.event_date).toLocaleDateString(),
-          `${quote.currency} ${quote.total.toFixed(2)}`,
-          `${quote.currency} ${depositAmount.toFixed(2)}`,
-          `${quote.currency} ${balanceAmount.toFixed(2)}`,
-          paymentUrl
-        );
+        await emailAutomationService.sendEmail({
+            companyId: quote.user_id,
+            to: quote.client_email,
+            subject: `Order Confirmation - #${orderNumber}`,
+            template: 'order-confirmation',
+            variables: {
+                clientName: quote.client_name,
+                orderNumber: orderNumber,
+                eventDate: new Date(quote.event_date).toLocaleDateString(),
+                totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+                // depositAmount: `${quote.currency} ${depositAmount.toFixed(2)}`,
+                // balanceAmount: `${quote.currency} ${balanceAmount.toFixed(2)}`,
+                // paymentUrl
+            }
+        });
         console.log("✅ Order creation email sent to:", quote.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send order creation email (non-blocking):", emailError);
@@ -191,17 +195,20 @@ export const orderService = {
       try {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
-        await emailAutomationService.sendOrderConfirmationEmail(
-          data.client_email,
-          data.client_name || "Valued Client",
-          "Your Catering Company", // TODO: Get company name
-          data.order_number || orderId,
-          new Date(data.event_date).toLocaleDateString(),
-          `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
-          `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"}`,
-          `${data.currency} ${data.balance_amount?.toFixed(2) || "0.00"}`,
-          orderUrl
-        );
+        await emailAutomationService.sendEmail({
+            companyId: data.user_id,
+            to: data.client_email,
+            subject: `Deposit Paid - Order #${data.order_number}`,
+            template: 'deposit-receipt',
+            variables: {
+                clientName: data.client_name || "Valued Client",
+                orderNumber: data.order_number || orderId,
+                totalAmount: `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
+                // depositAmount: `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"}`,
+                // balanceAmount: `${data.currency} ${data.balance_amount?.toFixed(2) || "0.00"}`,
+                // paymentUrl: orderUrl
+            }
+        });
         console.log("✅ Deposit receipt email sent to:", data.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send deposit receipt email (non-blocking):", emailError);
@@ -253,17 +260,17 @@ export const orderService = {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
         // Send confirmation that balance is paid and order is fully confirmed
-        await emailAutomationService.sendOrderConfirmationEmail(
-          data.client_email,
-          data.client_name || "Valued Client",
-          "Your Catering Company", // TODO: Get company name
-          data.order_number || orderId,
-          new Date(data.event_date).toLocaleDateString(),
-          `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
-          `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"} (PAID)`,
-          `${data.currency} 0.00 (PAID IN FULL)`,
-          orderUrl
-        );
+        await emailAutomationService.sendEmail({
+            companyId: data.user_id,
+            to: data.client_email,
+            subject: `Payment Complete - Order #${data.order_number}`,
+            template: 'payment-receipt',
+            variables: {
+                clientName: data.client_name || "Valued Client",
+                orderNumber: data.order_number || orderId,
+                totalAmount: `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
+            }
+        });
         console.log("✅ Balance receipt email sent to:", data.client_email);
       } catch (emailError) {
         console.error("⚠️ Failed to send balance receipt email (non-blocking):", emailError);
@@ -775,7 +782,8 @@ export const orderService = {
       };
 
       // 1. In-portal notification (existing functionality - keep it)
-      await supabase.from("notifications").insert({
+      await realtimeNotificationService.createNotification({
+        company_id: order.company_id,
         user_id: order.user_id,
         recipient_id: order.client_id || order.user_id,
         notification_type: "order_updated",
@@ -804,17 +812,17 @@ ${mappedStatus === "in_transit" ? `Track your driver in real-time: ${trackingUrl
 Best regards,
 Your Catering Company`;
 
-          await emailAutomationService.sendEmail(
-            order.user_id,
-            order.client_email,
+          await emailAutomationService.sendEmail({
+            companyId: order.user_id,
+            to: order.client_email,
             subject,
             body,
-            {
+            variables: {
               clientName: order.client_name || "Valued Client",
               orderNumber: order.order_number,
               companyName: "Your Catering Company"
             }
-          );
+          });
           console.log(`✅ Order progress email sent to ${order.client_email}: ${mappedStatus}`);
         } catch (emailError) {
           console.error("⚠️ Failed to send order progress email (non-blocking):", emailError);

@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 
 interface CompanyTrialStatus {
   id: string;
-  name: string;
+  company_name: string;
   slug: string;
   owner_email: string;
   trial_ends_at: string;
@@ -59,13 +59,13 @@ export default function TrialManagementPage() {
         .from("companies")
         .select(`
           id,
-          name,
+          company_name,
           slug,
           owner_id,
           trial_ends_at,
           subscription_status
         `)
-        .eq("subscription_status", "trial")
+        .eq("subscription_status", "trialing")
         .order("trial_ends_at", { ascending: true });
 
       if (companiesError) throw companiesError;
@@ -102,7 +102,7 @@ export default function TrialManagementPage() {
 
           return {
             id: company.id,
-            name: company.name,
+            company_name: company.company_name,
             slug: company.slug,
             owner_email: emailMap.get(company.owner_id || "") || "N/A",
             trial_ends_at: company.trial_ends_at || "",

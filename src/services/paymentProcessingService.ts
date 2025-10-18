@@ -159,7 +159,7 @@ class PaymentProcessingService {
         // Send in-portal payment received notification
         await realtimeNotificationService.createNotification({
           company_id: order.company_id,
-          user_id: order.user_id, // This should be the user who initiated the payment
+          user_id: userId,
           recipient_id: order.user_id, // Should go to company admin
           title: `Payment Received: ${schedule.currency} ${schedule.deposit_amount.toFixed(2)}`,
           message: `A payment was successfully processed for order ${order.order_number}.`,
@@ -196,17 +196,17 @@ Thank you for your payment!
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail(
-              userId,
-              order.client_email,
+            await emailAutomationService.sendEmail({
+              companyId: userId,
+              to: order.client_email,
               subject,
               body,
-              {
+              variables: {
                 clientName: order.client_name || "Valued Client",
                 orderNumber: order.order_number,
                 companyName: "Your Catering Company"
               }
-            );
+            });
             console.log("✅ Deposit receipt email sent to:", order.client_email);
           } catch (emailError) {
             console.error("⚠️ Failed to send deposit receipt email (non-blocking):", emailError);
@@ -278,7 +278,7 @@ Your Catering Company`;
         // Send in-portal payment received notification
         await realtimeNotificationService.createNotification({
           company_id: order.company_id,
-          user_id: order.user_id,
+          user_id: userId,
           recipient_id: order.user_id, // Admin
           title: "Final Payment Received",
           message: `The final balance for order ${order.order_number} has been paid.`,
@@ -315,17 +315,17 @@ Thank you for your business! We look forward to making your event a success.
 Best regards,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail(
-              userId,
-              order.client_email,
+            await emailAutomationService.sendEmail({
+              companyId: userId,
+              to: order.client_email,
               subject,
               body,
-              {
+              variables: {
                 clientName: order.client_name || "Valued Client",
                 orderNumber: order.order_number,
                 companyName: "Your Catering Company"
               }
-            );
+            });
             console.log("✅ Balance payment receipt email sent to:", order.client_email);
           } catch (emailError) {
             console.error("⚠️ Failed to send balance payment receipt email (non-blocking):", emailError);
@@ -477,17 +477,17 @@ Questions? Contact us immediately.
 Thank you,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail(
-              reminder.user_id,
-              orderData.client_email,
+            await emailAutomationService.sendEmail({
+              companyId: reminder.user_id,
+              to: orderData.client_email,
               subject,
               body,
-              {
+              variables: {
                 clientName: orderData.client_name || "Valued Client",
                 orderNumber: orderData.order_number,
                 companyName: "Your Catering Company"
               }
-            );
+            });
             console.log(`✅ Balance reminder email sent to ${orderData.client_email} - ${daysUntilDue} days until due`);
           } catch (emailError) {
             console.error("⚠️ Failed to send balance reminder email (non-blocking):", emailError);
@@ -596,17 +596,17 @@ Questions? Contact us immediately.
 Best regards,
 Your Catering Company`;
 
-                await emailAutomationService.sendEmail(
-                  orderData.user_id,
-                  orderData.client_email,
+                await emailAutomationService.sendEmail({
+                  companyId: orderData.user_id,
+                  to: orderData.client_email,
                   subject,
                   body,
-                  {
+                  variables: {
                     clientName: orderData.client_name || "Valued Client",
                     orderNumber: orderData.order_number,
                     companyName: "Your Catering Company"
                   }
-                );
+                });
                 console.log(`✅ Modification deadline warning email sent to ${orderData.client_email} - ${status.daysRemaining} days remaining`);
               } catch (emailError) {
                 console.error("⚠️ Failed to send modification deadline email (non-blocking):", emailError);
