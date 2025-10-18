@@ -133,6 +133,8 @@ export interface EquipmentItem {
 }
 
 export interface DeliveryJob extends Quote {
+  id: string; // FIX: Add missing 'id' property
+  created_at: string; // FIX: Add missing 'created_at' property
   pickupTime: string;
   deliveryTime: string;
   address: string;
@@ -163,6 +165,7 @@ export interface AppOrder extends Tables<"orders"> {
   eventLocation?: string; // For mock data compatibility
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
+  client_email?: string;
 }
 
 export interface OrderModification {

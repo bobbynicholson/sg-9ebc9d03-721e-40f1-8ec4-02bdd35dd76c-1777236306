@@ -303,6 +303,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
+    // FIX: Pass all arguments to the service
     return await authService.signUp(email, password, metadata, isOwner, companyName);
   };
 

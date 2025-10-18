@@ -170,7 +170,8 @@ export const driverReplacementService = {
         ),
         profiles!driver_replacement_requests_original_driver_id_fkey (
           full_name,
-          phone_number
+          phone_number,
+          company_id
         )
       `)
       .eq('id', requestId)
@@ -179,7 +180,7 @@ export const driverReplacementService = {
     if (!request) return;
 
     await realtimeNotificationService.createNotification({
-      company_id: request.profiles?.company_id,
+      company_id: (request.profiles as any)?.company_id,
       user_id: request.original_driver_id,
       recipient_id: 'admin',
       notification_type: 'system_alert',
