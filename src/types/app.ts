@@ -224,7 +224,19 @@ export interface Payment {
   reconciled: boolean;
 }
 
-export type UserRole = "admin" | "kitchen" | "driver" | "client" | "cleaning" | "shopping" | "owner" | "super_admin" | "shopping_staff" | "cleaning_staff" | "kitchen_staff";
+export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  KITCHEN = 'kitchen',
+  KITCHEN_STAFF = 'kitchen_staff',
+  CLEANING = 'cleaning',
+  CLEANING_STAFF = 'cleaning_staff',
+  SHOPPING = 'shopping',
+  SHOPPING_STAFF = 'shopping_staff',
+  DRIVER = 'driver',
+  CLIENT = 'client',
+}
 
 export interface User {
   id: string;

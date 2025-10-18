@@ -122,8 +122,8 @@ export const emailService = {
 
     if (payload.template) {
       // The explicit type here is critical to prevent deep instantiation errors.
-      const { data: templateData, error: templateError } = await supabase
-        .from("email_templates")
+      const { data: templateData, error: templateError } = await (supabase
+        .from("email_templates") as any)
         .select("body")
         .eq("user_id", payload.companyId)
         .eq("slug", payload.template)

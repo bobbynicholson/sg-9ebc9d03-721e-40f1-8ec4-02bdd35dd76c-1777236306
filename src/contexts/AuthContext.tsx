@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { roleService, RoleAssignment } from "@/services/roleService";
 import { companyService } from "@/services/companyService";
 import type { Tables } from "@/integrations/supabase/types";
+import { UserRole } from "@/types/app";
 
 type Company = Tables<"companies">;
 
