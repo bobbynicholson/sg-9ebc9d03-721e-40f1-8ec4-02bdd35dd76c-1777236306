@@ -414,13 +414,30 @@
 - **Files Modified:** `src/services/equipmentTrackingService.ts`
 - **Priority:** MEDIUM - Affects operations and financial tracking
 
-### 🔴 BUG #8: Cleaning Completion Notification Partial - **PENDING**
-- **Status:** NOT FIXED
-- **Location:** `src/services/equipmentTrackingService.ts`
-- **Issue:** Equipment cleaning completion creates in-portal notification only
-- **Impact:** Admin may not know equipment is ready for next order
-- **Fix Required:** Add email notification when equipment cleaning completed
-- **Priority:** MEDIUM - Affects operations
+### ✅ BUG #8: Cleaning Completion Notification Partial - **FIXED**
+- **Status:** FIXED
+- **Location:** `src/services/equipmentTrackingService.ts` → `updateCleaningStatus()`
+- **Issue:** Equipment cleaning completion only created in-portal notification
+- **Impact:** Admin might not know equipment is ready for next order
+- **Fix Applied:**
+  1. ✅ Added email notification to admin when equipment reaches "ready" status
+  2. ✅ Preserved existing in-portal notification (low priority)
+  3. ✅ Email includes equipment name, quantity, and order reference
+- **Implementation Details:**
+  - Email sent when cleaning workflow completes: cleaned → dried → ready
+  - Subject line: "✨ Equipment Ready - [Equipment Name]"
+  - Emphasizes equipment is now available for next booking
+  - Links to inventory page for quick access
+  - Proper error handling (non-blocking - logs but doesn't fail)
+  - Clear console logging for debugging
+- **Why Important:**
+  - Equipment availability affects booking capacity
+  - Admin needs to know when equipment returns to inventory
+  - Email ensures notification isn't missed in busy portal
+  - Helps prevent double-booking or inventory shortages
+- **Note:** Email delivery requires provider credentials to be configured
+- **Files Modified:** `src/services/equipmentTrackingService.ts`
+- **Priority:** MEDIUM - Affects operations and inventory management
 
 ### 🔴 BUG #9: Driver Replacement Request Not Distributed - **PENDING**
 - **Status:** NOT FIXED

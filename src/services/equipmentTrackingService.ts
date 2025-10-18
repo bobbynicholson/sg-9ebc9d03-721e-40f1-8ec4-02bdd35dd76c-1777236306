@@ -581,7 +581,8 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
         .from("equipment_cleaning_status")
         .select(`
           order_id,
-          equipment:equipment_id (name)
+          equipment:equipment_id (name),
+          returned_quantity
         `)
         .eq("id", params.cleaningStatusId)
         .single();
@@ -594,15 +595,60 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
           .single();
 
         if (order) {
+          const equipmentName = (statusData as any).equipment?.name || "Equipment";
+          
+          // 1. In-portal notification (existing - keep it)
           await supabase.from("notifications").insert({
             user_id: order.user_id,
             recipient_id: order.user_id,
             notification_type: "cleaning_completed",
             title: "✨ Equipment Ready for Use",
-            message: `${(statusData as any).equipment?.name} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
+            message: `${equipmentName} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
             priority: "low",
             order_id: statusData.order_id,
           });
+
+          // ✅ FIX BUG #8: Send email notification to admin
+          try {
+            const { data: adminProfile } = await supabase
+              .from("profiles")
+              .select("email, full_name, company_name")
+              .eq("id", order.user_id)
+              .single();
+
+            if (adminProfile?.email) {
+              const subject = `✨ Equipment Ready - ${equipmentName}`;
+              const body = `Dear ${adminProfile.full_name || "Admin"},
+
+✨ Equipment Cleaning Complete
+
+Equipment: ${equipmentName}
+Quantity: ${statusData.returned_quantity}
+Order: ${order.order_number}
+
+Status: Cleaned, Dried, and Ready for Use
+
+This equipment is now available for your next booking!
+
+View Inventory: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/inventory
+
+Best regards,
+${adminProfile.company_name || "CateringMS Platform"}`;
+
+              await emailAutomationService.sendEmail(
+                order.user_id,
+                adminProfile.email,
+                subject,
+                body,
+                {
+                  companyName: adminProfile.company_name || "CateringMS"
+                }
+              );
+              console.log("✅ Equipment ready email sent to admin:", adminProfile.email);
+            }
+          } catch (emailError) {
+            console.error("⚠️ Failed to send equipment ready email (non-blocking):", emailError);
+          }
 
           await supabase
             .from("equipment_cleaning_status")
