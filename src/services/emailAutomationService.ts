@@ -51,21 +51,29 @@ export const emailAutomationService = {
       console.error("Error fetching email config:", error);
       return null;
     }
-    
-    // Safely parse smtp_port to a number if it's a string
-    if (data && typeof data.smtp_port === 'string') {
-        const port = parseInt(data.smtp_port, 10);
-        (data as any).smtp_port = isNaN(port) ? null : port;
-    }
 
-    return data as EmailSettings | null;
+    if (!data) {
+        return null;
+    }
+    
+    // Safely parse smtp_port to a number if it's a string or other type
+    const port = data.smtp_port ? parseInt(String(data.smtp_port), 10) : null;
+
+    const settings: EmailSettings = {
+        ...data,
+        smtp_port: port && !isNaN(port) ? port : null,
+    };
+
+    return settings;
   },
 
-  replaceVariables(template: string, variables: Record<string, any> = {}): string {
+  replaceVariables(template: string, variables: any = {}): string {
     let result = template;
-    for (const [key, value] of Object.entries(variables)) {
-      if (value !== undefined && value !== null) {
-        result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
+    if (variables) {
+      for (const [key, value] of Object.entries(variables)) {
+        if (value !== undefined && value !== null) {
+          result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
+        }
       }
     }
     result = result.replace(/{[^}]+}/g, "");
