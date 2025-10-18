@@ -434,7 +434,7 @@ Questions? Contact us immediately.
 Thank you,
 Your Catering Company`;
 
-            await emailAutomationService.sendEmail({
+            await emailService.sendEmail({
               companyId: reminder.user_id,
               to: orderData.client_email,
               subject,
@@ -553,7 +553,7 @@ Questions? Contact us immediately.
 Best regards,
 Your Catering Company`;
 
-                await emailAutomationService.sendEmail({
+                await emailService.sendEmail({
                   companyId: orderData.user_id,
                   to: orderData.client_email,
                   subject,

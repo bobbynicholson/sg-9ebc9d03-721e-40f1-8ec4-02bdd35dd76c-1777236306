@@ -149,6 +149,8 @@ export interface AppOrder extends Order {
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
   deliveryRate?: number | null;
+  menu_items: any[] | null; // Explicitly type as any[] or a proper interface
+  equipment_items: any[] | null; // Explicitly type as any[] or a proper interface
 }
 
 export interface OrderModification {

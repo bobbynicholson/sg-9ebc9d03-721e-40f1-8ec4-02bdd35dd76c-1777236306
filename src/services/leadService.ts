@@ -158,7 +158,7 @@ Guests: ${lead.guest_count}`;
 
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: data.company_id,
             to: lead.client_email,
             subject: `Thank you for your inquiry, ${lead.client_name || 'friend'}!`,

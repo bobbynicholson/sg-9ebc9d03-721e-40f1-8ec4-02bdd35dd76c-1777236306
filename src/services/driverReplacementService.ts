@@ -290,9 +290,8 @@ Best regards,
 ${companyName}`;
 
           // Import emailAutomationService at top of file if not already imported
-          const { emailAutomationService } = await import("./emailAutomationService");
           
-          await emailAutomationService.sendEmail({
+          await emailService.sendEmail({
             companyId: request.profiles?.company_id || '',
             to: driver.email,
             subject,

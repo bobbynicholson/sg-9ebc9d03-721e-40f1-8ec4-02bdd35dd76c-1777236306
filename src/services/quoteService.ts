@@ -2,10 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
-import type { Database, Json } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 import { Quote, AppOrder } from "@/types";
 import { regionService } from "./regionService";
-import { emailAutomationService } from "./emailAutomationService";
 
 export const quoteService = {
   async getQuotes(userId: string): Promise<Quote[]> {
@@ -62,7 +61,7 @@ export const quoteService = {
 
         const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
 
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: 'Quote Request Confirmation',
@@ -164,7 +163,7 @@ export const quoteService = {
 
         const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
 
-        await emailAutomationService.sendEmail({
+        await emailService.sendEmail({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: `Order Confirmed - #${newOrder.order_number}`,
@@ -216,7 +215,7 @@ export const quoteService = {
       // TODO: Generate PDF quote and get download URL
       const pdfUrl = undefined; // Will be implemented with PDF generation
 
-      await emailAutomationService.sendEmail({
+      await emailService.sendEmail({
         companyId: quote.user_id,
         to: quote.client_email,
         subject: `Your Quote from ${companyName} is Ready!`,
