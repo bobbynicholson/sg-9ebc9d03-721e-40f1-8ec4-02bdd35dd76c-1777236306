@@ -137,20 +137,40 @@
 - **Files Modified:** `src/services/quoteService.ts`
 - **Priority:** HIGH - Core business flow communication
 
-### 🔴 BUG #17: Order Progress Only Creates In-Portal Notifications - **NEWLY DISCOVERED**
-- **Status:** NOT FIXED - Limited notification reach
+### ✅ BUG #17: Order Progress Only Creates In-Portal Notifications - **FIXED**
+- **Status:** FIXED
 - **Location:** `src/services/orderService.ts` → `makeProgress()` function
-- **Issue:** Only creates in-portal notifications, no email/WhatsApp
-- **Impact:** Clients might miss critical order status updates
-- **Evidence:**
+- **Issue:** Only created in-portal notifications, no email/WhatsApp
+- **Impact:** Clients missed critical order status updates
+- **Fix Applied:**
+  - Added multi-channel notification system to `makeProgress()` function
+  - Implemented email notifications for all status changes (preparing, ready, in_transit, delivered, completed)
+  - Implemented WhatsApp notifications as additional channel
+  - Status-specific messages with relevant emojis for better UX
+  - Includes tracking URLs when order is in transit
+  - Proper error handling (non-blocking - logs but doesn't fail)
+- **Implementation Details:**
   ```typescript
-  await supabase.from("notifications").insert({ ... });
+  // Multi-channel approach:
+  1. In-portal notification (existing - preserved)
+  2. Email notification (NEW - critical fallback)
+  3. WhatsApp notification (NEW - additional engagement)
+  
+  Status Messages:
+  - preparing: "Kitchen team started preparing"
+  - ready: "Order ready, driver departing soon"
+  - in_transit: "Order on the way + tracking link"
+  - delivered: "Order arrived at venue"
+  - completed: "Order completed successfully"
   ```
-- **Fix Required:**
-  - Add `emailAutomationService.sendOrderStatusUpdate()`
-  - Add `whatsappIntegrationService.sendOrderUpdate()` (when configured)
-  - Add multi-channel notification helper function
-- **Priority:** HIGH - Affects customer experience
+- **Why Critical:**
+  - In-portal notifications alone are insufficient
+  - Email ensures client sees critical updates
+  - WhatsApp provides instant engagement
+  - Multi-channel approach maximizes reach
+- **Note:** Email provider and WhatsApp credentials still need to be configured for actual sending
+- **Files Modified:** `src/services/orderService.ts`
+- **Priority:** HIGH - Affects customer experience and satisfaction
 
 ### ✅ BUG #18: Company Signup Missing Welcome Email Call - **FIXED**
 - **Status:** FIXED
@@ -443,6 +463,7 @@
 - [x] Bug #15: Order Service Email Triggers - **COMPLETED**
 - [x] Bug #16: Quote Service Email Integration - **COMPLETED**
 - [x] Bug #20: Driver Email Fallback - **COMPLETED**
+- [x] Bug #17: Order Progress Multi-Channel Notifications - **COMPLETED** ✅
 - [ ] Bug #6: Trial Expiry Automation
 - [ ] Bug #21: Payment Email Notifications
 - [ ] Bug #22: Payment Link Generation
@@ -585,7 +606,7 @@
 
 1. **orderService.ts (864 lines)** - Order lifecycle management
    - ~~Bug #15: Missing email triggers~~ - **FIXED** ✅
-   - Bug #17: Only in-portal notifications - **STILL PRESENT** (in `makeProgress()` function)
+   - ~~Bug #17: Only in-portal notifications~~ - **FIXED** ✅
 
 2. **quoteService.ts (226 lines)** - Quote management
    - ~~Bug #16: Missing email integration~~ - **FIXED** ✅

@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate, AppOrder } from "@/types/index";
 import { emailAutomationService } from "./emailAutomationService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
@@ -729,23 +730,117 @@ export const orderService = {
       throw error;
     }
 
-    // Send notification to relevant parties
+    // ✅ FIX BUG #17: Multi-channel notifications for order progress
+    // Get full order details including client contact info
     const { data: order } = await supabase
       .from("orders")
-      .select("user_id, client_id, client_name, order_number")
+      .select("user_id, client_id, client_name, client_email, client_phone, order_number")
       .eq("id", orderId)
       .single();
 
     if (order) {
+      // Define status-specific messages
+      const statusMessages: Record<string, { title: string; message: string; emoji: string }> = {
+        preparing: {
+          title: "Order Preparation Started",
+          message: `Our kitchen team has started preparing your order ${order.order_number}. Everything is on track!`,
+          emoji: "👨‍🍳"
+        },
+        ready: {
+          title: "Order Ready for Delivery",
+          message: `Your order ${order.order_number} has been prepared and is ready. Our driver will depart soon.`,
+          emoji: "✅"
+        },
+        in_transit: {
+          title: "Order On The Way",
+          message: `Your order ${order.order_number} is on the way! Track your driver in real-time.`,
+          emoji: "🚗"
+        },
+        delivered: {
+          title: "Order Delivered",
+          message: `Your order ${order.order_number} has arrived! Enjoy your event.`,
+          emoji: "📍"
+        },
+        completed: {
+          title: "Order Completed",
+          message: `Order ${order.order_number} completed successfully. Thank you for choosing us!`,
+          emoji: "🎉"
+        }
+      };
+
+      const statusInfo = statusMessages[mappedStatus] || {
+        title: "Order Status Update",
+        message: `Order ${order.order_number} status: ${mappedStatus}`,
+        emoji: "📋"
+      };
+
+      // 1. In-portal notification (existing functionality - keep it)
       await supabase.from("notifications").insert({
         user_id: order.user_id,
         recipient_id: order.client_id || order.user_id,
         notification_type: "order_updated",
-        title: "Order Progress Update",
-        message: `Order ${order.order_number} has been moved to: ${mappedStatus}`,
+        title: statusInfo.title,
+        message: statusInfo.message,
         priority: "medium",
         order_id: orderId,
       });
+
+      // 2. ✅ NEW: Email notification to client
+      if (order.client_email) {
+        try {
+          const trackingUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
+          
+          const subject = `${statusInfo.emoji} ${statusInfo.title} - Order ${order.order_number}`;
+          const body = `Dear ${order.client_name || "Valued Client"},
+
+${statusInfo.emoji} ${statusInfo.title}
+
+${statusInfo.message}
+
+View Order Details: ${trackingUrl}
+
+${mappedStatus === "in_transit" ? `Track your driver in real-time: ${trackingUrl.replace("client-portal", "tracking/client")}\n\n` : ""}Thank you for choosing us!
+
+Best regards,
+Your Catering Company`;
+
+          await emailAutomationService.sendEmail(
+            order.user_id,
+            order.client_email,
+            subject,
+            body,
+            {
+              clientName: order.client_name || "Valued Client",
+              orderNumber: order.order_number,
+              companyName: "Your Catering Company"
+            }
+          );
+          console.log(`✅ Order progress email sent to ${order.client_email}: ${mappedStatus}`);
+        } catch (emailError) {
+          console.error("⚠️ Failed to send order progress email (non-blocking):", emailError);
+        }
+      } else {
+        console.warn("⚠️ Client email not available for order progress notification");
+      }
+
+      // 3. ✅ NEW: WhatsApp notification to client (when configured)
+      if (order.client_phone) {
+        try {
+          await whatsappIntegrationService.sendWhatsAppMessage({
+            to: order.client_phone,
+            type: "text",
+            text: {
+              body: `${statusInfo.emoji} ${statusInfo.title}\n\n` +
+                    `${statusInfo.message}\n\n` +
+                    `${mappedStatus === "in_transit" ? `Track live: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/tracking/client?orderId=${orderId}\n\n` : ""}` +
+                    `Order #${order.order_number}`
+            }
+          });
+          console.log(`✅ Order progress WhatsApp sent to ${order.client_phone}: ${mappedStatus}`);
+        } catch (whatsappError) {
+          console.error("⚠️ WhatsApp notification failed (non-blocking - email sent):", whatsappError);
+        }
+      }
     }
 
     return data;
