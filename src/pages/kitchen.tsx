@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { AppOrder, ShoppingList } from "@/types";
+import type { AppOrder, ShoppingList } from "@/types/app";
 import { ChefHat, Clock, CheckCircle, AlertCircle, ShoppingCart } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";

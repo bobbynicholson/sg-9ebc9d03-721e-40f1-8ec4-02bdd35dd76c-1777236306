@@ -12,6 +12,7 @@ import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
 
 /**
  * BUG FIX: Retry profile operations with exponential backoff

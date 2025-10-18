@@ -1,4 +1,4 @@
-import type { AppOrder, Delivery } from "@/types";
+import type { AppOrder, Delivery } from "@/types/app";
 
 const defaultOrderValues = {
   company_id: "mock-company-id",

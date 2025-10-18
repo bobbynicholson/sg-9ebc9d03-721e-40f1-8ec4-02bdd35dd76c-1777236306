@@ -12,7 +12,7 @@ import { Loader2, ArrowLeft, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import Head from "next/head";
-import { UserRole } from "@/types";
+import { UserRole } from "@/types/app";
 
 export default function AuthPage() {
   const router = useRouter();

@@ -3,7 +3,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { emailService } from "./emailService";
-import { AppOrder } from "@/types";
+import { AppOrder } from "@/types/app";
 import { Order } from "@/types/index";
 
 export type DriverAssignment = Tables<"driver_assignments">;
