@@ -13,7 +13,7 @@ import { UserRole } from "@/types/app";
 
 type Company = Tables<"companies">;
 
-export type AuthenticatedUser = SupabaseUser &amp; Profile;
+export type AuthenticatedUser = SupabaseUser & Profile;
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
@@ -25,21 +25,15 @@ interface AuthContextType {
   userRoles: RoleAssignment[];
   activeRole: string;
   switchRole: (newRole: UserRole) => Promise<void>;
-  signIn: (email: string, password: string) => Promise&lt;{ user: AuthUser | null; error: AuthError | null }&gt;;
-  signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise&lt;{ user: AuthUser | null; error: AuthError | null, companySlug?: string }&gt;;
+  signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise<{ user: AuthUser | null; error: AuthError | null, companySlug?: string }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<profile>) => Promise<void>;
+  updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
 
-const AuthContext = createContext<authcontexttype | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/**
- * BUG FIX #2: Retry profile loading with exponential backoff
- * When a new user signs up, the database trigger creates the profile asynchronously.
- * This can cause a race condition where we try to load the profile before it exists.
- * Solution: Retry with increasing delays (100ms, 200ms, 400ms, 800ms, 1600ms)
- */
-async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<profile | null> {
+async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<Profile | null> {
   let lastError: any = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -51,9 +45,8 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
         return profile;
       }
       
-      // Profile doesn't exist yet, wait before retrying
       if (attempt < maxRetries - 1) {
-        const delay = Math.min(100 * Math.pow(2, attempt), 2000); // Max 2 seconds
+        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
         console.log(`Profile not found, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -61,7 +54,6 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
       lastError = error;
       console.error(`Error loading profile (attempt ${attempt + 1}/${maxRetries}):`, error);
       
-      // If it's a network error or temporary issue, retry
       if (attempt < maxRetries - 1) {
         const delay = Math.min(100 * Math.pow(2, attempt), 2000);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -69,7 +61,6 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
     }
   }
   
-  // After all retries, return null
   console.error(`Failed to load profile after ${maxRetries} attempts:`, lastError);
   return null;
 }
@@ -77,13 +68,13 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
 function AuthProviderInner({ children }: { children: ReactNode }) {
   const { isDemoMode, getDemoUser } = useDemoMode();
   const router = useRouter();
-  const [user, setUser] = useState<authenticateduser | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<roleassignment[]>([]);
+  const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
-  const [profile, setProfile] = useState<profile | null>(null);
-  const [company, setCompany] = useState<company | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [companySlug, setCompanySlug] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,16 +141,13 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       }
 
       try {
-        // BUG FIX #2: Use retry logic to handle profile creation race condition
         const profileData = await loadProfileWithRetry(session.user.id);
 
         if (!profileData) {
           console.error("Profile data is null after retries for user:", session.user.id);
-          // Only redirect if we're not on an auth page (to avoid loops)
           if (typeof window !== "undefined" &amp;&amp; !window.location.pathname.includes("/auth/")) {
             await handleInvalidSession();
           } else {
-            // On auth pages, just clear state but don't redirect
             setUser(null);
             setProfile(null);
             setCompany(null);
@@ -181,7 +169,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
             setCompany(companyData);
         }
 
-        // Load user roles (with error handling)
         let roles: RoleAssignment[] = [];
         try {
           roles = await roleService.getUserRoles(session.user.id);
@@ -191,7 +178,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           setUserRoles([]);
         }
 
-        // Load active role (with error handling)
         let active = "client";
         try {
           active = await roleService.getActiveRole(session.user.id);
@@ -305,7 +291,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
-    // FIX: Pass all arguments to the service
     return await authService.signUp(email, password, metadata, isOwner, metadata.company_name);
   };
 
@@ -320,7 +305,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     setActiveRole("client");
   };
 
-  const updateProfile = async (updates: Partial<profile>) => {
+  const updateProfile = async (updates: Partial<Profile>) => {
     if (isDemoMode || !user) return;
     const updatedProfile = await profileService.updateProfile(user.id, updates);
     if (updatedProfile) {
@@ -332,8 +317,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     }
   };
 
-  return (
-    <authcontext.provider value="{{" 
+  const contextValue = { 
       user, 
       profile,
       company,
@@ -347,14 +331,17 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
       signUp, 
       signOut, 
       updateProfile 
-    }}&gt;
+    };
+
+  return (
+    <AuthContext.Provider value={contextValue}>
       {children}
-    </authcontext.provider>
+    </AuthContext.Provider>
   );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  return <authproviderinner>{children}</authproviderinner>;
+  return <AuthProviderInner>{children}</AuthProviderInner>;
 }
 
 export function useAuth() {
