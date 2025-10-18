@@ -165,7 +165,7 @@ export interface AppOrder extends Tables<"orders"> {
   eventLocation?: string; // For mock data compatibility
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
-  client_email?: string;
+  client_email?: string; // FIX: Make optional to match base type
 }
 
 export interface OrderModification {

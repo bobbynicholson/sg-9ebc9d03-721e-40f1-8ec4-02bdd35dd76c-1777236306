@@ -44,10 +44,19 @@ export const emailAutomationService = {
   },
 
   async sendEmail(payload: SendEmailPayload): Promise<boolean> {
-    const config = await this.getEmailConfig(payload.companyId);
+    const { data: config, error: configError } = await supabase
+        .from("email_settings")
+        .select("*")
+        .eq("company_id", payload.companyId)
+        .maybeSingle();
+
+    if (configError) {
+        console.error(`Error fetching email config for company ${payload.companyId}:`, configError);
+        return false;
+    }
 
     if (!config || !config.enabled) {
-      console.warn(`Email automation is disabled for company ${payload.companyId}`);
+      console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
       return false;
     }
 

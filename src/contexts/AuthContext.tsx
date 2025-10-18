@@ -299,12 +299,12 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     return await authService.signIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }, isOwner: boolean = false, companyName?: string) => {
+  const signUp = async (email: string, password: string, metadata: { full_name: string; phone?: string; company_slug?: string }, isOwner: boolean = false, companyName?: string, companyId?: string) => {
     if (isDemoMode) {
       return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
     }
     // FIX: Pass all arguments to the service
-    return await authService.signUp(email, password, metadata, isOwner, companyName);
+    return await authService.signUp(email, password, metadata, isOwner, companyName, companyId);
   };
 
   const signOut = async () => {

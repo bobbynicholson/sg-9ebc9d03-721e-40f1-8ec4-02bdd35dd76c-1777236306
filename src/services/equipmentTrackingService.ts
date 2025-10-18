@@ -188,6 +188,7 @@ export const equipmentTrackingService = {
         title: "🔧 Equipment Damage Reported",
         message: `${params.quantityDamaged}x ${params.damageType} at ${params.damageStage} stage. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
         priority: "high",
+        link: `/admin/equipment-shortages`,
         order_id: params.orderId,
       });
 

@@ -117,7 +117,7 @@ export const userManagementService = {
 
       // 6. Send invitation email
       const { billingEmailService } = await import("./billingEmailService");
-      await billingEmailService.sendStaffInvitationEmail(
+      const emailSent = await billingEmailService.sendStaffInvitationEmail(
         email,
         invitedBy,
         company?.company_name || "the company",

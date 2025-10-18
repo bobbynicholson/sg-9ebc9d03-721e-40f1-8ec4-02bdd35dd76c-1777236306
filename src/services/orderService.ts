@@ -791,7 +791,8 @@ export const orderService = {
         title: statusInfo.title,
         message: statusInfo.message,
         priority: "medium",
-        order_id: orderId,
+        link: `/client/my-orders`, // Link to client portal
+        order_id: orderId, // FIX: Add missing order_id
       });
 
       // 2. ✅ NEW: Email notification to client
