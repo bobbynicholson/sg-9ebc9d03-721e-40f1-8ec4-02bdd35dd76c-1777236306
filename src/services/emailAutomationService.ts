@@ -1,12 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 import type { EmailVariables } from "@/types";
 
-type AfterSalesEmail = Tables<"after_sales_emails">;
-type EmailTemplate = Tables<"email_templates">;
-type EmailLog = Tables<"email_automation_log">;
-type EmailSettings = Tables<"email_settings">;
-type AutomationRulesRow = Tables<"automation_rules">;
+// Directly use the generated Supabase types to prevent deep instantiation errors
+type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
+type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
 
 interface SendEmailPayload {
   companyId: string;
@@ -22,11 +20,11 @@ export const emailAutomationService = {
   async getEmailConfig(companyId: string): Promise<EmailSettings | null> {
     const { data, error } = await supabase
       .from("email_settings")
-      .select("from_name, from_email, provider, enabled, smtp_user, smtp_pass, smtp_host, smtp_port, smtp_secure")
-      .eq("company_id", companyId)
+      .select("*") // Select all fields to match the 'EmailSettings' type
+      .eq("user_id", companyId) // Corrected from company_id to user_id
       .single();
 
-    if (error && error.code !== "PGRST116") {
+    if (error && error.code !== "PGRST116") { // PGRST116 means no rows found, which is not an error here
       console.error("Error fetching email config:", error);
       return null;
     }
@@ -36,27 +34,22 @@ export const emailAutomationService = {
 
   replaceVariables(template: string, variables: EmailVariables = {}): string {
     let result = template;
-    Object.entries(variables).forEach(([key, value]) => {
-      const placeholder = `{${key}}`;
-      result = result.replace(new RegExp(placeholder, "g"), value || "");
-    });
+    for (const [key, value] of Object.entries(variables)) {
+      if (value !== undefined && value !== null) {
+        result = result.replace(new RegExp(`{${key}}`, "g"), String(value));
+      }
+    }
+    // Remove any leftover placeholders
+    result = result.replace(/{[^}]+}/g, "");
     return result;
   },
 
   async sendEmail(payload: SendEmailPayload): Promise<boolean> {
-    const { data: config, error: configError } = await supabase
-        .from("email_settings")
-        .select("from_name, from_email, provider, enabled")
-        .eq("company_id", payload.companyId)
-        .maybeSingle();
-
-    if (configError) {
-        console.error(`Error fetching email config for company ${payload.companyId}:`, configError);
-        return false;
-    }
+    const config = await this.getEmailConfig(payload.companyId);
 
     if (!config || !config.enabled) {
       console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
+      // For signups, we might want a fallback system email, but for now, we'll just log.
       return false;
     }
 
@@ -66,7 +59,7 @@ export const emailAutomationService = {
         const { data: templateData, error: templateError } = await supabase
             .from("email_templates")
             .select("body")
-            .eq("company_id", payload.companyId)
+            .eq("user_id", payload.companyId) // Corrected from company_id
             .eq("slug", payload.template)
             .single();
         
@@ -81,6 +74,7 @@ export const emailAutomationService = {
     finalBody = this.replaceVariables(finalBody, payload.variables);
 
     // In a real scenario, you'd use a service like Nodemailer with the SMTP settings
+    // Here we simulate the send and log it.
     console.log("----- SIMULATING EMAIL SEND -----");
     console.log(`From: "${config.from_name}" <${config.from_email}>`);
     console.log(`To: ${payload.to}`);
@@ -101,9 +95,6 @@ export const emailAutomationService = {
     return true;
   },
 
-  /**
-   * Send company welcome email after signup
-   */
   async sendCompanyWelcomeEmail(
     recipientEmail: string,
     companyName: string,
@@ -113,8 +104,10 @@ export const emailAutomationService = {
   ): Promise<boolean> {
     const loginUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/${companySlug}/auth/login`;
     
+    // This welcome email should probably be sent from a system-level email, not the company's own config yet.
+    // For now, we'll try to use the company's config but a fallback would be needed.
     return this.sendEmail({
-      companyId: companyId, // The new company uses its own (future) settings, but for now we might use a system email.
+      companyId: companyId,
       to: recipientEmail,
       subject: `Welcome to CateringMS, ${companyName}! 🎉`,
       template: 'company-welcome', // Assuming a template with this slug exists
@@ -140,7 +133,7 @@ export const emailAutomationService = {
       .from("email_automation_log")
       .insert([
         {
-          user_id: companyId, // FIX: The table uses user_id, which links to the company owner.
+          user_id: companyId,
           order_id: orderId || null,
           quote_id: quoteId || null,
           template_type: templateType,
@@ -160,6 +153,4 @@ export const emailAutomationService = {
 
     return data;
   },
-  
-  // Other methods from the original file can be added here as needed...
 };

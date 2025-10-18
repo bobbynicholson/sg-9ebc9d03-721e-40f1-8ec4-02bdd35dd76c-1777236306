@@ -1,11 +1,11 @@
+import type { Database } from "@/integrations/supabase/types";
 
-import { Tables } from "@/integrations/supabase/types";
+// Directly use the generated Supabase types to avoid conflicts and deep instantiation errors.
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"] & { currency?: string };
+export type Lead = Database["public"]["Tables"]["leads"]["Row"];
+export type Quote = Database["public"]["Tables"]["quotes"]["Row"];
+export type Order = Database["public"]["Tables"]["orders"]["Row"];
 
-export type Profile = Tables<"profiles"> & { currency?: string };
-export type Lead = Tables<"leads">;
-export type Quote = Tables<"quotes">;
-
-export type Order = Tables<"orders">;
 export type OrderStatusUpdate = {
   orderId: string;
   newStatus: Order["status"];
@@ -133,39 +133,22 @@ export interface EquipmentItem {
 }
 
 export interface DeliveryJob extends Quote {
-  id: string; // FIX: Add missing 'id' property
-  created_at: string; // FIX: Add missing 'created_at' property
+  id: string;
+  created_at: string;
   pickupTime: string;
   deliveryTime: string;
   address: string;
   driverAssigned?: string;
 }
 
-// FIX: Added all expected properties to AppOrder to resolve type errors across the app.
-// This interface now correctly represents a hydrated order object.
-export interface AppOrder extends Tables<"orders"> {
-  // id, user_id, company_id, created_at, updated_at, etc. are inherited from Tables<"orders">
-  quote_id?: string | null;
-  client_name: string;
-  client_phone?: string | null;
-  event_date: string;
-  event_time?: string | null;
-  venue_address: string;
-  guest_count: number;
-  menu_items?: any; // Assuming Json type for now
-  equipment_items?: any; // Assuming Json type for now
-  total: number;
-  status: string;
-  order_number: string;
-  kitchen_instructions?: string | null;
-  driver_notes?: string | null;
-  driver_id?: string | null; // Keep this for backward compatibility if needed.
+// FIX: Simplify AppOrder to be an extension of the base Order type, adding only frontend-specific properties.
+// This prevents redeclaring properties and causing conflicts.
+export interface AppOrder extends Order {
   driverName?: string | null; // From join
   eventLocation?: string; // For mock data compatibility
   totalAmount?: number; // For mock data compatibility
   waiterRate?: number | null;
-  client_email?: string | null; // FIX: Make optional to match base type
-  deliveryRate?: number | null; // FIX: Added missing property
+  deliveryRate?: number | null;
 }
 
 export interface OrderModification {
@@ -435,28 +418,28 @@ export interface EmailVariables {
   paymentDate?: string;
   paymentMethod?: string;
   reviewLink?: string;
-  loginUrl?: string; // FIX: Add missing loginUrl property for welcome emails
-  adminName?: string; // FIX: Add missing adminName property for welcome emails
+  loginUrl?: string;
+  adminName?: string;
 }
 
 // ==========================================
 // OPERATIONAL STANDARDS - FLEET & EQUIPMENT
 // ==========================================
 
-export type Vehicle = Tables<"vehicles">;
+export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type VehicleInsert = Omit<Vehicle, "id" | "created_at" | "updated_at">;
 
-export type VehicleMaintenance = Tables<"vehicle_maintenance">;
+export type VehicleMaintenance = Database["public"]["Tables"]["vehicle_maintenance"]["Row"];
 export type VehicleMaintenanceInsert = Omit<VehicleMaintenance, "id" | "created_at">;
 
-export type VehicleLog = Tables<"vehicle_logs">;
+export type VehicleLog = Database["public"]["Tables"]["vehicle_logs"]["Row"];
 export type VehicleLogInsert = Omit<VehicleLog, "id" | "created_at">;
 
-export type EquipmentKit = Tables<"equipment_kits">;
+export type EquipmentKit = Database["public"]["Tables"]["equipment_kits"]["Row"];
 export type EquipmentKitInsert = Omit<EquipmentKit, "id" | "created_at">;
 
-export type EquipmentKitItem = Tables<"equipment_kit_items">;
+export type EquipmentKitItem = Database["public"]["Tables"]["equipment_kit_items"]["Row"];
 export type EquipmentKitItemInsert = Omit<EquipmentKitItem, "id">;
 
-export type FinancialDepreciation = Tables<"financial_depreciation">;
+export type FinancialDepreciation = Database["public"]["Tables"]["financial_depreciation"]["Row"];
 export type FinancialDepreciationInsert = Omit<FinancialDepreciation, "id" | "created_at">;
