@@ -8,27 +8,6 @@ type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
 
-// BUG FIX #3: Transform database snake_case to camelCase for UI consistency
-function transformLeadForDisplay(lead: Lead) {
-  return {
-    id: lead.id,
-    userId: lead.user_id,
-    clientName: lead.client_name,
-    clientEmail: lead.client_email,
-    clientPhone: lead.client_phone,
-    eventDate: lead.event_date,
-    eventType: lead.event_type,
-    guestCount: lead.guest_count,
-    budget: lead.budget,
-    specialRequests: lead.special_requests,
-    status: lead.status,
-    createdAt: lead.created_at,
-    updatedAt: lead.updated_at,
-    // Include original data for Supabase operations
-    _original: lead
-  };
-}
-
 export const leadService = {
   async getLeads(userId: string) {
     const { data, error } = await supabase
@@ -39,8 +18,8 @@ export const leadService = {
 
     if (error) throw error;
     
-    // BUG FIX #3: Transform data before returning
-    return (data || []).map(transformLeadForDisplay);
+    // Return raw database types - no transformation
+    return data || [];
   },
 
   async getLeadById(id: string) {
@@ -51,7 +30,7 @@ export const leadService = {
       .single();
 
     if (error) throw error;
-    return transformLeadForDisplay(data);
+    return data;
   },
 
   async getLeadsByStatus(userId: string, status: string) {
@@ -63,7 +42,7 @@ export const leadService = {
       .order("event_date", { ascending: true });
 
     if (error) throw error;
-    return (data || []).map(transformLeadForDisplay);
+    return data || [];
   },
 
   async createLead(lead: Omit<LeadInsert, "id" | "created_at" | "updated_at">) {
@@ -175,7 +154,7 @@ Guests: ${lead.guest_count}`;
       }
     }
 
-    return transformLeadForDisplay(data);
+    return data;
   },
 
   async updateLead(id: string, updates: LeadUpdate) {
@@ -226,7 +205,7 @@ Guests: ${lead.guest_count}`;
       }
     }
 
-    return transformLeadForDisplay(data);
+    return data;
   },
 
   async deleteLead(id: string) {
@@ -248,12 +227,12 @@ Guests: ${lead.guest_count}`;
     // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
       await realtimeNotificationService.createNotification({
-        company_id: lead._original.company_id,
-        user_id: lead._original.user_id,
-        recipient_id: lead._original.user_id,
+        company_id: lead.company_id,
+        user_id: lead.user_id,
+        recipient_id: lead.user_id,
         notification_type: "quote_sent",
         title: "Lead Converted to Quote",
-        message: `${lead.clientName || lead.clientEmail} has been converted to a quote`,
+        message: `${lead.client_name || lead.client_email} has been converted to a quote`,
         priority: "medium",
         link: `/quotes`,
       });
@@ -263,7 +242,7 @@ Guests: ${lead.guest_count}`;
       console.error("⚠️ Failed to send conversion notification (non-blocking):", notificationError);
     }
 
-    // Return transformed lead data for quote creation
+    // Return raw database type for quote creation
     return lead;
   },
 
@@ -297,6 +276,6 @@ Guests: ${lead.guest_count}`;
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data || []).map(transformLeadForDisplay);
+    return data || [];
   },
 };

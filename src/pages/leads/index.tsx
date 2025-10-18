@@ -60,11 +60,6 @@ interface LeadsPageProps {
   currentRoute?: string;
 }
 
-const toDisplayLead = (lead: Tables<'leads'>): DisplayLead => ({
-  ...lead,
-  _original: lead,
-});
-
 export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPageProps = {}) {
   const router = useRouter();
   const { user } = useAuth();
@@ -149,9 +144,9 @@ export default function LeadsPage({ companySlug: propCompanySlug }: LeadsPagePro
     if (!acc[status]) {
       acc[status] = [];
     }
-    acc[status].push(toDisplayLead(lead));
+    acc[status].push(lead);
     return acc;
-  }, {} as { [key: string]: DisplayLead[] });
+  }, {} as { [key: string]: Tables<'leads'>[] });
 
   const statusOrder = ["new", "contacted", "quoted", "converted", "lost"];
 
