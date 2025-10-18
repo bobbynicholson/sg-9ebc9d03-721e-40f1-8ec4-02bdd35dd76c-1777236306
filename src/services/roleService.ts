@@ -3,21 +3,23 @@ import type { Database, Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 import { getRoleLandingPage } from "@/lib/authGuards";
 
-export type RoleAssignment = Tables<"user_departments">;
+type RoleAssignmentRaw = Tables<"user_departments">;
 export type UserDepartmentInsert = Database["public"]["Tables"]["user_departments"]["Insert"];
 
-const transformRoleAssignment = (role: RoleAssignment) => ({
+const transformRoleAssignment = (role: RoleAssignmentRaw) => ({
   id: role.id,
-  userId: role.user_id,
+  user_id: role.user_id,
   department: role.department as UserRole,
-  isPrimary: role.is_primary,
-  assignedAt: role.assigned_at,
-  assignedBy: role.assigned_by,
-  createdAt: role.created_at,
+  is_primary: role.is_primary,
+  assigned_at: role.assigned_at,
+  assigned_by: role.assigned_by,
+  created_at: role.created_at,
 });
 
+export type RoleAssignment = ReturnType<typeof transformRoleAssignment>;
+
 export const roleService = {
-  async getUserRoles(userId: string): Promise<ReturnType<typeof transformRoleAssignment>[]> {
+  async getUserRoles(userId: string): Promise<RoleAssignment[]> {
     try {
       const { data, error } = await supabase
         .from("user_departments")
