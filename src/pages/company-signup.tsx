@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2 } from "lucide-react";
+import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, Copy, Check } from "lucide-react";
 import Link from "next/link";
-import { authService } from "@/services/authService";
 import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
@@ -39,7 +38,8 @@ export default function CompanySignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [companyUrl, setCompanyUrl] = useState("");
+  const [copied, setCopied] = useState(false);
   
   const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -119,6 +119,16 @@ export default function CompanySignupPage() {
     };
   }, []);
 
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(companyUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -156,36 +166,45 @@ export default function CompanySignupPage() {
     }
 
     try {
-      // 1. Create user account with "admin" role and company metadata
-      const { user, error: signUpError } = await authService.signUp(
-        formData.email,
-        formData.password,
-        formData.ownerName,
-        "admin",
-        formData.currency,
-        formData.phone,
-        formData.companyName  // Pass company name to auth service
-      );
+      // Step 1: Create auth user with auto-confirm (no email verification required)
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: formData.ownerName,
+            role: "admin",
+            currency: formData.currency,
+            phone_number: formData.phone,
+            company_name: formData.companyName
+          }
+        }
+      });
 
       if (signUpError) {
+        console.error("Signup error:", signUpError);
         setError(signUpError.message);
         setLoading(false);
         return;
       }
 
-      if (!user) {
+      if (!authData.user) {
         setError("Failed to create user account. Please try again.");
         setLoading(false);
         return;
       }
 
-      console.log("✅ User created:", user.id);
+      console.log("✅ User created:", authData.user.id);
 
-      // 2. Create company record
+      // Step 2: Wait for profile to be created by database trigger
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Step 3: Create company record
       const companyResult = await companyService.createCompany({
         name: formData.companyName,
         slug: companySlug,
-        owner_id: user.id,
+        owner_id: authData.user.id,
         currency: formData.currency,
         phone: formData.phone,
         email: formData.email,
@@ -200,73 +219,50 @@ export default function CompanySignupPage() {
 
       console.log("✅ Company created:", companyResult.company.id);
 
-      // 3. **CRITICAL FIX**: Wait a moment for profile to be created by database trigger
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Step 4: Update user profile with company linkage
+      const { error: profileUpdateError } = await supabase
+        .from("profiles")
+        .update({
+          company_id: companyResult.company.id,
+          company_slug: companySlug,
+          active_role: "admin",
+          full_name: formData.ownerName,
+          phone: formData.phone
+        })
+        .eq("id", authData.user.id);
 
-      // 4. **CRITICAL FIX**: Update user profile with company linkage
-      try {
-        const { error: profileUpdateError } = await supabase
-          .from("profiles")
-          .update({
-            company_id: companyResult.company.id,
-            company_slug: companySlug,
-            active_role: "admin"
-          })
-          .eq("id", user.id);
-
-        if (profileUpdateError) {
-          console.error("Profile update error:", profileUpdateError);
-          throw profileUpdateError;
-        }
-
-        console.log("✅ Profile linked to company");
-      } catch (profileError) {
-        console.error("Critical error linking profile to company:", profileError);
-        setError("Account created but failed to link to company. Please contact support with reference: " + user.id);
-        setLoading(false);
-        return;
+      if (profileUpdateError) {
+        console.error("Profile update error:", profileUpdateError);
+        throw profileUpdateError;
       }
 
-      // 5. **CRITICAL FIX**: Assign admin role to user_departments table
+      console.log("✅ Profile linked to company");
+
+      // Step 5: Assign admin role
       try {
-        await roleService.assignRole(user.id, "admin", user.id, true);
-        console.log("✅ Admin role assigned to user_departments");
+        await roleService.assignRole(authData.user.id, "admin", authData.user.id, true);
+        console.log("✅ Admin role assigned");
       } catch (roleError) {
         console.error("Error assigning admin role:", roleError);
-        // Don't fail the signup for role assignment issues
       }
 
-      // 6. Auto-login the user
-      const { error: signInError } = await authService.signIn(
-        formData.email,
-        formData.password
-      );
+      // Step 6: Auto-login the user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
 
       if (signInError) {
         console.error("Auto-login failed:", signInError);
-        setSuccess(true);
-        setTimeout(() => {
-          router.push(`/${companySlug}/auth/login?message=company_created`);
-        }, 3000);
-        return;
+        // Don't fail the whole process, just show them the login URL
       }
 
       console.log("✅ User auto-logged in");
 
-      // Show success message
+      // Step 7: Show success page with company URL
+      const fullUrl = `${window.location.origin}/${companySlug}`;
+      setCompanyUrl(fullUrl);
       setSuccess(true);
-
-      // Start countdown and redirect to onboarding
-      const countdownInterval = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(countdownInterval);
-            router.push(`/${companySlug}/admin/onboarding`);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
 
     } catch (err) {
       console.error("Company registration error:", err);
@@ -278,35 +274,134 @@ export default function CompanySignupPage() {
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl">
-          <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6 animate-pulse">
-              <CheckCircle className="w-10 h-10 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Welcome to CateringMS!</h2>
-            <p className="text-slate-600 mb-4">
-              <strong>{formData.companyName}</strong> has been successfully registered!
-            </p>
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-green-800 mb-2">
-                <strong>Your company URL:</strong>
+        <Card className="w-full max-w-2xl border-0 shadow-2xl">
+          <CardContent className="p-8 md:p-12">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6 animate-pulse">
+                <CheckCircle className="w-10 h-10 text-white" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+                🎉 Welcome to CateringMS!
+              </h2>
+              <p className="text-lg text-slate-600 mb-2">
+                <strong>{formData.companyName}</strong> has been successfully registered!
               </p>
-              <p className="text-lg font-mono font-bold text-green-900">
-                cateringms.com/{companySlug}
-              </p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-              <p className="text-sm text-blue-800">
-                Taking you to your onboarding dashboard...
+              <p className="text-sm text-slate-500">
+                Your account is ready and you're now logged in.
               </p>
             </div>
-            <p className="text-xs text-slate-400 mt-4 flex items-center justify-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
-                {redirectCountdown}
-              </span>
-              Redirecting in {redirectCountdown} second{redirectCountdown !== 1 ? "s" : ""}
-            </p>
+
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 mb-6 border-2 border-purple-200">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-purple-600" />
+                Your Company Portal URL
+              </h3>
+              <div className="bg-white rounded-lg p-4 mb-4 border border-purple-200">
+                <p className="text-sm text-slate-600 mb-2">
+                  This is your unique company login URL:
+                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <code className="flex-1 text-base font-mono font-bold text-purple-900 bg-purple-50 px-4 py-2 rounded border border-purple-200">
+                    {companyUrl}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyToClipboard}
+                    className="flex-shrink-0"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-4 h-4 mr-1" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm text-blue-800">
+                  <strong>⚠️ IMPORTANT - Save This URL!</strong>
+                  <ul className="mt-2 ml-4 space-y-1 list-disc">
+                    <li>This is your unique company login page</li>
+                    <li>Share it with your team members (drivers, kitchen staff, etc.)</li>
+                    <li>Bookmark it in your browser</li>
+                    <li>All your employees will use this same URL to access their portals</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <h3 className="text-lg font-semibold text-slate-900">What's Next?</h3>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-sm font-bold text-purple-600">1</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Complete Your Onboarding</p>
+                    <p className="text-sm text-slate-600">Set up your company profile and preferences</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-sm font-bold text-purple-600">2</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Invite Your Team</p>
+                    <p className="text-sm text-slate-600">Add drivers, kitchen staff, and other team members</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-sm font-bold text-purple-600">3</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Start Managing Orders</p>
+                    <p className="text-sm text-slate-600">Create your first quote or order</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                size="lg"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
+                onClick={() => router.push(`/${companySlug}/admin/onboarding`)}
+              >
+                Start Onboarding
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1 h-12"
+                onClick={() => router.push(`/${companySlug}/admin/dashboard`)}
+              >
+                Go to Dashboard
+              </Button>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-slate-500">
+                Need help? Check out our{" "}
+                <Link href="/support" className="text-purple-600 hover:text-purple-700 underline">
+                  support center
+                </Link>{" "}
+                or contact us at{" "}
+                <a href="tel:+27836525755" className="text-purple-600 hover:text-purple-700 underline">
+                  083 652 5755
+                </a>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -367,7 +462,7 @@ export default function CompanySignupPage() {
                   Company URL Slug *
                 </Label>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-500">cateringms.com/</span>
+                  <span className="text-sm text-slate-500 whitespace-nowrap">cateringms.com/</span>
                   <Input
                     id="companySlug"
                     type="text"
