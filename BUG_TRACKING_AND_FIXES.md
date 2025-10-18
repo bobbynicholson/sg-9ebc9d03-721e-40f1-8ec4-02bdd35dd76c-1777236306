@@ -90,6 +90,56 @@
 
 ## HIGH PRIORITY BUGS (Fix Before Launch - Major Features Broken)
 
+### 🔴 BUG #15: Order Service Missing Email Triggers - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Critical customer communication gap
+- **Location:** `src/services/orderService.ts`
+- **Issue:** Order lifecycle functions don't call email automation service
+- **Impact:** Clients receive NO automated emails during order process
+- **Missing Email Triggers:**
+  1. `convertQuoteToOrder()` - No order confirmation email sent
+  2. `recordDepositPayment()` - No deposit receipt email sent
+  3. `recordBalancePayment()` - No balance receipt email sent
+  4. `updateOrderStatus()` - No status update emails (preparing, in_transit, delivered)
+  5. `cancelOrder()` - No cancellation confirmation email
+- **Fix Required:** 
+  - Import `emailAutomationService` 
+  - Add email calls after each database operation
+  - Add error handling for email failures (log but don't block)
+- **Priority:** HIGH - Clients expect order confirmation emails
+
+### 🔴 BUG #16: Quote Service Missing Email Integration - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Clients don't receive quotes
+- **Location:** `src/services/quoteService.ts`
+- **Issue:** Quote creation/sending doesn't trigger emails
+- **Impact:** Quotes created but clients never receive them via email
+- **Missing Functions:**
+  1. `createQuote()` should send quote request auto-reply
+  2. Need `sendQuoteToClient()` function to email custom quote with PDF
+  3. `convertQuoteToOrder()` should send order confirmation
+- **Fix Required:**
+  - Import `emailAutomationService`
+  - Add `sendCustomQuote()` function
+  - Integrate with PDF generation
+  - Add email triggers
+- **Priority:** HIGH - Core business flow broken
+
+### 🔴 BUG #17: Order Progress Only Creates In-Portal Notifications - **NEWLY DISCOVERED**
+- **Status:** NOT FIXED - Limited notification reach
+- **Location:** `src/services/orderService.ts` → `makeProgress()` function
+- **Issue:** Only creates in-portal notifications, no email/WhatsApp
+- **Impact:** Clients might miss critical order status updates
+- **Evidence:**
+  ```typescript
+  // Current code only creates in-portal notification
+  await supabase.from("notifications").insert({ ... });
+  // Missing email/WhatsApp integration
+  ```
+- **Fix Required:**
+  - Add `emailAutomationService.sendOrderStatusUpdate()`
+  - Add `whatsappIntegrationService.sendOrderUpdate()` (when configured)
+  - Add multi-channel notification helper function
+- **Priority:** HIGH - Affects customer experience
+
 ### 🔴 BUG #4: WhatsApp Integration Missing Credentials - **PENDING**
 - **Status:** NOT FIXED - Requires external setup
 - **Location:** `.env.local`, WhatsApp services
