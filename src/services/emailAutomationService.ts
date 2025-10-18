@@ -1,12 +1,12 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
 import type { EmailVariables } from "@/types";
 
-type AfterSalesEmail = Database["public"]["Tables"]["after_sales_emails"]["Row"];
-type EmailTemplate = Database["public"]["Tables"]["email_templates"]["Row"];
-type EmailLog = Database["public"]["Tables"]["email_automation_log"]["Row"];
-type EmailSettings = Database["public"]["Tables"]["email_settings"]["Row"];
-type AutomationRulesRow = Database["public"]["Tables"]["automation_rules"]["Row"];
+type AfterSalesEmail = Tables<"after_sales_emails">;
+type EmailTemplate = Tables<"email_templates">;
+type EmailLog = Tables<"email_automation_log">;
+type EmailSettings = Tables<"email_settings">;
+type AutomationRulesRow = Tables<"automation_rules">;
 
 interface SendEmailPayload {
   companyId: string;
@@ -140,7 +140,7 @@ export const emailAutomationService = {
       .from("email_automation_log")
       .insert([
         {
-          company_id: companyId, // FIX: Use company_id instead of user_id
+          user_id: companyId, // FIX: The table uses user_id, which links to the company owner.
           order_id: orderId || null,
           quote_id: quoteId || null,
           template_type: templateType,
