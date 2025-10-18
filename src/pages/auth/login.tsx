@@ -165,23 +165,23 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-3 sm:p-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
-        <CardHeader className="space-y-4">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-            <User className="w-10 h-10 text-white" />
+        <CardHeader className="space-y-3 sm:space-y-4 px-4 sm:px-6 pt-6 sm:pt-8">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+            <User className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
           </div>
-          <CardTitle className="text-3xl font-bold text-center text-slate-900">
+          <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-slate-900">
             Welcome Back
           </CardTitle>
-          <CardDescription className="text-center text-slate-600">
+          <CardDescription className="text-center text-slate-600 text-sm sm:text-base">
             Sign in to access your catering management platform
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="text-sm">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -189,11 +189,11 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full h-12 border-2 hover:bg-slate-50 transition-colors"
+              className="w-full h-11 sm:h-12 border-2 hover:bg-slate-50 transition-colors text-sm sm:text-base"
               onClick={handleGoogleSignIn}
               disabled={googleLoading || loading}
             >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -211,11 +211,11 @@ export default function LoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-              {googleLoading ? "Signing in with Google..." : "Continue with Google"}
+              <span className="truncate">{googleLoading ? "Signing in with Google..." : "Continue with Google"}</span>
             </Button>
 
             <div className="relative">
-              <Separator className="my-4" />
+              <Separator className="my-3 sm:my-4" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="bg-white px-2 text-xs text-muted-foreground">
                   Or sign in with email
@@ -224,7 +224,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700 font-medium">
+              <Label htmlFor="email" className="text-slate-700 font-medium text-sm sm:text-base">
                 Email Address
               </Label>
               <Input
@@ -233,13 +233,13 @@ export default function LoginPage() {
                 placeholder="your.email@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="h-12"
+                className="h-11 sm:h-12 text-sm sm:text-base"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 font-medium">
+              <Label htmlFor="password" className="text-slate-700 font-medium text-sm sm:text-base">
                 Password
               </Label>
               <Input
@@ -248,21 +248,21 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12"
+                className="h-11 sm:h-12 text-sm sm:text-base"
                 required
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold"
+              className="w-full h-11 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-sm sm:text-base"
               disabled={loading || googleLoading}
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
 
             <div className="text-center">
-              <Link href="/auth/register" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+              <Link href="/auth/register" className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium">
                 Don&apos;t have an account? Register here
               </Link>
             </div>
