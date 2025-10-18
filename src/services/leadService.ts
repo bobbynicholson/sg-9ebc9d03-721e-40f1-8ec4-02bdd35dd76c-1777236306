@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { emailAutomationService } from "./emailAutomationService";
+import { realtimeNotificationService } from "./realtimeNotificationService";
+import { whatsappIntegrationService } from "./whatsappIntegrationService";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -71,10 +74,127 @@ export const leadService = {
       .single();
 
     if (error) throw error;
+
+    // ✅ FIX BUG #19.1: Send admin notification for new lead (URGENT)
+    if (data && lead.user_id) {
+      try {
+        // Get admin/company details
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("email, full_name, company_name, phone, phone_number")
+          .eq("id", lead.user_id)
+          .single();
+
+        const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
+
+        // 1. In-portal URGENT notification
+        await realtimeNotificationService.sendNotification({
+          userId: lead.user_id,
+          recipientId: lead.user_id,
+          type: "quote_sent", // Use existing type for lead-related activity
+          title: "🎉 New Lead Request!",
+          message: `New inquiry from ${lead.client_name || lead.client_email} - ${lead.guest_count || "N/A"} guests${lead.event_date ? ` on ${new Date(lead.event_date).toLocaleDateString()}` : ""}`,
+          priority: "urgent",
+          actionUrl: `/leads?leadId=${data.id}`,
+        });
+
+        // 2. Email notification to admin
+        if (adminProfile?.email) {
+          const subject = `🎉 New Lead Request - ${lead.client_name || lead.client_email}`;
+          const body = `You have a new catering inquiry!
+
+Client: ${lead.client_name || "Unknown"}
+Email: ${lead.client_email}
+Phone: ${lead.client_phone || "Not provided"}
+Event Date: ${lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "Not specified"}
+Event Type: ${lead.event_type || "Not specified"}
+Guest Count: ${lead.guest_count || "Not specified"}
+Budget: ${lead.budget || "Not specified"}
+
+Special Requests:
+${lead.special_requests || "None"}
+
+Action Required:
+Review this lead and create a custom quote as soon as possible.
+
+View Lead: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/leads?leadId=${data.id}
+
+Best regards,
+CateringMS Platform`;
+
+          await emailAutomationService.sendEmail(
+            lead.user_id,
+            adminProfile.email,
+            subject,
+            body,
+            {
+              clientName: lead.client_name || lead.client_email,
+              companyName
+            }
+          );
+          console.log("✅ Admin notification email sent for new lead");
+        }
+
+        // 3. WhatsApp notification to admin (if configured)
+        const adminPhone = adminProfile?.phone || adminProfile?.phone_number;
+        if (adminPhone) {
+          try {
+            await whatsappIntegrationService.sendWhatsAppMessage({
+              to: adminPhone,
+              type: "text",
+              text: {
+                body: `🎉 New Lead!\n\n` +
+                      `Client: ${lead.client_name || lead.client_email}\n` +
+                      `Event: ${lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "TBD"}\n` +
+                      `Guests: ${lead.guest_count || "TBD"}\n\n` +
+                      `View and respond quickly to win this booking!`
+              }
+            });
+          } catch (whatsappError) {
+            console.error("⚠️ WhatsApp admin notification failed (non-blocking):", whatsappError);
+          }
+        }
+
+      } catch (notificationError) {
+        console.error("⚠️ Failed to send admin notification for new lead (non-blocking):", notificationError);
+      }
+    }
+
+    // ✅ FIX BUG #19.2: Send auto-reply confirmation to client
+    if (data && lead.client_email) {
+      try {
+        // Get company name for client email
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("company_name, full_name")
+          .eq("id", lead.user_id)
+          .single();
+
+        const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
+
+        await emailAutomationService.sendQuoteRequestConfirmation(
+          lead.client_email,
+          lead.client_name || "there",
+          companyName,
+          data.id
+        );
+        console.log("✅ Lead request confirmation email sent to client:", lead.client_email);
+      } catch (emailError) {
+        console.error("⚠️ Failed to send client confirmation email (non-blocking):", emailError);
+      }
+    }
+
     return transformLeadForDisplay(data);
   },
 
   async updateLead(id: string, updates: LeadUpdate) {
+    // Get original lead for comparison
+    const { data: originalLead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", id)
+      .single();
+
     const { data, error } = await supabase
       .from("leads")
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -83,6 +203,37 @@ export const leadService = {
       .single();
 
     if (error) throw error;
+
+    // ✅ FIX BUG #19.4: Send notifications for status changes
+    if (originalLead && data && originalLead.status !== updates.status && updates.status) {
+      try {
+        const statusMessages: Record<string, string> = {
+          new: "New inquiry received",
+          contacted: "Initial contact made",
+          quoted: "Quote sent to client",
+          converted: "Lead converted to order!",
+          lost: "Lead marked as lost"
+        };
+
+        const statusMessage = statusMessages[updates.status] || `Status updated to ${updates.status}`;
+
+        // In-portal notification
+        await realtimeNotificationService.sendNotification({
+          userId: data.user_id,
+          recipientId: data.user_id,
+          type: "system_alert",
+          title: "Lead Status Updated",
+          message: `${data.client_name || data.client_email}: ${statusMessage}`,
+          priority: updates.status === "converted" ? "high" : "medium",
+          actionUrl: `/leads?leadId=${id}`,
+        });
+
+        console.log(`✅ Status change notification sent: ${originalLead.status} → ${updates.status}`);
+      } catch (notificationError) {
+        console.error("⚠️ Failed to send status change notification (non-blocking):", notificationError);
+      }
+    }
+
     return transformLeadForDisplay(data);
   },
 
@@ -101,6 +252,23 @@ export const leadService = {
     
     // Update lead status to converted
     await this.updateLead(leadId, { status: "converted" });
+
+    // ✅ FIX BUG #19.3: Send notification when lead converts to quote
+    try {
+      await realtimeNotificationService.sendNotification({
+        userId: lead._original.user_id,
+        recipientId: lead._original.user_id,
+        type: "quote_sent",
+        title: "Lead Converted to Quote",
+        message: `${lead.clientName || lead.clientEmail} has been converted to a quote`,
+        priority: "medium",
+        actionUrl: `/quotes`,
+      });
+
+      console.log("✅ Lead conversion notification sent");
+    } catch (notificationError) {
+      console.error("⚠️ Failed to send conversion notification (non-blocking):", notificationError);
+    }
 
     // Return transformed lead data for quote creation
     return lead;
