@@ -141,22 +141,22 @@ export function Header() {
           : "bg-white border-b border-slate-100"
       }`}
     >
-      <nav className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        <div className="flex items-center justify-between h-16 lg:h-20">
+      <nav className="container mx-auto px-3 sm:px-4 lg:px-8 max-w-7xl">
+        <div className="flex items-center justify-between h-14 sm:h-16 lg:h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
             {displayLogo ? (
               <img
                 src={displayLogo}
                 alt={displayName}
-                className="h-8 lg:h-10 object-contain"
+                className="h-7 sm:h-8 lg:h-10 object-contain"
               />
             ) : (
               <>
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl group-hover:scale-110 transition-transform">
-                  <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
+                <div className="p-1.5 sm:p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg sm:rounded-xl group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-white" />
                 </div>
-                <span className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <span className="text-base sm:text-lg lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   {displayName}
                 </span>
               </>
@@ -315,7 +315,7 @@ export function Header() {
             
             {/* Try Demo Button - Prominent */}
             <Link href="/test-company">
-              <Button variant="outline" className="border-2 border-green-500 text-green-700 hover:bg-green-50 shadow-sm">
+              <Button variant="outline" className="border-2 border-green-500 text-green-700 hover:bg-green-50 shadow-sm h-10">
                 <Play className="w-4 h-4 mr-2" />
                 Try Demo
               </Button>
@@ -323,7 +323,7 @@ export function Header() {
 
             {/* Sign Up CTA */}
             <Link href="/pricing">
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg">
+              <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
                 Start Free Trial
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -337,40 +337,40 @@ export function Header() {
             aria-label="Toggle menu"
           >
             {mobileMenuOpen ? (
-              <X className="w-6 h-6 text-slate-700" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
             ) : (
-              <Menu className="w-6 h-6 text-slate-700" />
+              <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700" />
             )}
           </button>
         </div>
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
-            <div className="p-4 space-y-3">
+          <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-2xl max-h-[calc(100vh-3.5rem)] sm:max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <div className="p-3 sm:p-4 space-y-2 sm:space-y-3">
               {/* Mobile Features */}
               <div className="space-y-2">
                 <button
                   onClick={() => handleDropdownToggle("mobile-features")}
-                  className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
+                  className="w-full flex items-center justify-between p-3 sm:p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors"
                 >
-                  <span className="font-medium text-slate-900">Features</span>
+                  <span className="font-medium text-sm sm:text-base text-slate-900">Features</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "mobile-features" ? "rotate-180" : ""}`} />
                 </button>
                 {activeDropdown === "mobile-features" && (
-                  <div className="pl-2 space-y-3">
+                  <div className="pl-1 sm:pl-2 space-y-2 sm:space-y-3">
                     {featuresMegaMenu.map((section, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-3 py-1">
+                      <div key={idx} className="space-y-1.5 sm:space-y-2">
+                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-2 sm:px-3 py-1">
                           {section.category}
                         </p>
                         {section.items.map((item, itemIdx) => (
                           <Link key={itemIdx} href={item.href}>
-                            <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50">
-                              <item.icon className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                            <div className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors">
+                              <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                                <p className="text-xs text-slate-600 truncate">{item.description}</p>
+                                <p className="font-medium text-slate-900 text-xs sm:text-sm">{item.name}</p>
+                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
                               </div>
                             </div>
                           </Link>
@@ -382,7 +382,7 @@ export function Header() {
               </div>
 
               <Link href="/pricing">
-                <div className="p-3 rounded-lg bg-slate-50 hover:bg-slate-100 font-medium text-slate-900 flex items-center justify-between">
+                <div className="p-3 sm:p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 font-medium text-sm sm:text-base text-slate-900 flex items-center justify-between transition-colors">
                   <span>Pricing</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </div>
@@ -392,25 +392,25 @@ export function Header() {
               <div className="space-y-2">
                 <button
                   onClick={() => handleDropdownToggle("mobile-resources")}
-                  className="w-full flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100"
+                  className="w-full flex items-center justify-between p-3 sm:p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors"
                 >
-                  <span className="font-medium text-slate-900">Resources</span>
+                  <span className="font-medium text-sm sm:text-base text-slate-900">Resources</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "mobile-resources" ? "rotate-180" : ""}`} />
                 </button>
                 {activeDropdown === "mobile-resources" && (
-                  <div className="pl-2 space-y-3">
+                  <div className="pl-1 sm:pl-2 space-y-2 sm:space-y-3">
                     {resourcesMegaMenu.map((section, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-3 py-1">
+                      <div key={idx} className="space-y-1.5 sm:space-y-2">
+                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-2 sm:px-3 py-1">
                           {section.category}
                         </p>
                         {section.items.map((item, itemIdx) => (
                           <Link key={itemIdx} href={item.href}>
-                            <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50">
-                              <item.icon className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                            <div className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors">
+                              <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                                <p className="text-xs text-slate-600 truncate">{item.description}</p>
+                                <p className="font-medium text-slate-900 text-xs sm:text-sm">{item.name}</p>
+                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
                               </div>
                             </div>
                           </Link>
@@ -422,45 +422,45 @@ export function Header() {
               </div>
 
               <Link href="/contact">
-                <div className="p-3 rounded-lg bg-slate-50 hover:bg-slate-100 font-medium text-slate-900 flex items-center justify-between">
+                <div className="p-3 sm:p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 font-medium text-sm sm:text-base text-slate-900 flex items-center justify-between transition-colors">
                   <span>Contact</span>
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </div>
               </Link>
 
               {/* Mobile Demo Section - Highlighted */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <Play className="w-5 h-5 text-green-600" />
-                  <span className="font-bold text-green-900 text-sm uppercase tracking-wider">
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-3 sm:p-4 border-2 border-green-200">
+                <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+                  <span className="font-bold text-green-900 text-xs sm:text-sm uppercase tracking-wider">
                     Try Demo
                   </span>
                 </div>
-                <p className="text-sm text-green-800 mb-3">
+                <p className="text-xs sm:text-sm text-green-800 mb-2 sm:mb-3">
                   Test all features with pre-loaded sample data. Login as admin, driver, kitchen, shopping, cleaning, or client.
                 </p>
                 <Link href="/test-company">
-                  <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white h-12">
-                    <Play className="w-5 h-5 mr-2" />
+                  <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white h-11 sm:h-12 text-sm sm:text-base">
+                    <Play className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Access Demo Portal
                   </Button>
                 </Link>
-                <div className="flex items-center justify-center gap-4 mt-3 text-xs text-green-700">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 mt-2 sm:mt-3 text-xs text-green-700">
                   <div className="flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    <span>Unlimited Access</span>
+                    <CheckCircle className="w-3 h-3 flex-shrink-0" />
+                    <span>Unlimited</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
+                    <Lock className="w-3 h-3 flex-shrink-0" />
                     <span>Safe Sandbox</span>
                   </div>
                 </div>
               </div>
 
               {/* Mobile CTA Section */}
-              <div className="pt-4 border-t border-slate-200 space-y-3">
+              <div className="pt-3 sm:pt-4 border-t border-slate-200 space-y-2 sm:space-y-3">
                 {user && userRoles.length > 1 && (
-                  <div className="px-2">
+                  <div className="px-1 sm:px-2">
                     <RoleSwitcher variant="default" showLabel={true} />
                   </div>
                 )}
@@ -468,13 +468,13 @@ export function Header() {
                   <RegionSwitcher />
                 </div>
                 <Link href="/company-signup">
-                  <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12 text-base">
+                  <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-11 sm:h-12 text-sm sm:text-base">
                     Start Free Trial
-                    <ArrowRight className="w-5 h-5 ml-2" />
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                   </Button>
                 </Link>
                 <div className="text-center">
-                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
                     14-Day Free Trial • No Credit Card
                   </Badge>
                 </div>
