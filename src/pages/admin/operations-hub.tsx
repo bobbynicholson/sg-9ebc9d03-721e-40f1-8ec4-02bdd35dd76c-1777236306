@@ -412,15 +412,15 @@ export default function OperationsHub() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <AdminNav />
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-4xl font-bold text-slate-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-2">
                 Operations Hub
               </h1>
-              <p className="text-slate-600 text-lg">
+              <p className="text-sm sm:text-base lg:text-lg text-slate-600">
                 Comprehensive operational management covering all 75 catering standards
               </p>
             </div>
@@ -430,14 +430,14 @@ export default function OperationsHub() {
           {/* Compliance Overview Alert */}
           {dashboard && (
             <Alert className={`${complianceStatus.bg} border-none`}>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {complianceStatus.status === "excellent" ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                   ) : (
-                    <AlertTriangle className={`h-5 w-5 ${complianceStatus.color}`} />
+                    <AlertTriangle className={`h-5 w-5 flex-shrink-0 ${complianceStatus.color}`} />
                   )}
-                  <AlertDescription className={complianceStatus.color}>
+                  <AlertDescription className={`${complianceStatus.color} text-sm sm:text-base`}>
                     {complianceStatus.status === "excellent" && (
                       <span className="font-semibold">All operational standards are in compliance!</span>
                     )}
@@ -453,7 +453,7 @@ export default function OperationsHub() {
                   variant="outline" 
                   size="sm"
                   onClick={() => setActiveTab("metrics")}
-                  className="border-current"
+                  className="border-current w-full sm:w-auto h-11"
                 >
                   View Metrics
                 </Button>
@@ -462,21 +462,33 @@ export default function OperationsHub() {
           )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-white/50 backdrop-blur-sm">
-            <TabsTrigger value="overview">Core Standards (1-40)</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced Standards (41-75)</TabsTrigger>
-            <TabsTrigger value="metrics">Real-Time Metrics</TabsTrigger>
-            <TabsTrigger value="quickstart">Quick Start Guide</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <TabsList className="bg-white/50 backdrop-blur-sm grid grid-cols-2 sm:grid-cols-4 h-auto sm:h-11 w-full gap-1 p-1">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm px-2 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Core Standards (1-40)</span>
+              <span className="sm:hidden">Core</span>
+            </TabsTrigger>
+            <TabsTrigger value="advanced" className="text-xs sm:text-sm px-2 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Advanced Standards (41-75)</span>
+              <span className="sm:hidden">Advanced</span>
+            </TabsTrigger>
+            <TabsTrigger value="metrics" className="text-xs sm:text-sm px-2 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Real-Time Metrics</span>
+              <span className="sm:hidden">Metrics</span>
+            </TabsTrigger>
+            <TabsTrigger value="quickstart" className="text-xs sm:text-sm px-2 py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Quick Start Guide</span>
+              <span className="sm:hidden">Guide</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Core Standards Tab (1-40) */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-4 sm:space-y-6">
             <div className="mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Core Operations (Standards 1-40)</h2>
-              <p className="text-slate-600">Essential modules for kitchen, inventory, staff, and daily operations</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Core Operations (Standards 1-40)</h2>
+              <p className="text-sm sm:text-base text-slate-600">Essential modules for kitchen, inventory, staff, and daily operations</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {coreModules.map((module) => {
                 const Icon = module.icon;
                 return (
@@ -485,23 +497,23 @@ export default function OperationsHub() {
                     className="hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-primary"
                     onClick={() => window.location.href = module.href}
                   >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className={`${module.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}>
-                          <Icon className="h-6 w-6 text-white" />
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className={`${module.color} p-2.5 sm:p-3 rounded-lg group-hover:scale-110 transition-transform`}>
+                          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         </div>
                         <Badge variant="secondary" className="text-xs">
                           {module.standards.length} Standards
                         </Badge>
                       </div>
-                      <CardTitle className="text-xl mt-4 group-hover:text-primary transition-colors">
+                      <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors">
                         {module.title}
                       </CardTitle>
-                      <CardDescription className="text-sm">
+                      <CardDescription className="text-xs sm:text-sm">
                         {module.description}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 sm:p-6 pt-0">
                       <div className="flex flex-wrap gap-1">
                         {module.standards.map(std => (
                           <Badge key={std} variant="outline" className="text-xs">
@@ -517,12 +529,12 @@ export default function OperationsHub() {
           </TabsContent>
 
           {/* Advanced Standards Tab (41-75) */}
-          <TabsContent value="advanced" className="space-y-6">
+          <TabsContent value="advanced" className="space-y-4 sm:space-y-6">
             <div className="mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Advanced Operations (Standards 41-75)</h2>
-              <p className="text-slate-600">Specialized modules for equipment, transport, safety, and compliance</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Advanced Operations (Standards 41-75)</h2>
+              <p className="text-sm sm:text-base text-slate-600">Specialized modules for equipment, transport, safety, and compliance</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {advancedModules.map((module) => {
                 const Icon = module.icon;
                 const hasAlert = module.metrics && module.metrics > 0;
@@ -534,10 +546,10 @@ export default function OperationsHub() {
                     }`}
                     onClick={() => window.location.href = module.href}
                   >
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className={`${module.color} p-3 rounded-lg group-hover:scale-110 transition-transform`}>
-                          <Icon className="h-6 w-6 text-white" />
+                    <CardHeader className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className={`${module.color} p-2.5 sm:p-3 rounded-lg group-hover:scale-110 transition-transform`}>
+                          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         </div>
                         {hasAlert && (
                           <Badge variant="destructive" className="text-xs">
@@ -545,14 +557,14 @@ export default function OperationsHub() {
                           </Badge>
                         )}
                       </div>
-                      <CardTitle className="text-xl mt-4 group-hover:text-primary transition-colors">
+                      <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors">
                         {module.title}
                       </CardTitle>
-                      <CardDescription className="text-sm">
+                      <CardDescription className="text-xs sm:text-sm">
                         {module.description}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-4 sm:p-6 pt-0">
                       <div className="flex flex-wrap gap-1">
                         {module.standards.map(std => (
                           <Badge key={std} variant="outline" className="text-xs">
@@ -568,7 +580,7 @@ export default function OperationsHub() {
           </TabsContent>
 
           {/* Real-Time Metrics Tab */}
-          <TabsContent value="metrics" className="space-y-6">
+          <TabsContent value="metrics" className="space-y-4 sm:space-y-6">
             {loading ? (
               <Card>
                 <CardContent className="py-12 text-center">
@@ -576,7 +588,7 @@ export default function OperationsHub() {
                 </CardContent>
               </Card>
             ) : dashboard ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {/* PAT Testing */}
                 <Card className={dashboard.overduePATTests > 0 ? "border-yellow-500" : "border-green-500"}>
                   <CardHeader className="pb-3">
@@ -769,30 +781,30 @@ export default function OperationsHub() {
           </TabsContent>
 
           {/* Quick Start Guide Tab */}
-          <TabsContent value="quickstart" className="space-y-6">
+          <TabsContent value="quickstart" className="space-y-4 sm:space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Getting Started with Operations Hub</CardTitle>
-                <CardDescription>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Getting Started with Operations Hub</CardTitle>
+                <CardDescription className="text-sm">
                   Follow these steps to set up all 75 operational standards
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 sm:p-6">
                 <div className="space-y-3">
-                  <div className="flex gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-orange-50 rounded-lg border border-orange-200">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
                         1
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-orange-900 mb-1">Core Operations Setup (Standards 1-40)</h3>
-                      <p className="text-sm text-orange-800">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-orange-900 mb-1 text-sm sm:text-base">Core Operations Setup (Standards 1-40)</h3>
+                      <p className="text-xs sm:text-sm text-orange-800">
                         Start with kitchen operations, inventory systems, staff management, and daily workflows
                       </p>
                       <Button 
                         size="sm" 
-                        className="mt-2 bg-orange-500 hover:bg-orange-600"
+                        className="mt-2 bg-orange-500 hover:bg-orange-600 h-9 w-full sm:w-auto"
                         onClick={() => setActiveTab("overview")}
                       >
                         View Core Standards
@@ -800,21 +812,21 @@ export default function OperationsHub() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
                         2
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-purple-900 mb-1">Advanced Systems (Standards 41-75)</h3>
-                      <p className="text-sm text-purple-800">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-purple-900 mb-1 text-sm sm:text-base">Advanced Systems (Standards 41-75)</h3>
+                      <p className="text-xs sm:text-sm text-purple-800">
                         Configure equipment tracking, safety systems, transport logistics, and compliance tools
                       </p>
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="mt-2 border-purple-500 text-purple-700 hover:bg-purple-50"
+                        className="mt-2 border-purple-500 text-purple-700 hover:bg-purple-50 h-9 w-full sm:w-auto"
                         onClick={() => setActiveTab("advanced")}
                       >
                         View Advanced Standards
@@ -822,21 +834,21 @@ export default function OperationsHub() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
                         3
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-blue-900 mb-1">Monitor Real-Time Metrics</h3>
-                      <p className="text-sm text-blue-800">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-blue-900 mb-1 text-sm sm:text-base">Monitor Real-Time Metrics</h3>
+                      <p className="text-xs sm:text-sm text-blue-800">
                         Track all operational metrics in real-time and receive alerts for items needing attention
                       </p>
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="mt-2 border-blue-500 text-blue-700 hover:bg-blue-50"
+                        className="mt-2 border-blue-500 text-blue-700 hover:bg-blue-50 h-9 w-full sm:w-auto"
                         onClick={() => setActiveTab("metrics")}
                       >
                         View Metrics Dashboard
@@ -844,15 +856,15 @@ export default function OperationsHub() {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
                         ✓
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-green-900 mb-1">Achieve Full Compliance</h3>
-                      <p className="text-sm text-green-800">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-green-900 mb-1 text-sm sm:text-base">Achieve Full Compliance</h3>
+                      <p className="text-xs sm:text-sm text-green-800">
                         Follow the system prompts and maintain regular updates to keep all 75 standards in compliance
                       </p>
                     </div>
