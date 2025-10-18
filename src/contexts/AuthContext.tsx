@@ -13,7 +13,7 @@ import { UserRole } from "@/types/app";
 
 type Company = Tables<"companies">;
 
-export type AuthenticatedUser = SupabaseUser & Profile;
+export type AuthenticatedUser = SupabaseUser &amp; Profile;
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
@@ -28,10 +28,10 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
   signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise<{ user: AuthUser | null; error: AuthError | null, companySlug?: string }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  updateProfile: (updates: Partial<profile>) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<authcontexttype | undefined>(undefined);
 
 /**
  * BUG FIX #2: Retry profile loading with exponential backoff
@@ -39,7 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  * This can cause a race condition where we try to load the profile before it exists.
  * Solution: Retry with increasing delays (100ms, 200ms, 400ms, 800ms, 1600ms)
  */
-async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<Profile | null> {
+async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<profile | null> {
   let lastError: any = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -77,13 +77,13 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
 function AuthProviderInner({ children }: { children: ReactNode }) {
   const { isDemoMode, getDemoUser } = useDemoMode();
   const router = useRouter();
-  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [user, setUser] = useState<authenticateduser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
+  const [userRoles, setUserRoles] = useState<roleassignment[]>([]);
   const [activeRole, setActiveRole] = useState<string>("client");
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [company, setCompany] = useState<Company | null>(null);
+  const [profile, setProfile] = useState<profile | null>(null);
+  const [company, setCompany] = useState<company | null>(null);
   const [companySlug, setCompanySlug] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,7 +116,6 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
           ).toISOString(),
           drive_time_to_kitchen_minutes: 25,
           vehicle_details: "White Toyota Hilux",
-          region: "Gauteng",
         } as AuthenticatedUser;
         
         setUser(fullDemoUser);
@@ -157,7 +156,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         if (!profileData) {
           console.error("Profile data is null after retries for user:", session.user.id);
           // Only redirect if we're not on an auth page (to avoid loops)
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
+          if (typeof window !== "undefined" &amp;&amp; !window.location.pathname.includes("/auth/")) {
             await handleInvalidSession();
           } else {
             // On auth pages, just clear state but don't redirect
@@ -227,7 +226,7 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
         console.error("Error during cleanup signout:", signOutError);
       }
       
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
+      if (typeof window !== "undefined" &amp;&amp; !window.location.pathname.includes("/auth/")) {
         router.push("/auth/login?message=session_expired");
       }
     };
