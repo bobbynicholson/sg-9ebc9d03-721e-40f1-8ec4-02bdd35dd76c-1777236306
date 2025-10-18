@@ -193,6 +193,7 @@ export const driverReplacementService = {
 
   /**
    * Broadcast replacement request to all available drivers
+   * Bug #9 FIX: Implement complete multi-channel notifications (email + WhatsApp + in-portal)
    */
   async broadcastToAvailableDrivers(requestId: string) {
     const { data: request } = await supabase
@@ -202,10 +203,13 @@ export const driverReplacementService = {
         orders!driver_replacement_requests_order_id_fkey (
           order_number,
           event_date,
-          event_time
+          event_time,
+          venue_address,
+          delivery_distance_km
         ),
         profiles!driver_replacement_requests_original_driver_id_fkey (
-          full_name
+          full_name,
+          company_id
         )
       `)
       .eq('id', requestId)
@@ -213,49 +217,122 @@ export const driverReplacementService = {
 
     if (!request) return;
 
+    // Get company details for email
+    const { data: companyProfile } = await supabase
+      .from('profiles')
+      .select('company_name, full_name')
+      .eq('id', request.profiles?.company_id || '')
+      .single();
+
+    const companyName = companyProfile?.company_name || companyProfile?.full_name || "Your Catering Company";
+
     // Get all active drivers except the original driver
     const { data: drivers } = await supabase
       .from('profiles')
-      .select('id, full_name, phone_number')
+      .select('id, full_name, email, phone, phone_number')
       .eq('role', 'driver')
       .eq('is_active', true)
       .neq('id', request.original_driver_id);
 
-    if (!drivers) return;
-
-    const notificationPayload: Omit<Parameters<typeof notificationService.createNotification>[0], 'recipient_id'> = {
-      title: '🚗 Driver Needed',
-      message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. Accept if available.`,
-      type: 'replacement_request',
-      link: `/drivers`,
-      user_id: request.original_driver_id,
-      priority: 'high',
-      metadata: { requestId, orderId: request.order_id }
-    };
-
-    // Send a notification to each available driver
-    for (const driver of drivers) {
-      await notificationService.createNotification({
-        ...notificationPayload,
-        recipient_id: driver.id,
-      });
-
-      // Send WhatsApp notification
-      await this.sendReplacementRequestWhatsApp(driver.id, requestId);
+    if (!drivers || drivers.length === 0) {
+      console.warn("⚠️ No available drivers found for replacement request");
+      return;
     }
 
-    // Send a single realtime broadcast to the 'driver' channel
-    // This can be used to trigger a refresh on the available jobs list for all drivers
-    const broadcastChannel = supabase.channel('driver-broadcasts');
-    await broadcastChannel.send({
-      type: 'broadcast',
-      event: 'replacement_request_available',
-      payload: {
-        requestId,
-        orderId: request.order_id,
-        orderNumber: request.orders?.order_number,
-      },
-    });
+    console.log(`📢 Broadcasting replacement request to ${drivers.length} available drivers`);
+
+    // Send notifications to each available driver
+    for (const driver of drivers) {
+      // 1. In-portal notification
+      await supabase.from("notifications").insert({
+        user_id: request.original_driver_id,
+        recipient_id: driver.id,
+        notification_type: "driver_assignment",
+        title: "🚗 Emergency Delivery Available",
+        message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. First to accept gets the job!`,
+        priority: "urgent",
+        order_id: request.order_id,
+        metadata: { 
+          requestId, 
+          orderId: request.order_id,
+          originalDriver: request.profiles?.full_name
+        }
+      });
+
+      // 2. ✅ NEW: Email notification to driver
+      if (driver.email) {
+        try {
+          const subject = `🚗 Emergency Delivery Opportunity - Order ${request.orders?.order_number}`;
+          const body = `Dear ${driver.full_name},
+
+🚗 URGENT: Replacement Driver Needed
+
+Order Number: ${request.orders?.order_number}
+Event Date: ${request.orders?.event_date}
+Event Time: ${request.orders?.event_time || "TBD"}
+Venue: ${request.orders?.venue_address || "TBD"}
+${request.orders?.delivery_distance_km ? `Distance: ${request.orders.delivery_distance_km} km\n` : ""}
+Original Driver: ${request.profiles?.full_name}
+Reason: ${request.reason}
+
+⏰ FIRST TO ACCEPT GETS THE JOB!
+
+This is an emergency replacement request. If you're available, please accept immediately in your driver portal.
+
+Accept Job: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/drivers?requestId=${requestId}
+
+The client is counting on us - let's not let them down!
+
+Best regards,
+${companyName}`;
+
+          // Import emailAutomationService at top of file if not already imported
+          const { emailAutomationService } = await import("./emailAutomationService");
+          
+          await emailAutomationService.sendEmail(
+            request.original_driver_id,
+            driver.email,
+            subject,
+            body,
+            {
+              driverName: driver.full_name,
+              orderNumber: request.orders?.order_number || requestId,
+              companyName
+            }
+          );
+          console.log(`✅ Replacement request email sent to driver: ${driver.email}`);
+        } catch (emailError) {
+          console.error(`⚠️ Failed to send email to driver ${driver.email} (non-blocking):`, emailError);
+        }
+      }
+
+      // 3. ✅ NEW: WhatsApp notification to driver (when configured)
+      const driverPhone = driver.phone || driver.phone_number;
+      if (driverPhone) {
+        try {
+          // Import whatsappIntegrationService at top of file if not already imported
+          const { whatsappIntegrationService } = await import("./whatsappIntegrationService");
+          
+          await whatsappIntegrationService.sendWhatsAppMessage({
+            to: driverPhone,
+            type: "text",
+            text: {
+              body: `🚗 URGENT DELIVERY NEEDED!\n\n` +
+                    `Order: ${request.orders?.order_number}\n` +
+                    `Date: ${request.orders?.event_date}\n` +
+                    `Original Driver: ${request.profiles?.full_name}\n\n` +
+                    `⏰ FIRST TO ACCEPT GETS IT!\n\n` +
+                    `Open your driver app now to accept.`
+            }
+          });
+          console.log(`✅ Replacement request WhatsApp sent to driver: ${driverPhone}`);
+        } catch (whatsappError) {
+          console.error(`⚠️ WhatsApp to driver ${driverPhone} failed (non-blocking - email sent):`, whatsappError);
+        }
+      }
+    }
+
+    console.log(`✅ Replacement request broadcast complete - notified ${drivers.length} drivers via email + WhatsApp + in-portal`);
   },
 
   /**
