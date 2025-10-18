@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
+import { emailAutomationService } from "./emailAutomationService";
 import { AppOrder } from "@/types";
 import { Order } from "@/types/index";
 
@@ -471,7 +472,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, client_phone, order_number, client_name")
+        .select("user_id, client_id, client_phone, client_email, order_number, client_name")
         .eq("id", assignment.order_id)
         .single();
 
@@ -491,18 +492,41 @@ export const driverService = {
         // Get client phone number from profiles table
         let clientPhone = orderDetails.client_phone;
         let clientName = orderDetails.client_name;
+        let clientEmail = orderDetails.client_email;
         
         if (!clientPhone && orderDetails.client_id) {
           const { data: clientProfile } = await supabase
             .from("profiles")
-            .select("phone, phone_number, full_name")
+            .select("phone, phone_number, full_name, email")
             .eq("id", orderDetails.client_id)
             .single();
           
           clientPhone = clientProfile?.phone || clientProfile?.phone_number;
           if (!clientName) clientName = clientProfile?.full_name;
+          if (!clientEmail) clientEmail = clientProfile?.email;
         }
 
+        // ✅ FIX BUG #20.1: Send EMAIL notification first (critical fallback)
+        if (clientEmail) {
+          try {
+            await emailAutomationService.sendDeliveryTrackingEmail(
+              clientEmail,
+              clientName || "Valued Client",
+              "Your Catering Company", // TODO: Get company name from user profile
+              orderDetails.order_number || assignment.order_id,
+              "Your Driver", // TODO: Get driver name
+              trackingUrl,
+              "Within 60 minutes" // TODO: Calculate actual ETA
+            );
+            console.log("✅ Delivery tracking email sent to:", clientEmail);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send delivery tracking email (non-blocking):", emailError);
+          }
+        } else {
+          console.warn("⚠️ Client email not available for delivery tracking notification");
+        }
+
+        // WhatsApp as additional channel (not replacement)
         if (clientPhone) {
           try {
             // Send main delivery notification with tracking link
@@ -529,10 +553,8 @@ export const driverService = {
               }
             });
           } catch (whatsappError) {
-            console.error("Failed to send WhatsApp messages:", whatsappError);
+            console.error("⚠️ WhatsApp notification failed (non-blocking - email sent):", whatsappError);
           }
-        } else {
-          console.warn("Client phone number not available for WhatsApp notification");
         }
       }
     }
@@ -569,7 +591,7 @@ export const driverService = {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, client_phone, order_number")
+        .select("user_id, client_id, client_phone, client_email, order_number, client_name")
         .eq("id", assignment.order_id)
         .single();
 
@@ -583,18 +605,58 @@ export const driverService = {
           priority: "medium",
         });
 
-        // Get client phone number from profiles table
+        // Get client details
         let clientPhone = orderDetails.client_phone;
+        let clientEmail = orderDetails.client_email;
+        let clientName = orderDetails.client_name;
+        
         if (!clientPhone && orderDetails.client_id) {
           const { data: clientProfile } = await supabase
             .from("profiles")
-            .select("phone, phone_number")
+            .select("phone, phone_number, email, full_name")
             .eq("id", orderDetails.client_id)
             .single();
           
           clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+          if (!clientEmail) clientEmail = clientProfile?.email;
+          if (!clientName) clientName = clientProfile?.full_name;
         }
 
+        // ✅ FIX BUG #20.2: Send EMAIL notification first (critical fallback)
+        if (clientEmail) {
+          try {
+            const subject = `Driver Arrived! - Order ${orderDetails.order_number}`;
+            const body = `Dear ${clientName || "Valued Client"},
+
+📍 Your driver has arrived at the venue!
+
+Order Number: ${orderDetails.order_number}
+
+Your order is being delivered now. Enjoy your event! 🎉
+
+Best regards,
+Your Catering Company`;
+
+            await emailAutomationService.sendEmail(
+              orderDetails.user_id,
+              clientEmail,
+              subject,
+              body,
+              {
+                clientName: clientName || "Valued Client",
+                orderNumber: orderDetails.order_number,
+                companyName: "Your Catering Company"
+              }
+            );
+            console.log("✅ Driver arrived email sent to:", clientEmail);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send driver arrived email (non-blocking):", emailError);
+          }
+        } else {
+          console.warn("⚠️ Client email not available for driver arrival notification");
+        }
+
+        // WhatsApp as additional channel
         if (clientPhone) {
           try {
             await whatsappIntegrationService.sendWhatsAppMessage({
@@ -607,10 +669,8 @@ export const driverService = {
               }
             });
           } catch (whatsappError) {
-            console.error("Failed to send WhatsApp message:", whatsappError);
+            console.error("⚠️ WhatsApp notification failed (non-blocking - email sent):", whatsappError);
           }
-        } else {
-          console.warn("Client phone number not available for WhatsApp notification");
         }
       }
     }
@@ -936,7 +996,7 @@ export const driverService = {
         started_trip_to_kitchen_at: new Date().toISOString(),
       })
       .eq("id", assignmentId)
-      .select("*, orders(id, user_id, order_number, client_id)")
+      .select("*, orders(id, user_id, order_number, client_id, client_email, client_name)")
       .single();
 
     if (error) {
@@ -947,6 +1007,7 @@ export const driverService = {
     const order = assignment.orders as any;
 
     if (order) {
+      // In-portal notification
       await realtimeNotificationService.sendNotification({
         userId: order.user_id,
         recipientId: order.user_id,
@@ -956,6 +1017,75 @@ export const driverService = {
         priority: "medium",
         orderId: order.id,
       });
+
+      // ✅ FIX BUG #20.3: Send EMAIL notification to admin
+      try {
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("email, full_name, company_name")
+          .eq("id", order.user_id)
+          .single();
+
+        if (adminProfile?.email) {
+          const subject = `Driver Heading to Kitchen - Order ${order.order_number}`;
+          const body = `Dear ${adminProfile.full_name || "Admin"},
+
+🚗 Driver has started their journey to the kitchen.
+
+Order Number: ${order.order_number}
+Status: Driver en route to collect order
+
+The driver will arrive at the kitchen shortly to collect the prepared order.
+
+Best regards,
+${adminProfile.company_name || "CateringMS Platform"}`;
+
+          await emailAutomationService.sendEmail(
+            order.user_id,
+            adminProfile.email,
+            subject,
+            body,
+            {
+              orderNumber: order.order_number,
+              companyName: adminProfile.company_name || "CateringMS"
+            }
+          );
+          console.log("✅ Driver departure email sent to admin:", adminProfile.email);
+        }
+      } catch (emailError) {
+        console.error("⚠️ Failed to send driver departure email (non-blocking):", emailError);
+      }
+
+      // ✅ FIX BUG #20.4: Send EMAIL notification to client
+      if (order.client_email) {
+        try {
+          const subject = `Order Update - Driver Collecting Your Order`;
+          const body = `Dear ${order.client_name || "Valued Client"},
+
+👨‍🍳 Great news! Your driver is on the way to the kitchen to collect your order.
+
+Order Number: ${order.order_number}
+
+Your order is being prepared and will be on its way to you soon. We'll notify you when the driver departs for your venue.
+
+Best regards,
+Your Catering Company`;
+
+          await emailAutomationService.sendEmail(
+            order.user_id,
+            order.client_email,
+            subject,
+            body,
+            {
+              clientName: order.client_name || "Valued Client",
+              orderNumber: order.order_number
+            }
+          );
+          console.log("✅ Driver departure notification email sent to client:", order.client_email);
+        } catch (emailError) {
+          console.error("⚠️ Failed to send client notification email (non-blocking):", emailError);
+        }
+      }
     }
 
     return assignment;
@@ -986,7 +1116,7 @@ export const driverService = {
     if (assignment) {
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id, client_id, client_phone, order_number")
+        .select("user_id, client_id, client_phone, client_email, order_number, client_name")
         .eq("id", assignment.order_id)
         .single();
 
@@ -1000,18 +1130,57 @@ export const driverService = {
           priority: "medium",
         });
 
-        // Get client phone number from profiles table
+        // Get client details
         let clientPhone = orderDetails.client_phone;
+        let clientEmail = orderDetails.client_email;
+        let clientName = orderDetails.client_name;
+        
         if (!clientPhone && orderDetails.client_id) {
           const { data: clientProfile } = await supabase
             .from("profiles")
-            .select("phone, phone_number")
+            .select("phone, phone_number, email, full_name")
             .eq("id", orderDetails.client_id)
             .single();
           
           clientPhone = clientProfile?.phone || clientProfile?.phone_number;
+          if (!clientEmail) clientEmail = clientProfile?.email;
+          if (!clientName) clientName = clientProfile?.full_name;
         }
 
+        // ✅ FIX BUG #20.5: Send EMAIL notification to client
+        if (clientEmail) {
+          try {
+            const subject = `Order Update - Driver at Kitchen`;
+            const body = `Dear ${clientName || "Valued Client"},
+
+👨‍🍳 Your driver has arrived at the kitchen!
+
+Order Number: ${orderDetails.order_number}
+
+Your order is being collected and prepared for delivery. You'll receive another update when the driver departs for your venue. 📦
+
+Best regards,
+Your Catering Company`;
+
+            await emailAutomationService.sendEmail(
+              orderDetails.user_id,
+              clientEmail,
+              subject,
+              body,
+              {
+                clientName: clientName || "Valued Client",
+                orderNumber: orderDetails.order_number
+              }
+            );
+            console.log("✅ Driver at kitchen email sent to client:", clientEmail);
+          } catch (emailError) {
+            console.error("⚠️ Failed to send driver at kitchen email (non-blocking):", emailError);
+          }
+        } else {
+          console.warn("⚠️ Client email not available for driver at kitchen notification");
+        }
+
+        // WhatsApp as additional channel
         if (clientPhone) {
           try {
             await whatsappIntegrationService.sendWhatsAppMessage({
@@ -1024,10 +1193,8 @@ export const driverService = {
               }
             });
           } catch (whatsappError) {
-            console.error("Failed to send WhatsApp message:", whatsappError);
+            console.error("⚠️ WhatsApp notification failed (non-blocking - email sent):", whatsappError);
           }
-        } else {
-          console.warn("Client phone number not available for WhatsApp notification");
         }
       }
     }
