@@ -179,69 +179,72 @@ export default function DriverTrackingPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <NoIndexMeta />
       <Header />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
-                <MapPin className="w-8 h-8 text-white" />
+              <div className="p-2.5 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg">
+                <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                   Driver Portal
                 </h1>
-                <p className="text-slate-600 mt-1">Welcome back, {driverName}</p>
+                <p className="text-sm sm:text-base text-slate-600 mt-1">Welcome back, {driverName}</p>
               </div>
             </div>
             <Link href="/drivers">
-              <Button variant="outline">View Full Dashboard</Button>
+              <Button variant="outline" className="w-full sm:w-auto h-11">
+                <span className="hidden sm:inline">View Full Dashboard</span>
+                <span className="sm:hidden">Dashboard</span>
+              </Button>
             </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm mb-1">Today's Earnings</p>
-                  <p className="text-3xl font-bold text-white">R{earnings.today}</p>
+                  <p className="text-blue-100 text-xs sm:text-sm mb-1">Today's Earnings</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-white">R{earnings.today}</p>
                 </div>
-                <DollarSign className="w-12 h-12 text-blue-200" />
+                <DollarSign className="w-10 h-10 sm:w-12 sm:h-12 text-blue-200" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-lg bg-gradient-to-br from-green-500 to-green-600">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm mb-1">This Week</p>
-                  <p className="text-3xl font-bold text-white">R{earnings.thisWeek}</p>
+                  <p className="text-green-100 text-xs sm:text-sm mb-1">This Week</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-white">R{earnings.thisWeek}</p>
                 </div>
-                <TrendingUp className="w-12 h-12 text-green-200" />
+                <TrendingUp className="w-10 h-10 sm:w-12 sm:h-12 text-green-200" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-500 to-amber-600">
-            <CardContent className="pt-6">
+            <CardContent className="p-4 sm:pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm mb-1">Pending Payment</p>
-                  <p className="text-3xl font-bold text-white">R{earnings.pending}</p>
+                  <p className="text-amber-100 text-xs sm:text-sm mb-1">Pending Payment</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-white">R{earnings.pending}</p>
                 </div>
-                <Clock className="w-12 h-12 text-amber-200" />
+                <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-amber-200" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {activeDelivery && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Active Delivery</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4">Active Delivery</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                 <DriverGPSTracker
                   orderId={activeDelivery.id}
                   assignmentId={activeDelivery.assignmentId || "assign-mock-001"}
@@ -250,7 +253,6 @@ export default function DriverTrackingPage() {
                   onStatusChange={handleStatusChange}
                 />
 
-                {/* Add Route Stop Manager */}
                 <RouteStopManager
                   orderId={activeDelivery.id}
                   driverId={user.id}
@@ -258,32 +260,32 @@ export default function DriverTrackingPage() {
                 />
 
                 <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Delivery Instructions</CardTitle>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-lg sm:text-xl">Delivery Instructions</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
+                  <CardContent className="space-y-3 p-4 sm:p-6 pt-0">
+                    <div className="p-3 sm:p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
                         Pickup Instructions
                       </h4>
-                      <p className="text-sm text-blue-700 mb-2">
+                      <p className="text-xs sm:text-sm text-blue-700 mb-2 break-words">
                         <span className="font-medium">Address:</span> {activeDelivery.pickupAddress}
                       </p>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-xs sm:text-sm text-blue-700 break-words">
                         Collect food from main kitchen. Ring bell at loading dock entrance.
                         Check all items against order list before departure.
                       </p>
                     </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
-                        <Navigation className="w-4 h-4" />
+                    <div className="p-3 sm:p-4 bg-green-50 rounded-lg">
+                      <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                        <Navigation className="w-4 h-4 flex-shrink-0" />
                         Delivery Instructions
                       </h4>
-                      <p className="text-sm text-green-700 mb-2">
+                      <p className="text-xs sm:text-sm text-green-700 mb-2 break-words">
                         <span className="font-medium">Destination:</span> {activeDelivery.venue}
                       </p>
-                      <p className="text-sm text-green-700">
+                      <p className="text-xs sm:text-sm text-green-700 break-words">
                         {activeDelivery.specialInstructions}
                       </p>
                     </div>
@@ -291,77 +293,77 @@ export default function DriverTrackingPage() {
                 </Card>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <Card className="border-0 shadow-lg">
-                  <CardHeader>
-                    <CardTitle>Order Details</CardTitle>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-lg sm:text-xl">Order Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                     <div>
-                      <Badge className={`${getStatusBadge(activeDelivery.status)} border mb-3`}>
+                      <Badge className={`${getStatusBadge(activeDelivery.status)} border mb-3 text-xs`}>
                         {typeof activeDelivery.status === 'string' ? activeDelivery.status.replace(/_/g, ' ').toUpperCase() : 'UNKNOWN'}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="text-sm text-slate-600">Client</p>
-                        <p className="font-medium text-slate-900">{activeDelivery.clientName}</p>
+                      <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-slate-600">Client</p>
+                        <p className="font-medium text-sm sm:text-base text-slate-900 truncate">{activeDelivery.clientName}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Phone className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="text-sm text-slate-600">Contact</p>
-                        <a href={`tel:${activeDelivery.clientPhone}`} className="font-medium text-blue-600 hover:text-blue-700">
+                      <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-slate-600">Contact</p>
+                        <a href={`tel:${activeDelivery.clientPhone}`} className="font-medium text-sm sm:text-base text-blue-600 hover:text-blue-700 break-all">
                           {activeDelivery.clientPhone}
                         </a>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="text-sm text-slate-600">Event Type</p>
-                        <p className="font-medium text-slate-900">{activeDelivery.eventType}</p>
+                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-slate-600">Event Type</p>
+                        <p className="font-medium text-sm sm:text-base text-slate-900 truncate">{activeDelivery.eventType}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Package className="w-5 h-5 text-slate-600" />
+                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 flex-shrink-0" />
                       <div>
-                        <p className="text-sm text-slate-600">Guest Count</p>
-                        <p className="font-medium text-slate-900">{activeDelivery.guestCount} guests</p>
+                        <p className="text-xs sm:text-sm text-slate-600">Guest Count</p>
+                        <p className="font-medium text-sm sm:text-base text-slate-900">{activeDelivery.guestCount} guests</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <DollarSign className="w-5 h-5 text-slate-600" />
+                      <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 flex-shrink-0" />
                       <div>
-                        <p className="text-sm text-slate-600">Estimated Earnings</p>
-                        <p className="font-medium text-slate-900">R{activeDelivery.estimatedEarnings}</p>
+                        <p className="text-xs sm:text-sm text-slate-600">Estimated Earnings</p>
+                        <p className="font-medium text-sm sm:text-base text-slate-900">R{activeDelivery.estimatedEarnings}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-50">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Safety Reminders</CardTitle>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Safety Reminders</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm text-slate-700">
+                  <CardContent className="space-y-2 text-xs sm:text-sm text-slate-700 p-4 sm:p-6 pt-0">
                     <div className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5">1</div>
-                      <p>Verify all food items before leaving kitchen</p>
+                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5 flex-shrink-0">1</div>
+                      <p className="break-words">Verify all food items before leaving kitchen</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5">2</div>
-                      <p>Maintain proper food temperature during transport</p>
+                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5 flex-shrink-0">2</div>
+                      <p className="break-words">Maintain proper food temperature during transport</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5">3</div>
-                      <p>Call client 15 minutes before arrival</p>
+                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5 flex-shrink-0">3</div>
+                      <p className="break-words">Call client 15 minutes before arrival</p>
                     </div>
                     <div className="flex items-start gap-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5">4</div>
-                      <p>Update delivery status at each step</p>
+                      <div className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs mt-0.5 flex-shrink-0">4</div>
+                      <p className="break-words">Update delivery status at each step</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -371,42 +373,42 @@ export default function DriverTrackingPage() {
         )}
 
         {availableJobs.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Available Jobs</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4">Available Jobs</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {availableJobs.map((job) => (
                 <Card key={job.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-lg mb-1">{job.eventType}</CardTitle>
-                        <p className="text-sm text-slate-600">Order #{job.id}</p>
+                  <CardHeader className="p-4 sm:p-6">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-base sm:text-lg mb-1 truncate">{job.eventType}</CardTitle>
+                        <p className="text-xs sm:text-sm text-slate-600 truncate">Order #{job.id}</p>
                       </div>
                       {job.urgent && (
-                        <Badge className="bg-red-100 text-red-700 border-red-200">
+                        <Badge className="bg-red-100 text-red-700 border-red-200 text-xs flex-shrink-0">
                           Urgent
                         </Badge>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-slate-600" />
-                      <span className="text-slate-700">{job.clientName}</span>
+                  <CardContent className="space-y-2 sm:space-y-3 p-4 sm:p-6 pt-0">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <User className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                      <span className="text-slate-700 truncate">{job.clientName}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="w-4 h-4 text-slate-600" />
-                      <span className="text-slate-700">{job.venue}</span>
+                    <div className="flex items-start gap-2 text-xs sm:text-sm">
+                      <MapPin className="w-4 h-4 text-slate-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 break-words">{job.venue}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="w-4 h-4 text-slate-600" />
-                      <span className="text-slate-700">Pickup: {job.pickupTime} | Deliver: {job.deliveryTime}</span>
+                    <div className="flex items-start gap-2 text-xs sm:text-sm">
+                      <Clock className="w-4 h-4 text-slate-600 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 break-words">Pickup: {job.pickupTime} | Deliver: {job.deliveryTime}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Package className="w-4 h-4 text-slate-600" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Package className="w-4 h-4 text-slate-600 flex-shrink-0" />
                       <span className="text-slate-700">{job.guestCount} guests</span>
                     </div>
-                    <div className="pt-3 border-t flex items-center justify-between">
+                    <div className="pt-3 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div>
                         <p className="text-xs text-slate-600">Estimated Earnings</p>
                         <p className="text-lg font-bold text-green-600">R{job.estimatedEarnings}</p>
@@ -414,7 +416,7 @@ export default function DriverTrackingPage() {
                       <Button 
                         onClick={() => handleAcceptJob(job.id)}
                         size="sm"
-                        className="bg-gradient-to-r from-green-500 to-emerald-500"
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 w-full sm:w-auto h-11"
                       >
                         Accept Job
                       </Button>
@@ -428,26 +430,26 @@ export default function DriverTrackingPage() {
 
         {completedJobs.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-4">Recently Completed</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4">Recently Completed</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {completedJobs.map((job) => (
                 <Card key={job.id} className="border-0 shadow-lg">
-                  <CardContent className="pt-6">
+                  <CardContent className="p-4 sm:pt-6">
                     <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-slate-900">{job.clientName}</p>
-                        <p className="text-sm text-slate-600">{job.eventType}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm sm:text-base text-slate-900 truncate">{job.clientName}</p>
+                        <p className="text-xs sm:text-sm text-slate-600 truncate">{job.eventType}</p>
                       </div>
-                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-xs text-slate-600">Earned</p>
-                        <p className="text-lg font-bold text-green-600">R{job.earnings}</p>
+                        <p className="text-base sm:text-lg font-bold text-green-600">R{job.earnings}</p>
                       </div>
                       <div className="flex gap-1">
                         {[...Array(job.rating)].map((_, i) => (
-                          <div key={i} className="w-4 h-4 rounded-full bg-yellow-400" />
+                          <div key={i} className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-yellow-400" />
                         ))}
                       </div>
                     </div>
