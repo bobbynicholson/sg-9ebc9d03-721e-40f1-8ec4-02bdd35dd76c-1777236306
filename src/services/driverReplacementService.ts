@@ -179,13 +179,13 @@ export const driverReplacementService = {
     if (!request) return;
 
     await realtimeNotificationService.createNotification({
+      company_id: request.profiles?.company_id,
       user_id: request.original_driver_id,
       recipient_id: 'admin',
       notification_type: 'system_alert',
       title: '🚨 Driver Replacement Requested',
       message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
       priority: 'urgent',
-      order_id: request.order_id,
       link: '/admin/order-assignments',
       metadata: { requestId, orderId: request.order_id }
     });

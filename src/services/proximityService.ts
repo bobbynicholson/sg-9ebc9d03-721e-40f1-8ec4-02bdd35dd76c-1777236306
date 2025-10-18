@@ -5,6 +5,7 @@ interface SimpleOrder {
   id: string;
   user_id: string | null;
   client_id: string | null;
+  company_id: string | null;
   venue_lat: number | null;
   venue_lng: number | null;
   venue_address: string | null;
@@ -39,12 +40,13 @@ async function markArrived(assignmentId: string): Promise<any | null> {
 
       const { data: orderDetails } = await supabase
         .from("orders")
-        .select("user_id")
+        .select("user_id, company_id")
         .eq("id", assignment.order_id)
         .single();
 
       if (orderDetails) {
-        await supabase.from("notifications").insert({
+        await realtimeNotificationService.createNotification({
+          company_id: orderDetails.company_id,
           user_id: orderDetails.user_id,
           recipient_id: assignment.driver_id,
           notification_type: "delivery_arrived",
@@ -97,7 +99,7 @@ async function checkProximityAndNotify(
 
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
-      .select("id, user_id, client_id, venue_lat, venue_lng, venue_address")
+      .select("id, user_id, client_id, company_id, venue_lat, venue_lng, venue_address")
       .eq("id", assignment.order_id)
       .limit(1);
 
@@ -122,7 +124,7 @@ async function checkProximityAndNotify(
     if (distanceInMeters <= 50 && assignment.status !== "arrived") {
       await markArrived(assignmentId);
 
-      if (order.user_id) {
+      if (order.user_id && order.company_id) {
         await realtimeNotificationService.createNotification({
           company_id: order.company_id,
           user_id: order.user_id,
@@ -152,7 +154,7 @@ async function checkProximityAndNotify(
       }
 
       if (count === 0) {
-          if(order.user_id){
+          if(order.user_id && order.company_id){
              await realtimeNotificationService.createNotification({
                 company_id: order.company_id,
                 user_id: order.user_id,

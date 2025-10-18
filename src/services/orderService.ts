@@ -3,6 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Order, ConvertQuoteToOrderParams, OrderStatusUpdate, AppOrder } from "@/types/index";
 import { emailAutomationService } from "./emailAutomationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
+import { realtimeNotificationService } from "./realtimeNotificationService";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
@@ -741,7 +742,7 @@ export const orderService = {
     // Get full order details including client contact info
     const { data: order } = await supabase
       .from("orders")
-      .select("user_id, client_id, client_name, client_email, client_phone, order_number")
+      .select("user_id, company_id, client_id, client_name, client_email, client_phone, order_number")
       .eq("id", orderId)
       .single();
 

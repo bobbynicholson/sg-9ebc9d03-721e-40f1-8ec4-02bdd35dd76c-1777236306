@@ -71,16 +71,19 @@ export const kitchenDutyService = {
 
     // NOTIFICATION: Kitchen staff clocked in → Notification to admin
     if(data) {
-        await realtimeNotificationService.createNotification({
-            company_id: data.company_id,
-            user_id: data.user_id,
-            recipient_id: data.user_id, // Admin
-            title: "Kitchen Staff Clocked In",
-            message: `A staff member has clocked in for kitchen duty.`,
-            notification_type: "info",
-            priority: "low",
-            link: `/admin/kitchen-duty-tracking`,
-        });
+        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
+        if (order) {
+            await realtimeNotificationService.createNotification({
+                company_id: order.company_id,
+                user_id: data.user_id,
+                recipient_id: data.user_id, // Admin
+                title: "Kitchen Staff Clocked In",
+                message: `A staff member has clocked in for kitchen duty.`,
+                notification_type: "info",
+                priority: "low",
+                link: `/admin/kitchen-duty-tracking`,
+            });
+        }
     }
 
     return data;
@@ -104,16 +107,19 @@ export const kitchenDutyService = {
 
     // NOTIFICATION: Kitchen staff clocked out → Notification to admin
     if (data) {
-        await realtimeNotificationService.createNotification({
-            company_id: data.company_id,
-            user_id: data.user_id,
-            recipient_id: data.user_id, // Admin
-            title: "Kitchen Staff Clocked Out",
-            message: `A staff member has clocked out from kitchen duty.`,
-            notification_type: "info",
-            priority: "low",
-            link: `/admin/kitchen-duty-tracking`,
-        });
+        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
+        if (order) {
+            await realtimeNotificationService.createNotification({
+                company_id: order.company_id,
+                user_id: data.user_id,
+                recipient_id: data.user_id, // Admin
+                title: "Kitchen Staff Clocked Out",
+                message: `A staff member has clocked out from kitchen duty.`,
+                notification_type: "info",
+                priority: "low",
+                link: `/admin/kitchen-duty-tracking`,
+            });
+        }
     }
 
     return data;
@@ -207,24 +213,27 @@ export const kitchenDutyService = {
 
     // NOTIFICATION: Kitchen task completed → Notification to admin
     if (data) {
-        await realtimeNotificationService.createNotification({
-            company_id: data.company_id,
-            user_id: data.user_id,
-            recipient_id: data.user_id, // Admin
-            title: "Kitchen Task Completed",
-            message: `Task "${data.task_type}" for order ${data.order_id} has been completed.`,
-            notification_type: "success",
-            priority: "medium",
-            link: `/orders/${data.order_id}`,
-        });
+        const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
+        if (order) {
+            await realtimeNotificationService.createNotification({
+                company_id: order.company_id,
+                user_id: data.user_id,
+                recipient_id: data.user_id, // Admin
+                title: "Kitchen Task Completed",
+                message: `Task "${data.task_type}" for order ${data.order_id} has been completed.`,
+                notification_type: "success",
+                priority: "medium",
+                link: `/orders/${data.order_id}`,
+            });
+        }
     }
 
     // Check if this is a milestone task that affects driver
     if ((taskType === "prep_completed" || taskType === "all_tasks_completed") && data.order_id) {
-        const { data: order } = await supabase.from('orders').select('assigned_driver_id').eq('id', data.order_id).single();
+        const { data: order } = await supabase.from('orders').select('assigned_driver_id, company_id').eq('id', data.order_id).single();
         if (order?.assigned_driver_id) {
             await realtimeNotificationService.createNotification({
-                company_id: data.company_id,
+                company_id: order.company_id,
                 user_id: data.user_id,
                 recipient_id: order.assigned_driver_id,
                 title: `Order ${data.order_id} Ready for Pickup`,

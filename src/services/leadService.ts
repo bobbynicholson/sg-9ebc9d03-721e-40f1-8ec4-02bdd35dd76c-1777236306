@@ -232,7 +232,7 @@ CateringMS Platform`;
           title: "Lead Status Updated",
           message: `${data.client_name || data.client_email}: ${statusMessage}`,
           priority: updates.status === "converted" ? "high" : "medium",
-          actionUrl: `/leads?leadId=${id}`,
+          link: `/leads?leadId=${id}`,
         });
 
         console.log(`✅ Status change notification sent: ${originalLead.status} → ${updates.status}`);
@@ -270,7 +270,7 @@ CateringMS Platform`;
         title: "Lead Converted to Quote",
         message: `${lead.clientName || lead.clientEmail} has been converted to a quote`,
         priority: "medium",
-        actionUrl: `/quotes`,
+        link: `/quotes`,
       });
 
       console.log("✅ Lead conversion notification sent");

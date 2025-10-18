@@ -102,7 +102,7 @@ export const userManagementService = {
       // 4. Get company details for the invitation email
       const { data: company, error: companyError } = await supabase
         .from("companies")
-        .select("name, slug")
+        .select("company_name, slug")
         .eq("id", companyId)
         .single();
 
@@ -116,18 +116,14 @@ export const userManagementService = {
       const invitationUrl = `${baseUrl}/${company?.slug || companyId}/signup?invitation=${invitationToken}&email=${encodeURIComponent(email)}`;
 
       // 6. Send invitation email
-      const emailSent = await emailAutomationService.sendStaffInvitationEmail(
+      const { billingEmailService } = await import("./billingEmailService");
+      await billingEmailService.sendStaffInvitationEmail(
         email,
-        fullName,
+        invitedBy,
         company?.company_name || "the company",
         invitationUrl,
         companyId
       );
-
-      if (!emailSent) {
-        console.warn("Failed to send invitation email, but invitation created");
-        // Don't fail the entire operation if email fails
-      }
 
       return { 
         success: true, 

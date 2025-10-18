@@ -131,7 +131,7 @@ export const emailAutomationService = {
       .from("email_automation_log")
       .insert([
         {
-          company_id: companyId,
+          user_id: companyId, // FIX: Use user_id as it is the company owner
           order_id: orderId || null,
           quote_id: quoteId || null,
           template_type: templateType,
