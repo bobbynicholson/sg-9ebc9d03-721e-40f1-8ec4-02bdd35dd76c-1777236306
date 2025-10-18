@@ -132,7 +132,6 @@ export const mockOrders: AppOrder[] = [
     delivery_status: "pending",
     internal_notes: "VIP client. Ensure everything is perfect.",
     special_instructions: "Serve oysters first.",
-    assigned_driver_id: null,
     created_at: new Date(Date.now() - 86400000 * 6).toISOString(),
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     region_id: "western-cape-cpt",

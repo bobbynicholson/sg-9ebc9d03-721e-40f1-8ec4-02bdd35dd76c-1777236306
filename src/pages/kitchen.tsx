@@ -340,7 +340,7 @@ export default function KitchenPage() {
                       {/* Menu Items */}
                       <div>
                         <h4 className="font-semibold text-sm md:text-base mb-2">Menu Items</h4>
-                        {Array.isArray(order.menu_items) && (order.menu_items as any[]).map((item: any) => (
+                        {Array.isArray(order.menu_items) && order.menu_items.map((item: any) => (
                           <div key={item.id} className="bg-slate-50 p-3 rounded-lg mb-2">
                             <p className="font-medium text-sm md:text-base">{item.name}</p>
                             <p className="text-xs md:text-sm text-slate-600">Quantity: {item.quantity}</p>
@@ -425,7 +425,7 @@ export default function KitchenPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {order.menu_items && Array.isArray(order.menu_items) && (order.menu_items as any[]).map((item: any) => (
+                        {order.menu_items && Array.isArray(order.menu_items) && order.menu_items.map((item: any) => (
                           <div key={item.id} className="flex justify-between items-center text-sm md:text-base">
                             <span className="truncate mr-2">{item.name}</span>
                             <span className="text-slate-600 flex-shrink-0">x{item.quantity}</span>
