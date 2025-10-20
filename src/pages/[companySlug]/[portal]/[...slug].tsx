@@ -39,41 +39,42 @@ const PORTAL_ROUTES = {
       dashboard: AdminDashboard,
     },
     redirectRoutes: {
-      // ✅ FIX: Include company slug prefix in redirect URLs
-      leads: (slug: string) => `/${slug}/admin/leads`,
-      "leads/new": (slug: string) => `/${slug}/admin/leads/new`,
-      quotes: (slug: string) => `/${slug}/admin/quotes`,
-      "quotes/new": (slug: string) => `/${slug}/admin/quotes/new`,
-      calendar: (slug: string) => `/${slug}/admin/calendar`,
-      notifications: (slug: string) => `/${slug}/admin/notifications`,
-      integrations: (slug: string) => `/${slug}/admin/integrations`,
-      "client-portal": (slug: string) => `/${slug}/admin/client-portal`,
-      drivers: (slug: string) => `/${slug}/admin/drivers`,
-      orders: (slug: string) => `/${slug}/admin/orders`,
-      inventory: (slug: string) => `/${slug}/admin/inventory`,
-      shopping: (slug: string) => `/${slug}/admin/shopping`,
-      "job-progress-overview": (slug: string) => `/${slug}/portal/admin/job-progress-overview`,
-      "staff-hours": (slug: string) => `/${slug}/admin/staff-hours`,
-      "operations-hub": (slug: string) => `/${slug}/admin/operations-hub`,
-      "operations-standards": (slug: string) => `/${slug}/admin/operations-standards`,
-      "equipment-shortages": (slug: string) => `/${slug}/admin/equipment-shortages`,
-      "regions": (slug: string) => `/${slug}/admin/regions`,
-      "email-templates": (slug: string) => `/${slug}/admin/email-templates`,
-      "after-sales-emails": (slug: string) => `/${slug}/admin/after-sales-emails`,
-      "email-automation-dashboard": (slug: string) => `/${slug}/admin/email-automation-dashboard`,
-      "email-automation-settings": (slug: string) => `/${slug}/admin/email-automation-settings`,
-      "notification-settings": (slug: string) => `/${slug}/portal/admin/notification-settings`,
-      "client-search": (slug: string) => `/${slug}/admin/client-search`,
+      // ✅ FIX: Most admin pages are standalone (no company slug prefix)
+      // Only pages that REQUIRE company context keep the slug
+      leads: () => `/leads`,
+      "leads/new": () => `/leads/new`,
+      quotes: () => `/quotes`,
+      "quotes/new": () => `/quotes/new`,
+      calendar: () => `/calendar`,
+      notifications: () => `/notifications`,
+      integrations: () => `/integrations`,
+      "client-portal": () => `/client-portal`,
+      drivers: () => `/drivers`,
+      orders: () => `/orders`,
+      inventory: () => `/inventory`,
+      shopping: () => `/shopping`,
+      "job-progress-overview": () => `/portal/admin/job-progress-overview`,
+      "staff-hours": () => `/admin/staff-hours`,
+      "operations-hub": () => `/admin/operations-hub`,
+      "operations-standards": () => `/admin/operations-standards`,
+      "equipment-shortages": () => `/admin/equipment-shortages`,
+      "regions": () => `/admin/regions`,
+      "email-templates": () => `/admin/email-templates`,
+      "after-sales-emails": () => `/admin/after-sales-emails`,
+      "email-automation-dashboard": () => `/admin/email-automation-dashboard`,
+      "email-automation-settings": () => `/admin/email-automation-settings`,
+      "notification-settings": () => `/portal/admin/notification-settings`,
+      "client-search": () => `/admin/client-search`,
       "client-database": (slug: string) => `/${slug}/admin/client-database`,
-      "white-label": (slug: string) => `/${slug}/admin/white-label`,
-      "financial-dashboard": (slug: string) => `/${slug}/admin/financial-dashboard`,
-      subscription: (slug: string) => `/${slug}/admin/subscription`,
-      "payment-gateways": (slug: string) => `/${slug}/admin/payment-gateways`,
-      "driver-management": (slug: string) => `/${slug}/admin/driver-management`,
-      "kitchen-duty-tracking": (slug: string) => `/${slug}/admin/kitchen-duty-tracking`,
-      users: (slug: string) => `/${slug}/admin/users`,
-      reports: (slug: string) => `/${slug}/admin/reports`,
-      settings: (slug: string) => `/${slug}/admin/settings`,
+      "white-label": () => `/admin/white-label`,
+      "financial-dashboard": () => `/admin/financial-dashboard`,
+      subscription: () => `/admin/subscription`,
+      "payment-gateways": () => `/admin/payment-gateways`,
+      "driver-management": () => `/admin/driver-management`,
+      "kitchen-duty-tracking": () => `/admin/kitchen-duty-tracking`,
+      users: () => `/admin/users`,
+      reports: () => `/admin/reports`,
+      settings: () => `/admin/settings`,
       onboarding: (slug: string) => `/${slug}/admin/onboarding`,
     },
     defaultRoute: "dashboard",
@@ -180,7 +181,10 @@ export default function PortalPage() {
     if (hasAccess) {
       const redirectFunc = portalConfig.redirectRoutes && (portalConfig.redirectRoutes as any)[currentRoute];
       if (redirectFunc && typeof redirectFunc === 'function') {
-        router.push(redirectFunc(companySlug));
+        // Call the redirect function with company slug
+        const redirectUrl = redirectFunc(companySlug);
+        console.log(`Redirecting ${currentRoute} to ${redirectUrl}`);
+        router.push(redirectUrl);
         return;
       }
 
