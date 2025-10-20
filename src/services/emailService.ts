@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import nodemailer from "nodemailer";
+
+// ✅ FIX: Don't import nodemailer at the top level
+// This prevents Next.js from bundling it for the client
+// Instead, we'll dynamically import it only when needed (server-side only)
 
 export interface EmailSettings {
   id: string;
@@ -23,8 +26,8 @@ export interface SendEmailPayload {
   template?: string;
   body?: string;
   variables?: Record<string, any>;
-  orderId?: string,
-  quoteId?: string,
+  orderId?: string;
+  quoteId?: string;
 }
 
 export interface EmailLog {
@@ -139,11 +142,9 @@ export const emailService = {
     const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});
     finalBody = this.replaceVariables(finalBody, payload.variables || {});
 
-    // ✅ ACTUAL EMAIL SENDING IMPLEMENTATION
     try {
       let emailSent = false;
 
-      // Try Resend first (recommended for serverless)
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         emailSent = await this.sendViaResend({
           from: `${config.from_name} <${config.from_email}>`,
@@ -151,18 +152,14 @@ export const emailService = {
           subject: finalSubject,
           html: finalBody,
         });
-      }
-      // Fallback to SMTP
-      else if (config.provider === 'smtp' && config.smtp_host) {
+      } else if (config.provider === 'smtp' && config.smtp_host) {
         emailSent = await this.sendViaSMTP(config, {
           from: `${config.from_name} <${config.from_email}>`,
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
         });
-      }
-      // Development mode - simulate but log
-      else {
+      } else {
         console.log("----- EMAIL SIMULATION (No Provider Configured) -----");
         console.log(`From: "${config.from_name}" <${config.from_email}>`);
         console.log(`To: ${payload.to}`);
@@ -171,7 +168,6 @@ export const emailService = {
         console.log(`Provider: ${config.provider || 'none'}`);
         console.log("----------------------------------------------------");
         
-        // Still log as sent in development
         await this.logEmailSent(
           payload.companyId,
           payload.template || 'custom',
@@ -182,7 +178,7 @@ export const emailService = {
           payload.quoteId
         );
         
-        return true; // Return true in dev mode so signup flow continues
+        return true;
       }
 
       if (emailSent) {
@@ -205,9 +201,6 @@ export const emailService = {
     }
   },
 
-  /**
-   * Send email via Resend API
-   */
   async sendViaResend(emailData: {
     from: string;
     to: string;
@@ -238,9 +231,6 @@ export const emailService = {
     }
   },
 
-  /**
-   * Send email via SMTP
-   */
   async sendViaSMTP(config: EmailSettings, emailData: {
     from: string;
     to: string;
@@ -253,7 +243,11 @@ export const emailService = {
         return false;
       }
 
-      const transporter = nodemailer.createTransport({
+      // ✅ FIX: Dynamically import nodemailer only when needed (server-side only)
+      // This prevents Next.js from trying to bundle it for the client
+      const nodemailer = await import('nodemailer');
+
+      const transporter = nodemailer.default.createTransport({
         host: config.smtp_host,
         port: config.smtp_port,
         secure: config.smtp_port === 465,
