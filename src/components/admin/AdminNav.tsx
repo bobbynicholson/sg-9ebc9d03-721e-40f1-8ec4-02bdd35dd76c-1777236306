@@ -66,13 +66,13 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Analytics Dashboard",
-          href: `/${companySlug}/admin/dashboard`,
+          href: `/${companySlug}/admin/dashboard`, // ✅ Portal route
           icon: LayoutDashboard,
           description: "Business insights and metrics"
         },
         {
           title: "Notifications",
-          href: `/notifications`,
+          href: `/${companySlug}/admin/notifications`, // ✅ Keep company slug
           icon: Bell,
           description: "View all notifications"
         }
@@ -83,31 +83,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Leads",
-          href: `/leads`,
+          href: `/${companySlug}/admin/leads`, // ✅ Keep company slug
           icon: UserPlus,
           description: "Manage potential clients"
         },
         {
           title: "Quotes",
-          href: `/quotes`,
+          href: `/${companySlug}/admin/quotes`, // ✅ Keep company slug
           icon: FileSpreadsheet,
           description: "Create and manage quotes"
         },
         {
           title: "Orders",
-          href: `/orders`,
+          href: `/${companySlug}/admin/orders`, // ✅ Keep company slug
           icon: ClipboardList,
           description: "View and manage orders"
         },
         {
           title: "Calendar",
-          href: `/calendar`,
+          href: `/${companySlug}/admin/calendar`, // ✅ Keep company slug
           icon: Calendar,
           description: "Event scheduling"
         },
         {
           title: "Inventory",
-          href: `/inventory`,
+          href: `/${companySlug}/admin/inventory`, // ✅ Keep company slug
           icon: Package,
           description: "Stock management"
         }
@@ -118,19 +118,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Users",
-          href: `/admin/users`,
+          href: `/${companySlug}/admin/users`, // ✅ Keep company slug
           icon: Users,
           description: "Manage user accounts"
         },
         {
           title: "Drivers",
-          href: `/drivers`,
+          href: `/${companySlug}/admin/drivers`, // ✅ Keep company slug
           icon: Truck,
           description: "Manage delivery drivers"
         },
         {
           title: "Staff Hours",
-          href: `/admin/staff-hours`,
+          href: `/${companySlug}/admin/staff-hours`, // ✅ Keep company slug
           icon: Clock,
           description: "Track staff working hours"
         }
@@ -141,31 +141,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Operations Hub",
-          href: `/admin/operations-hub`,
+          href: `/${companySlug}/admin/operations-hub`, // ✅ Keep company slug
           icon: Layers,
           description: "40 operational standards"
         },
         {
           title: "Operations Standards",
-          href: `/admin/operations-standards`,
+          href: `/${companySlug}/admin/operations-standards`, // ✅ Keep company slug
           icon: Briefcase,
           description: "Standards 41-75: Equipment & Fleet"
         },
         {
           title: "Job Progress Overview",
-          href: `/portal/admin/job-progress-overview`,
+          href: `/${companySlug}/admin/job-progress-overview`, // ✅ Keep company slug
           icon: TrendingUp,
           description: "Monitor all jobs"
         },
         {
           title: "Equipment Shortages",
-          href: `/admin/equipment-shortages`,
+          href: `/${companySlug}/admin/equipment-shortages`, // ✅ Keep company slug
           icon: Package,
           description: "Track inventory issues"
         },
         {
           title: "Regions",
-          href: `/admin/regions`,
+          href: `/${companySlug}/admin/regions`, // ✅ Keep company slug
           icon: MapPin,
           description: "Manage service regions"
         }
@@ -176,31 +176,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Email Templates",
-          href: `/admin/email-templates`,
+          href: `/${companySlug}/admin/email-templates`, // ✅ Keep company slug
           icon: Mail,
           description: "Manage email templates"
         },
         {
           title: "After-Sales Emails",
-          href: `/admin/after-sales-emails`,
+          href: `/${companySlug}/admin/after-sales-emails`, // ✅ Keep company slug
           icon: MessageSquare,
           description: "Follow-up communications"
         },
         {
           title: "Email Automation",
-          href: `/admin/email-automation-dashboard`,
+          href: `/${companySlug}/admin/email-automation-dashboard`, // ✅ Keep company slug
           icon: Mail,
           description: "Automated email campaigns"
         },
         {
           title: "Automation Settings",
-          href: `/admin/email-automation-settings`,
+          href: `/${companySlug}/admin/email-automation-settings`, // ✅ Keep company slug
           icon: Settings,
           description: "Configure automation"
         },
         {
           title: "Notification Settings",
-          href: `/portal/admin/notification-settings`,
+          href: `/${companySlug}/admin/notification-settings`, // ✅ Keep company slug
           icon: Bell,
           description: "Configure notifications"
         }
@@ -211,19 +211,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Client Database",
-          href: `/${companySlug}/admin/client-database`,
+          href: `/${companySlug}/admin/client-database`, // ✅ Keep company slug
           icon: Users,
           description: "Complete client management and history"
         },
         {
           title: "Client Portal Management",
-          href: `/client-portal`,
+          href: `/${companySlug}/admin/client-portal`, // ✅ Keep company slug
           icon: Users,
           description: "Manage client portal access"
         },
         {
           title: "Client Search",
-          href: `/admin/client-search`,
+          href: `/${companySlug}/admin/client-search`, // ✅ Keep company slug
           icon: Search,
           description: "Search and filter clients"
         }
@@ -234,7 +234,7 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Shopping Dashboard",
-          href: `/shopping`,
+          href: `/${companySlug}/admin/shopping`, // ✅ Keep company slug
           icon: ShoppingCart,
           description: "Procurement overview"
         }
@@ -245,19 +245,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "White Label",
-          href: `/admin/white-label`,
+          href: `/${companySlug}/admin/white-label`, // ✅ Keep company slug
           icon: Building2,
           description: "Branding customization"
         },
         {
           title: "Integrations",
-          href: `/integrations`,
+          href: `/${companySlug}/admin/integrations`, // ✅ Keep company slug
           icon: Plug,
           description: "Third-party integrations"
         },
         {
           title: "System Settings",
-          href: `/admin/settings`,
+          href: `/${companySlug}/admin/settings`, // ✅ Keep company slug
           icon: Settings,
           description: "General configuration"
         }
@@ -268,19 +268,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Financial Dashboard",
-          href: `/admin/financial-dashboard`,
+          href: `/${companySlug}/admin/financial-dashboard`, // ✅ Keep company slug
           icon: DollarSign,
           description: "Financial insights"
         },
         {
           title: "Subscription",
-          href: `/admin/subscription`,
+          href: `/${companySlug}/admin/subscription`, // ✅ Keep company slug
           icon: CreditCard,
           description: "Manage subscriptions"
         },
         {
           title: "Payment Gateways",
-          href: `/admin/payment-gateways`,
+          href: `/${companySlug}/admin/payment-gateways`, // ✅ Keep company slug
           icon: CreditCard,
           description: "Configure payments"
         }

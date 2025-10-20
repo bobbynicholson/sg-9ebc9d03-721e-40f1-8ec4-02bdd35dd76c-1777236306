@@ -38,9 +38,53 @@ const PORTAL_ROUTES = {
     routes: {
       dashboard: AdminDashboard,
     },
-    // ✅ REMOVE ALL REDIRECT ROUTES - Admin pages are standalone
-    // AdminNav will handle navigation to standalone pages
-    redirectRoutes: {},
+    // ✅ Admin portal redirect routes - redirect to company-scoped standalone pages
+    redirectRoutes: {
+      // Core Management
+      leads: (slug: string) => `/${slug}/admin/leads`,
+      "leads/new": (slug: string) => `/${slug}/admin/leads/new`,
+      quotes: (slug: string) => `/${slug}/admin/quotes`,
+      "quotes/new": (slug: string) => `/${slug}/admin/quotes/new`,
+      calendar: (slug: string) => `/${slug}/admin/calendar`,
+      notifications: (slug: string) => `/${slug}/admin/notifications`,
+      integrations: (slug: string) => `/${slug}/admin/integrations`,
+      "client-portal": (slug: string) => `/${slug}/admin/client-portal`,
+      drivers: (slug: string) => `/${slug}/admin/drivers`,
+      orders: (slug: string) => `/${slug}/admin/orders`,
+      inventory: (slug: string) => `/${slug}/admin/inventory`,
+      shopping: (slug: string) => `/${slug}/admin/shopping`,
+      
+      // Operations
+      "job-progress-overview": (slug: string) => `/${slug}/admin/job-progress-overview`,
+      "staff-hours": (slug: string) => `/${slug}/admin/staff-hours`,
+      "operations-hub": (slug: string) => `/${slug}/admin/operations-hub`,
+      "operations-standards": (slug: string) => `/${slug}/admin/operations-standards`,
+      "equipment-shortages": (slug: string) => `/${slug}/admin/equipment-shortages`,
+      regions: (slug: string) => `/${slug}/admin/regions`,
+      
+      // Communications
+      "email-templates": (slug: string) => `/${slug}/admin/email-templates`,
+      "after-sales-emails": (slug: string) => `/${slug}/admin/after-sales-emails`,
+      "email-automation-dashboard": (slug: string) => `/${slug}/admin/email-automation-dashboard`,
+      "email-automation-settings": (slug: string) => `/${slug}/admin/email-automation-settings`,
+      "notification-settings": (slug: string) => `/${slug}/admin/notification-settings`,
+      
+      // Client Portal
+      "client-database": (slug: string) => `/${slug}/admin/client-database`,
+      "client-search": (slug: string) => `/${slug}/admin/client-search`,
+      
+      // Settings & Finance
+      "white-label": (slug: string) => `/${slug}/admin/white-label`,
+      "financial-dashboard": (slug: string) => `/${slug}/admin/financial-dashboard`,
+      subscription: (slug: string) => `/${slug}/admin/subscription`,
+      "payment-gateways": (slug: string) => `/${slug}/admin/payment-gateways`,
+      "driver-management": (slug: string) => `/${slug}/admin/driver-management`,
+      "kitchen-duty-tracking": (slug: string) => `/${slug}/admin/kitchen-duty-tracking`,
+      users: (slug: string) => `/${slug}/admin/users`,
+      reports: (slug: string) => `/${slug}/admin/reports`,
+      settings: (slug: string) => `/${slug}/admin/settings`,
+      onboarding: (slug: string) => `/${slug}/admin/onboarding`,
+    },
     defaultRoute: "dashboard",
   },
   driver: {
