@@ -4,6 +4,7 @@ import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { AppOrder } from "@/types/app";
 import { Order } from "@/types/index";
+import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export type DriverAssignment = Tables<"driver_assignments">;
 export type GPSTracking = Tables<"gps_tracking">;
@@ -984,7 +985,7 @@ The driver will arrive at the kitchen shortly to collect the prepared order.
 Best regards,
 ${adminProfile.company_name || "CateringMS Platform"}`;
 
-          await emailService.sendEmail({
+          await sendEmailViaAPI({
             companyId: order.user_id,
             to: adminProfile.email,
             subject,
@@ -1015,7 +1016,7 @@ Your order is being prepared and will be on its way to you soon. We'll notify yo
 Best regards,
 Your Catering Company`;
 
-          await emailService.sendEmail({
+          await sendEmailViaAPI({
             companyId: order.user_id,
             to: order.client_email,
             subject,
@@ -1106,7 +1107,7 @@ Your order is being collected and prepared for delivery. You'll receive another 
 Best regards,
 Your Catering Company`;
 
-            await emailService.sendEmail({
+            await sendEmailViaAPI({
               companyId: orderDetails.user_id,
               to: clientEmail,
               subject,

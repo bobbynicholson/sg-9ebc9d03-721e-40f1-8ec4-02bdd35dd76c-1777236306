@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { emailService } from "./emailService";
+import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export interface DriverReplacementRequest {
   id: string;
@@ -291,7 +291,7 @@ ${companyName}`;
 
           // Import emailAutomationService at top of file if not already imported
           
-          await emailService.sendEmail({
+          await sendEmailViaAPI({
             companyId: request.profiles?.company_id || '',
             to: driver.email,
             subject,

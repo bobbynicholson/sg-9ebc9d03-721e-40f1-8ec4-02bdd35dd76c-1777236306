@@ -9,7 +9,7 @@ import {
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { emailAutomationService } from "./emailAutomationService";
 import { PayFastService } from "@/lib/payfastService";
-import { emailService } from "./emailService";
+import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export interface PaymentSchedule {
   orderId: string;
@@ -175,7 +175,7 @@ class PaymentProcessingService {
             const subject = `Deposit Payment Received - Order #${order.order_number}`;
             const body = `Dear ${order.client_name}, your deposit of ${order.currency} ${schedule.deposit_amount.toFixed(2)} for order #${order.order_number} has been received.`;
 
-            await emailService.sendEmail({
+            await sendEmailViaAPI({
               companyId: userId,
               to: order.client_email,
               subject,
@@ -272,7 +272,7 @@ class PaymentProcessingService {
             const subject = `Final Payment Received - Order #${order.order_number}`;
             const body = `Dear ${order.client_name}, your final payment for order #${order.order_number} has been received. Your order is now fully confirmed.`;
 
-            await emailService.sendEmail({
+            await sendEmailViaAPI({
               companyId: userId,
               to: order.client_email,
               subject,
@@ -434,7 +434,7 @@ Questions? Contact us immediately.
 Thank you,
 Your Catering Company`;
 
-            await emailService.sendEmail({
+            await sendEmailViaAPI({
               companyId: reminder.user_id,
               to: orderData.client_email,
               subject,
@@ -553,7 +553,7 @@ Questions? Contact us immediately.
 Best regards,
 Your Catering Company`;
 
-                await emailService.sendEmail({
+                await sendEmailViaAPI({
                   companyId: orderData.user_id,
                   to: orderData.client_email,
                   subject,

@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import type { Database } from "@/integrations/supabase/types";
+import { sendEmailViaAPI } from "@/lib/emailClient";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -86,7 +87,7 @@ Email: ${lead.client_email}
 Event Date: ${new Date(lead.event_date).toLocaleDateString()}
 Guests: ${lead.guest_count}`;
 
-          await emailService.sendEmail({
+          await sendEmailViaAPI({
             companyId: lead.user_id,
             to: adminProfile.email,
             subject,
@@ -136,7 +137,7 @@ Guests: ${lead.guest_count}`;
 
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
-        await emailService.sendEmail({
+        await sendEmailViaAPI({
             companyId: data.company_id,
             to: lead.client_email,
             subject: `Thank you for your inquiry, ${lead.client_name || 'friend'}!`,
