@@ -72,7 +72,7 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
         },
         {
           title: "Notifications",
-          href: `/${companySlug}/admin/notifications`,
+          href: `/notifications`,
           icon: Bell,
           description: "View all notifications"
         }
@@ -83,31 +83,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Leads",
-          href: `/${companySlug}/admin/leads`,
+          href: `/leads`,
           icon: UserPlus,
           description: "Manage potential clients"
         },
         {
           title: "Quotes",
-          href: `/${companySlug}/admin/quotes`,
+          href: `/quotes`,
           icon: FileSpreadsheet,
           description: "Create and manage quotes"
         },
         {
           title: "Orders",
-          href: `/${companySlug}/admin/orders`,
+          href: `/orders`,
           icon: ClipboardList,
           description: "View and manage orders"
         },
         {
           title: "Calendar",
-          href: `/${companySlug}/admin/calendar`,
+          href: `/calendar`,
           icon: Calendar,
           description: "Event scheduling"
         },
         {
           title: "Inventory",
-          href: `/${companySlug}/admin/inventory`,
+          href: `/inventory`,
           icon: Package,
           description: "Stock management"
         }
@@ -118,19 +118,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Users",
-          href: `/${companySlug}/admin/users`,
+          href: `/admin/users`,
           icon: Users,
           description: "Manage user accounts"
         },
         {
           title: "Drivers",
-          href: `/${companySlug}/admin/drivers`,
+          href: `/drivers`,
           icon: Truck,
           description: "Manage delivery drivers"
         },
         {
           title: "Staff Hours",
-          href: `/${companySlug}/admin/staff-hours`,
+          href: `/admin/staff-hours`,
           icon: Clock,
           description: "Track staff working hours"
         }
@@ -141,31 +141,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Operations Hub",
-          href: `/${companySlug}/admin/operations-hub`,
+          href: `/admin/operations-hub`,
           icon: Layers,
           description: "40 operational standards"
         },
         {
           title: "Operations Standards",
-          href: `/${companySlug}/admin/operations-standards`,
+          href: `/admin/operations-standards`,
           icon: Briefcase,
           description: "Standards 41-75: Equipment & Fleet"
         },
         {
           title: "Job Progress Overview",
-          href: `/${companySlug}/admin/job-progress-overview`,
+          href: `/portal/admin/job-progress-overview`,
           icon: TrendingUp,
           description: "Monitor all jobs"
         },
         {
           title: "Equipment Shortages",
-          href: `/${companySlug}/admin/equipment-shortages`,
+          href: `/admin/equipment-shortages`,
           icon: Package,
           description: "Track inventory issues"
         },
         {
           title: "Regions",
-          href: `/${companySlug}/admin/regions`,
+          href: `/admin/regions`,
           icon: MapPin,
           description: "Manage service regions"
         }
@@ -176,31 +176,31 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Email Templates",
-          href: `/${companySlug}/admin/email-templates`,
+          href: `/admin/email-templates`,
           icon: Mail,
           description: "Manage email templates"
         },
         {
           title: "After-Sales Emails",
-          href: `/${companySlug}/admin/after-sales-emails`,
+          href: `/admin/after-sales-emails`,
           icon: MessageSquare,
           description: "Follow-up communications"
         },
         {
           title: "Email Automation",
-          href: `/${companySlug}/admin/email-automation-dashboard`,
+          href: `/admin/email-automation-dashboard`,
           icon: Mail,
           description: "Automated email campaigns"
         },
         {
           title: "Automation Settings",
-          href: `/${companySlug}/admin/email-automation-settings`,
+          href: `/admin/email-automation-settings`,
           icon: Settings,
           description: "Configure automation"
         },
         {
           title: "Notification Settings",
-          href: `/${companySlug}/admin/notification-settings`,
+          href: `/portal/admin/notification-settings`,
           icon: Bell,
           description: "Configure notifications"
         }
@@ -217,13 +217,13 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
         },
         {
           title: "Client Portal Management",
-          href: `/${companySlug}/admin/client-portal`,
+          href: `/client-portal`,
           icon: Users,
           description: "Manage client portal access"
         },
         {
           title: "Client Search",
-          href: `/${companySlug}/admin/client-search`,
+          href: `/admin/client-search`,
           icon: Search,
           description: "Search and filter clients"
         }
@@ -234,7 +234,7 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Shopping Dashboard",
-          href: `/${companySlug}/admin/shopping`,
+          href: `/shopping`,
           icon: ShoppingCart,
           description: "Procurement overview"
         }
@@ -245,19 +245,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "White Label",
-          href: `/${companySlug}/admin/white-label`,
+          href: `/admin/white-label`,
           icon: Building2,
           description: "Branding customization"
         },
         {
           title: "Integrations",
-          href: `/${companySlug}/admin/integrations`,
+          href: `/integrations`,
           icon: Plug,
           description: "Third-party integrations"
         },
         {
           title: "System Settings",
-          href: `/${companySlug}/admin/settings`,
+          href: `/admin/settings`,
           icon: Settings,
           description: "General configuration"
         }
@@ -268,19 +268,19 @@ export function AdminNav({ className, companySlug: propCompanySlug }: AdminNavPr
       items: [
         {
           title: "Financial Dashboard",
-          href: `/${companySlug}/admin/financial-dashboard`,
+          href: `/admin/financial-dashboard`,
           icon: DollarSign,
           description: "Financial insights"
         },
         {
           title: "Subscription",
-          href: `/${companySlug}/admin/subscription`,
+          href: `/admin/subscription`,
           icon: CreditCard,
           description: "Manage subscriptions"
         },
         {
           title: "Payment Gateways",
-          href: `/${companySlug}/admin/payment-gateways`,
+          href: `/admin/payment-gateways`,
           icon: CreditCard,
           description: "Configure payments"
         }

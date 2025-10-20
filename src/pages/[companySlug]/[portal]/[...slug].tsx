@@ -38,50 +38,9 @@ const PORTAL_ROUTES = {
     routes: {
       dashboard: AdminDashboard,
     },
-    redirectRoutes: {
-      // ✅ CORE MANAGEMENT PAGES (root level - no /admin/ prefix)
-      leads: () => `/leads`,
-      "leads/new": () => `/leads/new`,
-      quotes: () => `/quotes`,
-      "quotes/new": () => `/quotes/new`,
-      calendar: () => `/calendar`,
-      orders: () => `/orders`,
-      inventory: () => `/inventory`,
-      shopping: () => `/shopping`,
-      notifications: () => `/notifications`,
-      integrations: () => `/integrations`,
-      "client-portal": () => `/client-portal`,
-      drivers: () => `/drivers`,
-      
-      // ✅ ADMIN-PREFIXED PAGES (under /admin/)
-      users: () => `/admin/users`,
-      reports: () => `/admin/reports`,
-      settings: () => `/admin/settings`,
-      "staff-hours": () => `/admin/staff-hours`,
-      "operations-hub": () => `/admin/operations-hub`,
-      "operations-standards": () => `/admin/operations-standards`,
-      "equipment-shortages": () => `/admin/equipment-shortages`,
-      regions: () => `/admin/regions`,
-      "email-templates": () => `/admin/email-templates`,
-      "after-sales-emails": () => `/admin/after-sales-emails`,
-      "email-automation-dashboard": () => `/admin/email-automation-dashboard`,
-      "email-automation-settings": () => `/admin/email-automation-settings`,
-      "white-label": () => `/admin/white-label`,
-      "financial-dashboard": () => `/admin/financial-dashboard`,
-      subscription: () => `/admin/subscription`,
-      "payment-gateways": () => `/admin/payment-gateways`,
-      "driver-management": () => `/admin/driver-management`,
-      "kitchen-duty-tracking": () => `/admin/kitchen-duty-tracking`,
-      "client-search": () => `/admin/client-search`,
-      
-      // ✅ PORTAL-PREFIXED PAGES (under /portal/admin/)
-      "job-progress-overview": () => `/portal/admin/job-progress-overview`,
-      "notification-settings": () => `/portal/admin/notification-settings`,
-      
-      // ✅ COMPANY-SLUG-REQUIRED PAGES (need company context)
-      "client-database": (slug: string) => `/${slug}/admin/client-database`,
-      onboarding: (slug: string) => `/${slug}/admin/onboarding`,
-    },
+    // ✅ REMOVE ALL REDIRECT ROUTES - Admin pages are standalone
+    // AdminNav will handle navigation to standalone pages
+    redirectRoutes: {},
     defaultRoute: "dashboard",
   },
   driver: {
