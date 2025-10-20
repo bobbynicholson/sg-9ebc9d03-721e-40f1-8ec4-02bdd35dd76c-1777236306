@@ -4,6 +4,7 @@ import type { Order } from "@/types/index";
 import type { AppOrder, ConvertQuoteToOrderParams, OrderStatusUpdate } from "@/types/app";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
+import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
 export type SupabaseOrder = Database["public"]["Tables"]["orders"]["Row"];
@@ -831,7 +832,7 @@ ${mappedStatus === "in_transit" ? `Track your driver in real-time: ${trackingUrl
 Best regards,
 Your Catering Company`;
 
-          await emailService.sendEmail({
+          await sendEmailViaAPI({
             companyId: order.user_id,
             to: order.client_email,
             subject,
