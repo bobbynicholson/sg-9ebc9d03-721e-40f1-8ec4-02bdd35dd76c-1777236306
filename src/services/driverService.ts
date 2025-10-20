@@ -2,7 +2,6 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { emailService } from "./emailService";
 import { AppOrder } from "@/types/app";
 import { Order } from "@/types/index";
 
@@ -504,30 +503,6 @@ export const driverService = {
           if (!clientEmail) clientEmail = clientProfile?.email;
         }
 
-        // ✅ FIX BUG #20.1: Send EMAIL notification first (critical fallback)
-        if (clientEmail) {
-          try {
-            await emailService.sendEmail({
-              companyId: orderDetails.user_id,
-              to: clientEmail,
-              subject: `🚗 Your Driver is on the way! - Order ${orderDetails.order_number}`,
-              template: 'driver-departure', // Assuming this template exists
-              variables: {
-                clientName: clientName || "Valued Client",
-                orderNumber: orderDetails.order_number || assignment.order_id,
-                driverName: "Your Driver", // TODO: Get driver name
-                // trackingUrl is now a standard variable
-              },
-            });
-
-            console.log("✅ Delivery tracking email sent to:", clientEmail);
-          } catch (emailError) {
-            console.error("⚠️ Failed to send delivery tracking email (non-blocking):", emailError);
-          }
-        } else {
-          console.warn("⚠️ Client email not available for delivery tracking notification");
-        }
-
         // WhatsApp as additional channel (not replacement)
         if (clientPhone) {
           try {
@@ -622,40 +597,6 @@ export const driverService = {
           clientPhone = clientProfile?.phone || clientProfile?.phone_number;
           if (!clientEmail) clientEmail = clientProfile?.email;
           if (!clientName) clientName = clientProfile?.full_name;
-        }
-
-        // ✅ FIX BUG #20.2: Send EMAIL notification first (critical fallback)
-        if (clientEmail) {
-          try {
-            const subject = `Driver Arrived! - Order ${orderDetails.order_number}`;
-            const body = `Dear ${clientName || "Valued Client"},
-
-📍 Your driver has arrived at the venue!
-
-Order Number: ${orderDetails.order_number}
-
-Your order is being delivered now. Enjoy your event! 🎉
-
-Best regards,
-Your Catering Company`;
-
-            await emailService.sendEmail({
-              companyId: orderDetails.user_id,
-              to: clientEmail,
-              subject,
-              body,
-              variables: {
-                clientName: clientName || "Valued Client",
-                orderNumber: orderDetails.order_number,
-                companyName: "Your Catering Company"
-              }
-            });
-            console.log("✅ Driver arrived email sent to:", clientEmail);
-          } catch (emailError) {
-            console.error("⚠️ Failed to send driver arrived email (non-blocking):", emailError);
-          }
-        } else {
-          console.warn("⚠️ Client email not available for driver arrival notification");
         }
 
         // WhatsApp as additional channel
@@ -816,90 +757,6 @@ Your Catering Company`;
     await supabase.from("orders").update({
       status: "completed",
     }).eq("id", order.id);
-
-    // ✅ FIX BUG #20.6: Send EMAIL notification to admin about delivery completion
-    try {
-      const { data: adminProfile } = await supabase
-        .from("profiles")
-        .select("email, full_name, company_name")
-        .eq("id", order.user_id)
-        .single();
-
-      if (adminProfile?.email) {
-        const subject = `Delivery Completed - Order ${order.order_number}`;
-        const shortageInfo = shortages.length > 0 
-          ? `\n⚠️ Equipment Shortage Reported:\n${shortages.map(s => `- ${s.equipment_type}: ${s.quantity_missing} missing`).join('\n')}\n`
-          : '\n✅ All equipment returned successfully\n';
-        
-        const body = `Dear ${adminProfile.full_name || "Admin"},
-
-🎉 Delivery has been completed successfully!
-
-Order Number: ${order.order_number}
-Client: ${order.client_name || order.client_email}
-
-Equipment Collection:
-- Cutlery: ${collection.cutleryReturned}/${assignment.actual_cutlery_count || 0}
-- Crockery: ${collection.crockeryReturned}/${assignment.actual_crockery_count || 0}
-${shortageInfo}
-${collection.notes ? `Driver Notes: ${collection.notes}\n` : ''}
-The order has been marked as completed in the system.
-
-Best regards,
-${adminProfile.company_name || "CateringMS Platform"}`;
-
-        await emailService.sendEmail({
-          companyId: order.user_id,
-          to: adminProfile.email,
-          subject,
-          body,
-          variables: {
-            orderNumber: order.order_number,
-            companyName: adminProfile.company_name || "CateringMS"
-          }
-        });
-        console.log("✅ Delivery completion email sent to admin:", adminProfile.email);
-      }
-    } catch (emailError) {
-      console.error("⚠️ Failed to send delivery completion email to admin (non-blocking):", emailError);
-    }
-
-    // ✅ FIX BUG #20.7: Send EMAIL notification to client about delivery completion
-    if (order.client_email) {
-      try {
-        const subject = `Thank You! - Order ${order.order_number} Completed`;
-        const body = `Dear ${order.client_name || "Valued Client"},
-
-🎉 Your order has been completed successfully!
-
-Order Number: ${order.order_number}
-
-Thank you for choosing us for your event. We hope everything went perfectly!
-
-${shortages.length > 0 ? '📋 A few items were not returned. We\'ll be in touch about this separately.\n\n' : ''}We would love to hear about your experience! Please take a moment to leave us a review.
-
-We look forward to serving you again for your next event!
-
-Best regards,
-Your Catering Company`;
-
-        await emailService.sendEmail({
-          companyId: order.user_id,
-          to: order.client_email,
-          subject,
-          body,
-          variables: {
-            clientName: order.client_name || "Valued Client",
-            orderNumber: order.order_number
-          }
-        });
-        console.log("✅ Delivery completion email sent to client:", order.client_email);
-      } catch (emailError) {
-        console.error("⚠️ Failed to send delivery completion email to client (non-blocking):", emailError);
-      }
-    } else {
-      console.warn("⚠️ Client email not available for delivery completion notification");
-    }
 
     return { assignment: updatedAssignment, shortages };
   },
