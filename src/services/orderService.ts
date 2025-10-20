@@ -2,7 +2,6 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Order } from "@/types/index";
 import type { AppOrder, ConvertQuoteToOrderParams, OrderStatusUpdate } from "@/types/app";
-import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 
@@ -100,7 +99,11 @@ export const orderService = {
       try {
         const paymentUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${order.id}`;
         
-        await emailService.sendEmail({
+        // ✅ Use API route instead of emailService directly
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: `Order Confirmation - #${orderNumber}`,
@@ -110,10 +113,8 @@ export const orderService = {
                 orderNumber: orderNumber,
                 eventDate: new Date(quote.event_date).toLocaleDateString(),
                 totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
-                // depositAmount: `${quote.currency} ${depositAmount.toFixed(2)}`,
-                // balanceAmount: `${quote.currency} ${balanceAmount.toFixed(2)}`,
-                // paymentUrl
             }
+          })
         });
         console.log("✅ Order creation email sent to:", quote.client_email);
       } catch (emailError) {
@@ -206,7 +207,11 @@ export const orderService = {
       try {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
-        await emailService.sendEmail({
+        // ✅ Use API route instead of emailService directly
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             companyId: data.user_id,
             to: data.client_email,
             subject: `Deposit Paid - Order #${data.order_number}`,
@@ -215,10 +220,8 @@ export const orderService = {
                 clientName: data.client_name || "Valued Client",
                 orderNumber: data.order_number || orderId,
                 totalAmount: `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
-                // depositAmount: `${data.currency} ${data.deposit_amount?.toFixed(2) || "0.00"}`,
-                // balanceAmount: `${data.currency} ${data.balance_amount?.toFixed(2) || "0.00"}`,
-                // paymentUrl: orderUrl
             }
+          })
         });
         console.log("✅ Deposit receipt email sent to:", data.client_email);
       } catch (emailError) {
@@ -270,8 +273,11 @@ export const orderService = {
       try {
         const orderUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderId}`;
         
-        // Send confirmation that balance is paid and order is fully confirmed
-        await emailService.sendEmail({
+        // ✅ Use API route instead of emailService directly
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             companyId: data.user_id,
             to: data.client_email,
             subject: `Payment Complete - Order #${data.order_number}`,
@@ -281,6 +287,7 @@ export const orderService = {
                 orderNumber: data.order_number || orderId,
                 totalAmount: `${data.currency} ${data.total?.toFixed(2) || "0.00"}`,
             }
+          })
         });
         console.log("✅ Balance receipt email sent to:", data.client_email);
       } catch (emailError) {

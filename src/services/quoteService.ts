@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { emailService } from "./emailService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { AppOrder, Quote } from "@/types/app";
@@ -60,7 +59,11 @@ export const quoteService = {
 
         const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
 
-        await emailService.sendEmail({
+        // ✅ Use API route instead of emailService directly
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: 'Quote Request Confirmation',
@@ -70,6 +73,7 @@ export const quoteService = {
                 companyName: companyName,
                 quoteNumber: data.id,
             }
+          })
         });
         console.log("✅ Quote request confirmation email sent to:", quote.client_email);
       } catch (emailError) {
@@ -162,7 +166,11 @@ export const quoteService = {
 
         const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
 
-        await emailService.sendEmail({
+        // ✅ Use API route instead of emailService directly
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             companyId: quote.user_id,
             to: quote.client_email,
             subject: `Order Confirmed - #${newOrder.order_number}`,
@@ -172,10 +180,8 @@ export const quoteService = {
                 orderNumber: newOrder.order_number || newOrder.id,
                 eventDate: new Date(quote.event_date).toLocaleDateString(),
                 totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
-                // depositAmount: `${quote.currency} 0.00`,
-                // balanceAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
-                // paymentUrl
             }
+          })
         });
         console.log("✅ Order confirmation email sent after quote acceptance to:", quote.client_email);
       } catch (emailError) {
@@ -219,19 +225,22 @@ export const quoteService = {
       // TODO: Generate PDF quote and get download URL
       const pdfUrl = undefined; // Will be implemented with PDF generation
 
-      await emailService.sendEmail({
-        companyId: quote.user_id,
-        to: quote.client_email,
-        subject: `Your Quote from ${companyName} is Ready!`,
-        template: 'custom-quote-ready',
-        variables: {
-          clientName: quote.client_name,
-          companyName: companyName,
-          quoteNumber: quoteId,
-          totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
-          // quoteUrl,
-          // pdfUrl,
-        }
+      // ✅ Use API route instead of emailService directly
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: quote.user_id,
+          to: quote.client_email,
+          subject: `Your Quote from ${companyName} is Ready!`,
+          template: 'custom-quote-ready',
+          variables: {
+            clientName: quote.client_name,
+            companyName: companyName,
+            quoteNumber: quoteId,
+            totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+          }
+        })
       });
 
       // Update quote status to 'sent'
