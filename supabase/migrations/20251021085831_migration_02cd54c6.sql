@@ -1,0 +1,1 @@
+ALTER TABLE leads ADD COLUMN event_time TIME;

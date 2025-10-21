@@ -55,7 +55,6 @@ export default function NewLeadPage() {
         client_email: formData.client_email,
         client_phone: formData.client_phone || null,
         event_date: formData.event_date,
-        event_time: formData.event_time || null,
         guest_count: parseInt(formData.guest_count) || null,
         event_type: formData.event_type || null,
         venue_address: formData.venue_address || null,

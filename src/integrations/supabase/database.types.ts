@@ -3897,6 +3897,7 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           event_date: string | null
+          event_time: string | null
           event_type: string | null
           guest_count: number | null
           id: string
@@ -3917,6 +3918,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           event_date?: string | null
+          event_time?: string | null
           event_type?: string | null
           guest_count?: number | null
           id?: string
@@ -3937,6 +3939,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           event_date?: string | null
+          event_time?: string | null
           event_type?: string | null
           guest_count?: number | null
           id?: string
