@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { userManagementService } from "@/services/userManagementService";
+import { UserRole } from "@/types/app";
 
 export default function NewDriverPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function NewDriverPage() {
         email: formData.email,
         full_name: formData.full_name,
         phone: formData.phone,
-        role: "driver",
+        role: UserRole.DRIVER,
         password: formData.password,
         company_id: user.company_id || "",
         vehicle_details: formData.vehicle_details,

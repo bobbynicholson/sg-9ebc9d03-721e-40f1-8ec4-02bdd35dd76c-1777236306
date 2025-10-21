@@ -536,4 +536,39 @@ export const userManagementService = {
       throw error;
     }
   },
+
+  /**
+   * Create a new user (staff or driver) for a company
+   */
+  async createUser(payload: {
+    email: string;
+    password: string;
+    full_name: string;
+    phone?: string;
+    role: UserRole;
+    company_id: string;
+    vehicle_details?: string;
+    drive_time_to_kitchen_minutes?: number;
+  }): Promise<any> {
+    try {
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create user");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw error;
+    }
+  },
 };

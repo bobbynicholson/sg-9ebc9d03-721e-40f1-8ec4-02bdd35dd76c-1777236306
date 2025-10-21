@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { userManagementService } from "@/services/userManagementService";
+import { UserRole } from "@/types/app";
 
 export default function NewUserPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function NewUserPage() {
     email: "",
     full_name: "",
     phone: "",
-    role: "staff" as const,
+    role: UserRole.KITCHEN_STAFF,
     password: "",
   });
 
@@ -127,12 +128,11 @@ export default function NewUserPage() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="driver">Driver</SelectItem>
-                      <SelectItem value="kitchen">Kitchen Staff</SelectItem>
-                      <SelectItem value="cleaning">Cleaning Staff</SelectItem>
-                      <SelectItem value="shopping">Shopping Staff</SelectItem>
+                      <SelectItem value={UserRole.ADMIN}>Admin</SelectItem>
+                      <SelectItem value={UserRole.DRIVER}>Driver</SelectItem>
+                      <SelectItem value={UserRole.KITCHEN_STAFF}>Kitchen Staff</SelectItem>
+                      <SelectItem value={UserRole.CLEANING_STAFF}>Cleaning Staff</SelectItem>
+                      <SelectItem value={UserRole.SHOPPING_STAFF}>Shopping Staff</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
