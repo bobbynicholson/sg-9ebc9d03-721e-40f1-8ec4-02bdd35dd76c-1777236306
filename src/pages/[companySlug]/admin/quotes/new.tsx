@@ -29,7 +29,7 @@ export default function NewQuotePage() {
     guest_count: "",
     event_type: "",
     venue_address: "",
-    special_requirements: "",
+    special_requests: "",
     menu_items: "[]",
     equipment_items: "[]",
     subtotal: "0",
@@ -64,7 +64,7 @@ export default function NewQuotePage() {
         guest_count: parseInt(formData.guest_count) || null,
         event_type: formData.event_type || null,
         venue_address: formData.venue_address || null,
-        special_requirements: formData.special_requirements || null,
+        special_requests: formData.special_requests || null,
         menu_items: JSON.parse(formData.menu_items),
         equipment_items: JSON.parse(formData.equipment_items),
         subtotal: parseFloat(formData.subtotal),
@@ -228,11 +228,11 @@ export default function NewQuotePage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="special_requirements">Special Requirements</Label>
+                  <Label htmlFor="special_requests">Special Requirements</Label>
                   <Textarea
-                    id="special_requirements"
-                    value={formData.special_requirements}
-                    onChange={(e) => setFormData({ ...formData, special_requirements: e.target.value })}
+                    id="special_requests"
+                    value={formData.special_requests}
+                    onChange={(e) => setFormData({ ...formData, special_requests: e.target.value })}
                     placeholder="Dietary restrictions, allergies, special requests..."
                     className="mt-2"
                     rows={4}
