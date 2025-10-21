@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,6 +49,10 @@ export default function NewDriverPage() {
       });
 
       alert("Driver created successfully!");
+      
+      // Add a small delay to allow database propagation before redirecting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       router.push(`/${companySlug}/admin/drivers`);
     } catch (error: any) {
       console.error("Error creating driver:", error);
