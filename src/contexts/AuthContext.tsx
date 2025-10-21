@@ -42,6 +42,18 @@ async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Pro
       
       if (profile) {
         console.log(`Profile loaded successfully on attempt ${attempt + 1}`);
+        
+        // ✅ FIX: If profile exists but has no role, set a default role
+        if (!profile.role) {
+          console.warn(`Profile ${userId} is missing role field, setting default role 'client'`);
+          try {
+            await profileService.updateProfile(userId, { role: 'client' });
+            profile.role = 'client';
+          } catch (updateError) {
+            console.error('Failed to set default role:', updateError);
+          }
+        }
+        
         return profile;
       }
       
