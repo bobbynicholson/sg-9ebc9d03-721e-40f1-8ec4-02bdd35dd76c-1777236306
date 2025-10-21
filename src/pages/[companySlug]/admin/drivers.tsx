@@ -33,7 +33,7 @@ export default function DriversPage() {
     if (user) {
       loadDrivers();
     }
-  }, [user]);
+  }, [user, router.asPath]);
 
   const loadDrivers = async () => {
     try {
