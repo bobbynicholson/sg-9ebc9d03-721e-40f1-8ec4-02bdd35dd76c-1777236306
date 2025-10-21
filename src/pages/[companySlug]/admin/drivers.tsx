@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService } from "@/services/userManagementService";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Driver {
   id: string;
@@ -37,9 +38,43 @@ export default function DriversPage() {
   const loadDrivers = async () => {
     try {
       setLoading(true);
-      const allUsers = await userManagementService.getAllUsers();
-      const driverUsers = allUsers.filter(u => u.role === "driver");
-      setDrivers(driverUsers as Driver[]);
+      
+      // First, get the current user's company_id
+      const { data: currentUserProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", user!.id)
+        .single();
+
+      if (profileError || !currentUserProfile) {
+        console.error("Error fetching user profile:", profileError);
+        toast({
+          title: "Error",
+          description: "Failed to load your profile",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Now fetch all drivers in the same company
+      const { data: driverProfiles, error: driversError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, phone_number, is_active, vehicle_details, drive_time_to_kitchen_minutes")
+        .eq("company_id", currentUserProfile.company_id)
+        .eq("role", "driver")
+        .order("created_at", { ascending: false });
+
+      if (driversError) {
+        console.error("Error fetching drivers:", driversError);
+        toast({
+          title: "Error",
+          description: "Failed to load drivers",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setDrivers(driverProfiles as Driver[]);
     } catch (err) {
       console.error("Error loading drivers:", err);
       toast({
