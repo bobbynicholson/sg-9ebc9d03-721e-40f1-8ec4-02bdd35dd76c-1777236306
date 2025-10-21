@@ -3891,6 +3891,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           budget: number | null
+          budget_range: string | null
           client_email: string | null
           client_name: string
           client_phone: string | null
@@ -3913,6 +3914,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           budget?: number | null
+          budget_range?: string | null
           client_email?: string | null
           client_name: string
           client_phone?: string | null
@@ -3935,6 +3937,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           budget?: number | null
+          budget_range?: string | null
           client_email?: string | null
           client_name?: string
           client_phone?: string | null

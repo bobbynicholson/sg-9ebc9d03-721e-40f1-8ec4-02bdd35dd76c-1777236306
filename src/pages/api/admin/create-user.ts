@@ -1,6 +1,21 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import type { NextApiRequest, NextApiResponse } from "next";
+
+// Map UserRole enum values to database-accepted role values
+function mapRoleToDatabase(role: string): string {
+  const roleMap: Record<string, string> = {
+    "kitchen_staff": "kitchen",
+    "cleaning_staff": "cleaning",
+    "shopping_staff": "shopping",
+    "super_admin": "super_admin",
+    "owner": "admin", // Map owner to admin for database
+    "admin": "admin",
+    "driver": "driver",
+    "client": "client",
+  };
+
+  return roleMap[role] || role;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -60,14 +75,17 @@ export default async function handler(
       return res.status(500).json({ error: "User was not created." });
     }
 
+    // Map the role to database-accepted value
+    const dbRole = mapRoleToDatabase(role);
+
     // Now update the profile with any extra details.
     // The `handle_new_user` trigger should have created a basic profile.
     const profileUpdates: any = {
       full_name,
       phone,
       company_id,
-      role,
-      active_role: role,
+      role: dbRole,
+      active_role: dbRole,
     };
 
     if (role === "driver") {
