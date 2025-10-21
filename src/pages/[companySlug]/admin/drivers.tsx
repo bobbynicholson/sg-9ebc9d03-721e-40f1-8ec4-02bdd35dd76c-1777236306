@@ -30,10 +30,10 @@ export default function DriversPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && router.isReady) {
       loadDrivers();
     }
-  }, [user, router.asPath]);
+  }, [user, router.asPath, router.isReady]); // Add router.isReady to ensure page is fully loaded
 
   const loadDrivers = async () => {
     try {
@@ -162,6 +162,20 @@ export default function DriversPage() {
                   <CardTitle>All Drivers</CardTitle>
                   <CardDescription>Manage driver accounts and assignments</CardDescription>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadDrivers}
+                  disabled={loading}
+                  className="gap-2"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Filter className="w-4 h-4" />
+                  )}
+                  Refresh
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
