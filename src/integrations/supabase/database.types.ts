@@ -7894,10 +7894,7 @@ export type Database = {
         Args: { p_subscription_id: string }
         Returns: undefined
       }
-      check_trial_expiry_notifications: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      check_trial_expiry_notifications: { Args: never; Returns: undefined }
       create_default_email_templates: {
         Args: { company_user_id: string }
         Returns: undefined
@@ -7906,12 +7903,9 @@ export type Database = {
         Args: { p_equipment_id: string; p_quantity_to_decrement: number }
         Returns: undefined
       }
-      generate_ticket_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_ticket_number: { Args: never; Returns: string }
       get_all_subscription_analytics: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_subscriptions: number
           annual_revenue: number
@@ -7923,7 +7917,7 @@ export type Database = {
         }[]
       }
       get_all_subscriptions_admin: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           amount: number
           billing_cycle: string
@@ -7947,10 +7941,7 @@ export type Database = {
           trial_ends_at: string
         }[]
       }
-      get_order_total: {
-        Args: { order_id: string }
-        Returns: number
-      }
+      get_order_total: { Args: { order_id: string }; Returns: number }
       get_quarterly_usage: {
         Args: { p_user_id: string }
         Returns: {
