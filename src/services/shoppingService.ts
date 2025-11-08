@@ -56,11 +56,12 @@ export const shoppingService = {
        await realtimeNotificationService.createNotification({
         company_id: data.company_id,
         user_id: data.user_id,
-        recipient_id: data.user_id,
+        recipient_id: data.user_id, // Admin
         title: "New Shopping List Created",
         message: `A new shopping list for ${new Date(data.list_date).toLocaleDateString()} has been created.`,
         notification_type: "info",
-        priority: "low"
+        priority: "low",
+        link: `/shopping?list_id=${data.id}`,
       });
     }
 
@@ -93,9 +94,9 @@ export const shoppingService = {
         if (shopperProfile?.email) {
             await billingEmailService.sendStaffInvitationEmail(
                 shopperProfile.email,
-                "Admin",
-                "Your Company",
-                "",
+                "Admin", // placeholder
+                "Your Company", // placeholder
+                `${window.location.origin}/shopping?list_id=${listId}`,
                 data.company_id
             );
         }
@@ -107,7 +108,8 @@ export const shoppingService = {
             title: "You've been assigned a shopping list",
             message: `You have been assigned the shopping list for ${new Date(data.list_date).toLocaleDateString()}`,
             notification_type: "info",
-            priority: "medium"
+            priority: "medium",
+            link: `/shopping?list_id=${listId}`,
         });
     }
 
@@ -135,11 +137,12 @@ export const shoppingService = {
        await realtimeNotificationService.createNotification({
         company_id: data.company_id,
         user_id: data.user_id,
-        recipient_id: data.user_id,
+        recipient_id: data.user_id, // Admin
         title: "Shopping Has Started",
         message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} has begun.`,
         notification_type: "info",
-        priority: "low"
+        priority: "low",
+        link: `/shopping?list_id=${listId}`,
       });
     }
 
@@ -168,11 +171,12 @@ export const shoppingService = {
         await realtimeNotificationService.createNotification({
             company_id: data.company_id,
             user_id: data.user_id,
-            recipient_id: data.user_id,
+            recipient_id: data.user_id, // Admin
             title: "Shopping Completed",
             message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} is complete.`,
             notification_type: "success",
-            priority: "medium"
+            priority: "medium",
+            link: `/shopping?list_id=${listId}`,
         });
     }
 
