@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
-import { emailAutomationService } from "./emailAutomationService";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 

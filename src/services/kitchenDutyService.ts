@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { emailAutomationService } from "./emailAutomationService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { billingEmailService } from "./billingEmailService";
 

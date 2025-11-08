@@ -7,7 +7,6 @@ import {
   getOrderModificationStatus
 } from "@/lib/payfastService";
 import { realtimeNotificationService } from "./realtimeNotificationService";
-import { emailAutomationService } from "./emailAutomationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
