@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { emailAutomationService } from "./emailAutomationService";
 import type { User, Session } from "@supabase/supabase-js";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
@@ -59,26 +58,31 @@ export const companyService = {
         };
       }
 
-      // ✅ FIX BUG #18: Send welcome email to company admin
+      // Send welcome email via API route
       if (data.email) {
         try {
-          // Get admin name from profile
           const { data: profile } = await supabase
             .from("profiles")
             .select("full_name")
             .eq("id", data.owner_id)
             .single();
 
-          await emailAutomationService.sendCompanyWelcomeEmail(
-            data.email,
-            data.name,
-            company.id, // Pass companyId
-            profile?.full_name || "there"
-          );
-          console.log("✅ Welcome email sent to new company:", data.email);
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyId: company.id,
+              to: data.email,
+              emailType: 'companyWelcome',
+              variables: {
+                companyName: data.name,
+                ownerName: profile?.full_name || "there",
+              }
+            })
+          });
+          console.log("✅ Welcome email triggered for new company:", data.email);
         } catch (emailError) {
-          // Log but don't block signup if email fails
-          console.error("⚠️ Failed to send welcome email (non-blocking):", emailError);
+          console.error("⚠️ Failed to trigger welcome email (non-blocking):", emailError);
         }
       }
 
@@ -250,31 +254,37 @@ export const companyService = {
 
     if (companyError) {
       console.error("Error creating company:", companyError);
-      // Attempt to clean up the created user if company creation fails
-      // This is important to avoid orphaned users.
-      // In a production app, you might want a more robust cleanup mechanism.
       await supabase.auth.admin.deleteUser(user.id);
       throw companyError;
     }
     
-    // Update profile with company_id
     const { error: profileError } = await supabase
         .from('profiles')
         .update({ company_id: company.id, roles: ['admin', 'owner'] })
         .eq('id', user.id);
 
     if (profileError) {
-        // Handle error - maybe rollback company creation
         console.error("Error updating profile with company_id:", profileError);
     }
     
-    // Send welcome email
-    await emailAutomationService.sendCompanyWelcomeEmail(
-      email,
-      companyName,
-      company.id,
-      fullName
-    );
+    // Send welcome email via API route
+    try {
+      await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: company.id,
+            to: email,
+            emailType: 'companyWelcome',
+            variables: {
+              companyName: companyName,
+              ownerName: fullName,
+            }
+          })
+      });
+    } catch(e) {
+      console.error("Failed to trigger welcome email", e);
+    }
     
     return { user, company, session: signUpData.session };
   },
@@ -295,7 +305,6 @@ export const companyService = {
 
       if (companiesError) throw companiesError;
 
-      // Get owner profiles for each company
       const ownerIds = companies
         .map((c) => c.owner_id)
         .filter((id): id is string => id !== null);
@@ -309,7 +318,6 @@ export const companyService = {
 
       if (profilesError) throw profilesError;
 
-      // Merge owner data with companies
       const companiesWithOwners: CompanyWithOwner[] = companies.map((company) => {
         const owner = profiles?.find((p) => p.id === company.owner_id);
         return {
