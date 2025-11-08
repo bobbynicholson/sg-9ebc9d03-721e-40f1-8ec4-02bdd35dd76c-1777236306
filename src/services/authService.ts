@@ -110,12 +110,11 @@ export const authService = {
       currency?: string;
       phone_number?: string;
       company_name?: string;
-      company_slug?: string;
     },
     isOwner: boolean = false,
     companyName?: string,
     companyId?: string
-  ): Promise<{ user: AuthUser | null; error: AuthError | null; companySlug?: string }> {
+  ): Promise<{ user: AuthUser | null; error: AuthError | null; }> {
     try {
       const authMetadata: Record<string, any> = {
         full_name: metadata.full_name,
@@ -174,16 +173,12 @@ export const authService = {
         created_at: data.user.created_at,
       };
 
-      let companySlug: string | undefined = metadata.company_slug;
-
       if ((isOwner || authMetadata.role === 'admin') && (companyName || metadata.company_name)) {
         try {
           const finalCompanyName = companyName || metadata.company_name!;
-          const slug = await companyService.generateUniqueSlug(finalCompanyName);
           
           const companyResult = await companyService.createCompany({
             name: finalCompanyName,
-            slug: slug,
             owner_id: data.user.id,
             email: email,
             phone: metadata.phone_number,
@@ -191,13 +186,10 @@ export const authService = {
           });
 
           if (companyResult.success && companyResult.company) {
-            companySlug = companyResult.company.slug;
-
             await supabase
               .from("profiles")
               .update({ 
                 company_id: companyResult.company.id,
-                company_slug: companyResult.company.slug
               })
               .eq("id", data.user.id);
           } else {
@@ -209,7 +201,7 @@ export const authService = {
         }
       }
 
-      return { user: authUser, error: null, companySlug };
+      return { user: authUser, error: null };
     } catch (error: any) {
       console.error("Unexpected signup error:", error);
       return {

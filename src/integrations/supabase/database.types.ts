@@ -730,7 +730,6 @@ export type Database = {
           owner_id: string | null
           phone: string | null
           province: string | null
-          slug: string
           subscription_plan: string | null
           subscription_status: string | null
           timezone: string | null
@@ -753,7 +752,6 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           province?: string | null
-          slug: string
           subscription_plan?: string | null
           subscription_status?: string | null
           timezone?: string | null
@@ -776,7 +774,6 @@ export type Database = {
           owner_id?: string | null
           phone?: string | null
           province?: string | null
-          slug?: string
           subscription_plan?: string | null
           subscription_status?: string | null
           timezone?: string | null
