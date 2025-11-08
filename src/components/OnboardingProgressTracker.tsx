@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,12 +125,10 @@ export function OnboardingProgressTracker() {
             </div>
 
             {!step.completed && step.action && (
-              <Link href={step.action.href}>
-                <Button size="sm" variant="ghost" className="gap-1">
-                  {step.action.label}
-                  <ArrowRight className="w-3 h-3" />
-                </Button>
-              </Link>
+              <Button size="sm" variant="ghost" className="gap-1">
+                {step.action.label}
+                <ArrowRight className="w-3 h-3" />
+              </Button>
             )}
           </div>
         ))}
