@@ -35,7 +35,8 @@ export const emailAutomationService = {
     await emailService.sendEmail({
       to: email,
       subject,
-      html: body,
+      body: body,
+      companyId: companyId
     });
   },
 };
