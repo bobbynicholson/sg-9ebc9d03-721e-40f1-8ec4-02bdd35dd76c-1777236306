@@ -13,7 +13,6 @@ import { toast } from "@/hooks/use-toast";
 interface CompanyTrialStatus {
   id: string;
   company_name: string;
-  slug: string;
   owner_email: string;
   trial_ends_at: string;
   subscription_status: string;
@@ -60,7 +59,6 @@ export default function TrialManagementPage() {
         .select(`
           id,
           company_name,
-          slug,
           owner_id,
           trial_ends_at,
           subscription_status
@@ -103,7 +101,6 @@ export default function TrialManagementPage() {
           return {
             id: company.id,
             company_name: company.company_name,
-            slug: company.slug,
             owner_email: emailMap.get(company.owner_id || "") || "N/A",
             trial_ends_at: company.trial_ends_at || "",
             subscription_status: company.subscription_status || "unknown",
@@ -333,7 +330,6 @@ export default function TrialManagementPage() {
                     <TableCell className="font-medium">
                       <div>
                         <div>{company.company_name}</div>
-                        <div className="text-sm text-muted-foreground">/{company.slug}</div>
                       </div>
                     </TableCell>
                     <TableCell>{company.owner_email}</TableCell>

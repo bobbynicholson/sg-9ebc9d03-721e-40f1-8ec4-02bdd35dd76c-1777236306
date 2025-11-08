@@ -102,7 +102,7 @@ export const userManagementService = {
       // 4. Get company details for the invitation email
       const { data: company, error: companyError } = await supabase
         .from("companies")
-        .select("company_name, slug")
+        .select("company_name")
         .eq("id", companyId)
         .single();
 
@@ -113,7 +113,7 @@ export const userManagementService = {
 
       // 5. Generate invitation URL
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://cateringms.com";
-      const invitationUrl = `${baseUrl}/${company?.slug || companyId}/signup?invitation=${invitationToken}&email=${encodeURIComponent(email)}`;
+      const invitationUrl = `${baseUrl}/auth/register?invitation=${invitationToken}&email=${encodeURIComponent(email)}`;
 
       // 6. Send invitation email
       const { billingEmailService } = await import("./billingEmailService");

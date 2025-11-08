@@ -62,7 +62,7 @@ const CompanyDatabasePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState<{ key: keyof CompanyWithOwner, direction: "ascending" | "descending" } | null>({ key: 'created_at', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Omit<CompanyWithOwner, 'slug'>, direction: "ascending" | "descending" } | null>({ key: 'created_at', direction: 'descending' });
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -133,7 +133,6 @@ const CompanyDatabasePage: React.FC = () => {
       filtered = filtered.filter(
         (company) =>
           company.company_name.toLowerCase().includes(term) ||
-          company.slug.toLowerCase().includes(term) ||
           company.email?.toLowerCase().includes(term) ||
           company.owner_email?.toLowerCase().includes(term)
       );
@@ -163,7 +162,7 @@ const CompanyDatabasePage: React.FC = () => {
     return filtered;
   }, [companies, searchTerm, sortConfig, statusFilter]);
 
-  const requestSort = (key: keyof CompanyWithOwner) => {
+  const requestSort = (key: keyof Omit<CompanyWithOwner, 'slug'>) => {
     if (sortConfig && sortConfig.key === key) {
       setSortConfig({ ...sortConfig, direction: sortConfig.direction === 'ascending' ? 'descending' : 'ascending' });
     } else {
@@ -232,7 +231,7 @@ const CompanyDatabasePage: React.FC = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search by name, slug, or email..."
+                    placeholder="Search by name or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -265,7 +264,6 @@ const CompanyDatabasePage: React.FC = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead onClick={() => requestSort('company_name')}>Company Name</TableHead>
-                    <TableHead onClick={() => requestSort('slug')}>Slug</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead onClick={() => requestSort('created_at')}>Created At</TableHead>
                     <TableHead onClick={() => requestSort('subscription_status')}>Status</TableHead>
@@ -274,18 +272,13 @@ const CompanyDatabasePage: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={6}>Loading...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5}>Loading...</TableCell></TableRow>
                   ) : error ? (
-                    <TableRow><TableCell colSpan={6} className="text-red-500">{error}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-red-500">{error}</TableCell></TableRow>
                   ) : (
                     filteredAndSortedCompanies.map((company) => (
                       <TableRow key={company.id}>
                         <TableCell className="font-medium">{company.company_name}</TableCell>
-                        <TableCell>
-                          <a href={`/${company.slug}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                            /{company.slug}
-                          </a>
-                        </TableCell>
                         <TableCell>{company.owner_email || 'N/A'}</TableCell>
                         <TableCell>{new Date(company.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
@@ -296,7 +289,7 @@ const CompanyDatabasePage: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => router.push(`/${company.slug}/admin/onboarding`)}
+                              onClick={() => router.push(`/admin/onboarding?company_id=${company.id}`)}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>

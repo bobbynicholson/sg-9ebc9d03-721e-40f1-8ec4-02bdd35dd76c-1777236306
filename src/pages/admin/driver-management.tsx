@@ -94,7 +94,6 @@ export default function DriverManagementPage() {
           role: "driver",
           currency: user?.currency || "ZAR",
           phone_number: newDriver.phone,
-          company_slug: user?.company_slug || undefined,
           company_name: user?.company_name || undefined,
         }
       );
@@ -440,7 +439,7 @@ export default function DriverManagementPage() {
                 Share this URL with your drivers so they can easily bookmark and access their portal:
               </p>
               <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/${user?.company_slug || "your-company"}/driver-login` : "/your-company/driver-login"}
+                {typeof window !== "undefined" ? `${window.location.origin}/auth/login` : "/auth/login"}
               </code>
             </div>
 
@@ -450,7 +449,7 @@ export default function DriverManagementPage() {
                 Share this URL if you want drivers to self-register:
               </p>
               <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/${user?.company_slug || "your-company"}/driver-signup` : "/your-company/driver-signup"}
+                {typeof window !== "undefined" ? `${window.location.origin}/auth/register` : "/auth/register"}
               </code>
             </div>
           </CardContent>
