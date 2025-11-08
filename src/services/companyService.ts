@@ -18,7 +18,6 @@ export const companyService = {
    */
   async createCompany(data: {
     name: string;
-    slug: string;
     owner_id: string;
     email?: string;
     phone?: string;
@@ -27,18 +26,8 @@ export const companyService = {
     status?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
-      // CRITICAL: Validate slug availability before creating company
-      const slugAvailable = await this.isSlugAvailable(data.slug);
-      if (!slugAvailable) {
-        return {
-          success: false,
-          error: `The company slug "${data.slug}" is already taken. Please choose a different company name.`
-        };
-      }
-
       const companyData: CompanyInsert = {
         company_name: data.name,
-        slug: data.slug,
         owner_id: data.owner_id,
         email: data.email,
         phone: data.phone,
@@ -57,13 +46,6 @@ export const companyService = {
         .single();
 
       if (error) {
-        // Handle unique constraint violation specifically
-        if (error.code === "23505" && error.message.includes("slug")) {
-          return {
-            success: false,
-            error: `The company slug "${data.slug}" is already taken. Please choose a different company name.`
-          };
-        }
         return {
           success: false,
           error: error.message
@@ -91,7 +73,6 @@ export const companyService = {
             data.email,
             data.name,
             company.id, // Pass companyId
-            data.slug,
             profile?.full_name || "there"
           );
           console.log("✅ Welcome email sent to new company:", data.email);
@@ -111,30 +92,6 @@ export const companyService = {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error occurred"
       };
-    }
-  },
-
-  /**
-   * Get company by slug
-   */
-  async getCompanyBySlug(slug: string): Promise<Company | null> {
-    try {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("slug", slug)
-        .eq("is_active", true)
-        .single();
-
-      if (error) {
-        if (error.code === "PGRST116") return null; // Not found
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Error fetching company by slug:", error);
-      throw error;
     }
   },
 
@@ -196,50 +153,15 @@ export const companyService = {
   },
 
   /**
-   * Check if slug is available (alias for isSlugAvailable)
-   */
-  async checkSlugAvailability(slug: string): Promise<boolean> {
-    return this.isSlugAvailable(slug);
-  },
-
-  /**
-   * Check if slug is available
-   */
-  async isSlugAvailable(slug: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("slug", slug)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      return !data; // Available if no data found
-    } catch (error) {
-      console.error("Error checking slug availability:", error);
-      return false;
-    }
-  },
-
-  /**
    * Update user's company association
    */
-  async updateUserCompany(userId: string, companySlug: string): Promise<void> {
+  async updateUserCompany(userId: string, companyId: string): Promise<void> {
     try {
-      // First, get the company by slug
-      const company = await this.getCompanyBySlug(companySlug);
-      
-      if (!company) {
-        throw new Error(`Company with slug "${companySlug}" not found`);
-      }
-
-      // Update the user's profile with company_id and company_slug
+      // Update the user's profile with company_id
       const { error } = await supabase
         .from("profiles")
         .update({
-          company_id: company.id,
-          company_slug: companySlug,
+          company_id: companyId,
           updated_at: new Date().toISOString(),
         })
         .eq("id", userId);
@@ -284,7 +206,6 @@ export const companyService = {
     password: string,
     fullName: string,
     companyName: string,
-    companySlug: string,
     planId: string,
     trialDays: number
   ): Promise<{ user: User; company: Company; session: Session }> {
@@ -318,7 +239,6 @@ export const companyService = {
         {
           owner_id: user.id,
           company_name: companyName,
-          slug: companySlug,
           email: email,
           subscription_plan_id: planId,
           subscription_status: 'trialing',
@@ -353,7 +273,6 @@ export const companyService = {
       email,
       companyName,
       company.id,
-      company.slug,
       fullName
     );
     
@@ -362,24 +281,6 @@ export const companyService = {
 
   async deleteCompany(id: string): Promise<void> {
     // This is a very destructive action.
-  },
-
-  /**
-   * Update company slug (with validation)
-   */
-  async updateCompanySlug(companyId: string, newSlug: string): Promise<Company> {
-    try {
-      // Check if new slug is available
-      const available = await this.isSlugAvailable(newSlug);
-      if (!available) {
-        throw new Error("This company slug is already in use. Please choose a different name.");
-      }
-
-      return await this.updateCompany(companyId, { slug: newSlug });
-    } catch (error) {
-      console.error("Error updating company slug:", error);
-      throw error;
-    }
   },
 
   /**
@@ -513,33 +414,5 @@ export const companyService = {
       console.error("Error deactivating company:", error);
       throw error;
     }
-  },
-
-  /**
-   * Generate a unique slug from company name
-   */
-  generateSlug(companyName: string): string {
-    return companyName
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-") // Replace multiple hyphens with single
-      .replace(/^-|-$/g, "") // Remove leading/trailing hyphens
-      .trim();
-  },
-
-  /**
-   * Generate a unique slug (checks availability)
-   */
-  async generateUniqueSlug(companyName: string): Promise<string> {
-    let slug = this.generateSlug(companyName);
-    let counter = 1;
-
-    while (!(await this.isSlugAvailable(slug))) {
-      slug = `${this.generateSlug(companyName)}-${counter}`;
-      counter++;
-    }
-
-    return slug;
   },
 };
