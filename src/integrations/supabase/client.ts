@@ -17,8 +17,38 @@ try {
   throw new Error(`Invalid Supabase URL: ${SUPABASE_URL}`);
 }
 
-// Smart cleanup: Only clear corrupted session data, not all Supabase data
+// CRITICAL FIX: Aggressive session cleanup on login page
 if (typeof window !== 'undefined') {
+  const isLoginPage = window.location.pathname.includes('/auth/login');
+  
+  if (isLoginPage) {
+    try {
+      // Clear ALL auth-related storage immediately
+      const projectRef = 'ypwxsmytkvaefmmlkspf';
+      const storageKey = `sb-${projectRef}-auth-token`;
+      
+      // Remove the main auth token
+      localStorage.removeItem(storageKey);
+      
+      // Clear any other Supabase auth keys
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') && key.includes('auth')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Clear session storage too
+      sessionStorage.clear();
+      
+      console.log('✅ Cleared all auth data on login page');
+    } catch (error) {
+      console.warn('Error clearing auth data:', error);
+    }
+  }
+}
+
+// Smart cleanup: Only clear corrupted session data, not all Supabase data (for non-login pages)
+if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
   try {
     // Extract project ref safely
     let projectRef = 'ypwxsmytkvaefmmlkspf';
@@ -45,17 +75,14 @@ if (typeof window !== 'undefined') {
           const parsed = JSON.parse(storedData);
           
           // Check if the data structure is valid
-          // Valid session should have access_token and user
           if (!parsed || typeof parsed !== 'object') {
             console.warn('Clearing invalid session data structure');
             localStorage.removeItem(storageKey);
           } else if (parsed.access_token === undefined && parsed.refresh_token === undefined) {
-            // If tokens are missing but object exists, likely corrupted
             console.warn('Clearing session data with missing tokens');
             localStorage.removeItem(storageKey);
           }
         } catch (parseError) {
-          // If parsing fails, data is definitely corrupted
           console.warn('Clearing malformed session JSON');
           localStorage.removeItem(storageKey);
         }
@@ -64,21 +91,15 @@ if (typeof window !== 'undefined') {
       console.warn('Error checking session storage:', storageError);
     }
     
-    // CRITICAL FIX: Clean up any malformed URL fragments that could cause parsing errors
+    // Clean up any malformed URL fragments
     try {
-      // Check if URL has auth fragments that might be malformed
       const currentUrl = window.location.href;
       if (currentUrl.includes('#access_token') || currentUrl.includes('#error')) {
-        // Validate the hash fragment structure
         const hash = window.location.hash;
         if (hash && hash.length > 1) {
           try {
-            // Try to parse the hash as URL search params
-            const params = new URLSearchParams(hash.substring(1));
-            // If parsing succeeds, let Supabase handle it normally
-            // If it fails, we'll catch and clean it below
+            new URLSearchParams(hash.substring(1));
           } catch (hashError) {
-            // Hash is malformed, clean it up
             console.warn('Detected malformed auth hash, cleaning up');
             window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
           }
@@ -129,12 +150,15 @@ const createSafeStorage = () => {
 
 let supabaseClient: ReturnType<typeof createClient<Database>>;
 
+// CRITICAL FIX: Disable auto refresh on login page to prevent network errors
+const isLoginPage = typeof window !== 'undefined' && window.location.pathname.includes('/auth/login');
+
 try {
   supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
+      autoRefreshToken: !isLoginPage, // ✅ Disable on login page
+      persistSession: !isLoginPage,    // ✅ Don't persist on login page
+      detectSessionInUrl: !isLoginPage, // ✅ Don't detect session on login page
       flowType: 'pkce',
       storage: createSafeStorage(),
       storageKey: `sb-ypwxsmytkvaefmmlkspf-auth-token`,
