@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import Head from "next/head";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -196,7 +197,7 @@ function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a
+                <Link
                   href="/admin/orders"
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg hover:shadow-md transition-all"
                 >
@@ -205,9 +206,9 @@ function AdminDashboardPage() {
                     <div className="font-semibold text-slate-900">View Orders</div>
                     <div className="text-xs text-slate-600">Manage all orders</div>
                   </div>
-                </a>
+                </Link>
 
-                <a
+                <Link
                   href="/admin/users"
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg hover:shadow-md transition-all"
                 >
@@ -216,9 +217,9 @@ function AdminDashboardPage() {
                     <div className="font-semibold text-slate-900">Manage Users</div>
                     <div className="text-xs text-slate-600">Add or edit users</div>
                   </div>
-                </a>
+                </Link>
 
-                <a
+                <Link
                   href="/admin/settings"
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg hover:shadow-md transition-all"
                 >
@@ -227,7 +228,7 @@ function AdminDashboardPage() {
                     <div className="font-semibold text-slate-900">System Settings</div>
                     <div className="text-xs text-slate-600">Configure platform</div>
                   </div>
-                </a>
+                </Link>
               </div>
             </CardContent>
           </Card>
