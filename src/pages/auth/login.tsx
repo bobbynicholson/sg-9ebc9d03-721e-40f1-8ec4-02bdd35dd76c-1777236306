@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User } from "lucide-react";
+import { User, Shield, Truck, ChefHat, ShoppingCart, SprayCanIcon, Users } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
@@ -21,8 +21,119 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [testMode, setTestMode] = useState(true); // Default to test mode
   const { signIn } = useAuth();
   const { toast } = useToast();
+
+  // Test roles configuration
+  const testRoles = [
+    { 
+      role: "admin", 
+      label: "Admin", 
+      icon: Shield, 
+      color: "from-purple-500 to-purple-600",
+      description: "Full system access"
+    },
+    { 
+      role: "client", 
+      label: "Client", 
+      icon: Users, 
+      color: "from-blue-500 to-blue-600",
+      description: "Customer portal"
+    },
+    { 
+      role: "driver", 
+      label: "Driver", 
+      icon: Truck, 
+      color: "from-green-500 to-green-600",
+      description: "Delivery tracking"
+    },
+    { 
+      role: "kitchen", 
+      label: "Kitchen", 
+      icon: ChefHat, 
+      color: "from-orange-500 to-orange-600",
+      description: "Food preparation"
+    },
+    { 
+      role: "shopping", 
+      label: "Shopping", 
+      icon: ShoppingCart, 
+      color: "from-pink-500 to-pink-600",
+      description: "Inventory management"
+    },
+    { 
+      role: "cleaning", 
+      label: "Cleaning", 
+      icon: SprayCanIcon, 
+      color: "from-teal-500 to-teal-600",
+      description: "Equipment maintenance"
+    }
+  ];
+
+  const handleTestLogin = async (role: string) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      // Create a mock session without real authentication
+      const mockUser = {
+        id: `test-${role}-${Date.now()}`,
+        email: `test.${role}@example.com`,
+        user_metadata: { full_name: `Test ${role.charAt(0).toUpperCase() + role.slice(1)}` },
+        app_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      };
+
+      // Store test mode flag in localStorage
+      localStorage.setItem("testMode", "true");
+      localStorage.setItem("testRole", role);
+      localStorage.setItem("testUser", JSON.stringify(mockUser));
+
+      toast({
+        title: "Test Login Successful",
+        description: `Logged in as ${role}`,
+        duration: 2000,
+      });
+
+      // Redirect based on role
+      const companySlug = "test-company";
+      let dashboardUrl = "/";
+      
+      switch (role) {
+        case "admin":
+          dashboardUrl = `/admin/dashboard`;
+          break;
+        case "driver":
+          dashboardUrl = `/drivers`;
+          break;
+        case "kitchen":
+          dashboardUrl = `/kitchen`;
+          break;
+        case "shopping":
+          dashboardUrl = `/shopping`;
+          break;
+        case "cleaning":
+          dashboardUrl = `/cleaning`;
+          break;
+        case "client":
+          dashboardUrl = "/client-portal";
+          break;
+        default:
+          dashboardUrl = "/";
+      }
+
+      // Small delay to show the toast
+      setTimeout(() => {
+        router.push(dashboardUrl);
+      }, 500);
+    } catch (err) {
+      console.error("Test login error:", err);
+      setError("Test login failed. Please try again.");
+      setLoading(false);
+    }
+  };
 
   // Show session expiration message if redirected from expired session
   useEffect(() => {
@@ -166,116 +277,167 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-3 sm:p-4">
-      <Card className="w-full max-w-md border-0 shadow-2xl">
+      <Card className="w-full max-w-4xl border-0 shadow-2xl">
         <CardHeader className="space-y-3 sm:space-y-4 px-4 sm:px-6 pt-6 sm:pt-8">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mx-auto flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
-            <User className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-          </div>
-          <CardTitle className="text-2xl sm:text-3xl font-bold text-center text-slate-900">
-            Welcome Back
-          </CardTitle>
-          <CardDescription className="text-center text-slate-600 text-sm sm:text-base">
-            Sign in to access your catering management platform
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
-          <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
-            {error && (
-              <Alert variant="destructive" className="text-sm">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-11 sm:h-12 border-2 hover:bg-slate-50 transition-colors text-sm sm:text-base"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              <span className="truncate">{googleLoading ? "Signing in with Google..." : "Continue with Google"}</span>
-            </Button>
-
-            <div className="relative">
-              <Separator className="my-3 sm:my-4" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="bg-white px-2 text-xs text-muted-foreground">
-                  Or sign in with email
-                </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl sm:text-2xl font-bold text-slate-900">
+                  {testMode ? "Quick Test Login" : "Welcome Back"}
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-slate-600">
+                  {testMode ? "Choose a role to test" : "Sign in to your account"}
+                </CardDescription>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700 font-medium text-sm sm:text-base">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11 sm:h-12 text-sm sm:text-base"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 font-medium text-sm sm:text-base">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11 sm:h-12 text-sm sm:text-base"
-                required
-              />
-            </div>
-
             <Button
-              type="submit"
-              className="w-full h-11 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-sm sm:text-base"
-              disabled={loading || googleLoading}
+              variant="outline"
+              size="sm"
+              onClick={() => setTestMode(!testMode)}
+              className="text-xs sm:text-sm"
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {testMode ? "Normal Login" : "Test Mode"}
             </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
+          {testMode ? (
+            <div className="space-y-4">
+              <Alert className="bg-amber-50 border-amber-200">
+                <AlertDescription className="text-sm text-amber-800">
+                  <strong>Test Mode Active:</strong> Click any role below to instantly login without credentials. Perfect for testing!
+                </AlertDescription>
+              </Alert>
 
-            <div className="text-center">
-              <Link href="/auth/register" className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium">
-                Don&apos;t have an account? Register here
-              </Link>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                {testRoles.map(({ role, label, icon: Icon, color, description }) => (
+                  <button
+                    key={role}
+                    onClick={() => handleTestLogin(role)}
+                    disabled={loading}
+                    className="group relative overflow-hidden rounded-xl border-2 border-slate-200 bg-white p-4 hover:border-purple-300 hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center transform group-hover:scale-110 transition-transform`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900 text-sm">{label}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {error && (
+                <Alert variant="destructive" className="text-sm mt-4">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
             </div>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+              {error && (
+                <Alert variant="destructive" className="text-sm">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-            <div className="text-center pt-2">
-              <p className="text-xs text-slate-500">
-                Having trouble signing in?{" "}
-                <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
-                  Contact Support
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-11 sm:h-12 border-2 hover:bg-slate-50 transition-colors text-sm sm:text-base"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                <span className="truncate">{googleLoading ? "Signing in with Google..." : "Continue with Google"}</span>
+              </Button>
+
+              <div className="relative">
+                <Separator className="my-3 sm:my-4" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="bg-white px-2 text-xs text-muted-foreground">
+                    Or sign in with email
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-slate-700 font-medium text-sm sm:text-base">
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-11 sm:h-12 text-sm sm:text-base"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-slate-700 font-medium text-sm sm:text-base">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-11 sm:h-12 text-sm sm:text-base"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold text-sm sm:text-base"
+                disabled={loading || googleLoading}
+              >
+                {loading ? "Signing in..." : "Sign In"}
+              </Button>
+
+              <div className="text-center">
+                <Link href="/auth/register" className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium">
+                  Don&apos;t have an account? Register here
                 </Link>
-              </p>
-            </div>
-          </form>
+              </div>
+
+              <div className="text-center pt-2">
+                <p className="text-xs text-slate-500">
+                  Having trouble signing in?{" "}
+                  <Link href="/support" className="text-purple-600 hover:text-purple-700 font-medium">
+                    Contact Support
+                  </Link>
+                </p>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
