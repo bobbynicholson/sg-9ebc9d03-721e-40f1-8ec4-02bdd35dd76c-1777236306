@@ -232,17 +232,48 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
     
     const initializeAuth = async () => {
       try {
+        // Clear any stale auth state if we're on the login page
+        if (typeof window !== "undefined" && window.location.pathname.includes("/auth/login")) {
+          try {
+            await supabase.auth.signOut({ scope: "local" });
+            localStorage.removeItem("supabase.auth.token");
+            sessionStorage.clear();
+          } catch (clearError) {
+            console.log("Cleared stale auth state");
+          }
+          setLoading(false);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error("Error getting session:", error);
+          // Silently handle token refresh errors
+          if (error.message?.includes("refresh_token") || 
+              error.message?.includes("Invalid Refresh Token") ||
+              error.message?.includes("Failed to fetch")) {
+            console.log("Token refresh failed, clearing session");
+            await handleInvalidSession();
+            return;
+          }
           await handleInvalidSession();
           return;
         }
         
         await loadUserSession(session);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Fatal error initializing auth:", error);
+        // Handle network errors gracefully
+        if (error?.message?.includes("Failed to fetch") || 
+            error?.message?.includes("NetworkError")) {
+          console.log("Network error during auth init, clearing state");
+          try {
+            await supabase.auth.signOut({ scope: "local" });
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
         await handleInvalidSession();
       }
     };
@@ -251,7 +282,22 @@ function AuthProviderInner({ children }: { children: ReactNode }) {
 
     let subscription: any;
     try {
-      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Handle specific auth events
+        if (event === "TOKEN_REFRESHED") {
+          console.log("Token refreshed successfully");
+        } else if (event === "SIGNED_OUT") {
+          console.log("User signed out");
+          setUser(null);
+          setProfile(null);
+          setCompany(null);
+          setCompanySlug(null);
+          setUserRoles([]);
+          setActiveRole("client");
+          setLoading(false);
+          return;
+        }
+
         try {
           await loadUserSession(session);
         } catch (error) {

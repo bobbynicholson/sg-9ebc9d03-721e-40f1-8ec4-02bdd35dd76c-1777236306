@@ -135,6 +135,24 @@ export default function LoginPage() {
     }
   };
 
+  // Clear any stale authentication on mount
+  useEffect(() => {
+    const clearStaleAuth = async () => {
+      try {
+        // Clear local storage auth tokens
+        localStorage.removeItem("supabase.auth.token");
+        sessionStorage.clear();
+        
+        // Sign out locally (don't make API call)
+        await authService.signOut();
+      } catch (error) {
+        console.log("Cleared stale auth state");
+      }
+    };
+
+    clearStaleAuth();
+  }, []);
+
   // Show session expiration message if redirected from expired session
   useEffect(() => {
     if (message === "session_expired") {
