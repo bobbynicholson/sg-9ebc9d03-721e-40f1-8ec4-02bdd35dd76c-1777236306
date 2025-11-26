@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,9 +43,8 @@ interface DriversPageProps {
   currentRoute?: string;
 }
 
-export default function DriversPage({ companySlug: propCompanySlug }: DriversPageProps = {}) {
-  const { user } = useAuth();
-  const companySlug = propCompanySlug || user?.company_slug;
+export default function DriversPage() {
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [availableJobs, setAvailableJobs] = useState<DeliveryJob[]>([]);
   const [myJobs, setMyJobs] = useState<DeliveryJob[]>([]);
   const [completedToday, setCompletedToday] = useState(3);
@@ -54,7 +54,7 @@ export default function DriversPage({ companySlug: propCompanySlug }: DriversPag
   const [showGame, setShowGame] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(true);
   
-  const driverName = user?.full_name || "Driver";
+  const driverName = "Driver";
 
   useEffect(() => {
     const onboardingShown = localStorage.getItem("driver_onboarding_shown");

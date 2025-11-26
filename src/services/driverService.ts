@@ -1146,4 +1146,48 @@ Your Catering Company`;
 
     return data;
   },
+
+  async checkProximityAndNotify(
+    assignmentId: string,
+    currentLat: number,
+    currentLng: number
+  ): Promise<void> {
+    try {
+      // Get the assignment with explicit typing
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("driver_assignments")
+        .select("id, driver_id, order_id, status")
+        .eq("id", assignmentId)
+        .single();
+
+      if (assignmentError) throw assignmentError;
+      if (!assignment) return;
+
+      // Get the order separately with explicit fields
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select("id, venue, venue_lat, venue_lng")
+        .eq("id", assignment.order_id)
+        .single();
+
+      if (orderError) throw orderError;
+      if (!order || !order.venue_lat || !order.venue_lng) return;
+
+      const distance = this.calculateDistance(
+        currentLat,
+        currentLng,
+        order.venue_lat,
+        order.venue_lng
+      );
+
+      if (distance <= 5 && assignment.status !== "arrived") {
+        await supabase
+          .from("driver_assignments")
+          .update({ status: "arrived" })
+          .eq("id", assignmentId);
+      }
+    } catch (error) {
+      console.error("Error checking proximity:", error);
+    }
+  },
 };

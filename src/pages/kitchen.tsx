@@ -17,7 +17,6 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
 import { timeClockService } from "@/services/timeClockService";
-import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 
 export default function KitchenPage() {
@@ -27,7 +26,6 @@ export default function KitchenPage() {
   const [shoppingList, setShoppingList] = useState<ShoppingList | null>(null);
   const [staffSessions, setStaffSessions] = useState<any[]>([]);
   const [period, setPeriod] = useState<"week" | "month">("week");
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -88,15 +86,13 @@ export default function KitchenPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.id) {
-      loadKitchenData(user.id);
-      loadStaffHours();
-    }
-  }, [user, period]);
+    loadKitchenData();
+    loadStaffHours();
+  }, [period]);
 
-  const loadKitchenData = async (userId: string) => {
+  const loadKitchenData = async () => {
     setLoading(true);
-    const allOrders = await orderService.getAllOrders(userId);
+    const allOrders = await orderService.getAllOrders();
     const filteredOrders = allOrders.filter(o => ['preparing', 'confirmed', 'ready'].includes(o.status));
     const sortedOrders = filteredOrders.sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
     setOrders(sortedOrders);
@@ -104,7 +100,6 @@ export default function KitchenPage() {
   };
 
   const loadStaffHours = async () => {
-    if (!user) return;
     try {
       const now = new Date();
       const startDate = new Date();
@@ -115,7 +110,7 @@ export default function KitchenPage() {
         startDate.setMonth(now.getMonth() - 1);
       }
 
-      const sessions = await timeClockService.getStaffWorkSessions(user.id, startDate, now);
+      const sessions = await timeClockService.getStaffWorkSessions(startDate, now);
       setStaffSessions(sessions);
     } catch (error) {
       console.error("Error loading staff hours:", error);

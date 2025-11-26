@@ -29,10 +29,9 @@ interface ShoppingPageProps {
   currentRoute?: string;
 }
 
-export default function ShoppingPage({ companySlug: propCompanySlug }: ShoppingPageProps = {}) {
-  const { user } = useAuth();
-  const companySlug = propCompanySlug || user?.company_slug;
-  
+export default function ShoppingPage() {
+  const [shoppingList, setShoppingList] = useState<any[]>([]);
+
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { useRouter } from "next/router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { JobProgressTracker } from "@/components/JobProgressTracker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,15 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { JobProgressTracker } from "@/components/JobProgressTracker";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
-import type { AppOrder } from "@/types/app";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Calendar, Filter, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 
-export default function StaffJobProgressPage() {
-  const router = useRouter();
+export default function StaffJobProgress() {
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");

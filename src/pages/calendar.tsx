@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppOrder } from "@/types/app";
-import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import { format } from "date-fns";
 import {
@@ -43,10 +42,8 @@ interface CalendarPageProps {
   currentRoute?: string;
 }
 
-export default function CalendarPage({ companySlug: propCompanySlug }: CalendarPageProps = {}) {
-  const { user } = useAuth();
+export default function CalendarPage() {
   const router = useRouter();
-  const companySlug = propCompanySlug || user?.company_slug;
   const [events, setEvents] = useState<AppOrder[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<AppOrder[]>([]);
@@ -54,18 +51,13 @@ export default function CalendarPage({ companySlug: propCompanySlug }: CalendarP
   const [calendarKey, setCalendarKey] = useState(0);
 
   useEffect(() => {
-    if (user?.id) {
-      loadEvents();
-    } else if (!user) {
-      setLoading(false);
-    }
-  }, [user]);
+    loadEvents();
+  }, []);
 
   const loadEvents = async () => {
-    if (!user?.id) return;
     setLoading(true);
     // Use getAllOrders to fetch all relevant events for the admin's company
-    const orders: AppOrder[] = await orderService.getAllOrders(user.id);
+    const orders: AppOrder[] = await orderService.getAllOrders();
     setEvents(orders);
     setLoading(false);
     setCalendarKey(prev => prev + 1); 
@@ -131,11 +123,7 @@ export default function CalendarPage({ companySlug: propCompanySlug }: CalendarP
   };
 
   const handleViewOrder = (orderId: string) => {
-    if (companySlug) {
-      router.push(`/${companySlug}/admin/dashboard?orderId=${orderId}`);
-    } else {
-      router.push(`/orders?orderId=${orderId}`);
-    }
+    router.push(`/orders?orderId=${orderId}`);
     setSelectedDayEvents([]);
     setSelectedDate(null);
   };

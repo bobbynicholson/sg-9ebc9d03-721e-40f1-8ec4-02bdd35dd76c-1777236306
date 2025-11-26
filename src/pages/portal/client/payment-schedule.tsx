@@ -4,16 +4,14 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PaymentScheduleCard } from "@/components/orders/PaymentScheduleCard";
-import { useAuth } from "@/contexts/AuthContext";
 import { paymentProcessingService, PaymentSchedule } from "@/services/paymentProcessingService";
 import { ClientNav } from "@/components/client/ClientNav";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/app";
+import { Head } from "next/head";
+import { Footer } from "@/components/Footer";
 
 function PaymentSchedulePage() {
   const router = useRouter();
   const { orderId } = router.query;
-  const { user } = useAuth();
   const [schedule, setSchedule] = useState<PaymentSchedule | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,16 +50,6 @@ function PaymentSchedulePage() {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="p-8">
-          <p>Please sign in to view payment schedule</p>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
@@ -98,8 +86,12 @@ function PaymentSchedulePage() {
 
 export default function ClientPaymentSchedulePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.CLIENT]}>
+    <>
+      <Head>
+        <title>Payment Schedule</title>
+      </Head>
       <PaymentSchedulePage />
-    </ProtectedRoute>
+      <Footer />
+    </>
   );
 }

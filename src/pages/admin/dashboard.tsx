@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +16,9 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
-function AdminDashboardPage() {
-  const { user, loading: authLoading } = useAuth();
+export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -42,25 +39,7 @@ function AdminDashboardPage() {
       lowStockItems: 8,
       upcomingEvents: 23,
     });
-  }, [user]);
-
-  if (authLoading) {
-    return (
-      <>
-        <NoIndexMeta />
-        <Head>
-          <title>Admin Dashboard - CateringMS</title>
-        </Head>
-        <AdminNav />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-purple-500 mx-auto mb-4" />
-            <p className="text-slate-600">Loading dashboard...</p>
-          </div>
-        </div>
-      </>
-    );
-  }
+  }, []);
 
   return (
     <>
@@ -84,7 +63,7 @@ function AdminDashboardPage() {
                   Admin Dashboard
                 </h1>
                 <p className="text-slate-600 mt-1">
-                  Welcome back, {user?.full_name || "Admin"}
+                  Welcome back, Admin
                 </p>
               </div>
             </div>
@@ -235,13 +214,5 @@ function AdminDashboardPage() {
         </div>
       </div>
     </>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
-      <AdminDashboardPage />
-    </ProtectedRoute>
   );
 }

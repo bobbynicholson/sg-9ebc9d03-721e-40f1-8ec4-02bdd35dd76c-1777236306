@@ -44,9 +44,7 @@ interface InventoryPageProps {
   currentRoute?: string;
 }
 
-export default function InventoryPage({ companySlug: propCompanySlug }: InventoryPageProps = {}) {
-  const { user } = useAuth();
-  const companySlug = propCompanySlug || user?.company_slug;
+export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,17 +68,14 @@ export default function InventoryPage({ companySlug: propCompanySlug }: Inventor
   const userCurrency = getUserCurrency();
 
   useEffect(() => {
-    if (user) {
-      loadInventory();
-    }
-  }, [user]);
+    loadInventory();
+  }, []);
 
   const loadInventory = async () => {
-    if (!user) return;
     try {
       setLoading(true);
       setError("");
-      const data = await inventoryService.getInventory(user.id);
+      const data = await inventoryService.getInventory();
       const updatedInventory = data.map((item: any) => {
         if (item.shelf_life_days && item.purchase_date) {
           const expiryInfo = calculateExpiryStatus({
@@ -160,11 +155,6 @@ export default function InventoryPage({ companySlug: propCompanySlug }: Inventor
     setAddItemError("");
     setAddItemSuccess("");
 
-    if (!user) {
-      setAddItemError("You must be logged in to add items.");
-      return;
-    }
-
     // Validation
     if (!newItem.name.trim()) {
       setAddItemError("Please enter an item name");
@@ -181,7 +171,7 @@ export default function InventoryPage({ companySlug: propCompanySlug }: Inventor
 
     try {
       const newItemData = {
-        user_id: user.id,
+        user_id: 1,
         name: newItem.name,
         category: newItem.category,
         quantity_total: Number(newItem.currentStock),
@@ -271,26 +261,6 @@ export default function InventoryPage({ companySlug: propCompanySlug }: Inventor
   );
 
   const totalExpiryAlerts = expiryAlerts.expired.length + expiryAlerts.critical.length + expiryAlerts.warning.length;
-
-  if (!user) {
-    return (
-      <>
-        <NoIndexMeta />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 flex items-center justify-center">
-          <Card className="max-w-md">
-            <CardContent className="p-8 text-center">
-              <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Authentication Required</h3>
-              <p className="text-slate-600 mb-6">Please sign in to view your inventory.</p>
-              <Link href="/auth/login">
-                <Button>Sign In</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>

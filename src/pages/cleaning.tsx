@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,27 +12,8 @@ import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentD
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function CleaningPage() {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("verification");
-
-  if (!user) {
-    return (
-      <>
-        <NoIndexMeta />
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 flex items-center justify-center">
-          <Card className="max-w-md mx-4">
-            <CardContent className="pt-6 text-center">
-              <Sparkles className="h-12 w-12 mx-auto mb-4 text-pink-600" />
-              <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
-              <p className="text-muted-foreground">
-                Please log in to access the cleaning management portal.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
-  }
+  const [tasks, setTasks] = useState<any[]>([]);
 
   return (
     <>
