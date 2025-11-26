@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { orderService } from "@/services/orderService";
 import { format } from "date-fns";
-import type { AppOrder } from "@/types";
+import type { AppOrder } from "@/types/app";
 import { Eye, Calendar, Users, MapPin } from "lucide-react";
 
 export default function MyOrders() {

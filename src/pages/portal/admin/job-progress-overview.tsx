@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { orderService } from "@/services/orderService";
 import { format } from "date-fns";
 import Link from "next/link";
-import type { AppOrder } from "@/types";
+import type { AppOrder } from "@/types/app";
 
 export default function JobProgressOverview() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
@@ -158,7 +158,21 @@ export default function JobProgressOverview() {
                       </div>
                     </div>
 
-                    <JobProgressTracker orderId={selectedOrder.id} />
+                    <JobProgressTracker
+                      currentStatus={selectedOrder.status}
+                      orderData={{
+                        payment_confirmed: selectedOrder.created_at,
+                        kitchen_assigned: new Date().toISOString(),
+                        driver_assigned: new Date().toISOString(),
+                        in_transit: new Date().toISOString(),
+                        delivered: new Date().toISOString(),
+                        equipment_returned: new Date().toISOString(),
+                      }}
+                      clientName={selectedOrder.clientName}
+                      eventDate={selectedOrder.eventDate}
+                      orderNumber={selectedOrder.id}
+                      userRole="admin"
+                    />
 
                     <div className="mt-6 flex gap-3">
                       <Button asChild>

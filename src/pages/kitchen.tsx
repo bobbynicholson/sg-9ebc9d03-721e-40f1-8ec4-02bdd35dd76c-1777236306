@@ -110,7 +110,7 @@ export default function KitchenPage() {
         startDate.setMonth(now.getMonth() - 1);
       }
 
-      const sessions = await timeClockService.getStaffWorkSessions(startDate, now);
+      const sessions = await timeClockService.getStaffWorkSessions(startDate.toISOString(), now.toISOString());
       setStaffSessions(sessions);
     } catch (error) {
       console.error("Error loading staff hours:", error);

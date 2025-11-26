@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { PaymentScheduleCard } from "@/components/orders/PaymentScheduleCard";
 import { paymentProcessingService, PaymentSchedule } from "@/services/paymentProcessingService";
 import { ClientNav } from "@/components/client/ClientNav";
-import { Head } from "next/head";
+import Head from "next/head";
 import { Footer } from "@/components/Footer";
 
 function PaymentSchedulePage() {

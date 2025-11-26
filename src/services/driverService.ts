@@ -3,7 +3,6 @@ import type { Tables } from "@/integrations/supabase/types";
 import { realtimeNotificationService } from "./realtimeNotificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { AppOrder } from "@/types/app";
-import { Order } from "@/types/index";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export type DriverAssignment = Tables<"driver_assignments">;
@@ -1153,25 +1152,17 @@ Your Catering Company`;
     currentLng: number
   ): Promise<void> {
     try {
-      // Get the assignment with explicit typing
       const { data: assignment, error: assignmentError } = await supabase
         .from("driver_assignments")
-        .select("id, driver_id, order_id, status")
+        .select("id, driver_id, order_id, status, orders(id, venue, venue_lat, venue_lng)")
         .eq("id", assignmentId)
         .single();
 
       if (assignmentError) throw assignmentError;
-      if (!assignment) return;
+      if (!assignment || !assignment.orders) return;
 
-      // Get the order separately with explicit fields
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .select("id, venue, venue_lat, venue_lng")
-        .eq("id", assignment.order_id)
-        .single();
-
-      if (orderError) throw orderError;
-      if (!order || !order.venue_lat || !order.venue_lng) return;
+      const order = assignment.orders;
+      if (!order.venue_lat || !order.venue_lng) return;
 
       const distance = this.calculateDistance(
         currentLat,

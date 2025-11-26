@@ -9,11 +9,11 @@ import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowTracker";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function CleaningPage() {
   const [activeTab, setActiveTab] = useState("verification");
   const [tasks, setTasks] = useState<any[]>([]);
+  const user = { full_name: "Cleaning Staff" }; // Mock user object
 
   return (
     <>

@@ -16,8 +16,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Calendar, Filter, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AppOrder } from "@/types/app";
+import { useRouter } from "next/router";
 
 export default function StaffJobProgress() {
+  const router = useRouter();
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
