@@ -93,9 +93,9 @@ export default function JobProgressOverview() {
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-semibold">{order.clientName}</h3>
+                            <h3 className="font-semibold">{order.client_name}</h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {order.venue}
+                              {order.venue_address}
                             </p>
                           </div>
                           <Badge className={getStatusColor(order.status)}>
@@ -103,11 +103,11 @@ export default function JobProgressOverview() {
                           </Badge>
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {order.eventDate &&
-                            format(new Date(order.eventDate), "MMM dd, yyyy")}
+                          {order.event_date &&
+                            format(new Date(order.event_date), "MMM dd, yyyy")}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {order.guestCount} guests
+                          {order.guest_count} guests
                         </div>
                       </div>
                     ))
@@ -123,10 +123,10 @@ export default function JobProgressOverview() {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-2xl">
-                          {selectedOrder.clientName}
+                          {selectedOrder.client_name}
                         </CardTitle>
                         <p className="text-gray-600 dark:text-gray-400 mt-1">
-                          {selectedOrder.venue}
+                          {selectedOrder.venue_address}
                         </p>
                       </div>
                       <Badge className={getStatusColor(selectedOrder.status)}>
@@ -138,19 +138,19 @@ export default function JobProgressOverview() {
                     <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="font-semibold">Event Date:</span>{" "}
-                        {selectedOrder.eventDate &&
+                        {selectedOrder.event_date &&
                           format(
-                            new Date(selectedOrder.eventDate),
+                            new Date(selectedOrder.event_date),
                             "MMMM dd, yyyy"
                           )}
                       </div>
                       <div>
                         <span className="font-semibold">Guest Count:</span>{" "}
-                        {selectedOrder.guestCount}
+                        {selectedOrder.guest_count}
                       </div>
                       <div>
                         <span className="font-semibold">Total Amount:</span> R
-                        {selectedOrder.totalAmount?.toFixed(2) || "0.00"}
+                        {selectedOrder.total?.toFixed(2) || "0.00"}
                       </div>
                       <div>
                         <span className="font-semibold">Order ID:</span>{" "}
@@ -168,8 +168,8 @@ export default function JobProgressOverview() {
                         delivered: new Date().toISOString(),
                         equipment_returned: new Date().toISOString(),
                       }}
-                      clientName={selectedOrder.clientName}
-                      eventDate={selectedOrder.eventDate}
+                      clientName={selectedOrder.client_name}
+                      eventDate={selectedOrder.event_date}
                       orderNumber={selectedOrder.id}
                       userRole="admin"
                     />
