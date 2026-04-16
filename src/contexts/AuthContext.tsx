@@ -1,19 +1,29 @@
-
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User as SupabaseUser } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { authService, AuthUser, AuthError } from "@/services/authService";
-import { profileService, Profile } from "@/services/profileService";
-import { useDemoMode } from "@/contexts/DemoModeContext";
-import { useRouter } from "next/router";
-import { roleService, RoleAssignment } from "@/services/roleService";
-import { companyService } from "@/services/companyService";
+import { createContext, useContext, ReactNode } from "react";
 import type { Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 
 type Company = Tables<"companies">;
 
-export type AuthenticatedUser = SupabaseUser & Profile;
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  active_role: string;
+  avatar_url?: string;
+  currency: string;
+  company_id?: string;
+  company_name?: string;
+  company_slug?: string;
+  phone_number?: string;
+  user_metadata?: any;
+  app_metadata?: any;
+  aud?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type Profile = Partial<AuthenticatedUser>;
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
@@ -22,385 +32,62 @@ interface AuthContextType {
   companySlug: string | null;
   loading: boolean;
   error: string | null;
-  userRoles: RoleAssignment[];
+  userRoles: any[];
   activeRole: string;
   switchRole: (newRole: UserRole) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ user: AuthUser | null; error: AuthError | null }>;
-  signUp: (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner?: boolean) => Promise<{ user: AuthUser | null; error: AuthError | null, companySlug?: string }>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, metadata: any, isOwner?: boolean) => Promise<any>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function loadProfileWithRetry(userId: string, maxRetries: number = 5): Promise<Profile | null> {
-  let lastError: any = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const profile = await profileService.getProfile(userId);
-      
-      if (profile) {
-        console.log(`Profile loaded successfully on attempt ${attempt + 1}`);
-        
-        // ✅ FIX: If profile exists but has no role, set a default role
-        if (!profile.role) {
-          console.warn(`Profile ${userId} is missing role field, setting default role 'client'`);
-          try {
-            await profileService.updateProfile(userId, { role: 'client' });
-            profile.role = 'client';
-          } catch (updateError) {
-            console.error('Failed to set default role:', updateError);
-          }
-        }
-        
-        return profile;
-      }
-      
-      if (attempt < maxRetries - 1) {
-        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
-        console.log(`Profile not found, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    } catch (error) {
-      lastError = error;
-      console.error(`Error loading profile (attempt ${attempt + 1}/${maxRetries}):`, error);
-      
-      if (attempt < maxRetries - 1) {
-        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  console.error(`Failed to load profile after ${maxRetries} attempts:`, lastError);
-  return null;
-}
+// Mock user for preview mode - allows viewing all pages
+const mockUser: AuthenticatedUser = {
+  id: "preview-user-id",
+  email: "preview@cateringms.com",
+  full_name: "Preview User",
+  role: "admin" as UserRole,
+  active_role: "admin",
+  avatar_url: "",
+  currency: "ZAR",
+  company_id: "preview-company-id",
+  company_name: "Preview Company",
+  company_slug: "preview-company",
+  phone_number: "+27 21 555 0000",
+};
 
-function AuthProviderInner({ children }: { children: ReactNode }) {
-  const { isDemoMode, getDemoUser } = useDemoMode();
-  const router = useRouter();
-  const [user, setUser] = useState<AuthenticatedUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userRoles, setUserRoles] = useState<RoleAssignment[]>([]);
-  const [activeRole, setActiveRole] = useState<string>("client");
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [companySlug, setCompanySlug] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isDemoMode) {
-      const demoUser = getDemoUser();
-      if (demoUser) {
-        const fullDemoUser = {
-          id: demoUser.id,
-          email: demoUser.email,
-          user_metadata: { full_name: demoUser.full_name },
-          app_metadata: {},
-          aud: "authenticated",
-          created_at: new Date().toISOString(),
-          full_name: demoUser.full_name,
-          role: demoUser.role,
-          active_role: demoUser.role,
-          avatar_url: demoUser.avatar_url || "",
-          currency: "ZAR",
-          updated_at: new Date().toISOString(),
-          company_id: "demo-company-id",
-          company_name: "Bob's Catering",
-          company_slug: "bobs-catering",
-          phone: "+27 21 555 1234",
-          phone_number: "+27 21 555 1234",
-          is_active: true,
-          subscription_plan: "professional",
-          subscription_status: "active",
-          trial_ends_at: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          drive_time_to_kitchen_minutes: 25,
-          vehicle_details: "White Toyota Hilux",
-          region: "ZA",
-        } as AuthenticatedUser;
-        
-        setUser(fullDemoUser);
-        setProfile(fullDemoUser);
-        setCompanySlug("bobs-catering");
-        
-        setUserRoles([{ 
-          id: "demo-role", 
-          user_id: demoUser.id, 
-          department: demoUser.role as UserRole,
-          is_primary: true,
-          assigned_at: new Date().toISOString(),
-          assigned_by: "system",
-          created_at: new Date().toISOString()
-        }]);
-        setActiveRole(demoUser.role);
-      }
-      setLoading(false);
-      return;
-    }
-
-    const loadUserSession = async (session: any) => {
-      if (!session?.user) {
-        setUser(null);
-        setProfile(null);
-        setCompany(null);
-        setCompanySlug(null);
-        setUserRoles([]);
-        setActiveRole("client");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const profileData = await loadProfileWithRetry(session.user.id);
-
-        if (!profileData) {
-          console.error("Profile data is null after retries for user:", session.user.id);
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
-            await handleInvalidSession();
-          } else {
-            setUser(null);
-            setProfile(null);
-            setCompany(null);
-            setCompanySlug(null);
-            setUserRoles([]);
-            setActiveRole("client");
-            setLoading(false);
-          }
-          return;
-        }
-
-        const mergedUser = { ...session.user, ...profileData } as AuthenticatedUser;
-        setUser(mergedUser);
-        setProfile(profileData);
-        setCompanySlug(profileData.company_slug || null);
-
-        if (profileData.company_id) {
-            const companyData = await companyService.getCompanyById(profileData.company_id);
-            setCompany(companyData);
-        }
-
-        let roles: RoleAssignment[] = [];
-        try {
-          roles = await roleService.getUserRoles(session.user.id);
-          setUserRoles(roles);
-        } catch (rolesError) {
-          console.error("Error loading user roles:", rolesError);
-          setUserRoles([]);
-        }
-
-        let active = "client";
-        try {
-          active = await roleService.getActiveRole(session.user.id);
-          setActiveRole(active);
-        } catch (activeRoleError) {
-          console.error("Error loading active role:", activeRoleError);
-          setActiveRole("client");
-        }
-
-      } catch (error) {
-        console.error("Error loading user session data:", error);
-        await handleInvalidSession();
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    const handleInvalidSession = async () => {
-      console.log("Handling invalid session - clearing and redirecting to login");
-      
-      setUser(null);
-      setProfile(null);
-      setCompany(null);
-      setCompanySlug(null);
-      setUserRoles([]);
-      setActiveRole("client");
-      setLoading(false);
-      
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        console.error("Error during cleanup signout:", signOutError);
-      }
-      
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/auth/")) {
-        router.push("/auth/login?message=session_expired");
-      }
-    };
-    
-    const initializeAuth = async () => {
-      try {
-        // Clear any stale auth state if we're on the login page
-        if (typeof window !== "undefined" && window.location.pathname.includes("/auth/login")) {
-          try {
-            await supabase.auth.signOut({ scope: "local" });
-            localStorage.removeItem("supabase.auth.token");
-            sessionStorage.clear();
-          } catch (clearError) {
-            console.log("Cleared stale auth state");
-          }
-          setLoading(false);
-          return;
-        }
-
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Error getting session:", error);
-          // Silently handle token refresh errors
-          if (error.message?.includes("refresh_token") || 
-              error.message?.includes("Invalid Refresh Token") ||
-              error.message?.includes("Failed to fetch")) {
-            console.log("Token refresh failed, clearing session");
-            await handleInvalidSession();
-            return;
-          }
-          await handleInvalidSession();
-          return;
-        }
-        
-        await loadUserSession(session);
-      } catch (error: any) {
-        console.error("Fatal error initializing auth:", error);
-        // Handle network errors gracefully
-        if (error?.message?.includes("Failed to fetch") || 
-            error?.message?.includes("NetworkError")) {
-          console.log("Network error during auth init, clearing state");
-          try {
-            await supabase.auth.signOut({ scope: "local" });
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        }
-        await handleInvalidSession();
-      }
-    };
-
-    initializeAuth();
-
-    let subscription: any;
-    try {
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        // Handle specific auth events
-        if (event === "TOKEN_REFRESHED") {
-          console.log("Token refreshed successfully");
-        } else if (event === "SIGNED_OUT") {
-          console.log("User signed out");
-          setUser(null);
-          setProfile(null);
-          setCompany(null);
-          setCompanySlug(null);
-          setUserRoles([]);
-          setActiveRole("client");
-          setLoading(false);
-          return;
-        }
-
-        try {
-          await loadUserSession(session);
-        } catch (error) {
-          console.error("Error in auth state change handler:", error);
-          await handleInvalidSession();
-        }
-      });
-      subscription = data.subscription;
-    } catch (error) {
-      console.error("Error setting up auth state change listener:", error);
-    }
-
-    return () => {
-      if (subscription) {
-        try {
-          subscription.unsubscribe();
-        } catch (error) {
-          console.error("Error unsubscribing:", error);
-        }
-      }
-    };
-  }, [isDemoMode, getDemoUser, router]);
-
-  const switchRole = async (newRole: UserRole) => {
-    if (isDemoMode || !user) return;
-
-    try {
-      await roleService.switchRole(user.id, newRole);
-      setActiveRole(newRole);
-      
-      const dashboardUrl = roleService.getRoleDashboardUrl(
-        newRole as any, 
-        companySlug || undefined
-      );
-      router.push(dashboardUrl);
-    } catch (error) {
-      console.error("Error switching role:", error);
-      throw error;
-    }
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const contextValue: AuthContextType = {
+    user: mockUser,
+    profile: mockUser,
+    company: null,
+    companySlug: "preview-company",
+    loading: false,
+    error: null,
+    userRoles: [{ 
+      id: "preview-role", 
+      user_id: mockUser.id, 
+      department: "admin",
+      is_primary: true,
+      assigned_at: new Date().toISOString(),
+      assigned_by: "system",
+      created_at: new Date().toISOString()
+    }],
+    activeRole: "admin",
+    switchRole: async () => {},
+    signIn: async () => ({ user: mockUser, error: null }),
+    signUp: async () => ({ user: mockUser, error: null }),
+    signOut: async () => {},
+    updateProfile: async () => {},
   };
-
-  const signIn = async (email: string, password: string) => {
-    if (isDemoMode) {
-      return { user: null, error: { message: "Cannot sign in while in demo mode" } as AuthError };
-    }
-    return await authService.signIn(email, password);
-  };
-
-  const signUp = async (email: string, password: string, metadata: { full_name: string; role?: string; currency?: string; phone_number?: string; company_name?: string; company_slug?: string; }, isOwner: boolean = false) => {
-    if (isDemoMode) {
-      return { user: null, error: { message: "Cannot sign up while in demo mode" } as AuthError };
-    }
-    return await authService.signUp(email, password, metadata, isOwner, metadata.company_name);
-  };
-
-  const signOut = async () => {
-    if (isDemoMode) return;
-    await authService.signOut();
-    setUser(null);
-    setProfile(null);
-    setCompany(null);
-    setCompanySlug(null);
-    setUserRoles([]);
-    setActiveRole("client");
-  };
-
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (isDemoMode || !user) return;
-    const updatedProfile = await profileService.updateProfile(user.id, updates);
-    if (updatedProfile) {
-      setUser({ ...user, ...updatedProfile });
-      setProfile({ ...profile, ...updatedProfile } as Profile);
-      if (updates.company_slug !== undefined) {
-        setCompanySlug(updates.company_slug || null);
-      }
-    }
-  };
-
-  const contextValue = { 
-      user, 
-      profile,
-      company,
-      companySlug,
-      loading, 
-      error,
-      userRoles,
-      activeRole,
-      switchRole,
-      signIn, 
-      signUp, 
-      signOut, 
-      updateProfile 
-    };
 
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  return <AuthProviderInner>{children}</AuthProviderInner>;
 }
 
 export function useAuth() {
