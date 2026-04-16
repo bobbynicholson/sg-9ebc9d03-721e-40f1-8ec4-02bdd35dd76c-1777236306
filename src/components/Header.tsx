@@ -147,7 +147,7 @@ export function Header() {
     // Add delay before closing to allow user to move mouse to menu
     hoverTimeoutRef.current = setTimeout(() => {
       setActiveDropdown(null);
-    }, 200);
+    }, 500);
   };
 
   return (
