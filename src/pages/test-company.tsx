@@ -27,6 +27,16 @@ export default function TestCompanyPage() {
 
   const testAccounts = [
     {
+      role: "client",
+      title: "Client Portal",
+      icon: User,
+      username: "test+client@cateringms.com",
+      password: "demo123",
+      description: "Book events, view quotes, and track your orders",
+      color: "from-slate-500 to-slate-600",
+      features: ["Order Tracking", "Quote Requests", "Payment History", "Event Calendar"]
+    },
+    {
       role: "admin",
       title: "Company Admin",
       icon: Shield,
@@ -75,16 +85,6 @@ export default function TestCompanyPage() {
       description: "Equipment verification, cleaning schedules, and damage tracking",
       color: "from-cyan-500 to-cyan-600",
       features: ["Equipment Verification", "Cleaning Workflows", "Damage Reports", "Task Management"]
-    },
-    {
-      role: "client",
-      title: "Client Portal",
-      icon: User,
-      username: "test+client@cateringms.com",
-      password: "demo123",
-      description: "Book events, view quotes, and track your orders",
-      color: "from-slate-500 to-slate-600",
-      features: ["Order Tracking", "Quote Requests", "Payment History", "Event Calendar"]
     }
   ];
 
