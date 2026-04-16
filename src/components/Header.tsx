@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
@@ -133,6 +134,22 @@ export function Header() {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
+  const handleMouseEnter = (dropdownName: string) => {
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setActiveDropdown(dropdownName);
+  };
+
+  const handleMouseLeave = () => {
+    // Add delay before closing to allow user to move mouse to menu
+    hoverTimeoutRef.current = setTimeout(() => {
+      setActiveDropdown(null);
+    }, 200);
+  };
+
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
@@ -168,8 +185,8 @@ export function Header() {
             {/* Features Mega Menu */}
             <div
               className="relative"
-              onMouseEnter={() => setActiveDropdown("features")}
-              onMouseLeave={() => setActiveDropdown(null)}
+              onMouseEnter={() => handleMouseEnter("features")}
+              onMouseLeave={handleMouseLeave}
             >
               <button
                 className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
@@ -243,8 +260,8 @@ export function Header() {
             {/* Resources Mega Menu */}
             <div
               className="relative"
-              onMouseEnter={() => setActiveDropdown("resources")}
-              onMouseLeave={() => setActiveDropdown(null)}
+              onMouseEnter={() => handleMouseEnter("resources")}
+              onMouseLeave={handleMouseLeave}
             >
               <button
                 className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
