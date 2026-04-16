@@ -16,7 +16,6 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { UserRole } from "@/types/app";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -30,7 +29,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     // Load dashboard statistics
-    // This would normally fetch from your backend
     setStats({
       totalOrders: 156,
       totalRevenue: 2847000,
@@ -63,7 +61,7 @@ export default function AdminDashboard() {
                   Admin Dashboard
                 </h1>
                 <p className="text-slate-600 mt-1">
-                  Welcome back, Admin
+                  Preview Mode - All Features Accessible
                 </p>
               </div>
             </div>

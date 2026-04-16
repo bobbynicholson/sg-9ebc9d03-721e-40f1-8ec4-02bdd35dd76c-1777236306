@@ -3,174 +3,20 @@ import { roleService } from "@/services/roleService";
 import { companyService } from "@/services/companyService";
 import type { Profile } from "@/services/profileService";
 
-// Role-based route permissions - UPDATED TO MATCH NEW URL STRUCTURE
+// AUTHENTICATION DISABLED - ALL ROUTES ACCESSIBLE
+// Role-based route permissions - DISABLED FOR PREVIEW
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
-  // SUPER_ADMIN: CateringMS Platform Admin (access to /cateringms-platform/*)
-  super_admin: [
-    "/cateringms-platform",
-    "/cateringms-platform/dashboard",
-    "/cateringms-platform/subscription-management",
-    "/cateringms-platform/pricing-management",
-    "/cateringms-platform/currency-monitoring",
-    "/cateringms-platform/trial-management",
-    "/cateringms-platform/cms-blog",
-    "/cateringms-platform/cms-pages",
-    "/", // Can access main site
-    "/pricing",
-    "/features",
-    "/contact",
-    "/support",
-  ],
-  
-  // ADMIN/OWNER: Catering Company Admin (access to /[company-slug]/admin/*)
-  admin: [
-    "/admin", // Will be prefixed with company slug in middleware
-    "/users",
-    "/settings",
-    "/onboarding",
-    "/leads",
-    "/quotes",
-    "/calendar",
-    "/notifications",
-    "/integrations",
-    "/orders",
-    "/inventory",
-    "/drivers",
-    "/kitchen",
-    "/shopping",
-    "/cleaning",
-    "/tracking/admin",
-    "/email-templates",
-    "/after-sales-emails",
-    "/email-automation-dashboard",
-    "/email-automation-settings",
-    "/regions",
-    "/order-assignments",
-    "/payment-gateways",
-    "/equipment-shortages",
-    "/white-label",
-    "/subscription",
-    "/client-search",
-    "/staff-hours",
-    "/financial-dashboard",
-    "/driver-management",
-    "/kitchen-duty-tracking",
-    "/operations-hub",
-    "/operations-standards",
-    "/portal/admin/job-progress-overview",
-    "/portal/admin/notification-settings",
-  ],
-  
-  owner: [ // Same as admin
-    "/admin",
-    "/users",
-    "/settings",
-    "/onboarding",
-    "/leads",
-    "/quotes",
-    "/calendar",
-    "/notifications",
-    "/integrations",
-    "/orders",
-    "/inventory",
-    "/drivers",
-    "/kitchen",
-    "/shopping",
-    "/cleaning",
-    "/tracking/admin",
-    "/email-templates",
-    "/after-sales-emails",
-    "/email-automation-dashboard",
-    "/email-automation-settings",
-    "/regions",
-    "/order-assignments",
-    "/payment-gateways",
-    "/equipment-shortages",
-    "/white-label",
-    "/subscription",
-    "/client-search",
-    "/staff-hours",
-    "/financial-dashboard",
-    "/driver-management",
-    "/kitchen-duty-tracking",
-    "/operations-hub",
-    "/operations-standards",
-    "/portal/admin/job-progress-overview",
-    "/portal/admin/notification-settings",
-  ],
-  
-  // KITCHEN ROLES
-  kitchen: [
-    "/kitchen",
-    "/orders",
-    "/inventory",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  kitchen_staff: [
-    "/kitchen",
-    "/orders",
-    "/inventory",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  
-  // SHOPPING ROLES
-  shopping: [
-    "/shopping",
-    "/inventory",
-    "/orders",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  shopping_staff: [
-    "/shopping",
-    "/inventory",
-    "/orders",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  
-  // DRIVER ROLE
-  driver: [
-    "/driver",
-    "/drivers",
-    "/tracking/driver",
-    "/orders",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  
-  // CLEANING ROLES
-  cleaning: [
-    "/cleaning",
-    "/orders",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  cleaning_staff: [
-    "/cleaning",
-    "/orders",
-    "/calendar",
-    "/portal/staff/job-progress",
-    "/notifications"
-  ],
-  
-  // CLIENT ROLE
-  client: [
-    "/client-portal",
-    "/tracking/client",
-    "/portal/client/my-orders",
-    "/portal/client/payment-schedule",
-    "/client/subscription-invoices",
-    "/notifications"
-  ],
+  super_admin: ["*"],
+  admin: ["*"],
+  owner: ["*"],
+  kitchen: ["*"],
+  kitchen_staff: ["*"],
+  shopping: ["*"],
+  shopping_staff: ["*"],
+  driver: ["*"],
+  cleaning: ["*"],
+  cleaning_staff: ["*"],
+  client: ["*"],
 };
 
 // Role display names
@@ -188,13 +34,11 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   client: "Client",
 };
 
-// Default landing pages for each role - FIXED TO USE ACTUAL WORKING PORTAL URLS
+// Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   super_admin: () => "/cateringms-platform/dashboard",
-  admin: (slug) => `/${slug || "my-company"}/admin/dashboard`,
-  owner: (slug) => `/${slug || "my-company"}/admin/dashboard`,
-  
-  // STAFF PORTALS: Use actual working URLs (not company-scoped)
+  admin: (slug) => "/admin/dashboard",
+  owner: (slug) => "/admin/dashboard",
   kitchen: () => "/kitchen",
   kitchen_staff: () => "/kitchen",
   shopping: () => "/shopping",
@@ -202,23 +46,15 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   driver: () => "/drivers",
   cleaning: () => "/cleaning",
   cleaning_staff: () => "/cleaning",
-  
   client: () => "/client-portal",
 };
 
 /**
  * Check if a user with a specific role can access a route
+ * AUTHENTICATION DISABLED - ALWAYS RETURNS TRUE
  */
 export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
-  const allowedRoutes = ROLE_ROUTES[userRole];
-  
-  // Check exact match
-  if (allowedRoutes.includes(pathname)) {
-    return true;
-  }
-  
-  // Check if pathname starts with any allowed route (for nested routes)
-  return allowedRoutes.some(route => pathname.startsWith(route));
+  return true; // All routes accessible
 }
 
 /**
@@ -238,10 +74,10 @@ export function getRoleName(userRole: UserRole): string {
 
 /**
  * Check if user has required role(s)
+ * AUTHENTICATION DISABLED - ALWAYS RETURNS TRUE
  */
 export function hasRole(profile: Profile | null, ...requiredRoles: UserRole[]): boolean {
-  if (!profile) return false;
-  return requiredRoles.includes(profile.role as UserRole);
+  return true; // All roles granted
 }
 
 /**
@@ -255,27 +91,19 @@ export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: strin
  * Check if role is a CateringMS platform admin role
  */
 export function isPlatformAdmin(userRole: UserRole): boolean {
-  return userRole === "super_admin";
+  return true; // All users have admin access for preview
 }
 
 /**
  * Check if role is a company admin role
  */
 export function isCompanyAdmin(userRole: UserRole): boolean {
-  return userRole === "admin" || userRole === "owner";
+  return true; // All users have admin access for preview
 }
 
 /**
  * Check if role is a staff role (non-admin, non-client)
  */
 export function isStaffRole(userRole: UserRole): boolean {
-  return [
-    "driver",
-    "kitchen",
-    "kitchen_staff",
-    "shopping",
-    "shopping_staff",
-    "cleaning",
-    "cleaning_staff"
-  ].includes(userRole);
+  return true; // All users have staff access for preview
 }
