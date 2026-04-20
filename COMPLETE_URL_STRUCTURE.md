@@ -42,10 +42,11 @@
 ✅ /admin/onboarding                   - New client onboarding (MOVED)
 ```
 
-### Operations (5 pages)
+### Operations (6 pages)
 ```
 ✅ /admin/driver-management            - Assign drivers, view availability
 ✅ /admin/order-assignments            - Assign orders to staff
+✅ /admin/route-planning               - AI-powered route optimization (NEW)
 ✅ /admin/kitchen-duty-tracking        - Track who's on kitchen duty
 ✅ /admin/equipment-shortages          - Monitor equipment issues
 ✅ /admin/staff-hours                  - Time tracking & payroll
