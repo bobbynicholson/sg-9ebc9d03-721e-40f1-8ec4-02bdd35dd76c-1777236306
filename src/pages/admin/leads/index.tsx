@@ -30,8 +30,7 @@ export default function AdminLeads() {
     if (!user) return;
     setLoading(true);
     try {
-      const companyId = user.user_metadata?.company_id || user.id;
-      const data = await leadService.getAllLeads(companyId);
+      const data = await leadService.getLeads(user.id);
       setLeads(data);
     } catch (error) {
       console.error("Error loading leads:", error);
@@ -41,8 +40,8 @@ export default function AdminLeads() {
   };
 
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.company?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = lead.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.client_email?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -194,27 +193,27 @@ export default function AdminLeads() {
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-slate-900">{lead.name}</h3>
-                          <Badge className={getStatusColor(lead.status)}>
-                            {lead.status}
+                          <h3 className="font-semibold text-slate-900">{lead.client_name}</h3>
+                          <Badge className={getStatusColor(lead.status || "new")}>
+                            {lead.status || "new"}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-slate-600">
-                          {lead.company && (
+                          {lead.company_name && (
                             <span className="flex items-center gap-1">
-                              {lead.company}
+                              {lead.company_name}
                             </span>
                           )}
-                          {lead.email && (
+                          {lead.client_email && (
                             <span className="flex items-center gap-1">
                               <Mail className="w-3 h-3" />
-                              {lead.email}
+                              {lead.client_email}
                             </span>
                           )}
-                          {lead.phone && (
+                          {lead.client_phone && (
                             <span className="flex items-center gap-1">
                               <Phone className="w-3 h-3" />
-                              {lead.phone}
+                              {lead.client_phone}
                             </span>
                           )}
                         </div>
