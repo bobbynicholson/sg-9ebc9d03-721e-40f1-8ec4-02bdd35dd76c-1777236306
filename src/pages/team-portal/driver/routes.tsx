@@ -96,7 +96,7 @@ export default function DriverRoutes() {
       const firstStop = route.stops[0];
       
       // Start the first assignment
-      await driverService.startJob(firstStop.assignment_id);
+      await driverService.startJob(firstStop.order_id);
       
       setTripStarted(true);
       toast({
@@ -129,7 +129,7 @@ export default function DriverRoutes() {
       const stop = route.stops[stopIndex];
       
       // Mark current stop as arrived/completed
-      await driverService.markArrived(stop.assignment_id);
+      await driverService.markArrived(stop.order_id);
       
       toast({
         title: "Stop Completed! ✅",
@@ -139,7 +139,7 @@ export default function DriverRoutes() {
       // Move to next stop if available
       if (stopIndex < route.stops.length - 1) {
         const nextStop = route.stops[stopIndex + 1];
-        await driverService.startJob(nextStop.assignment_id);
+        await driverService.startJob(nextStop.order_id);
         setCurrentStopIndex(stopIndex + 1);
         
         toast({
@@ -176,7 +176,7 @@ export default function DriverRoutes() {
       // Mark all assignments as completed
       for (const stop of route.stops) {
         if (stop.status !== "completed") {
-          await driverService.completeJob(stop.assignment_id);
+          await driverService.completeJob(stop.order_id);
         }
       }
       
