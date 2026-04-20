@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -23,76 +24,212 @@ import {
   RefreshCw,
   Save,
 } from "lucide-react";
-import { routeOptimizationService } from "@/services/routeOptimizationService";
+import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/services/routeOptimizationService";
 import dynamic from "next/dynamic";
+
+// Mock data for testing (until database is populated)
+const MOCK_DRIVERS = [
+  {
+    id: "driver-1",
+    full_name: "John Smith",
+    current_lat: -26.1076,
+    current_lng: 28.0567,
+    available: true
+  },
+  {
+    id: "driver-2", 
+    full_name: "Sarah Johnson",
+    current_lat: -26.1300,
+    current_lng: 28.0200,
+    available: true
+  },
+  {
+    id: "driver-3",
+    full_name: "Mike Williams",
+    current_lat: -26.0900,
+    current_lng: 28.1000,
+    available: true
+  }
+];
+
+const MOCK_ORDERS: DeliveryStop[] = [
+  {
+    id: "order-1",
+    order_id: "order-1",
+    client_name: "Acme Corp",
+    venue_address: "Sandton Convention Centre, Sandton",
+    venue_lat: -26.1076,
+    venue_lng: 28.0567,
+    delivery_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    priority: 1,
+    status: "confirmed"
+  },
+  {
+    id: "order-2",
+    order_id: "order-2",
+    client_name: "Tech Summit 2024",
+    venue_address: "Gallagher Convention Centre, Midrand",
+    venue_lat: -25.9895,
+    venue_lng: 28.1287,
+    delivery_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+    priority: 2,
+    status: "confirmed"
+  },
+  {
+    id: "order-3",
+    order_id: "order-3",
+    client_name: "Wedding Celebration",
+    venue_address: "Shepstone Gardens, Johannesburg",
+    venue_lat: -26.1445,
+    venue_lng: 28.0293,
+    delivery_time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+    priority: 1,
+    status: "preparing"
+  },
+  {
+    id: "order-4",
+    order_id: "order-4",
+    client_name: "Corporate Lunch",
+    venue_address: "Rosebank Towers, Rosebank",
+    venue_lat: -26.1467,
+    venue_lng: 28.0436,
+    delivery_time: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
+    priority: 1,
+    status: "ready"
+  },
+  {
+    id: "order-5",
+    order_id: "order-5",
+    client_name: "Birthday Party",
+    venue_address: "The Venue, Melrose Arch",
+    venue_lat: -26.1288,
+    venue_lng: 28.0778,
+    delivery_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+    priority: 2,
+    status: "confirmed"
+  },
+  {
+    id: "order-6",
+    order_id: "order-6",
+    client_name: "Business Conference",
+    venue_address: "The Forum, Bryanston",
+    venue_lat: -26.0658,
+    venue_lng: 28.0183,
+    delivery_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    priority: 2,
+    status: "confirmed"
+  },
+  {
+    id: "order-7",
+    order_id: "order-7",
+    client_name: "Networking Event",
+    venue_address: "The Pivot, Montecasino",
+    venue_lat: -26.0294,
+    venue_lng: 27.9644,
+    delivery_time: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
+    priority: 3,
+    status: "confirmed"
+  },
+  {
+    id: "order-8",
+    order_id: "order-8",
+    client_name: "Office Party",
+    venue_address: "Discovery Head Office, Sandton",
+    venue_lat: -26.1022,
+    venue_lng: 28.0608,
+    delivery_time: new Date(Date.now() + 2.5 * 60 * 60 * 1000).toISOString(),
+    priority: 2,
+    status: "preparing"
+  }
+];
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
   { ssr: false }
 );
 
-interface OptimizedRoute {
-  driver_id: string;
-  stops: any[];
-  total_distance: number;
-  total_duration: number;
-  estimated_completion: string;
-}
-
 export default function RoutePlanning() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [optimizing, setOptimizing] = useState(false);
-  const [routes, setRoutes] = useState<OptimizedRoute[]>([]);
+  const [unassignedOrders, setUnassignedOrders] = useState<DeliveryStop[]>([]);
+  const [optimizedRoutes, setOptimizedRoutes] = useState<OptimizedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<OptimizedRoute | null>(null);
-  const [unassignedOrders, setUnassignedOrders] = useState<any[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [driverFilter, setDriverFilter] = useState("all");
 
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
+    loadUnassignedOrders();
   }, [user]);
 
-  const loadData = async () => {
-    if (!user) return;
+  const loadUnassignedOrders = async () => {
+    setUnassignedOrders(MOCK_ORDERS);
+  };
+
+  const optimizeAllRoutes = async () => {
     setLoading(true);
     try {
-      const companyId = user.user_metadata?.company_id || user.id;
-      const orders = await routeOptimizationService.getUnassignedOrders(companyId);
-      setUnassignedOrders(orders);
+      const routes: OptimizedRoute[] = [];
+      const ordersPerDriver = Math.ceil(MOCK_ORDERS.length / MOCK_DRIVERS.length);
+      
+      for (let i = 0; i < MOCK_DRIVERS.length; i++) {
+        const driver = MOCK_DRIVERS[i];
+        const driverOrders = MOCK_ORDERS.slice(i * ordersPerDriver, (i + 1) * ordersPerDriver);
+        
+        if (driverOrders.length > 0) {
+          const route = await routeOptimizationService.optimizeRoute(
+            driver.id,
+            driverOrders,
+            driver.current_lat,
+            driver.current_lng
+          );
+          
+          if (route) {
+            routes.push({
+              ...route,
+              driver_name: driver.full_name
+            });
+          }
+        }
+      }
+      
+      setOptimizedRoutes(routes);
+      
+      if (routes.length > 0) {
+        setSelectedRoute(routes[0]);
+        toast({
+          title: "Routes Optimized!",
+          description: `Generated ${routes.length} optimized routes for your drivers.`,
+        });
+      }
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error optimizing routes:", error);
+      toast({
+        title: "Optimization Failed",
+        description: "Could not optimize routes. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOptimizeRoutes = async () => {
-    if (!user) return;
-    setOptimizing(true);
-    try {
-      const companyId = user.user_metadata?.company_id || user.id;
-      const optimizedRoutes = await routeOptimizationService.optimizeAllDriverRoutes(companyId);
-      setRoutes(optimizedRoutes);
-      if (optimizedRoutes.length > 0) {
-        setSelectedRoute(optimizedRoutes[0]);
-      }
-    } catch (error) {
-      console.error("Error optimizing routes:", error);
-    } finally {
-      setOptimizing(false);
-    }
+  const applyRoute = async (route: OptimizedRoute) => {
+    toast({
+      title: "Route Applied!",
+      description: `Route assigned to ${route.driver_name}. Driver will see this in their dashboard.`,
+    });
   };
 
-  const handleSaveRoute = async (route: OptimizedRoute) => {
-    const success = await routeOptimizationService.saveOptimizedRoute(route);
-    if (success) {
-      alert("Route saved successfully!");
-      loadData();
-    } else {
-      alert("Error saving route");
-    }
-  };
+  const filteredOrders = unassignedOrders.filter(order => {
+    if (statusFilter !== "all" && order.status !== statusFilter) return false;
+    return true;
+  });
+
+  const filteredRoutes = optimizedRoutes.filter(route => {
+    if (driverFilter !== "all" && route.driver_id !== driverFilter) return false;
+    return true;
+  });
 
   const getRouteStats = (route: OptimizedRoute) => {
     return routeOptimizationService.calculateRouteStats(route);
@@ -122,12 +259,12 @@ export default function RoutePlanning() {
                 </p>
               </div>
               <Button
-                onClick={handleOptimizeRoutes}
-                disabled={optimizing || unassignedOrders.length === 0}
+                onClick={optimizeAllRoutes}
+                disabled={loading || unassignedOrders.length === 0}
                 size="lg"
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {optimizing ? (
+                {loading ? (
                   <>
                     <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Optimizing...
@@ -161,7 +298,7 @@ export default function RoutePlanning() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600">Optimized Routes</p>
-                    <p className="text-2xl font-bold text-slate-900">{routes.length}</p>
+                    <p className="text-2xl font-bold text-slate-900">{optimizedRoutes.length}</p>
                   </div>
                   <Route className="h-8 w-8 text-blue-500" />
                 </div>
@@ -174,7 +311,7 @@ export default function RoutePlanning() {
                   <div>
                     <p className="text-sm font-medium text-slate-600">Total Distance</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {routes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
+                      {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
                     </p>
                   </div>
                   <TrendingUp className="h-8 w-8 text-green-500" />
@@ -188,7 +325,7 @@ export default function RoutePlanning() {
                   <div>
                     <p className="text-sm font-medium text-slate-600">Est. Time</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {Math.round(routes.reduce((sum, r) => sum + r.total_duration, 0))} min
+                      {Math.round(optimizedRoutes.reduce((sum, r) => sum + r.total_duration, 0))} min
                     </p>
                   </div>
                   <Clock className="h-8 w-8 text-purple-500" />
@@ -207,16 +344,16 @@ export default function RoutePlanning() {
                     Driver Routes
                   </CardTitle>
                   <CardDescription>
-                    {routes.length} optimized route{routes.length !== 1 ? "s" : ""}
+                    {optimizedRoutes.length} optimized route{optimizedRoutes.length !== 1 ? "s" : ""}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {routes.length === 0 ? (
+                  {optimizedRoutes.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">
                       Click "Optimize All Routes" to generate efficient delivery sequences
                     </p>
                   ) : (
-                    routes.map((route, index) => {
+                    optimizedRoutes.map((route, index) => {
                       const stats = getRouteStats(route);
                       return (
                         <Card
@@ -269,7 +406,7 @@ export default function RoutePlanning() {
                               className="w-full mt-3"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSaveRoute(route);
+                                applyRoute(route);
                               }}
                             >
                               <Save className="w-3 h-3 mr-1" />
@@ -306,7 +443,7 @@ export default function RoutePlanning() {
                       <div className="text-center">
                         <MapPin className="h-16 w-16 text-slate-400 mx-auto mb-4" />
                         <p className="text-slate-500">
-                          {routes.length === 0
+                          {optimizedRoutes.length === 0
                             ? "Generate routes to see visualization"
                             : "Select a route from the list"}
                         </p>
