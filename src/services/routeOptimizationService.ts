@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { googleMapsService } from "./googleMapsService";
 import { notificationService } from "./notificationService";
+import { UserRole } from "@/types/app";
 
-interface DeliveryStop {
+export interface DeliveryStop {
   id: string;
   order_id: string;
   client_name: string;
@@ -14,8 +15,9 @@ interface DeliveryStop {
   status: string;
 }
 
-interface OptimizedRoute {
+export interface OptimizedRoute {
   driver_id: string;
+  driver_name?: string;
   stops: DeliveryStop[];
   total_distance: number;
   total_duration: number;
@@ -334,7 +336,7 @@ export const routeOptimizationService = {
         message: `You have a new optimized route with ${route.stops.length} stops (${route.total_distance.toFixed(1)} km). Tap here to view.`,
         link: "/team-portal/driver/routes",
         priority: "high",
-        target_role: "driver"
+        target_role: UserRole.DRIVER
       });
 
       return true;
