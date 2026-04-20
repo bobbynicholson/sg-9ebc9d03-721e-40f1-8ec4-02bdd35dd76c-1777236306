@@ -27,6 +27,56 @@ The automated route planning system uses intelligent algorithms to create the mo
 
 ---
 
+## 🔔 Automated Driver Notifications
+
+**Real-Time Alert System:**
+
+When an admin clicks "Apply Route" on an optimized route, the system automatically:
+
+1. **Saves Route to Database:**
+   - Updates orders with `driver_id`
+   - Sets `delivery_sequence` (1, 2, 3...)
+   - Calculates estimated arrival times
+
+2. **Sends Instant Notification:**
+   - **Type:** High-priority route assignment
+   - **Title:** "New Route Assigned 🗺️"
+   - **Message:** "You have a new optimized route with X stops (Y km). Tap here to view."
+   - **Action:** Direct link to `/team-portal/driver/routes`
+   - **Delivery:** Real-time via Supabase channels
+
+3. **Driver Receives:**
+   - Notification appears in bell icon (header)
+   - Click to view optimized route sequence
+   - Route syncs to driver dashboard automatically
+
+**Notification Features:**
+- ✅ Real-time delivery (< 1 second)
+- ✅ Role-filtered (driver portal only)
+- ✅ Persistent (stored in database)
+- ✅ Deep linking to routes page
+- ✅ High-priority flag (appears at top)
+- ✅ Read/unread tracking
+- ✅ Notification history
+
+**Driver Experience:**
+```
+Driver Dashboard → Notification Bell (1 unread)
+├─ "New Route Assigned 🗺️"
+├─ "3 stops, 12.4 km total distance"
+├─ "Tap to view your route"
+└─ Click → Redirects to /team-portal/driver/routes
+```
+
+**Benefits:**
+- 📱 Instant awareness of new assignments
+- 🚫 No manual checking required
+- 🎯 Direct link reduces navigation time
+- 📊 Tracks delivery via read receipts
+- 🔄 Syncs across all devices
+
+---
+
 ## 📊 How It Works
 
 ### Algorithm Steps:
