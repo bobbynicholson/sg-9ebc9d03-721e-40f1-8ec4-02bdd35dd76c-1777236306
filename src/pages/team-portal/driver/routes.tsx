@@ -14,7 +14,9 @@ import {
   Leaf,
   ChevronRight,
   Map,
-  AlertCircle
+  AlertCircle,
+  Play,
+  Flag
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
@@ -23,6 +25,8 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
+import { driverService } from "@/services/driverService";
+import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 
 const RouteMap = dynamic(
@@ -32,9 +36,13 @@ const RouteMap = dynamic(
 
 export default function DriverRoutes() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [route, setRoute] = useState<OptimizedRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
+  const [tripStarted, setTripStarted] = useState(false);
+  const [tripCompleted, setTripCompleted] = useState(false);
+  const [processingStop, setProcessingStop] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -50,17 +58,61 @@ export default function DriverRoutes() {
       const optimizedRoute = await routeOptimizationService.getDriverOptimizedRoute(user.id);
       setRoute(optimizedRoute);
       
-      // Find first incomplete stop
       if (optimizedRoute) {
+        // Find first incomplete stop
         const firstPending = optimizedRoute.stops.findIndex(
           stop => stop.status !== "completed" && stop.status !== "delivered"
         );
         setCurrentStopIndex(firstPending >= 0 ? firstPending : 0);
+        
+        // Check if trip was already started
+        const hasStartedStop = optimizedRoute.stops.some(
+          stop => stop.status === "in_progress" || stop.status === "completed" || stop.status === "delivered"
+        );
+        setTripStarted(hasStartedStop);
+        
+        // Check if all stops completed
+        const allCompleted = optimizedRoute.stops.every(
+          stop => stop.status === "completed" || stop.status === "delivered"
+        );
+        setTripCompleted(allCompleted);
       }
     } catch (error) {
       console.error("Error loading route:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load your route. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startTrip = async () => {
+    if (!route || route.stops.length === 0) return;
+    
+    try {
+      const firstStop = route.stops[0];
+      
+      // Start the first assignment
+      await driverService.startJob(firstStop.assignment_id);
+      
+      setTripStarted(true);
+      toast({
+        title: "Trip Started! 🚗",
+        description: "GPS tracking activated. Drive safely!",
+      });
+      
+      // Reload to get updated status
+      await loadOptimizedRoute();
+    } catch (error) {
+      console.error("Error starting trip:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start trip. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -69,10 +121,79 @@ export default function DriverRoutes() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, "_blank");
   };
 
-  const markStopComplete = (stopIndex: number) => {
-    // In production, this would update the order status in database
-    if (route && stopIndex < route.stops.length - 1) {
-      setCurrentStopIndex(stopIndex + 1);
+  const markStopComplete = async (stopIndex: number) => {
+    if (!route || processingStop) return;
+    
+    setProcessingStop(true);
+    try {
+      const stop = route.stops[stopIndex];
+      
+      // Mark current stop as arrived/completed
+      await driverService.markArrived(stop.assignment_id);
+      
+      toast({
+        title: "Stop Completed! ✅",
+        description: `${stop.client_name} delivery marked complete.`,
+      });
+      
+      // Move to next stop if available
+      if (stopIndex < route.stops.length - 1) {
+        const nextStop = route.stops[stopIndex + 1];
+        await driverService.startJob(nextStop.assignment_id);
+        setCurrentStopIndex(stopIndex + 1);
+        
+        toast({
+          title: "Next Stop",
+          description: `Now heading to ${nextStop.client_name}`,
+        });
+      } else {
+        // All stops complete
+        setTripCompleted(true);
+        toast({
+          title: "Trip Complete! 🎉",
+          description: "All deliveries completed successfully!",
+        });
+      }
+      
+      // Reload to get updated status
+      await loadOptimizedRoute();
+    } catch (error) {
+      console.error("Error marking stop complete:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark stop as complete. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingStop(false);
+    }
+  };
+
+  const completeTrip = async () => {
+    if (!route) return;
+    
+    try {
+      // Mark all assignments as completed
+      for (const stop of route.stops) {
+        if (stop.status !== "completed") {
+          await driverService.completeJob(stop.assignment_id);
+        }
+      }
+      
+      toast({
+        title: "Excellent Work! 🎊",
+        description: "Trip completed successfully. Your earnings have been recorded.",
+      });
+      
+      // Reload route (will show as completed)
+      await loadOptimizedRoute();
+    } catch (error) {
+      console.error("Error completing trip:", error);
+      toast({
+        title: "Error",
+        description: "Failed to complete trip. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -141,21 +262,51 @@ export default function DriverRoutes() {
         <div className="container mx-auto px-4 py-6 lg:py-12 max-w-7xl">
           {/* Header */}
           <div className="mb-6 lg:mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                <RouteIcon className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                  <RouteIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Optimized Route</h1>
+                  <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">Optimized Route</h1>
-                <p className="text-slate-600">AI-optimized delivery sequence for maximum efficiency</p>
-              </div>
+              
+              {/* Trip Control Buttons */}
+              {!loading && route && route.stops.length > 0 && (
+                <div className="flex gap-2">
+                  {!tripStarted && !tripCompleted && (
+                    <Button
+                      size="lg"
+                      onClick={startTrip}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      Start Trip
+                    </Button>
+                  )}
+                  {tripStarted && !tripCompleted && (
+                    <Badge className="bg-blue-500 text-white text-base px-4 py-2">
+                      <Navigation className="w-4 h-4 mr-2 animate-pulse" />
+                      Trip In Progress
+                    </Badge>
+                  )}
+                  {tripCompleted && (
+                    <Badge className="bg-green-500 text-white text-base px-4 py-2">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Trip Completed
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Progress Banner */}
             <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-cyan-50">
               <CardContent className="p-4 lg:p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="text-3xl lg:text-4xl font-bold text-blue-600">
                         {completedStops}/{route.stops.length}
@@ -181,6 +332,20 @@ export default function DriverRoutes() {
                     <div className="text-xs lg:text-sm text-slate-600">Potential Earnings</div>
                   </div>
                 </div>
+                
+                {/* Complete Trip Button */}
+                {tripStarted && completedStops === route.stops.length && !tripCompleted && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <Button
+                      size="lg"
+                      onClick={completeTrip}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    >
+                      <Flag className="w-5 h-5 mr-2" />
+                      Complete Trip & Record Earnings
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -251,11 +416,11 @@ export default function DriverRoutes() {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
                     <Navigation className="h-5 w-5" />
-                    Next Stop
+                    {tripCompleted ? "Trip Complete" : tripStarted ? "Current Stop" : "Next Stop"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {currentStop ? (
+                  {!tripCompleted && currentStop ? (
                     <>
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -281,10 +446,20 @@ export default function DriverRoutes() {
                         </div>
                       </div>
 
+                      {!tripStarted && (
+                        <div className="bg-white/10 rounded-lg p-3 text-sm">
+                          <p className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            Click "Start Trip" above to begin navigation
+                          </p>
+                        </div>
+                      )}
+
                       <div className="space-y-2 pt-2">
                         <Button
                           onClick={() => openNavigation(currentStop.venue_address)}
-                          className="w-full bg-white text-blue-600 hover:bg-blue-50"
+                          disabled={!tripStarted}
+                          className="w-full bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                           size="lg"
                         >
                           <Navigation className="w-4 h-4 mr-2" />
@@ -292,14 +467,25 @@ export default function DriverRoutes() {
                         </Button>
                         <Button
                           onClick={() => markStopComplete(currentStopIndex)}
+                          disabled={!tripStarted || processingStop}
                           variant="outline"
-                          className="w-full border-white text-white hover:bg-white/10"
+                          className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          Mark Complete
+                          {processingStop ? "Processing..." : "Mark Complete"}
                         </Button>
                       </div>
                     </>
+                  ) : tripCompleted ? (
+                    <div className="text-center py-8">
+                      <CheckCircle className="w-16 h-16 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold mb-2">All Stops Completed! 🎉</h3>
+                      <p className="opacity-90 mb-4">Great job on completing your route!</p>
+                      <div className="bg-white/10 rounded-lg p-4">
+                        <p className="text-2xl font-bold mb-1">R{estimatedEarnings}</p>
+                        <p className="text-sm opacity-90">Total Earnings</p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="text-center py-8">
                       <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -310,18 +496,20 @@ export default function DriverRoutes() {
               </Card>
 
               {/* Environmental Impact */}
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-4 bg-green-50 rounded-lg">
-                  <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-                    <Leaf className="h-4 w-4" />
-                    Route Efficiency
-                  </h4>
-                  <p className="text-sm text-green-800">
-                    This optimized route reduces your drive distance by approximately <span className="font-semibold">30%</span>, 
-                    saving time and fuel while reducing carbon emissions.
-                  </p>
-                </CardContent>
-              </Card>
+              {!tripCompleted && (
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="p-4 bg-green-50 rounded-lg">
+                    <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+                      <Leaf className="h-4 w-4" />
+                      Route Efficiency
+                    </h4>
+                    <p className="text-sm text-green-800">
+                      This optimized route reduces your drive distance by approximately <span className="font-semibold">30%</span>, 
+                      saving time and fuel while reducing carbon emissions.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Route Map */}
@@ -352,7 +540,8 @@ export default function DriverRoutes() {
               <div className="space-y-3">
                 {route.stops.map((stop, index) => {
                   const isCompleted = stop.status === "completed" || stop.status === "delivered";
-                  const isCurrent = index === currentStopIndex;
+                  const isCurrent = index === currentStopIndex && tripStarted && !tripCompleted;
+                  const isPending = index > currentStopIndex || !tripStarted;
                   
                   return (
                     <div
@@ -362,6 +551,8 @@ export default function DriverRoutes() {
                           ? "border-blue-500 bg-blue-50 shadow-md"
                           : isCompleted
                           ? "border-green-200 bg-green-50"
+                          : isPending
+                          ? "border-slate-200 bg-slate-50 opacity-60"
                           : "border-slate-200 bg-white"
                       }`}
                     >
@@ -383,18 +574,23 @@ export default function DriverRoutes() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <h4 className="font-semibold text-slate-900">{stop.client_name}</h4>
                                 {isCurrent && (
                                   <Badge className="bg-blue-600 text-white">
-                                    <Navigation className="w-3 h-3 mr-1" />
-                                    Next Stop
+                                    <Navigation className="w-3 h-3 mr-1 animate-pulse" />
+                                    Current Stop
                                   </Badge>
                                 )}
                                 {isCompleted && (
                                   <Badge className="bg-green-100 text-green-800">
                                     <CheckCircle className="w-3 h-3 mr-1" />
                                     Completed
+                                  </Badge>
+                                )}
+                                {isPending && !tripStarted && (
+                                  <Badge className="bg-slate-100 text-slate-600">
+                                    Pending
                                   </Badge>
                                 )}
                                 <Badge
@@ -426,27 +622,29 @@ export default function DriverRoutes() {
                             </div>
                           </div>
 
-                          {!isCompleted && (
+                          {!isCompleted && isCurrent && (
                             <div className="flex gap-2 mt-3">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openNavigation(stop.venue_address)}
+                                disabled={!tripStarted}
                                 className="flex-1 sm:flex-none"
                               >
                                 <Navigation className="w-4 h-4 sm:mr-2" />
                                 <span className="hidden sm:inline">Navigate</span>
                               </Button>
-                              {isCurrent && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => markStopComplete(index)}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <CheckCircle className="w-4 h-4 sm:mr-2" />
-                                  <span className="hidden sm:inline">Complete</span>
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                onClick={() => markStopComplete(index)}
+                                disabled={!tripStarted || processingStop}
+                                className="flex-1 sm:flex-none"
+                              >
+                                <CheckCircle className="w-4 h-4 sm:mr-2" />
+                                <span className="hidden sm:inline">
+                                  {processingStop ? "Processing..." : "Complete"}
+                                </span>
+                              </Button>
                             </div>
                           )}
                         </div>
