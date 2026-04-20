@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -11,15 +12,13 @@ import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowT
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
-import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 
 export default function CleaningDashboard() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("verification");
-  const [tasks, setTasks] = useState<any[]>([]);
-  const user = { full_name: "Cleaning Staff" }; // Mock user object
 
-  // Mock equipment data for status overview
   const mockEquipment = [
     { id: '1', name: 'Chafing Dishes', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-20' },
     { id: '2', name: 'Serving Platters', status: 'in_use', lastCleaned: '2026-04-18', nextInspection: '2026-04-21' },
@@ -42,7 +41,6 @@ export default function CleaningDashboard() {
 
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
-          {/* Header */}
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />
@@ -53,7 +51,6 @@ export default function CleaningDashboard() {
             </div>
           </div>
 
-          {/* Equipment Status Overview - NEW */}
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
@@ -106,7 +103,6 @@ export default function CleaningDashboard() {
             </CardContent>
           </Card>
 
-          {/* Today's Priority Inspections - NEW */}
           <Card className="border-0 shadow-lg mb-8">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
@@ -145,7 +141,6 @@ export default function CleaningDashboard() {
             </CardContent>
           </Card>
 
-          {/* Main Content Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-white/50 p-1 rounded-lg">
               <TabsTrigger 
@@ -182,7 +177,6 @@ export default function CleaningDashboard() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Verification Tab */}
             <TabsContent value="verification" className="space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50">
@@ -200,7 +194,6 @@ export default function CleaningDashboard() {
               </Card>
             </TabsContent>
 
-            {/* Workflow Tab */}
             <TabsContent value="workflow" className="space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
@@ -218,7 +211,6 @@ export default function CleaningDashboard() {
               </Card>
             </TabsContent>
 
-            {/* Damages Tab */}
             <TabsContent value="damages" className="space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50">
@@ -236,7 +228,6 @@ export default function CleaningDashboard() {
               </Card>
             </TabsContent>
 
-            {/* Team Tab */}
             <TabsContent value="team" className="space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardHeader className="bg-gradient-to-r from-green-50 to-teal-50">
@@ -260,7 +251,7 @@ export default function CleaningDashboard() {
                             <div>
                               <p className="text-sm text-muted-foreground">Currently On Duty</p>
                               <p className="text-2xl font-bold text-green-600">
-                                {user?.full_name || "You"}
+                                {user?.user_metadata?.full_name || "You"}
                               </p>
                             </div>
                           </div>
@@ -299,7 +290,6 @@ export default function CleaningDashboard() {
             </TabsContent>
           </Tabs>
 
-          {/* Quick Stats Footer */}
           <Card className="mt-6 border-0 shadow-lg bg-gradient-to-r from-pink-50 via-purple-50 to-blue-50">
             <CardContent className="py-4">
               <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
@@ -334,7 +324,6 @@ export default function CleaningDashboard() {
         <Footer />
       </div>
 
-      {/* AI Chatbot */}
       <ChatBot userRole="cleaning" companyId={user?.user_metadata?.company_id} />
     </>
   );

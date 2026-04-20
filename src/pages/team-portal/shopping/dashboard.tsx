@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import Head from "next/head";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 
 interface ShoppingItem {
@@ -26,11 +25,10 @@ interface ShoppingItem {
 }
 
 export default function ShoppingDashboard() {
-  const [shoppingList, setShoppingList] = useState<any[]>([]);
+  const { user } = useAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 
-  // Mock inventory data for stock alerts
   const inventoryItems = [
     { id: '1', name: 'Beef', quantityAvailable: 5, minimumStock: 20, unit: 'kg', costPerUnit: 120 },
     { id: '2', name: 'Chicken', quantityAvailable: 8, minimumStock: 25, unit: 'kg', costPerUnit: 80 },
@@ -145,7 +143,6 @@ export default function ShoppingDashboard() {
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
-          {/* Header */}
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
               <ShoppingCart className="w-6 h-6 text-white" />
@@ -156,7 +153,6 @@ export default function ShoppingDashboard() {
             </div>
           </div>
 
-          {/* Critical Stock Alerts - NEW */}
           {inventoryItems.filter(item => item.quantityAvailable < item.minimumStock).length > 0 && (
             <Card className="border-0 shadow-lg bg-gradient-to-r from-red-50 to-orange-50 mb-8">
               <CardHeader className="pb-3">
@@ -188,7 +184,6 @@ export default function ShoppingDashboard() {
             </Card>
           )}
 
-          {/* Today's Purchase Priority - NEW */}
           <Card className="border-0 shadow-lg mb-8">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
@@ -225,7 +220,6 @@ export default function ShoppingDashboard() {
             </CardContent>
           </Card>
 
-          {/* Stats Cards - Mobile Optimized Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
@@ -284,7 +278,6 @@ export default function ShoppingDashboard() {
             </Card>
           </div>
 
-          {/* Shopping List - Mobile Optimized */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="px-4 md:px-6">
               <CardTitle className="text-lg md:text-xl">Shopping List</CardTitle>
@@ -313,7 +306,6 @@ export default function ShoppingDashboard() {
                             : "bg-white border-slate-200"
                         }`}
                       >
-                        {/* Checkbox and Content */}
                         <div className="flex items-start gap-3 sm:gap-4 flex-1">
                           <Checkbox
                             checked={item.purchased}
@@ -321,7 +313,6 @@ export default function ShoppingDashboard() {
                             className="w-5 h-5 mt-0.5 flex-shrink-0"
                           />
                           <div className="flex-1 min-w-0">
-                            {/* Item Name and Badges */}
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <h4
                                 className={`font-semibold text-sm md:text-base ${
@@ -338,7 +329,6 @@ export default function ShoppingDashboard() {
                               )}
                             </div>
                             
-                            {/* Item Details - Stacked on Mobile */}
                             <div className="space-y-1 text-xs md:text-sm text-slate-600">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-medium">
@@ -356,14 +346,12 @@ export default function ShoppingDashboard() {
                               </div>
                             </div>
                             
-                            {/* Notes */}
                             {item.notes && (
                               <p className="text-xs md:text-sm text-slate-600 mt-2 italic">{item.notes}</p>
                             )}
                           </div>
                         </div>
                         
-                        {/* Status Icon */}
                         <div className="flex sm:flex-col items-center justify-center sm:ml-4 self-start sm:self-center">
                           {item.purchased ? (
                             <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
@@ -383,7 +371,6 @@ export default function ShoppingDashboard() {
         <Footer />
       </div>
       
-      {/* AI Chatbot */}
       <ChatBot userRole="shopping" companyId={user?.user_metadata?.company_id} />
     </>
   );
