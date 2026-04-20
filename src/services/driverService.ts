@@ -9,6 +9,26 @@ export type DriverAssignment = Tables<"driver_assignments">;
 export type GPSTracking = Tables<"gps_tracking">;
 
 export const driverService = {
+  async getAllDrivers(companyId?: string): Promise<any[]> {
+    let query = supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "driver");
+
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error fetching all drivers:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
   async getDriverAssignments(driverId: string): Promise<DriverAssignment[]> {
     const { data, error } = await supabase
       .from("driver_assignments")
