@@ -6,7 +6,7 @@ export const feedbackService = {
    * Submit delivery feedback
    */
   async submitFeedback(feedback: FeedbackData) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       .insert({
         order_id: feedback.order_id,
@@ -34,7 +34,7 @@ export const feedbackService = {
    * Get all feedback for a company
    */
   async getCompanyFeedback(companyId: string, limit = 50) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       .select(`
         *,
@@ -120,7 +120,7 @@ export const feedbackService = {
    * Check if feedback exists for an order
    */
   async checkFeedbackExists(orderId: string): Promise<boolean> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       .select("id")
       .eq("order_id", orderId)
@@ -133,7 +133,7 @@ export const feedbackService = {
    * Get feedback for a specific order
    */
   async getOrderFeedback(orderId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("delivery_feedback")
       .select("*")
       .eq("order_id", orderId)
