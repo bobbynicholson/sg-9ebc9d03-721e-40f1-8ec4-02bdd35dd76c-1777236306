@@ -19,6 +19,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
+import Link from "next/link";
 
 interface Job {
   id: string;
@@ -137,18 +138,25 @@ export default function DriverDashboard() {
               </CardContent>
             </Card>
 
-            {/* Today's Route Overview - NEW */}
+            {/* Today's Route Overview - SIMPLIFIED */}
             {todaysJobs.length > 0 && (
               <Card className="border-0 shadow-lg mb-6">
                 <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Navigation className="w-5 h-5 text-blue-600" />
-                    Today's Route Overview
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Navigation className="w-5 h-5 text-blue-600" />
+                      Today's Route Overview
+                    </CardTitle>
+                    <Link href="/team-portal/driver/routes">
+                      <Button size="sm" variant="outline">
+                        View Full Route
+                      </Button>
+                    </Link>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {todaysJobs.map((job, index) => (
+                    {todaysJobs.slice(0, 3).map((job, index) => (
                       <div key={job.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                         <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold flex-shrink-0">
                           {index + 1}
@@ -163,14 +171,18 @@ export default function DriverDashboard() {
                         </div>
                       </div>
                     ))}
+                    {todaysJobs.length > 3 && (
+                      <p className="text-sm text-slate-600 text-center">
+                        +{todaysJobs.length - 3} more stops
+                      </p>
+                    )}
                   </div>
-                  <Button 
-                    className="w-full mt-4" 
-                    onClick={() => todaysJobs.length > 0 && openNavigation(todaysJobs[0].address)}
-                  >
-                    <Navigation className="w-4 h-4 mr-2" />
-                    Start Route Navigation
-                  </Button>
+                  <Link href="/team-portal/driver/routes">
+                    <Button className="w-full mt-4">
+                      <Navigation className="w-4 h-4 mr-2" />
+                      View Optimized Route
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             )}

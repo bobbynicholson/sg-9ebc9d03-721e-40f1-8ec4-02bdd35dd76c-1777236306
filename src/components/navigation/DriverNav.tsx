@@ -15,7 +15,9 @@ import {
   Settings,
   Menu,
   ChevronRight,
-  Navigation
+  Navigation,
+  Home,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +37,13 @@ interface DriverNavProps {
   className?: string;
   companySlug?: string;
 }
+
+const navItems = [
+  { href: "/team-portal/driver/dashboard", label: "Dashboard", icon: Home },
+  { href: "/team-portal/driver/routes", label: "My Routes", icon: Navigation },
+  { href: "/team-portal/driver/tracking", label: "Tracking", icon: MapPin },
+  { href: "/team-portal/driver/deliveries", label: "Deliveries", icon: Truck },
+];
 
 export function DriverNav({ className, companySlug }: DriverNavProps) {
   const router = useRouter();
