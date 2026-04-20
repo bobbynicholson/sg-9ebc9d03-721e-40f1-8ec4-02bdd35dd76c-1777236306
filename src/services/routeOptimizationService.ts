@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { googleMapsService } from "./googleMapsService";
+import { notificationService } from "./notificationService";
 
 interface DeliveryStop {
   id: string;
@@ -324,6 +325,17 @@ export const routeOptimizationService = {
           })
           .eq("id", stop.order_id);
       }
+
+      // Trigger automated real-time notification to the driver
+      await notificationService.createNotification({
+        recipient_id: route.driver_id,
+        type: "route_assigned",
+        title: "New Route Assigned 🗺️",
+        message: `You have a new optimized route with ${route.stops.length} stops (${route.total_distance.toFixed(1)} km). Tap here to view.`,
+        link: "/team-portal/driver/routes",
+        priority: "high",
+        target_role: "driver"
+      });
 
       return true;
     } catch (error) {

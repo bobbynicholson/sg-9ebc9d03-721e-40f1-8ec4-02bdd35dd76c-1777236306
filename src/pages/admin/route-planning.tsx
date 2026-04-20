@@ -215,10 +215,34 @@ export default function RoutePlanning() {
   };
 
   const applyRoute = async (route: OptimizedRoute) => {
-    toast({
-      title: "Route Applied!",
-      description: `Route assigned to ${route.driver_name}. Driver will see this in their dashboard.`,
-    });
+    // Handle mock data gracefully to prevent UUID cast errors in the database
+    if (route.driver_id.startsWith("driver-")) {
+      toast({
+        title: "Route Applied! (Mock Demo)",
+        description: `Automated push notification sent to ${route.driver_name}: "New Route Assigned 🗺️ (${route.stops.length} stops)"`,
+      });
+      return;
+    }
+
+    try {
+      const success = await routeOptimizationService.saveOptimizedRoute(route);
+      if (success) {
+        toast({
+          title: "Route Applied!",
+          description: `Route assigned and real-time notification sent to ${route.driver_name}.`,
+        });
+        // Refresh unassigned orders
+        loadUnassignedOrders();
+      } else {
+        throw new Error("Failed to save route");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to apply route and notify driver.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredOrders = unassignedOrders.filter(order => {
