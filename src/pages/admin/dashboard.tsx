@@ -16,6 +16,7 @@ import {
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Button } from "@/components/ui/button";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -66,6 +67,58 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Priority Tasks - NEW */}
+          <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-amber-50 to-orange-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-600" />
+                Today's Priority Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-red-500">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    <div>
+                      <p className="font-semibold text-slate-900">{stats.pendingQuotes} Pending Quotes</p>
+                      <p className="text-xs text-slate-600">Require immediate attention</p>
+                    </div>
+                  </div>
+                  <Link href="/admin/quotes">
+                    <Button size="sm">Review</Button>
+                  </Link>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-orange-500">
+                  <div className="flex items-center gap-3">
+                    <Package className="w-5 h-5 text-orange-600" />
+                    <div>
+                      <p className="font-semibold text-slate-900">{stats.lowStockItems} Low Stock Items</p>
+                      <p className="text-xs text-slate-600">Need restocking</p>
+                    </div>
+                  </div>
+                  <Link href="/admin/inventory">
+                    <Button size="sm" variant="outline">View</Button>
+                  </Link>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-green-500">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-slate-900">{stats.upcomingEvents} Events This Week</p>
+                      <p className="text-xs text-slate-600">All assignments complete</p>
+                    </div>
+                  </div>
+                  <Link href="/admin/calendar">
+                    <Button size="sm" variant="outline">Calendar</Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

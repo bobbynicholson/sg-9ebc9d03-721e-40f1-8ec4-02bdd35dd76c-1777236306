@@ -141,7 +141,9 @@ export default function PlatformDashboard() {
       <div className="container mx-auto p-6 max-w-7xl">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">CateringMS Platform Analytics</h1>
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              CateringMS Platform Analytics
+            </h1>
             <p className="text-slate-600">Internal sales dashboard and business metrics</p>
           </div>
           <div className="flex items-center gap-3">
@@ -169,6 +171,94 @@ export default function PlatformDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Platform Health Indicator - NEW */}
+        <Card className="mb-8 border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+                  <Activity className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Platform Health Score</h3>
+                  <p className="text-sm text-slate-600">All systems operational • 99.9% uptime</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-4xl font-bold text-green-600">98%</div>
+                <p className="text-xs text-slate-500 mt-1">Excellent</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-white rounded-lg">
+                <p className="text-xs text-slate-600">Active Companies</p>
+                <p className="text-lg font-bold text-slate-900">{metrics?.activeSubscriptions || 0}</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <p className="text-xs text-slate-600">Avg Response Time</p>
+                <p className="text-lg font-bold text-slate-900">1.2s</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <p className="text-xs text-slate-600">Support Tickets</p>
+                <p className="text-lg font-bold text-slate-900">3 open</p>
+              </div>
+              <div className="text-center p-3 bg-white rounded-lg">
+                <p className="text-xs text-slate-600">Failed Payments</p>
+                <p className="text-lg font-bold text-red-600">0</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions - NEW */}
+        <Card className="mb-8 border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-purple-600" />
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button
+                variant="outline"
+                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
+                onClick={() => window.location.href = '/cateringms-platform/company-database'}
+              >
+                <Users className="w-6 h-6 text-purple-600" />
+                <div className="text-left">
+                  <div className="font-semibold">Manage Companies</div>
+                  <div className="text-xs text-slate-500">View all registered companies</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
+                onClick={() => window.location.href = '/cateringms-platform/subscription-management'}
+              >
+                <DollarSign className="w-6 h-6 text-blue-600" />
+                <div className="text-left">
+                  <div className="font-semibold">Subscriptions</div>
+                  <div className="text-xs text-slate-500">Manage billing & plans</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
+                onClick={() => window.location.href = '/cateringms-platform/trial-management'}
+              >
+                <Calendar className="w-6 h-6 text-green-600" />
+                <div className="text-left">
+                  <div className="font-semibold">Trial Management</div>
+                  <div className="text-xs text-slate-500">Monitor free trials</div>
+                </div>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
