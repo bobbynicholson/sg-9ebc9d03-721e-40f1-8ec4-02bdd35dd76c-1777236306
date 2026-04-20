@@ -9,8 +9,10 @@ import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowTracker";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
+import { CleaningNav } from "@/components/navigation/CleaningNav";
+import Head from "next/head";
 
-export default function CleaningPage() {
+export default function CleaningDashboard() {
   const [activeTab, setActiveTab] = useState("verification");
   const [tasks, setTasks] = useState<any[]>([]);
   const user = { full_name: "Cleaning Staff" }; // Mock user object
@@ -18,7 +20,13 @@ export default function CleaningPage() {
   return (
     <>
       <NoIndexMeta />
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
+      <Head>
+        <title>Cleaning Dashboard - CateringMS</title>
+      </Head>
+
+      <CleaningNav />
+
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
           {/* Header Section */}
           <div className="mb-6 md:mb-8">

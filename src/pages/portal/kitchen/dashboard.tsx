@@ -18,8 +18,9 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
 import { timeClockService } from "@/services/timeClockService";
 import { orderService } from "@/services/orderService";
+import { KitchenNav } from "@/components/navigation/KitchenNav";
 
-export default function KitchenPage() {
+export default function KitchenDashboard() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [activeTab, setActiveTab] = useState("today");
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
@@ -168,7 +169,9 @@ export default function KitchenPage() {
       </Head>
       <NoIndexMeta />
       
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50">
+      <KitchenNav />
+
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50 lg:pl-64 xl:pl-72">
         <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-4 md:space-y-6">
           {/* Header - Mobile Optimized */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">

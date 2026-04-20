@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { useAuth } from "@/contexts/AuthContext";
+import { ShoppingNav } from "@/components/navigation/ShoppingNav";
+import Head from "next/head";
 
 interface ShoppingItem {
   id: string;
@@ -23,15 +24,8 @@ interface ShoppingItem {
   notes?: string;
 }
 
-interface ShoppingPageProps {
-  companySlug?: string;
-  portal?: string;
-  currentRoute?: string;
-}
-
-export default function ShoppingPage() {
+export default function ShoppingDashboard() {
   const [shoppingList, setShoppingList] = useState<any[]>([]);
-
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 
@@ -133,7 +127,13 @@ export default function ShoppingPage() {
   return (
     <>
       <NoIndexMeta />
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      <Head>
+        <title>Shopping Dashboard - CateringMS</title>
+      </Head>
+
+      <ShoppingNav />
+
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
           {/* Header Section - Mobile Optimized */}
           <div className="mb-6 md:mb-8">
