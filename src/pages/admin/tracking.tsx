@@ -13,12 +13,13 @@ import { orderService } from "@/services/orderService";
 import { driverService } from "@/services/driverService";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
+import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 
 const AdminTrackingMap = dynamic(
-  () => import("@/components/tracking/AdminTrackingMap"),
+  () => import("@/components/tracking/AdminTrackingMap").then((mod) => mod.AdminTrackingMap),
   { ssr: false }
-);
+) as React.ComponentType<any>;
 
 interface OrderWithTracking {
   id: string;
@@ -42,10 +43,14 @@ export default function AdminTracking() {
   const { toast } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [driverFilter, setDriverFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
 
   useEffect(() => {
     loadTrackingData();
