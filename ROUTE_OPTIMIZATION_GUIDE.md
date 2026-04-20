@@ -77,6 +77,78 @@ Driver Dashboard → Notification Bell (1 unread)
 
 ---
 
+## 👤 Client Real-Time Tracking
+
+**Live Order Tracking for Customers:**
+
+Clients can track their food delivery in real-time via `/client-portal/tracking`, just like Uber Eats or DoorDash.
+
+**Client Features:**
+
+1. **Interactive Map View:**
+   - Green driver marker (car icon) showing live GPS position
+   - Red venue marker showing delivery destination
+   - Dashed route line from driver to venue
+   - Live indicator badge (pulsing green dot)
+   - Auto-centering and dynamic zoom
+
+2. **Driver Information:**
+   - Driver name and profile
+   - Contact phone number
+   - Estimated arrival time (countdown)
+   - Last updated timestamp
+   - Current coordinates display
+
+3. **Real-Time Updates:**
+   - Supabase Realtime subscription to driver GPS
+   - Instant marker updates as driver moves
+   - Auto-refresh every 15 seconds (fallback)
+   - Live status indicators
+
+4. **Order Management:**
+   - View all active orders in sidebar
+   - Switch between multiple deliveries
+   - Status badges (On the way / Ready / Preparing)
+   - Delivery time display
+
+**Client Experience:**
+```
+Client logs into portal
+  ↓
+Navigates to tracking page
+  ↓
+Sees map with venue marker
+  ↓
+Driver marker appears with live position
+  ↓
+Driver moves → Marker updates instantly
+  ↓
+Client knows exactly when food will arrive
+```
+
+**Status Indicators:**
+- 🟢 **On the way!** - Driver en route
+- 🔵 **Ready for pickup** - Awaiting driver
+- 🟡 **Being prepared** - Kitchen working
+- ⚪ **Delivered** - Order complete
+
+**Benefits for Clients:**
+- 📱 Real-time visibility of their delivery
+- ⏰ Accurate ETA countdowns
+- 📞 Direct driver contact info
+- 🎯 Peace of mind knowing exact location
+- 🚫 No more "where's my order?" calls
+
+**Integration:**
+- Same GPS tracking as admin portal
+- Syncs with driver dashboard updates
+- Connected to order management system
+- Works on all devices (mobile + desktop)
+
+**Access:** `/client-portal/tracking` → Live order tracking with driver GPS
+
+---
+
 ## 🗺️ Real-Time Driver Location Tracking
 
 **Live GPS Monitoring on Admin Map:**
