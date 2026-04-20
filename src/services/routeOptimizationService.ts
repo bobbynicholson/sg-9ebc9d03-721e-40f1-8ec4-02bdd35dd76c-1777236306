@@ -183,7 +183,7 @@ export const routeOptimizationService = {
       return [];
     }
 
-    return (data || []).map((order) => ({
+    return ((data as any[]) || []).map((order) => ({
       id: order.id,
       order_id: order.id,
       client_name: order.client_name,
@@ -214,7 +214,7 @@ export const routeOptimizationService = {
       return [];
     }
 
-    return (data || []).map((order) => ({
+    return ((data as any[]) || []).map((order) => ({
       id: order.id,
       order_id: order.id,
       client_name: order.client_name,
@@ -233,7 +233,7 @@ export const routeOptimizationService = {
    */
   async optimizeAllDriverRoutes(companyId: string): Promise<OptimizedRoute[]> {
     // Get all available drivers
-    const { data: drivers, error: driverError } = await supabase
+    const { data: drivers, error: driverError } = await (supabase as any)
       .from("profiles")
       .select("id, full_name, current_lat, current_lng")
       .eq("company_id", companyId)
@@ -343,7 +343,7 @@ export const routeOptimizationService = {
     }
 
     // Get driver's current location
-    const { data: driver } = await supabase
+    const { data: driver } = await (supabase as any)
       .from("profiles")
       .select("current_lat, current_lng")
       .eq("id", driverId)
