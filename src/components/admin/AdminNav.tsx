@@ -136,18 +136,6 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Operations",
       items: [
         {
-          title: "Operations Hub",
-          href: "/admin/operations-hub",
-          icon: Layers,
-          description: "40 operational standards"
-        },
-        {
-          title: "Operations Standards",
-          href: "/admin/operations-standards",
-          icon: Briefcase,
-          description: "Standards 41-75: Equipment & Fleet"
-        },
-        {
           title: "Job Progress Overview",
           href: "/portal/admin/job-progress-overview",
           icon: TrendingUp,
