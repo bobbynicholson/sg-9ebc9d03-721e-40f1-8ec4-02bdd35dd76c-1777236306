@@ -27,6 +27,8 @@ export default function JobProgressOverview() {
       setOrders(data || []);
     } catch (error) {
       console.error("Error loading orders:", error);
+      // Fallback to empty array on error
+      setOrders([]);
     } finally {
       setLoading(false);
     }
