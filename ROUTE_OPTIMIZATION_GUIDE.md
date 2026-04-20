@@ -77,6 +77,75 @@ Driver Dashboard → Notification Bell (1 unread)
 
 ---
 
+## 🗺️ Real-Time Driver Location Tracking
+
+**Live GPS Monitoring on Admin Map:**
+
+The admin tracking page (`/admin/tracking`) now features real-time driver location updates powered by Supabase Realtime.
+
+**Key Features:**
+
+1. **Live Driver Markers:**
+   - Green car icons show exact driver positions
+   - Updates automatically as drivers move (< 1 second latency)
+   - Last updated timestamp on each marker
+   - Status badges: 🟢 Available / 🟡 Busy / 🔴 Unavailable
+
+2. **Venue Markers:**
+   - Blue pin icons for all delivery destinations
+   - Order details popup (client, address, status)
+   - Color-coded by order status
+
+3. **Route Visualization:**
+   - Dashed lines connect drivers to active deliveries
+   - Color-coded by delivery status
+   - Updates dynamically as routes change
+
+4. **Real-Time Subscription:**
+   - Supabase channel: `driver-locations`
+   - Listens to `profiles` table updates
+   - Auto-updates map markers on GPS changes
+   - Fallback polling every 30 seconds
+
+5. **Map Intelligence:**
+   - Auto-centers on all active locations
+   - Dynamic zoom to fit all markers
+   - Click markers for detailed popups
+   - Coordinates display for debugging
+
+**Technical Flow:**
+```
+Driver updates GPS (DriverGPSTracker)
+  ↓
+profiles.current_lat/current_lng UPDATE
+  ↓
+Supabase Realtime broadcast
+  ↓
+AdminTrackingMap receives event
+  ↓
+Marker position updates on map
+  ↓
+Admin sees movement in real-time
+```
+
+**Admin Benefits:**
+- 📍 See all drivers at once
+- ⚡ Instant updates (no refresh needed)
+- 🎯 Monitor route efficiency
+- 🚨 Spot delays immediately
+- 📞 Answer customer questions instantly
+- 📊 Track fleet in real-time
+
+**Driver Integration:**
+- Drivers use GPS tracker in their portal
+- Updates save to database automatically
+- Broadcasts to all admin maps
+- Works on mobile and desktop
+
+**Access:** `/admin/tracking` → Interactive map with live driver positions
+
+---
+
 ## 📊 How It Works
 
 ### Algorithm Steps:
