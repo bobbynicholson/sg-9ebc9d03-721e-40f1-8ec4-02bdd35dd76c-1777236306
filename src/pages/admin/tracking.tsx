@@ -39,30 +39,17 @@ interface OrderWithTracking {
 
 export default function AdminTracking() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<OrderWithTracking[]>([]);
-  const [drivers, setDrivers] = useState<any[]>([]);
+  const { toast } = useToast();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [driverLocations, setDriverLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithTracking | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [driverFilter, setDriverFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [driverFilter, setDriverFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-26.2041, 28.0473]); // Johannesburg default
-  const [autoRefresh, setAutoRefresh] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadTrackingData();
-      
-      // Auto-refresh every 10 seconds if enabled
-      const interval = setInterval(() => {
-        if (autoRefresh) {
-          loadTrackingData();
-        }
-      }, 10000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [user, autoRefresh]);
+    loadTrackingData();
+  }, [user]);
 
   const loadTrackingData = async () => {
     if (!user) return;
@@ -99,6 +86,10 @@ export default function AdminTracking() {
       console.error("Error loading tracking data:", error);
       setLoading(false);
     }
+  };
+
+  const handleDriverLocationUpdate = (updatedLocations: any[]) => {
+    setDriverLocations(updatedLocations);
   };
 
   const filteredOrders = orders.filter(order => {
@@ -145,12 +136,12 @@ export default function AdminTracking() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
-        <title>Real-Time Tracking - Admin Dashboard</title>
+        <title>Live Tracking - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen bg-slate-50 pb-20">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-6">
@@ -283,13 +274,15 @@ export default function AdminTracking() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Map */}
                 <Card className="lg:col-span-2">
-                  <CardContent className="p-0">
-                    <div className="h-[600px] w-full rounded-lg overflow-hidden">
-                      <AdminTrackingMap
-                        orders={filteredOrders}
-                        drivers={drivers}
-                        center={mapCenter}
-                        onOrderSelect={setSelectedOrder}
+                  <CardHeader>
+                    <CardTitle>Live Tracking Map</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[600px] relative">
+                      <AdminTrackingMap 
+                        orders={filteredOrders} 
+                        driverLocations={driverLocations}
+                        onDriverLocationUpdate={handleDriverLocationUpdate}
                       />
                     </div>
                   </CardContent>
