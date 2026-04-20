@@ -135,54 +135,85 @@ export default function ShoppingDashboard() {
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
-          {/* Header Section - Mobile Optimized */}
-          <div className="mb-6 md:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                  <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900">Shopping Management</h1>
-                  <p className="text-sm md:text-base text-slate-600">Track ingredient purchases for events</p>
-                </div>
-              </div>
-
-              {/* Filter Buttons - Mobile Optimized */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={filter === "all" ? "default" : "outline"}
-                  onClick={() => setFilter("all")}
-                  className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
-                  size="sm"
-                >
-                  <Package className="w-4 h-4" />
-                  <span className="hidden sm:inline">All Items</span>
-                  <span className="sm:hidden">All</span>
-                </Button>
-                <Button
-                  variant={filter === "pending" ? "default" : "outline"}
-                  onClick={() => setFilter("pending")}
-                  className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
-                  size="sm"
-                >
-                  <Clock className="w-4 h-4" />
-                  <span className="hidden sm:inline">Pending</span>
-                  <span className="sm:hidden">Pending</span>
-                </Button>
-                <Button
-                  variant={filter === "purchased" ? "default" : "outline"}
-                  onClick={() => setFilter("purchased")}
-                  className="gap-2 text-sm md:text-base flex-1 sm:flex-none"
-                  size="sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">Purchased</span>
-                  <span className="sm:hidden">Done</span>
-                </Button>
-              </div>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+              <ShoppingCart className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">Shopping Dashboard</h1>
+              <p className="text-slate-600">Manage inventory and purchasing</p>
             </div>
           </div>
+
+          {/* Critical Stock Alerts - NEW */}
+          {inventoryItems.filter(item => item.quantityAvailable < item.minimumStock).length > 0 && (
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-red-50 to-orange-50 mb-8">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  Critical Stock Alerts
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {inventoryItems
+                    .filter(item => item.quantityAvailable < item.minimumStock)
+                    .slice(0, 3)
+                    .map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-red-500">
+                        <div>
+                          <p className="font-semibold text-slate-900">{item.name}</p>
+                          <p className="text-sm text-red-600">
+                            Only {item.quantityAvailable} {item.unit} remaining (Min: {item.minimumStock})
+                          </p>
+                        </div>
+                        <Button size="sm" className="bg-red-600 hover:bg-red-700">
+                          Order Now
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Today's Purchase Priority - NEW */}
+          <Card className="border-0 shadow-lg mb-8">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-green-600" />
+                Today's Purchase Priority
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm text-slate-600">Urgent Orders Needed</p>
+                      <p className="text-3xl font-bold text-green-600">
+                        {inventoryItems.filter(i => i.quantityAvailable < i.minimumStock).length}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-600">Estimated Cost</p>
+                      <p className="text-2xl font-bold text-slate-900">
+                        R{inventoryItems
+                          .filter(i => i.quantityAvailable < i.minimumStock)
+                          .reduce((sum, i) => sum + (i.costPerUnit * (i.minimumStock - i.quantityAvailable)), 0)
+                          .toFixed(0)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button className="w-full">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    Create Bulk Purchase Order
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Stats Cards - Mobile Optimized Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">

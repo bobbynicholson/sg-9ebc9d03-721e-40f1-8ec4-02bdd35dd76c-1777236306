@@ -202,56 +202,68 @@ export default function DriverDashboard() {
               </Button>
             </div>
 
-            {/* Quick Stats - Mobile Optimized */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-              <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-blue-100">
-                <CardContent className="p-4 sm:pt-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-500 flex items-center justify-center mb-2 sm:mb-3">
-                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            {/* Today's Earnings Summary - NEW */}
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 mb-6">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">Today's Potential Earnings</p>
+                    <div className="text-4xl font-bold text-green-600">
+                      R{(todaysJobs.length * 250).toFixed(0)}
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-blue-900">{todaysJobs.length}</p>
-                    <p className="text-xs sm:text-sm text-blue-700 mt-1">Today's Jobs</p>
+                    <p className="text-sm text-slate-600 mt-2">
+                      {todaysJobs.length} {todaysJobs.length === 1 ? 'delivery' : 'deliveries'} scheduled • 
+                      {completedToday} completed
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-right">
+                    <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mb-2">
+                      <TrendingUp className="w-10 h-10 text-white" />
+                    </div>
+                    <p className="text-xs text-slate-600">Outstanding</p>
+                    <p className="text-lg font-bold text-slate-900">R{totalEarnings.toFixed(0)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50 to-purple-100">
-                <CardContent className="p-4 sm:pt-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-500 flex items-center justify-center mb-2 sm:mb-3">
-                      <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-900">{availableJobs.length}</p>
-                    <p className="text-xs sm:text-sm text-purple-700 mt-1">Available</p>
+            {/* Today's Route Overview - NEW */}
+            {todaysJobs.length > 0 && (
+              <Card className="border-0 shadow-lg mb-6">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Navigation className="w-5 h-5 text-blue-600" />
+                    Today's Route Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {todaysJobs.map((job, index) => (
+                      <div key={job.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-900 truncate">{job.client_name}</p>
+                          <p className="text-xs text-slate-600 truncate">{job.address}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-sm font-semibold text-slate-900">{job.pickupTime}</p>
+                          <p className="text-xs text-slate-600">{job.guest_count} pax</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  <Button 
+                    className="w-full mt-4" 
+                    onClick={() => todaysJobs.length > 0 && openNavigation(todaysJobs[0].address)}
+                  >
+                    <Navigation className="w-4 h-4 mr-2" />
+                    Start Route Navigation
+                  </Button>
                 </CardContent>
               </Card>
-
-              <Card className="border-0 shadow-md bg-gradient-to-br from-green-50 to-emerald-100">
-                <CardContent className="p-4 sm:pt-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-500 flex items-center justify-center mb-2 sm:mb-3">
-                      <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-green-900">{completedToday}</p>
-                    <p className="text-xs sm:text-sm text-green-700 mt-1">Completed</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-orange-100">
-                <CardContent className="p-4 sm:pt-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-500 flex items-center justify-center mb-2 sm:mb-3">
-                      <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                    </div>
-                    <p className="text-xl sm:text-2xl font-bold text-amber-900">R{totalEarnings.toFixed(0)}</p>
-                    <p className="text-xs sm:text-sm text-amber-700 mt-1">Owing</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            )}
           </div>
 
           {/* Quick Start Guide for New Drivers */}

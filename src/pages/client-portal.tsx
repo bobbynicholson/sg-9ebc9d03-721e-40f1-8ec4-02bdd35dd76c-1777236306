@@ -245,6 +245,74 @@ function ClientPortal({ companySlug: propCompanySlug }: ClientPortalPageProps = 
               </div>
             </div>
 
+            {/* Next Event Summary - NEW */}
+            {activeOrders.length > 0 && (
+              <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-5 h-5 text-blue-600" />
+                        <h3 className="text-lg font-bold text-slate-900">Your Next Event</h3>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-600 mb-1">
+                        {new Date(activeOrders[0].event_date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </p>
+                      <p className="text-slate-700">{activeOrders[0].venue_address}</p>
+                      <p className="text-sm text-slate-600 mt-1">{activeOrders[0].guest_count} guests</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-slate-600 mb-1">Days until event</p>
+                      <div className="text-4xl font-bold text-blue-600">
+                        {Math.ceil((new Date(activeOrders[0].event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <Link href={`/tracking/client?orderId=${activeOrders[0].id}`} className="flex-1">
+                      <Button className="w-full">Track Order</Button>
+                    </Link>
+                    <Button variant="outline" className="flex-1">View Details</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Payment Reminders - NEW */}
+            {orders.filter(o => needsPayment(o)).length > 0 && (
+              <Card className="border-0 shadow-lg bg-gradient-to-r from-amber-50 to-orange-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-amber-600" />
+                    Payment Reminders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {orders.filter(o => needsPayment(o)).map(order => (
+                    <div key={order.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                      <div>
+                        <p className="font-semibold text-slate-900">{order.venue_address}</p>
+                        <p className="text-xs text-slate-600">
+                          Event: {new Date(order.event_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm"
+                        onClick={() => handlePayment(order)}
+                        disabled={processingPayment === order.id}
+                      >
+                        Pay R{order.total?.toLocaleString()}
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {paymentError && (
               <Alert variant="destructive">
                 <AlertDescription className="text-sm">{paymentError}</AlertDescription>

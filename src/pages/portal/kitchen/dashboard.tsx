@@ -184,6 +184,99 @@ export default function KitchenDashboard() {
             </div>
           </div>
 
+          {/* Today's Production Priority - NEW */}
+          {todayOrders.length > 0 && (
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-orange-50 to-red-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-orange-600" />
+                  Today's Production Priority
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {todayOrders.slice(0, 3).map((order, index) => {
+                    const hoursUntilEvent = Math.floor(
+                      (new Date(order.event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60)
+                    );
+                    const urgency = hoursUntilEvent < 4 ? 'high' : hoursUntilEvent < 8 ? 'medium' : 'low';
+                    const urgencyColors = {
+                      high: 'border-red-500 bg-red-50',
+                      medium: 'border-orange-500 bg-orange-50',
+                      low: 'border-green-500 bg-green-50'
+                    };
+
+                    return (
+                      <div key={order.id} className={`flex items-center justify-between p-3 rounded-lg border-l-4 ${urgencyColors[urgency]}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold flex-shrink-0">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900">{order.client_name}</p>
+                            <p className="text-xs text-slate-600">{order.guest_count} guests • {hoursUntilEvent}h until event</p>
+                          </div>
+                        </div>
+                        <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Prep Progress Tracker - NEW */}
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                Today's Prep Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium text-slate-700">Orders Ready</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {orders.filter(o => o.status === 'ready').length} / {todayOrders.length}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all"
+                      style={{ 
+                        width: `${todayOrders.length > 0 ? (orders.filter(o => o.status === 'ready').length / todayOrders.length * 100) : 0}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">
+                      {orders.filter(o => o.status === 'preparing').length}
+                    </p>
+                    <p className="text-xs text-slate-600">In Progress</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">
+                      {orders.filter(o => o.status === 'ready').length}
+                    </p>
+                    <p className="text-xs text-slate-600">Ready</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600">
+                      {orders.filter(o => o.status === 'confirmed').length}
+                    </p>
+                    <p className="text-xs text-slate-600">Pending</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Add Time Clock Widget */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-1">
