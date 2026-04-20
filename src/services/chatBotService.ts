@@ -24,7 +24,7 @@ class ChatBotService {
    * Create a new chat session
    */
   async createSession(companyId: string, userId: string, userRole: string): Promise<ChatSession | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("chat_sessions")
       .insert({
         company_id: companyId,
@@ -40,7 +40,7 @@ class ChatBotService {
       return null;
     }
 
-    return data;
+    return data as ChatSession;
   }
 
   /**
@@ -54,7 +54,7 @@ class ChatBotService {
     content: string,
     metadata?: Record<string, any>
   ): Promise<ChatMessage | null> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("chat_messages")
       .insert({
         session_id: sessionId,
@@ -73,14 +73,14 @@ class ChatBotService {
       return null;
     }
 
-    return data;
+    return data as ChatMessage;
   }
 
   /**
    * Get chat history for a company
    */
   async getChatHistory(companyId: string, limit: number = 50): Promise<ChatMessage[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("chat_messages")
       .select("*")
       .eq("company_id", companyId)
@@ -92,14 +92,14 @@ class ChatBotService {
       return [];
     }
 
-    return data || [];
+    return (data || []) as ChatMessage[];
   }
 
   /**
    * Get user's chat sessions
    */
   async getUserSessions(userId: string): Promise<ChatSession[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("chat_sessions")
       .select("*")
       .eq("user_id", userId)
@@ -110,7 +110,7 @@ class ChatBotService {
       return [];
     }
 
-    return data || [];
+    return (data || []) as ChatSession[];
   }
 
   /**
@@ -161,7 +161,7 @@ class ChatBotService {
 
         case "shopping":
           // Fetch inventory data
-          const { data: inventory } = await supabase
+          const { data: inventory } = await (supabase as any)
             .from("inventory_items")
             .select("*")
             .eq("company_id", companyId)

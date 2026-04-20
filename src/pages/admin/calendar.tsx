@@ -18,8 +18,10 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminCalendar() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -27,13 +29,17 @@ export default function AdminCalendar() {
   const [view, setView] = useState<"month" | "week" | "day">("month");
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (user) {
+      loadOrders();
+    }
+  }, [user]);
 
   const loadOrders = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const allOrders = await orderService.getAllOrders();
+      const companyId = user.user_metadata?.company_id || user.id;
+      const allOrders = await orderService.getAllOrders(companyId);
       setOrders(allOrders);
     } catch (error) {
       console.error("Error loading orders:", error);

@@ -33,21 +33,27 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminOrders() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (user) {
+      loadOrders();
+    }
+  }, [user]);
 
   const loadOrders = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const allOrders = await orderService.getAllOrders();
+      const companyId = user.user_metadata?.company_id || user.id;
+      const allOrders = await orderService.getAllOrders(companyId);
       setOrders(allOrders);
     } catch (error) {
       console.error("Error loading orders:", error);

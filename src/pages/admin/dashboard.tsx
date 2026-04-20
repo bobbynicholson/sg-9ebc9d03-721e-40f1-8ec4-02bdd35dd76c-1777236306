@@ -24,6 +24,7 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,

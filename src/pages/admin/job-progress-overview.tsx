@@ -8,22 +8,29 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { Clock, CheckCircle, AlertCircle, Package } from "lucide-react";
 import { orderService } from "@/services/orderService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function JobProgressOverview() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (user) {
+      loadOrders();
+    }
+  }, [user]);
 
   const loadOrders = async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const data = await orderService.getAllOrders();
+      const companyId = user.user_metadata?.company_id || user.id;
+      const data = await orderService.getAllOrders(companyId);
       setOrders(data || []);
     } catch (error) {
       console.error("Error loading orders:", error);
+      // Fallback to empty array on error
       setOrders([]);
     } finally {
       setLoading(false);
