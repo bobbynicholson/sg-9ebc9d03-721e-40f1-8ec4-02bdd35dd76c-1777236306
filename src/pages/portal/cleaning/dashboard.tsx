@@ -18,6 +18,18 @@ export default function CleaningDashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const user = { full_name: "Cleaning Staff" }; // Mock user object
 
+  // Mock equipment data for status overview
+  const mockEquipment = [
+    { id: '1', name: 'Chafing Dishes', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-20' },
+    { id: '2', name: 'Serving Platters', status: 'in_use', lastCleaned: '2026-04-18', nextInspection: '2026-04-21' },
+    { id: '3', name: 'Gas Burners', status: 'cleaning', lastCleaned: null, nextInspection: '2026-04-20' },
+    { id: '4', name: 'Beverage Dispensers', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-22' },
+    { id: '5', name: 'Table Linens', status: 'cleaning', lastCleaned: null, nextInspection: '2026-04-20' },
+    { id: '6', name: 'Folding Tables', status: 'damaged', lastCleaned: '2026-04-15', nextInspection: '2026-04-20' },
+    { id: '7', name: 'Chairs', status: 'in_use', lastCleaned: '2026-04-18', nextInspection: '2026-04-21' },
+    { id: '8', name: 'Cooler Boxes', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-23' },
+  ];
+
   return (
     <>
       <NoIndexMeta />

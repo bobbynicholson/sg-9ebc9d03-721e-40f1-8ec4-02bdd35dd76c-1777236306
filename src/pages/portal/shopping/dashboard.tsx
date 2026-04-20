@@ -29,6 +29,15 @@ export default function ShoppingDashboard() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 
+  // Mock inventory data for stock alerts
+  const inventoryItems = [
+    { id: '1', name: 'Beef', quantityAvailable: 5, minimumStock: 20, unit: 'kg', costPerUnit: 120 },
+    { id: '2', name: 'Chicken', quantityAvailable: 8, minimumStock: 25, unit: 'kg', costPerUnit: 80 },
+    { id: '3', name: 'Rice', quantityAvailable: 15, minimumStock: 30, unit: 'kg', costPerUnit: 25 },
+    { id: '4', name: 'Olive Oil', quantityAvailable: 2, minimumStock: 10, unit: 'L', costPerUnit: 150 },
+    { id: '5', name: 'Plates', quantityAvailable: 50, minimumStock: 100, unit: 'units', costPerUnit: 15 },
+  ];
+
   useEffect(() => {
     const mockItems: ShoppingItem[] = [
       {
