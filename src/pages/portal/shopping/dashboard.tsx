@@ -10,6 +10,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import Head from "next/head";
+import { ChatBot } from "@/components/ChatBot";
 
 interface ShoppingItem {
   id: string;
@@ -381,6 +382,9 @@ export default function ShoppingDashboard() {
         
         <Footer />
       </div>
+      
+      {/* AI Chatbot */}
+      <ChatBot userRole="shopping" companyId={user?.user_metadata?.company_id} />
     </>
   );
 }

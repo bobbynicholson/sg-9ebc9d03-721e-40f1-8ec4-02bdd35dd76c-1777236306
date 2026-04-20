@@ -28,6 +28,7 @@ import { regionManagement } from "@/lib/regionManagement";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { DriverNav } from "@/components/navigation/DriverNav";
+import { ChatBot } from "@/components/ChatBot";
 
 interface DeliveryJob extends Quote {
   pickupTime: string;
@@ -537,9 +538,12 @@ export default function DriverDashboard() {
         </div>
         
         <Footer />
-        
-        {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
       </div>
+
+      {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
+      
+      {/* AI Chatbot */}
+      <ChatBot userRole="driver" companyId={user?.user_metadata?.company_id} />
     </>
   );
 }

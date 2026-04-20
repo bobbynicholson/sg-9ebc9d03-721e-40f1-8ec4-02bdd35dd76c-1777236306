@@ -17,6 +17,11 @@ import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBranding } from "@/contexts/BrandingContext";
+import { Footer } from "@/components/Footer";
+import { ChatBot } from "@/components/ChatBot";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -264,6 +269,9 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </div>
+
+      {/* AI Chatbot */}
+      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
     </>
   );
 }

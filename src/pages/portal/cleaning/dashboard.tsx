@@ -12,6 +12,7 @@ import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentD
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
 import { Button } from "@/components/ui/button";
+import { ChatBot } from "@/components/ChatBot";
 
 export default function CleaningDashboard() {
   const [activeTab, setActiveTab] = useState("verification");
@@ -332,6 +333,9 @@ export default function CleaningDashboard() {
 
         <Footer />
       </div>
+
+      {/* AI Chatbot */}
+      <ChatBot userRole="cleaning" companyId={user?.user_metadata?.company_id} />
     </>
   );
 }

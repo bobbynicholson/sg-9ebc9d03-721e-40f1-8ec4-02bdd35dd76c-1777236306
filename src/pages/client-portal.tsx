@@ -35,6 +35,8 @@ import {
 import Link from "next/link";
 import { SmoothCompletionCelebration } from "@/components/SmoothCompletionCelebration";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
+import { PaymentScheduleCard } from "@/components/orders/PaymentScheduleCard";
+import { ChatBot } from "@/components/ChatBot";
 import { ClientTrackingMap } from "@/components/tracking/ClientTrackingMap";
 import type { AppOrder } from "@/types/app";
 import { realtimeNotificationService } from "@/services/realtimeNotificationService";
@@ -562,6 +564,9 @@ function ClientPortal({ companySlug: propCompanySlug }: ClientPortalPageProps = 
           <Footer />
           
           {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
+          
+          {/* AI Chatbot */}
+          <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
         </div>
       </div>
     </>

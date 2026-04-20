@@ -19,6 +19,7 @@ import { TimeClockWidget } from "@/components/staff/TimeClockWidget";
 import { timeClockService } from "@/services/timeClockService";
 import { orderService } from "@/services/orderService";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { ChatBot } from "@/components/ChatBot";
 
 export default function KitchenDashboard() {
   const [orders, setOrders] = useState<AppOrder[]>([]);
@@ -562,6 +563,9 @@ export default function KitchenDashboard() {
         
         <Footer />
       </div>
+      
+      {/* AI Chatbot */}
+      <ChatBot userRole="kitchen" companyId={user?.user_metadata?.company_id} />
     </>
   );
 }
