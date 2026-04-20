@@ -984,4 +984,40 @@ Your Catering Company`;
 
     return review;
   },
+
+  /**
+   * Get all active orders for a specific client
+   */
+  async getClientOrders(clientId: string) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("client_id", clientId)
+      .order("delivery_time", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching client orders:", error);
+      throw error;
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Get real-time driver location by driver ID
+   */
+  async getDriverLocation(driverId: string) {
+    const { data, error } = await (supabase as any)
+      .from("profiles")
+      .select("current_lat, current_lng, full_name, phone")
+      .eq("id", driverId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching driver location:", error);
+      throw error;
+    }
+
+    return { data };
+  }
 };

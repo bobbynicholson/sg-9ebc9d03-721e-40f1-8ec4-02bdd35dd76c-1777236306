@@ -182,7 +182,7 @@ export function ClientTrackingMap({
     if (!driverId) return;
 
     const interval = setInterval(async () => {
-      const { data: driver } = await supabase
+      const { data: driver } = await (supabase as any)
         .from("profiles")
         .select("current_lat, current_lng, full_name, phone")
         .eq("id", driverId)
