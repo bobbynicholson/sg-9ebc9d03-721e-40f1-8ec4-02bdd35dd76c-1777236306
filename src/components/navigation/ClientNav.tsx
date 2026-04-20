@@ -48,19 +48,19 @@ export function ClientNav({ className, companySlug }: ClientNavProps) {
       items: [
         {
           title: "Dashboard",
-          href: `${baseUrl}/portal/client/dashboard`,
+          href: `${baseUrl}/client-portal/dashboard`,
           icon: LayoutDashboard,
           description: "Overview of your events"
         },
         {
           title: "My Orders",
-          href: `${baseUrl}/portal/client/orders`,
+          href: `${baseUrl}/client-portal/orders`,
           icon: ShoppingBag,
           description: "View your order history"
         },
         {
           title: "Track Delivery",
-          href: `${baseUrl}/portal/client/tracking`,
+          href: `${baseUrl}/client-portal/tracking`,
           icon: MapPin,
           description: "Live tracking of your order"
         }

@@ -137,9 +137,15 @@ export function AdminNav({ className }: AdminNavProps) {
       items: [
         {
           title: "Job Progress Overview",
-          href: "/portal/admin/job-progress-overview",
+          href: "/admin/job-progress-overview",
           icon: TrendingUp,
           description: "Monitor all jobs"
+        },
+        {
+          title: "Delivery Tracking",
+          href: "/admin/tracking",
+          icon: MapPin,
+          description: "Live delivery tracking"
         },
         {
           title: "Equipment Shortages",
@@ -184,7 +190,7 @@ export function AdminNav({ className }: AdminNavProps) {
         },
         {
           title: "Notification Settings",
-          href: "/portal/admin/notification-settings",
+          href: "/admin/notification-settings",
           icon: Bell,
           description: "Configure notifications"
         }
@@ -220,6 +226,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/white-label",
           icon: Building2,
           description: "Branding customization"
+        },
+        {
+          title: "Integrations",
+          href: "/admin/integrations",
+          icon: Plug,
+          description: "Connect third-party tools"
         },
         {
           title: "System Settings",

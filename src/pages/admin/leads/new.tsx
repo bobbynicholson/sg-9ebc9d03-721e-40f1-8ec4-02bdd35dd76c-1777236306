@@ -42,14 +42,13 @@ export default function NewLead() {
       const companyId = user.user_metadata?.company_id || user.id;
       await leadService.createLead({
         client_name: formData.name,
-        company_name: formData.company,
         client_email: formData.email,
         client_phone: formData.phone,
         event_type: formData.eventType,
         event_date: formData.eventDate,
         guest_count: parseInt(formData.guestCount) || 0,
         budget: formData.budget ? parseFloat(formData.budget) : null,
-        notes: formData.notes,
+        special_requests: formData.notes,
         status: "new",
         user_id: user.id,
         company_id: companyId

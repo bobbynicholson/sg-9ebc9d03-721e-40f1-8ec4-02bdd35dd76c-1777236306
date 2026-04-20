@@ -64,19 +64,19 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
       items: [
         {
           title: "Today's Routes",
-          href: `${baseUrl}/portal/driver/routes`,
+          href: `${baseUrl}/team-portal/driver/routes`,
           icon: Navigation,
           description: "Your delivery routes"
         },
         {
           title: "All Deliveries",
-          href: `${baseUrl}/portal/driver/deliveries`,
+          href: `${baseUrl}/team-portal/driver/deliveries`,
           icon: Truck,
           description: "Delivery history"
         },
         {
           title: "GPS Tracking",
-          href: `${baseUrl}/portal/driver/tracking`,
+          href: `${baseUrl}/team-portal/driver/tracking`,
           icon: MapPin,
           description: "Live tracking"
         }
