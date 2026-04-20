@@ -31,21 +31,49 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
+    const fetchNotifications = async () => {
+      if (!user) return;
 
-    loadNotifications();
-    loadUnreadCount();
+      try {
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_read", false)
+          .order("created_at", { ascending: false });
 
-    const unsubscribe = realtimeNotificationService.subscribeToNotifications(
-      user.id,
-      (newNotification) => {
-        setNotifications((prev) => [newNotification, ...prev]);
-        setUnreadCount((prev) => prev + 1);
+        if (error) throw error;
+        setNotifications(data || []);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+        // Silently fail - use empty notifications array
+        setNotifications([]);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user?.id]);
+    fetchNotifications();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel("notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: user ? `user_id=eq.${user.id}` : undefined,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const loadNotifications = async () => {
     if (!user?.id) return;
