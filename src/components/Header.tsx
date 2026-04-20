@@ -52,6 +52,31 @@ export function Header() {
   const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
+  const getRoleBasedDashboard = () => {
+    if (!user) return "/auth/login";
+    
+    const role = user.user_metadata?.role || user.role;
+    
+    switch (role) {
+      case "admin":
+        return "/admin/dashboard";
+      case "driver":
+        return "/team-portal/driver/dashboard";
+      case "kitchen":
+        return "/team-portal/kitchen/dashboard";
+      case "shopping":
+        return "/team-portal/shopping/dashboard";
+      case "cleaning":
+        return "/team-portal/cleaning/dashboard";
+      case "staff":
+        return "/team-portal/general/job-progress";
+      case "client":
+        return "/client-portal/dashboard";
+      default:
+        return "/";
+    }
+  };
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);

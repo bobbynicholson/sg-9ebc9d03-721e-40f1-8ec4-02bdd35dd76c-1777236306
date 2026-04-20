@@ -15,7 +15,8 @@ import {
   Settings,
   Menu,
   ChevronRight,
-  Bell
+  Bell,
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
