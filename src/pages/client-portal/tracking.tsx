@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
+import { feedbackService } from "@/services/feedbackService";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
+import { DeliveryFeedbackModal, FeedbackData } from "@/components/DeliveryFeedbackModal";
+import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 
 const ClientTrackingMap = dynamic(
@@ -41,12 +44,16 @@ interface DriverLocation {
 
 export default function ClientTracking() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackOrder, setFeedbackOrder] = useState<OrderDetails | null>(null);
+  const [deliveredOrders, setDeliveredOrders] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadOrders();
@@ -59,15 +66,34 @@ export default function ClientTracking() {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Check for newly delivered orders and prompt feedback
+  useEffect(() => {
+    orders.forEach(async (order) => {
+      if (order.status === "delivered" && !deliveredOrders.has(order.id)) {
+        // Check if feedback already exists
+        const feedbackExists = await feedbackService.checkFeedbackExists(order.id);
+        
+        if (!feedbackExists) {
+          // Delay to let the "delivered" status sink in
+          setTimeout(() => {
+            setFeedbackOrder(order);
+            setFeedbackModalOpen(true);
+            setDeliveredOrders(prev => new Set([...prev, order.id]));
+          }, 2000); // 2 second delay
+        }
+      }
+    });
+  }, [orders, deliveredOrders]);
+
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       // Get active orders for this client
       const fetchedOrders = await orderService.getClientOrders(user?.id || "");
       
-      // Filter to only show orders that are out for delivery or being prepared
+      // Filter to show orders that are active or recently delivered
       const activeOrders = fetchedOrders.filter((o: any) => 
-        ["preparing", "ready", "out_for_delivery"].includes(o.status)
+        ["preparing", "ready", "out_for_delivery", "delivered"].includes(o.status)
       );
       
       setOrders(activeOrders);
@@ -128,6 +154,24 @@ export default function ClientTracking() {
         last_updated: new Date().toISOString(),
       });
     }
+  };
+
+  const handleFeedbackSubmit = async (feedback: FeedbackData) => {
+    try {
+      await feedbackService.submitFeedback(feedback);
+      toast({
+        title: "Feedback Submitted! 🎉",
+        description: "Thank you for helping us improve our service.",
+      });
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      throw error;
+    }
+  };
+
+  const handleRateOrder = (order: OrderDetails) => {
+    setFeedbackOrder(order);
+    setFeedbackModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -366,6 +410,22 @@ export default function ClientTracking() {
                           </div>
                         )}
                       </div>
+
+                      {/* Rate Order Button for Delivered Orders */}
+                      {order.status === "delivered" && (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateOrder(order);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="w-full mt-3"
+                        >
+                          <Star className="w-4 h-4 mr-2" />
+                          Rate This Delivery
+                        </Button>
+                      )}
                     </div>
                   ))}
                   
@@ -378,6 +438,25 @@ export default function ClientTracking() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {feedbackOrder && (
+        <DeliveryFeedbackModal
+          isOpen={feedbackModalOpen}
+          onClose={() => {
+            setFeedbackModalOpen(false);
+            setFeedbackOrder(null);
+          }}
+          orderId={feedbackOrder.id}
+          orderDetails={{
+            client_name: feedbackOrder.client_name,
+            venue_address: feedbackOrder.venue_address,
+            driver_name: feedbackOrder.driver_name,
+            delivery_time: feedbackOrder.delivery_time,
+          }}
+          onSubmit={handleFeedbackSubmit}
+        />
+      )}
 
       <Footer />
       <ChatBot userRole="client" />
