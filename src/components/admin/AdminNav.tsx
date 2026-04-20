@@ -32,7 +32,8 @@ import {
   ShoppingCart,
   UserPlus,
   FileSpreadsheet,
-  Plug
+  Plug,
+  Route
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -146,6 +147,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/tracking",
           icon: MapPin,
           description: "Live delivery tracking"
+        },
+        {
+          title: "Route Planning",
+          href: "/admin/route-planning",
+          icon: Route,
+          description: "Optimize delivery routes"
         },
         {
           title: "Equipment Shortages",
