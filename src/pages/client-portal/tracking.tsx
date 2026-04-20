@@ -1,160 +1,386 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Truck, Clock, CheckCircle, Package } from "lucide-react";
-import { ClientNav } from "@/components/navigation/ClientNav";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Button } from "@/components/ui/button";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw } from "lucide-react";
 import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { orderService } from "@/services/orderService";
+import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
+import dynamic from "next/dynamic";
+
+const ClientTrackingMap = dynamic(
+  () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
+  { ssr: false }
+) as React.ComponentType<any>;
+
+interface OrderDetails {
+  id: string;
+  client_name: string;
+  venue_address: string;
+  venue_lat?: number;
+  venue_lng?: number;
+  delivery_time: string;
+  status: string;
+  driver_id?: string;
+  driver_name?: string;
+  driver_phone?: string;
+  estimated_arrival?: string;
+  items?: any[];
+}
+
+interface DriverLocation {
+  lat: number;
+  lng: number;
+  driver_name: string;
+  driver_phone?: string;
+  last_updated: string;
+}
 
 export default function ClientTracking() {
   const { user } = useAuth();
-  const [delivery, setDelivery] = useState<any>(null);
+  const [orders, setOrders] = useState<OrderDetails[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
+  const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
   useEffect(() => {
-    // Mock delivery tracking data
-    const mockDelivery = {
-      id: "del-001",
-      orderId: "ORD-001",
-      orderName: "My Event Order",
-      status: "in_transit",
-      driverName: "John Smith",
-      vehicleNumber: "ABC-123-GP",
-      currentLocation: {
-        address: "Currently at Sandton, Johannesburg"
-      },
-      destination: {
-        address: "123 Event Venue Rd, Johannesburg"
-      },
-      estimatedArrival: new Date(Date.now() + 1800000).toISOString(),
-      distance: 12.5,
-      trackingSteps: [
-        { status: "confirmed", label: "Order Confirmed", completed: true, time: "09:00 AM" },
-        { status: "preparing", label: "Being Prepared", completed: true, time: "10:30 AM" },
-        { status: "dispatched", label: "Out for Delivery", completed: true, time: "02:15 PM" },
-        { status: "arrived", label: "Arrived", completed: false, time: null },
-      ]
-    };
+    loadOrders();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadOrders(true);
+    }, 30000);
 
-    setDelivery(mockDelivery);
-    setLoading(false);
-  }, []);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const loadOrders = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      // Get active orders for this client
+      const fetchedOrders = await orderService.getClientOrders(user?.id || "");
+      
+      // Filter to only show orders that are out for delivery or being prepared
+      const activeOrders = fetchedOrders.filter((o: any) => 
+        ["preparing", "ready", "out_for_delivery"].includes(o.status)
+      );
+      
+      setOrders(activeOrders);
+      
+      // Auto-select first order if none selected
+      if (activeOrders.length > 0 && !selectedOrder) {
+        setSelectedOrder(activeOrders[0]);
+        loadDriverLocation(activeOrders[0]);
+      }
+      
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error("Error loading orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDriverLocation = async (order: OrderDetails) => {
+    if (!order.driver_id) return;
+    
+    try {
+      const { data: driver } = await orderService.getDriverLocation(order.driver_id);
+      if (driver) {
+        setDriverLocation({
+          lat: driver.current_lat,
+          lng: driver.current_lng,
+          driver_name: driver.full_name || "Your Driver",
+          driver_phone: driver.phone,
+          last_updated: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error("Error loading driver location:", error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadOrders();
+    if (selectedOrder) {
+      await loadDriverLocation(selectedOrder);
+    }
+    setRefreshing(false);
+  };
+
+  const handleOrderSelect = async (order: OrderDetails) => {
+    setSelectedOrder(order);
+    await loadDriverLocation(order);
+  };
+
+  const handleLocationUpdate = (location: { lat: number; lng: number }) => {
+    if (driverLocation) {
+      setDriverLocation({
+        ...driverLocation,
+        lat: location.lat,
+        lng: location.lng,
+        last_updated: new Date().toISOString(),
+      });
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "out_for_delivery": return "bg-emerald-500";
+      case "ready": return "bg-blue-500";
+      case "preparing": return "bg-amber-500";
+      case "delivered": return "bg-slate-500";
+      default: return "bg-slate-400";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "out_for_delivery": return "On the way!";
+      case "ready": return "Ready for pickup";
+      case "preparing": return "Being prepared";
+      case "delivered": return "Delivered";
+      default: return status;
+    }
+  };
+
+  const calculateETA = (order: OrderDetails) => {
+    if (!order.estimated_arrival) return "Calculating...";
+    
+    const eta = new Date(order.estimated_arrival);
+    const now = new Date();
+    const diffMinutes = Math.round((eta.getTime() - now.getTime()) / 60000);
+    
+    if (diffMinutes < 0) return "Arriving soon";
+    if (diffMinutes < 60) return `${diffMinutes} minutes`;
+    
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading your deliveries...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <>
+        <Head>
+          <title>Track Your Order - CateringMS</title>
+        </Head>
+        <NoIndexMeta />
+        
+        <div className="min-h-screen bg-slate-50 pb-20">
+          <div className="container mx-auto px-4 py-8">
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">No Active Deliveries</h3>
+                <p className="text-slate-600">You don't have any orders out for delivery right now.</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        
+        <Footer />
+        <ChatBot userRole="client" />
+      </>
+    );
+  }
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
-        <title>Track My Delivery - Client Portal</title>
+        <title>Track Your Order - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <ClientNav />
-
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-4xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-              <Package className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Track My Delivery</h1>
-              <p className="text-slate-600">Real-time delivery status</p>
+      <div className="min-h-screen bg-slate-50 pb-20">
+        {/* Header */}
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">Track Your Order</h1>
+                <p className="text-slate-600 mt-1">Real-time delivery tracking</p>
+              </div>
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="outline"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
             </div>
           </div>
+        </div>
 
-          {!delivery ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 text-center">
-                <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-slate-600">No active deliveries</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              <Card className="border-0 shadow-lg">
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Live Map */}
+            <div className="lg:col-span-2">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{delivery.orderName}</span>
-                    <Badge className="bg-blue-100 text-blue-800">
-                      <Truck className="w-4 h-4 mr-1" />
-                      In Transit
-                    </Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-emerald-600" />
+                      Live Tracking
+                    </CardTitle>
+                    {selectedOrder && (
+                      <Badge className={`${getStatusColor(selectedOrder.status)} text-white`}>
+                        {getStatusLabel(selectedOrder.status)}
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                    <div>
-                      <p className="text-sm text-slate-600">Estimated Arrival</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {new Date(delivery.estimatedArrival).toLocaleTimeString()}
-                      </p>
+                <CardContent>
+                  {selectedOrder && selectedOrder.venue_lat && selectedOrder.venue_lng ? (
+                    <div className="h-[500px] relative">
+                      <ClientTrackingMap
+                        orderId={selectedOrder.id}
+                        driverLocation={driverLocation || undefined}
+                        venueLocation={{
+                          lat: selectedOrder.venue_lat,
+                          lng: selectedOrder.venue_lng,
+                          address: selectedOrder.venue_address,
+                        }}
+                        orderStatus={selectedOrder.status}
+                        estimatedArrival={selectedOrder.estimated_arrival}
+                        onLocationUpdate={handleLocationUpdate}
+                      />
+                      
+                      {/* Live indicator */}
+                      {selectedOrder.status === "out_for_delivery" && driverLocation && (
+                        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg px-4 py-2 border-2 border-emerald-500">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <span className="text-sm font-medium text-slate-900">Live Tracking</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600">Distance</p>
-                      <p className="text-xl font-bold">{delivery.distance.toFixed(1)} km</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <Truck className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium">Driver: {delivery.driverName}</p>
-                        <p className="text-sm text-slate-600">Vehicle: {delivery.vehicleNumber}</p>
+                  ) : (
+                    <div className="h-[500px] flex items-center justify-center bg-slate-100 rounded-lg">
+                      <div className="text-center">
+                        <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+                        <p className="text-slate-600">Location data not available</p>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <MapPin className="w-5 h-5 text-orange-600" />
-                      <div>
-                        <p className="font-medium">Current Location</p>
-                        <p className="text-sm text-slate-600">{delivery.currentLocation.address}</p>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Delivery Progress</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {delivery.trackingSteps.map((step: any, idx: number) => (
-                      <div key={idx} className="flex items-start gap-4">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          step.completed ? "bg-green-100" : "bg-slate-100"
-                        }`}>
-                          {step.completed ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Clock className="w-5 h-5 text-slate-400" />
-                          )}
+              {/* Driver Info Card */}
+              {selectedOrder?.driver_name && (
+                <Card className="mt-6">
+                  <CardContent className="py-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-emerald-100 p-3 rounded-full">
+                          <User className="w-6 h-6 text-emerald-600" />
                         </div>
-                        <div className="flex-1">
-                          <p className={`font-medium ${step.completed ? "text-slate-900" : "text-slate-400"}`}>
-                            {step.label}
-                          </p>
-                          {step.time && (
-                            <p className="text-sm text-slate-600">{step.time}</p>
-                          )}
+                        <div>
+                          <p className="text-sm text-slate-600">Your Driver</p>
+                          <p className="font-semibold">{selectedOrder.driver_name}</p>
                         </div>
                       </div>
-                    ))}
+                      
+                      {selectedOrder.driver_phone && (
+                        <div className="flex items-center gap-3">
+                          <div className="bg-blue-100 p-3 rounded-full">
+                            <Phone className="w-6 h-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-slate-600">Contact</p>
+                            <p className="font-semibold">{selectedOrder.driver_phone}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-3">
+                        <div className="bg-amber-100 p-3 rounded-full">
+                          <Clock className="w-6 h-6 text-amber-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-600">Estimated Arrival</p>
+                          <p className="font-semibold">{calculateETA(selectedOrder)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Order List Sidebar */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Orders</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {orders.map((order) => (
+                    <div
+                      key={order.id}
+                      onClick={() => handleOrderSelect(order)}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedOrder?.id === order.id
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold">{order.client_name}</p>
+                          <p className="text-sm text-slate-600">{order.venue_address}</p>
+                        </div>
+                        <Badge className={`${getStatusColor(order.status)} text-white text-xs`}>
+                          {getStatusLabel(order.status)}
+                        </Badge>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 text-sm text-slate-600 mt-3">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          <span>{new Date(order.delivery_time).toLocaleTimeString()}</span>
+                        </div>
+                        {order.status === "out_for_delivery" && (
+                          <div className="flex items-center gap-1 text-emerald-600 font-medium">
+                            <Navigation className="w-4 h-4" />
+                            <span>En route</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="pt-3 border-t text-center text-xs text-slate-500">
+                    Last updated: {lastRefresh.toLocaleTimeString()}
                   </div>
                 </CardContent>
               </Card>
             </div>
-          )}
+          </div>
         </div>
-
-        <Footer />
       </div>
 
-      <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
+      <Footer />
+      <ChatBot userRole="client" />
     </>
   );
 }
