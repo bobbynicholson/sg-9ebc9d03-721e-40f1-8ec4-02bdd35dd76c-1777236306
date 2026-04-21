@@ -5,19 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserPlus, CheckCircle, DollarSign } from "lucide-react";
+import { UserPlus, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { authService } from "@/services/authService";
 import { Separator } from "@/components/ui/separator";
-
-const CURRENCIES = [
-  { code: "ZAR", name: "South African Rand", symbol: "R" },
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "AUD", name: "Australian Dollar", symbol: "A$" }
-];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,8 +17,7 @@ export default function RegisterPage() {
     email: "",
     phone: "",
     password: "",
-    confirmPassword: "",
-    currency: "ZAR"
+    confirmPassword: ""
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +29,7 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.currency) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
       setError("Please fill in all required fields");
       setLoading(false);
       return;
@@ -59,15 +49,13 @@ export default function RegisterPage() {
 
     try {
       // Sign up the user - everyone registers as "client" by default
-      // Admin can change roles later in the admin panel
       const { user, error: signUpError } = await authService.signUp(
         formData.email,
         formData.password,
         {
           full_name: formData.name,
-          role: "client", // Default role for all new registrations
-          currency: formData.currency,
-          phone_number: formData.phone
+          role: "client",
+          phone: formData.phone
         }
       );
 
@@ -133,9 +121,6 @@ export default function RegisterPage() {
                 <strong>Success!</strong> You can now sign in to your account immediately.
               </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Your account is set up with {CURRENCIES.find(c => c.code === formData.currency)?.name} as your currency.
-            </p>
             <p className="text-xs text-slate-400 mt-4">Redirecting to login in 2 seconds...</p>
           </CardContent>
         </Card>
@@ -248,34 +233,6 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="currency" className="text-slate-700 font-medium flex items-center gap-2 text-sm sm:text-base">
-                <DollarSign className="w-4 h-4" />
-                Preferred Currency *
-              </Label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value) => setFormData({ ...formData, currency: value })}
-              >
-                <SelectTrigger className="h-11 sm:h-12 text-sm sm:text-base">
-                  <SelectValue placeholder="Select your currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((currency) => (
-                    <SelectItem key={currency.code} value={currency.code}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{currency.symbol}</span>
-                        <span className="text-sm">{currency.name} ({currency.code})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-500 mt-1">
-                All pricing in your account will be displayed in this currency
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700 font-medium text-sm sm:text-base">
                 Password *
               </Label>
@@ -307,7 +264,7 @@ export default function RegisterPage() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
               <p className="text-xs sm:text-sm text-blue-800">
-                <strong>Note:</strong> Your account will be registered as a standard user. An admin can assign you to specific departments (Kitchen, Cleaning, Driver, etc.) after you register.
+                <strong>Note:</strong> Your account will be registered as a client user. An admin can assign you to specific departments (Kitchen, Cleaning, Driver, etc.) after registration.
               </p>
             </div>
 

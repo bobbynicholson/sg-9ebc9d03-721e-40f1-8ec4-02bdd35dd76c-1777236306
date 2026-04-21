@@ -21,8 +21,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [testMode, setTestMode] = useState(true); // Default to test mode
-  const { signIn } = useAuth();
+  const [testMode, setTestMode] = useState(true);
   const { toast } = useToast();
 
   // Test roles configuration
@@ -76,7 +75,6 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Create a mock session without real authentication
       const mockUser = {
         id: `test-${role}-${Date.now()}`,
         email: `test.${role}@example.com`,
@@ -86,7 +84,6 @@ export default function LoginPage() {
         created_at: new Date().toISOString(),
       };
 
-      // Store test mode flag in localStorage
       localStorage.setItem("testMode", "true");
       localStorage.setItem("testRole", role);
       localStorage.setItem("testUser", JSON.stringify(mockUser));
@@ -97,8 +94,6 @@ export default function LoginPage() {
         duration: 2000,
       });
 
-      // Redirect based on role
-      const companySlug = "test-company";
       let dashboardUrl = "/";
       
       switch (role) {
@@ -106,25 +101,24 @@ export default function LoginPage() {
           dashboardUrl = `/admin/dashboard`;
           break;
         case "driver":
-          dashboardUrl = `/drivers`;
+          dashboardUrl = `/team-portal/driver/dashboard`;
           break;
         case "kitchen":
-          dashboardUrl = `/kitchen`;
+          dashboardUrl = `/team-portal/kitchen/dashboard`;
           break;
         case "shopping":
-          dashboardUrl = `/shopping`;
+          dashboardUrl = `/team-portal/shopping/dashboard`;
           break;
         case "cleaning":
-          dashboardUrl = `/cleaning`;
+          dashboardUrl = `/team-portal/cleaning/dashboard`;
           break;
         case "client":
-          dashboardUrl = "/client-portal";
+          dashboardUrl = "/client-portal/dashboard";
           break;
         default:
           dashboardUrl = "/";
       }
 
-      // Small delay to show the toast
       setTimeout(() => {
         router.push(dashboardUrl);
       }, 500);
@@ -135,15 +129,11 @@ export default function LoginPage() {
     }
   };
 
-  // Clear any stale authentication on mount
   useEffect(() => {
     const clearStaleAuth = async () => {
       try {
-        // Clear local storage auth tokens
         localStorage.removeItem("supabase.auth.token");
         sessionStorage.clear();
-        
-        // Sign out locally (don't make API call)
         await authService.signOut();
       } catch (error) {
         console.log("Cleared stale auth state");
@@ -153,7 +143,6 @@ export default function LoginPage() {
     clearStaleAuth();
   }, []);
 
-  // Show session expiration message if redirected from expired session
   useEffect(() => {
     if (message === "session_expired") {
       toast({
@@ -190,11 +179,9 @@ export default function LoginPage() {
     }
 
     try {
-      // Authenticate with Supabase
       const { user, error: signInError } = await authService.signIn(email, password);
 
       if (signInError) {
-        // Provide more user-friendly error messages
         if (signInError.message.includes("Invalid login credentials")) {
           setError("The email or password you entered is incorrect. Please check your credentials and try again.");
         } else if (signInError.message.includes("Email not confirmed")) {
@@ -214,7 +201,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Get user profile from Supabase
       const profile = await profileService.getProfile(user.id);
 
       if (!profile) {
@@ -223,44 +209,33 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if redirect URL was provided
       if (redirect && typeof redirect === "string") {
         router.push(redirect);
         return;
       }
 
-      // Redirect based on profile's company_slug and active_role
-      const companySlug = profile.company_slug || "my-company";
       const activeRole = profile.active_role || profile.role || "client";
-
-      // Build dashboard URL based on active role
       let dashboardUrl = "/";
       
       switch (activeRole) {
-        case "admin":
-        case "owner":
-          dashboardUrl = `/${companySlug}/admin/dashboard`;
+        case "company_admin":
+        case "super_admin":
+          dashboardUrl = `/admin/dashboard`;
           break;
         case "driver":
-          dashboardUrl = `/${companySlug}/driver/dashboard`;
+          dashboardUrl = `/team-portal/driver/dashboard`;
           break;
-        case "kitchen":
         case "kitchen_staff":
-          dashboardUrl = `/${companySlug}/kitchen/dashboard`;
+          dashboardUrl = `/team-portal/kitchen/dashboard`;
           break;
-        case "shopping":
         case "shopping_staff":
-          dashboardUrl = `/${companySlug}/shopping/dashboard`;
+          dashboardUrl = `/team-portal/shopping/dashboard`;
           break;
-        case "cleaning":
         case "cleaning_staff":
-          dashboardUrl = `/${companySlug}/cleaning/dashboard`;
+          dashboardUrl = `/team-portal/cleaning/dashboard`;
           break;
         case "client":
-          dashboardUrl = "/client-portal";
-          break;
-        case "super_admin":
-          dashboardUrl = "/cateringms-platform/dashboard";
+          dashboardUrl = "/client-portal/dashboard";
           break;
         default:
           dashboardUrl = "/";
@@ -285,7 +260,6 @@ export default function LoginPage() {
         setError(error.message);
         setGoogleLoading(false);
       }
-      // OAuth will redirect automatically, no need to stop loading
     } catch (err) {
       console.error("Google sign in error:", err);
       setError("Failed to sign in with Google. Please try again.");
