@@ -1,1 +1,0 @@
-ALTER TABLE leads ADD COLUMN budget_range TEXT;

@@ -1,1 +1,0 @@
-ALTER TABLE leads ADD COLUMN IF NOT EXISTS special_requests TEXT;
