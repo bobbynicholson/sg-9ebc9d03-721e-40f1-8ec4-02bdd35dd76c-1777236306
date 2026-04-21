@@ -16,13 +16,17 @@ async function applyMigration() {
     process.exit(1);
   }
 
+  // Force IPv4 and use connection pooler
+  const poolerString = connectionString.replace(':5432/', ':6543/');
+  
   const client = new Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false }
+    connectionString: poolerString,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000
   });
 
   try {
-    console.log('🔌 Connecting to database...');
+    console.log('🔌 Connecting to database (via pooler)...');
     await client.connect();
     console.log('✅ Connected successfully!');
 
