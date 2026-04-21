@@ -48,12 +48,7 @@ export const authService = {
   },
 
   // Sign up with email and password
-  async signUp(email: string, password: string, metadata?: {
-    full_name?: string;
-    role?: string;
-    company_id?: string;
-    phone?: string;
-  }): Promise<{ user: AuthUser | null; error: AuthError | null }> {
+  async signUp(email: string, password: string, metadata?: Record<string, any>): Promise<{ user: AuthUser | null; error: AuthError | null }> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
