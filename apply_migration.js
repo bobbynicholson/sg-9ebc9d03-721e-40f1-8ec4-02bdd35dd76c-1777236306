@@ -22,11 +22,16 @@ async function applyMigration() {
   const client = new Client({
     connectionString: poolerString,
     ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000
+    connectionTimeoutMillis: 10000,
+    host: 'db.vsuyzovzqtrngorpqnhy.supabase.co',
+    port: 6543,
+    database: 'postgres',
+    user: 'postgres',
+    password: 'Bobbyisawesome#23'
   });
 
   try {
-    console.log('🔌 Connecting to database (via pooler)...');
+    console.log('🔌 Connecting to database (IPv4, pooler)...');
     await client.connect();
     console.log('✅ Connected successfully!');
 
