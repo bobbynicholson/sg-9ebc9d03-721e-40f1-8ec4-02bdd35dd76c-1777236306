@@ -1,10 +1,23 @@
 const fs = require('fs');
 const { Client } = require('pg');
-require('dotenv').config({ path: '.env.local' });
+
+// Read DATABASE_URL from .env.local
+function getDatabaseUrl() {
+  const envContent = fs.readFileSync('.env.local', 'utf8');
+  const match = envContent.match(/DATABASE_URL=(.+)/);
+  return match ? match[1].trim() : null;
+}
 
 async function applyMigration() {
+  const connectionString = getDatabaseUrl();
+  
+  if (!connectionString) {
+    console.error('❌ DATABASE_URL not found in .env.local');
+    process.exit(1);
+  }
+
   const client = new Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
     ssl: { rejectUnauthorized: false }
   });
 
