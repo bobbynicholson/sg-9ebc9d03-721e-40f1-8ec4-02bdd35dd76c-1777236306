@@ -1,9 +1,9 @@
 const fs = require('fs');
 const { Client } = require('pg');
-const dns = require('dns');
+const dns = require('dns').promises;
 
 // Force IPv4 resolution
-dns.setDefaultResultOrder('ipv4first');
+require('dns').setDefaultResultOrder('ipv4first');
 
 // Read DATABASE_URL from .env.local
 function getDatabaseUrl() {
@@ -13,29 +13,24 @@ function getDatabaseUrl() {
 }
 
 async function applyMigration() {
-  const connectionString = getDatabaseUrl();
-  
-  if (!connectionString) {
-    console.error('❌ DATABASE_URL not found in .env.local');
-    process.exit(1);
-  }
-
-  // Force IPv4 and use connection pooler
-  const poolerString = connectionString.replace(':5432/', ':6543/');
-  
-  const client = new Client({
-    connectionString: poolerString,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
-    host: 'db.vsuyzovzqtrngorpqnhy.supabase.co',
-    port: 6543,
-    database: 'postgres',
-    user: 'postgres',
-    password: 'Bobbyisawesome#23'
-  });
-
   try {
-    console.log('🔌 Connecting to database (IPv4, pooler)...');
+    // Manually resolve IPv4 address only
+    console.log('🔍 Resolving IPv4 address for db.vsuyzovzqtrngorpqnhy.supabase.co...');
+    const addresses = await dns.resolve4('db.vsuyzovzqtrngorpqnhy.supabase.co');
+    const ipv4Address = addresses[0];
+    console.log('✅ Resolved to IPv4:', ipv4Address);
+
+    const client = new Client({
+      host: ipv4Address,  // Use IPv4 address directly
+      port: 6543,  // Pooler port
+      database: 'postgres',
+      user: 'postgres',
+      password: 'Bobbyisawesome#23',
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000
+    });
+
+    console.log('🔌 Connecting to database...');
     await client.connect();
     console.log('✅ Connected successfully!');
 
@@ -51,15 +46,15 @@ async function applyMigration() {
     console.log('✅ Migration applied successfully!');
     console.log('🎉 Database schema is now up to date!');
 
+    await client.end();
+    console.log('🔌 Database connection closed');
+
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
     if (error.position) {
       console.error('Error at position:', error.position);
     }
     throw error;
-  } finally {
-    await client.end();
-    console.log('🔌 Database connection closed');
   }
 }
 
