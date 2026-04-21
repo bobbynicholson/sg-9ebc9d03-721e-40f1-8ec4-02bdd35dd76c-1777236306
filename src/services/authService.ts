@@ -76,10 +76,10 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
         user: null, 
-        error: { message: "An unexpected error occurred during sign up" } 
+        error: { message: error?.message || "An unexpected error occurred during sign up" } 
       };
     }
   },
@@ -104,10 +104,10 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
         user: null, 
-        error: { message: "An unexpected error occurred during sign in" } 
+        error: { message: error?.message || "An unexpected error occurred during sign in" } 
       };
     }
   },
@@ -127,9 +127,9 @@ export const authService = {
       }
 
       return { error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
-        error: { message: "An unexpected error occurred during Google sign in" } 
+        error: { message: error?.message || "An unexpected error occurred during Google sign in" } 
       };
     }
   },
@@ -151,10 +151,10 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
         user: null, 
-        error: { message: "An unexpected error occurred during OAuth callback" } 
+        error: { message: error?.message || "An unexpected error occurred during OAuth callback" } 
       };
     }
   },
@@ -169,9 +169,9 @@ export const authService = {
       }
 
       return { error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
-        error: { message: "An unexpected error occurred during sign out" } 
+        error: { message: error?.message || "An unexpected error occurred during sign out" } 
       };
     }
   },
@@ -188,9 +188,9 @@ export const authService = {
       }
 
       return { error: null };
-    } catch (error) {
+    } catch (error: any) {
       return { 
-        error: { message: "An unexpected error occurred during password reset" } 
+        error: { message: error?.message || "An unexpected error occurred during password reset" } 
       };
     }
   },
