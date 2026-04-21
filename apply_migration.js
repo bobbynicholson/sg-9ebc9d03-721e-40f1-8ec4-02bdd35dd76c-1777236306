@@ -1,5 +1,9 @@
 const fs = require('fs');
 const { Client } = require('pg');
+const dns = require('dns');
+
+// Force IPv4 resolution
+dns.setDefaultResultOrder('ipv4first');
 
 // Read DATABASE_URL from .env.local
 function getDatabaseUrl() {
