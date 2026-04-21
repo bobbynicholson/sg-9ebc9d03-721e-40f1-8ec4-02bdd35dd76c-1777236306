@@ -3,9 +3,14 @@ const fs = require('fs');
 
 const run = async () => {
     // Connect to Supabase using port 5432 for direct DDL execution (avoids transaction pooler issues)
-    const connectionString = process.env.DATABASE_URL 
+    let connectionString = process.env.DATABASE_URL 
         ? process.env.DATABASE_URL.replace(':6543', ':5432') 
-        : 'postgresql://postgres.vsuyzovzqtrngorpqnhy:Bobbyisawesome#23@aws-0-eu-west-2.pooler.supabase.com:5432/postgres';
+        : 'postgresql://postgres.vsuyzovzqtrngorpqnhy:Bobbyisawesome%2323@aws-0-eu-west-2.pooler.supabase.com:5432/postgres';
+        
+    // Fix any unencoded '#' in the connection string if it came from the env
+    if (connectionString.includes('Bobbyisawesome#23')) {
+        connectionString = connectionString.replace('Bobbyisawesome#23', 'Bobbyisawesome%2323');
+    }
         
     const client = new Client({
         connectionString,
