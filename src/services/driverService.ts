@@ -229,7 +229,7 @@ export const driverService = {
   ): Promise<DriverAssignment | null> {
     const { data, error } = await supabase
       .from("driver_assignments")
-      .update({ [field]: value })
+      .update({ [field]: value } as any)
       .eq("id", assignmentId)
       .select()
       .single();
@@ -398,7 +398,7 @@ export const driverService = {
       title: "Job Accepted",
       message: "You have successfully accepted a delivery job",
       priority: "medium",
-    });
+    } as any);
 
     return assignment;
   },
@@ -501,7 +501,7 @@ export const driverService = {
           title: "Delivery Started",
           message: "GPS tracking activated. Drive safely!",
           priority: "high",
-        });
+        } as any);
 
         const trackingUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/tracking/client?order=${assignment.order_id}`;
         const gameUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://cateringms.com'}/client-portal?game=true`;
@@ -600,12 +600,12 @@ export const driverService = {
           title: "Arrived at Venue",
           message: "You have arrived at the delivery location",
           priority: "medium",
-        });
+        } as any);
 
         // Get client details
         let clientPhone = orderDetails.client_phone;
-        let clientEmail = orderDetails.client_email;
         let clientName = orderDetails.client_name;
+        let clientEmail = orderDetails.client_email;
         
         if (!clientPhone && orderDetails.client_id) {
           const { data: clientProfile } = await supabase
@@ -678,7 +678,7 @@ export const driverService = {
           title: "Event Complete",
           message: "Collection available for this order",
           priority: "medium",
-        });
+        } as any);
       }
     }
 
@@ -980,7 +980,7 @@ export const driverService = {
         message: `Driver is on the way to kitchen for Order ${order.order_number}`,
         priority: "medium",
         link: `/orders/${order.id}`,
-      });
+      } as any);
 
       // ✅ FIX BUG #20.3: Send EMAIL notification to admin
       try {
@@ -1092,7 +1092,7 @@ Your Catering Company`;
           title: "Driver at Kitchen",
           message: "Driver has arrived at the kitchen and is collecting the order",
           priority: "medium",
-        });
+        } as any);
 
         // Get client details
         let clientPhone = orderDetails.client_phone;

@@ -125,7 +125,7 @@ export const cmsService = {
   async createPage(page: Omit<CMSPage, "id" | "created_at" | "last_updated">): Promise<CMSPage> {
     const { data, error } = await supabase
       .from("cms_pages")
-      .insert([page])
+      .insert([page as any])
       .select()
       .single();
 
@@ -140,7 +140,7 @@ export const cmsService = {
   async updatePage(id: string, updates: Partial<Omit<CMSPage, "id" | "created_at">>): Promise<CMSPage> {
     const { data, error } = await supabase
       .from("cms_pages")
-      .update({ ...updates, last_updated: new Date().toISOString() })
+      .update({ ...updates, last_updated: new Date().toISOString() } as any)
       .eq("id", id)
       .select()
       .single();

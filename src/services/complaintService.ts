@@ -73,7 +73,7 @@ export const complaintService = {
         resolution,
         resolved_by: resolvedBy,
         resolved_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", complaintId)
       .select()
       .single();

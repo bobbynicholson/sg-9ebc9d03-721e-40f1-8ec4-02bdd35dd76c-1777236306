@@ -260,7 +260,7 @@ export const driverReplacementService = {
           orderId: request.order_id,
           originalDriver: request.profiles?.full_name
         }
-      });
+      } as any);
 
       // 2. ✅ NEW: Email notification to driver
       if (driver.email) {

@@ -16,7 +16,7 @@ class RealtimeNotificationService {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .insert([payload])
+        .insert([payload as any])
         .select()
         .single();
 

@@ -27,6 +27,7 @@ export const companyService = {
     try {
       const companyData: CompanyInsert = {
         company_name: data.name,
+        slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         owner_id: data.owner_id,
         email: data.email,
         phone: data.phone,
@@ -243,11 +244,12 @@ export const companyService = {
         {
           owner_id: user.id,
           company_name: companyName,
+          slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           email: email,
-          subscription_plan_id: planId,
+          subscription_plan: planId,
           subscription_status: 'trialing',
           trial_ends_at: trialEndsAt.toISOString(),
-        },
+        } as any,
       ])
       .select()
       .single();
@@ -260,7 +262,7 @@ export const companyService = {
     
     const { error: profileError } = await supabase
         .from('profiles')
-        .update({ company_id: company.id, roles: ['admin', 'owner'] })
+        .update({ company_id: company.id, roles: ['admin', 'owner'] } as any)
         .eq('id', user.id);
 
     if (profileError) {
