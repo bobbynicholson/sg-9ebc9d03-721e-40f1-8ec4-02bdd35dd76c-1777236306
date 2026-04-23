@@ -16,7 +16,8 @@ import {
   Map,
   AlertCircle,
   Play,
-  Flag
+  Flag,
+  Circle
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
@@ -28,6 +29,7 @@ import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimi
 import { driverService } from "@/services/driverService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
+import { MobileRouteView } from "@/components/driver/MobileRouteView";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -192,6 +194,54 @@ export default function DriverRoutes() {
       toast({
         title: "Error",
         description: "Failed to complete trip. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNavigateToStop = (stop: any) => {
+    if (stop.venue_lat && stop.venue_lng) {
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.venue_lat},${stop.venue_lng}`;
+      window.open(googleMapsUrl, "_blank");
+    } else {
+      toast({
+        title: "Navigation unavailable",
+        description: "Location coordinates not available for this stop",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateStopStatus = async (stopId: string, status: string) => {
+    try {
+      // Update stop status in database
+      const { error } = await supabase
+        .from("route_stops")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", stopId);
+
+      if (error) throw error;
+
+      // Update local state
+      if (selectedRoute) {
+        const updatedStops = selectedRoute.stops.map((stop) =>
+          stop.id === stopId ? { ...stop, status } : stop
+        );
+        setSelectedRoute({ ...selectedRoute, stops: updatedStops });
+      }
+
+      toast({
+        title: "Status updated",
+        description: `Stop marked as ${status}`,
+      });
+
+      // Refresh routes
+      loadRoutes();
+    } catch (error) {
+      console.error("Error updating stop status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update stop status",
         variant: "destructive",
       });
     }
