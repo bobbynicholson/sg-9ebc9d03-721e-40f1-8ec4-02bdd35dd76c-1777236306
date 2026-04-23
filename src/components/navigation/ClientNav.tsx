@@ -1,214 +1,147 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard,
-  ShoppingBag,
-  FileText,
-  CreditCard,
+  ShoppingCart,
   MapPin,
-  Calendar,
-  MessageSquare,
-  Settings,
+  Receipt,
+  User,
+  LogOut,
   Menu,
-  ChevronRight,
-  Bell,
-  Package
+  X
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description?: string;
-}
-
-interface NavSection {
-  title: string;
-  items: NavItem[];
-}
-
-interface ClientNavProps {
-  className?: string;
-  companySlug?: string;
-}
-
-export function ClientNav({ className, companySlug }: ClientNavProps) {
+export function ClientNav() {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const baseUrl = companySlug ? `/company/${companySlug}` : "";
+  const { signOut } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const clientNavSections: NavSection[] = [
-    {
-      title: "My Account",
-      items: [
-        {
-          title: "Dashboard",
-          href: `${baseUrl}/client-portal/dashboard`,
-          icon: LayoutDashboard,
-          description: "Overview of your events"
-        },
-        {
-          title: "My Orders",
-          href: `${baseUrl}/client-portal/orders`,
-          icon: ShoppingBag,
-          description: "View your order history"
-        },
-        {
-          title: "Track Delivery",
-          href: `${baseUrl}/client-portal/tracking`,
-          icon: MapPin,
-          description: "Live tracking of your order"
-        }
-      ]
-    },
-    {
-      title: "Bookings",
-      items: [
-        {
-          title: "Request Quote",
-          href: `${baseUrl}/portal/client/request-quote`,
-          icon: FileText,
-          description: "Get a quote for your event"
-        },
-        {
-          title: "My Quotes",
-          href: `${baseUrl}/portal/client/quotes`,
-          icon: FileText,
-          description: "View quote history"
-        },
-        {
-          title: "Event Calendar",
-          href: `${baseUrl}/portal/client/calendar`,
-          icon: Calendar,
-          description: "Upcoming events"
-        }
-      ]
-    },
-    {
-      title: "Payments",
-      items: [
-        {
-          title: "Payment Schedule",
-          href: `${baseUrl}/portal/client/payments`,
-          icon: CreditCard,
-          description: "View payment schedules"
-        },
-        {
-          title: "Invoices",
-          href: `${baseUrl}/portal/client/invoices`,
-          icon: FileText,
-          description: "Download invoices"
-        }
-      ]
-    },
-    {
-      title: "Support",
-      items: [
-        {
-          title: "Messages",
-          href: `${baseUrl}/portal/client/messages`,
-          icon: MessageSquare,
-          description: "Chat with support"
-        },
-        {
-          title: "Notifications",
-          href: `${baseUrl}/portal/client/notifications`,
-          icon: Bell,
-          description: "View notifications"
-        },
-        {
-          title: "Settings",
-          href: `${baseUrl}/portal/client/settings`,
-          icon: Settings,
-          description: "Account settings"
-        }
-      ]
-    }
+  const navigation = [
+    { name: "Dashboard", href: "/client-portal/dashboard", icon: LayoutDashboard },
+    { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
+    { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
+    { name: "Billing", href: "/client-portal/billing", icon: Receipt },
   ];
 
-  const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
-  };
+  const isActive = (path: string) => router.pathname === path;
 
-  const NavContent = () => (
-    <ScrollArea className="h-full py-6 px-4">
-      <div className="space-y-6">
-        {clientNavSections.map((section) => (
-          <div key={section.title}>
-            <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              {section.title}
-            </h3>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-blue-50 hover:text-blue-700",
-                      active
-                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-md"
-                        : "text-slate-700"
-                    )}
-                  >
-                    <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{item.title}</div>
-                      {item.description && !active && (
-                        <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                      )}
-                    </div>
-                    {active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
-  );
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/auth/login");
+  };
 
   return (
     <>
-      {/* Mobile Navigation */}
-      <div className="lg:hidden">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="fixed top-4 left-4 z-50 bg-white shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
-            <div className="px-6 py-4 border-b bg-gradient-to-r from-blue-500 to-cyan-500">
-              <h2 className="text-xl font-bold text-white">Client Portal</h2>
-              <p className="text-sm text-blue-100 mt-1">Manage your events</p>
-            </div>
-            <NavContent />
-          </SheetContent>
-        </Sheet>
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-50">
+        <Link href="/client-portal/dashboard" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+            <span className="text-white font-bold text-sm">C</span>
+          </div>
+          <span className="font-bold text-slate-900">Client Portal</span>
+        </Link>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </Button>
       </div>
 
-      {/* Desktop Navigation */}
-      <div className={cn("hidden lg:block", className)}>
-        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
-          <div className="px-6 py-6 border-b bg-gradient-to-r from-blue-500 to-cyan-500">
-            <h2 className="text-xl font-bold text-white">Client Portal</h2>
-            <p className="text-sm text-blue-100 mt-1">Manage your events</p>
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <nav className="p-4 space-y-2">
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isActive(item.href)
+                        ? "bg-blue-50 text-blue-600 font-medium"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleSignOut}
+              >
+                <LogOut className="w-5 h-5 mr-3" />
+                Sign Out
+              </Button>
+            </nav>
           </div>
-          <NavContent />
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 xl:w-72 bg-white border-r border-slate-200 z-40">
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="h-16 flex items-center px-6 border-b border-slate-200">
+            <Link href="/client-portal/dashboard" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold">C</span>
+              </div>
+              <div>
+                <div className="font-bold text-slate-900">Client Portal</div>
+                <div className="text-xs text-slate-600">CateringMS</div>
+              </div>
+            </Link>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive(item.href)
+                      ? "bg-blue-50 text-blue-600 font-medium shadow-sm"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* User Section */}
+          <div className="p-4 border-t border-slate-200">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={handleSignOut}
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </div>
     </>
