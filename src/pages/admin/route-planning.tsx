@@ -227,9 +227,19 @@ export default function RoutePlanning() {
     try {
       const success = await routeOptimizationService.saveOptimizedRoute(route);
       if (success) {
+        // Send notification to driver
+        const { driverService } = await import("@/services/driverService");
+        await driverService.notifyDriverOfRouteAssignment(route.driver_id, {
+          stopCount: route.stops.length,
+          totalDistance: route.total_distance,
+          totalDuration: route.total_duration,
+          firstStopAddress: route.stops[0]?.venue_address || "Unknown",
+          firstStopTime: route.stops[0]?.delivery_time || new Date().toISOString()
+        });
+
         toast({
           title: "Route Applied!",
-          description: `Route assigned and real-time notification sent to ${route.driver_name}.`,
+          description: `Route assigned and notifications sent to ${route.driver_name} (in-app, email, and WhatsApp).`,
         });
         // Refresh unassigned orders
         loadUnassignedOrders();
@@ -237,6 +247,7 @@ export default function RoutePlanning() {
         throw new Error("Failed to save route");
       }
     } catch (error) {
+      console.error("Error applying route:", error);
       toast({
         title: "Error",
         description: "Failed to apply route and notify driver.",

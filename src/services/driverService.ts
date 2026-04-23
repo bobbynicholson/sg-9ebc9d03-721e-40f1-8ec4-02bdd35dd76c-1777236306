@@ -1166,6 +1166,111 @@ Your Catering Company`;
     return data;
   },
 
+  // NEW: Notify driver when route is assigned
+  async notifyDriverOfRouteAssignment(
+    driverId: string,
+    routeDetails: {
+      stopCount: number;
+      totalDistance: number;
+      totalDuration: number;
+      firstStopAddress: string;
+      firstStopTime: string;
+    }
+  ): Promise<void> {
+    try {
+      // Get driver profile
+      const { data: driverProfile } = await supabase
+        .from("profiles")
+        .select("email, full_name, phone, phone_number, company_id")
+        .eq("id", driverId)
+        .single();
+
+      if (!driverProfile) {
+        console.error("Driver profile not found");
+        return;
+      }
+
+      // Create in-portal notification
+      await realtimeNotificationService.createNotification({
+        company_id: driverProfile.company_id,
+        user_id: driverId,
+        recipient_id: driverId,
+        notification_type: "route_assigned",
+        title: "🗺️ New Route Assigned",
+        message: `You have been assigned a new route with ${routeDetails.stopCount} stop${routeDetails.stopCount !== 1 ? 's' : ''}. Distance: ${routeDetails.totalDistance.toFixed(1)}km, Duration: ${routeDetails.totalDuration}min`,
+        priority: "high",
+        link: "/team-portal/driver/routes",
+        target_role: "driver",
+      } as any);
+
+      // Send email notification
+      if (driverProfile.email) {
+        try {
+          const subject = "New Delivery Route Assigned";
+          const body = `Dear ${driverProfile.full_name || "Driver"},
+
+🗺️ You have been assigned a new delivery route!
+
+Route Details:
+• Number of stops: ${routeDetails.stopCount}
+• Total distance: ${routeDetails.totalDistance.toFixed(1)} km
+• Estimated duration: ${routeDetails.totalDuration} minutes
+• First stop: ${routeDetails.firstStopAddress}
+• First delivery time: ${new Date(routeDetails.firstStopTime).toLocaleString()}
+
+Please check your driver portal for the complete route details and navigation.
+
+Drive safely! 🚗
+
+Best regards,
+Your Catering Team`;
+
+          await sendEmailViaAPI({
+            companyId: driverProfile.company_id,
+            to: driverProfile.email,
+            subject,
+            body,
+            variables: {
+              driverName: driverProfile.full_name || "Driver",
+              stopCount: routeDetails.stopCount.toString(),
+              totalDistance: routeDetails.totalDistance.toFixed(1),
+              totalDuration: routeDetails.totalDuration.toString()
+            }
+          });
+          console.log("✅ Route assignment email sent to driver:", driverProfile.email);
+        } catch (emailError) {
+          console.error("⚠️ Failed to send route assignment email (non-blocking):", emailError);
+        }
+      }
+
+      // Send WhatsApp notification
+      const driverPhone = driverProfile.phone || driverProfile.phone_number;
+      if (driverPhone) {
+        try {
+          await whatsappIntegrationService.sendWhatsAppMessage({
+            to: driverPhone,
+            type: "text",
+            text: {
+              body: `🗺️ New Route Assigned!\n\n` +
+                    `You have ${routeDetails.stopCount} delivery stop${routeDetails.stopCount !== 1 ? 's' : ''}\n` +
+                    `Distance: ${routeDetails.totalDistance.toFixed(1)} km\n` +
+                    `Duration: ${routeDetails.totalDuration} minutes\n\n` +
+                    `First stop: ${routeDetails.firstStopAddress}\n` +
+                    `Time: ${new Date(routeDetails.firstStopTime).toLocaleString()}\n\n` +
+                    `Check your driver portal for full route details and navigation. Drive safely! 🚗`
+            }
+          });
+          console.log("✅ Route assignment WhatsApp sent to driver:", driverPhone);
+        } catch (whatsappError) {
+          console.error("⚠️ WhatsApp notification failed (non-blocking):", whatsappError);
+        }
+      }
+    } catch (error) {
+      console.error("Error notifying driver of route assignment:", error);
+      throw error;
+    }
+  },
+
   async checkProximityAndNotify(
     assignmentId: string,
     currentLat: number,
