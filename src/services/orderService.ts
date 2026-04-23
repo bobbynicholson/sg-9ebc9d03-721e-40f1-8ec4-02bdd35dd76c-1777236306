@@ -978,7 +978,7 @@ Your Catering Company`;
           message: `Order ${order.order_number} (${order.client_name}) received ${rating} stars. Schedule team debrief to address issues and prevent recurrence.`,
           priority: "urgent",
           order_id: orderId,
-        });
+        } as any);
       }
     }
 

@@ -133,7 +133,7 @@ export const equipmentManagementService = {
       totalQuantity: data.reduce((sum, eq) => sum + (eq.quantity || 0), 0),
       availableQuantity: data.reduce((sum, eq) => sum + (eq.available_quantity || 0), 0),
       inUseQuantity: data.reduce((sum, eq) => sum + ((eq.quantity || 0) - (eq.available_quantity || 0)), 0),
-      byCategory: data.reduce((acc, eq) => {
+      byCategory: data.reduce((acc: any, eq) => {
         const category = eq.category || 'uncategorized';
         if (!acc[category]) {
           acc[category] = { total: 0, available: 0 };
@@ -141,15 +141,15 @@ export const equipmentManagementService = {
         acc[category].total += eq.quantity || 0;
         acc[category].available += eq.available_quantity || 0;
         return acc;
-      }, {} as Record<string, { total: number; available: number }>),
-      byCondition: data.reduce((acc, eq) => {
+      }, {}),
+      byCondition: data.reduce((acc: any, eq) => {
         const condition = eq.condition || 'unknown';
         if (!acc[condition]) {
           acc[condition] = 0;
         }
         acc[condition]++;
         return acc;
-      }, {} as Record<string, number>),
+      }, {}),
     };
 
     return stats;

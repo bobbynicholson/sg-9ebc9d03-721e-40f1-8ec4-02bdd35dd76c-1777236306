@@ -36,7 +36,7 @@ async function markArrived(assignmentId: string): Promise<any | null> {
     if (assignment) {
       await supabase.from("orders").update({
         status: "delivered",
-      }).eq("id", assignment.order_id);
+      } as any).eq("id", assignment.order_id);
 
       const { data: orderDetails } = await supabase
         .from("orders")

@@ -89,7 +89,7 @@ export const userManagementService = {
           invited_by: invitedBy,
           expires_at: expiresAt.toISOString(),
           status: "pending",
-        })
+        } as any)
         .select()
         .single();
 
@@ -374,7 +374,7 @@ export const userManagementService = {
         
         const { error: insertError } = await supabase
           .from("user_departments")
-          .insert(newDepartmentsData);
+          .insert(newDepartmentsData as any);
 
         if (insertError) {
           console.error("Error inserting new departments:", insertError);

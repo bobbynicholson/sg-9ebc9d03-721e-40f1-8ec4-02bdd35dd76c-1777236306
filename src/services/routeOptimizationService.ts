@@ -324,7 +324,7 @@ export const routeOptimizationService = {
           .update({
             driver_id: route.driver_id,
             delivery_sequence: i + 1,
-          })
+          } as any)
           .eq("id", stop.order_id);
       }
 
