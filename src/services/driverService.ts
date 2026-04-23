@@ -565,7 +565,7 @@ export const driverService = {
       .update({
         status: "arrived",
         arrived_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", assignmentId)
       .select()
       .single();
@@ -957,7 +957,7 @@ export const driverService = {
       .update({
         status: "heading_to_kitchen",
         started_trip_to_kitchen_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", assignmentId)
       .select("*, orders(id, user_id, order_number, client_id, client_email, client_name)")
       .single();
@@ -1061,7 +1061,7 @@ Your Catering Company`;
       .update({
         status: "at_kitchen",
         arrived_at_kitchen: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", assignmentId)
       .select()
       .single();

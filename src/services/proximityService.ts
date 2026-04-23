@@ -17,7 +17,7 @@ async function markArrived(assignmentId: string): Promise<any | null> {
       .update({
         status: "arrived",
         arrived_at: new Date().toISOString(),
-      })
+      } as any)
       .eq("id", assignmentId)
       .select()
       .single();

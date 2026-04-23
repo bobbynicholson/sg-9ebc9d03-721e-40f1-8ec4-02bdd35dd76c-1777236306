@@ -219,7 +219,7 @@ export const userManagementService = {
           status: "accepted",
           accepted_at: new Date().toISOString(),
           accepted_by: userId 
-        })
+        } as any)
         .eq("id", invitation.id);
 
       return { 

@@ -102,7 +102,7 @@ export const equipmentManagementService = {
       .update({ 
         quantity_available: newAvailable,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq("id", id)
       .select()
       .single();
