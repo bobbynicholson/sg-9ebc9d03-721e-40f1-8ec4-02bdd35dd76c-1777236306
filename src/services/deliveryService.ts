@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { notificationService } from "./notificationService";
 
 type Delivery = Database["public"]["Tables"]["deliveries"]["Row"];
 type DeliveryInsert = Database["public"]["Tables"]["deliveries"]["Insert"];
@@ -142,7 +143,156 @@ export const deliveryService = {
       updates.driver_notes = driverNotes;
     }
 
-    return this.updateDelivery(deliveryId, updates);
+    const result = await this.updateDelivery(deliveryId, updates);
+
+    // Send real-time notification on status change
+    await this.notifyStatusChange(deliveryId, status, driverNotes);
+
+    return result;
+  },
+
+  async notifyStatusChange(deliveryId: string, newStatus: string, notes?: string) {
+    try {
+      // Get delivery details with client info
+      const delivery = await this.getDeliveryById(deliveryId);
+      if (!delivery) return;
+
+      const orderId = delivery.orders?.id;
+      if (!orderId) return;
+
+      // Get order owner (admin/client)
+      const { data: order } = await supabase
+        .from("orders")
+        .select("user_id, client_name, client_email")
+        .eq("id", orderId)
+        .single();
+
+      if (!order) return;
+
+      // Create notification message
+      let message = "";
+      let notificationType: "info" | "warning" | "success" | "error" = "info";
+
+      if (newStatus === "delivered") {
+        message = `Delivery completed for ${order.client_name}`;
+        notificationType = "success";
+      } else if (newStatus === "failed") {
+        message = `Delivery failed for ${order.client_name}${notes ? `: ${notes}` : ""}`;
+        notificationType = "error";
+      } else if (newStatus === "in_transit") {
+        message = `Driver en route to ${order.client_name}`;
+        notificationType = "info";
+      } else {
+        message = `Delivery status updated: ${newStatus} for ${order.client_name}`;
+      }
+
+      // Send notification to order owner
+      await notificationService.createNotification({
+        user_id: order.user_id,
+        type: notificationType,
+        title: "Delivery Status Update",
+        message,
+        related_id: deliveryId,
+        related_type: "delivery",
+      });
+
+      // Send email notification for important status changes
+      if (newStatus === "delivered" || newStatus === "failed") {
+        await this.sendStatusEmail(order, newStatus, notes);
+      }
+
+    } catch (error) {
+      console.error("Error sending status notification:", error);
+      // Don't throw - notification failure shouldn't break status update
+    }
+  },
+
+  async sendStatusEmail(
+    order: { client_name: string; client_email?: string },
+    status: string,
+    notes?: string
+  ) {
+    try {
+      if (!order.client_email) return;
+
+      await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: order.client_email,
+          subject: status === "delivered" 
+            ? `Delivery Completed - ${order.client_name}`
+            : `Delivery Status Update - ${order.client_name}`,
+          text: status === "delivered"
+            ? `Your delivery has been completed successfully!\n\nClient: ${order.client_name}\nTime: ${new Date().toLocaleString()}`
+            : `Delivery Status Update\n\nClient: ${order.client_name}\nStatus: ${status}\n${notes ? `Notes: ${notes}` : ""}`,
+        }),
+      });
+    } catch (error) {
+      console.error("Error sending status email:", error);
+    }
+  },
+
+  async getDeliveryStats(userId: string) {
+    const { data: deliveries, error } = await supabase
+      .from("deliveries")
+      .select(`
+        id,
+        status,
+        orders!inner (user_id)
+      `)
+      .eq("orders.user_id", userId);
+
+    if (error) throw error;
+
+    const stats = {
+      total: deliveries?.length || 0,
+      delivered: deliveries?.filter(d => d.status === "delivered").length || 0,
+      pending: deliveries?.filter(d => d.status === "pending").length || 0,
+      in_transit: deliveries?.filter(d => d.status === "in_transit").length || 0,
+      failed: deliveries?.filter(d => d.status === "failed").length || 0,
+    };
+
+    return {
+      ...stats,
+      success_rate: stats.total > 0 
+        ? Math.round((stats.delivered / stats.total) * 100) 
+        : 0,
+    };
+  },
+
+  async getDriverDeliveryStats(driverId: string, period: "today" | "week" | "month" = "today") {
+    const now = new Date();
+    let startDate = new Date();
+
+    if (period === "today") {
+      startDate.setHours(0, 0, 0, 0);
+    } else if (period === "week") {
+      startDate.setDate(now.getDate() - 7);
+    } else {
+      startDate.setMonth(now.getMonth() - 1);
+    }
+
+    const { data: deliveries, error } = await supabase
+      .from("deliveries")
+      .select("id, status, actual_delivery_time")
+      .eq("driver_id", driverId)
+      .gte("created_at", startDate.toISOString());
+
+    if (error) throw error;
+
+    const completed = deliveries?.filter(d => d.status === "delivered").length || 0;
+    const failed = deliveries?.filter(d => d.status === "failed").length || 0;
+    const total = deliveries?.length || 0;
+
+    return {
+      completed,
+      failed,
+      pending: total - completed - failed,
+      total,
+      success_rate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      earnings: completed * 250, // R250 per delivery
+    };
   },
 
   async addDeliveryPhoto(deliveryId: string, photoUrl: string) {

@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { MobileRouteView } from "@/components/driver/MobileRouteView";
 import { supabase } from "@/integrations/supabase/client";
+import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -46,6 +47,8 @@ export default function DriverRoutes() {
   const [tripStarted, setTripStarted] = useState(false);
   const [tripCompleted, setTripCompleted] = useState(false);
   const [processingStop, setProcessingStop] = useState(false);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -124,52 +127,24 @@ export default function DriverRoutes() {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, "_blank");
   };
 
+  const openStatusModal = (deliveryId: string, clientName: string) => {
+    setSelectedDelivery({ id: deliveryId, name: clientName });
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusUpdated = async () => {
+    await loadOptimizedRoute();
+    setStatusModalOpen(false);
+    setSelectedDelivery(null);
+  };
+
   const markStopComplete = async (stopIndex: number) => {
     if (!route || processingStop) return;
     
-    setProcessingStop(true);
-    try {
-      const stop = route.stops[stopIndex];
-      
-      // Mark current stop as arrived/completed
-      await driverService.markArrived(stop.order_id);
-      
-      toast({
-        title: "Stop Completed! ✅",
-        description: `${stop.client_name} delivery marked complete.`,
-      });
-      
-      // Move to next stop if available
-      if (stopIndex < route.stops.length - 1) {
-        const nextStop = route.stops[stopIndex + 1];
-        await driverService.startJob(nextStop.order_id);
-        setCurrentStopIndex(stopIndex + 1);
-        
-        toast({
-          title: "Next Stop",
-          description: `Now heading to ${nextStop.client_name}`,
-        });
-      } else {
-        // All stops complete
-        setTripCompleted(true);
-        toast({
-          title: "Trip Complete! 🎉",
-          description: "All deliveries completed successfully!",
-        });
-      }
-      
-      // Reload to get updated status
-      await loadOptimizedRoute();
-    } catch (error) {
-      console.error("Error marking stop complete:", error);
-      toast({
-        title: "Error",
-        description: "Failed to mark stop as complete. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingStop(false);
-    }
+    const stop = route.stops[stopIndex];
+    
+    // Open status modal instead of auto-completing
+    openStatusModal(stop.order_id, stop.client_name);
   };
 
   const completeTrip = async () => {
@@ -691,6 +666,20 @@ export default function DriverRoutes() {
 
         <Footer />
       </div>
+
+      {/* Delivery Status Modal */}
+      {selectedDelivery && (
+        <DeliveryStatusModal
+          open={statusModalOpen}
+          onClose={() => {
+            setStatusModalOpen(false);
+            setSelectedDelivery(null);
+          }}
+          onStatusUpdated={handleStatusUpdated}
+          deliveryId={selectedDelivery.id}
+          stopName={selectedDelivery.name}
+        />
+      )}
 
       <ChatBot userRole="driver" companyId={user?.user_metadata?.company_id} />
     </>
