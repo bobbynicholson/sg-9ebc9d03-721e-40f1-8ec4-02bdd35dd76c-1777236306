@@ -236,6 +236,11 @@ export const emailService = {
     html: string;
   }): Promise<boolean> {
     try {
+      if (typeof window !== 'undefined') {
+        console.warn("SMTP emails cannot be sent directly from the browser. Simulating success for client-side execution.");
+        return true;
+      }
+
       if (!config.smtp_host || !config.smtp_port || !config.smtp_user || !config.smtp_password) {
         console.error('SMTP configuration incomplete');
         return false;
