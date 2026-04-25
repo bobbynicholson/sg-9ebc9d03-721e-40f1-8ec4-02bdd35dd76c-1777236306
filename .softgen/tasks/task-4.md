@@ -1,6 +1,6 @@
 ---
 title: delivery status tracking
-status: in_progress
+status: done
 created_by: human
 created_at: '2026-04-20T19:07:32.733990'
 position: 3
@@ -18,5 +18,10 @@ Add functionality for drivers to update stop status (completed/failed) in real-t
 - [x] Add real-time notifications for status changes
 - [x] Integrate status modal into driver routes page
 - [x] Add delivery stats tracking for drivers
-- [ ] Test status updates and notifications
-- [ ] Verify email notifications for status changes
+- [x] Test status updates and notifications
+- [x] Verify email notifications for status changes
+
+## Acceptance
+- Drivers can mark deliveries as completed or failed from the routes page
+- Failed deliveries require a reason and trigger notifications to admin/client
+- Completed deliveries can include photo proof and signature
