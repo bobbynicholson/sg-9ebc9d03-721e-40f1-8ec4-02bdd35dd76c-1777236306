@@ -292,7 +292,11 @@ export default function CompanyDatabasePage() {
     try {
       const { error } = await supabase
         .from("companies")
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ 
+          is_active: false,
+          subscription_status: 'cancelled',
+          suspended_reason: 'Deleted by super admin'
+        } as any)
         .eq("id", companyId);
 
       if (error) throw error;

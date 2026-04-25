@@ -294,6 +294,97 @@ export const companyService = {
     return { user, company, session: signUpData.session };
   },
 
+  /**
+   * Create a new company with an admin user from super admin dashboard
+   */
+  async createCompanyWithAdmin(data: {
+    company_name: string;
+    company_slug: string;
+    email: string;
+    phone: string;
+    address_line1: string;
+    address_line2: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+    billing_currency: string;
+    admin_name: string;
+    admin_email: string;
+    admin_password?: string;
+  }): Promise<{ success: boolean; company?: Company; error?: string }> {
+    try {
+      // 1. Create the admin user
+      const password = data.admin_password || "BYPASS_2026";
+      
+      // Use the API route to create the user securely via admin API
+      const userRes = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.admin_email,
+          password: password,
+          full_name: data.admin_name,
+          role: 'company_admin'
+        })
+      });
+      
+      const userData = await userRes.json();
+      if (!userRes.ok) throw new Error(userData.error || "Failed to create user");
+      
+      const userId = userData.user.id;
+
+      // 2. Create the company
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .insert([{
+          company_name: data.company_name,
+          company_slug: data.company_slug,
+          email: data.email,
+          phone: data.phone,
+          address_line1: data.address_line1,
+          address_line2: data.address_line2,
+          city: data.city,
+          state_province: data.state,
+          postal_code: data.postal_code,
+          country: data.country,
+          billing_currency: data.billing_currency,
+          owner_id: userId,
+          subscription_status: 'trial',
+          trial_ends_at: trialEndsAt.toISOString(),
+          is_active: true
+        } as any])
+        .select()
+        .single();
+
+      if (companyError) {
+        console.error("Error creating company:", companyError);
+        throw new Error(companyError.message);
+      }
+
+      // 3. Update the user's profile with the new company ID
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          company_id: company.id, 
+          company_slug: data.company_slug 
+        } as any)
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+      }
+
+      return { success: true, company };
+    } catch (error: any) {
+      console.error("Failed to create company with admin:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async deleteCompany(id: string): Promise<void> {
     // This is a very destructive action.
   },
