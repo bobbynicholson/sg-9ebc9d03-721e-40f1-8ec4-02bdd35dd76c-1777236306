@@ -17,6 +17,6 @@ Add functionality for drivers to update stop status (completed/failed) in real-t
 - [x] Enhance deliveryService with status notification methods
 - [x] Add real-time notifications for status changes
 - [x] Integrate status modal into driver routes page
-- [ ] Add delivery stats tracking for drivers
+- [x] Add delivery stats tracking for drivers
 - [ ] Test status updates and notifications
 - [ ] Verify email notifications for status changes

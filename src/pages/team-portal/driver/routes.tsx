@@ -16,8 +16,7 @@ import {
   Map,
   AlertCircle,
   Play,
-  Flag,
-  Circle
+  Flag
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
@@ -29,8 +28,6 @@ import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimi
 import { driverService } from "@/services/driverService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
-import { MobileRouteView } from "@/components/driver/MobileRouteView";
-import { supabase } from "@/integrations/supabase/client";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
 
 const RouteMap = dynamic(
@@ -46,7 +43,6 @@ export default function DriverRoutes() {
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
   const [tripStarted, setTripStarted] = useState(false);
   const [tripCompleted, setTripCompleted] = useState(false);
-  const [processingStop, setProcessingStop] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<{ id: string; name: string } | null>(null);
 
@@ -139,7 +135,7 @@ export default function DriverRoutes() {
   };
 
   const markStopComplete = async (stopIndex: number) => {
-    if (!route || processingStop) return;
+    if (!route) return;
     
     const stop = route.stops[stopIndex];
     
@@ -458,12 +454,12 @@ export default function DriverRoutes() {
                         </Button>
                         <Button
                           onClick={() => markStopComplete(currentStopIndex)}
-                          disabled={!tripStarted || processingStop}
+                          disabled={!tripStarted}
                           variant="outline"
                           className="w-full border-white text-white hover:bg-white/10 disabled:opacity-50"
                         >
                           <CheckCircle className="w-4 h-4 mr-2" />
-                          {processingStop ? "Processing..." : "Mark Complete"}
+                          {tripStarted ? "Mark Complete" : "Processing..."}
                         </Button>
                       </div>
                     </>
@@ -628,12 +624,12 @@ export default function DriverRoutes() {
                               <Button
                                 size="sm"
                                 onClick={() => markStopComplete(index)}
-                                disabled={!tripStarted || processingStop}
+                                disabled={!tripStarted}
                                 className="flex-1 sm:flex-none"
                               >
                                 <CheckCircle className="w-4 h-4 sm:mr-2" />
                                 <span className="hidden sm:inline">
-                                  {processingStop ? "Processing..." : "Complete"}
+                                  {tripStarted ? "Complete" : "Processing..."}
                                 </span>
                               </Button>
                             </div>

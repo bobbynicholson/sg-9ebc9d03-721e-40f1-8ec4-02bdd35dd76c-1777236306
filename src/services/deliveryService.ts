@@ -263,7 +263,7 @@ export const deliveryService = {
 
   async getDriverDeliveryStats(driverId: string, period: "today" | "week" | "month" = "today") {
     const now = new Date();
-    let startDate = new Date();
+    const startDate = new Date();
 
     if (period === "today") {
       startDate.setHours(0, 0, 0, 0);
