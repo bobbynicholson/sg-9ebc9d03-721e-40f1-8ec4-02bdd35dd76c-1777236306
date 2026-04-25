@@ -75,29 +75,48 @@ export default function CompanyLoginPage() {
     const slugString = company_slug as string;
 
     try {
-      console.log("🔐 Company login attempt for:", email, "at company:", slugString);
+      console.log("🔐 Company login attempt for:", email, "at", slugString);
       
-      // Check if user exists and belongs to this company
+      // Check if user exists in profiles (case-insensitive)
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("*, companies!inner(company_slug)")
-        .eq("email", email.toLowerCase())
-        .eq("companies.company_slug", slugString)
+        .select(`
+          *,
+          companies!inner(
+            company_slug,
+            company_name
+          )
+        `)
+        .ilike("email", email.trim())
         .single();
 
       console.log("👤 Profile found:", profiles);
+      console.log("🎭 User role:", profiles?.active_role);
+      console.log("🏢 User company:", profiles?.companies);
 
       if (profileError || !profiles) {
-        console.error("❌ No profile found for this company:", profileError);
-        setError(`No account found with this email at ${companyInfo?.name || 'this company'}. Please contact your administrator.`);
+        console.error("❌ No profile found:", profileError);
+        setError("No account found with this email address. Please check your email or contact support.");
         setLoading(false);
         return;
       }
 
-      // Authenticate with bypass password
+      // Verify user belongs to this company (unless super admin)
+      const userCompanySlug = Array.isArray(profiles.companies) 
+        ? profiles.companies[0]?.company_slug 
+        : profiles.companies?.company_slug;
+
+      if (profiles.active_role !== "super_admin" && userCompanySlug !== slugString) {
+        console.error("❌ User belongs to different company:", userCompanySlug, "vs", slugString);
+        setError("This account does not belong to this company. Please use the correct login page.");
+        setLoading(false);
+        return;
+      }
+
+      // Try to login with bypass password
       console.log("🔑 Attempting authentication...");
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
+        email: email.trim().toLowerCase(),
         password: "BYPASS_2026",
       });
 
