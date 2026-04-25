@@ -17,7 +17,7 @@ const PUBLIC_ROUTES = [
   "/security",
   "/support",
   "/demo",
-  "/blog",
+  "/blog",           // Public blog for customers
   "/api",
   "/favicon.ico",
   "/robots.txt",
@@ -31,6 +31,17 @@ const SUPER_ADMIN_ROUTES = [
 // Check if path is a super admin route
 const isSuperAdminRoute = (pathname: string) => {
   return pathname === "/super-admin" || pathname.startsWith("/super-admin/");
+};
+
+// Check if path is a public route
+const isPublicRoute = (pathname: string) => {
+  return PUBLIC_ROUTES.some(route => {
+    if (route === "/blog") {
+      // Allow /blog and /blog/[slug]
+      return pathname === "/blog" || pathname.startsWith("/blog/");
+    }
+    return pathname === route || pathname.startsWith(route);
+  });
 };
 
 // Route patterns that require company slug
@@ -76,7 +87,7 @@ export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   // Allow public routes without validation
-  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route))) {
+  if (isPublicRoute(pathname)) {
     return res;
   }
 

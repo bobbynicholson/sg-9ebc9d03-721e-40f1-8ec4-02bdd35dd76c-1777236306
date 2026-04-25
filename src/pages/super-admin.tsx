@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { 
   LayoutDashboard, Users, Truck, ChefHat, 
   ShoppingCart, Sparkles, BarChart3,
-  Crown, Shield, Database, Settings, Building2, CreditCard, TrendingUp
+  Crown, Shield, Database, Settings,
+  Building2, CreditCard, TrendingUp,
+  Clock, DollarSign, Globe, FileText, Layout
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,14 +26,14 @@ const PORTALS: Portal[] = [
   {
     id: "platform-management",
     name: "Platform Management",
-    description: "Manage all companies, subscriptions, and platform settings",
+    description: "Core platform operations and settings",
     icon: Settings,
-    route: "/super-admin/admin/dashboard",
+    route: "/super-admin/dashboard",
     features: [
-      "View all companies",
-      "Manage subscriptions",
-      "Platform analytics",
-      "System settings"
+      "System overview",
+      "Platform settings",
+      "User management",
+      "System health"
     ],
     color: "text-purple-600"
   },
@@ -40,7 +42,7 @@ const PORTALS: Portal[] = [
     name: "Company Database",
     description: "View and manage all registered catering companies",
     icon: Building2,
-    route: "/super-admin/admin/companies",
+    route: "/super-admin/company-database",
     features: [
       "Company profiles",
       "Subscription status",
@@ -50,32 +52,88 @@ const PORTALS: Portal[] = [
     color: "text-blue-600"
   },
   {
-    id: "subscriptions",
+    id: "subscription-management",
     name: "Subscription Management",
     description: "Monitor and manage all platform subscriptions",
     icon: CreditCard,
-    route: "/super-admin/admin/subscriptions",
+    route: "/super-admin/subscription-management",
     features: [
       "Active subscriptions",
-      "Trial management",
       "Billing history",
-      "Revenue tracking"
+      "Revenue tracking",
+      "Plan management"
     ],
     color: "text-green-600"
   },
   {
-    id: "analytics",
-    name: "Platform Analytics",
-    description: "Deep insights into platform usage and performance",
-    icon: TrendingUp,
-    route: "/super-admin/admin/analytics",
+    id: "trial-management",
+    name: "Trial Management",
+    description: "Manage trial periods and conversions",
+    icon: Clock,
+    route: "/super-admin/trial-management",
     features: [
-      "Usage metrics",
-      "Revenue reports",
-      "Growth trends",
-      "Performance data"
+      "Active trials",
+      "Expiry tracking",
+      "Conversion rates",
+      "Trial extensions"
     ],
     color: "text-orange-600"
+  },
+  {
+    id: "pricing-management",
+    name: "Pricing Management",
+    description: "Configure platform pricing and plans",
+    icon: DollarSign,
+    route: "/super-admin/pricing-management",
+    features: [
+      "Plan tiers",
+      "Feature pricing",
+      "Regional pricing",
+      "Discounts"
+    ],
+    color: "text-emerald-600"
+  },
+  {
+    id: "currency-monitoring",
+    name: "Currency Monitoring",
+    description: "Track and manage multi-currency support",
+    icon: Globe,
+    route: "/super-admin/currency-monitoring",
+    features: [
+      "Exchange rates",
+      "Currency conversions",
+      "Regional settings",
+      "Rate alerts"
+    ],
+    color: "text-cyan-600"
+  },
+  {
+    id: "cms-blog",
+    name: "Blog CMS",
+    description: "Create and manage blog content",
+    icon: FileText,
+    route: "/super-admin/cms-blog",
+    features: [
+      "Create posts",
+      "Edit content",
+      "Publish schedule",
+      "SEO optimization"
+    ],
+    color: "text-pink-600"
+  },
+  {
+    id: "cms-pages",
+    name: "Pages CMS",
+    description: "Manage static pages and content",
+    icon: Layout,
+    route: "/super-admin/cms-pages",
+    features: [
+      "Page templates",
+      "Content editor",
+      "Custom pages",
+      "Navigation"
+    ],
+    color: "text-indigo-600"
   },
 ];
 
