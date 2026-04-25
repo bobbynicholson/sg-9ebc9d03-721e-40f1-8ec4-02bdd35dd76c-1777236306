@@ -328,6 +328,27 @@ export class BillingEmailService {
     }
   }
 
+  async sendStaffInvitationEmail(
+    to: string,
+    inviterName: string,
+    companyName: string,
+    joinUrl: string,
+    companyId: string
+  ): Promise<boolean> {
+    return await this.sendBillingEmail(
+      to,
+      "staff_invitation",
+      {
+        userName: "there",
+        inviterName,
+        companyName,
+        role: "Team Member",
+        joinUrl
+      },
+      companyId
+    );
+  }
+
   async notifySubscriptionStarted(userId: string, subscription: any) {
     const { data: profile } = await supabase
       .from("profiles")
