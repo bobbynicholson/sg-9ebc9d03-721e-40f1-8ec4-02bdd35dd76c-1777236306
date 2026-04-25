@@ -218,8 +218,10 @@ export default function LoginPage() {
       let dashboardUrl = "/";
       
       switch (activeRole) {
-        case "company_admin":
         case "super_admin":
+          dashboardUrl = `/super-admin`;
+          break;
+        case "company_admin":
           dashboardUrl = `/admin/dashboard`;
           break;
         case "driver":
