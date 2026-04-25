@@ -197,7 +197,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => setOpen(!open)}
             >
               <Menu className="h-6 w-6" />
             </Button>

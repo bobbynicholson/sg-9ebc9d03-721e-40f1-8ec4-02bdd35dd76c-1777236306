@@ -370,7 +370,7 @@ export function AdminNav({ className }: AdminNavProps) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={() => setOpen(!open)}
               className="lg:hidden"
             >
               <Menu className="h-6 w-6" />

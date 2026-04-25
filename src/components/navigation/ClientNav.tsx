@@ -19,7 +19,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 export function ClientNav() {
   const router = useRouter();
   const { signOut } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const navigation = [
     { name: "Dashboard", href: "/client-portal/dashboard", icon: LayoutDashboard },
@@ -51,19 +51,19 @@ export function ClientNav() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setOpen(!open)}
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <Menu className="h-6 w-6" />
             </Button>
           </div>
         </div>
       </div>
 
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
+      {open && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => setOpen(false)}
         >
           <div
             className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl"
@@ -81,7 +81,7 @@ export function ClientNav() {
                         ? "bg-blue-50 text-blue-600 font-medium"
                         : "text-slate-700 hover:bg-slate-100"
                     }`}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={() => setOpen(false)}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{item.name}</span>
