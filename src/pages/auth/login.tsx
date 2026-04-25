@@ -56,67 +56,67 @@ export default function LoginPage() {
     }
 
     try {
-      // For development: Direct passwordless login
+      console.log("🔐 Login attempt for:", email);
+      
+      // Check if user exists in profiles
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("email", email.toLowerCase())
         .single();
 
+      console.log("👤 Profile found:", profiles);
+      console.log("🎭 User role:", profiles?.active_role);
+
       if (profileError || !profiles) {
+        console.error("❌ No profile found:", profileError);
         setError("No account found with this email address. Please check your email or contact support.");
         setLoading(false);
         return;
       }
 
-      // Get the auth user
+      // Try to login with bypass password
+      console.log("🔑 Attempting authentication...");
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(),
-        password: "bypass-temp-2024", // Temporary bypass password
+        password: password || "BYPASS_2026",
       });
 
+      console.log("✅ Auth result:", authData);
+      console.log("❌ Auth error:", signInError);
+
       if (signInError) {
-        // If password doesn't work, send magic link
-        const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-          email: email.toLowerCase(),
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
-          },
-        });
-
-        if (magicLinkError) {
-          setError("Failed to send login link. Please try again.");
-          setLoading(false);
-          return;
-        }
-
-        setEmailSent(true);
+        console.error("Authentication failed:", signInError);
+        setError("Invalid email or password. Please try again.");
         setLoading(false);
         return;
       }
 
       // Successfully logged in - redirect based on role
       const activeRole = profiles.active_role;
+      console.log("🎯 Redirecting user with role:", activeRole);
+      
       let dashboardUrl = "/";
 
       switch (activeRole) {
         case "super_admin":
-          dashboardUrl = "/super-admin";
+          dashboardUrl = `/super-admin`;
+          console.log("🌟 Super Admin detected - redirecting to:", dashboardUrl);
           break;
         case "company_admin":
-          dashboardUrl = "/admin/dashboard";
+          dashboardUrl = `/admin/dashboard`;
           break;
         case "driver":
-          dashboardUrl = "/team-portal/driver/dashboard";
+          dashboardUrl = `/team-portal/driver/dashboard`;
           break;
         case "kitchen_staff":
-          dashboardUrl = "/team-portal/kitchen/dashboard";
+          dashboardUrl = `/team-portal/kitchen/dashboard`;
           break;
         case "shopping_staff":
-          dashboardUrl = "/team-portal/shopping/dashboard";
+          dashboardUrl = `/team-portal/shopping/dashboard`;
           break;
         case "cleaning_staff":
-          dashboardUrl = "/team-portal/cleaning/dashboard";
+          dashboardUrl = `/team-portal/cleaning/dashboard`;
           break;
         case "client":
           dashboardUrl = "/client-portal/dashboard";
@@ -125,13 +125,15 @@ export default function LoginPage() {
           dashboardUrl = "/";
       }
 
+      console.log("🚀 Final redirect URL:", dashboardUrl);
+      
       if (redirect && typeof redirect === "string") {
         router.push(redirect);
       } else {
         router.push(dashboardUrl);
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("💥 Login error:", err);
       setError("Login failed. Please try again.");
       setLoading(false);
     }

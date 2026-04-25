@@ -6,10 +6,9 @@ import {
   ShoppingCart, Sparkles, BarChart3,
   Crown, Shield, Database, Settings
 } from "lucide-react";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserRole } from "@/types/app";
+import { useEffect, useState } from "react";
 
 interface Portal {
   id: string;
@@ -81,20 +80,36 @@ const PORTALS: Portal[] = [
 function SuperAdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
-  if (!user || user.role !== "super_admin") {
+  useEffect(() => {
+    console.log("Super Admin - Current user:", user);
+    console.log("Super Admin - User role:", user?.active_role);
+    
+    if (!user) {
+      console.log("No user found, redirecting to login");
+      router.push("/auth/login");
+      return;
+    }
+
+    if (user.active_role !== "super_admin") {
+      console.log("User is not super_admin, role:", user.active_role);
+      router.push("/auth/login");
+      return;
+    }
+
+    console.log("User authorized as super_admin");
+    setIsAuthorized(true);
+  }, [user, router]);
+
+  if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <Card className="w-full max-w-md">
           <CardContent className="p-12 text-center">
-            <Shield className="w-16 h-16 mx-auto mb-4 text-red-600" />
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
-            <p className="text-slate-600 mb-6">
-              This area is restricted to Super Admin users only.
-            </p>
-            <Button onClick={() => router.push("/admin/dashboard")}>
-              Go to Dashboard
-            </Button>
+            <Shield className="w-16 h-16 mx-auto mb-4 text-blue-600 animate-pulse" />
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Verifying Access...</h2>
+            <p className="text-slate-600">Checking super admin credentials</p>
           </CardContent>
         </Card>
       </div>
@@ -271,10 +286,4 @@ function SuperAdminDashboard() {
   );
 }
 
-export default function SuperAdminPage() {
-  return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-      <SuperAdminDashboard />
-    </ProtectedRoute>
-  );
-}
+export default SuperAdminDashboard;
