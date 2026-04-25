@@ -25,6 +25,7 @@ export const companyService = {
     currency?: string;
     timezone?: string;
     status?: string;
+  company_slug?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
       const companyData: CompanyInsert = {

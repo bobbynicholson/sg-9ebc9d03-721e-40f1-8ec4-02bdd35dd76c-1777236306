@@ -71,15 +71,17 @@ export default function CompanyLoginPage() {
       return;
     }
 
+    const slugString = company_slug as string;
+
     try {
-      console.log("🔐 Company login attempt for:", email, "at company:", company_slug);
+      console.log("🔐 Company login attempt for:", email, "at company:", slugString);
       
       // Check if user exists and belongs to this company
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("*, companies!inner(company_slug)")
         .eq("email", email.toLowerCase())
-        .eq("companies.company_slug", company_slug)
+        .eq("companies.company_slug", slugString)
         .single();
 
       console.log("👤 Profile found:", profiles);
