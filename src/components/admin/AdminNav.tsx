@@ -33,7 +33,8 @@ import {
   UserPlus,
   FileSpreadsheet,
   Plug,
-  Route
+  Route,
+  User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -268,6 +269,17 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/payment-gateways",
           icon: CreditCard,
           description: "Configure payments"
+        }
+      ]
+    },
+    {
+      title: "Account",
+      items: [
+        {
+          title: "My Profile",
+          href: "/account/settings",
+          icon: User,
+          description: "Personal settings"
         }
       ]
     }
