@@ -348,3 +348,5 @@ export const fullMockOrders: AppOrder[] = [
       equipment_items: [],
     },
 ];
+
+export const sampleQuotes: Quote[] = [];
