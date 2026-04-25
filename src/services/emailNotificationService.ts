@@ -105,7 +105,7 @@ export const emailNotificationService = {
             subject: email.subject,
             body: emailBody,
             orderId: email.order_id,
-            quoteId: email.quote_id,
+            quoteId: (email as any).quote_id,
           });
 
           // Update status
