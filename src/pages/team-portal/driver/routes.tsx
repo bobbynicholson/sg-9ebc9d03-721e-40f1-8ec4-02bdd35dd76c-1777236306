@@ -213,41 +213,6 @@ export default function DriverRoutes() {
     }
   };
 
-  const handleUpdateStopStatus = async (stopId: string, status: string) => {
-    try {
-      // Update stop status in database
-      const { error } = await supabase
-        .from("route_stops")
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq("id", stopId);
-
-      if (error) throw error;
-
-      // Update local state
-      if (route) {
-        const updatedStops = route.stops.map((stop) =>
-          stop.id === stopId ? { ...stop, status } : stop
-        );
-        setRoute({ ...route, stops: updatedStops });
-      }
-
-      toast({
-        title: "Status updated",
-        description: `Stop marked as ${status}`,
-      });
-
-      // Refresh routes
-      loadOptimizedRoute();
-    } catch (error) {
-      console.error("Error updating stop status:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update stop status",
-        variant: "destructive",
-      });
-    }
-  };
-
   if (loading) {
     return (
       <>
