@@ -216,33 +216,80 @@ export default function InvoicesPage() {
 
   const handleSyncToAccounting = async (invoiceId: string) => {
     if (!user?.company_id) return;
+    const invoice = invoices.find(inv => inv.id === invoiceId);
+    if (!invoice || !invoice.invoice_data) return;
 
     try {
-      const { success, error } = await syncInvoiceToAccounting({
-        provider: "xero", // TODO: Get from company settings
-        invoiceId,
-        companyId: user.company_id,
+      setGeneratingInvoice(true);
+      const xeroStatus = await getIntegrationStatus(user.company_id, "xero");
+      const qbStatus = await getIntegrationStatus(user.company_id, "quickbooks");
+
+      let provider: "xero" | "quickbooks" | null = null;
+      
+      if (xeroStatus.connected) {
+        provider = "xero";
+      } else if (qbStatus.connected) {
+        provider = "quickbooks";
+      }
+
+      if (!provider) {
+        toast({
+          title: "No Accounting Integration",
+          description: "Please connect Xero or QuickBooks in Settings → Integrations",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const invoiceData = {
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date,
+        dueDate: invoice.due_date,
+        clientName: invoice.invoice_data.clientName,
+        clientEmail: invoice.invoice_data.clientEmail,
+        items: invoice.invoice_data.items,
+        subtotal: invoice.subtotal,
+        taxAmount: invoice.tax_amount || invoice.invoice_data.taxAmount || 0,
+        total: invoice.total_amount,
+        status: invoice.status === "paid" ? "paid" : "sent" as "paid" | "sent" | "draft",
+      };
+
+      const result = await syncInvoiceToAccounting(user.company_id, provider, invoiceData);
+
+      if (!result.success) {
+        toast({
+          title: "Sync Failed",
+          description: result.error || "Failed to sync invoice to accounting system",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await supabase
+        .from("invoices")
+        .update({
+          external_id: result.externalId,
+          external_invoice_number: result.externalInvoiceNumber,
+          synced_to_accounting: true,
+          last_synced_at: new Date().toISOString(),
+          sync_error: null,
+        })
+        .eq("id", invoice.id);
+
+      toast({
+        title: "✅ Synced Successfully",
+        description: `Invoice synced to ${provider === "xero" ? "Xero" : "QuickBooks"}`,
       });
 
-      if (!success) {
-        toast({
-          title: "Accounting Sync Not Available",
-          description: error || "Accounting integration is not yet configured. Contact support to enable Xero, QuickBooks, or Sage integration.",
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Invoice synced to accounting system",
-        });
-        loadInvoices();
-      }
+      loadInvoices();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Sync Error",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setGeneratingInvoice(false);
     }
   };
 
