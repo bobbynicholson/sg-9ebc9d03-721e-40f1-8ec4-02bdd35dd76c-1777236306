@@ -246,9 +246,12 @@ export const emailService = {
         return false;
       }
 
-      const nodemailer = await import('nodemailer');
+      // Hide require from Webpack to prevent client-side build errors
+      // using eval prevents Webpack's static analyzer from seeing the require
+      const getRequire = () => eval("require");
+      const nodemailer = getRequire()('nodemailer');
 
-      const transporter = nodemailer.default.createTransport({
+      const transporter = nodemailer.createTransport({
         host: config.smtp_host,
         port: config.smtp_port,
         secure: config.smtp_port === 465,
