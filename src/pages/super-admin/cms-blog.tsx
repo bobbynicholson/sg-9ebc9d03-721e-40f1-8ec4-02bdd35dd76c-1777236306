@@ -156,6 +156,10 @@ export default function CMSBlogPage() {
         meta_description: generated.metaDescription,
         is_published: true,
         author: user?.full_name || user?.email || "Admin",
+        published_date: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+        category: "General", // Default category
+        tags: generated.suggestedKeywords || [],
       });
 
       toast({
