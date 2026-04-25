@@ -27,6 +27,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
+import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
 
 const StatCard = ({ 
   title, 
@@ -159,6 +160,16 @@ export default function PlatformDashboard() {
                 🔧 DEV MODE - Super Admin Dashboard
               </h1>
               <p className="text-slate-600">Full platform access - All companies & settings</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <CompanySwitcher />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/auth/login")}
+              >
+                Exit DEV Mode
+              </Button>
             </div>
           </div>
 
@@ -297,6 +308,7 @@ export default function PlatformDashboard() {
             <p className="text-slate-600">Internal sales dashboard and business metrics</p>
           </div>
           <div className="flex items-center gap-3">
+            <CompanySwitcher />
             <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select period" />
