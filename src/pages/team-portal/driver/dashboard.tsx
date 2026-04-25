@@ -20,6 +20,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { CateringDashGame } from "@/components/games/CateringDashGame";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 interface Job {
   id: string;
@@ -86,12 +88,12 @@ export default function DriverDashboard() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
         <title>Driver Dashboard - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <DriverNav />
+      <DynamicNav userRole={UserRole.DRIVER} />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 sm:py-8 lg:py-12 max-w-7xl">

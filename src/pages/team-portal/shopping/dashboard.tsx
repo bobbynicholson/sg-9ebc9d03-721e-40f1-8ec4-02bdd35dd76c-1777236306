@@ -10,6 +10,8 @@ import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 interface ShoppingItem {
   id: string;
@@ -134,12 +136,12 @@ export default function ShoppingDashboard() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
         <title>Shopping Dashboard - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <ShoppingNav />
+      <DynamicNav userRole={UserRole.SHOPPING} />
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">

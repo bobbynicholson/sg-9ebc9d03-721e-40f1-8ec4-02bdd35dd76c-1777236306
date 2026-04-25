@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, Star, TrendingUp } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,8 @@ import { ChatBot } from "@/components/ChatBot";
 import { DeliveryFeedbackModal, FeedbackData } from "@/components/DeliveryFeedbackModal";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
@@ -252,6 +254,8 @@ export default function ClientTracking() {
         <title>Track Your Order - CateringMS</title>
       </Head>
       <NoIndexMeta />
+
+      <DynamicNav userRole={UserRole.CLIENT} />
 
       <div className="min-h-screen bg-slate-50 pb-20">
         {/* Header */}

@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package } from "lucide-react";
+import { Sparkles, ClipboardCheck, Droplets, AlertTriangle, Users, Activity, CheckCircle, Truck, Clock, Package, TrendingUp } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
@@ -14,6 +14,8 @@ import { CleaningNav } from "@/components/navigation/CleaningNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 export default function CleaningDashboard() {
   const { user } = useAuth();
@@ -32,15 +34,15 @@ export default function CleaningDashboard() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
         <title>Cleaning Dashboard - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <CleaningNav />
+      <DynamicNav userRole={UserRole.CLEANING} />
 
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50 py-8 lg:pl-64">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />

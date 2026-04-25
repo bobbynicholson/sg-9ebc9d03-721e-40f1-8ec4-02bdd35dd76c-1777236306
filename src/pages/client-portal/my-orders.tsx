@@ -10,6 +10,8 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 interface Order {
   id: string;
@@ -87,7 +89,7 @@ export default function MyOrders() {
         <title>My Orders - CateringMS</title>
       </Head>
 
-      <ClientNav />
+      <DynamicNav userRole={UserRole.CLIENT} />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">

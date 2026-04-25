@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Clock, CheckCircle, Package, AlertCircle } from "lucide-react";
-import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
+import { UserRole } from "@/types/app";
 
 export default function DriverTracking() {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ export default function DriverTracking() {
         <title>Delivery Tracking - Driver Portal</title>
       </Head>
 
-      <DriverNav />
+      <DynamicNav userRole={UserRole.DRIVER} />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-4xl">

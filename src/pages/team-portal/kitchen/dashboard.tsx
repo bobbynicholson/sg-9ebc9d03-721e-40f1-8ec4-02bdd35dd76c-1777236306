@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { DynamicNav } from "@/components/DynamicNav";
+import { ChatBot } from "@/components/ChatBot";
+import { UserRole } from "@/types/app";
 import Head from "next/head";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { orderService } from "@/services/orderService";
 
 interface Order {
   id: string;
@@ -83,12 +85,12 @@ export default function KitchenDashboard() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head>
         <title>Kitchen Dashboard - CateringMS</title>
       </Head>
+      <NoIndexMeta />
 
-      <KitchenNav />
+      <DynamicNav userRole={UserRole.KITCHEN} />
 
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">

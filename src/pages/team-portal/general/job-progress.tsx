@@ -12,6 +12,7 @@ import {
   ChefHat,
   Truck,
   Package,
+  TrendingUp,
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -19,6 +20,7 @@ import { Header } from "@/components/Header";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
 
 interface JobProgress {
   id: string;
@@ -96,7 +98,7 @@ export default function StaffJobProgress() {
         <title>Job Progress - CateringMS</title>
       </Head>
 
-      <Header />
+      {user && <DynamicNav userRole={user.role} />}
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 pt-20">
         <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
