@@ -155,7 +155,7 @@ export default function CMSBlogPage() {
         content: generated.content,
         meta_description: generated.metaDescription,
         is_published: true,
-        author_id: user?.id || "",
+        author: user?.full_name || user?.email || "Admin",
       });
 
       toast({
