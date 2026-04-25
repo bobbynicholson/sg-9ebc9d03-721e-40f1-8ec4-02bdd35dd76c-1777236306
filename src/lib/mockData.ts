@@ -24,8 +24,6 @@ const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'c
   special_instructions: "Please set up the buffet by the main stage.",
   assigned_driver_id: "driver-b",
   updated_at: new Date().toISOString(),
-  payment_reference: "PAY-123",
-  payment_gateway: "PayFast",
   delivery_time: null,
   amount_paid: 19350,
   requires_waiter: false,
