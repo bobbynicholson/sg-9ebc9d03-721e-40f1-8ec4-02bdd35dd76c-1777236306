@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
