@@ -73,7 +73,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
-  [UserRole.SUPER_ADMIN]: () => "/cateringms-platform/dashboard",
+  [UserRole.SUPER_ADMIN]: () => "/super-admin",
   [UserRole.ADMIN]: (slug) => "/admin/dashboard",
   [UserRole.OWNER]: (slug) => "/admin/dashboard",
   [UserRole.KITCHEN]: () => "/team-portal/kitchen/dashboard",
