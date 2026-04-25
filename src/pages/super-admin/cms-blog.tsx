@@ -154,7 +154,6 @@ export default function CMSBlogPage() {
         excerpt: generated.excerpt,
         content: generated.content,
         meta_description: generated.metaDescription,
-        keywords: generated.suggestedKeywords,
         is_published: true,
         author_id: user?.id || "",
       });
