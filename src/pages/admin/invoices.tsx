@@ -24,7 +24,6 @@ import {
   generateInvoiceData,
   createInvoiceRecord,
   sendInvoiceEmail,
-  syncInvoiceToAccounting,
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
 import {
