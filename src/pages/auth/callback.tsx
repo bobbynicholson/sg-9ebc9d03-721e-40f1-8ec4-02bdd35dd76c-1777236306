@@ -37,41 +37,57 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // Regular login callback - redirect to appropriate dashboard
+          // Regular login callback - fetch profile and redirect based on role
           const { data: profile } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", session.user.id)
             .single();
 
-          if (profile?.active_role) {
+          console.log("🔄 Callback - User profile:", profile);
+          console.log("🎭 Callback - User role:", profile?.role);
+
+          if (profile?.role) {
+            let dashboardUrl = "/";
+
             // Redirect based on role
-            switch (profile.active_role) {
+            switch (profile.role) {
               case "super_admin":
-                router.push("/super-admin");
+                dashboardUrl = "/super-admin/dashboard";
+                console.log("🌟 Callback - Super Admin redirect:", dashboardUrl);
                 break;
               case "company_admin":
-                router.push("/admin/dashboard");
+                dashboardUrl = "/admin/dashboard";
+                console.log("👔 Callback - Company Admin redirect:", dashboardUrl);
                 break;
               case "driver":
-                router.push("/team-portal/driver/dashboard");
+                dashboardUrl = "/team-portal/driver/dashboard";
+                console.log("🚗 Callback - Driver redirect:", dashboardUrl);
                 break;
               case "kitchen_staff":
-                router.push("/team-portal/kitchen/dashboard");
+                dashboardUrl = "/team-portal/kitchen/dashboard";
+                console.log("👨‍🍳 Callback - Kitchen Staff redirect:", dashboardUrl);
                 break;
               case "shopping_staff":
-                router.push("/team-portal/shopping/dashboard");
+                dashboardUrl = "/team-portal/shopping/dashboard";
+                console.log("🛒 Callback - Shopping Staff redirect:", dashboardUrl);
                 break;
               case "cleaning_staff":
-                router.push("/team-portal/cleaning/dashboard");
+                dashboardUrl = "/team-portal/cleaning/dashboard";
+                console.log("🧹 Callback - Cleaning Staff redirect:", dashboardUrl);
                 break;
               case "client":
-                router.push("/client-portal/dashboard");
+                dashboardUrl = "/client-portal/dashboard";
+                console.log("👤 Callback - Client redirect:", dashboardUrl);
                 break;
               default:
-                router.push("/");
+                dashboardUrl = "/";
+                console.log("⚠️ Callback - Unknown role, redirecting to home");
             }
+
+            await router.push(dashboardUrl);
           } else {
+            console.warn("⚠️ No role found in profile, redirecting to home");
             router.push("/");
           }
         } else {

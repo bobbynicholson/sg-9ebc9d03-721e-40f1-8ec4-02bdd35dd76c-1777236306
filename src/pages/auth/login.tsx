@@ -67,7 +67,7 @@ export default function LoginPage() {
         .single();
 
       console.log("👤 Profile found:", profiles);
-      console.log("🎭 User role:", profiles?.active_role);
+      console.log("🎭 User role:", profiles?.role);
 
       if (profileError || !profiles) {
         console.error("❌ No profile found:", profileError);
@@ -76,11 +76,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Try to login with bypass password
+      // Try to login with the provided password or default password
+      const loginPassword = password || "BYPASS_2026";
       console.log("🔑 Attempting authentication...");
+      
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
-        password: "BYPASS_2026",
+        password: loginPassword,
       });
 
       console.log("✅ Auth result:", authData);
@@ -94,44 +96,52 @@ export default function LoginPage() {
       }
 
       // Successfully logged in - redirect based on role
-      const activeRole = profiles.active_role;
-      console.log("🎯 Redirecting user with role:", activeRole);
+      const userRole = profiles.role;
+      console.log("🎯 Redirecting user with role:", userRole);
       
       let dashboardUrl = "/";
 
-      switch (activeRole) {
+      switch (userRole) {
         case "super_admin":
-          dashboardUrl = `/super-admin`;
+          dashboardUrl = "/super-admin/dashboard";
           console.log("🌟 Super Admin detected - redirecting to:", dashboardUrl);
           break;
         case "company_admin":
-          dashboardUrl = `/admin/dashboard`;
+          dashboardUrl = "/admin/dashboard";
+          console.log("👔 Company Admin detected - redirecting to:", dashboardUrl);
           break;
         case "driver":
-          dashboardUrl = `/team-portal/driver/dashboard`;
+          dashboardUrl = "/team-portal/driver/dashboard";
+          console.log("🚗 Driver detected - redirecting to:", dashboardUrl);
           break;
         case "kitchen_staff":
-          dashboardUrl = `/team-portal/kitchen/dashboard`;
+          dashboardUrl = "/team-portal/kitchen/dashboard";
+          console.log("👨‍🍳 Kitchen Staff detected - redirecting to:", dashboardUrl);
           break;
         case "shopping_staff":
-          dashboardUrl = `/team-portal/shopping/dashboard`;
+          dashboardUrl = "/team-portal/shopping/dashboard";
+          console.log("🛒 Shopping Staff detected - redirecting to:", dashboardUrl);
           break;
         case "cleaning_staff":
-          dashboardUrl = `/team-portal/cleaning/dashboard`;
+          dashboardUrl = "/team-portal/cleaning/dashboard";
+          console.log("🧹 Cleaning Staff detected - redirecting to:", dashboardUrl);
           break;
         case "client":
           dashboardUrl = "/client-portal/dashboard";
+          console.log("👤 Client detected - redirecting to:", dashboardUrl);
           break;
         default:
           dashboardUrl = "/";
+          console.log("⚠️ Unknown role, redirecting to home");
       }
 
       console.log("🚀 Final redirect URL:", dashboardUrl);
       
+      // Use custom redirect if provided, otherwise use role-based redirect
       if (redirect && typeof redirect === "string") {
-        router.push(redirect);
+        await router.push(redirect);
       } else {
-        router.push(dashboardUrl);
+        await router.push(dashboardUrl);
       }
     } catch (err) {
       console.error("💥 Login error:", err);
@@ -218,14 +228,14 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700 font-medium text-base">
-                Password (Optional)
+                Password
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter password (optional for now)"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 h-12 text-base"
@@ -233,7 +243,7 @@ export default function LoginPage() {
                 />
               </div>
               <p className="text-xs text-slate-500">
-                Password authentication coming soon. Use email only for now.
+                Leave blank to use default credentials for testing.
               </p>
             </div>
 
