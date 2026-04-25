@@ -113,15 +113,9 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
       items: [
         {
           title: "My Profile",
-          href: `${baseUrl}/portal/driver/profile`,
+          href: `/account/settings`,
           icon: User,
           description: "Update profile"
-        },
-        {
-          title: "Settings",
-          href: `${baseUrl}/portal/driver/settings`,
-          icon: Settings,
-          description: "App settings"
         }
       ]
     }
