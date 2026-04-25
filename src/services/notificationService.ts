@@ -287,7 +287,7 @@ export const notificationService = {
           message: params.message,
           link: params.link || null,
           priority: params.priority || "normal",
-          target_role: profile.role,
+          target_role: profile.role as UserRole,
           is_read: false
         }));
 

@@ -6,7 +6,7 @@ import {
   canModifyOrder,
   getOrderModificationStatus
 } from "@/lib/payfastService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
@@ -157,7 +157,7 @@ class PaymentProcessingService {
         const schedule = order.payment_schedules as any;
 
         // Send in-portal payment received notification
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: order.company_id,
           user_id: userId,
           recipient_id: order.user_id, // Should go to company admin
@@ -254,7 +254,7 @@ class PaymentProcessingService {
         const schedule = order.payment_schedules as any;
 
         // Send in-portal payment received notification
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: order.company_id,
           user_id: userId,
           recipient_id: order.user_id, // Admin
@@ -394,7 +394,7 @@ class PaymentProcessingService {
         }
 
         // Send in-portal notification
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: orderData.company_id,
           user_id: "system",
           recipient_id: orderData.user_id, // Admin
@@ -508,7 +508,7 @@ Your Catering Company`;
 
           if (!existingReminder) {
             // Send in-portal notification
-            await realtimeNotificationService.createNotification({
+            await notificationService.createNotification({
               company_id: orderData.company_id,
               user_id: "system",
               recipient_id: orderData.user_id, // Admin

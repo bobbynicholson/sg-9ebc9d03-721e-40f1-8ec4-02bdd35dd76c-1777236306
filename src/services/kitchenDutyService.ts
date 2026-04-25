@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
 
 type DutyShift = Database["public"]["Tables"]["kitchen_duty_shifts"]["Row"];
@@ -72,7 +72,7 @@ export const kitchenDutyService = {
     if(data) {
         const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
         if (order) {
-            await realtimeNotificationService.createNotification({
+            await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: data.user_id,
                 recipient_id: data.user_id, // Admin
@@ -108,7 +108,7 @@ export const kitchenDutyService = {
     if (data) {
         const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
         if (order) {
-            await realtimeNotificationService.createNotification({
+            await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: data.user_id,
                 recipient_id: data.user_id, // Admin
@@ -214,7 +214,7 @@ export const kitchenDutyService = {
     if (data) {
         const {data: order} = await supabase.from('orders').select('company_id').eq('id', data.order_id).single();
         if (order) {
-            await realtimeNotificationService.createNotification({
+            await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: data.user_id,
                 recipient_id: data.user_id, // Admin
@@ -231,7 +231,7 @@ export const kitchenDutyService = {
     if ((taskType === "prep_completed" || taskType === "all_tasks_completed") && data.order_id) {
         const { data: order } = await supabase.from('orders').select('assigned_driver_id, company_id').eq('id', data.order_id).single();
         if (order?.assigned_driver_id) {
-            await realtimeNotificationService.createNotification({
+            await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: data.user_id,
                 recipient_id: order.assigned_driver_id,
@@ -391,7 +391,7 @@ export const kitchenDutyService = {
     description: string
   ): Promise<void> {
     // NOTIFICATION: Kitchen emergency/issue → Urgent notification to admin
-    await realtimeNotificationService.createNotification({
+    await notificationService.createNotification({
         company_id: companyId,
         user_id: staffId,
         recipient_id: userId, // Admin

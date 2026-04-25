@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 
 interface SimpleOrder {
   id: string;
@@ -45,7 +45,7 @@ async function markArrived(assignmentId: string): Promise<any | null> {
         .single();
 
       if (orderDetails) {
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: orderDetails.company_id,
           user_id: orderDetails.user_id,
           recipient_id: assignment.driver_id,
@@ -125,7 +125,7 @@ async function checkProximityAndNotify(
       await markArrived(assignmentId);
 
       if (order.user_id && order.company_id) {
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: order.company_id,
           user_id: order.user_id,
           recipient_id: order.client_id || order.user_id,
@@ -155,7 +155,7 @@ async function checkProximityAndNotify(
 
       if (count === 0) {
           if(order.user_id && order.company_id){
-             await realtimeNotificationService.createNotification({
+             await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: order.user_id,
                 recipient_id: order.client_id || order.user_id,

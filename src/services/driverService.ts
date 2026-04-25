@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { AppOrder } from "@/types/app";
 import { sendEmailViaAPI } from "@/lib/emailClient";
@@ -971,7 +971,7 @@ export const driverService = {
 
     if (order) {
       // In-portal notification
-      await realtimeNotificationService.createNotification({
+      await notificationService.createNotification({
         company_id: order.company_id, // Add company_id
         user_id: order.user_id,
         recipient_id: order.user_id,
@@ -1191,7 +1191,7 @@ Your Catering Company`;
       }
 
       // Create in-portal notification
-      await realtimeNotificationService.createNotification({
+      await notificationService.createNotification({
         company_id: driverProfile.company_id,
         user_id: driverId,
         recipient_id: driverId,

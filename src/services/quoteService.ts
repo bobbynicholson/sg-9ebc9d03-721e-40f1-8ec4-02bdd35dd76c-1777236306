@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { AppOrder, Quote } from "@/types/app";
 import { regionService } from "./regionService";
 

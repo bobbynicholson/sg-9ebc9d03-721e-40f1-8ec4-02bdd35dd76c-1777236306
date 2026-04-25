@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 
 type EquipmentHandover = Database["public"]["Tables"]["equipment_handovers"]["Row"];
 type EquipmentDamage = Database["public"]["Tables"]["equipment_damages"]["Row"];
@@ -180,7 +180,7 @@ export const equipmentTrackingService = {
 
     if (order) {
       // 1. In-portal notification (existing - keep it)
-      await realtimeNotificationService.createNotification({
+      await notificationService.createNotification({
         company_id: order.company_id,
         user_id: order.user_id,
         recipient_id: order.user_id,
@@ -601,7 +601,7 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
           const equipmentName = (statusData as any).equipment?.name || "Equipment";
           
           // 1. In-portal notification (existing - keep it)
-          await realtimeNotificationService.createNotification({
+          await notificationService.createNotification({
             company_id: order.company_id,
             user_id: order.user_id,
             recipient_id: order.user_id,

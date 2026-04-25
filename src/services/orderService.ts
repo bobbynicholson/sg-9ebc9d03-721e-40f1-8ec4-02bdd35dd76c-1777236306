@@ -3,7 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Order } from "@/types/index";
 import type { AppOrder, ConvertQuoteToOrderParams, OrderStatusUpdate } from "@/types/app";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
 export type OrderItem = Database["public"]["Tables"]["orders"]["Row"];
@@ -801,7 +801,7 @@ export const orderService = {
       };
 
       // 1. In-portal notification (existing functionality - keep it)
-      await realtimeNotificationService.createNotification({
+      await notificationService.createNotification({
         company_id: order.company_id,
         user_id: order.user_id,
         recipient_id: order.client_id || order.user_id,

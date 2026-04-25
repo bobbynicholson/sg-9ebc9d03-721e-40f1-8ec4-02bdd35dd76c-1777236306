@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 
 export interface DriverConfirmation {
   id: string;
@@ -181,7 +181,7 @@ export const driverConfirmationService = {
     if (!driver || !order) return;
 
     // Send notification to admin (using realtime service)
-    await realtimeNotificationService.createNotification({
+    await notificationService.createNotification({
       company_id: order.company_id, // FIX: company_id is required
       user_id: "system", // FIX: user_id is required
       recipient_id: order.user_id, // Admin
@@ -264,7 +264,7 @@ export const driverConfirmationService = {
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
-    await realtimeNotificationService.createNotification({
+    await notificationService.createNotification({
       company_id: 'system-id', // Placeholder, should be retrieved from order
       user_id: driverId,
       recipient_id: 'admin',

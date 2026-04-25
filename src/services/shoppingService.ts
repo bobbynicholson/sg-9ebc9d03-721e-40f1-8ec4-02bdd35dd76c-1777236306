@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
 
 export type ShoppingList = Tables<"shopping_lists">;
@@ -52,7 +52,7 @@ export const shoppingService = {
     }
 
     if (data) {
-       await realtimeNotificationService.createNotification({
+       await notificationService.createNotification({
         company_id: data.company_id,
         user_id: data.user_id,
         recipient_id: data.user_id, // Admin
@@ -100,7 +100,7 @@ export const shoppingService = {
             );
         }
 
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
             company_id: data.company_id,
             user_id: data.user_id,
             recipient_id: data.shopper_id,
@@ -133,7 +133,7 @@ export const shoppingService = {
     }
 
     if (data) {
-       await realtimeNotificationService.createNotification({
+       await notificationService.createNotification({
         company_id: data.company_id,
         user_id: data.user_id,
         recipient_id: data.user_id, // Admin
@@ -167,7 +167,7 @@ export const shoppingService = {
     }
 
     if (data) {
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
             company_id: data.company_id,
             user_id: data.user_id,
             recipient_id: data.user_id, // Admin

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
@@ -181,7 +181,7 @@ export const driverReplacementService = {
 
     if (!request) return;
 
-    await realtimeNotificationService.createNotification({
+    await notificationService.createNotification({
       company_id: (request.profiles as any)?.company_id,
       user_id: request.original_driver_id,
       recipient_id: 'admin',

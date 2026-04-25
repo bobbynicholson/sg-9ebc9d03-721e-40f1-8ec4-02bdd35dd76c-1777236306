@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { realtimeNotificationService } from "./realtimeNotificationService";
+import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
@@ -67,7 +67,7 @@ export const leadService = {
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
         // 1. In-portal URGENT notification
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: lead.company_id,
           user_id: lead.user_id,
           recipient_id: lead.user_id,
@@ -188,7 +188,7 @@ Guests: ${lead.guest_count}`;
         const statusMessage = statusMessages[updates.status] || `Status updated to ${updates.status}`;
 
         // In-portal notification
-        await realtimeNotificationService.createNotification({
+        await notificationService.createNotification({
           company_id: data.company_id,
           user_id: data.user_id,
           recipient_id: data.user_id,
@@ -226,7 +226,7 @@ Guests: ${lead.guest_count}`;
 
     // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
-      await realtimeNotificationService.createNotification({
+      await notificationService.createNotification({
         company_id: lead.company_id,
         user_id: lead.user_id,
         recipient_id: lead.user_id,
