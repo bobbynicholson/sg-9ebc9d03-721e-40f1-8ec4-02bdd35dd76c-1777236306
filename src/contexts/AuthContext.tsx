@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isDevMode) {
       console.log("🔧 DEV MODE DETECTED: Creating fake super admin user");
       
-      // Create a fake super admin user for dev mode
+      // Create a fake super admin user for dev mode with company context
       const devUser: AuthenticatedUser = {
         id: "dev-mode-user-id",
         email: "dev@cateringms.local",
@@ -71,12 +71,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: UserRole.SUPER_ADMIN,
         active_role: UserRole.SUPER_ADMIN,
         currency: "ZAR",
+        company_id: "dev-company-id",
+        company_name: "DEV Test Company",
+        company_slug: "dev-test-company",
         created_at: new Date().toISOString(),
+      };
+
+      const devCompany: Company = {
+        id: "dev-company-id",
+        company_name: "DEV Test Company",
+        slug: "dev-test-company",
+        owner_id: "dev-mode-user-id",
+        email: "dev@cateringms.local",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_active: true,
+        trial_ends_at: null,
+        subscription_status: "active",
+        subscription_plan: "pro",
+        currency: "ZAR",
       };
 
       setUser(devUser);
       setProfile(null);
-      setCompany(null);
+      setCompany(devCompany);
       setUserRoles([]);
       setActiveRole(UserRole.SUPER_ADMIN);
       setLoading(false);
