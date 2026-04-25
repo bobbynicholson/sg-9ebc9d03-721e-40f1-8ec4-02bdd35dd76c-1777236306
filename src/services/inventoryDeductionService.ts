@@ -198,18 +198,19 @@ export async function deductInventoryForOrder(
   
   try {
     // 1. Get order details
-    const { data: order, error: orderError } = await supabase
+    const { data: orderData, error: orderError } = await supabase
       .from("orders")
-      .select("menu_items, final_guest_count, guest_count")
+      .select("*")
       .eq("id", orderId)
       .single();
     
-    if (orderError || !order) {
+    if (orderError || !orderData) {
       errors.push("Order not found");
       return { success: false, deducted, warnings, errors };
     }
     
-    const guestCount = order.final_guest_count || order.guest_count || 0;
+    const order = orderData as any;
+    const guestCount = order.final_guest_count || order.guest_count || order.number_of_guests || 0;
     
     if (!order.menu_items || !Array.isArray(order.menu_items)) {
       warnings.push({ item: "Order", message: "No menu items found" });

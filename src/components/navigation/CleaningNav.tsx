@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import {
   Settings,
   Menu,
   ChevronRight,
-  Wrench
+  Wrench,
+  ChevronLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -40,7 +41,21 @@ interface CleaningNavProps {
 export function CleaningNav({ className, companySlug }: CleaningNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const baseUrl = companySlug ? `/company/${companySlug}` : "";
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("cleaningNav-collapsed");
+    if (saved) setIsCollapsed(JSON.parse(saved));
+  }, []);
+
+  // Save collapsed state to localStorage
+  const toggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem("cleaningNav-collapsed", JSON.stringify(newState));
+  };
 
   const cleaningNavSections: NavSection[] = [
     {
@@ -189,14 +204,98 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
         </Sheet>
       </div>
 
-      {/* Desktop Navigation */}
-      <div className={cn("hidden lg:block", className)}>
-        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
-          <div className="px-6 py-6 border-b bg-gradient-to-r from-cyan-500 to-blue-500">
-            <h2 className="text-xl font-bold text-white">Cleaning Portal</h2>
-            <p className="text-sm text-cyan-100 mt-1">Manage equipment</p>
+      {/* Desktop Sidebar */}
+      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
+        isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72"
+      }`}>
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+            {!isCollapsed ? (
+              <>
+                <Link href={`${baseUrl}/portal/cleaning/dashboard`} className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="font-bold text-slate-900 dark:text-white">Cleaning Portal</h1>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
+                  </div>
+                </Link>
+                <ThemeSwitch />
+              </>
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg mx-auto">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+            )}
           </div>
-          <NavContent />
+
+          {/* Navigation */}
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-6">
+              {cleaningNavSections.map((section) => (
+                <div key={section.title}>
+                  {!isCollapsed && (
+                    <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      {section.title}
+                    </h3>
+                  )}
+                  <div className="space-y-1">
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-cyan-50 hover:text-cyan-700",
+                            active
+                              ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-600 hover:to-blue-600 shadow-md"
+                              : "text-slate-700",
+                            isCollapsed ? "justify-center" : ""
+                          )}
+                          title={isCollapsed ? item.title : ""}
+                        >
+                          <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
+                          {!isCollapsed && (
+                            <div className="flex-1 min-w-0">
+                              <div className="truncate">{item.title}</div>
+                              {item.description && !active && (
+                                <div className="text-xs text-slate-500 truncate">{item.description}</div>
+                              )}
+                            </div>
+                          )}
+                          {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+
+          {/* Footer */}
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <Button
+              variant="ghost"
+              className={`w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 ${
+                isCollapsed ? "justify-center px-2" : "justify-start"
+              }`}
+              onClick={toggleCollapse}
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <>
+                  <ChevronLeft className="w-5 h-5 mr-3" />
+                  Collapse
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </>
