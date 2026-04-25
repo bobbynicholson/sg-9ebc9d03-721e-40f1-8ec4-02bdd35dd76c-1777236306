@@ -17,16 +17,22 @@ const PUBLIC_ROUTES = [
   "/security",
   "/support",
   "/demo",
-  "/blog",           // Public blog for customers
+  "/blog",
   "/api",
   "/favicon.ico",
   "/robots.txt",
 ];
 
-// Routes reserved for super admin only (no company slug required)
-const SUPER_ADMIN_ROUTES = [
-  "/super-admin",
-];
+// Role-based route access mapping
+const ROLE_ROUTES = {
+  super_admin: ["/super-admin"],
+  company_admin: ["/admin"],
+  driver: ["/team-portal/driver"],
+  kitchen_staff: ["/team-portal/kitchen"],
+  shopping_staff: ["/team-portal/shopping"],
+  cleaning_staff: ["/team-portal/cleaning"],
+  client: ["/client-portal"],
+};
 
 // Check if path is a super admin route
 const isSuperAdminRoute = (pathname: string) => {
@@ -37,19 +43,66 @@ const isSuperAdminRoute = (pathname: string) => {
 const isPublicRoute = (pathname: string) => {
   return PUBLIC_ROUTES.some(route => {
     if (route === "/blog") {
-      // Allow /blog and /blog/[slug]
       return pathname === "/blog" || pathname.startsWith("/blog/");
     }
     return pathname === route || pathname.startsWith(route);
   });
 };
 
-// Route patterns that require company slug
-const COMPANY_ROUTES = [
-  "/admin",
-  "/team-portal",
-  "/client-portal",
-];
+// Get the portal type from pathname
+const getPortalType = (pathname: string): string | null => {
+  if (pathname.startsWith("/super-admin")) return "super-admin";
+  if (pathname.startsWith("/admin") || pathname.includes("/admin/")) return "admin";
+  if (pathname.includes("/team-portal/driver")) return "driver";
+  if (pathname.includes("/team-portal/kitchen")) return "kitchen";
+  if (pathname.includes("/team-portal/shopping")) return "shopping";
+  if (pathname.includes("/team-portal/cleaning")) return "cleaning";
+  if (pathname.includes("/client-portal")) return "client";
+  return null;
+};
+
+// Check if user role can access the portal
+const canAccessPortal = (userRole: string, portalType: string): boolean => {
+  const roleMapping: Record<string, string> = {
+    "super-admin": "super_admin",
+    "admin": "company_admin",
+    "driver": "driver",
+    "kitchen": "kitchen_staff",
+    "shopping": "shopping_staff",
+    "cleaning": "cleaning_staff",
+    "client": "client",
+  };
+
+  const requiredRole = roleMapping[portalType];
+  
+  // Super admin can access everything
+  if (userRole === "super_admin") return true;
+  
+  // Other users can only access their own portal
+  return userRole === requiredRole;
+};
+
+// Get default dashboard for role
+const getDefaultDashboard = (role: string, companySlug?: string): string => {
+  switch (role) {
+    case "super_admin":
+      return "/super-admin/dashboard";
+    case "company_admin":
+      return companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
+    case "driver":
+      return companySlug ? `/${companySlug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard";
+    case "kitchen_staff":
+      return companySlug ? `/${companySlug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard";
+    case "shopping_staff":
+      return companySlug ? `/${companySlug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard";
+    case "cleaning_staff":
+      return companySlug ? `/${companySlug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard";
+    case "client":
+      return companySlug ? `/${companySlug}/client-portal/dashboard` : "/client-portal/dashboard";
+    default:
+      return "/";
+  }
+};
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({
@@ -97,6 +150,7 @@ export async function middleware(req: NextRequest) {
   if (!session) {
     const loginUrl = new URL("/auth/login", req.url);
     loginUrl.searchParams.set("redirect", pathname);
+    loginUrl.searchParams.set("message", "login_required");
     return NextResponse.redirect(loginUrl);
   }
 
@@ -105,7 +159,7 @@ export async function middleware(req: NextRequest) {
     .from("profiles")
     .select(`
       id,
-      active_role,
+      role,
       company_id,
       companies (
         id,
@@ -116,23 +170,43 @@ export async function middleware(req: NextRequest) {
     .single();
 
   if (!profile) {
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+    console.error("🚨 No profile found for user:", session.user.id);
+    return NextResponse.redirect(new URL("/auth/login?error=no_profile", req.url));
   }
 
-  const userRole = profile.active_role;
+  const userRole = profile.role;
   const companyData = Array.isArray(profile.companies) ? profile.companies[0] : profile.companies;
   const userCompanySlug = companyData?.company_slug;
 
+  console.log("🔐 Middleware - User:", session.user.email);
+  console.log("🎭 Middleware - Role:", userRole);
+  console.log("🏢 Middleware - Company:", userCompanySlug);
+  console.log("🌐 Middleware - Path:", pathname);
+
+  // Detect which portal the user is trying to access
+  const portalType = getPortalType(pathname);
+
+  if (portalType) {
+    console.log("🚪 Middleware - Portal Type:", portalType);
+    
+    // Check if user can access this portal
+    if (!canAccessPortal(userRole, portalType)) {
+      console.error(`🚨 SECURITY: User with role ${userRole} tried to access ${portalType} portal`);
+      
+      // Redirect to their correct dashboard
+      const correctDashboard = getDefaultDashboard(userRole, userCompanySlug);
+      console.log("↩️ Redirecting to correct dashboard:", correctDashboard);
+      
+      return NextResponse.redirect(new URL(correctDashboard, req.url));
+    }
+  }
+
   // Handle super admin routes
   if (isSuperAdminRoute(pathname)) {
-    // Only super_admin role can access /super-admin/* routes
     if (userRole !== "super_admin") {
-      console.error(`🚨 SECURITY: Non-super-admin user tried to access ${pathname}`);
-      // Redirect to their own company dashboard
-      if (userCompanySlug) {
-        return NextResponse.redirect(new URL(`/${userCompanySlug}/admin/dashboard`, req.url));
-      }
-      return NextResponse.redirect(new URL("/auth/login", req.url));
+      console.error(`🚨 SECURITY: Non-super-admin (${userRole}) tried to access ${pathname}`);
+      const correctDashboard = getDefaultDashboard(userRole, userCompanySlug);
+      return NextResponse.redirect(new URL(correctDashboard, req.url));
     }
     // Super admin accessing super admin routes - allow
     return res;
@@ -145,9 +219,11 @@ export async function middleware(req: NextRequest) {
     // No company slug in URL - redirect to proper format
     if (userCompanySlug) {
       const correctedUrl = new URL(`/${userCompanySlug}${pathname}`, req.url);
+      console.log("➕ Adding company slug to URL:", correctedUrl.pathname);
       return NextResponse.redirect(correctedUrl);
     }
-    return NextResponse.redirect(new URL("/auth/login", req.url));
+    console.error("❌ No company slug found for user");
+    return NextResponse.redirect(new URL("/auth/login?error=no_company", req.url));
   }
 
   const urlSlug = slugMatch[1];
@@ -163,11 +239,13 @@ export async function middleware(req: NextRequest) {
     console.error(`🚨 SECURITY: User from ${userCompanySlug} tried to access ${urlSlug}`);
     // Redirect to their own company's equivalent page
     const correctedPath = pathname.replace(`/${urlSlug}/`, `/${userCompanySlug}/`);
+    console.log("🔀 Redirecting to correct company:", correctedPath);
     return NextResponse.redirect(new URL(correctedPath, req.url));
   }
 
   // Valid access - set company slug header for downstream use
   res.headers.set("x-company-slug", urlSlug);
+  console.log("✅ Access granted to:", pathname);
   return res;
 }
 
