@@ -36,14 +36,9 @@ import {
   Route,
   User,
   X,
-  MapPin,
   ShoppingBag,
-  DollarSign,
-  TrendingUp,
-  MessageSquare,
   Zap,
   BarChart3,
-  Clock,
   Shield,
   LogOut,
   ChevronDown,
@@ -73,6 +68,10 @@ interface AdminNavProps {
 export function AdminNav({ className }: AdminNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
+  
+  // Get company slug for the view switcher
+  const companySlug = profile?.company_slug || (router.query.company_slug as string) || "";
 
   const adminNavSections: NavSection[] = [
     {
@@ -381,6 +380,7 @@ export function AdminNav({ className }: AdminNavProps) {
             <span className="font-bold text-slate-900 dark:text-white">Admin</span>
           </Link>
           <div className="flex items-center gap-2">
+            {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
             <ThemeSwitch />
             <Button
               variant="ghost"
@@ -419,7 +419,10 @@ export function AdminNav({ className }: AdminNavProps) {
                 <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
               </div>
             </Link>
-            <ThemeSwitch />
+            <div className="flex items-center gap-2">
+              {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
+              <ThemeSwitch />
+            </div>
           </div>
         </div>
       </div>
