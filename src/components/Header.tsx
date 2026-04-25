@@ -58,8 +58,9 @@ export function Header() {
     const role = user.user_metadata?.role || user.role;
     
     switch (role) {
-      case "admin":
       case "super_admin":
+        return "/super-admin";
+      case "admin":
         return "/admin/dashboard";
       case "driver":
         return "/team-portal/driver/dashboard";
@@ -224,13 +225,13 @@ export function Header() {
               </button>
 
               {activeDropdown === "features" && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-screen max-w-6xl">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-8">
-                    <div className="grid grid-cols-4 gap-8">
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[90vw] max-w-5xl xl:max-w-6xl">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 sm:p-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
                       {featuresMegaMenu.map((section, idx) => (
                         <div key={idx}>
                           <div className="flex items-center gap-2 mb-4">
-                            <section.icon className="w-5 h-5 text-purple-600" />
+                            <section.icon className="w-5 h-5 text-purple-600 flex-shrink-0" />
                             <h3 className="font-bold text-slate-900 text-sm">{section.category}</h3>
                           </div>
                           <ul className="space-y-3">
@@ -239,11 +240,11 @@ export function Header() {
                                 <Link href={item.href}>
                                   <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-purple-50 transition-colors group cursor-pointer">
                                     <item.icon className="w-4 h-4 text-purple-500 mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0" />
-                                    <div>
+                                    <div className="min-w-0">
                                       <p className="font-medium text-slate-900 text-sm group-hover:text-purple-700">
                                         {item.name}
                                       </p>
-                                      <p className="text-xs text-slate-600 mt-0.5">{item.description}</p>
+                                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
                                     </div>
                                   </div>
                                 </Link>
@@ -253,12 +254,12 @@ export function Header() {
                         </div>
                       ))}
                     </div>
-                    <div className="mt-6 pt-6 border-t border-slate-200 flex items-center justify-between">
-                      <p className="text-sm text-slate-600">
+                    <div className="mt-6 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <p className="text-sm text-slate-600 text-center sm:text-left">
                         Explore 15+ integrated systems working together
                       </p>
                       <Link href="/features">
-                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90">
+                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 whitespace-nowrap">
                           View All Features
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
@@ -299,13 +300,13 @@ export function Header() {
               </button>
 
               {activeDropdown === "resources" && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-screen max-w-2xl">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-8">
-                    <div className="grid grid-cols-2 gap-8">
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[90vw] max-w-2xl">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 sm:p-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
                       {resourcesMegaMenu.map((section, idx) => (
                         <div key={idx}>
                           <div className="flex items-center gap-2 mb-4">
-                            <section.icon className="w-5 h-5 text-purple-600" />
+                            <section.icon className="w-5 h-5 text-purple-600 flex-shrink-0" />
                             <h3 className="font-bold text-slate-900">{section.category}</h3>
                           </div>
                           <ul className="space-y-3">
@@ -313,12 +314,12 @@ export function Header() {
                               <li key={itemIdx}>
                                 <Link href={item.href}>
                                   <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-purple-50 transition-colors group cursor-pointer">
-                                    <item.icon className="w-5 h-5 text-purple-500 mt-0.5 group-hover:scale-110 transition-transform" />
-                                    <div>
+                                    <item.icon className="w-5 h-5 text-purple-500 mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0" />
+                                    <div className="min-w-0">
                                       <p className="font-medium text-slate-900 text-sm group-hover:text-purple-700">
                                         {item.name}
                                       </p>
-                                      <p className="text-xs text-slate-600 mt-0.5">{item.description}</p>
+                                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
                                     </div>
                                   </div>
                                 </Link>
@@ -361,12 +362,21 @@ export function Header() {
               </Button>
             </Link>
 
-            <Link href="/pricing">
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
-                Start Free Trial
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            {user ? (
+              <Link href={getRoleBasedDashboard()}>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
+                  Dashboard
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/auth/login">
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
+                  Sign In
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -496,17 +506,28 @@ export function Header() {
                 <div className="flex justify-center">
                   <RegionSwitcher />
                 </div>
-                <Link href="/company-signup">
-                  <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12">
-                    Start Free Trial
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Button>
-                </Link>
-                <div className="text-center">
-                  <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
-                    14-Day Free Trial • No Credit Card
-                  </Badge>
-                </div>
+                {user ? (
+                  <Link href={getRoleBasedDashboard()}>
+                    <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12">
+                      Go to Dashboard
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/auth/login">
+                      <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12">
+                        Sign In
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    </Link>
+                    <div className="text-center">
+                      <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                        14-Day Free Trial • No Credit Card
+                      </Badge>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
