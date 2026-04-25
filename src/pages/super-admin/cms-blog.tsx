@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Sparkles, FileText, Eye, Save, Trash2, 
   Loader2, CheckCircle2, AlertCircle, Wand2,
-  Search, TrendingUp, MessageSquare, Code
+  Search, TrendingUp, MessageSquare, Code, Link
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cmsService } from "@/services/cmsService";
@@ -24,8 +24,10 @@ interface BlogBrief {
   targetAudience: string;
   tone: "professional" | "casual" | "friendly" | "authoritative" | "conversational";
   contentLength: "short" | "medium" | "long";
+  category: string;
   includeFAQ: boolean;
   includeSchema: boolean;
+  includeInternalLinks: boolean;
 }
 
 interface GeneratedContent {
@@ -36,6 +38,7 @@ interface GeneratedContent {
   faqs: Array<{ question: string; answer: string }>;
   schema: string;
   suggestedKeywords: string[];
+  internalLinks: Array<{ text: string; url: string; context: string }>;
 }
 
 export default function CMSBlogPage() {
@@ -54,8 +57,10 @@ export default function CMSBlogPage() {
     targetAudience: "",
     tone: "professional",
     contentLength: "medium",
+    category: "General",
     includeFAQ: true,
     includeSchema: true,
+    includeInternalLinks: true,
   });
 
   // Generated Content State
@@ -117,11 +122,12 @@ export default function CMSBlogPage() {
       const content: GeneratedContent = {
         title: `${brief.topic}: A Comprehensive Guide for ${brief.targetAudience || 'Catering Businesses'}`,
         excerpt: `Discover everything you need to know about ${brief.topic.toLowerCase()} in the catering industry. Expert insights, practical tips, and proven strategies.`,
-        content: generateSampleContent(brief.topic, wordCount, brief.tone),
+        content: generateSampleContent(brief.topic, wordCount, brief.tone, brief.includeInternalLinks),
         metaDescription: `Complete guide to ${brief.topic.toLowerCase()} for catering businesses. Learn best practices, tips, and strategies from industry experts.`,
         faqs: brief.includeFAQ ? generateFAQs(brief.topic) : [],
         schema: brief.includeSchema ? generateSchema(brief.topic) : "",
         suggestedKeywords: [...brief.keywords, `${brief.topic.toLowerCase()} guide`, `catering ${brief.topic.toLowerCase()}`],
+        internalLinks: brief.includeInternalLinks ? generateInternalLinks(brief.topic) : [],
       };
 
       setGenerated(content);
@@ -158,7 +164,7 @@ export default function CMSBlogPage() {
         author: user?.full_name || user?.email || "Admin",
         published_date: new Date().toISOString(),
         last_updated: new Date().toISOString(),
-        category: "General", // Default category
+        category: brief.category,
         tags: generated.suggestedKeywords || [],
       });
 
@@ -312,6 +318,26 @@ export default function CMSBlogPage() {
                         </div>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select
+                          value={brief.category}
+                          onValueChange={(v) => setBrief({ ...brief, category: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="General">General</SelectItem>
+                            <SelectItem value="Catering Tips">Catering Tips</SelectItem>
+                            <SelectItem value="Business Growth">Business Growth</SelectItem>
+                            <SelectItem value="Event Planning">Event Planning</SelectItem>
+                            <SelectItem value="Recipes">Recipes</SelectItem>
+                            <SelectItem value="Industry News">Industry News</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -331,6 +357,16 @@ export default function CMSBlogPage() {
                             className="w-4 h-4 text-purple-600"
                           />
                           <span className="text-sm text-slate-700">Include Schema Markup</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={brief.includeInternalLinks}
+                            onChange={(e) => setBrief({ ...brief, includeInternalLinks: e.target.checked })}
+                            className="w-4 h-4 text-purple-600"
+                          />
+                          <span className="text-sm text-slate-700">Suggest Internal Links</span>
                         </label>
                       </div>
 
@@ -500,6 +536,29 @@ export default function CMSBlogPage() {
                       </div>
                     )}
 
+                    {/* Internal Links */}
+                    {generated.internalLinks.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Link className="w-4 h-4" />
+                          Suggested Internal Links
+                        </Label>
+                        <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                          {generated.internalLinks.map((link, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {link.text} → <code className="text-xs text-purple-600">{link.url}</code>
+                              </p>
+                              <p className="text-xs text-slate-600 italic">Context: {link.context}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Use format: [[Link Text|/path]] in your content
+                        </p>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex gap-3 pt-4 border-t">
                       <Button
@@ -584,12 +643,16 @@ export default function CMSBlogPage() {
 }
 
 // Helper functions for demo (replace with actual AI API calls)
-function generateSampleContent(topic: string, wordCount: number, tone: string): string {
+function generateSampleContent(topic: string, wordCount: number, tone: string, includeLinks: boolean): string {
+  const linkExample = includeLinks 
+    ? "\n\nLearn more about [[our platform features|/features]] and how they can help your business grow.\n\n" 
+    : "\n\n";
+
   return `# ${topic}
 
 ## Introduction
 
-In today's competitive catering industry, ${topic.toLowerCase()} has become essential for business success. This comprehensive guide will walk you through everything you need to know.
+In today's competitive catering industry, ${topic.toLowerCase()} has become essential for business success. This comprehensive guide will walk you through everything you need to know.${linkExample}
 
 ## Why This Matters
 
@@ -613,6 +676,8 @@ Continuous improvement ensures long-term success...
 - Stay updated with industry trends
 - Invest in your team's training
 
+${includeLinks ? "Check out our [[pricing plans|/pricing]] to see which solution fits your needs best.\n" : ""}
+
 ## Common Challenges and Solutions
 
 Every catering business faces challenges. Here's how to overcome them...
@@ -620,6 +685,8 @@ Every catering business faces challenges. Here's how to overcome them...
 ## Conclusion
 
 Mastering ${topic.toLowerCase()} will set your catering business apart from competitors and drive sustainable growth.
+
+${includeLinks ? "Ready to get started? [[Sign up for a free trial|/company-signup]] today!\n" : ""}
 
 ---
 
@@ -671,4 +738,29 @@ function generateSchema(topic: string): string {
       "@id": `https://cateringms.com/blog/${topic.toLowerCase().replace(/\s+/g, '-')}`
     }
   }, null, 2);
+}
+
+function generateInternalLinks(topic: string): Array<{ text: string; url: string; context: string }> {
+  return [
+    {
+      text: "our platform features",
+      url: "/features",
+      context: "When discussing tools or technology needs"
+    },
+    {
+      text: "pricing plans",
+      url: "/pricing",
+      context: "When mentioning solutions or ROI"
+    },
+    {
+      text: "Sign up for a free trial",
+      url: "/company-signup",
+      context: "In conclusion or call-to-action sections"
+    },
+    {
+      text: "contact our team",
+      url: "/contact",
+      context: "When offering personalized support"
+    },
+  ];
 }
