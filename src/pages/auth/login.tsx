@@ -97,7 +97,9 @@ export default function LoginPage() {
 
       // Successfully logged in - redirect based on role
       const userRole = profiles.role;
+      const userCompanySlug = profiles.company_slug;
       console.log("🎯 Redirecting user with role:", userRole);
+      console.log("🏢 User company slug:", userCompanySlug);
       
       let dashboardUrl = "/";
 
@@ -107,27 +109,27 @@ export default function LoginPage() {
           console.log("🌟 Super Admin detected - redirecting to:", dashboardUrl);
           break;
         case "company_admin":
-          dashboardUrl = "/admin/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/admin/dashboard` : "/admin/dashboard";
           console.log("👔 Company Admin detected - redirecting to:", dashboardUrl);
           break;
         case "driver":
-          dashboardUrl = "/team-portal/driver/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard";
           console.log("🚗 Driver detected - redirecting to:", dashboardUrl);
           break;
         case "kitchen_staff":
-          dashboardUrl = "/team-portal/kitchen/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard";
           console.log("👨‍🍳 Kitchen Staff detected - redirecting to:", dashboardUrl);
           break;
         case "shopping_staff":
-          dashboardUrl = "/team-portal/shopping/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard";
           console.log("🛒 Shopping Staff detected - redirecting to:", dashboardUrl);
           break;
         case "cleaning_staff":
-          dashboardUrl = "/team-portal/cleaning/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard";
           console.log("🧹 Cleaning Staff detected - redirecting to:", dashboardUrl);
           break;
         case "client":
-          dashboardUrl = "/client-portal/dashboard";
+          dashboardUrl = userCompanySlug ? `/${userCompanySlug}/client-portal/dashboard` : "/client-portal/dashboard";
           console.log("👤 Client detected - redirecting to:", dashboardUrl);
           break;
         default:
