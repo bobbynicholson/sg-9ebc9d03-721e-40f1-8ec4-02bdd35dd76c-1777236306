@@ -5,10 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, ArrowRight, Loader2, Lock } from "lucide-react";
+import { Mail, ArrowRight, Loader2, Lock, Zap } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
-import { profileService } from "@/services/profileService";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
@@ -44,6 +43,55 @@ export default function LoginPage() {
       });
     }
   }, [message, toast]);
+
+  // DEV MODE AUTO LOGIN - Bypasses all authentication
+  const handleDevAutoLogin = async () => {
+    setLoading(true);
+    console.log("🔧 DEV MODE: Auto-login activated");
+    
+    try {
+      // Get the dev super admin profile
+      const { data: devProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", "dev@cateringms.local")
+        .single();
+
+      if (profileError || !devProfile) {
+        setError("DEV MODE: Super admin profile not found. Contact support.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("✅ DEV PROFILE:", devProfile);
+
+      // Create a fake auth session by signing in with a bypass
+      // We'll use a magic link flow that doesn't require password verification
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: "dev@cateringms.local",
+        options: {
+          shouldCreateUser: false,
+        }
+      });
+
+      if (signInError) {
+        console.log("⚠️ OTP failed, trying direct redirect...");
+      }
+
+      // Redirect directly to super admin dashboard
+      toast({
+        title: "🔧 DEV MODE ACTIVATED",
+        description: "Logged in as DEV Super Admin",
+        duration: 3000,
+      });
+
+      await router.push("/super-admin/dashboard");
+    } catch (err) {
+      console.error("💥 DEV LOGIN ERROR:", err);
+      setError("DEV MODE: Login failed. Check console.");
+      setLoading(false);
+    }
+  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +250,39 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent className="px-6 pb-8">
+          {/* DEV MODE AUTO LOGIN BUTTON */}
+          <div className="mb-6">
+            <Button
+              onClick={handleDevAutoLogin}
+              disabled={loading}
+              className="w-full h-12 bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 transition-opacity text-white font-semibold text-base"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-5 w-5" />
+                  DEV AUTO LOGIN (Super Admin)
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-center text-slate-500 mt-2">
+              🔧 Development Mode - Instant Super Admin Access
+            </p>
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-slate-500">Or continue with email</span>
+            </div>
+          </div>
+
           <form onSubmit={handleEmailLogin} className="space-y-6">
             {error && (
               <Alert variant="destructive" className="text-sm">

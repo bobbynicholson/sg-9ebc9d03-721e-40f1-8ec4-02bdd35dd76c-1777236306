@@ -28,22 +28,6 @@ const PUBLIC_ROUTES = [
   "/pay",
 ];
 
-// Role-based route access mapping
-const ROLE_ROUTES = {
-  super_admin: ["/super-admin"],
-  company_admin: ["/admin"],
-  driver: ["/team-portal/driver"],
-  kitchen_staff: ["/team-portal/kitchen"],
-  shopping_staff: ["/team-portal/shopping"],
-  cleaning_staff: ["/team-portal/cleaning"],
-  client: ["/client-portal"],
-};
-
-// Check if path is a super admin route
-const isSuperAdminRoute = (pathname: string) => {
-  return pathname === "/super-admin" || pathname.startsWith("/super-admin/");
-};
-
 // Check if path is a public route
 const isPublicRoute = (pathname: string) => {
   // Exact match for homepage
@@ -68,65 +52,17 @@ const isPublicRoute = (pathname: string) => {
   });
 };
 
-// Get the portal type from pathname
-const getPortalType = (pathname: string): string | null => {
-  if (pathname.startsWith("/super-admin")) return "super-admin";
-  if (pathname.startsWith("/admin") || pathname.includes("/admin/")) return "admin";
-  if (pathname.includes("/team-portal/driver")) return "driver";
-  if (pathname.includes("/team-portal/kitchen")) return "kitchen";
-  if (pathname.includes("/team-portal/shopping")) return "shopping";
-  if (pathname.includes("/team-portal/cleaning")) return "cleaning";
-  if (pathname.includes("/client-portal")) return "client";
-  return null;
-};
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-// Check if user role can access the portal
-const canAccessPortal = (userRole: string, portalType: string): boolean => {
-  const roleMapping: Record<string, string> = {
-    "super-admin": "super_admin",
-    "admin": "company_admin",
-    "driver": "driver",
-    "kitchen": "kitchen_staff",
-    "shopping": "shopping_staff",
-    "cleaning": "cleaning_staff",
-    "client": "client",
-  };
-
-  const requiredRole = roleMapping[portalType];
-  
-  // Super admin can access everything
-  if (userRole === "super_admin") return true;
-  
-  // Other users can only access their own portal
-  return userRole === requiredRole;
-};
-
-// Get default dashboard for role
-const getDefaultDashboard = (role: string, companySlug?: string): string => {
-  switch (role) {
-    case "super_admin":
-      return "/super-admin/dashboard";
-    case "company_admin":
-      return companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
-    case "driver":
-      return companySlug ? `/${companySlug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard";
-    case "kitchen_staff":
-      return companySlug ? `/${companySlug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard";
-    case "shopping_staff":
-      return companySlug ? `/${companySlug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard";
-    case "cleaning_staff":
-      return companySlug ? `/${companySlug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard";
-    case "client":
-      return companySlug ? `/${companySlug}/client-portal/dashboard` : "/client-portal/dashboard";
-    default:
-      return "/";
+  // Allow public routes
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
-};
 
-export async function middleware(req: NextRequest) {
-  let res = NextResponse.next({
+  let response = NextResponse.next({
     request: {
-      headers: req.headers,
+      headers: request.headers,
     },
   });
 
@@ -136,147 +72,135 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return req.cookies.get(name)?.value;
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          req.cookies.set({ name, value, ...options });
-          res = NextResponse.next({
-            request: { headers: req.headers },
-          });
-          res.cookies.set({ name, value, ...options });
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          req.cookies.set({ name, value: "", ...options });
-          res = NextResponse.next({
-            request: { headers: req.headers },
-          });
-          res.cookies.set({ name, value: "", ...options });
+          request.cookies.set({ name, value: "", ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
   );
 
-  const pathname = req.nextUrl.pathname;
-
-  // Allow public routes without validation
-  if (isPublicRoute(pathname)) {
-    return res;
-  }
-
-  // Check session
   const { data: { session } } = await supabase.auth.getSession();
 
-  if (!session) {
-    const loginUrl = new URL("/auth/login", req.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    loginUrl.searchParams.set("message", "login_required");
-    return NextResponse.redirect(loginUrl);
+  // 🔧 DEV MODE BYPASS: Allow dev@cateringms.local to access everything
+  if (session?.user?.email === "dev@cateringms.local") {
+    console.log("🔧 DEV MODE: Bypassing all auth checks for dev@cateringms.local");
+    return response;
   }
 
-  // Get user profile with company information
+  // If no session, redirect to login
+  if (!session) {
+    console.log("🔐 No session - redirecting to login");
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/auth/login";
+    redirectUrl.searchParams.set("redirect", pathname);
+    redirectUrl.searchParams.set("message", "login_required");
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Get user profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select(`
-      id,
-      role,
-      company_id,
-      companies (
-        id,
-        company_slug
-      )
-    `)
+    .select("role, company_id, company_slug")
     .eq("id", session.user.id)
     .single();
 
   if (!profile) {
-    console.error("🚨 No profile found for user:", session.user.id);
-    return NextResponse.redirect(new URL("/auth/login?error=no_profile", req.url));
+    console.log("❌ No profile found - redirecting to login");
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/auth/login";
+    return NextResponse.redirect(redirectUrl);
   }
-
-  const userRole = profile.role;
-  const companyData = Array.isArray(profile.companies) ? profile.companies[0] : profile.companies;
-  const userCompanySlug = companyData?.company_slug;
 
   console.log("🔐 Middleware - User:", session.user.email);
-  console.log("🎭 Middleware - Role:", userRole);
-  console.log("🏢 Middleware - Company:", userCompanySlug);
+  console.log("🎭 Middleware - Role:", profile.role);
+  console.log("🏢 Middleware - Company:", profile.company_slug);
   console.log("🌐 Middleware - Path:", pathname);
 
-  // Detect which portal the user is trying to access
-  const portalType = getPortalType(pathname);
+  const userRole = profile.role;
+  const userCompanySlug = profile.company_slug;
 
-  if (portalType) {
-    console.log("🚪 Middleware - Portal Type:", portalType);
-    
-    // Check if user can access this portal
-    if (!canAccessPortal(userRole, portalType)) {
-      console.error(`🚨 SECURITY: User with role ${userRole} tried to access ${portalType} portal`);
-      
-      // Redirect to their correct dashboard
-      const correctDashboard = getDefaultDashboard(userRole, userCompanySlug);
-      console.log("↩️ Redirecting to correct dashboard:", correctDashboard);
-      
-      return NextResponse.redirect(new URL(correctDashboard, req.url));
-    }
-  }
-
-  // Handle super admin routes
-  if (isSuperAdminRoute(pathname)) {
-    if (userRole !== "super_admin") {
-      console.error(`🚨 SECURITY: Non-super-admin (${userRole}) tried to access ${pathname}`);
-      const correctDashboard = getDefaultDashboard(userRole, userCompanySlug);
-      return NextResponse.redirect(new URL(correctDashboard, req.url));
-    }
-    // Super admin accessing super admin routes - allow
-    return res;
-  }
-
-  // All other routes must have company slug format: /{company-slug}/...
-  const slugMatch = pathname.match(/^\/([^\/]+)\//);
-  
-  if (!slugMatch) {
-    // No company slug in URL - redirect to proper format
-    if (userCompanySlug) {
-      const correctedUrl = new URL(`/${userCompanySlug}${pathname}`, req.url);
-      console.log("➕ Adding company slug to URL:", correctedUrl.pathname);
-      return NextResponse.redirect(correctedUrl);
-    }
-    console.error("❌ No company slug found for user");
-    return NextResponse.redirect(new URL("/auth/login?error=no_company", req.url));
-  }
-
-  const urlSlug = slugMatch[1];
-
-  // Super admins can access any company's routes
+  // Super admin can access everything
   if (userRole === "super_admin") {
-    res.headers.set("x-company-slug", urlSlug);
-    return res;
+    console.log("✅ Super admin - access granted");
+    return response;
   }
 
-  // Regular users: validate slug matches their company
-  if (urlSlug !== userCompanySlug) {
-    console.error(`🚨 SECURITY: User from ${userCompanySlug} tried to access ${urlSlug}`);
-    // Redirect to their own company's equivalent page
-    const correctedPath = pathname.replace(`/${urlSlug}/`, `/${userCompanySlug}/`);
-    console.log("🔀 Redirecting to correct company:", correctedPath);
-    return NextResponse.redirect(new URL(correctedPath, req.url));
+  // Extract company slug from URL if present
+  const companySlugMatch = pathname.match(/^\/([^\/]+)\//);
+  const urlCompanySlug = companySlugMatch ? companySlugMatch[1] : null;
+
+  // Company admin access control
+  if (userRole === "company_admin") {
+    // Allow access to their own company routes
+    if (urlCompanySlug && urlCompanySlug === userCompanySlug) {
+      console.log("✅ Company admin accessing own company - access granted");
+      return response;
+    }
+
+    // Allow access to non-company-specific routes
+    if (!urlCompanySlug) {
+      console.log("✅ Company admin accessing non-company route - access granted");
+      return response;
+    }
+
+    // Block access to other companies
+    console.log("❌ Company admin trying to access another company - blocked");
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/${userCompanySlug}/admin/dashboard`;
+    return NextResponse.redirect(redirectUrl);
   }
 
-  // Valid access - set company slug header for downstream use
-  res.headers.set("x-company-slug", urlSlug);
+  // Staff role access control
+  if (["driver", "kitchen_staff", "shopping_staff", "cleaning_staff"].includes(userRole)) {
+    // Staff can only access their own company's team portal
+    if (pathname.startsWith(`/${userCompanySlug}/team-portal/`)) {
+      console.log("✅ Staff accessing own company team portal - access granted");
+      return response;
+    }
+
+    // Redirect staff to their team portal if accessing wrong area
+    console.log("❌ Staff trying to access unauthorized area - redirecting");
+    const redirectUrl = request.nextUrl.clone();
+    const portalMap: Record<string, string> = {
+      driver: "driver",
+      kitchen_staff: "kitchen",
+      shopping_staff: "shopping",
+      cleaning_staff: "cleaning",
+    };
+    const portalType = portalMap[userRole] || "driver";
+    redirectUrl.pathname = `/${userCompanySlug}/team-portal/${portalType}/dashboard`;
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Client access control
+  if (userRole === "client") {
+    // Clients can only access their own company's client portal
+    if (pathname.startsWith(`/${userCompanySlug}/client-portal/`)) {
+      console.log("✅ Client accessing own company portal - access granted");
+      return response;
+    }
+
+    // Redirect clients to their portal
+    console.log("❌ Client trying to access unauthorized area - redirecting");
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/${userCompanySlug}/client-portal/dashboard`;
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // Default: allow access
   console.log("✅ Access granted to:", pathname);
-  return res;
+  return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
