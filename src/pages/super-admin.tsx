@@ -79,10 +79,12 @@ const PORTALS: Portal[] = [
 
 function SuperAdminDashboard() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
+    if (loading) return; // Wait for auth to initialize
+
     console.log("Super Admin - Current user:", user);
     console.log("Super Admin - User role:", user?.active_role);
     
@@ -100,9 +102,9 @@ function SuperAdminDashboard() {
 
     console.log("User authorized as super_admin");
     setIsAuthorized(true);
-  }, [user, router]);
+  }, [user, loading, router]);
 
-  if (!isAuthorized) {
+  if (loading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <Card className="w-full max-w-md">

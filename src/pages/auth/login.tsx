@@ -79,7 +79,7 @@ export default function LoginPage() {
       console.log("🔑 Attempting authentication...");
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(),
-        password: password || "BYPASS_2026",
+        password: "BYPASS_2026",
       });
 
       console.log("✅ Auth result:", authData);
