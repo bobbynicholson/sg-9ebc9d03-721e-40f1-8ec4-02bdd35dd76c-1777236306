@@ -256,11 +256,11 @@ export default function CompanyDatabasePage() {
           address_line1: formData.address_line1,
           address_line2: formData.address_line2,
           city: formData.city,
-          state: formData.state,
+          state_province: formData.state,
           postal_code: formData.postal_code,
           country: formData.country,
           billing_currency: formData.billing_currency,
-        })
+        } as any)
         .eq("id", editingCompany.id);
 
       if (error) throw error;
