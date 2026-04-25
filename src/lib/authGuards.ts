@@ -5,85 +5,85 @@ import type { Profile } from "@/services/profileService";
 
 // Role-based route permissions
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
-  super_admin: [
+  [UserRole.SUPER_ADMIN]: [
     "/cateringms-platform/*",
     "/admin/*",
     "/team-portal/*",
     "/client-portal/*",
     "*",
   ],
-  admin: [
+  [UserRole.ADMIN]: [
     "/admin/*",
     "/team-portal/*",
   ],
-  owner: [
+  [UserRole.OWNER]: [
     "/admin/*",
     "/team-portal/*",
   ],
-  kitchen: [
+  [UserRole.KITCHEN]: [
     "/team-portal/kitchen/*",
     "/team-portal/general/*",
   ],
-  kitchen_staff: [
+  [UserRole.KITCHEN_STAFF]: [
     "/team-portal/kitchen/*",
     "/team-portal/general/*",
   ],
-  shopping: [
+  [UserRole.SHOPPING]: [
     "/team-portal/shopping/*",
     "/team-portal/general/*",
   ],
-  shopping_staff: [
+  [UserRole.SHOPPING_STAFF]: [
     "/team-portal/shopping/*",
     "/team-portal/general/*",
   ],
-  driver: [
+  [UserRole.DRIVER]: [
     "/team-portal/driver/*",
     "/team-portal/general/*",
   ],
-  cleaning: [
+  [UserRole.CLEANING]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
   ],
-  cleaning_staff: [
+  [UserRole.CLEANING_STAFF]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
   ],
-  client: [
+  [UserRole.CLIENT]: [
     "/client-portal/*",
   ],
 };
 
 // Admin roles that can access admin dashboard
-export const ADMIN_ROLES: UserRole[] = ["super_admin", "admin", "owner"];
+export const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OWNER];
 
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
-  admin: "Administrator",
-  owner: "Owner",
-  super_admin: "Platform Administrator",
-  kitchen: "Kitchen Manager",
-  kitchen_staff: "Kitchen Staff",
-  shopping: "Shopping Manager",
-  shopping_staff: "Shopping Staff",
-  driver: "Driver/Waiter",
-  cleaning: "Cleaning Manager",
-  cleaning_staff: "Cleaning Staff",
-  client: "Client",
+  [UserRole.ADMIN]: "Administrator",
+  [UserRole.OWNER]: "Owner",
+  [UserRole.SUPER_ADMIN]: "Platform Administrator",
+  [UserRole.KITCHEN]: "Kitchen Manager",
+  [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
+  [UserRole.SHOPPING]: "Shopping Manager",
+  [UserRole.SHOPPING_STAFF]: "Shopping Staff",
+  [UserRole.DRIVER]: "Driver/Waiter",
+  [UserRole.CLEANING]: "Cleaning Manager",
+  [UserRole.CLEANING_STAFF]: "Cleaning Staff",
+  [UserRole.CLIENT]: "Client",
 };
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
-  super_admin: () => "/cateringms-platform/dashboard",
-  admin: (slug) => "/admin/dashboard",
-  owner: (slug) => "/admin/dashboard",
-  kitchen: () => "/team-portal/kitchen/dashboard",
-  kitchen_staff: () => "/team-portal/kitchen/dashboard",
-  shopping: () => "/team-portal/shopping/dashboard",
-  shopping_staff: () => "/team-portal/shopping/dashboard",
-  driver: () => "/team-portal/driver/dashboard",
-  cleaning: () => "/team-portal/cleaning/dashboard",
-  cleaning_staff: () => "/team-portal/cleaning/dashboard",
-  client: () => "/client-portal/dashboard",
+  [UserRole.SUPER_ADMIN]: () => "/cateringms-platform/dashboard",
+  [UserRole.ADMIN]: (slug) => "/admin/dashboard",
+  [UserRole.OWNER]: (slug) => "/admin/dashboard",
+  [UserRole.KITCHEN]: () => "/team-portal/kitchen/dashboard",
+  [UserRole.KITCHEN_STAFF]: () => "/team-portal/kitchen/dashboard",
+  [UserRole.SHOPPING]: () => "/team-portal/shopping/dashboard",
+  [UserRole.SHOPPING_STAFF]: () => "/team-portal/shopping/dashboard",
+  [UserRole.DRIVER]: () => "/team-portal/driver/dashboard",
+  [UserRole.CLEANING]: () => "/team-portal/cleaning/dashboard",
+  [UserRole.CLEANING_STAFF]: () => "/team-portal/cleaning/dashboard",
+  [UserRole.CLIENT]: () => "/client-portal/dashboard",
 };
 
 /**
@@ -162,14 +162,14 @@ export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: strin
  * Check if role is a CateringMS platform admin role
  */
 export function isPlatformAdmin(userRole: UserRole): boolean {
-  return userRole === "super_admin";
+  return userRole === UserRole.SUPER_ADMIN;
 }
 
 /**
  * Check if role is a company admin role
  */
 export function isCompanyAdmin(userRole: UserRole): boolean {
-  return userRole === "admin" || userRole === "owner" || userRole === "super_admin";
+  return userRole === UserRole.ADMIN || userRole === UserRole.OWNER || userRole === UserRole.SUPER_ADMIN;
 }
 
 /**
@@ -177,13 +177,13 @@ export function isCompanyAdmin(userRole: UserRole): boolean {
  */
 export function isStaffRole(userRole: UserRole): boolean {
   const staffRoles: UserRole[] = [
-    "kitchen",
-    "kitchen_staff",
-    "shopping",
-    "shopping_staff",
-    "driver",
-    "cleaning",
-    "cleaning_staff",
+    UserRole.KITCHEN,
+    UserRole.KITCHEN_STAFF,
+    UserRole.SHOPPING,
+    UserRole.SHOPPING_STAFF,
+    UserRole.DRIVER,
+    UserRole.CLEANING,
+    UserRole.CLEANING_STAFF,
   ];
   return staffRoles.includes(userRole);
 }

@@ -6,6 +6,7 @@ import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
 
 type Company = Tables<"companies">;
+type DbProfile = Tables<"profiles">;
 
 export type AuthenticatedUser = {
   id: string;
@@ -26,11 +27,9 @@ export type AuthenticatedUser = {
   updated_at?: string;
 };
 
-type Profile = Partial<AuthenticatedUser>;
-
 interface AuthContextType {
   user: AuthenticatedUser | null;
-  profile: Profile | null;
+  profile: DbProfile | null;
   company: Company | null;
   companySlug: string | null;
   loading: boolean;
@@ -41,19 +40,19 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<any>;
   signUp: (email: string, password: string, metadata: any, isOwner?: boolean) => Promise<any>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  updateProfile: (updates: Partial<DbProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<DbProfile | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<any[]>([]);
-  const [activeRole, setActiveRole] = useState<string>("admin");
+  const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
     // Get initial session
@@ -95,21 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          // Fetch user roles
-          const { data: rolesData } = await supabase
-            .from("user_roles")
-            .select("*")
-            .eq("user_id", session.user.id);
-
-          const roles = rolesData || [];
-          const primaryRole = roles.find((r) => r.is_primary);
+          const roleValue = (userProfile.role as UserRole) || UserRole.CLIENT;
 
           const authenticatedUser: AuthenticatedUser = {
             id: session.user.id,
             email: session.user.email || "",
             full_name: userProfile.full_name || "",
-            role: (primaryRole?.department as UserRole) || "client",
-            active_role: (primaryRole?.department as UserRole) || "client",
+            role: roleValue,
+            active_role: roleValue as string,
             avatar_url: userProfile.avatar_url || "",
             currency: userProfile.currency || "ZAR",
             company_id: userProfile.company_id || undefined,
@@ -122,17 +114,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           setUser(authenticatedUser);
-          setProfile(userProfile);
+          setProfile(userProfile as DbProfile);
           setCompany(userCompany);
-          setUserRoles(roles);
-          setActiveRole(authenticatedUser.role);
+          setUserRoles([]);
+          setActiveRole(roleValue);
         }
       } else {
         setUser(null);
         setProfile(null);
         setCompany(null);
         setUserRoles([]);
-        setActiveRole("client");
+        setActiveRole(UserRole.CLIENT);
       }
     } catch (err) {
       console.error("Auth error:", err);
@@ -186,8 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserRoles([]);
   };
 
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (user) {
+  const updateProfile = async (updates: Partial<DbProfile>) => {
+    if (user && profile) {
       await profileService.updateProfile(user.id, updates);
       setProfile({ ...profile, ...updates });
     }
