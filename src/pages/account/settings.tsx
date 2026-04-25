@@ -38,12 +38,7 @@ function ProfileSettingsPage() {
     email: "",
     phone_number: "",
     company_name: "",
-    address: "",
-    city: "",
-    postal_code: "",
-    country: "South Africa",
     avatar_url: "",
-    bio: "",
   });
 
   useEffect(() => {
@@ -53,12 +48,7 @@ function ProfileSettingsPage() {
         email: profile.email || "",
         phone_number: profile.phone_number || "",
         company_name: profile.company_name || "",
-        address: profile.address || "",
-        city: profile.city || "",
-        postal_code: profile.postal_code || "",
-        country: profile.country || "South Africa",
         avatar_url: profile.avatar_url || "",
-        bio: profile.bio || "",
       });
     }
   }, [profile]);
@@ -125,7 +115,7 @@ function ProfileSettingsPage() {
         <title>Account Settings - CateringMS</title>
       </Head>
 
-      <DynamicNav />
+      <DynamicNav userRole={user.role} />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
         <div className="max-w-4xl mx-auto space-y-6">
@@ -286,6 +276,7 @@ function ProfileSettingsPage() {
                       value={formData.company_name}
                       onChange={(e) => handleInputChange("company_name", e.target.value)}
                       placeholder="Your Company Ltd"
+                      disabled={profile.role !== "owner" && profile.role !== "super_admin"}
                     />
                   </div>
                 </div>
