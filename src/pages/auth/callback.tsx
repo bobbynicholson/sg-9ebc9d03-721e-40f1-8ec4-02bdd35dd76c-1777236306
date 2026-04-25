@@ -10,63 +10,79 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const handleCallback = async () => {
+    const handleAuthCallback = async () => {
       try {
-        // Get the authenticated user from the callback
-        const { user, error: callbackError } = await authService.handleOAuthCallback();
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (callbackError || !user) {
-          setError(callbackError?.message || "Authentication failed");
-          setTimeout(() => router.push("/auth/login"), 3000);
+        if (error) {
+          console.error("Auth callback error:", error);
+          router.push("/auth/login?error=callback_failed");
           return;
         }
 
-        // Get user profile to determine redirect
-        const profile = await profileService.getProfile(user.id);
+        if (session) {
+          // Check if this is a password recovery session
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            // Check URL params to see if this is a password reset
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const type = hashParams.get("type");
+            
+            if (type === "recovery") {
+              // Redirect to password reset page
+              router.push("/auth/reset-password");
+              return;
+            }
+          }
 
-        if (!profile) {
-          setError("User profile not found");
-          setTimeout(() => router.push("/auth/login"), 3000);
-          return;
+          // Regular login callback - redirect to appropriate dashboard
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+
+          if (profile?.active_role) {
+            // Redirect based on role
+            switch (profile.active_role) {
+              case "super_admin":
+                router.push("/super-admin");
+                break;
+              case "company_admin":
+                router.push("/admin/dashboard");
+                break;
+              case "driver":
+                router.push("/team-portal/driver/dashboard");
+                break;
+              case "kitchen_staff":
+                router.push("/team-portal/kitchen/dashboard");
+                break;
+              case "shopping_staff":
+                router.push("/team-portal/shopping/dashboard");
+                break;
+              case "cleaning_staff":
+                router.push("/team-portal/cleaning/dashboard");
+                break;
+              case "client":
+                router.push("/client-portal/dashboard");
+                break;
+              default:
+                router.push("/");
+            }
+          } else {
+            router.push("/");
+          }
+        } else {
+          router.push("/auth/login");
         }
-
-        // Redirect based on role
-        const activeRole = profile.active_role || profile.role || "client";
-        let dashboardUrl = "/";
-
-        switch (activeRole) {
-          case "company_admin":
-          case "super_admin":
-            dashboardUrl = `/admin/dashboard`;
-            break;
-          case "driver":
-            dashboardUrl = `/team-portal/driver/dashboard`;
-            break;
-          case "kitchen_staff":
-            dashboardUrl = `/team-portal/kitchen/dashboard`;
-            break;
-          case "shopping_staff":
-            dashboardUrl = `/team-portal/shopping/dashboard`;
-            break;
-          case "cleaning_staff":
-            dashboardUrl = `/team-portal/cleaning/dashboard`;
-            break;
-          case "client":
-            dashboardUrl = "/client-portal/dashboard";
-            break;
-          default:
-            dashboardUrl = "/";
-        }
-
-        router.push(dashboardUrl);
-      } catch (err) {
-        console.error("Callback error:", err);
-        setError("An unexpected error occurred");
-        setTimeout(() => router.push("/auth/login"), 3000);
+      } catch (error) {
+        console.error("Callback handling error:", error);
+        router.push("/auth/login?error=unknown");
       }
     };
 
-    handleCallback();
+    handleAuthCallback();
   }, [router]);
 
   return (
