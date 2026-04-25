@@ -114,8 +114,8 @@ export default function EquipmentShortagesPage() {
           resolved_by: flag.resolved_by || "",
           status: flag.status as "pending" | "resolved",
           priority: flag.priority as "high" | "medium" | "low",
-          createdAt: flag.created_at,
-          resolvedAt: flag.resolved_at || undefined,
+          created_at: flag.created_at,
+          resolved_at: flag.resolved_at || null,
           equipment: {
             name: flag.equipment_name || "Unknown Equipment",
           },

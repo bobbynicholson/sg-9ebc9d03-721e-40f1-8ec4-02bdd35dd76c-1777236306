@@ -438,7 +438,7 @@ function ProfileSettingsPage() {
                         <div className="mt-1">
                           <Badge variant="secondary" className="text-sm">
                             <Briefcase className="w-3 h-3 mr-1" />
-                            {ROLE_NAMES[profile.role as keyof typeof ROLE_NAMES] || profile.role}
+                            {ROLE_NAMES[(profile.role as string) as keyof typeof ROLE_NAMES] || profile.role}
                           </Badge>
                         </div>
                       </div>
@@ -528,7 +528,7 @@ function ProfileSettingsPage() {
                           value={formData.company_name}
                           onChange={(e) => handleInputChange("company_name", e.target.value)}
                           placeholder="Your Company Ltd"
-                          disabled={profile.role !== "owner" && profile.role !== "super_admin"}
+                          disabled={(profile.role as string) !== "owner" && (profile.role as string) !== "super_admin"}
                         />
                       </div>
                     </div>

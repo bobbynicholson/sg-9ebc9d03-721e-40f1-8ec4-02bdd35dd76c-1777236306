@@ -24,7 +24,6 @@ const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'c
   special_instructions: "Please set up the buffet by the main stage.",
   assigned_driver_id: "driver-b",
   updated_at: new Date().toISOString(),
-  last_change_allowed_date: new Date(Date.now() + 86400000 * 2).toISOString(),
   final_guest_count: 150,
   final_order_confirmed_at: new Date(Date.now() - 86400000 * 3).toISOString(),
   payment_reference: "PAY-123",
