@@ -1,6 +1,6 @@
 ---
 title: admin overview
-status: todo
+status: done
 created_by: human
 created_at: '2026-04-20T19:42:37.444505'
 position: 4
