@@ -18,6 +18,7 @@ import {
   Utensils
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 
 interface NavItem {
   title: string;
@@ -182,6 +183,28 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
         </Sheet>
       </div>
 
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Link href={`${baseUrl}/portal/kitchen/dashboard`} className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-orange-600 to-red-600 rounded-lg flex items-center justify-center">
+              <ChefHat className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-slate-900 dark:text-white">Kitchen</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeSwitch />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Desktop Navigation */}
       <div className={cn("hidden lg:block", className)}>
         <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
@@ -190,6 +213,24 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
             <p className="text-sm text-orange-100 mt-1">Manage production</p>
           </div>
           <NavContent />
+        </div>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 xl:w-72 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+            <Link href={`${baseUrl}/portal/kitchen/dashboard`} className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                <ChefHat className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-slate-900 dark:text-white">Kitchen Portal</h1>
+                <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
+              </div>
+            </Link>
+            <ThemeSwitch />
+          </div>
         </div>
       </div>
     </>

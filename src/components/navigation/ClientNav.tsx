@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 
 export function ClientNav() {
   const router = useRouter();
@@ -37,20 +38,25 @@ export function ClientNav() {
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-50">
-        <Link href="/client-portal/dashboard" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <Link href="/client-portal/dashboard" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-slate-900 dark:text-white">Client Portal</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeSwitch />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
           </div>
-          <span className="font-bold text-slate-900">Client Portal</span>
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </Button>
+        </div>
       </div>
 
       {/* Mobile Menu Overlay */}
@@ -96,19 +102,19 @@ export function ClientNav() {
       )}
 
       {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 xl:w-72 bg-white border-r border-slate-200 z-40">
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="h-16 flex items-center px-6 border-b border-slate-200">
+      <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 xl:w-72 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             <Link href="/client-portal/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold">C</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="font-bold text-slate-900">Client Portal</div>
-                <div className="text-xs text-slate-600">CateringMS</div>
+                <h1 className="font-bold text-slate-900 dark:text-white">Client Portal</h1>
+                <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
               </div>
             </Link>
+            <ThemeSwitch />
           </div>
 
           {/* Navigation */}

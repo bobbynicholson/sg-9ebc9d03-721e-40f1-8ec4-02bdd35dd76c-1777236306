@@ -18,6 +18,7 @@ import {
   Wrench
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 
 interface NavItem {
   title: string;
