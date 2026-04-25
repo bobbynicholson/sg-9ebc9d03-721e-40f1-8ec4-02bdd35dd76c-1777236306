@@ -188,12 +188,14 @@ export const deliveryService = {
 
       // Send notification to order owner
       await notificationService.createNotification({
-        user_id: order.user_id,
+        recipient_id: order.user_id,
         type: notificationType,
         title: "Delivery Status Update",
         message,
-        related_id: deliveryId,
-        related_type: "delivery",
+        metadata: {
+          related_id: deliveryId,
+          related_type: "delivery"
+        }
       });
 
       // Send email notification for important status changes
