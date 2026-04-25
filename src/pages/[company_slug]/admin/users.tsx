@@ -123,7 +123,7 @@ export default function StaffManagementPage() {
           role: newStaff.role,
           active_role: newStaff.role,
           company_id: user.company_id,
-        });
+        } as any);
 
       if (profileError) throw profileError;
 

@@ -63,7 +63,7 @@ export function Header() {
 
   // Get the correct dashboard path based on active role
   const dashboardPath = user && activeRole 
-    ? getDashboardPath(activeRole, profile?.company_slug)
+    ? getDashboardPath(activeRole as UserRole, profile?.company_slug)
     : "/";
 
   return (
