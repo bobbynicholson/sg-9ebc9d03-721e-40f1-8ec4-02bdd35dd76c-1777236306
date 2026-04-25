@@ -4,28 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { profileService } from "@/services/profileService";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DynamicNav } from "@/components/DynamicNav";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import {
-  User,
-  Mail,
-  Phone,
-  Building2,
-  MapPin,
-  Save,
-  CheckCircle,
-  Camera,
-  Briefcase,
-  Globe,
-} from "lucide-react";
+import { User, Mail, Phone, Building2, Save, CheckCircle, Camera, Briefcase } from "lucide-react";
 import { ROLE_NAMES } from "@/lib/authGuards";
 
 function ProfileSettingsPage() {
@@ -277,72 +263,6 @@ function ProfileSettingsPage() {
                       onChange={(e) => handleInputChange("company_name", e.target.value)}
                       placeholder="Your Company Ltd"
                       disabled={profile.role !== "owner" && profile.role !== "super_admin"}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Bio / About</Label>
-                <Textarea
-                  value={formData.bio}
-                  onChange={(e) => handleInputChange("bio", e.target.value)}
-                  placeholder="Tell us a bit about yourself..."
-                  rows={4}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Location Information */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
-                Location Information
-              </CardTitle>
-              <CardDescription>Your address and location details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Street Address</Label>
-                <Input
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="123 Main Street"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>City</Label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    placeholder="Johannesburg"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Postal Code</Label>
-                  <Input
-                    value={formData.postal_code}
-                    onChange={(e) => handleInputChange("postal_code", e.target.value)}
-                    placeholder="2000"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Country</Label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                    <Input
-                      className="pl-10"
-                      value={formData.country}
-                      onChange={(e) => handleInputChange("country", e.target.value)}
-                      placeholder="South Africa"
                     />
                   </div>
                 </div>
