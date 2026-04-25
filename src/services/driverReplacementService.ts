@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
-import { notificationService } from "./notificationService";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 

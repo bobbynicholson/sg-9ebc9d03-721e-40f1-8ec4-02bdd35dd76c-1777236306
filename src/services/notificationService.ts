@@ -29,6 +29,7 @@ interface EmailTemplate {
 }
 
 interface CreateNotificationParams {
+  company_id?: string;
   recipient_id: string;
   user_id?: string;
   type: string;
@@ -167,6 +168,7 @@ export const notificationService = {
     const { data, error } = await supabase
       .from("notifications")
       .insert({
+        company_id: notification.company_id || null,
         recipient_id: notification.recipient_id,
         user_id: notification.user_id,
         notification_type: notification.type,

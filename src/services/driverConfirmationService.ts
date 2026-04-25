@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
-import { notificationService } from "./notificationService";
 
 export interface DriverConfirmation {
   id: string;
