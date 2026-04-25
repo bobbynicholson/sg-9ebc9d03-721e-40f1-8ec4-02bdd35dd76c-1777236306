@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { LowStockAlerts } from "@/components/shopping/LowStockAlerts";
 
 interface ShoppingItem {
   id: string;
@@ -154,37 +155,6 @@ export default function ShoppingDashboard() {
               <p className="text-slate-600">Manage inventory and purchasing</p>
             </div>
           </div>
-
-          {inventoryItems.filter(item => item.quantityAvailable < item.minimumStock).length > 0 && (
-            <Card className="border-0 shadow-lg bg-gradient-to-r from-red-50 to-orange-50 mb-8">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  Critical Stock Alerts
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {inventoryItems
-                    .filter(item => item.quantityAvailable < item.minimumStock)
-                    .slice(0, 3)
-                    .map(item => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-red-500">
-                        <div>
-                          <p className="font-semibold text-slate-900">{item.name}</p>
-                          <p className="text-sm text-red-600">
-                            Only {item.quantityAvailable} {item.unit} remaining (Min: {item.minimumStock})
-                          </p>
-                        </div>
-                        <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                          Order Now
-                        </Button>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <Card className="border-0 shadow-lg mb-8">
             <CardHeader className="pb-3">
