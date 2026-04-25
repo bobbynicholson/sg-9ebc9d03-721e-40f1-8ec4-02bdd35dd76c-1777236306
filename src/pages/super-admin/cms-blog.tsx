@@ -1,374 +1,671 @@
 import { useState, useEffect } from "react";
-import Head from "next/head";
-import { cmsService } from "@/services/cmsService";
-import type { BlogPost } from "@/types/cms";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle } from "lucide-react";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { 
+  Sparkles, FileText, Eye, Save, Trash2, 
+  Loader2, CheckCircle2, AlertCircle, Wand2,
+  Search, TrendingUp, MessageSquare, Code
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { cmsService } from "@/services/cmsService";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/router";
 
-export default function CMSBlogManagement() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+interface BlogBrief {
+  topic: string;
+  keywords: string[];
+  targetAudience: string;
+  tone: "professional" | "casual" | "friendly" | "authoritative" | "conversational";
+  contentLength: "short" | "medium" | "long";
+  includeFAQ: boolean;
+  includeSchema: boolean;
+}
 
-  const [formData, setFormData] = useState({
-    title: "",
-    slug: "",
-    excerpt: "",
-    content: "",
-    category: "",
-    author: "CateringMS Team",
-    tags: "",
-    meta_description: "",
-    read_time_minutes: 5,
-    is_published: true
+interface GeneratedContent {
+  title: string;
+  excerpt: string;
+  content: string;
+  metaDescription: string;
+  faqs: Array<{ question: string; answer: string }>;
+  schema: string;
+  suggestedKeywords: string[];
+}
+
+export default function CMSBlogPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [activeTab, setActiveTab] = useState<"create" | "manage">("create");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // AI Brief State
+  const [brief, setBrief] = useState<BlogBrief>({
+    topic: "",
+    keywords: [],
+    targetAudience: "",
+    tone: "professional",
+    contentLength: "medium",
+    includeFAQ: true,
+    includeSchema: true,
   });
 
+  // Generated Content State
+  const [generated, setGenerated] = useState<GeneratedContent | null>(null);
+
+  // Blog Management State
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // Auth check
   useEffect(() => {
-    loadPosts();
-  }, []);
+    if (!authLoading && (!user || user.active_role !== "super_admin")) {
+      router.push("/auth/login");
+    }
+  }, [user, authLoading, router]);
+
+  // Load existing posts
+  useEffect(() => {
+    if (activeTab === "manage") {
+      loadPosts();
+    }
+  }, [activeTab]);
 
   const loadPosts = async () => {
+    setLoadingPosts(true);
     try {
-      setLoading(true);
-      const data = await cmsService.getAllBlogPosts(false);
+      const data = await cmsService.getAllBlogPosts();
       setPosts(data);
     } catch (error) {
       console.error("Error loading posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load blog posts",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setLoadingPosts(false);
     }
   };
 
-  const handleEdit = (post: BlogPost) => {
-    setEditingPost(post);
-    setFormData({
-      title: post.title,
-      slug: post.slug,
-      excerpt: post.excerpt,
-      content: post.content,
-      category: post.category,
-      author: post.author,
-      tags: post.tags?.join(", ") || "",
-      meta_description: post.meta_description || "",
-      read_time_minutes: post.read_time_minutes || 5,
-      is_published: post.is_published
-    });
-  };
+  const handleGenerateContent = async () => {
+    if (!brief.topic || brief.keywords.length === 0) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide a topic and at least one keyword",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleSave = async () => {
+    setAiGenerating(true);
+
     try {
-      const postData = {
-        ...formData,
-        tags: formData.tags.split(",").map(t => t.trim()).filter(Boolean)
+      // Simulate AI generation (replace with actual API call to OpenAI/Claude)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const wordCount = brief.contentLength === "short" ? 800 : brief.contentLength === "medium" ? 1500 : 2500;
+
+      const content: GeneratedContent = {
+        title: `${brief.topic}: A Comprehensive Guide for ${brief.targetAudience || 'Catering Businesses'}`,
+        excerpt: `Discover everything you need to know about ${brief.topic.toLowerCase()} in the catering industry. Expert insights, practical tips, and proven strategies.`,
+        content: generateSampleContent(brief.topic, wordCount, brief.tone),
+        metaDescription: `Complete guide to ${brief.topic.toLowerCase()} for catering businesses. Learn best practices, tips, and strategies from industry experts.`,
+        faqs: brief.includeFAQ ? generateFAQs(brief.topic) : [],
+        schema: brief.includeSchema ? generateSchema(brief.topic) : "",
+        suggestedKeywords: [...brief.keywords, `${brief.topic.toLowerCase()} guide`, `catering ${brief.topic.toLowerCase()}`],
       };
 
-      if (editingPost) {
-        await cmsService.updateBlogPost(editingPost.id, postData);
-      } else {
-        await cmsService.createBlogPost({
-          ...postData,
-          published_date: new Date().toISOString(),
-          last_updated: new Date().toISOString()
-        });
-      }
+      setGenerated(content);
 
-      await loadPosts();
-      handleCancel();
+      toast({
+        title: "Content Generated!",
+        description: "Your AI-powered blog post is ready for review",
+      });
     } catch (error) {
-      console.error("Error saving post:", error);
-      alert("Failed to save post");
+      console.error("Error generating content:", error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this blog post?")) return;
+  const handlePublish = async () => {
+    if (!generated) return;
+
+    setSaving(true);
 
     try {
-      await cmsService.deleteBlogPost(id);
-      await loadPosts();
+      await cmsService.createBlogPost({
+        title: generated.title,
+        slug: generated.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        excerpt: generated.excerpt,
+        content: generated.content,
+        meta_description: generated.metaDescription,
+        keywords: generated.suggestedKeywords,
+        is_published: true,
+        author_id: user?.id || "",
+      });
+
+      toast({
+        title: "Published!",
+        description: "Your blog post is now live",
+      });
+
+      setGenerated(null);
+      setBrief({
+        topic: "",
+        keywords: [],
+        targetAudience: "",
+        tone: "professional",
+        contentLength: "medium",
+        includeFAQ: true,
+        includeSchema: true,
+      });
+      setActiveTab("manage");
     } catch (error) {
-      console.error("Error deleting post:", error);
-      alert("Failed to delete post");
+      console.error("Error publishing:", error);
+      toast({
+        title: "Publish Failed",
+        description: "Failed to publish blog post",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    setEditingPost(null);
-    setIsCreating(false);
-    setFormData({
-      title: "",
-      slug: "",
-      excerpt: "",
-      content: "",
-      category: "",
-      author: "CateringMS Team",
-      tags: "",
-      meta_description: "",
-      read_time_minutes: 5,
-      is_published: true
-    });
-  };
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .trim();
-  };
-
-  if (editingPost || isCreating) {
+  if (authLoading) {
     return (
-      <>
-        <Head>
-          <meta name="robots" content="noindex, nofollow" />
-          <title>Blog Management - CateringMS Website</title>
-        </Head>
-        
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
-          <div className="max-w-4xl mx-auto">
-            <Alert className="mb-6 border-purple-200 bg-purple-50">
-              <AlertTriangle className="h-4 w-4 text-purple-600" />
-              <AlertDescription className="text-purple-800">
-                <strong>CateringMS Website Content:</strong> This content appears on cateringms.com, not individual client portals.
-              </AlertDescription>
-            </Alert>
-
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">
-                  {editingPost ? "Edit Blog Post" : "Create New Blog Post"}
-                </h1>
-                <p className="text-sm text-gray-600 mt-1">CateringMS Marketing Website Content</p>
-              </div>
-              <Button variant="ghost" onClick={handleCancel}>
-                <X className="mr-2 h-4 w-4" />
-                Cancel
-              </Button>
-            </div>
-
-            <Card>
-              <CardContent className="p-6 space-y-6">
-                <div>
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => {
-                      setFormData({
-                        ...formData,
-                        title: e.target.value,
-                        slug: generateSlug(e.target.value)
-                      });
-                    }}
-                    placeholder="Enter post title"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="slug">URL Slug</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    placeholder="url-friendly-slug"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="e.g., Operations, Profitability"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="excerpt">Excerpt</Label>
-                  <Textarea
-                    id="excerpt"
-                    value={formData.excerpt}
-                    onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                    placeholder="Short description of the post"
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="content">Content</Label>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    placeholder="Full blog post content"
-                    rows={15}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Use ## for headings, **text** for bold
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="author">Author</Label>
-                    <Input
-                      id="author"
-                      value={formData.author}
-                      onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="read_time">Read Time (minutes)</Label>
-                    <Input
-                      id="read_time"
-                      type="number"
-                      value={formData.read_time_minutes}
-                      onChange={(e) => setFormData({ ...formData, read_time_minutes: parseInt(e.target.value) })}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="tags">Tags (comma-separated)</Label>
-                  <Input
-                    id="tags"
-                    value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    placeholder="catering, profitability, automation"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="meta_description">Meta Description (SEO)</Label>
-                  <Textarea
-                    id="meta_description"
-                    value={formData.meta_description}
-                    onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
-                    placeholder="SEO description for search engines"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="published"
-                    checked={formData.is_published}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
-                  />
-                  <Label htmlFor="published">Published</Label>
-                </div>
-
-                <div className="flex gap-4">
-                  <Button onClick={handleSave} className="flex-1">
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Post
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel} className="flex-1">
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+      </div>
     );
   }
 
   return (
-    <>
-      <Head>
-        <meta name="robots" content="noindex, nofollow" />
-        <title>Blog Management - CateringMS Website</title>
-      </Head>
-      
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <Alert className="mb-6 border-purple-200 bg-purple-50">
-            <AlertTriangle className="h-4 w-4 text-purple-600" />
-            <AlertDescription className="text-purple-800">
-              <strong>CateringMS Website Content:</strong> This page manages blog content for cateringms.com. 
-              These posts appear on the main marketing website, not in individual client portals.
-            </AlertDescription>
-          </Alert>
-
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">CateringMS Blog Management</h1>
-              <p className="text-gray-600">Manage blog content and SEO for cateringms.com</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <div className="flex gap-4">
-              <Link href="/cateringms-platform/catering-ms-dashboard">
-                <Button variant="outline">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Platform Dashboard
-                </Button>
-              </Link>
-              <Button onClick={() => setIsCreating(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Post
-              </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">AI Blog Writer</h1>
+              <p className="text-slate-600">Create SEO-optimized blog posts at scale with AI</p>
             </div>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600">Loading posts...</p>
-            </div>
-          ) : (
-            <div className="grid gap-6">
-              {posts.map((post) => (
-                <Card key={post.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant={post.is_published ? "default" : "secondary"}>
-                            {post.is_published ? "Published" : "Draft"}
-                          </Badge>
-                          <Badge variant="outline">{post.category}</Badge>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "manage")}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="create" className="gap-2">
+              <Wand2 className="w-4 h-4" />
+              AI Writer
+            </TabsTrigger>
+            <TabsTrigger value="manage" className="gap-2">
+              <FileText className="w-4 h-4" />
+              Manage Posts
+            </TabsTrigger>
+          </TabsList>
+
+          {/* AI Writer Tab */}
+          <TabsContent value="create" className="space-y-6">
+            {!generated ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Brief Input */}
+                <div className="lg:col-span-2 space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Search className="w-5 h-5" />
+                        Content Brief
+                      </CardTitle>
+                      <CardDescription>
+                        Provide details for the AI to generate your blog post
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="topic">Topic / Title *</Label>
+                        <Input
+                          id="topic"
+                          placeholder="e.g., How to Scale Your Catering Business"
+                          value={brief.topic}
+                          onChange={(e) => setBrief({ ...brief, topic: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="keywords">Keywords (comma-separated) *</Label>
+                        <Input
+                          id="keywords"
+                          placeholder="e.g., catering business, event catering, food service"
+                          value={brief.keywords.join(", ")}
+                          onChange={(e) => setBrief({ ...brief, keywords: e.target.value.split(",").map(k => k.trim()) })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="audience">Target Audience</Label>
+                        <Input
+                          id="audience"
+                          placeholder="e.g., Small catering business owners"
+                          value={brief.targetAudience}
+                          onChange={(e) => setBrief({ ...brief, targetAudience: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Tone</Label>
+                          <Select
+                            value={brief.tone}
+                            onValueChange={(v: any) => setBrief({ ...brief, tone: v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="professional">Professional</SelectItem>
+                              <SelectItem value="casual">Casual</SelectItem>
+                              <SelectItem value="friendly">Friendly</SelectItem>
+                              <SelectItem value="authoritative">Authoritative</SelectItem>
+                              <SelectItem value="conversational">Conversational</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <CardTitle className="text-xl mb-2">{post.title}</CardTitle>
-                        <CardDescription>{post.excerpt}</CardDescription>
-                        <div className="mt-2 text-sm text-gray-500">
-                          By {post.author} • {new Date(post.published_date).toLocaleDateString("en-ZA")}
+
+                        <div className="space-y-2">
+                          <Label>Content Length</Label>
+                          <Select
+                            value={brief.contentLength}
+                            onValueChange={(v: any) => setBrief({ ...brief, contentLength: v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="short">Short (~800 words)</SelectItem>
+                              <SelectItem value="medium">Medium (~1500 words)</SelectItem>
+                              <SelectItem value="long">Long (~2500 words)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(post)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(post.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={brief.includeFAQ}
+                            onChange={(e) => setBrief({ ...brief, includeFAQ: e.target.checked })}
+                            className="w-4 h-4 text-purple-600"
+                          />
+                          <span className="text-sm text-slate-700">Include FAQ Section</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={brief.includeSchema}
+                            onChange={(e) => setBrief({ ...brief, includeSchema: e.target.checked })}
+                            className="w-4 h-4 text-purple-600"
+                          />
+                          <span className="text-sm text-slate-700">Include Schema Markup</span>
+                        </label>
+                      </div>
+
+                      <Button
+                        onClick={handleGenerateContent}
+                        disabled={aiGenerating || !brief.topic || brief.keywords.length === 0}
+                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                        size="lg"
+                      >
+                        {aiGenerating ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Generating with AI...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-5 w-5" />
+                            Generate Blog Post
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* SEO Tips */}
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <TrendingUp className="w-5 h-5" />
+                        SEO Best Practices
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm text-slate-600">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Use descriptive, keyword-rich titles (50-60 characters)</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Include primary keyword in first paragraph</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Use H2/H3 headings for structure</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Keep meta description under 160 characters</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Add internal links to related content</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        <p>Include FAQ schema for rich snippets</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <MessageSquare className="w-5 h-5" />
+                        AI Writing Tips
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm text-slate-600">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <p>Be specific with your topic for better results</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <p>Use 3-5 relevant keywords</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <p>Define target audience for better tone</p>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                        <p>Review and edit AI output before publishing</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              /* Generated Content Preview */
+              <div className="space-y-6">
+                <Alert>
+                  <Sparkles className="h-4 w-4" />
+                  <AlertDescription>
+                    AI has generated your blog post! Review and edit before publishing.
+                  </AlertDescription>
+                </Alert>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{generated.title}</CardTitle>
+                    <CardDescription>{generated.excerpt}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* SEO Meta */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Meta Description</Label>
+                      <Textarea
+                        value={generated.metaDescription}
+                        onChange={(e) => setGenerated({ ...generated, metaDescription: e.target.value })}
+                        className="h-20"
+                      />
+                      <p className="text-xs text-slate-500">
+                        {generated.metaDescription.length}/160 characters
+                      </p>
+                    </div>
+
+                    {/* Keywords */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Keywords</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {generated.suggestedKeywords.map((keyword, idx) => (
+                          <Badge key={idx} variant="secondary">{keyword}</Badge>
+                        ))}
                       </div>
                     </div>
-                  </CardHeader>
+
+                    {/* Content */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Content</Label>
+                      <Textarea
+                        value={generated.content}
+                        onChange={(e) => setGenerated({ ...generated, content: e.target.value })}
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                    </div>
+
+                    {/* FAQs */}
+                    {generated.faqs.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">FAQ Section</Label>
+                        <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                          {generated.faqs.map((faq, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <p className="font-semibold text-sm text-slate-900">Q: {faq.question}</p>
+                              <p className="text-sm text-slate-600">A: {faq.answer}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Schema */}
+                    {generated.schema && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Code className="w-4 h-4" />
+                          Schema.org JSON-LD
+                        </Label>
+                        <Textarea
+                          value={generated.schema}
+                          onChange={(e) => setGenerated({ ...generated, schema: e.target.value })}
+                          className="min-h-[200px] font-mono text-xs"
+                        />
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-4 border-t">
+                      <Button
+                        onClick={handlePublish}
+                        disabled={saving}
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Publishing...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Publish Post
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setGenerated(null)}
+                      >
+                        Start Over
+                      </Button>
+                    </div>
+                  </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Manage Posts Tab */}
+          <TabsContent value="manage">
+            <Card>
+              <CardHeader>
+                <CardTitle>Published Blog Posts</CardTitle>
+                <CardDescription>Manage your existing blog content</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingPosts ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+                  </div>
+                ) : posts.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No blog posts yet. Create your first post with AI!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {posts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                      >
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{post.title}</h3>
+                          <p className="text-sm text-slate-600">{post.excerpt}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
-    </>
+    </div>
   );
+}
+
+// Helper functions for demo (replace with actual AI API calls)
+function generateSampleContent(topic: string, wordCount: number, tone: string): string {
+  return `# ${topic}
+
+## Introduction
+
+In today's competitive catering industry, ${topic.toLowerCase()} has become essential for business success. This comprehensive guide will walk you through everything you need to know.
+
+## Why This Matters
+
+Understanding ${topic.toLowerCase()} is crucial because it directly impacts your business growth, customer satisfaction, and operational efficiency.
+
+## Key Strategies
+
+### Strategy 1: Foundation
+Building a strong foundation is the first step...
+
+### Strategy 2: Implementation
+Once you have the basics in place...
+
+### Strategy 3: Optimization
+Continuous improvement ensures long-term success...
+
+## Best Practices
+
+- Always prioritize quality over quantity
+- Listen to customer feedback
+- Stay updated with industry trends
+- Invest in your team's training
+
+## Common Challenges and Solutions
+
+Every catering business faces challenges. Here's how to overcome them...
+
+## Conclusion
+
+Mastering ${topic.toLowerCase()} will set your catering business apart from competitors and drive sustainable growth.
+
+---
+
+*Note: This is AI-generated content. Please review and edit before publishing.*`;
+}
+
+function generateFAQs(topic: string): Array<{ question: string; answer: string }> {
+  return [
+    {
+      question: `What is ${topic}?`,
+      answer: `${topic} refers to the comprehensive approach to managing and optimizing your catering business operations for maximum efficiency and customer satisfaction.`
+    },
+    {
+      question: `How can I implement ${topic} in my business?`,
+      answer: `Start by assessing your current processes, identifying areas for improvement, and gradually implementing changes while monitoring results.`
+    },
+    {
+      question: `What are the benefits of ${topic}?`,
+      answer: `Key benefits include increased efficiency, better customer satisfaction, improved profitability, and sustainable business growth.`
+    },
+    {
+      question: `How long does it take to see results?`,
+      answer: `Most businesses see initial improvements within 30-60 days, with significant results becoming evident after 3-6 months of consistent implementation.`
+    },
+  ];
+}
+
+function generateSchema(topic: string): string {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": `${topic}: A Comprehensive Guide`,
+    "description": `Complete guide to ${topic.toLowerCase()} for catering businesses`,
+    "author": {
+      "@type": "Organization",
+      "name": "CateringMS"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "CateringMS",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://cateringms.com/logo.png"
+      }
+    },
+    "datePublished": new Date().toISOString(),
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `https://cateringms.com/blog/${topic.toLowerCase().replace(/\s+/g, '-')}`
+    }
+  }, null, 2);
 }
