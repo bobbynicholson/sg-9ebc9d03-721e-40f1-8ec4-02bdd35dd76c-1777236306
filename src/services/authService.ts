@@ -157,39 +157,38 @@ export const authService = {
   },
 
   // Sign out
-  async signOut(): Promise<{ error: AuthError | null }> {
-    try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        return { error: { message: error.message } };
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      return { 
-        error: { message: error?.message || "An unexpected error occurred during sign out" } 
-      };
-    }
+  async signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    return { error: null };
   },
 
-  // Reset password
-  async resetPassword(email: string): Promise<{ error: AuthError | null }> {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getURL()}auth/reset-password`,
-      });
-
-      if (error) {
-        return { error: { message: error.message } };
-      }
-
-      return { error: null };
-    } catch (error: any) {
-      return { 
-        error: { message: error?.message || "An unexpected error occurred during password reset" } 
-      };
+  async updatePassword(newPassword: string) {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+    
+    if (error) {
+      console.error("Password update error:", error);
+      return { error };
     }
+    
+    return { data, error: null };
+  },
+
+  async resetPasswordForEmail(email: string) {
+    const redirectUrl = `${window.location.origin}/auth/reset-password`;
+    
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+    
+    if (error) {
+      console.error("Password reset email error:", error);
+      return { error };
+    }
+    
+    return { data, error: null };
   },
 
   // Listen to auth state changes
