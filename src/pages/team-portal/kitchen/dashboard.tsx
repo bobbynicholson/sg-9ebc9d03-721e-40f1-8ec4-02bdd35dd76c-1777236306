@@ -67,12 +67,12 @@ export default function KitchenDashboard() {
         setOrders(ordersData || []);
       }
 
-      // Load low stock items
+      // Load low stock items - compare current_stock to minimum_stock directly
       const { data: inventoryData, error: inventoryError } = await supabase
         .from("inventory_items")
         .select("*")
         .eq("company_id", user.company_id)
-        .lt("current_stock", supabase.rpc("minimum_stock"))
+        .filter("current_stock", "lt", "minimum_stock")
         .order("current_stock", { ascending: true })
         .limit(5);
 

@@ -325,7 +325,40 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-8 text-center space-y-3">
+          {/* Dev Mode / God Mode Quick Login */}
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+            <Button
+              onClick={async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                  const { error } = await supabase.auth.signInWithPassword({
+                    email: "hello@spitbraaidelivery.co.za",
+                    password: "Password123!",
+                  });
+                  if (error) throw error;
+                  router.push("/super-admin/dashboard");
+                } catch (err: any) {
+                  setError(err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              variant="outline"
+              className="w-full border-2 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950"
+              type="button"
+            >
+              <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                🔧 DEV MODE - Super Admin Login (God Mode)
+              </span>
+            </Button>
+            <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2">
+              Instant access to all roles & companies for testing
+            </p>
+          </div>
+
+          <div className="mt-6 text-center space-y-3">
             <p className="text-sm text-slate-500">
               Don't have an account?{" "}
               <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
