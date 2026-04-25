@@ -13,6 +13,7 @@ import {
 import { Menu, X, User, LogOut, Settings, ChevronDown } from "lucide-react";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { RegionSwitcher } from "@/components/RegionSwitcher";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { UserRole } from "@/types/app";
 
 // Helper function to get the correct dashboard path for each role
@@ -109,6 +110,8 @@ export function Header() {
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
           <RegionSwitcher />
           <ThemeSwitch />
+          
+          {user && <RoleSwitcher variant="compact" showLabel={false} />}
           
           {user ? (
             <>

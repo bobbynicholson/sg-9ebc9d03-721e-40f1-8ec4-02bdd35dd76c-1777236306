@@ -68,11 +68,21 @@ interface RoleSwitcherProps {
 }
 
 export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwitcherProps) {
-  const { userRoles, activeRole, switchRole } = useAuth();
+  const { userRoles, activeRole, switchRole, user } = useAuth();
   const [switching, setSwitching] = useState(false);
 
-  // Don't show if user only has one role
-  if (userRoles.length <= 1) {
+  const isGodMode = user?.role === UserRole.SUPER_ADMIN || activeRole === UserRole.SUPER_ADMIN;
+
+  const displayRoles = isGodMode 
+    ? Object.values(UserRole).map(role => ({
+        id: role,
+        department: role,
+        is_primary: role === UserRole.SUPER_ADMIN
+      }))
+    : userRoles;
+
+  // Don't show if user only has one role and isn't super admin
+  if (!isGodMode && displayRoles.length <= 1) {
     return null;
   }
 
@@ -120,16 +130,16 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>Switch Dashboard</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {userRoles.map((role) => (
+          {displayRoles.map((role) => (
             <DropdownMenuItem
               key={role.id}
               onClick={() => handleRoleSwitch(role.department as UserRole)}
               disabled={role.department === activeRole || switching}
               className="gap-2"
             >
-              {roleIcons[role.department]}
+              {roleIcons[role.department as string] || <Users className="h-4 w-4" />}
               <span className="flex-1">
-                {roleService.getRoleDisplayName(role.department as UserRole)}
+                {roleService.getRoleDisplayName(role.department as UserRole) || role.department}
               </span>
               {role.department === activeRole && (
                 <Badge variant="secondary" className="text-xs">
@@ -179,12 +189,12 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">Switch Dashboard</p>
             <p className="text-xs leading-none text-muted-foreground">
-              You have access to {userRoles.length} dashboards
+              You have access to {displayRoles.length} dashboards
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {userRoles.map((role) => {
+        {displayRoles.map((role) => {
           const isActive = role.department === activeRole;
           return (
             <DropdownMenuItem
@@ -193,11 +203,11 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
               disabled={isActive || switching}
               className="gap-3 py-3 cursor-pointer"
             >
-              <div className="flex-shrink-0">{roleIcons[role.department]}</div>
+              <div className="flex-shrink-0">{roleIcons[role.department as string] || <Users className="h-4 w-4" />}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">
-                    {roleService.getRoleDisplayName(role.department as UserRole)}
+                    {roleService.getRoleDisplayName(role.department as UserRole) || role.department}
                   </span>
                   {isActive && (
                     <Badge className={`text-xs ${currentRoleColor}`}>

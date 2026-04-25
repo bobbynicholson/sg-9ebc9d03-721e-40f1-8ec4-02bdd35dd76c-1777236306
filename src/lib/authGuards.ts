@@ -51,6 +51,13 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.CLIENT]: [
     "/client-portal/*",
   ],
+  [UserRole.COMPANY_ADMIN]: [
+    "/admin/*",
+    "/team-portal/*",
+  ],
+  [UserRole.STAFF]: [
+    "/team-portal/general/*",
+  ],
 };
 
 // Admin roles that can access admin dashboard
@@ -69,6 +76,8 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.CLEANING]: "Cleaning Manager",
   [UserRole.CLEANING_STAFF]: "Cleaning Staff",
   [UserRole.CLIENT]: "Client",
+  [UserRole.COMPANY_ADMIN]: "Company Administrator",
+  [UserRole.STAFF]: "General Staff",
 };
 
 // Default landing pages for each role
@@ -84,6 +93,8 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.CLEANING]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
+  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.STAFF]: (slug) => slug ? `/${slug}/team-portal/general/job-progress` : "/team-portal/general/job-progress",
 };
 
 /**

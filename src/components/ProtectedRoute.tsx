@@ -52,6 +52,13 @@ export function ProtectedRoute({
 
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0) {
+          // GOD MODE: Super Admins bypass all role restrictions
+          if (profile.role === UserRole.SUPER_ADMIN || profile.active_role === UserRole.SUPER_ADMIN) {
+            setAuthorized(true);
+            setIsChecking(false);
+            return;
+          }
+
           const hasAccess = allowedRoles.some(role => {
             if (role === UserRole.ADMIN) {
               return profile.active_role === 'company_admin' || profile.active_role === 'super_admin';
