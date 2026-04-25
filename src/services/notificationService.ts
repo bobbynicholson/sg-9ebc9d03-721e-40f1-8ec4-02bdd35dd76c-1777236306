@@ -32,7 +32,8 @@ interface CreateNotificationParams {
   company_id?: string;
   recipient_id: string;
   user_id?: string;
-  type: string;
+  type?: string;
+  notification_type?: string;
   title: string;
   message: string;
   link?: string;
@@ -171,7 +172,7 @@ export const notificationService = {
         company_id: notification.company_id || null,
         recipient_id: notification.recipient_id,
         user_id: notification.user_id,
-        notification_type: notification.type,
+        notification_type: notification.type || notification.notification_type || "system_alert",
         title: notification.title,
         message: notification.message,
         link: notification.link || null,
