@@ -3,15 +3,12 @@ import type { Tables, Database } from "@/integrations/supabase/types";
 
 export type Notification = Tables<"notifications">;
 export type NotificationInsert = Database["public"]["Tables"]["notifications"]["Insert"] & {
-  order_id?: string; // FIX: Add optional order_id
+  order_id?: string;
 };
 
 class RealtimeNotificationService {
   private subscriptions: Map<string, any> = new Map();
 
-  /**
-   * Create and send a notification to a user
-   */
   async createNotification(payload: NotificationInsert): Promise<Notification | null> {
     try {
       const { data, error } = await supabase
@@ -25,7 +22,6 @@ class RealtimeNotificationService {
         return null;
       }
 
-      // Trigger real-time update
       if (data && payload.user_id) {
          await this.broadcastNotification(payload.user_id, data);
       }
@@ -37,9 +33,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Subscribe to real-time notifications for a user
-   */
   subscribeToNotifications(
     userId: string,
     callback: (notification: Notification) => void
@@ -62,16 +55,12 @@ class RealtimeNotificationService {
 
     this.subscriptions.set(userId, channel);
 
-    // Return unsubscribe function
     return () => {
       channel.unsubscribe();
       this.subscriptions.delete(userId);
     };
   }
 
-  /**
-   * Mark notification as read
-   */
   async markAsRead(notificationId: string): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -89,9 +78,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Mark all notifications as read for a user
-   */
   async markAllAsRead(userId: string): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -110,9 +96,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Get unread notification count
-   */
   async getUnreadCount(userId: string): Promise<number> {
     try {
       const { count, error } = await supabase
@@ -133,9 +116,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Get user notifications with pagination
-   */
   async getUserNotifications(
     userId: string,
     options: {
@@ -177,9 +157,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Delete a notification
-   */
   async deleteNotification(notificationId: string): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -194,9 +171,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Broadcast notification via real-time channel
-   */
   private async broadcastNotification(userId: string, notification: any): Promise<void> {
     try {
       const channel = supabase.channel(`user:${userId}`);
@@ -210,9 +184,6 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Clean up old notifications
-   */
   async cleanupOldNotifications(daysOld: number = 30): Promise<number> {
     try {
       const cutoffDate = new Date();

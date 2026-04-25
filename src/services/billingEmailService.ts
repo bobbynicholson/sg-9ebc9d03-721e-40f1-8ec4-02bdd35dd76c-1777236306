@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { emailService } from "./emailService";
 
 interface EmailTemplate {
   subject: string;
@@ -6,8 +7,6 @@ interface EmailTemplate {
 }
 
 export class BillingEmailService {
-  // ==================== EMAIL TEMPLATES ====================
-
   getEmailTemplate(type: string, data: Record<string, any>): EmailTemplate {
     const templates: Record<string, EmailTemplate> = {
       subscription_started: {
@@ -313,277 +312,238 @@ export class BillingEmailService {
     };
   }
 
-  // ==================== EMAIL SENDING ====================
-
-  async sendEmail(to: string, type: string, data: Record<string, any>): Promise<boolean> {
+  async sendBillingEmail(to: string, type: string, data: Record<string, any>, companyId: string): Promise<boolean> {
     try {
       const template = this.getEmailTemplate(type, data);
       
-      // TODO: Integrate with actual email service (Resend, SendGrid, etc.)
-      // For now, we'll log the email and store it in the database
-      
-      console.log("Sending email:", {
+      return await emailService.sendEmail({
+        companyId,
         to,
         subject: template.subject,
-        type
+        body: template.body
       });
-
-      // Store email in database for tracking
-      await supabase
-        .from("email_logs")
-        .insert([{
-          recipient: to,
-          subject: template.subject,
-          body: template.body,
-          email_type: type,
-          status: "sent",
-          sent_at: new Date().toISOString()
-        }]);
-
-      return true;
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error("Error sending billing email:", error);
       return false;
     }
   }
 
-  // ==================== AUTOMATED NOTIFICATIONS ====================
-
   async notifySubscriptionStarted(userId: string, subscription: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "subscription_started", {
-      userName: profile.full_name || "there",
-      planName: subscription.plan_name,
-      amount: `R${subscription.amount}`,
-      billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
-      nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-      subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "subscription_started",
+      {
+        userName: profile.full_name || "there",
+        planName: subscription.plan_name,
+        amount: `R${subscription.amount}`,
+        billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
+        nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
+        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 
   async notifyPaymentSucceeded(userId: string, payment: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "payment_succeeded", {
-      userName: profile.full_name || "there",
-      amount: `R${payment.amount}`,
-      paymentDate: new Date(payment.paid_at).toLocaleDateString(),
-      transactionId: payment.transaction_id || "N/A",
-      billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),
-      billingPeriodEnd: new Date(payment.billing_period_end).toLocaleDateString(),
-      nextBillingDate: payment.next_billing_date ? new Date(payment.next_billing_date).toLocaleDateString() : 'N/A',
-      invoiceUrl: payment.invoice_pdf_url || `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "payment_succeeded",
+      {
+        userName: profile.full_name || "there",
+        amount: `R${payment.amount}`,
+        paymentDate: new Date(payment.paid_at).toLocaleDateString(),
+        transactionId: payment.transaction_id || "N/A",
+        billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),
+        billingPeriodEnd: new Date(payment.billing_period_end).toLocaleDateString(),
+        nextBillingDate: payment.next_billing_date ? new Date(payment.next_billing_date).toLocaleDateString() : 'N/A',
+        invoiceUrl: payment.invoice_pdf_url || `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 
   async notifyPaymentFailed(userId: string, payment: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "payment_failed", {
-      userName: profile.full_name || "there",
-      amount: `R${payment.amount}`,
-      attemptedDate: new Date(payment.created_at).toLocaleDateString(),
-      failureReason: payment.failed_reason || "Payment method declined",
-      updatePaymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "payment_failed",
+      {
+        userName: profile.full_name || "there",
+        amount: `R${payment.amount}`,
+        attemptedDate: new Date(payment.created_at).toLocaleDateString(),
+        failureReason: payment.failed_reason || "Payment method declined",
+        updatePaymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 
   async notifyTrialEnding(userId: string, daysRemaining: number, trialEndDate: string, stats: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "trial_ending_soon", {
-      userName: profile.full_name || "there",
-      daysRemaining,
-      trialEndDate: new Date(trialEndDate).toLocaleDateString(),
-      clientsCreated: stats.clients || 0,
-      quotesCreated: stats.quotes || 0,
-      ordersCreated: stats.orders || 0,
-      pricingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "trial_ending_soon",
+      {
+        userName: profile.full_name || "there",
+        daysRemaining,
+        trialEndDate: new Date(trialEndDate).toLocaleDateString(),
+        clientsCreated: stats.clients || 0,
+        quotesCreated: stats.quotes || 0,
+        ordersCreated: stats.orders || 0,
+        pricingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`
+      },
+      profile.company_id
+    );
   }
 
   async notifySubscriptionExpiring(userId: string, subscription: any, daysUntilRenewal: number) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "subscription_expiring", {
-      userName: profile.full_name || "there",
-      daysUntilRenewal,
-      planName: subscription.plan_name,
-      amount: `R${subscription.amount}`,
-      renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-      paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
-      subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "subscription_expiring",
+      {
+        userName: profile.full_name || "there",
+        daysUntilRenewal,
+        planName: subscription.plan_name,
+        amount: `R${subscription.amount}`,
+        renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
+        paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
+        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 
   async notifyPriceChange(userId: string, priceChange: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "price_change_notification", {
-      userName: profile.full_name || "there",
-      currentPrice: `R${priceChange.old_amount}`,
-      newPrice: `R${priceChange.new_amount}`,
-      effectiveDate: new Date(priceChange.effective_date).toLocaleDateString(),
-      changeReason: priceChange.change_reason,
-      explanation: priceChange.exchange_rate_info || "To maintain service quality and continue development of new features.",
-      subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "price_change_notification",
+      {
+        userName: profile.full_name || "there",
+        currentPrice: `R${priceChange.old_amount}`,
+        newPrice: `R${priceChange.new_amount}`,
+        effectiveDate: new Date(priceChange.effective_date).toLocaleDateString(),
+        changeReason: priceChange.change_reason,
+        explanation: priceChange.exchange_rate_info || "To maintain service quality and continue development of new features.",
+        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 
   async notifySubscriptionCancelled(userId: string, subscription: any, cancelType: string) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "subscription_cancelled", {
-      userName: profile.full_name || "there",
-      planName: subscription.plan_name,
-      cancelledDate: new Date(subscription.cancelled_at).toLocaleDateString(),
-      accessUntilDate: new Date(subscription.current_period_end).toLocaleDateString(),
-      cancelType,
-      reactivateUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`,
-      feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/feedback`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "subscription_cancelled",
+      {
+        userName: profile.full_name || "there",
+        planName: subscription.plan_name,
+        cancelledDate: new Date(subscription.cancelled_at).toLocaleDateString(),
+        accessUntilDate: new Date(subscription.current_period_end).toLocaleDateString(),
+        cancelType,
+        reactivateUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`,
+        feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/feedback`
+      },
+      profile.company_id
+    );
   }
 
   async notifySubscriptionReactivated(userId: string, subscription: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "subscription_reactivated", {
-      userName: profile.full_name || "there",
-      planName: subscription.plan_name,
-      amount: `R${subscription.amount}`,
-      nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-      dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard`
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "subscription_reactivated",
+      {
+        userName: profile.full_name || "there",
+        planName: subscription.plan_name,
+        amount: `R${subscription.amount}`,
+        nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
+        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard`
+      },
+      profile.company_id
+    );
   }
 
   async notifyAccountDeletionScheduled(userId: string, deletionRequest: any) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, company_id")
       .eq("id", userId)
       .single();
 
-    if (!profile?.email) return;
+    if (!profile?.email || !profile.company_id) return;
 
-    await this.sendEmail(profile.email, "account_deletion_scheduled", {
-      userName: profile.full_name || "there",
-      deletionDate: new Date(deletionRequest.scheduled_deletion_date).toLocaleDateString(),
-      exportRequested: deletionRequest.data_export_requested,
-      cancelDeletionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
-    });
-  }
-
-  // Helper to get base URL
-  private getBaseUrl(): string {
-    return typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
-  }
-
-  async sendDriverDepartureEmail(to: string, clientName: string, driverName: string, orderId: string): Promise<void> {
-    const trackingUrl = `${this.getBaseUrl()}/tracking/client?orderId=${orderId}`;
-    await this.sendEmail(to, "driver_departure", {
-      clientName,
-      driverName,
-      trackingUrl,
-    });
-  }
-
-  async sendDriverArrivalEmail(to: string, clientName: string, driverName: string, orderId: string): Promise<void> {
-    await this.sendEmail(to, "driver_arrival", {
-      clientName,
-      driverName,
-    });
-  }
-
-  async sendDeliveryTrackingEmail(to: string, clientName: string, driverName: string, orderId: string): Promise<void> {
-    const trackingUrl = `${this.getBaseUrl()}/tracking/client?orderId=${orderId}`;
-    await this.sendEmail(to, "delivery_tracking", {
-      clientName,
-      driverName,
-      trackingUrl,
-    });
-  }
-
-  async sendPostEventEmail(to: string, clientName: string, orderNumber: string): Promise<void> {
-    await this.sendEmail(to, "post_event_thank_you", {
-      clientName,
-      orderNumber,
-    });
-  }
-
-  async sendQuoteRequestConfirmation(to: string, clientName: string, quoteNumber: string): Promise<void> {
-    await this.sendEmail(to, "quote_request_confirmation", {
-      clientName,
-      quoteNumber,
-    });
-  }
-
-  async sendCustomQuoteEmail(to: string, clientName: string, companyName: string, quoteNumber: string, totalAmount: string, quoteUrl: string, pdfUrl?: string): Promise<void> {
-    await this.sendEmail(to, "custom_quote_ready", {
-      clientName,
-      companyName,
-      quoteNumber,
-      totalAmount,
-      quoteUrl,
-      pdfUrl,
-    });
-  }
-
-  async sendStaffInvitationEmail(to: string, inviterName: string, companyName: string, joinUrl: string, companyId?: string): Promise<void> {
-    await this.sendEmail(to, "staff_invitation", {
-      userName: to,
-      inviterName,
-      companyName,
-      joinUrl,
-    });
+    await this.sendBillingEmail(
+      profile.email,
+      "account_deletion_scheduled",
+      {
+        userName: profile.full_name || "there",
+        deletionDate: new Date(deletionRequest.scheduled_deletion_date).toLocaleDateString(),
+        exportRequested: deletionRequest.data_export_requested,
+        cancelDeletionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+      },
+      profile.company_id
+    );
   }
 }
 

@@ -1,9 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// ✅ FIX: Don't import nodemailer at the top level
-// This prevents Next.js from bundling it for the client
-// Instead, we'll dynamically import it only when needed (server-side only)
-
 export interface EmailSettings {
   id: string;
   user_id: string;
@@ -243,8 +239,6 @@ export const emailService = {
         return false;
       }
 
-      // ✅ FIX: Dynamically import nodemailer only when needed (server-side only)
-      // This prevents Next.js from trying to bundle it for the client
       const nodemailer = await import('nodemailer');
 
       const transporter = nodemailer.default.createTransport({

@@ -1,16 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { UserRole } from "@/types/app";
-import { realtimeNotificationService } from "./realtimeNotificationService";
 
 export type Notification = Tables<"notifications">;
 
 export const notificationService = {
-  // NEW: Get notifications filtered by active role
   async getNotifications(
     userId: string, 
     unreadOnly: boolean = false,
-    activeRole?: string // NEW: Filter by active role
+    activeRole?: string
   ): Promise<Notification[]> {
     let query = supabase
       .from("notifications")
@@ -21,7 +19,6 @@ export const notificationService = {
       query = query.eq("is_read", false);
     }
 
-    // NEW: Filter by role if provided
     if (activeRole) {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
     }
@@ -55,7 +52,6 @@ export const notificationService = {
     return data;
   },
 
-  // NEW: Mark all as read for specific role
   async markAllAsRead(userId: string, activeRole?: string): Promise<boolean> {
     let query = supabase
       .from("notifications")
@@ -66,7 +62,6 @@ export const notificationService = {
       .eq("recipient_id", userId)
       .eq("is_read", false);
 
-    // NEW: Filter by role if provided
     if (activeRole) {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
     }
@@ -81,7 +76,6 @@ export const notificationService = {
     return true;
   },
 
-  // NEW: Create notification with target role
   async createNotification(
     notification: {
       recipient_id: string;
@@ -91,7 +85,7 @@ export const notificationService = {
       message: string;
       link?: string;
       priority?: string;
-      target_role?: UserRole; // FIX: Use UserRole type instead of string
+      target_role?: UserRole;
       metadata?: Record<string, unknown>;
     }
   ): Promise<Notification | null> {
@@ -119,11 +113,10 @@ export const notificationService = {
     return data;
   },
 
-  // NEW: Subscribe to role-filtered notifications
   async subscribeToNotifications(
     userId: string, 
     callback: (notification: Notification) => void,
-    activeRole?: string // NEW: Subscribe to specific role notifications
+    activeRole?: string
   ) {
     const channel = supabase
       .channel(`notifications:${userId}:${activeRole || "all"}`)
@@ -137,7 +130,6 @@ export const notificationService = {
         },
         (payload) => {
           const notification = payload.new as Notification;
-          // Filter by role on client side as well
           if (!activeRole || !notification.target_role || notification.target_role === activeRole) {
             callback(notification);
           }
@@ -150,7 +142,6 @@ export const notificationService = {
     };
   },
 
-  // NEW: Get unread count for specific role
   async getUnreadCount(userId: string, activeRole?: string): Promise<number> {
     let query = supabase
       .from("notifications")
@@ -158,7 +149,6 @@ export const notificationService = {
       .eq("recipient_id", userId)
       .eq("is_read", false);
 
-    // NEW: Filter by role if provided
     if (activeRole) {
       query = query.or(`target_role.eq.${activeRole},target_role.is.null`);
     }
