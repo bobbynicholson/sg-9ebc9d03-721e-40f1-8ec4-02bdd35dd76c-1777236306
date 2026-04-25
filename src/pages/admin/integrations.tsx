@@ -78,13 +78,14 @@ export default function AdminIntegrations() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Integrations - CateringMS Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Integrations | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
               <Zap className="w-6 h-6 text-white" />

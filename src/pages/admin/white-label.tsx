@@ -78,8 +78,15 @@ export default function WhiteLabelPage() {
 
   return (
     <>
+      <NoIndexMeta />
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>White Label Branding | CateringMS Admin</title>
+      </Head>
+
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 lg:ml-64 xl:ml-72">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <Link href="/admin/settings">
             <Button variant="ghost" className="mb-4">

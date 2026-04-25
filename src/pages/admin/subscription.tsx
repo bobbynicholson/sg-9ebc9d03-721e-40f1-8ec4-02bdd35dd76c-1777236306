@@ -219,347 +219,346 @@ export default function SubscriptionPage() {
 
   return (
     <>
+      <NoIndexMeta />
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Subscription Management | CateringMS Admin</title>
+      </Head>
+
       <AdminNav />
-      <div className="container mx-auto p-6 max-w-6xl lg:ml-64 xl:ml-72">
-        <NoIndexMeta />
-        <Head>
-          <title>Subscription Management - CateringMS</title>
-        </Head>
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">Subscription Management</h1>
-          <p className="text-slate-600 mt-2">Manage your subscription, billing, and account settings</p>
-        </div>
-
-        {pendingDeletion && (
-          <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <AlertDescription className="text-red-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold mb-1">Account Deletion Scheduled</p>
-                  <p className="text-sm">Your account is scheduled for deletion on {formatDate(pendingDeletion.scheduled_deletion_date)}. You have time to change your mind.</p>
-                </div>
-                <Button variant="outline" onClick={handleCancelDeletion}>
-                  Cancel Deletion
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {subscription.cancel_at_period_end && (
-          <Alert className="mb-6 border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-            <AlertDescription className="text-yellow-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold mb-1">Subscription Cancelling</p>
-                  <p className="text-sm">Your subscription will end on {formatDate(subscription.current_period_end)}. You will still have access until then.</p>
-                </div>
-                <Button variant="outline" onClick={handleReactivate}>
-                  Reactivate Subscription
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {trialStatus?.isInTrial && (
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <Info className="h-5 w-5 text-blue-600" />
-            <AlertDescription className="text-blue-900">
-              <p className="font-semibold mb-1">Free Trial Active</p>
-              <p className="text-sm">You have {trialStatus.daysRemaining} days remaining in your free trial. Your trial ends on {formatDate(trialStatus.trialEndsAt!)}.</p>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Current Plan
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          {pendingDeletion && (
+            <Alert className="mb-6 border-red-200 bg-red-50">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <AlertDescription className="text-red-900">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-slate-900">{subscription.plan_name}</p>
-                    <p className="text-sm text-slate-600">{subscription.billing_cycle === "monthly" ? "Monthly" : "Annual"} billing</p>
+                    <p className="font-semibold mb-1">Account Deletion Scheduled</p>
+                    <p className="text-sm">Your account is scheduled for deletion on {formatDate(pendingDeletion.scheduled_deletion_date)}. You have time to change your mind.</p>
                   </div>
-                  <Badge className={getStatusColor(subscription.status)}>
-                    {getStatusText(subscription.status)}
-                  </Badge>
+                  <Button variant="outline" onClick={handleCancelDeletion}>
+                    Cancel Deletion
+                  </Button>
                 </div>
-                
-                <Separator />
-                
-                <div className="flex items-baseline justify-between">
-                  <span className="text-slate-600">Amount</span>
-                  <span className="text-2xl font-bold">{formatCurrency(Number(subscription.amount), subscription.currency)}</span>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {subscription.cancel_at_period_end && (
+            <Alert className="mb-6 border-yellow-200 bg-yellow-50">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <AlertDescription className="text-yellow-900">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold mb-1">Subscription Cancelling</p>
+                    <p className="text-sm">Your subscription will end on {formatDate(subscription.current_period_end)}. You will still have access until then.</p>
+                  </div>
+                  <Button variant="outline" onClick={handleReactivate}>
+                    Reactivate Subscription
+                  </Button>
                 </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Billing Cycle</span>
-                  <span className="font-medium">{subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly"}</span>
-                </div>
-                
-                {subscription.next_billing_date && (
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {trialStatus?.isInTrial && (
+            <Alert className="mb-6 border-blue-200 bg-blue-50">
+              <Info className="h-5 w-5 text-blue-600" />
+              <AlertDescription className="text-blue-900">
+                <p className="font-semibold mb-1">Free Trial Active</p>
+                <p className="text-sm">You have {trialStatus.daysRemaining} days remaining in your free trial. Your trial ends on {formatDate(trialStatus.trialEndsAt!)}.</p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Current Plan
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-900">{subscription.plan_name}</p>
+                      <p className="text-sm text-slate-600">{subscription.billing_cycle === "monthly" ? "Monthly" : "Annual"} billing</p>
+                    </div>
+                    <Badge className={getStatusColor(subscription.status)}>
+                      {getStatusText(subscription.status)}
+                    </Badge>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-slate-600">Amount</span>
+                    <span className="text-2xl font-bold">{formatCurrency(Number(subscription.amount), subscription.currency)}</span>
+                  </div>
+                  
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Next Billing Date</span>
-                    <span className="font-medium">{subscription.next_billing_date ? formatDate(subscription.next_billing_date) : 'N/A'}</span>
+                    <span className="text-slate-600">Billing Cycle</span>
+                    <span className="font-medium">{subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly"}</span>
                   </div>
-                )}
-                
-                <div className="flex gap-2 pt-4">
-                  <Button variant="outline" size="sm" onClick={() => router.push("/pricing")} className="flex-1">
-                    <ArrowUpCircle className="h-4 w-4 mr-2" />
-                    Upgrade
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => router.push("/pricing")} className="flex-1">
-                    <ArrowDownCircle className="h-4 w-4 mr-2" />
-                    Change Plan
-                  </Button>
+                  
+                  {subscription.next_billing_date && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">Next Billing Date</span>
+                      <span className="font-medium">{subscription.next_billing_date ? formatDate(subscription.next_billing_date) : 'N/A'}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 pt-4">
+                    <Button variant="outline" size="sm" onClick={() => router.push("/pricing")} className="flex-1">
+                      <ArrowUpCircle className="h-4 w-4 mr-2" />
+                      Upgrade
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => router.push("/pricing")} className="flex-1">
+                      <ArrowDownCircle className="h-4 w-4 mr-2" />
+                      Change Plan
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Usage This Quarter
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Active Clients</span>
+                      <span className="text-sm font-bold">
+                        {usageLimits?.currentActiveClients || 0} / {usageLimits?.activeClientsLimit || 0}
+                      </span>
+                    </div>
+                    <Progress value={usagePercentageClients} className="h-2" />
+                    {usagePercentageClients > 80 && (
+                      <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-600">Orders This Quarter</span>
+                      <span className="text-sm font-bold">
+                        {usageLimits?.currentOrders || 0} / {usageLimits?.ordersLimit || 0}
+                      </span>
+                    </div>
+                    <Progress value={usagePercentageOrders} className="h-2" />
+                    {usagePercentageOrders > 80 && (
+                      <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
+                    )}
+                  </div>
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-900">
+                      Your plan limits are based on <strong>whichever comes first</strong>. Upgrade anytime if you need more capacity.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Billing History
+              </CardTitle>
+              <CardDescription>View your past invoices and payment history</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {billingHistory.length === 0 ? (
+                <p className="text-center text-slate-500 py-8">No billing history yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {billingHistory.map((record) => (
+                    <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-green-100" : "bg-red-100"}`}>
+                          {record.status === "succeeded" ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-600" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">{formatCurrency(Number(record.amount), record.currency)}</p>
+                          <p className="text-sm text-slate-600">
+                            {formatDate(record.created_at)} • {record.status === "succeeded" ? "Paid" : "Failed"}
+                          </p>
+                        </div>
+                      </div>
+                      {record.invoice_pdf_url && (
+                        <Button variant="ghost" size="sm">
+                          <Download className="h-4 w-4 mr-2" />
+                          Invoice
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-red-200">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Usage This Quarter
-              </CardTitle>
+              <CardTitle className="text-red-900">Danger Zone</CardTitle>
+              <CardDescription>Irreversible actions for your subscription and account</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-600">Active Clients</span>
-                    <span className="text-sm font-bold">
-                      {usageLimits?.currentActiveClients || 0} / {usageLimits?.activeClientsLimit || 0}
-                    </span>
-                  </div>
-                  <Progress value={usagePercentageClients} className="h-2" />
-                  {usagePercentageClients > 80 && (
-                    <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
-                  )}
+                  <p className="font-medium text-slate-900">Cancel Subscription</p>
+                  <p className="text-sm text-slate-600">Stop your subscription and lose access to features</p>
                 </div>
+                <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" disabled={subscription.status === "cancelled"}>
+                      Cancel Subscription
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cancel Subscription</DialogTitle>
+                      <DialogDescription>
+                        We are sorry to see you go. Please help us improve by sharing your feedback.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>When should we cancel?</Label>
+                        <RadioGroup value={cancellationType} onValueChange={(value) => setCancellationType(value as "immediate" | "end_of_period")}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="end_of_period" id="end" />
+                            <Label htmlFor="end" className="font-normal">
+                              At end of billing period ({formatDate(subscription.current_period_end)})
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="immediate" id="immediate" />
+                            <Label htmlFor="immediate" className="font-normal">
+                              Immediately (you will lose access now)
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
 
+                      <div className="space-y-2">
+                        <Label htmlFor="reason">Reason for cancelling (optional)</Label>
+                        <Textarea
+                          id="reason"
+                          placeholder="Help us understand why you're leaving..."
+                          value={cancelReason}
+                          onChange={(e) => setCancelReason(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="feedback">Additional feedback (optional)</Label>
+                        <Textarea
+                          id="feedback"
+                          placeholder="Any other thoughts or suggestions?"
+                          value={cancelFeedback}
+                          onChange={(e) => setCancelFeedback(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+                        Keep Subscription
+                      </Button>
+                      <Button variant="destructive" onClick={handleCancelSubscription}>
+                        Confirm Cancellation
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="flex items-center justify-between p-4 border border-red-300 rounded-lg bg-red-100">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-600">Orders This Quarter</span>
-                    <span className="text-sm font-bold">
-                      {usageLimits?.currentOrders || 0} / {usageLimits?.ordersLimit || 0}
-                    </span>
-                  </div>
-                  <Progress value={usagePercentageOrders} className="h-2" />
-                  {usagePercentageOrders > 80 && (
-                    <p className="text-xs text-yellow-600 mt-1">Approaching limit - consider upgrading</p>
-                  )}
+                  <p className="font-medium text-slate-900">Delete Account</p>
+                  <p className="text-sm text-slate-600">Permanently delete your account and all data (30-day grace period)</p>
                 </div>
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Account</DialogTitle>
+                      <DialogDescription>
+                        This action cannot be undone. Your account will be scheduled for deletion in 30 days. You can cancel this request anytime before then.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <Alert className="border-red-200 bg-red-50">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                      <AlertDescription className="text-red-900">
+                        <p className="font-semibold mb-1">Warning</p>
+                        <p className="text-sm">All your data including clients, orders, inventory, and settings will be permanently deleted.</p>
+                      </AlertDescription>
+                    </Alert>
 
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Info className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-sm text-blue-900">
-                    Your plan limits are based on <strong>whichever comes first</strong>. Upgrade anytime if you need more capacity.
-                  </AlertDescription>
-                </Alert>
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="export"
+                          checked={exportData}
+                          onChange={(e) => setExportData(e.target.checked)}
+                          className="rounded border-slate-300"
+                        />
+                        <Label htmlFor="export" className="font-normal">
+                          Export my data before deletion (GDPR/POPIA compliance)
+                        </Label>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="deleteReason">Reason for leaving (optional)</Label>
+                        <Textarea
+                          id="deleteReason"
+                          placeholder="Help us understand why you're deleting your account..."
+                          value={deleteReason}
+                          onChange={(e) => setDeleteReason(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button variant="destructive" onClick={handleDeleteAccount}>
+                        Schedule Deletion
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Billing History
-            </CardTitle>
-            <CardDescription>View your past invoices and payment history</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {billingHistory.length === 0 ? (
-              <p className="text-center text-slate-500 py-8">No billing history yet</p>
-            ) : (
-              <div className="space-y-3">
-                {billingHistory.map((record) => (
-                  <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-green-100" : "bg-red-100"}`}>
-                        {record.status === "succeeded" ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{formatCurrency(Number(record.amount), record.currency)}</p>
-                        <p className="text-sm text-slate-600">
-                          {formatDate(record.created_at)} • {record.status === "succeeded" ? "Paid" : "Failed"}
-                        </p>
-                      </div>
-                    </div>
-                    {record.invoice_pdf_url && (
-                      <Button variant="ghost" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Invoice
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-red-200">
-          <CardHeader>
-            <CardTitle className="text-red-900">Danger Zone</CardTitle>
-            <CardDescription>Irreversible actions for your subscription and account</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
-              <div>
-                <p className="font-medium text-slate-900">Cancel Subscription</p>
-                <p className="text-sm text-slate-600">Stop your subscription and lose access to features</p>
-              </div>
-              <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" disabled={subscription.status === "cancelled"}>
-                    Cancel Subscription
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Cancel Subscription</DialogTitle>
-                    <DialogDescription>
-                      We are sorry to see you go. Please help us improve by sharing your feedback.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>When should we cancel?</Label>
-                      <RadioGroup value={cancellationType} onValueChange={(value) => setCancellationType(value as "immediate" | "end_of_period")}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="end_of_period" id="end" />
-                          <Label htmlFor="end" className="font-normal">
-                            At end of billing period ({formatDate(subscription.current_period_end)})
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="immediate" id="immediate" />
-                          <Label htmlFor="immediate" className="font-normal">
-                            Immediately (you will lose access now)
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="reason">Reason for cancelling (optional)</Label>
-                      <Textarea
-                        id="reason"
-                        placeholder="Help us understand why you're leaving..."
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="feedback">Additional feedback (optional)</Label>
-                      <Textarea
-                        id="feedback"
-                        placeholder="Any other thoughts or suggestions?"
-                        value={cancelFeedback}
-                        onChange={(e) => setCancelFeedback(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
-                      Keep Subscription
-                    </Button>
-                    <Button variant="destructive" onClick={handleCancelSubscription}>
-                      Confirm Cancellation
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border border-red-300 rounded-lg bg-red-100">
-              <div>
-                <p className="font-medium text-slate-900">Delete Account</p>
-                <p className="text-sm text-slate-600">Permanently delete your account and all data (30-day grace period)</p>
-              </div>
-              <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="destructive">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Account
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Delete Account</DialogTitle>
-                    <DialogDescription>
-                      This action cannot be undone. Your account will be scheduled for deletion in 30 days. You can cancel this request anytime before then.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <Alert className="border-red-200 bg-red-50">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                    <AlertDescription className="text-red-900">
-                      <p className="font-semibold mb-1">Warning</p>
-                      <p className="text-sm">All your data including clients, orders, inventory, and settings will be permanently deleted.</p>
-                    </AlertDescription>
-                  </Alert>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="export"
-                        checked={exportData}
-                        onChange={(e) => setExportData(e.target.checked)}
-                        className="rounded border-slate-300"
-                      />
-                      <Label htmlFor="export" className="font-normal">
-                        Export my data before deletion (GDPR/POPIA compliance)
-                      </Label>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="deleteReason">Reason for leaving (optional)</Label>
-                      <Textarea
-                        id="deleteReason"
-                        placeholder="Help us understand why you're deleting your account..."
-                        value={deleteReason}
-                        onChange={(e) => setDeleteReason(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="destructive" onClick={handleDeleteAccount}>
-                      Schedule Deletion
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </>
   );

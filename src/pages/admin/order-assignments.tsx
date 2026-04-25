@@ -302,13 +302,13 @@ function OrderAssignmentsPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Order Assignment Hub - CateringMS Admin</title>
+        <title>Order Assignments | CateringMS Admin</title>
       </Head>
       
       <AdminNav />
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           {/* Header */}
           <div className="mb-6 md:mb-8">
             <div className="flex flex-col gap-4 mb-4 md:mb-6">

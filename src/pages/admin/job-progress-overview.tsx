@@ -1,16 +1,25 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  CheckCircle, 
+  Clock, 
+  AlertCircle, 
+  TrendingUp,
+  Package,
+  User,
+  Calendar,
+  ArrowLeft
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { orderService } from "@/services/orderService";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
-import { Clock, CheckCircle, AlertCircle, Package } from "lucide-react";
-import { orderService } from "@/services/orderService";
-import { useAuth } from "@/contexts/AuthContext";
 
-export default function JobProgressOverview() {
+export default function JobProgressOverviewPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,13 +73,14 @@ export default function JobProgressOverview() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Job Progress Overview - CateringMS</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Job Progress Overview | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-8 lg:py-12 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Progress Overview</h1>
             <p className="text-slate-600">Monitor all active jobs and their progress in real-time</p>

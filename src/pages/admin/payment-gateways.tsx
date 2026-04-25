@@ -141,12 +141,12 @@ export default function PaymentGatewaysPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Payment Gateways - CateringMS Admin</title>
+        <title>Payment Gateways | CateringMS Admin</title>
       </Head>
       
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6 lg:ml-64 xl:ml-72">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div>
             <h1 className="text-4xl font-bold mb-2">Payment Gateways</h1>
             <p className="text-muted-foreground">Configure your payment processing options</p>

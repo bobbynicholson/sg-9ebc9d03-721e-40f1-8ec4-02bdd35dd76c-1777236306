@@ -1,14 +1,25 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Bell,
+  Mail,
+  MessageSquare,
+  CheckCircle,
+  AlertCircle,
+  Save,
+  ArrowLeft,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
-import { Bell, Mail, MessageSquare, AlertCircle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface NotificationSettings {
   email: {
@@ -79,13 +90,14 @@ export default function NotificationSettings() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Notification Settings - CateringMS</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Notification Settings | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-8 lg:py-12 max-w-4xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Notification Settings</h1>
             <p className="text-slate-600">Manage how you receive updates and alerts</p>

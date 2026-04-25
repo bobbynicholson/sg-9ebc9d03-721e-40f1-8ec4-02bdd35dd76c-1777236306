@@ -1,40 +1,30 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-import { useAuth } from "@/contexts/AuthContext";
-import { equipmentShortageService } from "@/services/equipmentShortageService";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertTriangle,
-  CheckCircle,
-  Clock,
-  Search,
-  Filter,
-  DollarSign,
   Package,
-  User,
-  Calendar
+  TrendingDown,
+  Calendar,
+  Filter,
+  Download,
+  RefreshCw,
+  ShoppingCart,
+  CheckCircle,
+  XCircle,
+  Clock,
+  ArrowLeft,
 } from "lucide-react";
+import { equipmentShortageService, type EquipmentShortage } from "@/services/equipmentShortageService";
+import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface ShortageFlag {
   id: string;
@@ -204,12 +194,13 @@ export default function EquipmentShortagesPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Equipment Shortages - CateringMS Admin</title>
+        <title>Equipment Shortages | CateringMS Admin</title>
       </Head>
-      
+
       <AdminNav />
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:ml-64 xl:ml-72">
-        <div className="max-w-7xl mx-auto">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Equipment Shortage Flags</h1>
             <p className="text-sm md:text-base text-gray-600">Manage and resolve equipment shortage issues</p>

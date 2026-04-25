@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AdminNav } from "@/components/admin/AdminNav";
-import { Mail, Save, Eye, Send, Calendar, DollarSign, CheckCircle, MessageSquare, ArrowLeft } from "lucide-react";
+import { Mail, Edit, Trash2, Plus, Send, Copy, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { GetServerSideProps } from "next";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EmailTemplate {
   id: string;
@@ -403,13 +405,13 @@ export default function EmailTemplatesPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Email Templates - CateringMS Admin</title>
+        <title>Email Templates | CateringMS Admin</title>
       </Head>
-      
+
       <AdminNav />
-      
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
-        <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">

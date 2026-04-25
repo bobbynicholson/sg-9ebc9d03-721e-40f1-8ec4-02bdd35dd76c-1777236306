@@ -1,19 +1,27 @@
 import { useState, useEffect } from "react";
-import { Clock, DollarSign, Calendar, TrendingUp, CheckCircle, Users } from "lucide-react";
+import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
-import { timeClockService } from "@/services/timeClockService";
-import { paymentLedgerService } from "@/services/paymentLedgerService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Clock,
+  Users,
+  Calendar,
+  TrendingUp,
+  Download,
+  Filter,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { timeClockService } from "@/services/timeClockService";
+import { useToast } from "@/hooks/use-toast";
+import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 
 export default function StaffHoursPage() {
@@ -115,10 +123,16 @@ export default function StaffHoursPage() {
 
   return (
     <>
+      <NoIndexMeta />
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Staff Hours Tracking | CateringMS Admin</title>
+      </Head>
+
       <AdminNav />
-      <div className="min-h-screen flex flex-col lg:ml-64 xl:ml-72">
-        <Header />
-        <main className="flex-1 container mx-auto px-4 py-8">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Staff Hours & Payments</h1>
             <p className="text-muted-foreground">
@@ -392,7 +406,7 @@ export default function StaffHoursPage() {
               </Button>
             </CardContent>
           </Card>
-        </main>
+        </div>
         <Footer />
       </div>
     </>

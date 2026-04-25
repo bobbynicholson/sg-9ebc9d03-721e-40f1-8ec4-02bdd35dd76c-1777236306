@@ -1,22 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { 
-  Bell, 
-  Mail, 
-  MessageSquare,
-  Smartphone,
-  Check,
-  Settings
-} from "lucide-react";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bell, Mail, MessageSquare, CheckCircle, Clock, AlertCircle, ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { notificationService } from "@/services/notificationService";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import Head from "next/head";
-import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 const notificationChannels = [
   {
@@ -100,7 +93,7 @@ const notificationTypes = [
   }
 ];
 
-export default function AdminNotifications() {
+export default function NotificationsPage() {
   const { user } = useAuth();
   const [channels, setChannels] = useState(notificationChannels);
   const [types, setTypes] = useState(
@@ -124,13 +117,14 @@ export default function AdminNotifications() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Notification Settings - CateringMS Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Notifications | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg">
               <Bell className="w-6 h-6 text-white" />

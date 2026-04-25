@@ -220,13 +220,14 @@ export default function NewQuotePage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>New Quote - CateringMS Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>New Quote | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-6xl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <Link href="/admin/leads">
             <Button variant="ghost" className="mb-3 sm:mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />

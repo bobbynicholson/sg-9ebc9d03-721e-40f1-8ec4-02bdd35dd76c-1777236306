@@ -1,50 +1,34 @@
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AdminNav } from "@/components/admin/AdminNav";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin,
   Plus,
-  Building2,
-  Users,
-  TrendingUp,
-  Package,
-  DollarSign,
-  Truck,
-  ChefHat,
-  Settings,
-  Eye,
+  Edit,
+  Trash2,
+  Globe,
   CheckCircle,
   XCircle,
-  Clock,
-  Globe,
+  DollarSign,
+  ArrowLeft,
+  AlertCircle,
+  Settings,
 } from "lucide-react";
-import { regionManagement } from "@/lib/regionManagement";
-import { Region } from "@/types/regions";
+import { useAuth } from "@/contexts/AuthContext";
+import { regionService } from "@/services/regionService";
+import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
-export default function RegionsManagementPage() {
+export default function RegionsPage() {
   const [regions, setRegions] = useState(regionManagement.regions);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
@@ -148,13 +132,13 @@ export default function RegionsManagementPage() {
       <NoIndexMeta />
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Regional Operations - CateringMS Admin</title>
+        <title>Regional Settings | CateringMS Admin</title>
       </Head>
-      
+
       <AdminNav />
-      
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           {/* Header - Mobile Optimized */}
           <div className="mb-6 md:mb-8">
             <div className="flex flex-col gap-4 mb-4 md:mb-6">

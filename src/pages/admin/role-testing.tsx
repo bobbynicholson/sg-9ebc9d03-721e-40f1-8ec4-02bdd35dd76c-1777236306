@@ -1,26 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Users,
   Shield,
-  ChefHat,
-  ShoppingCart,
-  Truck,
-  Sparkles,
-  User,
-  CheckCircle2,
-  Copy,
-  ExternalLink,
-  AlertCircle
+  Lock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  RefreshCw,
+  ArrowLeft,
+  Eye,
+  Settings,
+  UserCog,
+  Key,
 } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { AdminNav } from "@/components/admin/AdminNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleService } from "@/services/roleService";
+import { canAccessRoute, isAdmin, ROLE_ROUTES, ROLE_NAMES } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
+import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 
 interface TestAccount {
   role: UserRole;
@@ -246,12 +251,14 @@ export default function RoleTestingPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Role Testing Credentials - CateringMS Admin</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Role Testing | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 lg:ml-64 xl:ml-72">
-        <div className="max-w-7xl mx-auto space-y-6">
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div>
             <h1 className="text-4xl font-bold mb-2">🧪 Role Testing Setup</h1>
             <p className="text-muted-foreground">
