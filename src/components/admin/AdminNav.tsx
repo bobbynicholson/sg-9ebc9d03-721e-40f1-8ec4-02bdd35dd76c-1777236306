@@ -34,10 +34,25 @@ import {
   FileSpreadsheet,
   Plug,
   Route,
-  User
+  User,
+  X,
+  MapPin,
+  ShoppingBag,
+  DollarSign,
+  TrendingUp,
+  MessageSquare,
+  Zap,
+  BarChart3,
+  Clock,
+  Shield,
+  LogOut,
+  ChevronDown,
+  Target
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 
 interface NavItem {
   title: string;
