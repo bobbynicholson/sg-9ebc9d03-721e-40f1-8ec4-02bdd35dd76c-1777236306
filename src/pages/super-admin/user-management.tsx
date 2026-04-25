@@ -51,7 +51,7 @@ type User = {
   company_id?: string;
   company_slug?: string;
   company_name?: string;
-  email_confirmed: boolean;
+  email_verified: boolean;
   created_at: string;
 };
 
@@ -90,7 +90,7 @@ export default function UserManagementPage() {
           role,
           company_id,
           company_slug,
-          email_confirmed,
+          email_verified,
           created_at,
           companies (
             id,
@@ -165,10 +165,10 @@ export default function UserManagementPage() {
             id: authData.user.id,
             email: newUser.email,
             full_name: newUser.full_name,
-            role: newUser.role,
+            role: newUser.role as any,
             company_id: newUser.company_id || null,
             company_slug: selectedCompany?.company_slug || null,
-            email_confirmed: true,
+            email_verified: true,
           });
 
         if (profileError) throw profileError;
@@ -409,7 +409,7 @@ export default function UserManagementPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {user.email_confirmed ? (
+                        {user.email_verified ? (
                           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                             Active
                           </Badge>
