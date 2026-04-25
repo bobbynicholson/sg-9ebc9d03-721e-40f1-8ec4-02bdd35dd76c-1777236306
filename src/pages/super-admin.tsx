@@ -9,7 +9,7 @@ import {
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserRole } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
 
 interface Portal {
   id: string;

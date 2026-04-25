@@ -6,6 +6,8 @@ import { UserRole } from "@/types/app";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { authService } from "@/services/authService";
+import { profileService } from "@/services/profileService";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -26,6 +28,7 @@ export function ProtectedRoute({
   const { user, loading } = useAuth();
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -44,7 +47,8 @@ export function ProtectedRoute({
           return;
         }
 
-        setUser(profile);
+        // Set local state if needed
+        // setUser(profile); is no longer needed here as useAuth handles global state
 
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0) {
@@ -65,12 +69,12 @@ export function ProtectedRoute({
           }
         }
 
-        setIsAuthorized(true);
+        setAuthorized(true);
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/auth/login");
       } finally {
-        setLoading(false);
+        setIsChecking(false);
       }
     };
 
@@ -78,7 +82,7 @@ export function ProtectedRoute({
   }, [router, allowedRoles]);
 
   // Show loading state
-  if (loading) {
+  if (loading || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <Card className="w-full max-w-md border-0 shadow-lg">
