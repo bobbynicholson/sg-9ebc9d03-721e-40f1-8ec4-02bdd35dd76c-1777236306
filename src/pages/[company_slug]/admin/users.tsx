@@ -120,6 +120,7 @@ export default function StaffManagementPage() {
           id: authData.user.id,
           email: newStaff.email.toLowerCase(),
           full_name: newStaff.full_name,
+          role: newStaff.role,
           active_role: newStaff.role,
           company_id: user.company_id,
         });
