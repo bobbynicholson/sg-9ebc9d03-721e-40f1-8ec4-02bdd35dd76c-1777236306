@@ -16,35 +16,107 @@ export default async function handler(
   }
 
   try {
-    const { gateway, ...paymentData } = req.body;
-
-    // Verify webhook signature based on gateway
-    if (gateway === "payfast") {
-      const isValid = verifyPayFastSignature(req.body);
-      if (!isValid) {
-        console.error("Invalid PayFast signature");
-        return res.status(400).json({ error: "Invalid signature" });
-      }
+    const paymentData = req.body;
+    
+    // Validate PayFast signature
+    const { signature, ...dataToValidate } = paymentData;
+    const isValid = validatePayFastSignature(dataToValidate, signature);
+    
+    if (!isValid) {
+      return res.status(400).json({ error: "Invalid signature" });
     }
 
-    // Extract payment details
+    // Check payment status
+    if (paymentData.payment_status !== "COMPLETE") {
+      return res.status(200).json({ message: "Payment not complete" });
+    }
+
     const {
-      payment_status,
-      item_name,
-      m_payment_id, // Our order ID
-      pf_payment_id, // PayFast transaction ID
+      custom_str1, // Can be orderId or invoiceId
+      custom_str2, // Payment type: "deposit", "balance", or "invoice"
+      custom_str3, // Company ID
+      custom_str4, // Identifier: "invoice" or not present
       amount_gross,
+      pf_payment_id,
+      merchant_id
     } = paymentData;
 
-    if (payment_status !== "COMPLETE") {
-      console.log("Payment not complete:", payment_status);
-      return res.status(200).json({ message: "Payment pending" });
+    // ✅ NEW: Handle invoice payments
+    if (custom_str4 === "invoice" || custom_str2 === "invoice") {
+      const invoiceId = custom_str1;
+      const companyId = custom_str3;
+
+      // Update invoice status
+      const { error: invoiceError } = await supabase
+        .from("invoices")
+        .update({
+          status: "paid",
+          amount_paid: amount_gross,
+          balance_due: 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", invoiceId);
+
+      if (invoiceError) {
+        console.error("Error updating invoice:", invoiceError);
+        return res.status(500).json({ error: "Failed to update invoice" });
+      }
+
+      // Get invoice details for notification
+      const { data: invoice } = await supabase
+        .from("invoices")
+        .select("*, companies(*)")
+        .eq("id", invoiceId)
+        .single();
+
+      if (invoice) {
+        const invoiceData = invoice as any;
+        const companyData = invoiceData.companies;
+
+        // Create payment record
+        await supabase.from("payments").insert([{
+          company_id: companyId,
+          client_id: invoiceData.client_id,
+          invoice_id: invoiceId,
+          amount: parseFloat(amount_gross),
+          currency: "ZAR",
+          payment_method: "payfast",
+          payment_reference: pf_payment_id,
+          gateway_provider: "payfast",
+          gateway_transaction_id: pf_payment_id,
+          status: "completed",
+          completed_at: new Date().toISOString()
+        }]);
+
+        // Send notification
+        await supabase.from("notifications").insert([{
+          company_id: companyId,
+          user_id: companyData.owner_id || companyId,
+          title: `Invoice Payment Received - ${invoiceData.invoice_number}`,
+          message: `Payment of R${amount_gross} received for invoice ${invoiceData.invoice_number}`,
+          type: "payment_received",
+          channels: ["in_app", "email"]
+        }]);
+
+        // TODO: Send invoice payment confirmation email
+        console.log(`✅ Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
+      }
+
+      return res.status(200).json({ 
+        message: "Invoice payment processed successfully",
+        invoiceId,
+        amount: amount_gross
+      });
     }
 
+    // ✅ EXISTING: Handle order payments (deposit/balance)
+    const orderId = custom_str1;
+    const paymentType = custom_str2; // "deposit" or "balance"
+
     // Get the order
-    const order = await orderService.getOrder(m_payment_id);
+    const order = await orderService.getOrder(orderId);
     if (!order) {
-      console.error("Order not found:", m_payment_id);
+      console.error("Order not found:", orderId);
       return res.status(404).json({ error: "Order not found" });
     }
 
@@ -65,7 +137,7 @@ export default async function handler(
       await orderService.recordDepositPayment(
         order.id,
         pf_payment_id,
-        gateway
+        "payfast"
       );
 
       // Create payment record
@@ -76,7 +148,7 @@ export default async function handler(
         amount: expectedAmount,
         currency: order.currency,
         status: "completed",
-        gateway: gateway,
+        gateway: "payfast",
         transaction_id: pf_payment_id,
         processed_at: new Date().toISOString(),
       }]);
@@ -108,7 +180,7 @@ export default async function handler(
         amount: expectedAmount,
         currency: order.currency,
         status: "completed",
-        gateway: gateway,
+        gateway: "payfast",
         transaction_id: pf_payment_id,
         processed_at: new Date().toISOString(),
       }]);
@@ -133,18 +205,15 @@ export default async function handler(
     });
 
   } catch (error) {
-    console.error("Payment webhook error:", error);
-    return res.status(500).json({ 
-      error: "Internal server error",
-      message: error instanceof Error ? error.message : "Unknown error"
-    });
+    console.error("Webhook error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
 
 /**
  * Verify PayFast webhook signature
  */
-function verifyPayFastSignature(data: any): boolean {
+function validatePayFastSignature(data: any, signature: string): boolean {
   const passphrase = process.env.PAYFAST_PASSPHRASE || "";
   
   // Create parameter string
@@ -155,12 +224,12 @@ function verifyPayFastSignature(data: any): boolean {
     .join("&");
 
   // Generate signature
-  const signature = crypto
+  const generatedSignature = crypto
     .createHash("md5")
     .update(pfParamString + passphrase)
     .digest("hex");
 
-  return signature === data.signature;
+  return generatedSignature === signature;
 }
 
 /**
