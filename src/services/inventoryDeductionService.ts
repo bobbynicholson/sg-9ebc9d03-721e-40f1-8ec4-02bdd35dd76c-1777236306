@@ -16,119 +16,268 @@ export interface Recipe {
 }
 
 /**
- * RECIPE DATABASE
- * Add your menu items and their ingredient requirements here
+ * SPIT BRAAI DELIVERY - RECIPE MAPPINGS
+ * Based on actual menu from spitbraaidelivery.co.za
+ * 
+ * Maps menu items to their required inventory ingredients with quantities per serving
  */
 export const RECIPE_MAPPINGS: Recipe[] = [
-  // Braai Items
+  // ============================================
+  // MEATS - MAIN DISHES
+  // ============================================
   {
-    menu_item_name: "Beef Brisket",
+    menu_item_name: "Lamb Spit (200g)",
     ingredients: [
-      { inventory_item_name: "Beef", quantity_per_serving: 0.3, unit: "kg" },
-      { inventory_item_name: "BBQ Sauce", quantity_per_serving: 0.05, unit: "L" },
-      { inventory_item_name: "Spices", quantity_per_serving: 0.01, unit: "kg" },
-    ]
+      { inventory_item_name: "Lamb Leg (whole)", quantity_per_serving: 0.2, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.03, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.005, unit: "kg" },
+    ],
   },
   {
-    menu_item_name: "Chicken",
+    menu_item_name: "Lamb Spit (100g)",
     ingredients: [
-      { inventory_item_name: "Chicken", quantity_per_serving: 0.25, unit: "kg" },
-      { inventory_item_name: "Marinade", quantity_per_serving: 0.03, unit: "L" },
-    ]
+      { inventory_item_name: "Lamb Leg (whole)", quantity_per_serving: 0.1, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.015, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Chicken Quarter",
+    ingredients: [
+      { inventory_item_name: "Chicken Quarters", quantity_per_serving: 1, unit: "units" },
+      { inventory_item_name: "Chicken Marinade", quantity_per_serving: 0.025, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Lamb Ribs (300g)",
+    ingredients: [
+      { inventory_item_name: "Lamb Ribs", quantity_per_serving: 0.3, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.02, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.005, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Lamb Ribs (600g)",
+    ingredients: [
+      { inventory_item_name: "Lamb Ribs", quantity_per_serving: 0.6, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.04, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.008, unit: "kg" },
+    ],
   },
   {
     menu_item_name: "Boerewors",
     ingredients: [
-      { inventory_item_name: "Boerewors", quantity_per_serving: 0.2, unit: "kg" },
-    ]
+      { inventory_item_name: "Boerewors", quantity_per_serving: 0.15, unit: "kg" },
+    ],
   },
   {
-    menu_item_name: "Lamb Chops",
+    menu_item_name: "Beef Burgers",
     ingredients: [
-      { inventory_item_name: "Lamb", quantity_per_serving: 0.25, unit: "kg" },
-      { inventory_item_name: "Rosemary", quantity_per_serving: 0.005, unit: "kg" },
-    ]
+      { inventory_item_name: "Beef Mince (Premium)", quantity_per_serving: 0.15, unit: "kg" },
+      { inventory_item_name: "Bread Loaves", quantity_per_serving: 0.1, unit: "units" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
   },
-  
-  // Sides
   {
-    menu_item_name: "Pap & Sauce",
+    menu_item_name: "Vegetarian Lasagne",
     ingredients: [
-      { inventory_item_name: "Maize Meal", quantity_per_serving: 0.15, unit: "kg" },
-      { inventory_item_name: "Tomato Sauce", quantity_per_serving: 0.1, unit: "L" },
-      { inventory_item_name: "Onions", quantity_per_serving: 0.05, unit: "kg" },
-    ]
+      { inventory_item_name: "Pasta (various)", quantity_per_serving: 0.12, unit: "kg" },
+      { inventory_item_name: "Mixed Vegetables", quantity_per_serving: 0.15, unit: "kg" },
+      { inventory_item_name: "Tomatoes", quantity_per_serving: 0.08, unit: "kg" },
+      { inventory_item_name: "Feta Cheese", quantity_per_serving: 0.04, unit: "kg" },
+    ],
+  },
+
+  // ============================================
+  // STARTERS
+  // ============================================
+  {
+    menu_item_name: "Lamb Rib Starter",
+    ingredients: [
+      { inventory_item_name: "Lamb Ribs", quantity_per_serving: 0.15, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.015, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Sticky Chicken Wings",
+    ingredients: [
+      { inventory_item_name: "Chicken Wings", quantity_per_serving: 0.2, unit: "kg" },
+      { inventory_item_name: "Chicken Marinade", quantity_per_serving: 0.03, unit: "L" },
+      { inventory_item_name: "Sugar", quantity_per_serving: 0.01, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Spicy Beef Strips",
+    ingredients: [
+      { inventory_item_name: "Beef Strips", quantity_per_serving: 0.12, unit: "kg" },
+      { inventory_item_name: "BBQ Marinade", quantity_per_serving: 0.02, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.005, unit: "kg" },
+    ],
+  },
+
+  // ============================================
+  // SIDES - STARCH
+  // ============================================
+  {
+    menu_item_name: "Baby Potatoes",
+    ingredients: [
+      { inventory_item_name: "Potatoes", quantity_per_serving: 0.2, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
   },
   {
     menu_item_name: "Potato Salad",
     ingredients: [
-      { inventory_item_name: "Potatoes", quantity_per_serving: 0.2, unit: "kg" },
-      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.03, unit: "kg" },
-      { inventory_item_name: "Onions", quantity_per_serving: 0.02, unit: "kg" },
-    ]
+      { inventory_item_name: "Potatoes", quantity_per_serving: 0.18, unit: "kg" },
+      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.03, unit: "L" },
+      { inventory_item_name: "Red Onions", quantity_per_serving: 0.02, unit: "kg" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.002, unit: "kg" },
+    ],
+  },
+
+  // ============================================
+  // SIDES - SALADS
+  // ============================================
+  {
+    menu_item_name: "Green Salad",
+    ingredients: [
+      { inventory_item_name: "Lettuce", quantity_per_serving: 0.08, unit: "kg" },
+      { inventory_item_name: "Cucumbers", quantity_per_serving: 0.04, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
+      { inventory_item_name: "Balsamic Vinegar", quantity_per_serving: 0.005, unit: "L" },
+    ],
+  },
+  {
+    menu_item_name: "Greek Salad",
+    ingredients: [
+      { inventory_item_name: "Lettuce", quantity_per_serving: 0.05, unit: "kg" },
+      { inventory_item_name: "Tomatoes", quantity_per_serving: 0.1, unit: "kg" },
+      { inventory_item_name: "Cucumbers", quantity_per_serving: 0.05, unit: "kg" },
+      { inventory_item_name: "Feta Cheese", quantity_per_serving: 0.03, unit: "kg" },
+      { inventory_item_name: "Red Onions", quantity_per_serving: 0.02, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
+    ],
+  },
+  {
+    menu_item_name: "Pasta Vinaigrette",
+    ingredients: [
+      { inventory_item_name: "Pasta (various)", quantity_per_serving: 0.1, unit: "kg" },
+      { inventory_item_name: "Mixed Vegetables", quantity_per_serving: 0.06, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.015, unit: "L" },
+      { inventory_item_name: "Balsamic Vinegar", quantity_per_serving: 0.01, unit: "L" },
+    ],
+  },
+  {
+    menu_item_name: "Curry-Noodle Pasta",
+    ingredients: [
+      { inventory_item_name: "Pasta (various)", quantity_per_serving: 0.1, unit: "kg" },
+      { inventory_item_name: "Mixed Vegetables", quantity_per_serving: 0.05, unit: "kg" },
+      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.02, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
+  },
+  {
+    menu_item_name: "Pasta Salad",
+    ingredients: [
+      { inventory_item_name: "Pasta (various)", quantity_per_serving: 0.1, unit: "kg" },
+      { inventory_item_name: "Tomatoes", quantity_per_serving: 0.05, unit: "kg" },
+      { inventory_item_name: "Cucumbers", quantity_per_serving: 0.03, unit: "kg" },
+      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.02, unit: "L" },
+    ],
   },
   {
     menu_item_name: "Coleslaw",
     ingredients: [
       { inventory_item_name: "Cabbage", quantity_per_serving: 0.1, unit: "kg" },
       { inventory_item_name: "Carrots", quantity_per_serving: 0.05, unit: "kg" },
-      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.02, unit: "kg" },
-    ]
+      { inventory_item_name: "Mayonnaise", quantity_per_serving: 0.02, unit: "L" },
+    ],
   },
+  {
+    menu_item_name: "Rice Salad",
+    ingredients: [
+      { inventory_item_name: "Rice", quantity_per_serving: 0.08, unit: "kg" },
+      { inventory_item_name: "Mixed Vegetables", quantity_per_serving: 0.06, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
+    ],
+  },
+  {
+    menu_item_name: "Mixed Chunky Veg",
+    ingredients: [
+      { inventory_item_name: "Mixed Vegetables", quantity_per_serving: 0.15, unit: "kg" },
+      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
+      { inventory_item_name: "Mixed Herbs & Spices", quantity_per_serving: 0.003, unit: "kg" },
+    ],
+  },
+
+  // ============================================
+  // BREADS
+  // ============================================
   {
     menu_item_name: "Garlic Bread",
     ingredients: [
       { inventory_item_name: "Bread Loaves", quantity_per_serving: 0.1, unit: "units" },
       { inventory_item_name: "Butter", quantity_per_serving: 0.02, unit: "kg" },
       { inventory_item_name: "Garlic", quantity_per_serving: 0.01, unit: "kg" },
-    ]
+    ],
   },
-  
-  // Salads
+
+  // ============================================
+  // DESSERTS
+  // ============================================
   {
-    menu_item_name: "Greek Salad",
+    menu_item_name: "Malva Pudding & Custard",
     ingredients: [
-      { inventory_item_name: "Lettuce", quantity_per_serving: 0.08, unit: "kg" },
-      { inventory_item_name: "Tomatoes", quantity_per_serving: 0.1, unit: "kg" },
-      { inventory_item_name: "Cucumber", quantity_per_serving: 0.05, unit: "kg" },
-      { inventory_item_name: "Feta Cheese", quantity_per_serving: 0.03, unit: "kg" },
-      { inventory_item_name: "Olive Oil", quantity_per_serving: 0.01, unit: "L" },
-    ]
-  },
-  
-  // Beverages
-  {
-    menu_item_name: "Soft Drinks",
-    ingredients: [
-      { inventory_item_name: "Soft Drinks", quantity_per_serving: 0.5, unit: "L" },
-    ]
+      { inventory_item_name: "Flour", quantity_per_serving: 0.06, unit: "kg" },
+      { inventory_item_name: "Sugar", quantity_per_serving: 0.04, unit: "kg" },
+      { inventory_item_name: "Butter", quantity_per_serving: 0.02, unit: "kg" },
+      { inventory_item_name: "Custard", quantity_per_serving: 0.08, unit: "L" },
+      { inventory_item_name: "Caramel (for Malva)", quantity_per_serving: 0.03, unit: "L" },
+    ],
   },
   {
-    menu_item_name: "Water",
+    menu_item_name: "Peppermint Crisp Tart",
     ingredients: [
-      { inventory_item_name: "Bottled Water", quantity_per_serving: 0.5, unit: "L" },
-    ]
-  },
-  
-  // Disposables (per guest)
-  {
-    menu_item_name: "Disposable Plates",
-    ingredients: [
-      { inventory_item_name: "Plates", quantity_per_serving: 2, unit: "units" },
-    ]
+      { inventory_item_name: "Peppermint Crisp Bars", quantity_per_serving: 0.5, unit: "units" },
+      { inventory_item_name: "Cream", quantity_per_serving: 0.08, unit: "L" },
+    ],
   },
   {
-    menu_item_name: "Cutlery Set",
+    menu_item_name: "Chocolate Fudge Brownie & Cream",
     ingredients: [
-      { inventory_item_name: "Cutlery", quantity_per_serving: 1, unit: "sets" },
-    ]
+      { inventory_item_name: "Flour", quantity_per_serving: 0.05, unit: "kg" },
+      { inventory_item_name: "Chocolate (cooking)", quantity_per_serving: 0.06, unit: "kg" },
+      { inventory_item_name: "Sugar", quantity_per_serving: 0.04, unit: "kg" },
+      { inventory_item_name: "Butter", quantity_per_serving: 0.03, unit: "kg" },
+      { inventory_item_name: "Cream", quantity_per_serving: 0.05, unit: "L" },
+    ],
   },
+
+  // ============================================
+  // DISPOSABLES & SERVICE
+  // ============================================
   {
-    menu_item_name: "Serviettes",
+    menu_item_name: "Knives, Forks & Plates",
     ingredients: [
+      { inventory_item_name: "Disposable Plates", quantity_per_serving: 2, unit: "units" },
+      { inventory_item_name: "Disposable Cutlery Sets", quantity_per_serving: 1, unit: "sets" },
       { inventory_item_name: "Serviettes", quantity_per_serving: 3, unit: "units" },
-    ]
+    ],
   },
+  {
+    menu_item_name: "Full Cutlery Set",
+    ingredients: [
+      { inventory_item_name: "Disposable Plates", quantity_per_serving: 2, unit: "units" },
+      { inventory_item_name: "Disposable Bowls", quantity_per_serving: 1, unit: "units" },
+      { inventory_item_name: "Disposable Cutlery Sets", quantity_per_serving: 1, unit: "sets" },
+      { inventory_item_name: "Serviettes", quantity_per_serving: 4, unit: "units" },
+    ],
+  },
+
+  // Note: Service items (On-Site Chef, Waiter Service) don't deduct inventory
 ];
 
 /**
