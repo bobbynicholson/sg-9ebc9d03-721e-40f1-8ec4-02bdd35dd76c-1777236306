@@ -324,17 +324,59 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Dev Mode Notice */}
-          {typeof window !== "undefined" && window.location.hostname === "localhost" && (
+          {/* Dev Mode Notice - Only on localhost */}
+          {typeof window !== "undefined" && 
+           (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
             <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-              <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 mb-4">
                 <p className="text-sm text-purple-900 dark:text-purple-100 font-semibold mb-1">
                   🔧 DEV MODE ACTIVE
                 </p>
                 <p className="text-xs text-purple-700 dark:text-purple-300">
-                  Running on localhost - authentication is bypassed. You have full super admin access without login.
+                  Running on localhost - you can access any page without login. Just navigate directly to dashboards.
                 </p>
               </div>
+              
+              <Button
+                onClick={async () => {
+                  setLoading(true);
+                  setError(null);
+                  
+                  // Set a timeout for the login attempt
+                  const timeoutId = setTimeout(() => {
+                    setError("Login timeout - please check your connection and try again");
+                    setLoading(false);
+                  }, 10000); // 10 second timeout
+                  
+                  try {
+                    const { error } = await supabase.auth.signInWithPassword({
+                      email: "hello@spitbraaidelivery.co.za",
+                      password: "Password123!",
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (error) throw error;
+                    router.push("/super-admin/dashboard");
+                  } catch (err: any) {
+                    clearTimeout(timeoutId);
+                    setError(err.message || "Failed to sign in");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                variant="outline"
+                className="w-full border-2 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950"
+                type="button"
+              >
+                <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                  Quick Test Login (Super Admin)
+                </span>
+              </Button>
+              <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2">
+                hello@spitbraaidelivery.co.za / Password123!
+              </p>
             </div>
           )}
 
