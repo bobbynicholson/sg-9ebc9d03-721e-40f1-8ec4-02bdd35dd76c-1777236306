@@ -54,159 +54,91 @@ const isPublicRoute = (pathname: string) => {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const url = request.nextUrl.clone();
 
-  // 🔧 DEV MODE BYPASS: Allow super-admin routes without authentication
+  // 🔧 DEV MODE: Allow super-admin routes without auth
   if (pathname.startsWith("/super-admin")) {
-    console.log("🔧 DEV MODE: Bypassing auth for super-admin routes");
+    console.log("🔧 DEV MODE: Allowing super-admin route without auth check");
     return NextResponse.next();
   }
 
-  // Allow public routes
-  if (isPublicRoute(pathname)) {
+  // Extract company slug from URL patterns
+  let companySlug: string | null = null;
+  const companySlugMatch = pathname.match(/^\/([^\/]+)\/(admin|team-portal|client-portal)/);
+  if (companySlugMatch) {
+    companySlug = companySlugMatch[1];
+  }
+
+  try {
+    const response = NextResponse.next();
+    const supabase = createClient(request, response);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    // Public routes - allow access without authentication
+    const publicRoutes = [
+      "/",
+      "/features",
+      "/pricing",
+      "/contact",
+      "/support",
+      "/terms",
+      "/privacy",
+      "/security",
+      "/blog",
+      "/demo",
+      "/auth/login",
+      "/auth/register",
+      "/auth/reset-password",
+      "/auth/callback",
+      "/company-signup",
+      "/subscription/checkout",
+      "/subscription/success",
+    ];
+
+    const isPublicRoute =
+      publicRoutes.includes(pathname) ||
+      pathname.startsWith("/blog/") ||
+      pathname.startsWith("/uk") ||
+      pathname.startsWith("/us") ||
+      pathname.startsWith("/features/") ||
+      pathname.startsWith("/pay/invoice/") ||
+      pathname.startsWith("/page/") ||
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api/") ||
+      pathname === "/favicon.ico";
+
+    if (isPublicRoute) {
+      return response;
+    }
+
+    // Protected routes - require authentication
+    if (!session) {
+      // Redirect to appropriate login page
+      if (companySlug) {
+        url.pathname = `/${companySlug}/login`;
+      } else {
+        url.pathname = "/auth/login";
+      }
+      url.searchParams.set("redirectTo", pathname);
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  } catch (e) {
+    console.error("Middleware error:", e);
+    // On error, allow the request through and let the page handle auth
     return NextResponse.next();
   }
-
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
-          response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: "", ...options });
-        },
-      },
-    }
-  );
-
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // 🔧 DEV MODE BYPASS: Allow dev@cateringms.local to access everything
-  if (session?.user?.email === "dev@cateringms.local") {
-    console.log("🔧 DEV MODE: Bypassing all auth checks for dev@cateringms.local");
-    return response;
-  }
-
-  // If no session, redirect to login
-  if (!session) {
-    console.log("🔐 No session - redirecting to login");
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/auth/login";
-    redirectUrl.searchParams.set("redirect", pathname);
-    redirectUrl.searchParams.set("message", "login_required");
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Get user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, company_id, company_slug")
-    .eq("id", session.user.id)
-    .single();
-
-  if (!profile) {
-    console.log("❌ No profile found - redirecting to login");
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/auth/login";
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  console.log("🔐 Middleware - User:", session.user.email);
-  console.log("🎭 Middleware - Role:", profile.role);
-  console.log("🏢 Middleware - Company:", profile.company_slug);
-  console.log("🌐 Middleware - Path:", pathname);
-
-  const userRole = profile.role;
-  const userCompanySlug = profile.company_slug;
-
-  // Super admin can access everything
-  if (userRole === "super_admin") {
-    console.log("✅ Super admin - access granted");
-    return response;
-  }
-
-  // Extract company slug from URL if present
-  const companySlugMatch = pathname.match(/^\/([^\/]+)\//);
-  const urlCompanySlug = companySlugMatch ? companySlugMatch[1] : null;
-
-  // Company admin access control
-  if (userRole === "company_admin") {
-    // Allow access to their own company routes
-    if (urlCompanySlug && urlCompanySlug === userCompanySlug) {
-      console.log("✅ Company admin accessing own company - access granted");
-      return response;
-    }
-
-    // Allow access to non-company-specific routes
-    if (!urlCompanySlug) {
-      console.log("✅ Company admin accessing non-company route - access granted");
-      return response;
-    }
-
-    // Block access to other companies
-    console.log("❌ Company admin trying to access another company - blocked");
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = `/${userCompanySlug}/admin/dashboard`;
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Staff role access control
-  if (["driver", "kitchen_staff", "shopping_staff", "cleaning_staff"].includes(userRole)) {
-    // Staff can only access their own company's team portal
-    if (pathname.startsWith(`/${userCompanySlug}/team-portal/`)) {
-      console.log("✅ Staff accessing own company team portal - access granted");
-      return response;
-    }
-
-    // Redirect staff to their team portal if accessing wrong area
-    console.log("❌ Staff trying to access unauthorized area - redirecting");
-    const redirectUrl = request.nextUrl.clone();
-    const portalMap: Record<string, string> = {
-      driver: "driver",
-      kitchen_staff: "kitchen",
-      shopping_staff: "shopping",
-      cleaning_staff: "cleaning",
-    };
-    const portalType = portalMap[userRole] || "driver";
-    redirectUrl.pathname = `/${userCompanySlug}/team-portal/${portalType}/dashboard`;
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Client access control
-  if (userRole === "client") {
-    // Clients can only access their own company's client portal
-    if (pathname.startsWith(`/${userCompanySlug}/client-portal/`)) {
-      console.log("✅ Client accessing own company portal - access granted");
-      return response;
-    }
-
-    // Redirect clients to their portal
-    console.log("❌ Client trying to access unauthorized area - redirecting");
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = `/${userCompanySlug}/client-portal/dashboard`;
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Default: allow access
-  console.log("✅ Access granted to:", pathname);
-  return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except static files and API routes
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

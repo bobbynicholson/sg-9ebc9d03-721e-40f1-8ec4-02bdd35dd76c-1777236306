@@ -4783,7 +4783,7 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean | null
           region?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
+          role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           vehicle_registration?: string | null
         }
