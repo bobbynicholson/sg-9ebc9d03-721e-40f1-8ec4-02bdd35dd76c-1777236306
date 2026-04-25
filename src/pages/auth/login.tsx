@@ -59,11 +59,11 @@ export default function LoginPage() {
     try {
       console.log("🔐 Login attempt for:", email);
       
-      // Check if user exists in profiles
+      // Check if user exists in profiles (case-insensitive)
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("*")
-        .eq("email", email.toLowerCase())
+        .ilike("email", email.trim())
         .single();
 
       console.log("👤 Profile found:", profiles);
@@ -79,7 +79,7 @@ export default function LoginPage() {
       // Try to login with bypass password
       console.log("🔑 Attempting authentication...");
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
+        email: email.trim().toLowerCase(),
         password: "BYPASS_2026",
       });
 
