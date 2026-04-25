@@ -69,7 +69,7 @@ export function ProtectedRoute({
 
           const hasAccess = allowedRoles.some(role => {
             if (role === UserRole.ADMIN) {
-              return isAdmin(profile.role) || isAdmin(profile.active_role);
+              return isAdmin(profile.role as UserRole) || isAdmin(profile.active_role as UserRole);
             }
             return profile.role === role || profile.active_role === role;
           });
