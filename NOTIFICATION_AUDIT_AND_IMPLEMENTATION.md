@@ -202,6 +202,22 @@ LIMIT 1;
 4. **Expand to other roles** - Kitchen alerts when order confirmed, etc.
 5. **Analytics** - Track notification delivery and read rates
 
+## 📧 Email Notifications
+
+This system works alongside the **Email Notification System** which sends emails for status updates.
+
+See `EMAIL_NOTIFICATION_SYSTEM.md` for:
+- Automated email triggers on status changes
+- Email templates for all notification types
+- User preference management
+- Cron-based email processing
+- Integration with Resend/SMTP
+
+**Combined Power:**
+- In-app notifications (instant, real-time)
+- Email notifications (offline, persistent)
+- Push notifications (future enhancement)
+
 ---
 
 **System Status:** ✅ **PRODUCTION READY**  
