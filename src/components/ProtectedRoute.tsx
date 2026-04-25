@@ -28,6 +28,17 @@ export function ProtectedRoute({
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
+    // INVESTOR DEMO MODE - Bypass all authentication
+    if (typeof window !== "undefined") {
+      const investorMode = localStorage.getItem("INVESTOR_MODE") === "true";
+      const bypassAuth = localStorage.getItem("BYPASS_AUTH") === "true";
+      
+      if (investorMode || bypassAuth) {
+        setAuthorized(true);
+        return;
+      }
+    }
+
     // Wait for auth to finish loading
     if (loading) {
       return;
