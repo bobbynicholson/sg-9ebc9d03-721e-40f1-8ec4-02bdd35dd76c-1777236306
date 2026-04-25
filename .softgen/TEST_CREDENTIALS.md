@@ -11,31 +11,31 @@ All passwords are: `Password123!`
 - **Access:** ✅ Everything - Can switch to any role and access all portals
 
 ### Driver Portal
-- **Email:** `driver@spitbraai.test`
+- **Email:** `driver@spitbraaidelivery.co.za`
 - **Name:** Mike Driver
 - **Password:** `Driver123!`
 - **Dashboard:** `/team-portal/driver/dashboard`
 
 ### Kitchen Staff Portal
-- **Email:** `kitchen@spitbraai.test`
+- **Email:** `kitchen@spitbraaidelivery.co.za`
 - **Name:** Sarah Kitchen
 - **Password:** `Kitchen123!`
 - **Dashboard:** `/team-portal/kitchen/dashboard`
 
 ### Shopping Staff Portal
-- **Email:** `shopping@spitbraai.test`
+- **Email:** `shopping@spitbraaidelivery.co.za`
 - **Name:** Tom Shopper
 - **Password:** `Shopping123!`
 - **Dashboard:** `/team-portal/shopping/dashboard`
 
 ### Cleaning Staff Portal
-- **Email:** `cleaning@spitbraai.test`
+- **Email:** `cleaning@spitbraaidelivery.co.za`
 - **Name:** Jane Cleaner
 - **Password:** `Cleaning123!`
 - **Dashboard:** `/team-portal/cleaning/dashboard`
 
 ### Client Portal
-- **Email:** `client@spitbraai.test`
+- **Email:** `client@spitbraaidelivery.co.za`
 - **Name:** Emma Client
 - **Password:** `Client123!`
 - **Dashboard:** `/client-portal/dashboard`
