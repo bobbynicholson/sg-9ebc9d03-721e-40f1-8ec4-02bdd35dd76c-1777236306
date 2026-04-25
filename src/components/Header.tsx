@@ -3,7 +3,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DemoModeToggle } from "@/components/DemoModeToggle";
+import { ThemeSwitch } from "./ThemeSwitch";
+import { RegionSwitcher } from "./RegionSwitcher";
+import { PortalSwitcher } from "./PortalSwitcher";
+import { TrialExpiryBanner } from "./TrialExpiryBanner";
 import {
   Menu,
   X,
@@ -35,7 +38,6 @@ import {
   Building2
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
-import { RegionSwitcher } from "@/components/RegionSwitcher";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
@@ -349,19 +351,16 @@ export function Header() {
 
           {/* Desktop Right Section */}
           <div className="hidden lg:flex items-center gap-3">
-            <RegionSwitcher />
+            <div className="flex items-center gap-4">
+              <ThemeSwitch />
+              <RegionSwitcher />
+              {user && <PortalSwitcher />}
+            </div>
             {user && userRoles.length > 1 && (
               <RoleSwitcher variant="compact" showLabel={false} />
             )}
             {user && <NotificationBell />}
             
-            <Link href="/demo">
-              <Button variant="outline" className="border-2 border-green-500 text-green-700 hover:bg-green-50 shadow-sm h-10">
-                <Play className="w-4 h-4 mr-2" />
-                Try Demo
-              </Button>
-            </Link>
-
             {user ? (
               <Link href={getRoleBasedDashboard()}>
                 <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
@@ -476,25 +475,6 @@ export function Header() {
                   <ArrowRight className="w-4 h-4 text-slate-400" />
                 </div>
               </Link>
-
-              {/* Mobile Demo */}
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border-2 border-green-200">
-                <div className="flex items-center gap-2 mb-3">
-                  <Play className="w-5 h-5 text-green-600 flex-shrink-0" />
-                  <span className="font-bold text-green-900 text-sm uppercase tracking-wider">
-                    Try Demo
-                  </span>
-                </div>
-                <p className="text-sm text-green-800 mb-3">
-                  Test all features with pre-loaded sample data.
-                </p>
-                <Link href="/demo">
-                  <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white h-12">
-                    <Play className="w-5 h-5 mr-2" />
-                    Access Demo Portal
-                  </Button>
-                </Link>
-              </div>
 
               {/* Mobile CTA */}
               <div className="pt-4 border-t border-slate-200 space-y-3">
