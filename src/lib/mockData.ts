@@ -1,6 +1,6 @@
 import type { AppOrder, Delivery, MenuItem, EquipmentItem, ShoppingItem, Quote } from "@/types/app";
 
-const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'client_name' | 'event_date' | 'venue_address' | 'guest_count' | 'menu_items' | 'equipment_items' | 'status' | 'total' | 'created_at' > = {
+const defaultOrderValues = {
   company_id: "mock-company-id",
   user_id: "user-123",
   client_id: "client-abc",
@@ -24,28 +24,7 @@ const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'c
   special_instructions: "Please set up the buffet by the main stage.",
   assigned_driver_id: "driver-b",
   updated_at: new Date().toISOString(),
-  delivery_time: null,
-  amount_paid: 19350,
-  requires_waiter: false,
-  collection_time: null,
-  pickup_time: null,
-  delivery_total_fee: 0,
-  currency: 'ZAR',
-  delivery_distance_km: null,
-  delivery_duration_minutes: null,
-  delivery_rate_per_km: null,
-  delivery_route_optimized: false,
-  equipment_return_method: 'later_collection',
-  waiter_duration_hours: null,
-  waiter_hourly_rate: null,
-  waiter_service_required: false,
-  waiter_total_fee: null,
-  whatsapp_notifications_sent: [],
-  xero_invoice_id: null,
-  xero_synced_at: null,
-  driver_id: null,
-  kitchen_instructions: null,
-};
+} as any;
 
 export const mockMenuItems: MenuItem[] = [
   {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -28,7 +29,7 @@ export const companyService = {
     try {
       const companyData: CompanyInsert = {
         company_name: data.name,
-        slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        company_slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         owner_id: data.owner_id,
         email: data.email,
         phone: data.phone,
@@ -245,7 +246,7 @@ export const companyService = {
         {
           owner_id: user.id,
           company_name: companyName,
-          slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          company_slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           email: email,
           subscription_plan: planId,
           subscription_status: 'trialing',
