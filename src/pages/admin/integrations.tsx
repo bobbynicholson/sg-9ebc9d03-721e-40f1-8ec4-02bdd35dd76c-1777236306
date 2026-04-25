@@ -1,187 +1,366 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  Zap, 
-  Check, 
-  Settings,
-  MessageSquare,
-  CreditCard,
-  Database,
-  Mail,
-  FileText
+  CheckCircle2, 
+  XCircle, 
+  Loader2, 
+  ExternalLink,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
-import { AdminNav } from "@/components/admin/AdminNav";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import Head from "next/head";
-import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatBot } from "@/components/ChatBot";
+import { useToast } from "@/hooks/use-toast";
+import {
+  getAuthorizationUrl,
+  disconnectAccountingIntegration,
+  getIntegrationStatus,
+} from "@/services/accountingIntegrationService";
 
-const integrations = [
-  {
-    id: "whatsapp",
-    name: "WhatsApp Business",
-    description: "Send automated WhatsApp messages to clients",
-    icon: MessageSquare,
-    status: "connected",
-    features: ["Order confirmations", "Driver updates", "Post-event follow-ups"]
-  },
-  {
-    id: "payfast",
-    name: "PayFast",
-    description: "Accept payments online securely",
-    icon: CreditCard,
-    status: "available",
-    features: ["Online payments", "Subscription billing", "Payment tracking"]
-  },
-  {
-    id: "xero",
-    name: "Xero Accounting",
-    description: "Sync invoices and financial data",
-    icon: Database,
-    status: "available",
-    features: ["Invoice sync", "Expense tracking", "Financial reports"]
-  },
-  {
-    id: "mailchimp",
-    name: "Mailchimp",
-    description: "Email marketing and automation",
-    icon: Mail,
-    status: "available",
-    features: ["Email campaigns", "Newsletter management", "Marketing automation"]
-  },
-  {
-    id: "google-sheets",
-    name: "Google Sheets",
-    description: "Export data to Google Sheets",
-    icon: FileText,
-    status: "available",
-    features: ["Data export", "Report generation", "Inventory sync"]
+export default function IntegrationsPage() {
+  const router = useRouter();
+  const { profile } = useAuth();
+  const { toast } = useToast();
+
+  const [xeroStatus, setXeroStatus] = useState<any>(null);
+  const [qbStatus, setQbStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const companyId = profile?.company_id || "";
+
+  useEffect(() => {
+    if (companyId) {
+      loadIntegrationStatus();
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    // Handle OAuth callback redirects
+    const { success, error } = router.query;
+    
+    if (success) {
+      const provider = success === "xero_connected" ? "Xero" : "QuickBooks";
+      toast({
+        title: `✅ ${provider} Connected`,
+        description: `Successfully connected to ${provider}. You can now sync invoices.`,
+      });
+      // Clean URL
+      router.replace("/admin/integrations", undefined, { shallow: true });
+      loadIntegrationStatus();
+    }
+
+    if (error) {
+      toast({
+        title: "Connection Failed",
+        description: error as string,
+        variant: "destructive",
+      });
+      // Clean URL
+      router.replace("/admin/integrations", undefined, { shallow: true });
+    }
+  }, [router.query]);
+
+  async function loadIntegrationStatus() {
+    try {
+      setLoading(true);
+      const [xero, qb] = await Promise.all([
+        getIntegrationStatus(companyId, "xero"),
+        getIntegrationStatus(companyId, "quickbooks"),
+      ]);
+      setXeroStatus(xero);
+      setQbStatus(qb);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
-];
 
-export default function AdminIntegrations() {
-  const { user } = useAuth();
-  const [enabledIntegrations, setEnabledIntegrations] = useState<string[]>(["whatsapp"]);
+  async function handleConnect(provider: "xero" | "quickbooks") {
+    try {
+      // Set cookie for callback
+      document.cookie = `oauth_company_id=${companyId}; path=/; max-age=600`; // 10 minutes
+      
+      const authUrl = getAuthorizationUrl(provider, companyId);
+      window.location.href = authUrl;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }
 
-  const toggleIntegration = (id: string) => {
-    setEnabledIntegrations(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+  async function handleDisconnect(provider: "xero" | "quickbooks") {
+    try {
+      setDisconnecting(provider);
+      
+      const result = await disconnectAccountingIntegration(companyId, provider);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Disconnected",
+        description: `${provider === "xero" ? "Xero" : "QuickBooks"} has been disconnected`,
+      });
+
+      loadIntegrationStatus();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDisconnecting(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
-  };
+  }
 
   return (
-    <>
-      <NoIndexMeta />
-      <Head>
-        <meta name="robots" content="noindex, nofollow" />
-        <title>Integrations | CateringMS Admin</title>
-      </Head>
-
-      <AdminNav />
-
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">Integrations</h1>
-              <p className="text-slate-600">Connect your favorite tools and services</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {integrations.map((integration) => {
-              const Icon = integration.icon;
-              const isEnabled = enabledIntegrations.includes(integration.id);
-              const isConnected = integration.status === "connected";
-
-              return (
-                <Card key={integration.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`p-3 rounded-lg ${
-                        isConnected ? "bg-green-100" : "bg-slate-100"
-                      }`}>
-                        <Icon className={`w-6 h-6 ${
-                          isConnected ? "text-green-600" : "text-slate-600"
-                        }`} />
-                      </div>
-                      <Badge className={
-                        isConnected 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-slate-100 text-slate-800"
-                      }>
-                        {isConnected ? "Connected" : "Available"}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg">{integration.name}</CardTitle>
-                    <CardDescription>{integration.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700 mb-2">Features:</p>
-                        <ul className="space-y-1">
-                          {integration.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-center gap-2 text-sm text-slate-600">
-                              <Check className="w-4 h-4 text-green-600" />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={isEnabled}
-                            onCheckedChange={() => toggleIntegration(integration.id)}
-                          />
-                          <span className="text-sm text-slate-600">
-                            {isEnabled ? "Enabled" : "Disabled"}
-                          </span>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          <Settings className="w-4 h-4 mr-2" />
-                          Configure
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          <Card className="mt-8 border-0 shadow-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Zap className="w-6 h-6 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900 mb-2">Need a custom integration?</h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Contact our support team to discuss custom integrations for your specific business needs.
-                  </p>
-                  <Button variant="outline">Contact Support</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Footer />
+    <div className="container max-w-4xl py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Accounting Integrations</h1>
+        <p className="text-muted-foreground mt-2">
+          Connect your accounting system to automatically sync invoices and payments
+        </p>
       </div>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
-    </>
+      <Alert className="mb-8">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Note:</strong> Connecting an accounting system will automatically sync all new paid invoices. 
+          Existing invoices can be synced manually from the Invoices page.
+        </AlertDescription>
+      </Alert>
+
+      <div className="space-y-6">
+        {/* Xero Integration */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-3">
+                  <img 
+                    src="https://www.xero.com/content/dam/xero/pilot-images/logos/xero-logo.svg" 
+                    alt="Xero"
+                    className="h-8"
+                  />
+                  Xero
+                  {xeroStatus?.connected && (
+                    <Badge variant="default" className="ml-2">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  {xeroStatus?.connected 
+                    ? `Connected to ${xeroStatus.tenantName || "your organization"}` 
+                    : "Cloud-based accounting software for small businesses"}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {xeroStatus?.connected ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div>
+                    <div className="font-medium text-green-900 dark:text-green-100">
+                      ✅ Integration Active
+                    </div>
+                    {xeroStatus.lastSync && (
+                      <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                        Last synced: {new Date(xeroStatus.lastSync).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDisconnect("xero")}
+                    disabled={disconnecting === "xero"}
+                  >
+                    {disconnecting === "xero" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  <strong>What syncs automatically:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Invoices when marked as paid</li>
+                    <li>Client/customer information</li>
+                    <li>Payment records</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Connect Xero to automatically sync your invoices, payments, and clients. 
+                  All data is securely transferred using OAuth 2.0.
+                </p>
+                <Button onClick={() => handleConnect("xero")}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Connect Xero Account
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* QuickBooks Integration */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-3">
+                  <img 
+                    src="https://static.intuit.com/content/dam/intuit/brand/logos/intuit/quickbooks/qbo-lockup-color.svg" 
+                    alt="QuickBooks"
+                    className="h-8"
+                  />
+                  QuickBooks Online
+                  {qbStatus?.connected && (
+                    <Badge variant="default" className="ml-2">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  {qbStatus?.connected 
+                    ? `Connected to ${qbStatus.tenantName || "your company"}` 
+                    : "Popular accounting software for small to medium businesses"}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {qbStatus?.connected ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div>
+                    <div className="font-medium text-green-900 dark:text-green-100">
+                      ✅ Integration Active
+                    </div>
+                    {qbStatus.lastSync && (
+                      <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                        Last synced: {new Date(qbStatus.lastSync).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDisconnect("quickbooks")}
+                    disabled={disconnecting === "quickbooks"}
+                  >
+                    {disconnecting === "quickbooks" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  <strong>What syncs automatically:</strong>
+                  <ul className="list-disc list-inside mt-2 space-y-1">
+                    <li>Invoices when marked as paid</li>
+                    <li>Customer information</li>
+                    <li>Payment records</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Connect QuickBooks Online to automatically sync your invoices, payments, and customers. 
+                  All data is securely transferred using OAuth 2.0.
+                </p>
+                <Button onClick={() => handleConnect("quickbooks")}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Connect QuickBooks Account
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Setup Instructions */}
+        {!xeroStatus?.connected && !qbStatus?.connected && (
+          <Card>
+            <CardHeader>
+              <CardTitle>📋 Setup Instructions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Before Connecting:</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>Make sure you have admin access to your Xero or QuickBooks account</li>
+                  <li>Verify your accounting chart of accounts is set up</li>
+                  <li>Ensure you have a default sales account configured</li>
+                  <li>Have your tax rates configured (e.g., 15% VAT for South Africa)</li>
+                </ol>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">What Happens When You Connect:</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>You'll be redirected to Xero/QuickBooks to authorize access</li>
+                  <li>We'll securely store your authorization token (encrypted)</li>
+                  <li>New paid invoices will automatically sync</li>
+                  <li>You can manually sync existing invoices from the Invoices page</li>
+                </ol>
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Important:</strong> You can only connect one accounting system at a time. 
+                  If you switch systems, you'll need to disconnect the current one first.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 }

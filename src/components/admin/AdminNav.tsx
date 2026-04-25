@@ -44,7 +44,8 @@ import {
   ChevronDown,
   Target,
   ChefHat,
-  ChevronLeft
+  ChevronLeft,
+  Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";

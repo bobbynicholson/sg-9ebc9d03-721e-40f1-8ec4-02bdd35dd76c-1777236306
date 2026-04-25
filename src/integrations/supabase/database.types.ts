@@ -45,6 +45,62 @@ export type Database = {
         }
         Relationships: []
       }
+      accounting_integrations: {
+        Row: {
+          access_token: string
+          company_id: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          provider: string
+          refresh_token: string
+          sync_errors: Json | null
+          tenant_id: string | null
+          tenant_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          company_id: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          provider: string
+          refresh_token: string
+          sync_errors?: Json | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          company_id?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          provider?: string
+          refresh_token?: string
+          sync_errors?: Json | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_notifications: {
         Row: {
           company_id: string | null
@@ -3160,9 +3216,12 @@ export type Database = {
           created_at: string | null
           deleted_at: string | null
           due_date: string
+          external_id: string | null
+          external_invoice_number: string | null
           id: string
           invoice_date: string
           invoice_number: string
+          last_synced_at: string | null
           notes: string | null
           order_id: string | null
           paid_at: string | null
@@ -3170,6 +3229,8 @@ export type Database = {
           sent_at: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
+          sync_error: string | null
+          synced_to_accounting: boolean | null
           tax_amount: number | null
           total_amount: number
           updated_at: string | null
@@ -3182,9 +3243,12 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           due_date: string
+          external_id?: string | null
+          external_invoice_number?: string | null
           id?: string
           invoice_date?: string
           invoice_number: string
+          last_synced_at?: string | null
           notes?: string | null
           order_id?: string | null
           paid_at?: string | null
@@ -3192,6 +3256,8 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
+          sync_error?: string | null
+          synced_to_accounting?: boolean | null
           tax_amount?: number | null
           total_amount: number
           updated_at?: string | null
@@ -3204,9 +3270,12 @@ export type Database = {
           created_at?: string | null
           deleted_at?: string | null
           due_date?: string
+          external_id?: string | null
+          external_invoice_number?: string | null
           id?: string
           invoice_date?: string
           invoice_number?: string
+          last_synced_at?: string | null
           notes?: string | null
           order_id?: string | null
           paid_at?: string | null
@@ -3214,6 +3283,8 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
+          sync_error?: string | null
+          synced_to_accounting?: boolean | null
           tax_amount?: number | null
           total_amount?: number
           updated_at?: string | null

@@ -42,6 +42,10 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  syncInvoiceToAccounting,
+  getIntegrationStatus 
+} from "@/services/accountingIntegrationService";
 
 export default function InvoicesPage() {
   const router = useRouter();
