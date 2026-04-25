@@ -95,7 +95,26 @@ export default function EquipmentShortagesPage() {
     try {
       setLoading(true);
       const data = await equipmentShortageService.getShortageFlags(user.id);
-      setShortages(data as ShortageFlag[]);
+      setShortages(data.map(flag => {
+        return {
+          id: flag.id,
+          equipmentId: flag.equipment_id,
+          orderId: flag.order_id,
+          shortageQuantity: flag.shortage_quantity,
+          status: flag.status as "pending" | "resolved",
+          priority: flag.priority as "high" | "medium" | "low",
+          createdAt: flag.created_at,
+          resolvedAt: flag.resolved_at || undefined,
+          equipment: {
+            name: flag.equipment_name || "Unknown Equipment",
+          },
+          order: {
+            order_number: "Unknown",
+            client_name: flag.client_name || "Unknown",
+            event_date: new Date().toISOString(),
+          }
+        } as ShortageFlag;
+      }));
     } catch (error) {
       console.error("Error loading shortages:", error);
     } finally {

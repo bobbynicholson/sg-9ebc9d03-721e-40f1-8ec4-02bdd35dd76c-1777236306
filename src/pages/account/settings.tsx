@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { ROLE_NAMES } from "@/lib/authGuards";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface NotificationPreferences {
   email_notifications: boolean;

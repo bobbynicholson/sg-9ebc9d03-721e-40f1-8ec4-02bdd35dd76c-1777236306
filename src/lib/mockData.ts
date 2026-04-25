@@ -22,7 +22,6 @@ const defaultOrderValues: Omit<AppOrder, 'id' | 'order_number' | 'quote_id' | 'c
   delivery_status: "out_for_delivery",
   internal_notes: "Client has a nut allergy. Ensure no cross-contamination.",
   special_instructions: "Please set up the buffet by the main stage.",
-  assigned_chef_id: "chef-a",
   assigned_driver_id: "driver-b",
   updated_at: new Date().toISOString(),
   region_id: "gauteng-jhb-north",

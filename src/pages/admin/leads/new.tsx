@@ -40,19 +40,22 @@ export default function NewLead() {
     setLoading(true);
     try {
       const companyId = user.user_metadata?.company_id || user.id;
-      await leadService.createLead({
+      const { error } = await leadService.createLead({
+        company_id: companyId,
+        contact_name: formData.name,
         client_name: formData.name,
         client_email: formData.email,
         client_phone: formData.phone,
-        event_type: formData.eventType,
-        event_date: formData.eventDate,
+        event_date: new Date(formData.eventDate).toISOString(),
         guest_count: parseInt(formData.guestCount) || 0,
-        budget: formData.budget ? parseFloat(formData.budget) : null,
-        special_requests: formData.notes,
+        event_type: formData.eventType,
+        budget_range: formData.budget,
+        notes: formData.notes,
         status: "new",
-        user_id: user.id,
-        company_id: companyId
+        source: "manual_add"
       });
+      
+      if (error) throw error;
       
       toast({
         title: "Success",
