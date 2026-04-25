@@ -1,4 +1,3 @@
-<![CDATA[
 import { supabase } from "@/integrations/supabase/client";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 
@@ -68,7 +67,7 @@ export const emailNotificationService = {
   },
 
   /**
-   * Process pending email notifications
+   * Process pending emails
    * This should be called periodically (e.g., every minute via cron)
    */
   async processPendingEmails(companyId: string): Promise<number> {
@@ -496,6 +495,5 @@ export const emailNotificationService = {
 </body>
 </html>
     `;
-  },
+  }
 };
-</![CDATA[>

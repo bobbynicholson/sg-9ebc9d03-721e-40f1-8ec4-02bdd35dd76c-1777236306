@@ -1,4 +1,3 @@
-<![CDATA[
 import type { NextApiRequest, NextApiResponse } from "next";
 import { emailNotificationService } from "@/services/emailNotificationService";
 
@@ -53,4 +52,3 @@ export default async function handler(
     });
   }
 }
-</![CDATA[>
