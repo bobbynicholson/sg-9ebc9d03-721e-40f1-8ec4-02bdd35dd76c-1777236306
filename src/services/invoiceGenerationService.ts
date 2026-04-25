@@ -122,7 +122,10 @@ export async function generateInvoiceData(
     const invoiceNumber = await getNextInvoiceNumber(companyId);
 
     // 4. Calculate financial details
-    const menuItems = (order.menu_items || []) as any[];
+    const orderData = order as any;
+    const companyData = company as any;
+    
+    const menuItems = (orderData.menu_items || []) as any[];
     const items = menuItems.map((item: any) => ({
       description: item.name || "Item",
       quantity: item.quantity || 1,
@@ -131,14 +134,14 @@ export async function generateInvoiceData(
     }));
 
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const taxRate = company.tax_rate || 15; // Default 15% VAT
+    const taxRate = companyData.tax_rate || companyData.tax_percentage || 15; // Default 15% VAT
     const taxAmount = subtotal * (taxRate / 100);
     const total = subtotal + taxAmount;
-    const depositPaid = order.amount_paid || 0;
+    const depositPaid = orderData.amount_paid || 0;
     const balanceDue = total - depositPaid;
 
     // 5. Format client details
-    const client = order.clients as any;
+    const client = orderData.clients as any;
     const clientName = client.company_name || 
       `${client.first_name || ""} ${client.last_name || ""}`.trim();
     const clientAddress = [
@@ -155,31 +158,31 @@ export async function generateInvoiceData(
       invoiceDate: format(new Date(), "yyyy-MM-dd"),
       dueDate: format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"), // 30 days
       
-      companyName: company.company_name,
-      companyLogo: company.logo_url,
+      companyName: companyData.company_name,
+      companyLogo: companyData.logo_url,
       companyAddress: [
-        company.address_line1,
-        company.address_line2,
-        company.city,
-        company.state_province,
-        company.postal_code,
-        company.country
+        companyData.address_line1,
+        companyData.address_line2,
+        companyData.city,
+        companyData.state_province,
+        companyData.postal_code,
+        companyData.country
       ].filter(Boolean).join(", "),
-      companyPhone: company.phone_number,
-      companyEmail: company.email,
-      companyVAT: company.vat_number,
+      companyPhone: companyData.phone_number || companyData.phone || "",
+      companyEmail: companyData.email || "",
+      companyVAT: companyData.vat_number || companyData.tax_number || "",
       
       clientName,
       clientEmail: client.email,
       clientPhone: client.phone,
       clientAddress,
       
-      orderId: order.id,
-      orderNumber: order.order_number || `ORD-${order.id.slice(-8)}`,
-      eventDate: order.event_date || "",
-      eventTime: order.event_time || "",
-      venue: order.venue_name || "",
-      guestCount: order.guest_count || 0,
+      orderId: orderData.id,
+      orderNumber: orderData.order_number || `ORD-${orderData.id.slice(-8)}`,
+      eventDate: orderData.event_date || "",
+      eventTime: orderData.event_time || "",
+      venue: orderData.venue_name || "",
+      guestCount: orderData.guest_count || 0,
       
       items,
       subtotal,
@@ -189,11 +192,11 @@ export async function generateInvoiceData(
       depositPaid,
       balanceDue,
       
-      paymentTerms: company.payment_terms || "Payment due within 30 days",
-      bankDetails: company.bank_details ? JSON.parse(company.bank_details) : undefined,
+      paymentTerms: companyData.payment_terms || "Payment due within 30 days",
+      bankDetails: companyData.bank_details ? (typeof companyData.bank_details === 'string' ? JSON.parse(companyData.bank_details) : companyData.bank_details) : undefined,
       
-      notes: order.special_instructions,
-      footer: `Thank you for your business! For any queries, contact us at ${company.email} or ${company.phone_number}`
+      notes: orderData.special_instructions,
+      footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`
     };
 
     return { success: true, data: invoiceData };
@@ -235,22 +238,27 @@ export async function createInvoiceRecord(
   companyId: string
 ): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
   try {
+    const { data: order } = await supabase.from("orders").select("client_id").eq("id", orderId).single();
+
+    const insertPayload: any = {
+      company_id: companyId,
+      order_id: orderId,
+      client_id: order?.client_id,
+      invoice_number: invoiceData.invoiceNumber,
+      invoice_date: invoiceData.invoiceDate,
+      due_date: invoiceData.dueDate,
+      subtotal: invoiceData.subtotal,
+      tax_amount: invoiceData.taxAmount,
+      total_amount: invoiceData.total,
+      amount_paid: invoiceData.depositPaid,
+      balance_due: invoiceData.balanceDue,
+      status: invoiceData.balanceDue > 0 ? "sent" : "paid",
+      invoice_data: invoiceData as any,
+    };
+
     const { data: invoice, error } = await supabase
       .from("invoices")
-      .insert({
-        company_id: companyId,
-        order_id: orderId,
-        invoice_number: invoiceData.invoiceNumber,
-        invoice_date: invoiceData.invoiceDate,
-        due_date: invoiceData.dueDate,
-        subtotal: invoiceData.subtotal,
-        tax_amount: invoiceData.taxAmount,
-        total_amount: invoiceData.total,
-        amount_paid: invoiceData.depositPaid,
-        balance_due: invoiceData.balanceDue,
-        status: invoiceData.balanceDue > 0 ? "outstanding" : "paid",
-        invoice_data: invoiceData,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
 
