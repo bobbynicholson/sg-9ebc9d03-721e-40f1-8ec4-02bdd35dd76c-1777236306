@@ -28,43 +28,26 @@ export function ProtectedRoute({
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    // SUPER ADMIN MODE - Bypass all authentication
-    if (typeof window !== "undefined") {
-      const superAdminMode = localStorage.getItem("SUPER_ADMIN_MODE") === "true";
-      const bypassAuth = localStorage.getItem("BYPASS_AUTH") === "true";
-      
-      if (superAdminMode || bypassAuth) {
-        setAuthorized(true);
-        return;
-      }
-    }
-
-    // Wait for auth to finish loading
     if (loading) {
       return;
     }
 
-    // Check if authentication is required
     if (requireAuth && !user) {
       router.replace(`/auth/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
 
-    // If no user and auth not required, allow access
     if (!requireAuth && !user) {
       setAuthorized(true);
       return;
     }
 
-    // User is authenticated from here on
     if (user) {
-      // Check admin requirement
       if (requireAdmin && !isAdmin(user.role)) {
         setAuthorized(false);
         return;
       }
 
-      // Check role-based access
       if (allowedRoles && allowedRoles.length > 0) {
         const hasAccess = allowedRoles.includes(user.role);
         if (!hasAccess) {
@@ -73,7 +56,6 @@ export function ProtectedRoute({
         }
       }
 
-      // Check route-based access
       const hasRouteAccess = canAccessRoute(user.role, router.pathname);
       if (!hasRouteAccess) {
         setAuthorized(false);

@@ -9,8 +9,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Home, X, Crown } from "lucide-react";
-import { useState, useEffect } from "react";
+import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Crown, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PORTALS = [
   { name: "Admin", route: "/admin/dashboard", icon: LayoutDashboard, color: "text-blue-600" },
@@ -23,38 +23,19 @@ const PORTALS = [
 
 export function PortalSwitcher() {
   const router = useRouter();
-  const [superAdminMode, setSuperAdminMode] = useState(false);
+  const { user, signOut } = useAuth();
 
-  useEffect(() => {
-    // Check if Super Admin mode is active
-    const checkSuperAdminMode = () => {
-      if (typeof window !== "undefined") {
-        const isActive = localStorage.getItem("SUPER_ADMIN_MODE") === "true";
-        setSuperAdminMode(isActive);
-      }
-    };
-
-    checkSuperAdminMode();
-    // Recheck on route changes
-    router.events?.on("routeChangeComplete", checkSuperAdminMode);
-
-    return () => {
-      router.events?.off("routeChangeComplete", checkSuperAdminMode);
-    };
-  }, [router]);
-
-  const handleExitSuperAdmin = () => {
-    localStorage.removeItem("SUPER_ADMIN_MODE");
-    localStorage.removeItem("BYPASS_AUTH");
-    setSuperAdminMode(false);
-    router.push("/");
-  };
+  // Only show for super_admin users
+  if (!user || user.role !== "super_admin") return null;
 
   const handleBackToDashboard = () => {
-    router.push("/investor-demo");
+    router.push("/super-admin");
   };
 
-  if (!superAdminMode) return null;
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/auth/login");
+  };
 
   return (
     <>
@@ -68,7 +49,7 @@ export function PortalSwitcher() {
 
       {/* Floating Portal Switcher - Bottom Right */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-        {/* Back to Super Admin Dashboard */}
+        {/* Super Admin Dashboard Button */}
         <Button
           onClick={handleBackToDashboard}
           size="lg"
@@ -76,7 +57,7 @@ export function PortalSwitcher() {
           title="Return to Super Admin Dashboard"
         >
           <Crown className="w-5 h-5 mr-2" />
-          Super Admin
+          Dashboard
         </Button>
 
         {/* Portal Switcher Dropdown */}
@@ -116,11 +97,11 @@ export function PortalSwitcher() {
             })}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={handleExitSuperAdmin}
+              onClick={handleSignOut}
               className="cursor-pointer text-red-600 hover:bg-red-50 py-3"
             >
-              <X className="w-4 h-4 mr-3" />
-              Exit Super Admin
+              <LogOut className="w-4 h-4 mr-3" />
+              Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
