@@ -2,8 +2,9 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Routes that don't require company slug validation
+// Routes that don't require authentication
 const PUBLIC_ROUTES = [
+  "/",
   "/auth/login",
   "/auth/register",
   "/auth/callback",
@@ -21,6 +22,10 @@ const PUBLIC_ROUTES = [
   "/api",
   "/favicon.ico",
   "/robots.txt",
+  "/uk",
+  "/us",
+  "/page",
+  "/pay",
 ];
 
 // Role-based route access mapping
@@ -41,10 +46,24 @@ const isSuperAdminRoute = (pathname: string) => {
 
 // Check if path is a public route
 const isPublicRoute = (pathname: string) => {
+  // Exact match for homepage
+  if (pathname === "/") return true;
+  
+  // Blog routes
+  if (pathname === "/blog" || pathname.startsWith("/blog/")) return true;
+  
+  // Regional pages
+  if (pathname === "/uk" || pathname === "/us") return true;
+  if (pathname.startsWith("/uk/") || pathname.startsWith("/us/")) return true;
+  
+  // CMS pages
+  if (pathname.startsWith("/page/")) return true;
+  
+  // Payment pages (public invoice payment)
+  if (pathname.startsWith("/pay/")) return true;
+  
+  // Check other public routes
   return PUBLIC_ROUTES.some(route => {
-    if (route === "/blog") {
-      return pathname === "/blog" || pathname.startsWith("/blog/");
-    }
     return pathname === route || pathname.startsWith(route);
   });
 };
