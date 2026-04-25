@@ -1,4 +1,5 @@
 import { createContext, useContext, ReactNode, useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
@@ -46,6 +47,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [profile, setProfile] = useState<DbProfile | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
@@ -56,8 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 🔧 DEV MODE: Check if we're on super-admin route without auth
-    const isDevMode = typeof window !== "undefined" && 
-                      window.location.pathname.startsWith("/super-admin");
+    const isDevMode = router.pathname.startsWith("/super-admin");
 
     if (isDevMode) {
       console.log("🔧 DEV MODE DETECTED: Creating fake super admin user");
@@ -94,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [router.pathname]); // Re-run when route changes
 
   const handleSessionChange = async (session: Session | null) => {
     setLoading(true);

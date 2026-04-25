@@ -81,17 +81,17 @@ export default function PlatformDashboard() {
   const [topCustomers, setTopCustomers] = useState<any[]>([]);
 
   useEffect(() => {
-    // 🔧 DEV MODE: Skip user check and load dashboard immediately
-    const isDevMode = user?.email === "dev@cateringms.local";
-    
-    if (isDevMode) {
-      console.log("🔧 DEV MODE: Loading dashboard with mock data");
-      setLoading(false);
-      return;
-    }
-
+    // If we have a user (real or dev mode), stop loading
     if (user) {
-      loadDashboardData();
+      const isDevMode = user.email === "dev@cateringms.local";
+      
+      if (isDevMode) {
+        console.log("🔧 DEV MODE: Skipping data fetch");
+        setLoading(false);
+      } else {
+        console.log("✅ Real user detected - loading dashboard data");
+        loadDashboardData();
+      }
     }
   }, [user]);
 
@@ -133,7 +133,8 @@ export default function PlatformDashboard() {
   // 🔧 DEV MODE: Show simplified dashboard
   const isDevMode = user?.email === "dev@cateringms.local";
 
-  if (loading && !isDevMode) {
+  // Show loading only if we don't have a user yet
+  if (!user || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
