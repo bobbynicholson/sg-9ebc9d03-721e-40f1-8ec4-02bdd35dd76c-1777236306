@@ -31,14 +31,10 @@ export default function BlogPostPage({ post }: BlogPostPageProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  const posts = await cmsService.getAllBlogPosts();
-  
-  const paths = posts.map((post: any) => ({
-    params: { slug: post.slug },
-  }));
-
+  // Return empty paths to defer generation to request time. 
+  // This prevents Out Of Memory (OOM) errors during Vercel builds for large amounts of CMS content.
   return {
-    paths,
+    paths: [],
     fallback: "blocking",
   };
 };
