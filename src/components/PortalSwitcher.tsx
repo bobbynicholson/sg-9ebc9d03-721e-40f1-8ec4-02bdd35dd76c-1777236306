@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Home, X } from "lucide-react";
+import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Home, X, Crown } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const PORTALS = [
@@ -23,59 +23,60 @@ const PORTALS = [
 
 export function PortalSwitcher() {
   const router = useRouter();
-  const [investorMode, setInvestorMode] = useState(false);
+  const [superAdminMode, setSuperAdminMode] = useState(false);
 
   useEffect(() => {
-    // Check if investor mode is active
-    const checkInvestorMode = () => {
+    // Check if Super Admin mode is active
+    const checkSuperAdminMode = () => {
       if (typeof window !== "undefined") {
-        const isActive = localStorage.getItem("INVESTOR_MODE") === "true";
-        setInvestorMode(isActive);
+        const isActive = localStorage.getItem("SUPER_ADMIN_MODE") === "true";
+        setSuperAdminMode(isActive);
       }
     };
 
-    checkInvestorMode();
+    checkSuperAdminMode();
     // Recheck on route changes
-    router.events?.on("routeChangeComplete", checkInvestorMode);
+    router.events?.on("routeChangeComplete", checkSuperAdminMode);
 
     return () => {
-      router.events?.off("routeChangeComplete", checkInvestorMode);
+      router.events?.off("routeChangeComplete", checkSuperAdminMode);
     };
   }, [router]);
 
-  const handleExitInvestorMode = () => {
-    localStorage.removeItem("INVESTOR_MODE");
+  const handleExitSuperAdmin = () => {
+    localStorage.removeItem("SUPER_ADMIN_MODE");
     localStorage.removeItem("BYPASS_AUTH");
-    setInvestorMode(false);
+    setSuperAdminMode(false);
     router.push("/");
   };
 
-  const handleBackToDemo = () => {
+  const handleBackToDashboard = () => {
     router.push("/investor-demo");
   };
 
-  if (!investorMode) return null;
+  if (!superAdminMode) return null;
 
   return (
     <>
       {/* Floating Badge - Top Right */}
       <div className="fixed top-4 right-4 z-50">
-        <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 shadow-lg animate-pulse">
-          🚀 Investor Demo Active
+        <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-4 py-2 shadow-lg animate-pulse border-2 border-amber-400">
+          <Crown className="w-4 h-4 mr-2" />
+          SUPER ADMIN
         </Badge>
       </div>
 
       {/* Floating Portal Switcher - Bottom Right */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-        {/* Back to Demo Dashboard */}
+        {/* Back to Super Admin Dashboard */}
         <Button
-          onClick={handleBackToDemo}
+          onClick={handleBackToDashboard}
           size="lg"
-          className="h-12 px-4 rounded-full shadow-2xl bg-slate-700 hover:bg-slate-800 text-white"
-          title="Return to Demo Dashboard"
+          className="h-12 px-4 rounded-full shadow-2xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold"
+          title="Return to Super Admin Dashboard"
         >
-          <Home className="w-5 h-5 mr-2" />
-          Demo Home
+          <Crown className="w-5 h-5 mr-2" />
+          Super Admin
         </Button>
 
         {/* Portal Switcher Dropdown */}
@@ -83,14 +84,15 @@ export function PortalSwitcher() {
           <DropdownMenuTrigger asChild>
             <Button 
               size="lg"
-              className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              className="h-14 w-14 rounded-full shadow-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white"
               title="Quick Portal Switch"
             >
               <LayoutDashboard className="w-6 h-6" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-xs text-slate-500 uppercase tracking-wide">
+            <DropdownMenuLabel className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-2">
+              <Crown className="w-3 h-3" />
               Switch Portal
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -114,11 +116,11 @@ export function PortalSwitcher() {
             })}
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={handleExitInvestorMode}
+              onClick={handleExitSuperAdmin}
               className="cursor-pointer text-red-600 hover:bg-red-50 py-3"
             >
               <X className="w-4 h-4 mr-3" />
-              Exit Demo Mode
+              Exit Super Admin
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

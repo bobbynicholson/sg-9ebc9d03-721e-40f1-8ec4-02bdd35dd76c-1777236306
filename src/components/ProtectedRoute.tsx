@@ -28,12 +28,12 @@ export function ProtectedRoute({
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    // INVESTOR DEMO MODE - Bypass all authentication
+    // SUPER ADMIN MODE - Bypass all authentication
     if (typeof window !== "undefined") {
-      const investorMode = localStorage.getItem("INVESTOR_MODE") === "true";
+      const superAdminMode = localStorage.getItem("SUPER_ADMIN_MODE") === "true";
       const bypassAuth = localStorage.getItem("BYPASS_AUTH") === "true";
       
-      if (investorMode || bypassAuth) {
+      if (superAdminMode || bypassAuth) {
         setAuthorized(true);
         return;
       }
