@@ -3,40 +3,42 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, Mail, MapPin, Star, Truck } from "lucide-react";
-import { Notification } from "@/types/tracking";
-import { notificationService } from "@/lib/notificationService";
+import { notificationService, Notification } from "@/services/notificationService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function NotificationCenter() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (user?.id) {
+      loadNotifications();
+      const interval = setInterval(loadNotifications, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
-  const loadNotifications = () => {
-    const allNotifications = notificationService.getNotifications();
+  const loadNotifications = async () => {
+    if (!user?.id) return;
+    
+    const allNotifications = await notificationService.getNotifications(user.id);
     setNotifications(allNotifications);
-    setUnreadCount(allNotifications.filter((n) => !n.read).length);
+    setUnreadCount(allNotifications.filter((n) => !n.is_read).length);
   };
 
-  const handleMarkAsRead = (notificationId: string) => {
-    notificationService.markAsRead(notificationId);
+  const handleMarkAsRead = async (notificationId: string) => {
+    await notificationService.markAsRead(notificationId);
     loadNotifications();
   };
 
-  const handleMarkAllAsRead = () => {
-    notifications.forEach((n) => {
-      if (!n.read) {
-        notificationService.markAsRead(n.id);
-      }
-    });
+  const handleMarkAllAsRead = async () => {
+    if (!user?.id) return;
+    await notificationService.markAllAsRead(user.id);
     loadNotifications();
   };
 
-  const getNotificationIcon = (type: Notification["type"]) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case "driver_logged_in":
         return <Truck className="w-4 h-4 text-blue-600" />;
@@ -53,7 +55,7 @@ export function NotificationCenter() {
     }
   };
 
-  const getNotificationColor = (type: Notification["type"]) => {
+  const getNotificationColor = (type: string) => {
     switch (type) {
       case "driver_logged_in":
         return "bg-blue-50 border-blue-200";
@@ -110,22 +112,25 @@ export function NotificationCenter() {
                 <div
                   key={notification.id}
                   className={`p-3 rounded-lg border transition-all ${
-                    notification.read ? "opacity-60" : ""
-                  } ${getNotificationColor(notification.type)}`}
+                    notification.is_read ? "opacity-60" : ""
+                  } ${getNotificationColor(notification.notification_type || "")}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5">
-                      {getNotificationIcon(notification.type)}
+                      {getNotificationIcon(notification.notification_type || "")}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-900 mb-1">
+                      <p className="text-sm font-medium text-slate-900 mb-1">
+                        {notification.title}
+                      </p>
+                      <p className="text-sm text-slate-700 mb-1">
                         {notification.message}
                       </p>
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-slate-500">
-                          {new Date(notification.timestamp).toLocaleString()}
+                          {new Date(notification.created_at || "").toLocaleString()}
                         </p>
-                        {!notification.read && (
+                        {!notification.is_read && (
                           <Button
                             variant="ghost"
                             size="sm"

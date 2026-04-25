@@ -9,79 +9,45 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
-import { realtimeNotificationService } from "@/services/realtimeNotificationService";
+import { notificationService, Notification } from "@/services/notificationService";
 import { formatDistanceToNow } from "date-fns";
-import { supabase } from "@/integrations/supabase/client";
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  priority: string;
-  is_read: boolean;
-  created_at: string;
-  action_url?: string;
-  notification_type: string;
-}
 
 export function NotificationBell() {
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
+    if (user?.id) {
+      loadNotifications();
+      loadUnreadCount();
 
-      try {
-        const { data, error } = await supabase
-          .from("notifications")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("is_read", false)
-          .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        setNotifications(data || []);
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-        // Silently fail - use empty notifications array
-        setNotifications([]);
-      }
-    };
-
-    fetchNotifications();
-
-    // Set up real-time subscription
-    const channel = supabase
-      .channel("notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: user ? `user_id=eq.${user.id}` : undefined,
+      // Set up real-time subscription
+      const unsubscribe = notificationService.subscribeToNotifications(
+        user.id,
+        (newNotification) => {
+          setNotifications(prev => [newNotification, ...prev]);
+          setUnreadCount(prev => prev + 1);
         },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
+        activeRole
+      );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [user, activeRole]);
 
   const loadNotifications = async () => {
     if (!user?.id) return;
     
     setLoading(true);
-    const data = await realtimeNotificationService.getUserNotifications(
+    const data = await notificationService.getNotifications(
       user.id,
+      false,
+      activeRole,
       { limit: 20 }
     );
     setNotifications(data);
@@ -90,12 +56,12 @@ export function NotificationBell() {
 
   const loadUnreadCount = async () => {
     if (!user?.id) return;
-    const count = await realtimeNotificationService.getUnreadCount(user.id);
+    const count = await notificationService.getUnreadCount(user.id, activeRole);
     setUnreadCount(count);
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
-    await realtimeNotificationService.markAsRead(notificationId);
+    await notificationService.markAsRead(notificationId);
     setNotifications((prev) =>
       prev.map((n) =>
         n.id === notificationId ? { ...n, is_read: true } : n
@@ -106,18 +72,18 @@ export function NotificationBell() {
 
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return;
-    await realtimeNotificationService.markAllAsRead(user.id);
+    await notificationService.markAllAsRead(user.id, activeRole);
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnreadCount(0);
   };
 
   const handleDelete = async (notificationId: string) => {
-    await realtimeNotificationService.deleteNotification(notificationId);
+    await notificationService.deleteNotification(notificationId);
     setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     loadUnreadCount();
   };
 
-  const getPriorityIcon = (priority: string) => {
+  const getPriorityIcon = (priority: string | null) => {
     switch (priority) {
       case "urgent":
         return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -130,7 +96,7 @@ export function NotificationBell() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: string | null) => {
     switch (priority) {
       case "urgent":
         return "bg-red-50 border-red-200";
@@ -210,7 +176,7 @@ export function NotificationBell() {
                           </p>
                           <p className="text-xs text-muted-foreground mt-2">
                             {formatDistanceToNow(
-                              new Date(notification.created_at),
+                              new Date(notification.created_at || ""),
                               { addSuffix: true }
                             )}
                           </p>
@@ -236,13 +202,13 @@ export function NotificationBell() {
                           </Button>
                         </div>
                       </div>
-                      {notification.action_url && (
+                      {notification.link && (
                         <Button
                           variant="link"
                           size="sm"
                           className="h-auto p-0 mt-2 text-xs"
                           onClick={() => {
-                            window.location.href = notification.action_url!;
+                            window.location.href = notification.link!;
                             setOpen(false);
                           }}
                         >
