@@ -28,6 +28,45 @@ import {
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 
+const StatCard = ({ 
+  title, 
+  value, 
+  change, 
+  changeType, 
+  icon: Icon, 
+  subtitle 
+}: { 
+  title: string; 
+  value: string; 
+  change?: string; 
+  changeType?: "positive" | "negative"; 
+  icon: any; 
+  subtitle?: string;
+}) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-slate-400" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+      {change && (
+        <div className={`flex items-center gap-1 text-xs mt-2 ${
+          changeType === "positive" ? "text-green-600" : "text-red-600"
+        }`}>
+          {changeType === "positive" ? (
+            <ArrowUpRight className="h-3 w-3" />
+          ) : (
+            <ArrowDownRight className="h-3 w-3" />
+          )}
+          {change}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
 export default function PlatformDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -241,45 +280,6 @@ export default function PlatformDashboard() {
       </div>
     );
   }
-
-  const StatCard = ({ 
-    title, 
-    value, 
-    change, 
-    changeType, 
-    icon: Icon, 
-    subtitle 
-  }: { 
-    title: string; 
-    value: string; 
-    change?: string; 
-    changeType?: "positive" | "negative"; 
-    icon: any; 
-    subtitle?: string;
-  }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-slate-400" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-slate-900">{value}</div>
-        {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
-        {change && (
-          <div className={`flex items-center gap-1 text-xs mt-2 ${
-            changeType === "positive" ? "text-green-600" : "text-red-600"
-          }`}>
-            {changeType === "positive" ? (
-              <ArrowUpRight className="h-3 w-3" />
-            ) : (
-              <ArrowDownRight className="h-3 w-3" />
-            )}
-            {change}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
