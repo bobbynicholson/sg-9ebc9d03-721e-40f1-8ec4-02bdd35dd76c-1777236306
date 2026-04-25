@@ -1657,6 +1657,7 @@ export type Database = {
           status: string
           subject: string
           template_type: string
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -1670,6 +1671,7 @@ export type Database = {
           status: string
           subject: string
           template_type: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1683,6 +1685,7 @@ export type Database = {
           status?: string
           subject?: string
           template_type?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -1695,6 +1698,87 @@ export type Database = {
           },
           {
             foreignKeyName: "email_automation_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_notification_preferences: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          daily_summary: boolean | null
+          driver_assigned: boolean | null
+          id: string
+          invoice_sent: boolean | null
+          low_stock_alert: boolean | null
+          order_cancelled: boolean | null
+          order_confirmed: boolean | null
+          order_delivered: boolean | null
+          order_ready_for_pickup: boolean | null
+          order_status_changed: boolean | null
+          out_of_stock_alert: boolean | null
+          payment_due: boolean | null
+          payment_received: boolean | null
+          task_assigned: boolean | null
+          updated_at: string | null
+          user_id: string
+          weekly_report: boolean | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          daily_summary?: boolean | null
+          driver_assigned?: boolean | null
+          id?: string
+          invoice_sent?: boolean | null
+          low_stock_alert?: boolean | null
+          order_cancelled?: boolean | null
+          order_confirmed?: boolean | null
+          order_delivered?: boolean | null
+          order_ready_for_pickup?: boolean | null
+          order_status_changed?: boolean | null
+          out_of_stock_alert?: boolean | null
+          payment_due?: boolean | null
+          payment_received?: boolean | null
+          task_assigned?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          weekly_report?: boolean | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          daily_summary?: boolean | null
+          driver_assigned?: boolean | null
+          id?: string
+          invoice_sent?: boolean | null
+          low_stock_alert?: boolean | null
+          order_cancelled?: boolean | null
+          order_confirmed?: boolean | null
+          order_delivered?: boolean | null
+          order_ready_for_pickup?: boolean | null
+          order_status_changed?: boolean | null
+          out_of_stock_alert?: boolean | null
+          payment_due?: boolean | null
+          payment_received?: boolean | null
+          task_assigned?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          weekly_report?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_notification_preferences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_notification_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

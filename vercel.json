@@ -1,10 +1,9 @@
+<![CDATA[
 {
-  "framework": "nextjs",
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/old-path",
-      "destination": "/new-path",
-      "permanent": true
+      "source": "/(.*)",
+      "destination": "/"
     }
   ],
   "headers": [
@@ -12,12 +11,25 @@
       "source": "/(.*)",
       "headers": [
         {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
           "key": "X-Content-Type-Options",
           "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "origin-when-cross-origin"
         }
       ]
     }
   ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  "crons": [
+    {
+      "path": "/api/process-email-notifications",
+      "schedule": "* * * * *"
+    }
+  ]
 }
+</![CDATA[>
