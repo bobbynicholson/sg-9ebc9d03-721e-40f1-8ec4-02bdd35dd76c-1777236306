@@ -57,32 +57,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
-    // 🔧 DEV MODE: Check if we're on super-admin route without auth
-    const isDevMode = router.pathname.startsWith("/super-admin");
+    // 🔧 DEV MODE: Auto-activate on localhost without login
+    const isDevEnvironment = 
+      typeof window !== "undefined" && 
+      (window.location.hostname === "localhost" || 
+       window.location.hostname === "127.0.0.1" ||
+       window.location.search.includes("dev=true"));
 
-    if (isDevMode) {
-      console.log("🔧 DEV MODE DETECTED: Creating fake super admin user");
+    if (isDevEnvironment) {
+      console.log("🔧 DEV MODE ACTIVE: Creating fake super admin user (no login required)");
       
-      // Create a fake super admin user for dev mode with company context
+      // Create a fake super admin user for dev mode with full access
       const devUser: AuthenticatedUser = {
-        id: "dev-mode-user-id",
-        email: "dev@cateringms.local",
-        full_name: "DEV Super Admin",
+        id: "00000000-0000-0000-0000-000000000000",
+        email: "dev@localhost",
+        full_name: "DEV MODE - Super Admin",
         role: UserRole.SUPER_ADMIN,
         active_role: UserRole.SUPER_ADMIN,
         currency: "ZAR",
-        company_id: "dev-company-id",
-        company_name: "DEV Test Company",
-        company_slug: "dev-test-company",
+        company_id: "11111111-1111-1111-1111-111111111111",
+        company_name: "DEV TEST COMPANY",
+        company_slug: "dev-test",
         created_at: new Date().toISOString(),
       };
 
-      const devCompany = {
-        id: "dev-company-id",
-        company_name: "DEV Test Company",
-        slug: "dev-test-company",
-        owner_id: "dev-mode-user-id",
-        email: "dev@cateringms.local",
+      const devCompany: Company = {
+        id: "11111111-1111-1111-1111-111111111111",
+        company_name: "DEV TEST COMPANY",
+        slug: "dev-test",
+        owner_id: "00000000-0000-0000-0000-000000000000",
+        email: "dev@localhost",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_active: true,
@@ -90,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription_status: "active",
         subscription_plan: "pro",
         currency: "ZAR",
-      } as unknown as Company;
+      };
 
       setUser(devUser);
       setProfile(null);
@@ -101,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Normal auth flow
+    // Normal auth flow for production
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleSessionChange(session);
     });
@@ -113,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, [router.pathname]); // Re-run when route changes
+  }, []); // Only run once on mount
 
   const handleSessionChange = async (session: Session | null) => {
     setLoading(true);

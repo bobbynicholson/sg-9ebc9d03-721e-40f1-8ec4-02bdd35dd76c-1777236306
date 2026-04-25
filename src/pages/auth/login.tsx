@@ -319,44 +319,24 @@ export default function LoginPage() {
               ) : (
                 <>
                   Sign In
-                  <ArrowRight className="ml-2 h-5 w-5" />
                 </>
               )}
             </Button>
           </form>
 
-          {/* Dev Mode / God Mode Quick Login */}
-          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-            <Button
-              onClick={async () => {
-                setLoading(true);
-                setError(null);
-                try {
-                  const { error } = await supabase.auth.signInWithPassword({
-                    email: "hello@spitbraaidelivery.co.za",
-                    password: "Password123!",
-                  });
-                  if (error) throw error;
-                  router.push("/super-admin/dashboard");
-                } catch (err: any) {
-                  setError(err.message);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              disabled={loading}
-              variant="outline"
-              className="w-full border-2 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950"
-              type="button"
-            >
-              <span className="text-purple-600 dark:text-purple-400 font-semibold">
-                🔧 DEV MODE - Super Admin Login (God Mode)
-              </span>
-            </Button>
-            <p className="text-xs text-center text-slate-500 dark:text-slate-400 mt-2">
-              Instant access to all roles & companies for testing
-            </p>
-          </div>
+          {/* Dev Mode Notice */}
+          {typeof window !== "undefined" && window.location.hostname === "localhost" && (
+            <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+              <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                <p className="text-sm text-purple-900 dark:text-purple-100 font-semibold mb-1">
+                  🔧 DEV MODE ACTIVE
+                </p>
+                <p className="text-xs text-purple-700 dark:text-purple-300">
+                  Running on localhost - authentication is bypassed. You have full super admin access without login.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 text-center space-y-3">
             <p className="text-sm text-slate-500">

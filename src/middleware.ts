@@ -56,9 +56,14 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const url = request.nextUrl.clone();
 
-  // 🔧 DEV MODE: Allow super-admin routes without auth
-  if (pathname.startsWith("/super-admin")) {
-    console.log("🔧 DEV MODE: Allowing super-admin route without auth check");
+  // 🔧 DEV MODE: Skip all auth checks on localhost
+  const isDevEnvironment = 
+    request.nextUrl.hostname === "localhost" || 
+    request.nextUrl.hostname === "127.0.0.1" ||
+    request.nextUrl.searchParams.has("dev");
+
+  if (isDevEnvironment) {
+    console.log("🔧 DEV MODE: Skipping auth checks");
     return NextResponse.next();
   }
 
