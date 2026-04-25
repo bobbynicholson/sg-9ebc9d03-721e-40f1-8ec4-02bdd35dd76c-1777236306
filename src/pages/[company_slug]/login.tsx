@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Mail, ArrowRight, Loader2, Building2 } from "lucide-react";
+import { Mail, ArrowRight, Loader2, Building2, Lock } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ export default function CompanyLoginPage() {
   const { company_slug } = router.query;
   const { message } = router.query;
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo?: string } | null>(null);
@@ -205,6 +206,27 @@ export default function CompanyLoginPage() {
                   disabled={loading}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-slate-700 font-medium text-base">
+                Password (Optional)
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password (optional for now)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 h-12 text-base"
+                  disabled={loading}
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                Password authentication coming soon. Use email only for now.
+              </p>
             </div>
 
             <Button
