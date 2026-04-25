@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function ClientNav() {
   const router = useRouter();
@@ -56,21 +57,20 @@ export function ClientNav() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/client-portal/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-slate-900 dark:text-white">Client Portal</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeSwitch />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(!open)}
-            >
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
               <Menu className="h-6 w-6" />
             </Button>
+            <Link href="/client-portal/dashboard" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white">Client Portal</span>
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <ThemeSwitch />
           </div>
         </div>
       </div>
@@ -134,11 +134,17 @@ export function ClientNav() {
                     <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
                   </div>
                 </Link>
-                <ThemeSwitch />
+                <div className="flex items-center gap-2">
+                  <NotificationBell />
+                  <ThemeSwitch />
+                </div>
               </>
             ) : (
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg mx-auto">
-                <User className="w-5 h-5 text-white" />
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <NotificationBell />
               </div>
             )}
           </div>

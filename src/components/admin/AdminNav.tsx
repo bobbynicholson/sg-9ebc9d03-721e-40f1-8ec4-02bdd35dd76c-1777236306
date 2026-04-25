@@ -387,25 +387,26 @@ export function AdminNav({ className }: AdminNavProps) {
       </div>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <Link href="/admin/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CM</span>
-            </div>
-            <span className="font-bold text-slate-900 dark:text-white">Admin</span>
-          </Link>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+            </Sheet>
+            <Link href="/admin/dashboard" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">CM</span>
+              </div>
+              <span className="font-bold text-slate-900 dark:text-white">Admin</span>
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
-            {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
+            <NotificationBell />
             <ThemeSwitch />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(!open)}
-              className="lg:hidden"
-            >
-              <Menu className="h-6 w-6" />
-            </Button>
           </div>
         </div>
       </div>
@@ -440,13 +441,17 @@ export function AdminNav({ className }: AdminNavProps) {
                   </div>
                 </Link>
                 <div className="flex items-center gap-2">
+                  <NotificationBell />
                   {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
                   <ThemeSwitch />
                 </div>
               </>
             ) : (
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg mx-auto">
-                <span className="text-white font-bold text-sm">CM</span>
+              <div className="flex flex-col items-center gap-3 w-full">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-sm">CM</span>
+                </div>
+                <NotificationBell />
               </div>
             )}
           </div>
