@@ -1,518 +1,213 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ThemeSwitch } from "./ThemeSwitch";
-import { RegionSwitcher } from "./RegionSwitcher";
-import { PortalSwitcher } from "./PortalSwitcher";
-import { TrialExpiryBanner } from "./TrialExpiryBanner";
-import {
-  Menu,
-  X,
-  ChevronDown,
-  Sparkles,
-  Users,
-  FileText,
-  Package,
-  Truck,
-  ChefHat,
-  ShoppingCart,
-  MapPin,
-  Mail,
-  DollarSign,
-  Shield,
-  Globe,
-  BarChart3,
-  Calendar,
-  Settings,
-  BookOpen,
-  Phone,
-  ArrowRight,
-  Zap,
-  Target,
-  AlertTriangle,
-  Play,
-  CheckCircle,
-  Lock,
-  Building2
-} from "lucide-react";
-import { useBranding } from "@/contexts/BrandingContext";
-import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Menu, X, User, LogOut, Settings, ChevronDown } from "lucide-react";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { RegionSwitcher } from "@/components/RegionSwitcher";
+import { UserRole } from "@/types/app";
+
+// Helper function to get the correct dashboard path for each role
+const getDashboardPath = (role: UserRole, companySlug?: string): string => {
+  switch (role) {
+    case UserRole.SUPER_ADMIN:
+      return "/super-admin/dashboard";
+    case UserRole.COMPANY_ADMIN:
+    case UserRole.ADMIN:
+      return companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
+    case UserRole.CLIENT:
+      return companySlug ? `/${companySlug}/client-portal/dashboard` : "/client-portal/dashboard";
+    case UserRole.DRIVER:
+      return companySlug ? `/${companySlug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard";
+    case UserRole.KITCHEN:
+      return companySlug ? `/${companySlug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard";
+    case UserRole.SHOPPING:
+      return companySlug ? `/${companySlug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard";
+    case UserRole.CLEANING:
+      return companySlug ? `/${companySlug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard";
+    case UserRole.STAFF:
+      return companySlug ? `/${companySlug}/team-portal/general/job-progress` : "/team-portal/general/job-progress";
+    default:
+      return "/";
+  }
+};
 
 export function Header() {
-  const router = useRouter();
-  const { branding } = useBranding();
-  const { user, userRoles } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [scrolled, setScrolled] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const displayName = branding?.organizationName || "CateringMS";
-  const displayLogo = branding?.logoUrl;
-
-  const getRoleBasedDashboard = () => {
-    if (!user) return "/auth/login";
-    
-    const role = user.user_metadata?.role || user.role;
-    
-    switch (role) {
-      case "super_admin":
-        return "/super-admin";
-      case "admin":
-        return "/admin/dashboard";
-      case "driver":
-        return "/team-portal/driver/dashboard";
-      case "kitchen":
-        return "/team-portal/kitchen/dashboard";
-      case "shopping":
-        return "/team-portal/shopping/dashboard";
-      case "cleaning":
-        return "/team-portal/cleaning/dashboard";
-      case "staff":
-        return "/team-portal/general/job-progress";
-      case "client":
-        return "/client-portal/dashboard";
-      default:
-        return "/";
-    }
-  };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const { user, signOut, profile, activeRole } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setMobileMenuOpen(false);
-    setActiveDropdown(null);
   }, [router.pathname]);
 
-  const featuresMegaMenu = [
-    {
-      category: "Core Operations",
-      icon: Settings,
-      items: [
-        { name: "Lead Management", href: "/features/lead-management", icon: Users, description: "Capture and convert leads automatically" },
-        { name: "Calendar & Booking", href: "/features#calendar", icon: Calendar, description: "Visual scheduling with conflict detection" },
-        { name: "Order Processing", href: "/features#orders", icon: Package, description: "Streamlined order management" },
-        { name: "Equipment Tracking", href: "/admin/equipment-shortages", icon: AlertTriangle, description: "Monitor and resolve equipment shortages" }
-      ]
-    },
-    {
-      category: "Team Portals",
-      icon: Users,
-      items: [
-        { name: "Driver Management", href: "/features#driver-portal", icon: Truck, description: "GPS tracking and earnings" },
-        { name: "Kitchen Operations", href: "/features/kitchen-management", icon: ChefHat, description: "Prep schedules and production" },
-        { name: "Shopping & Inventory", href: "/features/inventory-management", icon: ShoppingCart, description: "Stock management and purchasing" },
-        { name: "Client Portal", href: "/features#client-portal", icon: Shield, description: "Self-service booking platform" }
-      ]
-    },
-    {
-      category: "Advanced Features",
-      icon: Zap,
-      items: [
-        { name: "GPS Tracking", href: "/features/gps-tracking", icon: MapPin, description: "Real-time delivery tracking" },
-        { name: "Email Automation", href: "/features/email-automation", icon: Mail, description: "Smart nurture campaigns" },
-        { name: "Payment Processing", href: "/features#payments", icon: DollarSign, description: "Secure online payments" },
-        { name: "Multi-Region Support", href: "/features#multi-region", icon: Globe, description: "Scale across locations" }
-      ]
-    },
-    {
-      category: "Business Intelligence",
-      icon: BarChart3,
-      items: [
-        { name: "Analytics Dashboard", href: "/features#analytics", icon: BarChart3, description: "Real-time performance metrics" },
-        { name: "Profit Optimization", href: "/features#profit", icon: Target, description: "Maximize margins and profitability" },
-        { name: "Integrations", href: "/integrations", icon: Zap, description: "Xero, WhatsApp, Google Maps & more" }
-      ]
-    }
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/");
+  };
+
+  const navigation = [
+    { name: "Features", href: "/features" },
+    { name: "Pricing", href: "/pricing" },
+    { name: "Contact", href: "/contact" },
+    { name: "Support", href: "/support" },
   ];
 
-  const resourcesMegaMenu = [
-    {
-      category: "Learn",
-      icon: BookOpen,
-      items: [
-        { name: "Blog & Insights", href: "/blog", icon: BookOpen, description: "Industry best practices" },
-        { name: "Success Stories", href: "/blog#success", icon: Users, description: "Real results from caterers" },
-        { name: "Video Tutorials", href: "/blog#videos", icon: Sparkles, description: "Visual walkthroughs" }
-      ]
-    },
-    {
-      category: "Support",
-      icon: Phone,
-      items: [
-        { name: "Help Center", href: "/support", icon: Phone, description: "24-hour support" },
-        { name: "Contact Us", href: "/contact", icon: Mail, description: "Get personalized help" },
-        { name: "Documentation", href: "/blog", icon: FileText, description: "Complete guides" }
-      ]
-    }
-  ];
-
-  const isActive = (path: string) => router.pathname === path;
-
-  const handleDropdownToggle = (dropdown: string) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
-  };
-
-  const handleMouseEnter = (dropdownName: string) => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    setActiveDropdown(dropdownName);
-  };
-
-  const handleMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setActiveDropdown(null);
-    }, 300);
-  };
+  // Get the correct dashboard path based on active role
+  const dashboardPath = user && activeRole 
+    ? getDashboardPath(activeRole, profile?.company_slug)
+    : "/";
 
   return (
-    <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-white/95 backdrop-blur-lg shadow-lg border-b border-slate-200"
-          : "bg-white border-b border-slate-100"
-      }`}
-    >
-      <nav className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
-        <div className="flex items-center justify-between h-16 lg:h-20">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-            {displayLogo ? (
-              <img
-                src={displayLogo}
-                alt={displayName}
-                className="h-8 lg:h-10 object-contain"
-              />
-            ) : (
-              <>
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl group-hover:scale-110 transition-transform">
-                  <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
-                </div>
-                <span className="text-lg lg:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  {displayName}
-                </span>
-              </>
-            )}
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/80">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8">
+        <div className="flex lg:flex-1">
+          <Link href="/" className="-m-1.5 p-1.5">
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              CateringMS
+            </span>
           </Link>
+        </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1">
-            {/* Features Mega Menu */}
-            <div
-              className="relative"
-              onMouseEnter={() => handleMouseEnter("features")}
-              onMouseLeave={handleMouseLeave}
-            >
-              <button
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
-                  isActive("/features") || activeDropdown === "features"
-                    ? "bg-purple-50 text-purple-700"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <span className="font-medium">Features</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "features" ? "rotate-180" : ""}`} />
-              </button>
-
-              {activeDropdown === "features" && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[90vw] max-w-5xl xl:max-w-6xl">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 sm:p-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-                      {featuresMegaMenu.map((section, idx) => (
-                        <div key={idx}>
-                          <div className="flex items-center gap-2 mb-4">
-                            <section.icon className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                            <h3 className="font-bold text-slate-900 text-sm">{section.category}</h3>
-                          </div>
-                          <ul className="space-y-3">
-                            {section.items.map((item, itemIdx) => (
-                              <li key={itemIdx}>
-                                <Link href={item.href}>
-                                  <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-purple-50 transition-colors group cursor-pointer">
-                                    <item.icon className="w-4 h-4 text-purple-500 mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-slate-900 text-sm group-hover:text-purple-700">
-                                        {item.name}
-                                      </p>
-                                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
-                                    </div>
-                                  </div>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-6 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <p className="text-sm text-slate-600 text-center sm:text-left">
-                        Explore 15+ integrated systems working together
-                      </p>
-                      <Link href="/features">
-                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 whitespace-nowrap">
-                          View All Features
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Link href="/pricing">
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isActive("/pricing")
-                    ? "bg-purple-50 text-purple-700"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                Pricing
-              </button>
-            </Link>
-
-            {/* Resources Mega Menu */}
-            <div
-              className="relative"
-              onMouseEnter={() => handleMouseEnter("resources")}
-              onMouseLeave={handleMouseLeave}
-            >
-              <button
-                className={`flex items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
-                  isActive("/blog") || activeDropdown === "resources"
-                    ? "bg-purple-50 text-purple-700"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <span className="font-medium">Resources</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "resources" ? "rotate-180" : ""}`} />
-              </button>
-
-              {activeDropdown === "resources" && (
-                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[90vw] max-w-2xl">
-                  <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 sm:p-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
-                      {resourcesMegaMenu.map((section, idx) => (
-                        <div key={idx}>
-                          <div className="flex items-center gap-2 mb-4">
-                            <section.icon className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                            <h3 className="font-bold text-slate-900">{section.category}</h3>
-                          </div>
-                          <ul className="space-y-3">
-                            {section.items.map((item, itemIdx) => (
-                              <li key={itemIdx}>
-                                <Link href={item.href}>
-                                  <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-purple-50 transition-colors group cursor-pointer">
-                                    <item.icon className="w-5 h-5 text-purple-500 mt-0.5 group-hover:scale-110 transition-transform flex-shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-slate-900 text-sm group-hover:text-purple-700">
-                                        {item.name}
-                                      </p>
-                                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
-                                    </div>
-                                  </div>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <Link href="/contact">
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isActive("/contact")
-                    ? "bg-purple-50 text-purple-700"
-                    : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                Contact
-              </button>
-            </Link>
-          </div>
-
-          {/* Desktop Right Section */}
-          <div className="hidden lg:flex items-center gap-3">
-            <div className="flex items-center gap-4">
-              <ThemeSwitch />
-              <RegionSwitcher />
-              {user && <PortalSwitcher />}
-            </div>
-            {user && userRoles.length > 1 && (
-              <RoleSwitcher variant="compact" showLabel={false} />
-            )}
-            {user && <NotificationBell />}
-            
-            {user ? (
-              <Link href={getRoleBasedDashboard()}>
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
-                  Dashboard
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            ) : (
-              <Link href="/auth/login">
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-10">
-                  Sign In
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
+        {/* Mobile menu button */}
+        <div className="flex lg:hidden">
           <button
+            type="button"
+            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-slate-700 dark:text-slate-200"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
-            aria-label="Toggle menu"
           >
+            <span className="sr-only">Toggle menu</span>
             {mobileMenuOpen ? (
-              <X className="w-6 h-6 text-slate-700" />
+              <X className="h-6 w-6" aria-hidden="true" />
             ) : (
-              <Menu className="w-6 h-6 text-slate-700" />
+              <Menu className="h-6 w-6" aria-hidden="true" />
             )}
           </button>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden absolute left-0 right-0 top-full bg-white border-b border-slate-200 shadow-2xl max-h-[calc(100vh-4rem)] overflow-y-auto">
-            <div className="p-4 space-y-3">
-              {/* Mobile Features */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleDropdownToggle("mobile-features")}
-                  className="w-full flex items-center justify-between p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-                >
-                  <span className="font-medium text-slate-900">Features</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "mobile-features" ? "rotate-180" : ""}`} />
-                </button>
-                {activeDropdown === "mobile-features" && (
-                  <div className="pl-2 space-y-3">
-                    {featuresMegaMenu.map((section, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-3 py-1">
-                          {section.category}
-                        </p>
-                        {section.items.map((item, itemIdx) => (
-                          <Link key={itemIdx} href={item.href}>
-                            <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors">
-                              <item.icon className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* Desktop navigation */}
+        <div className="hidden lg:flex lg:gap-x-8">
+          {navigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="text-sm font-semibold leading-6 text-slate-900 hover:text-purple-600 dark:text-slate-100 dark:hover:text-purple-400 transition-colors"
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
 
-              <Link href="/pricing">
-                <div className="p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 font-medium text-slate-900 flex items-center justify-between transition-colors">
-                  <span>Pricing</span>
-                  <ArrowRight className="w-4 h-4 text-slate-400" />
-                </div>
+        <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
+          <RegionSwitcher />
+          <ThemeSwitch />
+          
+          {user ? (
+            <>
+              <Link href={dashboardPath}>
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                  Dashboard →
+                </Button>
               </Link>
-
-              {/* Mobile Resources */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleDropdownToggle("mobile-resources")}
-                  className="w-full flex items-center justify-between p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors"
-                >
-                  <span className="font-medium text-slate-900">Resources</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${activeDropdown === "mobile-resources" ? "rotate-180" : ""}`} />
-                </button>
-                {activeDropdown === "mobile-resources" && (
-                  <div className="pl-2 space-y-3">
-                    {resourcesMegaMenu.map((section, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider px-3 py-1">
-                          {section.category}
-                        </p>
-                        {section.items.map((item, itemIdx) => (
-                          <Link key={itemIdx} href={item.href}>
-                            <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors">
-                              <item.icon className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                                <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{item.description}</p>
-                              </div>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Link href="/contact">
-                <div className="p-4 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 font-medium text-slate-900 flex items-center justify-between transition-colors">
-                  <span>Contact</span>
-                  <ArrowRight className="w-4 h-4 text-slate-400" />
-                </div>
-              </Link>
-
-              {/* Mobile CTA */}
-              <div className="pt-4 border-t border-slate-200 space-y-3">
-                {user && userRoles.length > 1 && (
-                  <div className="px-2">
-                    <RoleSwitcher variant="default" showLabel={true} />
-                  </div>
-                )}
-                <div className="flex justify-center">
-                  <RegionSwitcher />
-                </div>
-                {user ? (
-                  <Link href={getRoleBasedDashboard()}>
-                    <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12">
-                      Go to Dashboard
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                ) : (
-                  <>
-                    <Link href="/auth/login">
-                      <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 shadow-lg h-12">
-                        Sign In
-                        <ArrowRight className="w-5 h-5 ml-2" />
-                      </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="hidden xl:inline">{user.email}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link href="/account/settings" className="flex items-center cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
                     </Link>
-                    <div className="text-center">
-                      <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
-                        14-Day Free Trial • No Credit Card
-                      </Badge>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              <Link href="/auth/login">
+                <Button variant="ghost">Sign In</Button>
+              </Link>
+              <Link href="/company-signup">
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                  Get Started
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </nav>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-slate-200 dark:border-slate-700">
+          <div className="space-y-2 px-4 pb-3 pt-2">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                {item.name}
+              </Link>
+            ))}
+            {user ? (
+              <>
+                <Link
+                  href={dashboardPath}
+                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-purple-600 hover:bg-purple-50"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/account/settings"
+                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  Settings
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-left rounded-lg px-3 py-2 text-base font-semibold leading-7 text-red-600 hover:bg-red-50"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/company-signup"
+                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-purple-600 hover:bg-purple-50"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }
