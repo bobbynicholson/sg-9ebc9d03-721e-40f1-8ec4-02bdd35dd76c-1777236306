@@ -39,7 +39,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, Trash2, Shield, Building2, Loader2, Search } from "lucide-react";
+import { UserPlus, Trash2, Building2, Loader2, Search } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
