@@ -21,6 +21,7 @@ interface InvoiceDetails {
   status: string;
   invoice_data: any;
   companies: {
+    id: string;
     company_name: string;
     logo_url: string;
     email: string;
