@@ -16,50 +16,44 @@ import {
   AlertTriangle,
   Plus,
   Minus,
-  Search,
   TrendingDown,
   TrendingUp,
   ShoppingCart,
-  Edit,
   Trash2,
   CheckCircle,
   XCircle,
   Clock,
-  ArrowLeft,
-  Download,
-  Filter
 } from "lucide-react";
 
 interface InventoryItem {
   id: string;
-  name: string;
+  item_name: string;
   category: string;
   current_stock: number;
-  min_stock_level: number;
-  max_stock_level: number;
-  unit: string;
-  supplier_id?: string;
+  minimum_stock: number;
+  maximum_stock: number;
+  unit_of_measure: string;
+  preferred_supplier_id?: string;
   cost_per_unit: number;
-  last_restocked: string;
   supplier_name?: string;
 }
 
 interface Supplier {
   id: string;
-  name: string;
-  contact_name: string;
+  supplier_name: string;
+  contact_person: string;
   email: string;
   phone: string;
 }
 
 interface StockMovement {
   id: string;
-  item_id: string;
+  inventory_item_id: string;
   item_name: string;
-  movement_type: 'add' | 'remove' | 'adjust';
+  transaction_type: 'purchase' | 'usage' | 'waste' | 'adjustment' | 'transfer' | 'return';
   quantity: number;
-  reason: string;
-  created_by: string;
+  notes: string;
+  performed_by: string;
   created_at: string;
   staff_name?: string;
 }
@@ -79,20 +73,20 @@ export default function InventoryTracking() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   const [formData, setFormData] = useState({
-    name: "",
+    item_name: "",
     category: "produce",
     current_stock: 0,
-    min_stock_level: 0,
-    max_stock_level: 0,
-    unit: "kg",
-    supplier_id: "",
+    minimum_stock: 0,
+    maximum_stock: 0,
+    unit_of_measure: "kg",
+    preferred_supplier_id: "none",
     cost_per_unit: 0
   });
 
   const [stockMovementData, setStockMovementData] = useState({
-    movement_type: "add" as 'add' | 'remove',
+    transaction_type: "purchase" as 'purchase' | 'usage',
     quantity: 0,
-    reason: ""
+    notes: ""
   });
 
   useEffect(() => {
@@ -110,18 +104,18 @@ export default function InventoryTracking() {
         .from("inventory_items")
         .select(`
           *,
-          suppliers (
-            name
+          suppliers:preferred_supplier_id (
+            supplier_name
           )
         `)
         .eq("company_id", profile?.company_id)
-        .order("name");
+        .order("item_name");
 
       if (error) throw error;
 
       const items = data?.map(item => ({
         ...item,
-        supplier_name: Array.isArray(item.suppliers) ? item.suppliers[0]?.name : item.suppliers?.name
+        supplier_name: Array.isArray(item.suppliers) ? item.suppliers[0]?.supplier_name : item.suppliers?.supplier_name
       })) || [];
 
       setInventoryItems(items);
@@ -143,7 +137,7 @@ export default function InventoryTracking() {
         .from("suppliers")
         .select("*")
         .eq("company_id", profile?.company_id)
-        .order("name");
+        .order("supplier_name");
 
       if (error) throw error;
       setSuppliers(data || []);
@@ -155,11 +149,11 @@ export default function InventoryTracking() {
   const loadStockMovements = async () => {
     try {
       const { data, error } = await supabase
-        .from("stock_movements")
+        .from("inventory_transactions")
         .select(`
           *,
-          inventory_items (name),
-          profiles (full_name)
+          inventory_items (item_name),
+          profiles:performed_by (full_name)
         `)
         .eq("company_id", profile?.company_id)
         .order("created_at", { ascending: false })
@@ -170,14 +164,14 @@ export default function InventoryTracking() {
       const movements = data?.map(movement => ({
         ...movement,
         item_name: Array.isArray(movement.inventory_items) 
-          ? movement.inventory_items[0]?.name 
-          : movement.inventory_items?.name,
+          ? movement.inventory_items[0]?.item_name 
+          : movement.inventory_items?.item_name,
         staff_name: Array.isArray(movement.profiles) 
           ? movement.profiles[0]?.full_name 
           : movement.profiles?.full_name
       })) || [];
 
-      setStockMovements(movements);
+      setStockMovements(movements as any);
     } catch (error: any) {
       console.error("Error loading stock movements:", error);
     }
@@ -185,13 +179,21 @@ export default function InventoryTracking() {
 
   const handleAddItem = async () => {
     try {
+      const insertData = {
+        company_id: profile?.company_id,
+        item_name: formData.item_name,
+        category: formData.category,
+        current_stock: formData.current_stock,
+        minimum_stock: formData.minimum_stock,
+        maximum_stock: formData.maximum_stock,
+        unit_of_measure: formData.unit_of_measure,
+        cost_per_unit: formData.cost_per_unit,
+        preferred_supplier_id: formData.preferred_supplier_id === "none" ? null : formData.preferred_supplier_id
+      };
+
       const { error } = await supabase
         .from("inventory_items")
-        .insert([{
-          ...formData,
-          company_id: profile?.company_id,
-          last_restocked: new Date().toISOString()
-        }]);
+        .insert([insertData]);
 
       if (error) throw error;
 
@@ -202,13 +204,13 @@ export default function InventoryTracking() {
 
       setIsAddItemOpen(false);
       setFormData({
-        name: "",
+        item_name: "",
         category: "produce",
         current_stock: 0,
-        min_stock_level: 0,
-        max_stock_level: 0,
-        unit: "kg",
-        supplier_id: "",
+        minimum_stock: 0,
+        maximum_stock: 0,
+        unit_of_measure: "kg",
+        preferred_supplier_id: "none",
         cost_per_unit: 0
       });
       loadInventory();
@@ -226,7 +228,7 @@ export default function InventoryTracking() {
     if (!selectedItem) return;
 
     try {
-      const newStock = stockMovementData.movement_type === 'add'
+      const newStock = stockMovementData.transaction_type === 'purchase'
         ? selectedItem.current_stock + stockMovementData.quantity
         : selectedItem.current_stock - stockMovementData.quantity;
 
@@ -243,8 +245,7 @@ export default function InventoryTracking() {
       const { error: updateError } = await supabase
         .from("inventory_items")
         .update({ 
-          current_stock: newStock,
-          last_restocked: stockMovementData.movement_type === 'add' ? new Date().toISOString() : undefined
+          current_stock: newStock
         })
         .eq("id", selectedItem.id);
 
@@ -252,28 +253,28 @@ export default function InventoryTracking() {
 
       // Record movement
       const { error: movementError } = await supabase
-        .from("stock_movements")
+        .from("inventory_transactions")
         .insert([{
           company_id: profile?.company_id,
-          item_id: selectedItem.id,
-          movement_type: stockMovementData.movement_type,
+          inventory_item_id: selectedItem.id,
+          transaction_type: stockMovementData.transaction_type,
           quantity: stockMovementData.quantity,
-          reason: stockMovementData.reason,
-          created_by: profile?.id
+          notes: stockMovementData.notes,
+          performed_by: profile?.id
         }]);
 
       if (movementError) throw movementError;
 
       // Check if low stock and create notification
-      if (newStock <= selectedItem.min_stock_level) {
+      if (newStock <= selectedItem.minimum_stock) {
         await supabase
           .from("notifications")
           .insert([{
             company_id: profile?.company_id,
             user_id: profile?.id,
-            type: 'inventory_alert',
+            type: 'stock_low',
             title: 'Low Stock Alert',
-            message: `${selectedItem.name} is low on stock (${newStock} ${selectedItem.unit} remaining)`,
+            message: `${selectedItem.item_name} is low on stock (${newStock} ${selectedItem.unit_of_measure} remaining)`,
             related_entity_type: 'inventory_item',
             related_entity_id: selectedItem.id
           }]);
@@ -287,9 +288,9 @@ export default function InventoryTracking() {
       setIsAddStockOpen(false);
       setSelectedItem(null);
       setStockMovementData({
-        movement_type: "add",
+        transaction_type: "purchase",
         quantity: 0,
-        reason: ""
+        notes: ""
       });
       loadInventory();
       loadStockMovements();
@@ -330,8 +331,32 @@ export default function InventoryTracking() {
     }
   };
 
+  const getOrCreateShoppingList = async () => {
+    let { data: list } = await supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("company_id", profile?.company_id)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (!list) {
+      const { data: newList, error: listError } = await supabase
+        .from("shopping_lists")
+        .insert([{ 
+          company_id: profile?.company_id, 
+          status: 'pending', 
+          list_date: new Date().toISOString().split('T')[0] 
+        }])
+        .select()
+        .single();
+      if (listError) throw listError;
+      list = newList;
+    }
+    return list.id;
+  };
+
   const generateShoppingList = async () => {
-    const lowStockItems = inventoryItems.filter(item => item.current_stock <= item.min_stock_level);
+    const lowStockItems = inventoryItems.filter(item => item.current_stock <= item.minimum_stock);
     
     if (lowStockItems.length === 0) {
       toast({
@@ -342,21 +367,22 @@ export default function InventoryTracking() {
     }
 
     try {
+      const listId = await getOrCreateShoppingList();
+
       const shoppingListItems = lowStockItems.map(item => ({
-        company_id: profile?.company_id,
-        item_name: item.name,
-        quantity_needed: item.max_stock_level - item.current_stock,
-        unit: item.unit,
+        shopping_list_id: listId,
+        user_id: profile?.id,
+        item_id: item.id,
+        name: item.item_name,
+        quantity: item.maximum_stock - item.current_stock,
+        unit: item.unit_of_measure,
         category: item.category,
-        supplier_id: item.supplier_id,
-        estimated_cost: (item.max_stock_level - item.current_stock) * item.cost_per_unit,
-        priority: item.current_stock === 0 ? 'urgent' : 'high',
-        status: 'pending',
-        created_by: profile?.id
+        estimated_cost: (item.maximum_stock - item.current_stock) * item.cost_per_unit,
+        purchased: false
       }));
 
       const { error } = await supabase
-        .from("shopping_list")
+        .from("shopping_list_items")
         .insert(shoppingListItems);
 
       if (error) throw error;
@@ -377,25 +403,25 @@ export default function InventoryTracking() {
 
   const getStockStatus = (item: InventoryItem) => {
     if (item.current_stock === 0) return { label: "Out of Stock", color: "bg-red-500", icon: XCircle };
-    if (item.current_stock <= item.min_stock_level) return { label: "Low Stock", color: "bg-orange-500", icon: AlertTriangle };
-    if (item.current_stock >= item.max_stock_level) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
+    if (item.current_stock <= item.minimum_stock) return { label: "Low Stock", color: "bg-orange-500", icon: AlertTriangle };
+    if (item.current_stock >= item.maximum_stock) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
     return { label: "In Stock", color: "bg-green-500", icon: CheckCircle };
   };
 
   const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     const status = getStockStatus(item);
     const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "low" && item.current_stock <= item.min_stock_level) ||
+      (statusFilter === "low" && item.current_stock <= item.minimum_stock) ||
       (statusFilter === "out" && item.current_stock === 0) ||
-      (statusFilter === "ok" && item.current_stock > item.min_stock_level);
+      (statusFilter === "ok" && item.current_stock > item.minimum_stock);
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const categories = [...new Set(inventoryItems.map(item => item.category))];
-  const lowStockCount = inventoryItems.filter(item => item.current_stock <= item.min_stock_level).length;
+  const lowStockCount = inventoryItems.filter(item => item.current_stock <= item.minimum_stock).length;
   const outOfStockCount = inventoryItems.filter(item => item.current_stock === 0).length;
   const totalValue = inventoryItems.reduce((sum, item) => sum + (item.current_stock * item.cost_per_unit), 0);
 
@@ -444,8 +470,8 @@ export default function InventoryTracking() {
                   <div className="space-y-2">
                     <Label>Item Name</Label>
                     <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      value={formData.item_name}
+                      onChange={(e) => setFormData({ ...formData, item_name: e.target.value })}
                       placeholder="e.g., Tomatoes"
                     />
                   </div>
@@ -476,7 +502,7 @@ export default function InventoryTracking() {
                   </div>
                   <div className="space-y-2">
                     <Label>Unit</Label>
-                    <Select value={formData.unit} onValueChange={(value) => setFormData({ ...formData, unit: value })}>
+                    <Select value={formData.unit_of_measure} onValueChange={(value) => setFormData({ ...formData, unit_of_measure: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -495,16 +521,16 @@ export default function InventoryTracking() {
                     <Label>Minimum Stock Level</Label>
                     <Input
                       type="number"
-                      value={formData.min_stock_level}
-                      onChange={(e) => setFormData({ ...formData, min_stock_level: parseFloat(e.target.value) })}
+                      value={formData.minimum_stock}
+                      onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Maximum Stock Level</Label>
                     <Input
                       type="number"
-                      value={formData.max_stock_level}
-                      onChange={(e) => setFormData({ ...formData, max_stock_level: parseFloat(e.target.value) })}
+                      value={formData.maximum_stock}
+                      onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -518,13 +544,14 @@ export default function InventoryTracking() {
                   </div>
                   <div className="space-y-2">
                     <Label>Supplier</Label>
-                    <Select value={formData.supplier_id} onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}>
+                    <Select value={formData.preferred_supplier_id} onValueChange={(value) => setFormData({ ...formData, preferred_supplier_id: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select supplier" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
                         {suppliers.map(supplier => (
-                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.name}</SelectItem>
+                          <SelectItem key={supplier.id} value={supplier.id}>{supplier.supplier_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -631,7 +658,7 @@ export default function InventoryTracking() {
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div>
-                          <CardTitle className="text-lg">{item.name}</CardTitle>
+                          <CardTitle className="text-lg">{item.item_name}</CardTitle>
                           <CardDescription className="capitalize">{item.category.replace('_', ' ')}</CardDescription>
                         </div>
                         <Badge className={`${status.color} text-white`}>
@@ -645,19 +672,19 @@ export default function InventoryTracking() {
                         <div>
                           <div className="flex items-center justify-between text-sm mb-1">
                             <span className="text-slate-600">Stock Level</span>
-                            <span className="font-semibold">{item.current_stock} {item.unit}</span>
+                            <span className="font-semibold">{item.current_stock} {item.unit_of_measure}</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${status.color}`}
                               style={{
-                                width: `${Math.min((item.current_stock / item.max_stock_level) * 100, 100)}%`
+                                width: `${Math.min((item.current_stock / item.maximum_stock) * 100, 100)}%`
                               }}
                             />
                           </div>
                           <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>Min: {item.min_stock_level}</span>
-                            <span>Max: {item.max_stock_level}</span>
+                            <span>Min: {item.minimum_stock}</span>
+                            <span>Max: {item.maximum_stock}</span>
                           </div>
                         </div>
 
@@ -686,7 +713,7 @@ export default function InventoryTracking() {
                             className="flex-1"
                             onClick={() => {
                               setSelectedItem(item);
-                              setStockMovementData({ movement_type: 'add', quantity: 0, reason: '' });
+                              setStockMovementData({ transaction_type: 'purchase', quantity: 0, notes: '' });
                               setIsAddStockOpen(true);
                             }}
                           >
@@ -699,7 +726,7 @@ export default function InventoryTracking() {
                             className="flex-1"
                             onClick={() => {
                               setSelectedItem(item);
-                              setStockMovementData({ movement_type: 'remove', quantity: 0, reason: '' });
+                              setStockMovementData({ transaction_type: 'usage', quantity: 0, notes: '' });
                               setIsAddStockOpen(true);
                             }}
                           >
@@ -709,7 +736,7 @@ export default function InventoryTracking() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleDeleteItem(item.id, item.name)}
+                            onClick={() => handleDeleteItem(item.id, item.item_name)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -740,13 +767,15 @@ export default function InventoryTracking() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {stockMovements.map(movement => (
+                  {stockMovements.map(movement => {
+                    const isAdd = ['purchase', 'return', 'transfer'].includes(movement.transaction_type);
+                    return (
                     <div key={movement.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${
-                          movement.movement_type === 'add' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          isAdd ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
-                          {movement.movement_type === 'add' ? (
+                          {isAdd ? (
                             <TrendingUp className="h-4 w-4" />
                           ) : (
                             <TrendingDown className="h-4 w-4" />
@@ -754,11 +783,11 @@ export default function InventoryTracking() {
                         </div>
                         <div>
                           <div className="font-medium">{movement.item_name}</div>
-                          <div className="text-sm text-slate-600">
-                            {movement.movement_type === 'add' ? 'Added' : 'Removed'} {movement.quantity} units
+                          <div className="text-sm text-slate-600 capitalize">
+                            {movement.transaction_type}: {movement.quantity} units
                           </div>
-                          {movement.reason && (
-                            <div className="text-xs text-slate-500">Reason: {movement.reason}</div>
+                          {movement.notes && (
+                            <div className="text-xs text-slate-500">Notes: {movement.notes}</div>
                           )}
                         </div>
                       </div>
@@ -769,7 +798,7 @@ export default function InventoryTracking() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )})}
 
                   {stockMovements.length === 0 && (
                     <div className="text-center py-12">
@@ -788,21 +817,21 @@ export default function InventoryTracking() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {stockMovementData.movement_type === 'add' ? 'Add' : 'Remove'} Stock
+                {stockMovementData.transaction_type === 'purchase' ? 'Add' : 'Remove'} Stock
               </DialogTitle>
               <DialogDescription>
-                Update stock for {selectedItem?.name}
+                Update stock for {selectedItem?.item_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
                 <Label>Current Stock</Label>
                 <div className="text-2xl font-bold mt-1">
-                  {selectedItem?.current_stock} {selectedItem?.unit}
+                  {selectedItem?.current_stock} {selectedItem?.unit_of_measure}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Quantity to {stockMovementData.movement_type === 'add' ? 'Add' : 'Remove'}</Label>
+                <Label>Quantity to {stockMovementData.transaction_type === 'purchase' ? 'Add' : 'Remove'}</Label>
                 <Input
                   type="number"
                   value={stockMovementData.quantity}
@@ -811,10 +840,10 @@ export default function InventoryTracking() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Reason (optional)</Label>
+                <Label>Notes (optional)</Label>
                 <Input
-                  value={stockMovementData.reason}
-                  onChange={(e) => setStockMovementData({ ...stockMovementData, reason: e.target.value })}
+                  value={stockMovementData.notes}
+                  onChange={(e) => setStockMovementData({ ...stockMovementData, notes: e.target.value })}
                   placeholder="e.g., Delivery received, Used for order #123"
                 />
               </div>
@@ -822,10 +851,10 @@ export default function InventoryTracking() {
                 <div className="p-3 bg-slate-50 rounded-lg">
                   <div className="text-sm text-slate-600">New Stock Level</div>
                   <div className="text-xl font-bold mt-1">
-                    {stockMovementData.movement_type === 'add'
+                    {stockMovementData.transaction_type === 'purchase'
                       ? selectedItem.current_stock + stockMovementData.quantity
                       : selectedItem.current_stock - stockMovementData.quantity
-                    } {selectedItem.unit}
+                    } {selectedItem.unit_of_measure}
                   </div>
                 </div>
               )}

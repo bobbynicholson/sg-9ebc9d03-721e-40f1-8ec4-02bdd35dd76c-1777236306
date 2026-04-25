@@ -4,20 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Package, ShoppingCart, XCircle, CheckCircle, Clock } from "lucide-react";
+import { AlertTriangle, Package, ShoppingCart, XCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface LowStockItem {
   id: string;
-  name: string;
+  item_name: string;
   category: string;
   current_stock: number;
-  min_stock_level: number;
-  max_stock_level: number;
-  unit: string;
+  minimum_stock: number;
+  maximum_stock: number;
+  unit_of_measure: string;
   cost_per_unit: number;
   supplier_name?: string;
-  supplier_id?: string;
+  preferred_supplier_id?: string;
 }
 
 export function LowStockAlerts() {
@@ -60,18 +60,20 @@ export function LowStockAlerts() {
         .from("inventory_items")
         .select(`
           *,
-          suppliers (name)
+          suppliers:preferred_supplier_id (supplier_name)
         `)
         .eq("company_id", profile?.company_id)
-        .lte("current_stock", supabase.raw("min_stock_level"))
         .order("current_stock", { ascending: true });
 
       if (error) throw error;
 
-      const items = data?.map(item => ({
+      // Filter locally since current_stock <= minimum_stock isn't natively supported in JS client directly
+      const filtered = (data || []).filter(item => item.current_stock <= item.minimum_stock);
+
+      const items = filtered.map(item => ({
         ...item,
-        supplier_name: Array.isArray(item.suppliers) ? item.suppliers[0]?.name : item.suppliers?.name
-      })) || [];
+        supplier_name: Array.isArray(item.suppliers) ? item.suppliers[0]?.supplier_name : item.suppliers?.supplier_name
+      }));
 
       setLowStockItems(items);
     } catch (error: any) {
@@ -81,30 +83,54 @@ export function LowStockAlerts() {
     }
   };
 
+  const getOrCreateShoppingList = async () => {
+    let { data: list } = await supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("company_id", profile?.company_id)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (!list) {
+      const { data: newList, error: listError } = await supabase
+        .from("shopping_lists")
+        .insert([{ 
+          company_id: profile?.company_id, 
+          status: 'pending', 
+          list_date: new Date().toISOString().split('T')[0] 
+        }])
+        .select()
+        .single();
+      if (listError) throw listError;
+      list = newList;
+    }
+    return list.id;
+  };
+
   const addToShoppingList = async (item: LowStockItem) => {
     try {
-      const quantityNeeded = item.max_stock_level - item.current_stock;
+      const listId = await getOrCreateShoppingList();
+      const quantityNeeded = item.maximum_stock - item.current_stock;
       
       const { error } = await supabase
-        .from("shopping_list")
+        .from("shopping_list_items")
         .insert([{
-          company_id: profile?.company_id,
-          item_name: item.name,
-          quantity_needed: quantityNeeded,
-          unit: item.unit,
+          shopping_list_id: listId,
+          user_id: profile?.id,
+          item_id: item.id,
+          name: item.item_name,
+          quantity: quantityNeeded,
+          unit: item.unit_of_measure,
           category: item.category,
-          supplier_id: item.supplier_id,
           estimated_cost: quantityNeeded * item.cost_per_unit,
-          priority: item.current_stock === 0 ? 'urgent' : 'high',
-          status: 'pending',
-          created_by: profile?.id
+          purchased: false
         }]);
 
       if (error) throw error;
 
       toast({
         title: "Added to Shopping List",
-        description: `${item.name} (${quantityNeeded} ${item.unit}) added to shopping list`
+        description: `${item.item_name} (${quantityNeeded} ${item.unit_of_measure}) added to shopping list`
       });
 
       loadLowStockItems();
@@ -120,21 +146,22 @@ export function LowStockAlerts() {
 
   const addAllToShoppingList = async () => {
     try {
+      const listId = await getOrCreateShoppingList();
+
       const shoppingListItems = lowStockItems.map(item => ({
-        company_id: profile?.company_id,
-        item_name: item.name,
-        quantity_needed: item.max_stock_level - item.current_stock,
-        unit: item.unit,
+        shopping_list_id: listId,
+        user_id: profile?.id,
+        item_id: item.id,
+        name: item.item_name,
+        quantity: item.maximum_stock - item.current_stock,
+        unit: item.unit_of_measure,
         category: item.category,
-        supplier_id: item.supplier_id,
-        estimated_cost: (item.max_stock_level - item.current_stock) * item.cost_per_unit,
-        priority: item.current_stock === 0 ? 'urgent' : 'high',
-        status: 'pending',
-        created_by: profile?.id
+        estimated_cost: (item.maximum_stock - item.current_stock) * item.cost_per_unit,
+        purchased: false
       }));
 
       const { error } = await supabase
-        .from("shopping_list")
+        .from("shopping_list_items")
         .insert(shoppingListItems);
 
       if (error) throw error;
@@ -183,7 +210,7 @@ export function LowStockAlerts() {
   }
 
   const outOfStockCount = lowStockItems.filter(item => item.current_stock === 0).length;
-  const criticalCount = lowStockItems.filter(item => item.current_stock > 0 && item.current_stock <= item.min_stock_level).length;
+  const criticalCount = lowStockItems.filter(item => item.current_stock > 0 && item.current_stock <= item.minimum_stock).length;
 
   return (
     <Card className="border-orange-200">
@@ -212,8 +239,8 @@ export function LowStockAlerts() {
         <div className="space-y-3">
           {lowStockItems.map(item => {
             const isOutOfStock = item.current_stock === 0;
-            const percentRemaining = (item.current_stock / item.max_stock_level) * 100;
-            const quantityNeeded = item.max_stock_level - item.current_stock;
+            const percentRemaining = (item.current_stock / item.maximum_stock) * 100;
+            const quantityNeeded = item.maximum_stock - item.current_stock;
 
             return (
               <div
@@ -225,7 +252,7 @@ export function LowStockAlerts() {
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-semibold">{item.name}</h4>
+                      <h4 className="font-semibold">{item.item_name}</h4>
                       {isOutOfStock && (
                         <Badge variant="destructive">
                           <XCircle className="h-3 w-3 mr-1" />
@@ -251,7 +278,7 @@ export function LowStockAlerts() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Current Stock:</span>
                     <span className={`font-semibold ${isOutOfStock ? 'text-red-700' : 'text-orange-700'}`}>
-                      {item.current_stock} {item.unit}
+                      {item.current_stock} {item.unit_of_measure}
                     </span>
                   </div>
 
@@ -267,7 +294,7 @@ export function LowStockAlerts() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Need to order:</span>
                     <span className="font-semibold">
-                      {quantityNeeded} {item.unit}
+                      {quantityNeeded} {item.unit_of_measure}
                     </span>
                   </div>
 
