@@ -22,7 +22,7 @@ export default function ResetPasswordPage() {
     // Check if we have a valid session (from the reset link)
     const checkSession = async () => {
       try {
-        const { session } = await authService.getSession();
+        const session = await authService.getCurrentSession();
         if (!session) {
           setError("Invalid or expired reset link. Please request a new password reset.");
           setTimeout(() => router.push("/auth/login"), 3000);
