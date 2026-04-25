@@ -26,6 +26,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { analyticsService } from "@/services/analyticsService";
 import { orderService } from "@/services/orderService";
 import { supabase } from "@/integrations/supabase/client";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 interface DashboardStats {
   activeOrders: number;
@@ -40,7 +41,7 @@ interface DashboardStats {
   completionRate: number;
 }
 
-export default function AdminDashboard() {
+function AdminDashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     activeOrders: 0,
@@ -58,22 +59,24 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDashboardMetrics();
-    
-    // Set up real-time subscription for order updates
-    const orderSubscription = supabase
-      .channel('admin-dashboard-orders')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'orders' }, 
-        () => {
-          loadDashboardMetrics();
-        }
-      )
-      .subscribe();
+    if (user) {
+      loadDashboardMetrics();
+      
+      // Set up real-time subscription for order updates
+      const orderSubscription = supabase
+        .channel('admin-dashboard-orders')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'orders' }, 
+          () => {
+            loadDashboardMetrics();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      orderSubscription.unsubscribe();
-    };
+      return () => {
+        orderSubscription.unsubscribe();
+      };
+    }
   }, [user]);
 
   const loadDashboardMetrics = async () => {
@@ -456,5 +459,13 @@ export default function AdminDashboard() {
       {/* AI Chatbot */}
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
     </>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <ProtectedRoute requireAdmin={true}>
+      <AdminDashboardPage />
+    </ProtectedRoute>
   );
 }
