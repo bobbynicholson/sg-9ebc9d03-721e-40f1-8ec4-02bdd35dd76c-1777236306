@@ -42,7 +42,8 @@ import {
   Shield,
   LogOut,
   ChevronDown,
-  Target
+  Target,
+  ChefHat
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";

@@ -3,6 +3,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { notificationService } from "./notificationService";
+import { deductInventoryForOrder } from "./inventoryDeductionService";
 
 type Delivery = Database["public"]["Tables"]["deliveries"]["Row"];
 type DeliveryInsert = Database["public"]["Tables"]["deliveries"]["Insert"];
@@ -378,5 +379,67 @@ export const deliveryService = {
 
     if (error) throw error;
     return data;
+  },
+
+  async markDelivered(
+    orderId: string,
+    driverId: string,
+    deliveryNotes?: string,
+    signatureUrl?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Update order status
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .update({
+          order_status: "delivered",
+          completed_at: new Date().toISOString(),
+          delivery_notes: deliveryNotes,
+          signature_url: signatureUrl
+        })
+        .eq("id", orderId)
+        .select("company_id")
+        .single();
+
+      if (orderError) {
+        return { success: false, error: orderError.message };
+      }
+
+      // 2. Auto-deduct inventory
+      console.log(`Auto-deducting inventory for order ${orderId}...`);
+      const deductionResult = await deductInventoryForOrder(
+        orderId,
+        order.company_id,
+        driverId
+      );
+
+      if (deductionResult.errors.length > 0) {
+        console.error("Inventory deduction errors:", deductionResult.errors);
+      }
+
+      if (deductionResult.warnings.length > 0) {
+        console.warn("Inventory deduction warnings:", deductionResult.warnings);
+      }
+
+      console.log(`Inventory deducted:`, deductionResult.deducted);
+
+      // 3. Create notification for company admin
+      await supabase
+        .from("notifications")
+        .insert({
+          company_id: order.company_id,
+          user_id: driverId,
+          type: "delivered",
+          title: "Delivery Completed",
+          message: `Order #${orderId.slice(-8)} has been delivered and inventory has been updated.`,
+          related_entity_type: "order",
+          related_entity_id: orderId
+        });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Mark delivered failed:", error);
+      return { success: false, error: error.message };
+    }
   },
 };
