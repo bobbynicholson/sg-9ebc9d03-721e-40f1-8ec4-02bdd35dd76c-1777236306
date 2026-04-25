@@ -22,6 +22,7 @@ import {
   UserCircle
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { profileService, Profile } from "@/services/profileService";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -120,7 +121,9 @@ export default function ClientSearchPage() {
         <title>Client Search | CateringMS Admin</title>
       </Head>
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <AdminNav />
+      
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
           <Link href="/admin/dashboard">
             <Button variant="ghost" className="mb-4" size="sm">

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Header } from "@/components/Header";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
@@ -277,9 +277,9 @@ export default function RoutePlanning() {
         <title>Route Planning - CateringMS</title>
       </Head>
 
-      <Header />
+      <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-64">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Page Header */}
           <div className="mb-8">

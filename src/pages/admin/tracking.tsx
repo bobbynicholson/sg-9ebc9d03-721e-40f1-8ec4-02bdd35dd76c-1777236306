@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircle } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import { driverService } from "@/services/driverService";
@@ -146,7 +147,9 @@ export default function AdminTracking() {
       </Head>
       <NoIndexMeta />
 
-      <div className="min-h-screen bg-slate-50 pb-20">
+      <AdminNav />
+
+      <div className="min-h-screen bg-slate-50 pb-20 lg:pl-64">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-6">
