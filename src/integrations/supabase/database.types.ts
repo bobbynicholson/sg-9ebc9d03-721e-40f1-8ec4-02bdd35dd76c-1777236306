@@ -654,6 +654,7 @@ export type Database = {
           billing_currency: string | null
           city: string | null
           company_name: string
+          company_slug: string | null
           country: string | null
           created_at: string | null
           currency: string | null
@@ -694,6 +695,7 @@ export type Database = {
           billing_currency?: string | null
           city?: string | null
           company_name: string
+          company_slug?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -734,6 +736,7 @@ export type Database = {
           billing_currency?: string | null
           city?: string | null
           company_name?: string
+          company_slug?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
