@@ -40,6 +40,7 @@ interface CreateNotificationParams {
   priority?: string;
   target_role?: UserRole;
   metadata?: Record<string, unknown>;
+  order_id?: string;
 }
 
 interface BroadcastNotificationParams {
