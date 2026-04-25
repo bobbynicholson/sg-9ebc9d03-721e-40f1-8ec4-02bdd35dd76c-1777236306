@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   LayoutDashboard, Users, Truck, ChefHat, 
   ShoppingCart, Sparkles, BarChart3,
-  Crown, Shield, Database, Settings
+  Crown, Shield, Database, Settings, Building2, CreditCard, TrendingUp
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,59 +22,61 @@ interface Portal {
 
 const PORTALS: Portal[] = [
   {
-    id: "admin",
-    name: "Admin Portal",
-    description: "Complete platform oversight and management",
-    icon: LayoutDashboard,
-    route: "/admin/dashboard",
-    features: ["Order Management", "User Administration", "Route Planning", "Financial Dashboard", "Email Automation"],
-    color: "blue"
+    id: "platform-management",
+    name: "Platform Management",
+    description: "Manage all companies, subscriptions, and platform settings",
+    icon: Settings,
+    route: "/super-admin/admin/dashboard",
+    features: [
+      "View all companies",
+      "Manage subscriptions",
+      "Platform analytics",
+      "System settings"
+    ],
+    color: "text-purple-600"
   },
   {
-    id: "client",
-    name: "Client Portal",
-    description: "Customer ordering and tracking experience",
-    icon: Users,
-    route: "/client-portal/dashboard",
-    features: ["Place Orders", "Real-time GPS Tracking", "Invoice Management", "Payment Processing"],
-    color: "green"
+    id: "company-database",
+    name: "Company Database",
+    description: "View and manage all registered catering companies",
+    icon: Building2,
+    route: "/super-admin/admin/companies",
+    features: [
+      "Company profiles",
+      "Subscription status",
+      "Usage analytics",
+      "Support tickets"
+    ],
+    color: "text-blue-600"
   },
   {
-    id: "driver",
-    name: "Driver Portal",
-    description: "Delivery driver route management and earnings",
-    icon: Truck,
-    route: "/team-portal/driver/dashboard",
-    features: ["Optimized Routes", "GPS Navigation", "Delivery Proof", "Earnings Calculator"],
-    color: "orange"
+    id: "subscriptions",
+    name: "Subscription Management",
+    description: "Monitor and manage all platform subscriptions",
+    icon: CreditCard,
+    route: "/super-admin/admin/subscriptions",
+    features: [
+      "Active subscriptions",
+      "Trial management",
+      "Billing history",
+      "Revenue tracking"
+    ],
+    color: "text-green-600"
   },
   {
-    id: "kitchen",
-    name: "Kitchen Portal",
-    description: "Food preparation workflow and inventory",
-    icon: ChefHat,
-    route: "/team-portal/kitchen/dashboard",
-    features: ["Daily Prep Lists", "Active Orders", "Inventory Alerts", "Time Clock"],
-    color: "red"
+    id: "analytics",
+    name: "Platform Analytics",
+    description: "Deep insights into platform usage and performance",
+    icon: TrendingUp,
+    route: "/super-admin/admin/analytics",
+    features: [
+      "Usage metrics",
+      "Revenue reports",
+      "Growth trends",
+      "Performance data"
+    ],
+    color: "text-orange-600"
   },
-  {
-    id: "shopping",
-    name: "Shopping Portal",
-    description: "Ingredient procurement and budget tracking",
-    icon: ShoppingCart,
-    route: "/team-portal/shopping/dashboard",
-    features: ["Auto Shopping Lists", "Budget Tracker", "Supplier Links", "Inventory Sync"],
-    color: "purple"
-  },
-  {
-    id: "cleaning",
-    name: "Cleaning Portal",
-    description: "Equipment maintenance and hygiene compliance",
-    icon: Sparkles,
-    route: "/team-portal/cleaning/dashboard",
-    features: ["Task Checklists", "Equipment Status", "Supply Inventory", "Maintenance Alerts"],
-    color: "teal"
-  }
 ];
 
 function SuperAdminDashboard() {
@@ -186,38 +188,18 @@ function SuperAdminDashboard() {
               const Icon = portal.icon;
               
               return (
-                <Card 
+                <Button
                   key={portal.id}
-                  className="cursor-pointer transition-all hover:shadow-2xl hover:scale-105 border-2 border-transparent hover:border-purple-200"
+                  variant="outline"
                   onClick={() => router.push(portal.route)}
+                  className="h-auto p-6 flex flex-col items-start gap-4 hover:border-purple-500 hover:shadow-lg transition-all group"
                 >
-                  <CardHeader>
-                    <div className={`w-16 h-16 rounded-xl bg-${portal.color}-100 flex items-center justify-center mb-3 shadow-md`}>
-                      <Icon className={`w-8 h-8 text-${portal.color}-600`} />
-                    </div>
-                    <CardTitle className="text-xl">{portal.name}</CardTitle>
-                    <CardDescription className="text-sm">{portal.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 mb-4">
-                      {portal.features.map((feature, idx) => (
-                        <div key={idx} className="text-sm text-slate-600 flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full bg-${portal.color}-500`} />
-                          {feature}
-                        </div>
-                      ))}
-                    </div>
-                    <Button 
-                      className="w-full font-semibold"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(portal.route);
-                      }}
-                    >
-                      Enter Portal →
-                    </Button>
-                  </CardContent>
-                </Card>
+                  <div className={`w-16 h-16 rounded-xl bg-${portal.color}-100 flex items-center justify-center mb-3 shadow-md`}>
+                    <Icon className={`w-8 h-8 text-${portal.color}-600`} />
+                  </div>
+                  <CardTitle className="text-xl">{portal.name}</CardTitle>
+                  <CardDescription className="text-sm">{portal.description}</CardDescription>
+                </Button>
               );
             })}
           </div>

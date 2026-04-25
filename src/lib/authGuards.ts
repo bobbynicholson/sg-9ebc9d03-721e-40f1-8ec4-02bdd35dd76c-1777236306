@@ -74,16 +74,16 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/super-admin",
-  [UserRole.ADMIN]: (slug) => "/admin/dashboard",
-  [UserRole.OWNER]: (slug) => "/admin/dashboard",
-  [UserRole.KITCHEN]: () => "/team-portal/kitchen/dashboard",
-  [UserRole.KITCHEN_STAFF]: () => "/team-portal/kitchen/dashboard",
-  [UserRole.SHOPPING]: () => "/team-portal/shopping/dashboard",
-  [UserRole.SHOPPING_STAFF]: () => "/team-portal/shopping/dashboard",
-  [UserRole.DRIVER]: () => "/team-portal/driver/dashboard",
-  [UserRole.CLEANING]: () => "/team-portal/cleaning/dashboard",
-  [UserRole.CLEANING_STAFF]: () => "/team-portal/cleaning/dashboard",
-  [UserRole.CLIENT]: () => "/client-portal/dashboard",
+  [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.OWNER]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.KITCHEN]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.SHOPPING]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.CLEANING]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
 
 /**

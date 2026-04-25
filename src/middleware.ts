@@ -18,21 +18,20 @@ const PUBLIC_ROUTES = [
   "/support",
   "/demo",
   "/blog",
-  "/api"
-];
-
-// Exact paths that are public
-const PUBLIC_EXACT_ROUTES = [
-  "/",
+  "/api",
   "/favicon.ico",
-  "/robots.txt"
+  "/robots.txt",
 ];
 
-// Routes reserved for super admin only (no company slug)
+// Routes reserved for super admin only (no company slug required)
 const SUPER_ADMIN_ROUTES = [
   "/super-admin",
-  "/cateringms-platform",
 ];
+
+// Check if path is a super admin route
+const isSuperAdminRoute = (pathname: string) => {
+  return pathname === "/super-admin" || pathname.startsWith("/super-admin/");
+};
 
 // Route patterns that require company slug
 const COMPANY_ROUTES = [
@@ -77,10 +76,7 @@ export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   // Allow public routes without validation
-  if (
-    PUBLIC_EXACT_ROUTES.includes(pathname) || 
-    PUBLIC_ROUTES.some(route => pathname.startsWith(route))
-  ) {
+  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route))) {
     return res;
   }
 
@@ -97,7 +93,9 @@ export async function middleware(req: NextRequest) {
   const { data: profile } = await supabase
     .from("profiles")
     .select(`
+      id,
       active_role,
+      company_id,
       companies (
         id,
         company_slug
@@ -110,64 +108,55 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
-  // Safely extract company data (handles both array and object returns from Supabase)
+  const userRole = profile.active_role;
   const companyData = Array.isArray(profile.companies) ? profile.companies[0] : profile.companies;
   const userCompanySlug = companyData?.company_slug;
-  const userRole = profile.active_role;
 
-  // Super admin access rules
+  // Handle super admin routes
+  if (isSuperAdminRoute(pathname)) {
+    // Only super_admin role can access /super-admin/* routes
+    if (userRole !== "super_admin") {
+      console.error(`🚨 SECURITY: Non-super-admin user tried to access ${pathname}`);
+      // Redirect to their own company dashboard
+      if (userCompanySlug) {
+        return NextResponse.redirect(new URL(`/${userCompanySlug}/admin/dashboard`, req.url));
+      }
+      return NextResponse.redirect(new URL("/auth/login", req.url));
+    }
+    // Super admin accessing super admin routes - allow
+    return res;
+  }
+
+  // All other routes must have company slug format: /{company-slug}/...
+  const slugMatch = pathname.match(/^\/([^\/]+)\//);
+  
+  if (!slugMatch) {
+    // No company slug in URL - redirect to proper format
+    if (userCompanySlug) {
+      const correctedUrl = new URL(`/${userCompanySlug}${pathname}`, req.url);
+      return NextResponse.redirect(correctedUrl);
+    }
+    return NextResponse.redirect(new URL("/auth/login", req.url));
+  }
+
+  const urlSlug = slugMatch[1];
+
+  // Super admins can access any company's routes
   if (userRole === "super_admin") {
-    // 1. Super admin routes
-    if (SUPER_ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      return res;
-    }
-
-    // 2. Any company route (God Mode)
-    if (pathname.match(/^\/[^\/]+\/(admin|team-portal|client-portal)/)) {
-      return res;
-    }
-
-    // Default redirect for super admin
-    if (pathname === "/") {
-      return NextResponse.redirect(new URL("/super-admin", req.url));
-    }
+    res.headers.set("x-company-slug", urlSlug);
+    return res;
   }
 
-  // Check if this is a company-specific route
-  const isCompanyRoute = COMPANY_ROUTES.some(route => pathname.includes(route));
-
-  if (isCompanyRoute) {
-    const routeMatch = pathname.match(/^\/([^\/]+)\/(admin|team-portal|client-portal)/);
-    
-    if (!routeMatch) {
-      // Path is missing the company slug (e.g., /admin/dashboard)
-      if (userCompanySlug) {
-        // Automatically inject their slug and redirect
-        const correctedUrl = new URL(`/${userCompanySlug}${pathname}`, req.url);
-        return NextResponse.redirect(correctedUrl);
-      } else {
-        return NextResponse.redirect(new URL("/auth/login", req.url));
-      }
-    }
-
-    const currentSlug = routeMatch[1];
-
-    // Validate the slug matches the user's company
-    if (currentSlug !== userCompanySlug && userRole !== "super_admin") {
-      console.error(`🚨 SECURITY: User attempted to access ${currentSlug}, restricted to ${userCompanySlug}`);
-      if (userCompanySlug) {
-        // Redirect to their own company's equivalent page
-        const correctedPath = pathname.replace(`/${currentSlug}/`, `/${userCompanySlug}/`);
-        return NextResponse.redirect(new URL(correctedPath, req.url));
-      } else {
-        return NextResponse.redirect(new URL("/auth/login", req.url));
-      }
-    }
-
-    // Valid company route - add company slug header for downstream API access if needed
-    res.headers.set("x-company-slug", currentSlug);
+  // Regular users: validate slug matches their company
+  if (urlSlug !== userCompanySlug) {
+    console.error(`🚨 SECURITY: User from ${userCompanySlug} tried to access ${urlSlug}`);
+    // Redirect to their own company's equivalent page
+    const correctedPath = pathname.replace(`/${urlSlug}/`, `/${userCompanySlug}/`);
+    return NextResponse.redirect(new URL(correctedPath, req.url));
   }
 
+  // Valid access - set company slug header for downstream use
+  res.headers.set("x-company-slug", urlSlug);
   return res;
 }
 
