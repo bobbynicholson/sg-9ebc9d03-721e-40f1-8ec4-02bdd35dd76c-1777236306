@@ -30,6 +30,7 @@ import { driverService } from "@/services/driverService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { MobileRouteView } from "@/components/driver/MobileRouteView";
+import { supabase } from "@/integrations/supabase/client";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -223,11 +224,11 @@ export default function DriverRoutes() {
       if (error) throw error;
 
       // Update local state
-      if (selectedRoute) {
-        const updatedStops = selectedRoute.stops.map((stop) =>
+      if (route) {
+        const updatedStops = route.stops.map((stop) =>
           stop.id === stopId ? { ...stop, status } : stop
         );
-        setSelectedRoute({ ...selectedRoute, stops: updatedStops });
+        setRoute({ ...route, stops: updatedStops });
       }
 
       toast({
@@ -236,7 +237,7 @@ export default function DriverRoutes() {
       });
 
       // Refresh routes
-      loadRoutes();
+      loadOptimizedRoute();
     } catch (error) {
       console.error("Error updating stop status:", error);
       toast({
