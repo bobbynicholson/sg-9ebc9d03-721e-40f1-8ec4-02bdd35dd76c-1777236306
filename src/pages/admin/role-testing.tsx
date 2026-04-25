@@ -18,6 +18,14 @@ import {
   Settings,
   UserCog,
   Key,
+  Truck,
+  ShoppingCart,
+  ChefHat,
+  Sparkles,
+  User,
+  Copy,
+  CheckCircle2,
+  ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleService } from "@/services/roleService";

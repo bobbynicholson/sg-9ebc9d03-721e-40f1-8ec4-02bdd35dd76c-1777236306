@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   MapPin,
@@ -20,9 +21,20 @@ import {
   ArrowLeft,
   AlertCircle,
   Settings,
+  Clock,
+  TrendingUp,
+  Users,
+  Building2,
+  Eye,
+  Truck,
+  ChefHat,
+  Package
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { regionService } from "@/services/regionService";
+import { regionManagement } from "@/lib/regionManagement";
+import type { Region } from "@/types/regions";
+import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";

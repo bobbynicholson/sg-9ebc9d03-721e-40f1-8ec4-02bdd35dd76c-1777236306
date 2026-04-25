@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   Package,
@@ -18,8 +21,11 @@ import {
   XCircle,
   Clock,
   ArrowLeft,
+  DollarSign,
+  Search,
+  User
 } from "lucide-react";
-import { equipmentShortageService, type EquipmentShortage } from "@/services/equipmentShortageService";
+import { equipmentShortageService } from "@/services/equipmentShortageService";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
