@@ -1,29 +1,16 @@
-# CateringMS - Robots.txt
+# Disallow all crawlers from all pages
 User-agent: *
-Allow: /
+Disallow: /
 
-# Allow all marketing pages
-Allow: /pricing
-Allow: /features
-Allow: /contact
-Allow: /blog
-Allow: /auth/login
-Allow: /auth/register
-
-# Allow regional variants
-Allow: /us/
-Allow: /uk/
-
-# Disallow admin and portal pages (sensitive data)
+# Explicitly block all admin and portal routes
 Disallow: /admin/
-Disallow: /portal/
-Disallow: /client/
-Disallow: /tracking/
+Disallow: /super-admin/
+Disallow: /team-portal/
+Disallow: /client-portal/
+Disallow: /account/
+Disallow: /auth/
 Disallow: /api/
 
-# Sitemap
-Sitemap: https://cateringms.com/sitemap.xml
-
-# Regional Sitemaps
-Sitemap: https://cateringms.com/sitemap-us.xml
-Sitemap: https://cateringms.com/sitemap-uk.xml
+# Block all company-specific routes
+Disallow: /*/admin/
+Disallow: /*/login
