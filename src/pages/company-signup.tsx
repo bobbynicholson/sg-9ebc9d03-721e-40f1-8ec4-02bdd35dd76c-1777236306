@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -70,7 +69,8 @@ export default function CompanySignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    currency: "ZAR"
+    currency: "ZAR",
+    customSlug: "" // Allow custom slug selection
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -172,12 +172,15 @@ export default function CompanySignupPage() {
 
       // Step 3: Create company record
       console.log("🏢 Step 3: Creating company record...");
+      const companySlug = formData.customSlug || formData.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      
       const companyResult = await companyService.createCompany({
         name: formData.companyName,
         owner_id: userId,
         currency: formData.currency,
         phone: formData.phone,
         email: formData.email,
+        company_slug: companySlug,
       });
 
       if (!companyResult.success || !companyResult.company) {
@@ -400,10 +403,40 @@ export default function CompanySignupPage() {
                   type="text"
                   placeholder="Spit Braai Delivery"
                   value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, companyName: e.target.value });
+                    // Auto-generate slug from company name if custom slug is empty
+                    if (!formData.customSlug) {
+                      const autoSlug = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                      setFormData({ ...formData, companyName: e.target.value, customSlug: autoSlug });
+                    }
+                  }}
                   className="h-12"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="customSlug" className="text-slate-700 font-medium">
+                  Custom URL Slug (Optional)
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-3 text-sm text-slate-500">yourcompany.com/</span>
+                  <Input
+                    id="customSlug"
+                    type="text"
+                    placeholder="spit-braai-delivery"
+                    value={formData.customSlug}
+                    onChange={(e) => {
+                      const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      setFormData({ ...formData, customSlug: slug });
+                    }}
+                    className="h-12 pl-40"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  This will be your company's login URL: /{formData.customSlug || 'your-company'}/login
+                </p>
               </div>
 
               <div className="space-y-2">
