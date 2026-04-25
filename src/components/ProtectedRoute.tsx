@@ -25,7 +25,7 @@ export function ProtectedRoute({
   requireAuth = true,
   requireAdmin = false,
 }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -69,7 +69,7 @@ export function ProtectedRoute({
 
           const hasAccess = allowedRoles.some(role => {
             if (role === UserRole.ADMIN) {
-              return isAdminRole(profile.role) || isAdminRole(profile.active_role);
+              return isAdmin(profile.role) || isAdmin(profile.active_role);
             }
             return profile.role === role || profile.active_role === role;
           });
