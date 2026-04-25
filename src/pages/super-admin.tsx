@@ -9,6 +9,7 @@ import {
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/lib/authGuards";
 
 interface Portal {
   id: string;
@@ -272,7 +273,7 @@ function SuperAdminDashboard() {
 
 export default function SuperAdminPage() {
   return (
-    <ProtectedRoute requireAuth={true}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
       <SuperAdminDashboard />
     </ProtectedRoute>
   );

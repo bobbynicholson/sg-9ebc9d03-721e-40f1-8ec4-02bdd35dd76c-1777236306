@@ -28,43 +28,54 @@ export function ProtectedRoute({
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (loading) {
-      return;
-    }
-
-    if (requireAuth && !user) {
-      router.replace(`/auth/login?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    if (!requireAuth && !user) {
-      setAuthorized(true);
-      return;
-    }
-
-    if (user) {
-      if (requireAdmin && !isAdmin(user.role)) {
-        setAuthorized(false);
-        return;
-      }
-
-      if (allowedRoles && allowedRoles.length > 0) {
-        const hasAccess = allowedRoles.includes(user.role);
-        if (!hasAccess) {
-          setAuthorized(false);
+    const checkAuth = async () => {
+      try {
+        const session = await authService.getCurrentSession();
+        
+        if (!session) {
+          router.push(`/auth/login?redirect=${encodeURIComponent(router.asPath)}`);
           return;
         }
-      }
 
-      const hasRouteAccess = canAccessRoute(user.role, router.pathname);
-      if (!hasRouteAccess) {
-        setAuthorized(false);
-        return;
-      }
+        const profile = await profileService.getProfile(session.user.id);
+        
+        if (!profile) {
+          router.push("/auth/login");
+          return;
+        }
 
-      setAuthorized(true);
-    }
-  }, [user, loading, requireAuth, requireAdmin, allowedRoles, router]);
+        setUser(profile);
+
+        // Check if user has required role
+        if (allowedRoles && allowedRoles.length > 0) {
+          const hasAccess = allowedRoles.some(role => {
+            if (role === UserRole.ADMIN) {
+              return profile.active_role === 'company_admin' || profile.active_role === 'super_admin';
+            }
+            if (role === UserRole.SUPER_ADMIN) {
+              return profile.active_role === 'super_admin';
+            }
+            return profile.active_role === role;
+          });
+
+          if (!hasAccess) {
+            const landingPage = getRoleLandingPage(profile.active_role as UserRole);
+            router.push(landingPage);
+            return;
+          }
+        }
+
+        setIsAuthorized(true);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.push("/auth/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router, allowedRoles]);
 
   // Show loading state
   if (loading) {
