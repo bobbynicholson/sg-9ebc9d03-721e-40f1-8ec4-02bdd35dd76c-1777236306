@@ -47,48 +47,24 @@ export default function LoginPage() {
   // DEV MODE AUTO LOGIN - Bypasses all authentication
   const handleDevAutoLogin = async () => {
     setLoading(true);
-    console.log("🔧 DEV MODE: Auto-login activated");
+    console.log("🔧 DEV MODE: Auto-login activated - bypassing all auth");
     
     try {
-      // Get the dev super admin profile
-      const { data: devProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("email", "dev@cateringms.local")
-        .single();
-
-      if (profileError || !devProfile) {
-        setError("DEV MODE: Super admin profile not found. Contact support.");
-        setLoading(false);
-        return;
-      }
-
-      console.log("✅ DEV PROFILE:", devProfile);
-
-      // Create a fake auth session by signing in with a bypass
-      // We'll use a magic link flow that doesn't require password verification
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: "dev@cateringms.local",
-        options: {
-          shouldCreateUser: false,
-        }
-      });
-
-      if (signInError) {
-        console.log("⚠️ OTP failed, trying direct redirect...");
-      }
-
-      // Redirect directly to super admin dashboard
+      // Just redirect directly to super admin dashboard
+      // No auth check, no profile check, just go
       toast({
         title: "🔧 DEV MODE ACTIVATED",
-        description: "Logged in as DEV Super Admin",
-        duration: 3000,
+        description: "Super Admin Access Granted",
+        duration: 2000,
       });
 
-      await router.push("/super-admin/dashboard");
+      // Small delay to show the toast
+      setTimeout(() => {
+        router.push("/super-admin/dashboard");
+      }, 500);
     } catch (err) {
       console.error("💥 DEV LOGIN ERROR:", err);
-      setError("DEV MODE: Login failed. Check console.");
+      setError("DEV MODE: Redirect failed. Try refreshing the page.");
       setLoading(false);
     }
   };

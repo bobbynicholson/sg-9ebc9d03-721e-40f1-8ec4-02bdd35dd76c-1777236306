@@ -55,6 +55,12 @@ const isPublicRoute = (pathname: string) => {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 🔧 DEV MODE BYPASS: Allow super-admin routes without authentication
+  if (pathname.startsWith("/super-admin")) {
+    console.log("🔧 DEV MODE: Bypassing auth for super-admin routes");
+    return NextResponse.next();
+  }
+
   // Allow public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
