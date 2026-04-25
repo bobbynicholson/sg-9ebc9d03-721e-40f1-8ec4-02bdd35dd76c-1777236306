@@ -55,12 +55,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
 
   useEffect(() => {
-    // Get initial session
+    // 🔧 DEV MODE: Check if we're on super-admin route without auth
+    const isDevMode = typeof window !== "undefined" && 
+                      window.location.pathname.startsWith("/super-admin");
+
+    if (isDevMode) {
+      console.log("🔧 DEV MODE DETECTED: Creating fake super admin user");
+      
+      // Create a fake super admin user for dev mode
+      const devUser: AuthenticatedUser = {
+        id: "dev-mode-user-id",
+        email: "dev@cateringms.local",
+        full_name: "DEV Super Admin",
+        role: UserRole.SUPER_ADMIN,
+        active_role: UserRole.SUPER_ADMIN,
+        currency: "ZAR",
+        created_at: new Date().toISOString(),
+      };
+
+      setUser(devUser);
+      setProfile(null);
+      setCompany(null);
+      setUserRoles([]);
+      setActiveRole(UserRole.SUPER_ADMIN);
+      setLoading(false);
+      return;
+    }
+
+    // Normal auth flow
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleSessionChange(session);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -105,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             avatar_url: userProfile.avatar_url || "",
             currency: userProfile.currency || "ZAR",
             company_id: userProfile.company_id || undefined,
-            company_name: userCompany?.name || undefined,
+            company_name: userCompany?.company_name || undefined,
             company_slug: userCompany?.slug || undefined,
             phone_number: userProfile.phone_number || undefined,
             user_metadata: session.user.user_metadata,

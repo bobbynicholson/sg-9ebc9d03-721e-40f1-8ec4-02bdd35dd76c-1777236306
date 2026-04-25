@@ -41,6 +41,15 @@ export default function PlatformDashboard() {
   const [topCustomers, setTopCustomers] = useState<any[]>([]);
 
   useEffect(() => {
+    // 🔧 DEV MODE: Skip user check and load dashboard immediately
+    const isDevMode = user?.email === "dev@cateringms.local";
+    
+    if (isDevMode) {
+      console.log("🔧 DEV MODE: Loading dashboard with mock data");
+      setLoading(false);
+      return;
+    }
+
     if (user) {
       loadDashboardData();
     }
@@ -81,12 +90,153 @@ export default function PlatformDashboard() {
     setRefreshing(false);
   };
 
-  if (loading) {
+  // 🔧 DEV MODE: Show simplified dashboard
+  const isDevMode = user?.email === "dev@cateringms.local";
+
+  if (loading && !isDevMode) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
           <p className="text-slate-600">Loading analytics dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔧 DEV MODE UI
+  if (isDevMode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <Head>
+          <title>CateringMS Platform Dashboard - DEV MODE</title>
+          <meta name="robots" content="noindex, nofollow" />
+        </Head>
+
+        <div className="container mx-auto p-6 max-w-7xl">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+                🔧 DEV MODE - Super Admin Dashboard
+              </h1>
+              <p className="text-slate-600">Full platform access - All companies & settings</p>
+            </div>
+          </div>
+
+          {/* DEV MODE Quick Access Card */}
+          <Card className="mb-8 border-2 border-yellow-500 bg-gradient-to-r from-yellow-50 to-orange-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center">
+                  <Activity className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">🔧 Development Mode Active</h3>
+                  <p className="text-sm text-slate-600">You have full super admin access to all features</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
+                  onClick={() => router.push("/super-admin/company-database")}
+                >
+                  <Users className="w-6 h-6 text-purple-600" />
+                  <div className="text-left">
+                    <div className="font-semibold">Companies</div>
+                    <div className="text-xs text-slate-500">View all companies</div>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
+                  onClick={() => router.push("/super-admin/subscription-management")}
+                >
+                  <DollarSign className="w-6 h-6 text-blue-600" />
+                  <div className="text-left">
+                    <div className="font-semibold">Subscriptions</div>
+                    <div className="text-xs text-slate-500">Manage billing</div>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
+                  onClick={() => router.push("/super-admin/user-management")}
+                >
+                  <Users className="w-6 h-6 text-green-600" />
+                  <div className="text-left">
+                    <div className="font-semibold">Users</div>
+                    <div className="text-xs text-slate-500">Manage all users</div>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-start gap-2 hover:border-orange-500 hover:bg-orange-50"
+                  onClick={() => router.push("/admin/dashboard")}
+                >
+                  <Package className="w-6 h-6 text-orange-600" />
+                  <div className="text-left">
+                    <div className="font-semibold">Test Company</div>
+                    <div className="text-xs text-slate-500">View as company admin</div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mock Stats */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <StatCard
+              title="Total Revenue"
+              value="R 0.00"
+              subtitle="No real data in DEV MODE"
+              icon={DollarSign}
+            />
+            <StatCard
+              title="Active Companies"
+              value="0"
+              subtitle="Create companies to see data"
+              icon={Users}
+            />
+            <StatCard
+              title="Monthly Recurring Revenue"
+              value="R 0.00"
+              subtitle="MRR"
+              icon={TrendingUp}
+            />
+            <StatCard
+              title="Platform Status"
+              value="DEV"
+              subtitle="Development Mode"
+              icon={Activity}
+            />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>🔧 DEV MODE Instructions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 text-sm text-slate-600">
+                <p>✅ <strong>You're logged in as DEV Super Admin</strong> - You have access to everything</p>
+                <p>✅ <strong>No authentication required</strong> - Middleware bypasses all auth checks</p>
+                <p>✅ <strong>Access all portals:</strong></p>
+                <ul className="list-disc pl-6 space-y-2">
+                  <li><strong>/super-admin/*</strong> - Platform management (current)</li>
+                  <li><strong>/admin/*</strong> - Company admin view (test any company)</li>
+                  <li><strong>/[company-slug]/admin/*</strong> - Company-specific admin</li>
+                  <li><strong>/team-portal/*</strong> - Staff views (driver, kitchen, etc.)</li>
+                  <li><strong>/client-portal/*</strong> - Client views</li>
+                </ul>
+                <p className="mt-4 text-amber-600">
+                  <strong>⚠️ Note:</strong> Real analytics data requires actual companies and subscriptions. Create test companies in the Company Database to populate this dashboard.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
