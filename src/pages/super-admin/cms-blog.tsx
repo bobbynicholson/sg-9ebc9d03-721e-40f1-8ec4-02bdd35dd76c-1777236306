@@ -182,6 +182,8 @@ export default function CMSBlogPage() {
         contentLength: "medium",
         includeFAQ: true,
         includeSchema: true,
+        category: "General",
+        includeInternalLinks: true,
       });
       setActiveTab("manage");
     } catch (error) {
