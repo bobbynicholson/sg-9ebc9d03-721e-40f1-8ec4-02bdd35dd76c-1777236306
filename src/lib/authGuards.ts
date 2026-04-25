@@ -3,21 +3,58 @@ import { roleService } from "@/services/roleService";
 import { companyService } from "@/services/companyService";
 import type { Profile } from "@/services/profileService";
 
-// AUTHENTICATION DISABLED - ALL ROUTES ACCESSIBLE
-// Role-based route permissions - DISABLED FOR PREVIEW
+// Role-based route permissions
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
-  super_admin: ["*"],
-  admin: ["*"],
-  owner: ["*"],
-  kitchen: ["*"],
-  kitchen_staff: ["*"],
-  shopping: ["*"],
-  shopping_staff: ["*"],
-  driver: ["*"],
-  cleaning: ["*"],
-  cleaning_staff: ["*"],
-  client: ["*"],
+  super_admin: [
+    "/cateringms-platform/*",
+    "/admin/*",
+    "/team-portal/*",
+    "/client-portal/*",
+    "*",
+  ],
+  admin: [
+    "/admin/*",
+    "/team-portal/*",
+  ],
+  owner: [
+    "/admin/*",
+    "/team-portal/*",
+  ],
+  kitchen: [
+    "/team-portal/kitchen/*",
+    "/team-portal/general/*",
+  ],
+  kitchen_staff: [
+    "/team-portal/kitchen/*",
+    "/team-portal/general/*",
+  ],
+  shopping: [
+    "/team-portal/shopping/*",
+    "/team-portal/general/*",
+  ],
+  shopping_staff: [
+    "/team-portal/shopping/*",
+    "/team-portal/general/*",
+  ],
+  driver: [
+    "/team-portal/driver/*",
+    "/team-portal/general/*",
+  ],
+  cleaning: [
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+  ],
+  cleaning_staff: [
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+  ],
+  client: [
+    "/client-portal/*",
+  ],
 };
+
+// Admin roles that can access admin dashboard
+export const ADMIN_ROLES: UserRole[] = ["super_admin", "admin", "owner"];
 
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
@@ -39,22 +76,53 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   super_admin: () => "/cateringms-platform/dashboard",
   admin: (slug) => "/admin/dashboard",
   owner: (slug) => "/admin/dashboard",
-  kitchen: () => "/kitchen",
-  kitchen_staff: () => "/kitchen",
-  shopping: () => "/shopping",
-  shopping_staff: () => "/shopping",
-  driver: () => "/drivers",
-  cleaning: () => "/cleaning",
-  cleaning_staff: () => "/cleaning",
-  client: () => "/client-portal",
+  kitchen: () => "/team-portal/kitchen/dashboard",
+  kitchen_staff: () => "/team-portal/kitchen/dashboard",
+  shopping: () => "/team-portal/shopping/dashboard",
+  shopping_staff: () => "/team-portal/shopping/dashboard",
+  driver: () => "/team-portal/driver/dashboard",
+  cleaning: () => "/team-portal/cleaning/dashboard",
+  cleaning_staff: () => "/team-portal/cleaning/dashboard",
+  client: () => "/client-portal/dashboard",
 };
 
 /**
  * Check if a user with a specific role can access a route
- * AUTHENTICATION DISABLED - ALWAYS RETURNS TRUE
  */
 export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
-  return true; // All routes accessible
+  const allowedRoutes = ROLE_ROUTES[userRole];
+  
+  if (!allowedRoutes) {
+    return false;
+  }
+
+  // Check if user has wildcard access
+  if (allowedRoutes.includes("*")) {
+    return true;
+  }
+
+  // Check if pathname matches any allowed route pattern
+  return allowedRoutes.some((route) => {
+    if (route.endsWith("/*")) {
+      const baseRoute = route.slice(0, -2);
+      return pathname.startsWith(baseRoute);
+    }
+    return pathname === route || pathname.startsWith(route + "/");
+  });
+}
+
+/**
+ * Check if user is an admin (super_admin, admin, or owner)
+ */
+export function isAdmin(userRole: UserRole): boolean {
+  return ADMIN_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user can access admin dashboard
+ */
+export function canAccessAdminDashboard(userRole: UserRole): boolean {
+  return isAdmin(userRole);
 }
 
 /**
@@ -74,10 +142,13 @@ export function getRoleName(userRole: UserRole): string {
 
 /**
  * Check if user has required role(s)
- * AUTHENTICATION DISABLED - ALWAYS RETURNS TRUE
  */
 export function hasRole(profile: Profile | null, ...requiredRoles: UserRole[]): boolean {
-  return true; // All roles granted
+  if (!profile || !profile.role) {
+    return false;
+  }
+
+  return requiredRoles.includes(profile.role as UserRole);
 }
 
 /**
@@ -91,19 +162,28 @@ export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: strin
  * Check if role is a CateringMS platform admin role
  */
 export function isPlatformAdmin(userRole: UserRole): boolean {
-  return true; // All users have admin access for preview
+  return userRole === "super_admin";
 }
 
 /**
  * Check if role is a company admin role
  */
 export function isCompanyAdmin(userRole: UserRole): boolean {
-  return true; // All users have admin access for preview
+  return userRole === "admin" || userRole === "owner" || userRole === "super_admin";
 }
 
 /**
  * Check if role is a staff role (non-admin, non-client)
  */
 export function isStaffRole(userRole: UserRole): boolean {
-  return true; // All users have staff access for preview
+  const staffRoles: UserRole[] = [
+    "kitchen",
+    "kitchen_staff",
+    "shopping",
+    "shopping_staff",
+    "driver",
+    "cleaning",
+    "cleaning_staff",
+  ];
+  return staffRoles.includes(userRole);
 }
