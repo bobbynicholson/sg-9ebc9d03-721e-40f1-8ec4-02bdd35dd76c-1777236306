@@ -111,28 +111,28 @@ export default function ClientPortalDashboard() {
       <DynamicNav userRole={UserRole.CLIENT} />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
-          <div className="mb-6 md:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                  <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-7xl">
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <User className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">My Events</h1>
-                  <p className="text-sm sm:text-base text-slate-600">Track your catering orders</p>
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">My Events</h1>
+                  <p className="text-xs sm:text-sm md:text-base text-slate-600">Track your catering orders</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col xs:flex-row gap-2">
                 <Button
                   onClick={() => setShowGame(true)}
-                  className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 w-full sm:w-auto h-11"
+                  className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 w-full xs:w-auto h-10 sm:h-11 text-sm sm:text-base"
                 >
                   <Gamepad2 className="w-4 h-4 mr-2" />
                   Play Game
                 </Button>
-                <Link href="/quotes/new" className="w-full sm:w-auto">
-                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 w-full h-11">
+                <Link href="/quotes/new" className="w-full xs:w-auto">
+                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 w-full h-10 sm:h-11 text-sm sm:text-base">
                     Request New Quote
                   </Button>
                 </Link>
@@ -141,36 +141,36 @@ export default function ClientPortalDashboard() {
 
             {/* Next Event Summary */}
             {activeOrders.length > 0 && (
-              <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 mt-6">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
+              <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 mt-4 sm:mt-6">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col md:flex-row items-start justify-between gap-4">
+                    <div className="flex-1 w-full">
                       <div className="flex items-center gap-2 mb-2">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                        <h3 className="text-lg font-bold text-slate-900">Your Next Event</h3>
+                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900">Your Next Event</h3>
                       </div>
-                      <p className="text-2xl font-bold text-blue-600 mb-1">
+                      <p className="text-xl sm:text-2xl font-bold text-blue-600 mb-1">
                         {new Date(activeOrders[0].event_date).toLocaleDateString('en-US', { 
                           weekday: 'long', 
                           month: 'long', 
                           day: 'numeric' 
                         })}
                       </p>
-                      <p className="text-slate-700">{activeOrders[0].venue_address}</p>
-                      <p className="text-sm text-slate-600 mt-1">{activeOrders[0].guest_count} guests</p>
+                      <p className="text-sm sm:text-base text-slate-700">{activeOrders[0].venue_address}</p>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-1">{activeOrders[0].guest_count} guests</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600 mb-1">Days until event</p>
-                      <div className="text-4xl font-bold text-blue-600">
+                    <div className="text-left md:text-right w-full md:w-auto">
+                      <p className="text-xs sm:text-sm text-slate-600 mb-1">Days until event</p>
+                      <div className="text-3xl sm:text-4xl font-bold text-blue-600">
                         {Math.ceil((new Date(activeOrders[0].event_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-col xs:flex-row gap-2">
                     <Link href={`/tracking/client?orderId=${activeOrders[0].id}`} className="flex-1">
-                      <Button className="w-full">Track Order</Button>
+                      <Button className="w-full text-sm sm:text-base h-10 sm:h-11">Track Order</Button>
                     </Link>
-                    <Button variant="outline" className="flex-1">View Details</Button>
+                    <Button variant="outline" className="flex-1 text-sm sm:text-base h-10 sm:h-11">View Details</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -178,18 +178,18 @@ export default function ClientPortalDashboard() {
 
             {/* Payment Reminders */}
             {orders.filter(o => needsPayment(o)).length > 0 && (
-              <Card className="border-0 shadow-lg bg-gradient-to-r from-amber-50 to-orange-50 mt-6">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-amber-600" />
+              <Card className="border-0 shadow-lg bg-gradient-to-r from-amber-50 to-orange-50 mt-4 sm:mt-6">
+                <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                     Payment Reminders
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2 sm:space-y-3 px-3 sm:px-6">
                   {orders.filter(o => needsPayment(o)).map(order => (
-                    <div key={order.id} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                    <div key={order.id} className="flex flex-col xs:flex-row items-start xs:items-center justify-between gap-3 p-3 bg-white rounded-lg">
                       <div>
-                        <p className="font-semibold text-slate-900">{order.venue_address}</p>
+                        <p className="font-semibold text-sm sm:text-base text-slate-900">{order.venue_address}</p>
                         <p className="text-xs text-slate-600">
                           Event: {new Date(order.event_date).toLocaleDateString()}
                         </p>
@@ -198,6 +198,7 @@ export default function ClientPortalDashboard() {
                         size="sm"
                         onClick={() => handlePayment(order)}
                         disabled={processingPayment === order.id}
+                        className="w-full xs:w-auto text-sm"
                       >
                         Pay R{order.total?.toLocaleString()}
                       </Button>
@@ -209,62 +210,62 @@ export default function ClientPortalDashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Active Events</p>
-                    <p className="text-xl md:text-2xl font-bold text-blue-600">{activeOrders.length}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Active Events</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">{activeOrders.length}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
-                    <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
+                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Completed</p>
-                    <p className="text-xl md:text-2xl font-bold text-green-600">{completedOrders.length}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Completed</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{completedOrders.length}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
-                    <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Total Guests</p>
-                    <p className="text-xl md:text-2xl font-bold text-purple-600">
+                    <p className="text-xs sm:text-sm text-slate-600">Total Guests</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600">
                       {orders.reduce((sum, o) => sum + o.guest_count, 0)}
                     </p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-purple-100 flex items-center justify-center self-end md:self-auto">
-                    <Users className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-purple-100 flex items-center justify-center self-end md:self-auto">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-purple-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Total Spent</p>
-                    <p className="text-xl md:text-2xl font-bold text-slate-900">
+                    <p className="text-xs sm:text-sm text-slate-600">Total Spent</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">
                       R{orders.reduce((sum, o) => sum + (o.total || 0), 0).toLocaleString()}
                     </p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-slate-100 flex items-center justify-center self-end md:self-auto">
-                    <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-slate-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-slate-100 flex items-center justify-center self-end md:self-auto">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-slate-600" />
                   </div>
                 </div>
               </CardContent>
@@ -273,32 +274,32 @@ export default function ClientPortalDashboard() {
 
           {/* Orders List */}
           <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle>My Orders</CardTitle>
+            <CardHeader className="px-3 sm:px-6">
+              <CardTitle className="text-base sm:text-lg">My Orders</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6">
               {loading ? (
-                <div className="text-center py-8 text-slate-600">Loading orders...</div>
+                <div className="text-center py-8 text-sm sm:text-base text-slate-600">Loading orders...</div>
               ) : orders.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p className="text-slate-600 font-medium mb-2">No orders yet</p>
-                  <p className="text-sm text-slate-500 mb-4">Start by requesting a quote for your event</p>
+                <div className="text-center py-8 sm:py-12">
+                  <Package className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-slate-300" />
+                  <p className="text-sm sm:text-base text-slate-600 font-medium mb-2">No orders yet</p>
+                  <p className="text-xs sm:text-sm text-slate-500 mb-4">Start by requesting a quote for your event</p>
                   <Link href="/quotes/new">
-                    <Button>Request Quote</Button>
+                    <Button className="text-sm sm:text-base">Request Quote</Button>
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {orders.map((order) => (
                     <div
                       key={order.id}
-                      className="p-4 md:p-6 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
+                      className="p-3 sm:p-4 md:p-6 border-2 border-slate-200 rounded-lg hover:border-blue-300 transition-colors"
                     >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-lg text-slate-900">
+                            <h3 className="font-semibold text-base sm:text-lg text-slate-900">
                               {new Date(order.event_date).toLocaleDateString("en-US", {
                                 month: "long",
                                 day: "numeric",
@@ -318,30 +319,30 @@ export default function ClientPortalDashboard() {
                               </Badge>
                             )}
                           </div>
-                          <div className="space-y-1 text-sm text-slate-600">
+                          <div className="space-y-1 text-xs sm:text-sm text-slate-600">
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4" />
+                              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                               <span>{order.venue_address}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4" />
+                              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                               <span>{order.guest_count} guests</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4" />
+                              <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                               <span>R{order.total?.toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex flex-col xs:flex-row gap-2">
                           {needsPayment(order) && (
-                            <Button size="sm" onClick={() => handlePayment(order)}>
+                            <Button size="sm" onClick={() => handlePayment(order)} className="text-xs sm:text-sm">
                               Pay Now
                             </Button>
                           )}
                           <Link href={`/tracking/client?orderId=${order.id}`}>
-                            <Button size="sm" variant="outline" className="w-full sm:w-auto">
-                              <Truck className="w-4 h-4 mr-2" />
+                            <Button size="sm" variant="outline" className="w-full xs:w-auto text-xs sm:text-sm">
+                              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                               Track
                             </Button>
                           </Link>

@@ -145,37 +145,37 @@ export default function ShoppingDashboard() {
       <DynamicNav userRole={UserRole.SHOPPING} />
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
-              <ShoppingCart className="w-6 h-6 text-white" />
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-7xl">
+          <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
+              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Shopping Dashboard</h1>
-              <p className="text-slate-600">Manage inventory and purchasing</p>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Shopping Dashboard</h1>
+              <p className="text-xs sm:text-sm md:text-base text-slate-600">Manage inventory and purchasing</p>
             </div>
           </div>
 
-          <Card className="border-0 shadow-lg mb-8">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-green-600" />
+          <Card className="border-0 shadow-lg mb-6 sm:mb-8">
+            <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                 Today's Purchase Priority
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
+            <CardContent className="px-3 sm:px-6">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-sm text-slate-600">Urgent Orders Needed</p>
-                      <p className="text-3xl font-bold text-green-600">
+                      <p className="text-xs sm:text-sm text-slate-600">Urgent Orders Needed</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-green-600">
                         {inventoryItems.filter(i => i.quantityAvailable < i.minimumStock).length}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-slate-600">Estimated Cost</p>
-                      <p className="text-2xl font-bold text-slate-900">
+                    <div className="text-left sm:text-right">
+                      <p className="text-xs sm:text-sm text-slate-600">Estimated Cost</p>
+                      <p className="text-xl sm:text-2xl font-bold text-slate-900">
                         R{inventoryItems
                           .filter(i => i.quantityAvailable < i.minimumStock)
                           .reduce((sum, i) => sum + (i.costPerUnit * (i.minimumStock - i.quantityAvailable)), 0)
@@ -183,7 +183,7 @@ export default function ShoppingDashboard() {
                       </p>
                     </div>
                   </div>
-                  <Button className="w-full">
+                  <Button className="w-full text-sm sm:text-base h-10 sm:h-11">
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Create Bulk Purchase Order
                   </Button>
@@ -192,58 +192,58 @@ export default function ShoppingDashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Total Items</p>
-                    <p className="text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Total Items</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
-                    <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
+                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Pending</p>
-                    <p className="text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Pending</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
-                    <Clock className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Purchased</p>
-                    <p className="text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Purchased</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
-                    <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-lg">
-              <CardContent className="pt-4 md:pt-6 px-3 md:px-6 pb-4">
+              <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs md:text-sm text-slate-600">Urgent</p>
-                    <p className="text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
+                    <p className="text-xs sm:text-sm text-slate-600">Urgent</p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
                   </div>
-                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-red-100 flex items-center justify-center self-end md:self-auto">
-                    <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-600" />
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-red-100 flex items-center justify-center self-end md:self-auto">
+                    <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-red-600" />
                   </div>
                 </div>
               </CardContent>
@@ -251,13 +251,13 @@ export default function ShoppingDashboard() {
           </div>
 
           <Card className="border-0 shadow-lg">
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">Shopping List</CardTitle>
+            <CardHeader className="px-3 sm:px-4 md:px-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">Shopping List</CardTitle>
             </CardHeader>
-            <CardContent className="px-4 md:px-6">
-              <div className="space-y-3">
+            <CardContent className="px-3 sm:px-4 md:px-6">
+              <div className="space-y-2 sm:space-y-3">
                 {filteredItems.length === 0 ? (
-                  <div className="text-center py-8 text-slate-600">
+                  <div className="text-center py-8 text-sm sm:text-base text-slate-600">
                     No items to display
                   </div>
                 ) : (
@@ -270,7 +270,7 @@ export default function ShoppingDashboard() {
                     return (
                       <div
                         key={item.id}
-                        className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 md:p-4 rounded-lg border-2 ${
+                        className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border-2 ${
                           item.purchased
                             ? "bg-green-50 border-green-200"
                             : isUrgent
@@ -278,16 +278,16 @@ export default function ShoppingDashboard() {
                             : "bg-white border-slate-200"
                         }`}
                       >
-                        <div className="flex items-start gap-3 sm:gap-4 flex-1">
+                        <div className="flex items-start gap-2 sm:gap-3 sm:gap-4 flex-1">
                           <Checkbox
                             checked={item.purchased}
                             onCheckedChange={() => handleTogglePurchased(item.id)}
-                            className="w-5 h-5 mt-0.5 flex-shrink-0"
+                            className="w-4 h-4 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                               <h4
-                                className={`font-semibold text-sm md:text-base ${
+                                className={`font-semibold text-xs sm:text-sm md:text-base ${
                                   item.purchased ? "line-through text-slate-500" : "text-slate-900"
                                 }`}
                               >
@@ -301,7 +301,7 @@ export default function ShoppingDashboard() {
                               )}
                             </div>
                             
-                            <div className="space-y-1 text-xs md:text-sm text-slate-600">
+                            <div className="space-y-1 text-xs sm:text-sm text-slate-600">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-medium">
                                   {item.quantity} {item.unit}
@@ -319,16 +319,16 @@ export default function ShoppingDashboard() {
                             </div>
                             
                             {item.notes && (
-                              <p className="text-xs md:text-sm text-slate-600 mt-2 italic">{item.notes}</p>
+                              <p className="text-xs sm:text-sm text-slate-600 mt-2 italic">{item.notes}</p>
                             )}
                           </div>
                         </div>
                         
                         <div className="flex sm:flex-col items-center justify-center sm:ml-4 self-start sm:self-center">
                           {item.purchased ? (
-                            <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
                           ) : (
-                            <Clock className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
+                            <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" />
                           )}
                         </div>
                       </div>
