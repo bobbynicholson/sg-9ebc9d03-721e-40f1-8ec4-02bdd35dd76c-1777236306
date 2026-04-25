@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         created_at: new Date().toISOString(),
       };
 
-      const devCompany: Company = {
+      const devCompany = {
         id: "dev-company-id",
         company_name: "DEV Test Company",
         slug: "dev-test-company",
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription_status: "active",
         subscription_plan: "pro",
         currency: "ZAR",
-      };
+      } as unknown as Company;
 
       setUser(devUser);
       setProfile(null);
