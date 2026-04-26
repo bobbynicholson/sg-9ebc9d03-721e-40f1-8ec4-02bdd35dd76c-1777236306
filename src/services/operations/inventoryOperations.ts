@@ -57,7 +57,7 @@ export async function getLowStockItems(companyId: string) {
 export async function updateInventoryStock(
   itemId: string,
   newStock: number,
-  reason: "restock" | "usage" | "adjustment" | "waste"
+  reason: "purchase" | "usage" | "waste" | "adjustment" | "transfer" | "return"
 ) {
   try {
     const { data, error } = await supabase
@@ -74,8 +74,9 @@ export async function updateInventoryStock(
 
     // Log the stock change
     await supabase.from("inventory_transactions").insert({
+      company_id: data.company_id,
       inventory_item_id: itemId,
-      quantity_change: newStock,
+      quantity: newStock,
       transaction_type: reason,
       notes: `Stock updated to ${newStock}`,
     });
@@ -98,11 +99,11 @@ export async function createInventoryItem(
         company_id: companyId,
         item_name: itemData.itemName,
         category: itemData.category,
-        unit: itemData.unit,
+        unit_of_measure: itemData.unit,
         current_stock: itemData.currentStock,
         minimum_stock: itemData.minimumStock,
         cost_per_unit: itemData.costPerUnit,
-        supplier_id: itemData.supplierId,
+        preferred_supplier_id: itemData.supplierId,
       })
       .select()
       .single();

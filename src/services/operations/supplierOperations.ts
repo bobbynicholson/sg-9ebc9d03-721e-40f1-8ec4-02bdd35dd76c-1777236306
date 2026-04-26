@@ -47,9 +47,9 @@ export async function createSupplier(
         contact_person: supplierData.contactPerson,
         email: supplierData.email,
         phone: supplierData.phone,
-        address: supplierData.address,
+        address_line1: supplierData.address,
         category: supplierData.category,
-        payment_terms: supplierData.paymentTerms,
+        payment_terms: parseInt(supplierData.paymentTerms as any) || 30,
         is_active: supplierData.isActive,
       })
       .select()
@@ -69,12 +69,19 @@ export async function updateSupplier(
   updates: Partial<Omit<Supplier, "id">>
 ) {
   try {
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.supplierName !== undefined) dbUpdates.supplier_name = updates.supplierName;
+    if (updates.contactPerson !== undefined) dbUpdates.contact_person = updates.contactPerson;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+    if (updates.address !== undefined) dbUpdates.address_line1 = updates.address;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.paymentTerms !== undefined) dbUpdates.payment_terms = parseInt(updates.paymentTerms as any) || 30;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+
     const { data, error } = await supabase
       .from("suppliers")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbUpdates)
       .eq("id", supplierId)
       .select()
       .single();

@@ -48,9 +48,9 @@ export async function createMenuItem(
         description: itemData.description,
         category: itemData.category,
         base_price: itemData.basePrice,
-        preparation_time: itemData.preparationTime,
-        serving_size: itemData.servingSize,
-        allergens: itemData.allergens,
+        prep_time_minutes: itemData.preparationTime,
+        base_servings: itemData.servingSize,
+        dietary_tags: itemData.allergens,
         is_available: itemData.isAvailable,
       })
       .select()
@@ -70,12 +70,19 @@ export async function updateMenuItem(
   updates: Partial<Omit<MenuItem, "id">>
 ) {
   try {
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.itemName !== undefined) dbUpdates.item_name = updates.itemName;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.basePrice !== undefined) dbUpdates.base_price = updates.basePrice;
+    if (updates.preparationTime !== undefined) dbUpdates.prep_time_minutes = updates.preparationTime;
+    if (updates.servingSize !== undefined) dbUpdates.base_servings = updates.servingSize;
+    if (updates.allergens !== undefined) dbUpdates.dietary_tags = updates.allergens;
+    if (updates.isAvailable !== undefined) dbUpdates.is_available = updates.isAvailable;
+
     const { data, error } = await supabase
       .from("menu_items")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbUpdates)
       .eq("id", itemId)
       .select()
       .single();

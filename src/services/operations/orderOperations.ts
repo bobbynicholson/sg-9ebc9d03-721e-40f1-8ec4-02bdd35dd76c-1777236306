@@ -41,7 +41,7 @@ export async function createOrder(data: CreateOrderData) {
         event_time: data.eventTime,
         venue_address: data.venueAddress,
         guest_count: data.guestCount,
-        special_requirements: data.specialRequirements,
+        special_instructions: data.specialRequirements,
         total_amount: data.totalAmount,
         deposit_amount: data.depositAmount || data.totalAmount * 0.3,
         status: "pending",
@@ -54,16 +54,23 @@ export async function createOrder(data: CreateOrderData) {
 
     // Create order items
     if (data.menuItems && data.menuItems.length > 0) {
+      const menuIds = data.menuItems.map(i => i.menuItemId);
+      const { data: menus } = await supabase.from("menu_items").select("id, item_name").in("id", menuIds);
+
       const { error: itemsError } = await supabase
         .from("order_items")
         .insert(
-          data.menuItems.map((item) => ({
-            order_id: order.id,
-            menu_item_id: item.menuItemId,
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity,
-          }))
+          data.menuItems.map((item) => {
+            const menu = menus?.find(m => m.id === item.menuItemId);
+            return {
+              order_id: order.id,
+              menu_item_id: item.menuItemId,
+              item_name: menu?.item_name || "Custom Item",
+              quantity: item.quantity,
+              unit_price: item.price,
+              line_total: item.price * item.quantity,
+            };
+          })
         );
 
       if (itemsError) throw itemsError;
@@ -76,7 +83,10 @@ export async function createOrder(data: CreateOrderData) {
   }
 }
 
-export async function updateOrderStatus(orderId: string, status: string) {
+export async function updateOrderStatus(
+  orderId: string, 
+  status: "pending" | "confirmed" | "prep" | "ready" | "out_for_delivery" | "delivered" | "completed" | "cancelled" | "preparing" | "in_transit"
+) {
   try {
     const { data, error } = await supabase
       .from("orders")
