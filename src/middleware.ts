@@ -40,6 +40,34 @@ const ROLE_LANDING_PAGES: Record<string, string> = {
   client: "/client-portal/dashboard",
 };
 
+// Route authorization rules - maps route prefixes to allowed roles
+const ROUTE_GUARDS: Record<string, string[]> = {
+  "/admin/platform": ["super_admin"],
+  "/admin": ["super_admin", "company_admin", "admin", "owner"],
+  "/team-portal/kitchen": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff"],
+  "/team-portal/shopping": ["super_admin", "company_admin", "admin", "owner", "shopping_staff"],
+  "/team-portal/driver": ["super_admin", "company_admin", "admin", "owner", "driver"],
+  "/team-portal/cleaning": ["super_admin", "company_admin", "admin", "owner", "cleaning_staff"],
+  "/team-portal/general": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
+  "/client-portal": ["super_admin", "company_admin", "admin", "owner", "client"],
+  "/account": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client"],
+};
+
+// Check if user role has access to a specific route
+const isAuthorizedForRoute = (pathname: string, userRole: string): boolean => {
+  // Find matching route guard by checking prefixes (most specific first)
+  const sortedGuards = Object.entries(ROUTE_GUARDS).sort((a, b) => b[0].length - a[0].length);
+  
+  for (const [routePrefix, allowedRoles] of sortedGuards) {
+    if (pathname.startsWith(routePrefix)) {
+      return allowedRoles.includes(userRole);
+    }
+  }
+  
+  // If no guard matches, allow access (public or unprotected route)
+  return true;
+};
+
 // Check if path is a public route
 const isPublicRoute = (pathname: string) => {
   // Exact match for homepage
@@ -197,6 +225,40 @@ export async function middleware(request: NextRequest) {
       }
     } catch (error) {
       console.error("[Middleware] Error fetching user role:", error);
+      // Continue without redirect if profile fetch fails
+    }
+  }
+
+  // ✅ ROUTE AUTHORIZATION (Server-side)
+  // Check if authenticated user has access to the requested route
+  if (user && !isPublic) {
+    try {
+      // Fetch user profile to get role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role) {
+        // Check if user is authorized for this route
+        if (!isAuthorizedForRoute(pathname, profile.role)) {
+          const url = request.nextUrl.clone();
+          const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
+          
+          console.log(`[Middleware] Unauthorized: ${profile.role} attempted to access ${pathname}`);
+          console.log(`[Middleware] Redirecting to authorized landing page: ${roleLandingPage}`);
+          
+          // Redirect to user's role-appropriate landing page
+          if (roleLandingPage) {
+            url.pathname = roleLandingPage;
+            url.searchParams.set("error", "unauthorized");
+            return NextResponse.redirect(url);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Middleware] Error checking route authorization:", error);
       // Continue without redirect if profile fetch fails
     }
   }
