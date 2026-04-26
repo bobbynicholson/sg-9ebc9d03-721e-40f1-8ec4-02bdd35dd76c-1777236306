@@ -87,46 +87,49 @@ const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: 
 
     // Honor redirectTo if provided
     if (redirectTo) {
-      router.push(redirectTo);
+      window.location.assign(redirectTo);
       return;
     }
 
     // Route based on active_role
     const role = profile.active_role || profile.role;
     
+    let destination = "/admin/dashboard"; // fallback
+    
     switch (role) {
       case "super_admin":
-        router.push("/admin/dashboard");
+        destination = "/admin/platform/dashboard";
         break;
       case "company_admin":
       case "admin":
       case "owner":
-        router.push("/admin/dashboard");
+        destination = "/admin/leads";
         break;
       case "kitchen_staff":
       case "kitchen":
-        router.push("/kitchen");
+        destination = "/team-portal/kitchen/dashboard";
         break;
       case "shopping_staff":
       case "shopping":
-        router.push("/shopping");
+        destination = "/team-portal/shopping/dashboard";
         break;
       case "cleaning_staff":
       case "cleaning":
-        router.push("/cleaning");
+        destination = "/team-portal/cleaning/dashboard";
         break;
       case "driver":
-        router.push("/drivers");
+        destination = "/team-portal/driver/dashboard";
         break;
       case "client":
-        router.push("/client-portal");
+        destination = "/client-portal/dashboard";
         break;
-      default:
-        router.push("/admin/dashboard");
     }
+    
+    // Use hard navigation to ensure component swap
+    window.location.assign(destination);
   } catch (error) {
     console.error("Error routing after login:", error);
-    router.push("/admin/dashboard"); // fallback
+    window.location.assign("/admin/leads"); // fallback
   }
 };
 

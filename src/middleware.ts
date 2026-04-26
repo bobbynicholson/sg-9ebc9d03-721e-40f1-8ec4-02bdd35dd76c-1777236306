@@ -34,9 +34,12 @@ const ROLE_LANDING_PAGES: Record<string, string> = {
   admin: "/admin/leads",
   owner: "/admin/leads",
   kitchen_staff: "/team-portal/kitchen/dashboard",
+  kitchen: "/team-portal/kitchen/dashboard",
   shopping_staff: "/team-portal/shopping/dashboard",
+  shopping: "/team-portal/shopping/dashboard",
   driver: "/team-portal/driver/dashboard",
   cleaning_staff: "/team-portal/cleaning/dashboard",
+  cleaning: "/team-portal/cleaning/dashboard",
   client: "/client-portal/dashboard",
 };
 
