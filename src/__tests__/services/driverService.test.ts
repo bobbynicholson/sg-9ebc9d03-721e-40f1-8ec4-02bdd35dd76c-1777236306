@@ -24,7 +24,7 @@ describe('DriverService', () => {
       };
 
       const mockSupabase = {
-        insert: jest.fn().mockReturnThis(),
+        upsert: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({ data: mockLocation, error: null }),
       };

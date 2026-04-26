@@ -63,6 +63,8 @@ describe('OrderService', () => {
         eq: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({ data: mockOrder, error: null }),
+        from: jest.fn().mockReturnThis(),
+        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       };
 
       (supabase.from as jest.Mock).mockReturnValue(mockSupabase);
@@ -86,6 +88,8 @@ describe('OrderService', () => {
         eq: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({ data: mockOrder, error: null }),
+        from: jest.fn().mockReturnThis(),
+        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       };
 
       (supabase.from as jest.Mock).mockReturnValue(mockSupabase);
