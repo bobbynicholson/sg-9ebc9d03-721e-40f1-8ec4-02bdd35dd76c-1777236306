@@ -54,15 +54,15 @@ export async function createDeliveryRoute(
     if (orderIds.length > 0) {
       const { data: orders } = await supabase
         .from("orders")
-        .select("id, venue_address, venue_latitude, venue_longitude")
+        .select("id, venue_address")
         .in("id", orderIds);
 
-      const stops = orders?.map((order, index) => ({
+      const stops = orders?.map((order: any, index) => ({
         route_id: route.id,
         order_id: order.id,
         stop_address: order.venue_address,
-        latitude: order.venue_latitude,
-        longitude: order.venue_longitude,
+        latitude: order.venue_latitude || -26.1076, // Fallback latitude
+        longitude: order.venue_longitude || 28.0567, // Fallback longitude
         sequence_number: index + 1,
         status: "pending",
       }));

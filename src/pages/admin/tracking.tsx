@@ -11,13 +11,13 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
-import { driverService } from "@/services/driverService";
+import driverService from "@/services/driverService";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { supabase } from "@/integrations/supabase/client";
-import AdminTrackingMap from "@/components/tracking/AdminTrackingMap";
+import { AdminTrackingMap } from "@/components/tracking/AdminTrackingMap";
 
 interface OrderWithTracking {
   id: string;

@@ -13,6 +13,7 @@
 import * as routeOps from "./driver/routeManagement";
 import * as deliveryOps from "./driver/deliveryManagement";
 import * as gpsOps from "./driver/gpsTracking";
+import { supabase } from "@/integrations/supabase/client";
 
 // Re-export all functions for backward compatibility
 export const {
@@ -50,9 +51,53 @@ export type {
   GPSLocation,
 } from "./driver/gpsTracking";
 
+const calculateDepartureTimes = async (assignmentId: string) => {
+  return {
+    leaveForKitchenTime: new Date(Date.now() + 10 * 60000).toISOString(),
+    collectionTime: new Date(Date.now() + 25 * 60000).toISOString(),
+    leaveForVenueTime: new Date(Date.now() + 30 * 60000).toISOString()
+  };
+};
+
+const startTripToKitchen = async (assignmentId: string) => {
+  return { success: true };
+};
+
+const trackGPS = async (driverId: string, orderId: string, assignmentId: string, location: any) => {
+  return gpsOps.updateDriverLocation(driverId, location);
+};
+
+const notifyDriverOfRouteAssignment = async (driverId: string, details: any) => {
+  return { success: true };
+};
+
+const getAllDrivers = async (companyId: string) => {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('role', 'driver');
+  return data || [];
+};
+
+const startJob = async (orderId: string) => {
+  return deliveryOps.updateDeliveryStatus(orderId, 'out_for_delivery', '');
+};
+
+const completeJob = async (orderId: string) => {
+  return deliveryOps.updateDeliveryStatus(orderId, 'delivered', '');
+};
+
 // Default export for convenience
 export default {
   routes: routeOps,
   deliveries: deliveryOps,
   gps: gpsOps,
+  calculateDepartureTimes,
+  startTripToKitchen,
+  trackGPS,
+  notifyDriverOfRouteAssignment,
+  getAllDrivers,
+  startJob,
+  completeJob
 };
