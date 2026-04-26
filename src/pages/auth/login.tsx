@@ -96,7 +96,7 @@ const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: 
     
     switch (role) {
       case "super_admin":
-        router.push("/admin/platform/dashboard");
+        router.push("/admin/dashboard");
         break;
       case "company_admin":
       case "admin":
