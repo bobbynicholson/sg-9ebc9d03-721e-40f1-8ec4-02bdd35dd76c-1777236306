@@ -27,6 +27,19 @@ const PUBLIC_ROUTES = [
   "/pay",
 ];
 
+// Role-based landing pages (server-side mapping)
+const ROLE_LANDING_PAGES: Record<string, string> = {
+  super_admin: "/admin/platform/dashboard",
+  company_admin: "/admin/leads",
+  admin: "/admin/leads",
+  owner: "/admin/leads",
+  kitchen_staff: "/team-portal/kitchen/dashboard",
+  shopping_staff: "/team-portal/shopping/dashboard",
+  driver: "/team-portal/driver/dashboard",
+  cleaning_staff: "/team-portal/cleaning/dashboard",
+  client: "/client-portal/dashboard",
+};
+
 // Check if path is a public route
 const isPublicRoute = (pathname: string) => {
   // Exact match for homepage
@@ -49,6 +62,17 @@ const isPublicRoute = (pathname: string) => {
   
   // Exact matches
   return PUBLIC_ROUTES.includes(pathname);
+};
+
+// Routes that should trigger role-based redirection
+const shouldRedirectToRoleLanding = (pathname: string) => {
+  return (
+    pathname === "/" ||
+    pathname === "/admin" ||
+    pathname === "/admin/dashboard" ||
+    pathname === "/team-portal" ||
+    pathname === "/client-portal"
+  );
 };
 
 export async function middleware(request: NextRequest) {
@@ -128,6 +152,7 @@ export async function middleware(request: NextRequest) {
     companySlug = companySlugMatch[1];
   }
 
+  // Handle unauthenticated users
   if (!user && !isPublic) {
     // Determine the correct login URL
     const url = request.nextUrl.clone();
@@ -145,6 +170,35 @@ export async function middleware(request: NextRequest) {
     }
     
     return NextResponse.redirect(url);
+  }
+
+  // ✅ ROLE-BASED REDIRECTION (Server-side)
+  // Only redirect authenticated users on specific landing routes
+  if (user && shouldRedirectToRoleLanding(pathname)) {
+    try {
+      // Fetch user profile to get role
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role) {
+        const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
+        
+        if (roleLandingPage && pathname !== roleLandingPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = roleLandingPage;
+          
+          console.log(`[Middleware] Redirecting ${profile.role} from ${pathname} to ${roleLandingPage}`);
+          
+          return NextResponse.redirect(url);
+        }
+      }
+    } catch (error) {
+      console.error("[Middleware] Error fetching user role:", error);
+      // Continue without redirect if profile fetch fails
+    }
   }
 
   return response;
