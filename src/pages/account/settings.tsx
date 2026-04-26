@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { DynamicNav } from "@/components/DynamicNav";
+import { PortalLayout } from "@/components/Layout";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { 
@@ -29,11 +29,7 @@ import {
   EyeOff, 
   Shield,
   Bell,
-  MessageSquare,
   Globe,
-  Palette,
-  Moon,
-  Sun
 } from "lucide-react";
 import { ROLE_NAMES } from "@/lib/authGuards";
 import { supabase } from "@/integrations/supabase/client";
@@ -364,10 +360,8 @@ function ProfileSettingsPage() {
         <title>Account Settings - CateringMS</title>
       </Head>
 
-      <DynamicNav userRole={user.role} />
-
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4 md:p-6 lg:pl-64 xl:pl-72">
-        <div className="max-w-4xl mx-auto space-y-6">
+      <PortalLayout maxWidth="4xl">
+        <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -950,7 +944,7 @@ function ProfileSettingsPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+      </PortalLayout>
     </>
   );
 }
