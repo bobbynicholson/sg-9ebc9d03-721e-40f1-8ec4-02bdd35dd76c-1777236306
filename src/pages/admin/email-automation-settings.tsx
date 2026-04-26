@@ -34,6 +34,14 @@ interface AutomationRule {
   body: string;
 }
 
+export default function ProtectedEmailAutomationSettings() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <EmailAutomationSettings />
+    </ProtectedRoute>
+  );
+}
+
 export default function EmailAutomationSettings() {
   const { user } = useAuth();
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({

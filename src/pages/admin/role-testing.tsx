@@ -230,7 +230,15 @@ WHERE p.email LIKE '%@test.cateringms.com'
 GROUP BY p.id, p.email, p.role, p.active_role
 ORDER BY p.email;`;
 
-export default function RoleTestingPage() {
+export default function ProtectedRoleTestingPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <RoleTestingPage />
+    </ProtectedRoute>
+  );
+}
+
+function RoleTestingPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [sqlCopied, setSqlCopied] = useState(false);
 

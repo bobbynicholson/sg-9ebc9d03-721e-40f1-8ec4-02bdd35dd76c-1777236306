@@ -35,8 +35,18 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
-export default function AdminSettingsPage() {
+export default function ProtectedSettingsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <SettingsPage />
+    </ProtectedRoute>
+  );
+}
+
+export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [settings, setSettings] = useState({
     company: {

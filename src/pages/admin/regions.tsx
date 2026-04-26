@@ -39,8 +39,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/user";
 
-export default function RegionsPage() {
+export default function ProtectedRegionsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <RegionsPage />
+    </ProtectedRoute>
+  );
+}
+
+function RegionsPage() {
   const [regions, setRegions] = useState(regionManagement.regions);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);

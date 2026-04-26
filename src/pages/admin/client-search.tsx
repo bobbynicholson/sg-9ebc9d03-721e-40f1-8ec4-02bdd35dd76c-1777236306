@@ -25,6 +25,16 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { profileService, Profile } from "@/services/profileService";
 import { useAuth } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
+import { UserRole } from "@/models/UserRole"; // Assumed import for UserRole
+
+export default function ProtectedClientSearchPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <ClientSearchPage />
+    </ProtectedRoute>
+  );
+}
 
 export default function ClientSearchPage() {
   const router = useRouter();

@@ -20,7 +20,15 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
 
-export default function JobProgressOverviewPage() {
+export default function ProtectedJobProgressOverviewPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <JobProgressOverviewPage />
+    </ProtectedRoute>
+  );
+}
+
+function JobProgressOverviewPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

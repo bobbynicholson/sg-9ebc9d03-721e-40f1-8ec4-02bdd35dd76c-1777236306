@@ -30,11 +30,21 @@ import { subscriptionService } from "@/services/subscriptionService";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 
-export default function SubscriptionPage() {
+export default function ProtectedSubscriptionPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
+      <SubscriptionPage />
+    </ProtectedRoute>
+  );
+}
+
+function SubscriptionPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);

@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute"; // Importing ProtectedRoute
+import { UserRole } from "@/types/UserRole"; // Importing UserRole
 
 interface EmailTemplate {
   id: string;
@@ -397,5 +399,13 @@ export default function AfterSalesEmailsPage() {
         <Footer />
       </div>
     </>
+  );
+}
+
+export default function ProtectedAfterSalesEmailsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <AfterSalesEmailsPage />
+    </ProtectedRoute>
   );
 }

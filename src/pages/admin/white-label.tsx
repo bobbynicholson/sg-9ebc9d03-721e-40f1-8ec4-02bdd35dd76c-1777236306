@@ -20,8 +20,18 @@ import { useBranding } from "@/contexts/BrandingContext";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
-export default function WhiteLabelPage() {
+export default function ProtectedWhiteLabelPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <WhiteLabelPage />
+    </ProtectedRoute>
+  );
+}
+
+function WhiteLabelPage() {
   const { branding, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
   
   const [organizationName, setOrganizationName] = useState("");

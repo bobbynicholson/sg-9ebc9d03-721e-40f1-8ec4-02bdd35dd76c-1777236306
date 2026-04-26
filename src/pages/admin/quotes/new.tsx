@@ -27,7 +27,15 @@ import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function NewQuotePage() {
+export default function ProtectedNewQuotePage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <NewQuotePage />
+    </ProtectedRoute>
+  );
+}
+
+function NewQuotePage() {
   const router = useRouter();
   const { user } = useAuth();
   const { leadId } = router.query;

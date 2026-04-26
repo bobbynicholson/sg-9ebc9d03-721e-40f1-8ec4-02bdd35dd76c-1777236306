@@ -20,6 +20,14 @@ import {
   getIntegrationStatus,
 } from "@/services/accountingIntegrationService";
 
+export default function ProtectedIntegrationsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <IntegrationsPage />
+    </ProtectedRoute>
+  );
+}
+
 export default function IntegrationsPage() {
   const router = useRouter();
   const { profile } = useAuth();

@@ -28,6 +28,16 @@ import { Footer } from "@/components/Footer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import ProtectedRoute from "@/components/ProtectedRoute"; // Assuming this is where the component is imported
+import { UserRole } from "@/constants/roles"; // Assuming this is where UserRole is imported
+
+export default function ProtectedEmailAutomationDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <EmailAutomationDashboard />
+    </ProtectedRoute>
+  );
+}
 
 export default function EmailAutomationDashboard() {
   const [queues, setQueues] = useState<AfterSalesEmailQueue[]>([]);

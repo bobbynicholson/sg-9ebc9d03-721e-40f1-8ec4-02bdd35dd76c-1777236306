@@ -17,6 +17,8 @@ import { userManagementService } from "@/services/userManagementService";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import UserRole from "@/constants/UserRole";
 
 interface Driver {
   id: string;
@@ -28,7 +30,15 @@ interface Driver {
   drive_time_to_kitchen_minutes: number | null;
 }
 
-export default function DriverManagementPage() {
+export default function ProtectedDriverManagementPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <DriverManagementPage />
+    </ProtectedRoute>
+  );
+}
+
+function DriverManagementPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);

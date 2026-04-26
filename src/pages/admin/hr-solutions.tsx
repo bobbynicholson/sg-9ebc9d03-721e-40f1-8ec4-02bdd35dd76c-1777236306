@@ -86,6 +86,14 @@ const hrFeatures = [
   }
 ];
 
+export default function ProtectedHRSolutionsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <HRSolutionsPage />
+    </ProtectedRoute>
+  );
+}
+
 export default function AdminHRSolutions() {
   const { user } = useAuth();
 

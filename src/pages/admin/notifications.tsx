@@ -30,7 +30,15 @@ import {
   Info,
 } from "lucide-react";
 
-export default function NotificationsPage() {
+export default function ProtectedNotificationsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <NotificationsPage />
+    </ProtectedRoute>
+  );
+}
+
+function NotificationsPage() {
   const { user, activeRole } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);

@@ -19,6 +19,17 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute"; // Adjust import based on actual path
+import CalendarPage from "@/components/CalendarPage"; // Adjust import based on actual path
+import { UserRole } from "@/types/users"; // Adjust import based on actual path
+
+export default function ProtectedCalendarPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <CalendarPage />
+    </ProtectedRoute>
+  );
+}
 
 export default function AdminCalendar() {
   const { user } = useAuth();

@@ -2,6 +2,8 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/UserRole";
 
 /**
  * Kitchen Duty Tracking Page (Admin View)
@@ -24,5 +26,13 @@ export default function KitchenDutyTrackingPage() {
         <div>Kitchen Duty Tracking Content</div>
       </div>
     </>
+  );
+}
+
+export function ProtectedKitchenDutyTrackingPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <KitchenDutyTrackingPage />
+    </ProtectedRoute>
   );
 }

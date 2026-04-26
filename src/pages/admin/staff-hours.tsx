@@ -29,8 +29,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types";
 
-export default function StaffHoursPage() {
+export default function ProtectedStaffHoursPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <StaffHoursPage />
+    </ProtectedRoute>
+  );
+}
+
+function StaffHoursPage() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
