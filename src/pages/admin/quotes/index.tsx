@@ -20,15 +20,26 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { quoteService } from "@/services/quoteService";
 
 export default function AdminQuotes() {
   const { user } = useAuth();
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedQuotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    setQuotes(storedQuotes);
-  }, []);
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const fetched = await quoteService.getQuotes(user.id);
+      if (!cancelled) {
+        setQuotes(fetched);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const getStatusColor = (status: Quote["status"]) => {
     switch (status) {

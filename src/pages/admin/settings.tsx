@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,8 +104,30 @@ function SettingsPage() {
     },
   });
 
-  const handleSave = () => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const stored = (user?.user_metadata as any)?.admin_settings;
+      if (stored && !cancelled) {
+        setSettings((prev) => ({ ...prev, ...stored }));
+      } else {
+        const local = localStorage.getItem("admin_settings");
+        if (local && !cancelled) {
+          try { setSettings((prev) => ({ ...prev, ...JSON.parse(local) })); } catch {}
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSave = async () => {
     localStorage.setItem("admin_settings", JSON.stringify(settings));
+    try {
+      await supabase.auth.updateUser({ data: { admin_settings: settings } });
+    } catch (e) {
+      console.error("Failed to persist settings to auth metadata:", e);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

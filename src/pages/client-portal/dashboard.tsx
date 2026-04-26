@@ -26,6 +26,7 @@ import { PaymentScheduleCard } from "@/components/orders/PaymentScheduleCard";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
   id: string;
@@ -46,33 +47,42 @@ export default function ClientPortalDashboard() {
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   useEffect(() => {
-    // Mock orders data
-    const mockOrders: Order[] = [
-      {
-        id: "1",
-        event_date: new Date().toISOString().split("T")[0],
-        venue_address: "123 Main Street, Cape Town",
-        guest_count: 150,
-        status: "confirmed",
-        total: 15000,
-        payment_status: "paid",
-        tracking_status: "preparing",
-      },
-      {
-        id: "2",
-        event_date: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-        venue_address: "456 Beach Road, Durban",
-        guest_count: 200,
-        status: "confirmed",
-        total: 25000,
-        payment_status: "pending",
-        tracking_status: "pending",
-      },
-    ];
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-    setOrders(mockOrders);
-    setLoading(false);
-  }, []);
+        let ordersQuery = supabase
+          .from("orders")
+          .select("id, event_date, venue_address, guest_count, status, total, payment_status, tracking_status")
+          .order("event_date", { ascending: false });
+
+        if (clientRow?.id) {
+          ordersQuery = ordersQuery.eq("client_id", clientRow.id);
+        } else {
+          ordersQuery = ordersQuery.eq("client_email", user.email ?? "");
+        }
+
+        const { data: rows, error } = await ordersQuery;
+        if (error) {
+          console.error("Error loading client orders:", error);
+        }
+        if (!cancelled) setOrders((rows as Order[]) ?? []);
+      } catch (e) {
+        console.error("Client portal load failed:", e);
+        if (!cancelled) setOrders([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, user?.email]);
 
   const activeOrders = orders.filter((o) => o.status !== "completed" && o.status !== "cancelled");
   const completedOrders = orders.filter((o) => o.status === "completed");

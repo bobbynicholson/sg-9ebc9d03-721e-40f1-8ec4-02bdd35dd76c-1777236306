@@ -22,6 +22,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface InventoryItem {
   id: string;
@@ -38,74 +39,39 @@ interface InventoryItem {
 }
 
 export default function AdminInventory() {
+  const { user } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
+    if (!user?.id) return;
     loadInventory();
-  }, []);
+  }, [user?.id]);
 
   const loadInventory = async () => {
+    if (!user?.id) return;
     setLoading(true);
     try {
-      // Mock data for now
-      const mockInventory: InventoryItem[] = [
-        {
-          id: "1",
-          name: "Beef Fillet",
-          category: "Meat",
-          quantity: 45,
-          unit: "kg",
-          minStock: 30,
-          maxStock: 100,
-          costPerUnit: 180,
-          supplier: "Premium Meats SA",
-          lastRestocked: "2026-04-18",
-          expiryDate: "2026-04-25",
-        },
-        {
-          id: "2",
-          name: "Chicken Breast",
-          category: "Meat",
-          quantity: 15,
-          unit: "kg",
-          minStock: 25,
-          maxStock: 80,
-          costPerUnit: 65,
-          supplier: "Premium Meats SA",
-          lastRestocked: "2026-04-17",
-          expiryDate: "2026-04-24",
-        },
-        {
-          id: "3",
-          name: "Rice (Basmati)",
-          category: "Staples",
-          quantity: 120,
-          unit: "kg",
-          minStock: 50,
-          maxStock: 200,
-          costPerUnit: 25,
-          supplier: "Bulk Foods Direct",
-          lastRestocked: "2026-04-10",
-        },
-        {
-          id: "4",
-          name: "Olive Oil",
-          category: "Oils",
-          quantity: 8,
-          unit: "L",
-          minStock: 10,
-          maxStock: 30,
-          costPerUnit: 85,
-          supplier: "Gourmet Supplies",
-          lastRestocked: "2026-04-12",
-        },
-      ];
-      setInventory(mockInventory);
+      const rows = await inventoryService.getInventory(user.id);
+      const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
+        id: row.id,
+        name: row.name ?? "Unnamed",
+        category: row.category ?? "Other",
+        quantity: Number(row.quantity ?? row.current_stock ?? 0),
+        unit: row.unit ?? "unit",
+        minStock: Number(row.min_stock ?? row.reorder_level ?? 0),
+        maxStock: Number(row.max_stock ?? 0),
+        costPerUnit: Number(row.cost_per_unit ?? row.unit_cost ?? 0),
+        supplier: row.supplier ?? row.supplier_name ?? "—",
+        lastRestocked: row.last_restocked ?? row.updated_at ?? "",
+        expiryDate: row.expiry_date ?? undefined,
+      }));
+      setInventory(mapped);
     } catch (error) {
       console.error("Error loading inventory:", error);
+      setInventory([]);
     } finally {
       setLoading(false);
     }

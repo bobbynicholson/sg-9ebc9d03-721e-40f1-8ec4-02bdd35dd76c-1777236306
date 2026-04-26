@@ -13,6 +13,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { LowStockAlerts } from "@/components/shopping/LowStockAlerts";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShoppingItem {
   id: string;
@@ -41,67 +42,63 @@ export default function ShoppingDashboard() {
   ];
 
   useEffect(() => {
-    const mockItems: ShoppingItem[] = [
-      {
-        id: "si1",
-        name: "Beef",
-        quantity: 30,
-        unit: "kg",
-        category: "fresh",
-        orderId: "ORD-001",
-        orderName: "Sarah Johnson Event",
-        eventDate: new Date().toISOString().split("T")[0],
-        purchased: false,
-        notes: "Premium cuts needed",
-      },
-      {
-        id: "si2",
-        name: "Chicken",
-        quantity: 25,
-        unit: "kg",
-        category: "fresh",
-        orderId: "ORD-001",
-        orderName: "Sarah Johnson Event",
-        eventDate: new Date().toISOString().split("T")[0],
-        purchased: false,
-      },
-      {
-        id: "si3",
-        name: "Boerewors",
-        quantity: 20,
-        unit: "kg",
-        category: "fresh",
-        orderId: "ORD-001",
-        orderName: "Sarah Johnson Event",
-        eventDate: new Date().toISOString().split("T")[0],
-        purchased: true,
-      },
-      {
-        id: "si4",
-        name: "Rice",
-        quantity: 10,
-        unit: "kg",
-        category: "staple",
-        orderId: "ORD-002",
-        orderName: "Corporate Event",
-        eventDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-        purchased: false,
-      },
-      {
-        id: "si5",
-        name: "Olive Oil",
-        quantity: 5,
-        unit: "L",
-        category: "staple",
-        orderId: "ORD-002",
-        orderName: "Corporate Event",
-        eventDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-        purchased: false,
-      },
-    ];
+    let cancelled = false;
+    (async () => {
+      const today = new Date();
+      const cutoff = new Date(Date.now() + 86400000 * 14);
+      const startStr = today.toISOString().split("T")[0];
+      const endStr = cutoff.toISOString().split("T")[0];
 
-    const stored = localStorage.getItem("shopping_items");
-    setItems(stored ? JSON.parse(stored) : mockItems);
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("id, order_number, client_name, event_date, status, menu_items")
+        .gte("event_date", startStr)
+        .lte("event_date", endStr)
+        .in("status", ["confirmed", "preparing", "prep", "pending"])
+        .order("event_date", { ascending: true });
+
+      if (error) {
+        console.error("Shopping list query failed:", error);
+      }
+
+      const generated: ShoppingItem[] = [];
+      const guessCategory = (name: string): "fresh" | "staple" | "other" => {
+        const n = (name || "").toLowerCase();
+        if (/beef|chicken|lamb|pork|fish|salad|veg|fruit|meat|herb|tomato|onion|cheese|milk|cream|butter/.test(n)) return "fresh";
+        if (/rice|oil|flour|sugar|salt|pasta|bread|stock|sauce|spice/.test(n)) return "staple";
+        return "other";
+      };
+
+      (orders || []).forEach((order: any) => {
+        const items = typeof order.menu_items === "string"
+          ? (() => { try { return JSON.parse(order.menu_items); } catch { return []; } })()
+          : (order.menu_items || []);
+        if (!Array.isArray(items)) return;
+        items.forEach((mi: any, idx: number) => {
+          const name = mi?.name ?? mi?.item_name ?? "Unnamed";
+          const qty = Number(mi?.quantity ?? mi?.qty ?? 1);
+          const unit = mi?.unit ?? "unit";
+          generated.push({
+            id: `${order.id}-${idx}`,
+            name,
+            quantity: qty,
+            unit,
+            category: guessCategory(name),
+            orderId: order.order_number || order.id,
+            orderName: order.client_name || `Order ${order.order_number || order.id}`,
+            eventDate: order.event_date,
+            purchased: false,
+            notes: mi?.notes,
+          });
+        });
+      });
+
+      const stored = localStorage.getItem("shopping_items_purchased");
+      const purchasedIds: string[] = stored ? JSON.parse(stored) : [];
+      const merged = generated.map(it => ({ ...it, purchased: purchasedIds.includes(it.id) }));
+      if (!cancelled) setItems(merged);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const handleTogglePurchased = (itemId: string) => {
@@ -109,7 +106,8 @@ export default function ShoppingDashboard() {
       item.id === itemId ? { ...item, purchased: !item.purchased } : item
     );
     setItems(updated);
-    localStorage.setItem("shopping_items", JSON.stringify(updated));
+    const purchasedIds = updated.filter((i) => i.purchased).map((i) => i.id);
+    localStorage.setItem("shopping_items_purchased", JSON.stringify(purchasedIds));
   };
 
   const getCategoryColor = (category: string) => {
