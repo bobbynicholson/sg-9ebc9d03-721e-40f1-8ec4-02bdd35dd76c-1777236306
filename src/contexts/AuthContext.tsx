@@ -21,8 +21,17 @@ export type AuthenticatedUser = {
   company_name?: string;
   company_slug?: string;
   phone_number?: string;
-  user_metadata?: Record<string, unknown>;
-  app_metadata?: Record<string, unknown>;
+  user_metadata?: {
+    company_id?: string;
+    company_slug?: string;
+    full_name?: string;
+    avatar_url?: string;
+    [key: string]: unknown;
+  };
+  app_metadata?: {
+    provider?: string;
+    [key: string]: unknown;
+  };
   aud?: string;
   created_at?: string;
   updated_at?: string;
