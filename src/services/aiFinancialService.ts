@@ -183,12 +183,32 @@ export const aiFinancialService = {
       };
 
       predictions.push(prediction);
-
-      // Save to database
-      await this.savePrediction(prediction);
     }
 
+    this.savePredictionsBatch(predictions).catch(err =>
+      console.error("Background prediction save failed:", err)
+    );
+
     return predictions;
+  },
+
+  async savePredictionsBatch(predictions: FinancialPrediction[]) {
+    if (!predictions.length) return;
+    const { error } = await supabase
+      .from('financial_predictions')
+      .upsert(
+        predictions.map(p => ({
+          prediction_date: p.prediction_date,
+          predicted_revenue: p.predicted_revenue,
+          predicted_expenses: p.predicted_expenses,
+          predicted_cashflow: p.predicted_cashflow,
+          confidence_score: p.confidence_score,
+          risk_level: p.risk_level,
+          recommendations: p.recommendations,
+        })),
+        { onConflict: 'prediction_date' }
+      );
+    if (error) console.error('Error saving predictions batch:', error);
   },
 
   /**
