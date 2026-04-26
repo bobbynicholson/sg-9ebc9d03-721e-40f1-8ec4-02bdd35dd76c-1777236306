@@ -16,8 +16,12 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
-import { supabase } from "@/integrations/supabase/client";
-import { AdminTrackingMap } from "@/components/tracking/AdminTrackingMap";
+
+// Dynamically import the map component with SSR disabled
+const AdminTrackingMap = dynamic(
+  () => import("@/components/tracking/AdminTrackingMap").then((mod) => mod.AdminTrackingMap),
+  { ssr: false }
+);
 
 interface OrderWithTracking {
   id: string;
@@ -48,7 +52,6 @@ export default function AdminTracking() {
   const [searchTerm, setSearchTerm] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
 
   useEffect(() => {
     loadTrackingData();
@@ -372,9 +375,6 @@ export default function AdminTracking() {
                               className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
                               onClick={() => {
                                 setSelectedOrder(order);
-                                if (order.venue_lat && order.venue_lng) {
-                                  setMapCenter([order.venue_lat, order.venue_lng]);
-                                }
                               }}
                             >
                               <div className="flex items-start justify-between mb-2">
@@ -463,9 +463,6 @@ export default function AdminTracking() {
                               variant="outline"
                               onClick={() => {
                                 setSelectedOrder(order);
-                                if (order.venue_lat && order.venue_lng) {
-                                  setMapCenter([order.venue_lat, order.venue_lng]);
-                                }
                               }}
                             >
                               View on Map
