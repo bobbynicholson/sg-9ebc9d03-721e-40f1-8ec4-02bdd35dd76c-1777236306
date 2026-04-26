@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { supabase } from "@/lib/supabase";
 
 const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
@@ -90,20 +91,40 @@ export default function ClientTracking() {
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
+      // Get client's details
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (!clientData) {
+        setLoading(false);
+        return;
+      }
+
       // Get active orders for this client
-      const fetchedOrders = await orderService.getClientOrders(user?.id || "");
+      const { data: fetchedOrders } = await supabase
+        .from("orders")
+        .select(`*, assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, phone)`)
+        .eq("client_id", clientData.id)
+        .order("event_date", { ascending: false });
       
       // Filter to show orders that are active or recently delivered
-      const activeOrders = fetchedOrders.filter((o: any) => 
+      const activeOrders = (fetchedOrders || []).filter((o: any) => 
         ["preparing", "ready", "out_for_delivery", "delivered"].includes(o.status)
-      );
+      ).map((o: any) => ({
+        ...o,
+        driver_name: o.assigned_driver?.full_name,
+        driver_phone: o.assigned_driver?.phone
+      }));
       
-      setOrders(activeOrders);
+      setOrders(activeOrders as any);
       
       // Auto-select first order if none selected
       if (activeOrders.length > 0 && !selectedOrder) {
-        setSelectedOrder(activeOrders[0]);
-        loadDriverLocation(activeOrders[0]);
+        setSelectedOrder(activeOrders[0] as any);
+        loadDriverLocation(activeOrders[0] as any);
       }
       
       setLastRefresh(new Date());
@@ -118,13 +139,20 @@ export default function ClientTracking() {
     if (!order.driver_id) return;
     
     try {
-      const { data: driver } = await orderService.getDriverLocation(order.driver_id);
+      const { data: driver } = await supabase
+        .from("gps_tracking")
+        .select("*")
+        .eq("user_id", order.driver_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
       if (driver) {
         setDriverLocation({
-          lat: driver.current_lat,
-          lng: driver.current_lng,
-          driver_name: driver.full_name || "Your Driver",
-          driver_phone: driver.phone,
+          lat: driver.latitude,
+          lng: driver.longitude,
+          driver_name: order.driver_name || "Your Driver",
+          driver_phone: order.driver_phone,
           last_updated: new Date().toISOString(),
         });
       }

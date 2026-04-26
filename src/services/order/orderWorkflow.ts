@@ -57,6 +57,7 @@ export async function assignDriver(orderId: string, driverId: string) {
     // Notify driver
     await notificationService.createNotification({
       user_id: driverId,
+      recipient_id: driverId,
       title: "New Delivery Assignment",
       message: `You have been assigned to order ${data.order_number}`,
       type: "order",
@@ -84,6 +85,7 @@ export async function assignChef(orderId: string, chefId: string) {
     // Notify chef
     await notificationService.createNotification({
       user_id: chefId,
+      recipient_id: chefId,
       title: "New Order Assignment",
       message: `You have been assigned to prepare order ${data.order_number}`,
       type: "order",

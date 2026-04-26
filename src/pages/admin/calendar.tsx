@@ -40,7 +40,7 @@ export default function AdminCalendar() {
     try {
       const companyId = user.user_metadata?.company_id || user.id;
       const allOrders = await orderService.getAllOrders(companyId);
-      setOrders(allOrders);
+      setOrders(allOrders as unknown as AppOrder[]);
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
