@@ -48,6 +48,7 @@ function AdminUsersPage() {
 
   const roleConfig = [
     { value: "admin" as UserRole, label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700 border-purple-200" },
+    { value: "company_admin" as UserRole, label: "Company Admin", icon: Shield, color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
     { value: "kitchen" as UserRole, label: "Kitchen Team", icon: ChefHat, color: "bg-orange-100 text-orange-700 border-orange-200" },
     { value: "shopping" as UserRole, label: "Shopping Team", icon: ShoppingCart, color: "bg-green-100 text-green-700 border-green-200" },
     { value: "driver" as UserRole, label: "Driver", icon: Truck, color: "bg-blue-100 text-blue-700 border-blue-200" },

@@ -28,11 +28,12 @@ interface StaffMember {
 }
 
 const ROLE_OPTIONS = [
+  { value: "company_admin", label: "Company Admin", icon: Shield, color: "bg-indigo-100 text-indigo-700" },
+  { value: "admin", label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700" },
   { value: "driver", label: "Driver", icon: Truck, color: "bg-green-100 text-green-700" },
   { value: "kitchen_staff", label: "Kitchen Staff", icon: ChefHat, color: "bg-orange-100 text-orange-700" },
   { value: "shopping_staff", label: "Shopping Staff", icon: ShoppingCart, color: "bg-pink-100 text-pink-700" },
   { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-cyan-100 text-cyan-700" },
-  { value: "company_admin", label: "Company Admin", icon: Shield, color: "bg-purple-100 text-purple-700" },
 ];
 
 export default function StaffManagementPage() {

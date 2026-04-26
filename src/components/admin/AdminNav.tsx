@@ -51,6 +51,8 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
+import { canAccessFinance } from "@/lib/authGuards";
+import { UserRole } from "@/types/app";
 
 interface NavItem {
   title: string;
@@ -281,7 +283,7 @@ export function AdminNav({ className }: AdminNavProps) {
         }
       ]
     },
-    {
+    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
       title: "Finance & Billing",
       items: [
         {
@@ -303,7 +305,7 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Configure payments"
         }
       ]
-    },
+    }] : []),
     {
       title: "Account",
       items: [
