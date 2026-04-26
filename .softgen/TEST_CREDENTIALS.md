@@ -1,171 +1,140 @@
 
-<![CDATA[
 # CateringMS Test Credentials
 **Company:** Spit Braai Delivery
 **Company Slug:** `spit-braai-delivery`
 
 ---
 
-## 🔐 Test User Credentials
+## 🚀 QUICK SETUP - Create All 8 Users at Once
 
-### IMPORTANT: Password Setup Required
-These users exist in the database, but you need to **manually create their auth accounts** in Supabase:
+### Step-by-Step in Supabase Dashboard:
 
-1. Go to Supabase Dashboard → Authentication → Users
-2. Click "Add User" → "Create New User"
-3. For each user below, enter the email and set password to: **`Test123!`**
-4. Confirm the email address (toggle "Auto Confirm User")
+1. **Open Supabase Dashboard:** https://supabase.com/dashboard
+2. **Select your project**
+3. **Go to:** Authentication → Users
+4. **For EACH user below, click "Add User" and fill in:**
 
 ---
 
-## 👥 All Test Users
-
-### 1. Super Admin (Platform-wide Access)
+## 👥 User #1: Super Admin
+- Click **"Create New User"**
 - **Email:** `superadmin@cateringms.com`
 - **Password:** `Test123!`
-- **Name:** Super Admin
-- **Role:** `super_admin`
-- **Access:** All companies, super admin dashboard
-- **Phone:** +27 11 111 1111
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 2. Company Owner (Callum Rogers)
+## 👥 User #2: Company Owner (Callum Rogers)
+- Click **"Create New User"**
 - **Email:** `hello@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Callum Rogers
-- **Role:** `company_admin`
-- **Access:** Full company management, settings, users
-- **Phone:** +27 82 222 2222
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 3. Admin Staff
+## 👥 User #3: Staff (Admin)
+- Click **"Create New User"**
 - **Email:** `admin@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Admin Staff
-- **Role:** `admin`
-- **Access:** Orders, inventory, reports, assignments
-- **Phone:** +27 82 333 3333
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 4. Kitchen Staff
+## 👥 User #4: Kitchen Staff
+- Click **"Create New User"**
 - **Email:** `kitchen@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Chef John
-- **Role:** `kitchen_staff`
-- **Access:** Kitchen dashboard, prep lists, duty tracking
-- **Phone:** +27 82 444 4444
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 5. Driver
+## 👥 User #5: Driver
+- Click **"Create New User"**
 - **Email:** `driver@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Driver Mike
-- **Role:** `driver`
-- **Access:** Driver dashboard, routes, deliveries, GPS tracking
-- **Phone:** +27 82 555 5555
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 6. Shopping Staff
+## 👥 User #6: Shopping Staff
+- Click **"Create New User"**
 - **Email:** `shopping@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Shopping Sarah
-- **Role:** `shopping_staff`
-- **Access:** Shopping dashboard, inventory, suppliers
-- **Phone:** +27 82 666 6666
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 7. Cleaning Staff
+## 👥 User #7: Cleaning Staff
+- Click **"Create New User"**
 - **Email:** `cleaning@spitbraaidelivery.co.za`
 - **Password:** `Test123!`
-- **Name:** Cleaning Lisa
-- **Role:** `cleaning_staff`
-- **Access:** Cleaning dashboard, equipment, schedules
-- **Phone:** +27 82 777 7777
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
-### 8. Client (Test Client Portal)
+## 👥 User #8: Client (Test Client Portal)
+- Click **"Create New User"**
 - **Email:** `client@test.com`
 - **Password:** `Test123!`
-- **Name:** Test Client
-- **Role:** `client`
-- **Access:** Client portal, order tracking, billing
-- **Phone:** +27 82 888 8888
+- ✅ Toggle **"Auto Confirm User"** to ON
+- Click **"Create User"**
 
 ---
 
-## 🚀 Quick Setup Instructions
+## ✅ After Creating All Auth Users
 
-### Option 1: Supabase Dashboard (Recommended)
-1. Open Supabase Dashboard: https://supabase.com/dashboard
-2. Select your project
-3. Go to **Authentication** → **Users**
-4. For each email above:
-   - Click **"Add User"** → **"Create New User"**
-   - Email: `[email from list above]`
-   - Password: `Test123!`
-   - Toggle **"Auto Confirm User"** to ON
-   - Click **"Create User"**
+The database will **automatically create profiles** for each user with the correct roles via database triggers.
 
-### Option 2: Supabase SQL Editor
-Run this SQL to create auth users (if you haven't disabled email confirmation):
-
-```sql
--- Note: This requires admin access to auth.users table
--- Alternatively, use the Supabase Dashboard method above
-```
+**Verify Setup:**
+1. Go to **Database** → **Table Editor** → **profiles**
+2. You should see all 8 users with their roles assigned
 
 ---
 
-## 🧪 Testing Workflows
+## 📋 Complete User List (Reference)
 
-### Test Complete Order Workflow
-1. **Login as Admin:** `admin@spitbraaidelivery.co.za`
-2. Create new order
-3. Assign kitchen staff and driver
-4. **Login as Kitchen:** `kitchen@spitbraaidelivery.co.za`
-5. View assigned orders, mark as preparing
-6. **Login as Driver:** `driver@spitbraaidelivery.co.za`
-7. View routes, update delivery status
-8. **Login as Client:** `client@test.com`
-9. Track order in real-time
-
-### Test Multi-Role Switching
-1. **Login as Owner:** `hello@spitbraaidelivery.co.za`
-2. Use Role Switcher to test different portals
-3. Verify each role sees appropriate dashboard
-
-### Test Company Isolation
-1. Create second test company
-2. Create users for second company
-3. Verify User A cannot see User B's data
+| # | Email | Password | Name | Role | Phone |
+|---|-------|----------|------|------|-------|
+| 1 | superadmin@cateringms.com | Test123! | Super Admin | super_admin | +27 11 111 1111 |
+| 2 | hello@spitbraaidelivery.co.za | Test123! | Callum Rogers | company_admin | +27 82 222 2222 |
+| 3 | admin@spitbraaidelivery.co.za | Test123! | Admin Staff | staff | +27 82 333 3333 |
+| 4 | kitchen@spitbraaidelivery.co.za | Test123! | Chef John | kitchen_staff | +27 82 444 4444 |
+| 5 | driver@spitbraaidelivery.co.za | Test123! | Driver Mike | driver | +27 82 555 5555 |
+| 6 | shopping@spitbraaidelivery.co.za | Test123! | Shopping Sarah | shopping_staff | +27 82 666 6666 |
+| 7 | cleaning@spitbraaidelivery.co.za | Test123! | Cleaning Lisa | cleaning_staff | +27 82 777 7777 |
+| 8 | client@test.com | Test123! | Test Client | client | +27 82 888 8888 |
 
 ---
 
-## 📋 What's Already Set Up
+## 🔐 Login Instructions
 
-✅ All 8 user profiles created in database
-✅ Roles and permissions configured
-✅ Company association set
-✅ Phone numbers assigned
-✅ Client record created for client user
+### Company Users (Most Common):
+**URL:** `http://localhost:3000/spit-braai-delivery/login`
+- Use emails 2-8 from the table above
 
-❌ **You Must Create:** Auth accounts in Supabase (see instructions above)
+### Super Admin Only:
+**URL:** `http://localhost:3000/super-admin`
+- Use: superadmin@cateringms.com / Test123!
+
+### Main Public Login (Auto-detects company):
+**URL:** `http://localhost:3000/auth/login`
+- Works with any email above
+
+---
+
+## 🧪 Quick Test
+
+After creating all users:
+
+1. **Login as Owner:** hello@spitbraaidelivery.co.za
+2. **Expected:** See company dashboard
+3. **Try Role Switcher** (top right)
+4. **Switch to different roles** - test Kitchen, Driver, etc.
 
 ---
 
 ## 🔒 Security Notes
 
-- **These are TEST credentials** - Use only in development
-- **DO NOT use `Test123!`** in production
-- **Change all passwords** before going live
-- **Enable MFA** for admin and owner accounts in production
-- **Use strong passwords** (12+ characters, mixed case, numbers, symbols)
+- ⚠️ **Development Only** - These credentials are for testing
+- ⚠️ **Change ALL passwords** before production
+- ⚠️ **Never use Test123!** in production
+- ✅ **Enable MFA** for admin accounts in production
 
 ---
 
-## 📞 Support
-
-If you encounter issues:
-1. Check Supabase Dashboard → Authentication → Users
-2. Verify email confirmation is disabled OR users are auto-confirmed
-3. Check Database → Table Editor → profiles (verify records exist)
-4. Try logging in at: `http://localhost:3000/auth/login`
-
----
-
+**Setup Time:** ~5 minutes (8 users × 30 seconds each)
+**Status:** ✅ Ready for testing once auth users created
 **Last Updated:** 2026-04-26
-**Status:** ✅ Database records created - Auth accounts need manual setup
-</CDATA>
