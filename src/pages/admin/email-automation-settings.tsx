@@ -203,7 +203,7 @@ function EmailAutomationSettings() {
     }
   }, []);
 
-  if (user?.role !== "admin" && user?.role !== "owner" && user?.role !== "super_admin") {
+  if (user?.role !== "admin" && user?.role !== "company_admin" && user?.role !== "super_admin") {
     return (
       <>
         <NoIndexMeta />
