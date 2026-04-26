@@ -4,6 +4,8 @@ status: todo
 created_by: human
 created_at: '2026-04-25T14:15:40.988036'
 position: 6
+priority: low
+type: idea
 ---
 
 ## Notes
