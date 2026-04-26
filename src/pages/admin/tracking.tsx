@@ -72,7 +72,7 @@ export default function AdminTracking() {
       
       // Enrich orders with driver location data
       const enrichedOrders = activeOrders.map(order => {
-        const driver = driverData.find(d => d.id === order.driver_id);
+        const driver = driverData.find(d => d.id === order.driver_id) as any;
         return {
           ...order,
           driver_name: driver?.full_name,

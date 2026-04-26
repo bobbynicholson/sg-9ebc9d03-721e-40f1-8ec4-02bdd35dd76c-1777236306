@@ -169,7 +169,7 @@ export async function optimizeRoute(
     if (!stops || stops.length === 0) return { success: true };
 
     // Simple optimization: nearest neighbor algorithm
-    const optimized = [];
+    const optimized: any[] = [];
     let current = stops[0];
     optimized.push(current);
     const remaining = stops.slice(1);
