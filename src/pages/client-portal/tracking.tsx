@@ -142,7 +142,7 @@ export default function ClientTracking() {
       const { data: driver } = await supabase
         .from("gps_tracking")
         .select("*")
-        .eq("user_id", order.driver_id)
+        .eq("driver_id", order.driver_id)
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
