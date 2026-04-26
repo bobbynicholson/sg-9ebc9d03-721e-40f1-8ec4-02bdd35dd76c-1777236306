@@ -38,7 +38,9 @@ import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalLayout } from "@/components/Layout";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { Footer } from "@/components/Footer";
+import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
 import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -936,219 +938,227 @@ function OrderProcessDashboard() {
         <title>Order Process Dashboard - CateringMS</title>
       </Head>
 
-      <PortalLayout maxWidth="full">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                <ShoppingCart className="w-6 h-6 text-white" />
+      <AdminNav />
+
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64">
+        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-full">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                  <ShoppingCart className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Order Process Dashboard
+                  </h1>
+                  <p className="text-slate-600 mt-1">Track all orders through your workflow</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Order Process Dashboard
-                </h1>
-                <p className="text-slate-600 mt-1">Track all orders through your workflow</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex border rounded-lg overflow-hidden">
-                <Button
-                  variant={viewMode === "kanban" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("kanban")}
-                  className="rounded-none"
-                >
-                  <LayoutGrid className="w-4 h-4 mr-2" />
-                  Kanban
-                </Button>
-                <Button
-                  variant={viewMode === "timeline" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("timeline")}
-                  className="rounded-none"
-                >
-                  <List className="w-4 h-4 mr-2" />
-                  Timeline
-                </Button>
-              </div>
-              <Link href="/admin/order-assignments">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  New Order
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-700 mb-1">Total Orders</p>
-                    <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-                  </div>
-                  <ShoppingCart className="w-8 h-8 text-blue-600 opacity-30" />
+              <div className="flex gap-2">
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    variant={viewMode === "kanban" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("kanban")}
+                    className="rounded-none"
+                  >
+                    <LayoutGrid className="w-4 h-4 mr-2" />
+                    Kanban
+                  </Button>
+                  <Button
+                    variant={viewMode === "timeline" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewMode("timeline")}
+                    className="rounded-none"
+                  >
+                    <List className="w-4 h-4 mr-2" />
+                    Timeline
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 mb-1">Revenue</p>
-                    <p className="text-2xl font-bold text-green-900">R{(stats.revenue.total / 1000).toFixed(0)}k</p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-600 opacity-30" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-purple-700 mb-1">In Progress</p>
-                    <p className="text-3xl font-bold text-purple-900">{stats.inProgress}</p>
-                  </div>
-                  <Package className="w-8 h-8 text-purple-600 opacity-30" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-orange-700 mb-1">Upcoming</p>
-                    <p className="text-3xl font-bold text-orange-900">{stats.upcoming}</p>
-                  </div>
-                  <Calendar className="w-8 h-8 text-orange-600 opacity-30" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-yellow-700 mb-1">Pending</p>
-                    <p className="text-3xl font-bold text-yellow-900">{stats.byStatus.pending || 0}</p>
-                  </div>
-                  <Clock className="w-8 h-8 text-yellow-600 opacity-30" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-indigo-700 mb-1">In Transit</p>
-                    <p className="text-3xl font-bold text-indigo-900">{stats.byStatus.in_transit || 0}</p>
-                  </div>
-                  <Truck className="w-8 h-8 text-indigo-600 opacity-30" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Filters */}
-          <Card className="border-0 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <Input
-                    placeholder="Search by client, order ID, or venue..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="preparing">In Prep</SelectItem>
-                    <SelectItem value="ready">Ready</SelectItem>
-                    <SelectItem value="in_transit">In Transit</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="All Dates" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Dates</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Kanban Board / Timeline View */}
-          {loading ? (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-24">
-                <div className="text-center">
-                  <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-slate-600">Loading orders...</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : viewMode === "kanban" ? (
-            <div className="overflow-x-auto pb-4">
-              <div className="flex gap-6 min-w-max px-1">
-                <KanbanColumn status="pending" title="Pending" />
-                <KanbanColumn status="confirmed" title="Confirmed" />
-                <KanbanColumn status="preparing" title="In Prep" />
-                <KanbanColumn status="ready" title="Ready" />
-                <KanbanColumn status="in_transit" title="In Transit" />
-                <KanbanColumn status="delivered" title="Delivered" />
-                <KanbanColumn status="completed" title="Completed" />
+                <Link href="/admin/order-assignments">
+                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    New Order
+                  </Button>
+                </Link>
               </div>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {getFilteredOrders().length === 0 ? (
-                <Card className="border-0 shadow-lg">
-                  <CardContent className="py-24">
-                    <div className="text-center text-slate-400">
-                      <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg font-medium">No orders found</p>
-                      <p className="text-sm mt-1">Try adjusting your filters</p>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-700 mb-1">Total Orders</p>
+                      <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                getFilteredOrders()
-                  .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-                  .map((order) => <TimelineRow key={order.id} order={order} />)
-              )}
-            </div>
-          )}
+                    <ShoppingCart className="w-8 h-8 text-blue-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
 
-          {/* Order Details Modal */}
-          <OrderDetailsModal />
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-700 mb-1">Revenue</p>
+                      <p className="text-2xl font-bold text-green-900">R{(stats.revenue.total / 1000).toFixed(0)}k</p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-green-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-700 mb-1">In Progress</p>
+                      <p className="text-3xl font-bold text-purple-900">{stats.inProgress}</p>
+                    </div>
+                    <Package className="w-8 h-8 text-purple-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-orange-700 mb-1">Upcoming</p>
+                      <p className="text-3xl font-bold text-orange-900">{stats.upcoming}</p>
+                    </div>
+                    <Calendar className="w-8 h-8 text-orange-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-yellow-700 mb-1">Pending</p>
+                      <p className="text-3xl font-bold text-yellow-900">{stats.byStatus.pending || 0}</p>
+                    </div>
+                    <Clock className="w-8 h-8 text-yellow-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-indigo-700 mb-1">In Transit</p>
+                      <p className="text-3xl font-bold text-indigo-900">{stats.byStatus.in_transit || 0}</p>
+                    </div>
+                    <Truck className="w-8 h-8 text-indigo-600 opacity-30" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Filters */}
+            <Card className="border-0 shadow-lg">
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <Input
+                      placeholder="Search by client, order ID, or venue..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full md:w-[200px]">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="preparing">In Prep</SelectItem>
+                      <SelectItem value="ready">Ready</SelectItem>
+                      <SelectItem value="in_transit">In Transit</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger className="w-full md:w-[200px]">
+                      <SelectValue placeholder="All Dates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Dates</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">This Week</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Export
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Kanban Board / Timeline View */}
+            {loading ? (
+              <Card className="border-0 shadow-lg">
+                <CardContent className="py-24">
+                  <div className="text-center">
+                    <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
+                    <p className="text-slate-600">Loading orders...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : viewMode === "kanban" ? (
+              <div className="overflow-x-auto pb-4">
+                <div className="flex gap-6 min-w-max px-1">
+                  <KanbanColumn status="pending" title="Pending" />
+                  <KanbanColumn status="confirmed" title="Confirmed" />
+                  <KanbanColumn status="preparing" title="In Prep" />
+                  <KanbanColumn status="ready" title="Ready" />
+                  <KanbanColumn status="in_transit" title="In Transit" />
+                  <KanbanColumn status="delivered" title="Delivered" />
+                  <KanbanColumn status="completed" title="Completed" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {getFilteredOrders().length === 0 ? (
+                  <Card className="border-0 shadow-lg">
+                    <CardContent className="py-24">
+                      <div className="text-center text-slate-400">
+                        <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-lg font-medium">No orders found</p>
+                        <p className="text-sm mt-1">Try adjusting your filters</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  getFilteredOrders()
+                    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+                    .map((order) => <TimelineRow key={order.id} order={order} />)
+                )}
+              </div>
+            )}
+
+            {/* Order Details Modal */}
+            <OrderDetailsModal />
+          </div>
         </div>
-      </PortalLayout>
+
+        <Footer />
+
+        <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      </div>
     </>
   );
 }
