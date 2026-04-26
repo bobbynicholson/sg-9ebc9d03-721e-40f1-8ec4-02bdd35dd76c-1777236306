@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
