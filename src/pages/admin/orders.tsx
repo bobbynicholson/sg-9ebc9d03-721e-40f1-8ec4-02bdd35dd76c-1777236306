@@ -520,9 +520,7 @@ function OrderProcessDashboard() {
                   {/* Timeline Dot */}
                   <div className={`relative z-10 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                     isFirst ? config.dotColor : "bg-slate-300"
-                  } ${isFirst ? "ring-4 ring-offset-2" : ""}`}
-                  style={isFirst ? { ringColor: config.dotColor.replace('bg-', 'rgba(') + ', 0.2)' } : {}}
-                  >
+                  } ${isFirst ? "ring-4 ring-offset-2 " + config.dotColor.replace('bg-', 'ring-').replace('-500', '-300') : ""}`}>
                     <Icon className={`w-4 h-4 ${isFirst ? "text-white" : "text-slate-500"}`} />
                   </div>
 
