@@ -468,10 +468,16 @@ function OrderProcessDashboard() {
   };
 
   const OrderDetailsModal = () => {
-    if (!selectedOrder) return null;
-
-    const [editedOrder, setEditedOrder] = useState<AppOrder>(selectedOrder);
+    const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+      if (selectedOrder) {
+        setEditedOrder(selectedOrder);
+      }
+    }, [selectedOrder]);
+
+    if (!selectedOrder || !editedOrder) return null;
 
     const handleSave = async () => {
       setSaving(true);

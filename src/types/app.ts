@@ -11,6 +11,7 @@ export interface AppOrder extends Omit<Tables<'orders'>, 'menu_items' | 'equipme
   eventLocation?: string; 
   totalAmount?: number;
   waiterRate?: number | null;
+  notes?: string;
 }
 
 // Interfaces for UI and Services
