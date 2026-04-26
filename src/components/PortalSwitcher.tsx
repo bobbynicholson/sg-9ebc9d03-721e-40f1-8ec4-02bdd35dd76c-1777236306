@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Crown, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Truck, ChefHat, ShoppingCart, Sparkles, Crown, LogOut, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const PORTALS = [
@@ -29,7 +29,7 @@ export function PortalSwitcher() {
   if (!user || user.role !== "super_admin") return null;
 
   const handleBackToDashboard = () => {
-    router.push("/super-admin");
+    router.push("/admin/platform/dashboard");
   };
 
   const handleSignOut = async () => {

@@ -302,6 +302,13 @@ export default function PlatformDashboard() {
       </Head>
 
       <div className="container mx-auto p-6 max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Platform Dashboard</h1>
+          <p className="text-slate-600">
+            System-wide overview and management
+          </p>
+        </div>
+
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">

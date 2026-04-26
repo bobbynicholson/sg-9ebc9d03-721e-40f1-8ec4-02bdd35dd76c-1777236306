@@ -12,6 +12,8 @@ import { Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle } from "lucide-
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function CMSPageManagement() {
   const [pages, setPages] = useState<CMSPage[]>([]);
@@ -27,6 +29,8 @@ export default function CMSPageManagement() {
     meta_keywords: "",
     is_published: true
   });
+
+  const router = useRouter();
 
   useEffect(() => {
     loadPages();

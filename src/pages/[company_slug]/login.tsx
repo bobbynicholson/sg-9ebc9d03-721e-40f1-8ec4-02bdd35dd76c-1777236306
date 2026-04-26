@@ -135,7 +135,7 @@ export default function CompanyLoginPage() {
 
       switch (activeRole) {
         case "super_admin":
-          router.push("/super-admin/dashboard");
+          router.push("/admin/platform/dashboard");
           break;
         case "company_admin":
         case "admin":

@@ -28,7 +28,7 @@ const PORTALS: Portal[] = [
     name: "Platform Management",
     description: "Core platform operations and settings",
     icon: Settings,
-    route: "/super-admin/dashboard",
+    route: "/admin/platform/dashboard",
     features: [
       "System overview",
       "Platform settings",
@@ -42,7 +42,7 @@ const PORTALS: Portal[] = [
     name: "Company Database",
     description: "View and manage all registered catering companies",
     icon: Building2,
-    route: "/super-admin/company-database",
+    route: "/admin/platform/company-database",
     features: [
       "Company profiles",
       "Subscription status",
@@ -56,7 +56,7 @@ const PORTALS: Portal[] = [
     name: "Subscription Management",
     description: "Monitor and manage all platform subscriptions",
     icon: CreditCard,
-    route: "/super-admin/subscription-management",
+    route: "/admin/platform/subscription-management",
     features: [
       "Active subscriptions",
       "Billing history",
@@ -70,7 +70,7 @@ const PORTALS: Portal[] = [
     name: "Trial Management",
     description: "Manage trial periods and conversions",
     icon: Clock,
-    route: "/super-admin/trial-management",
+    route: "/admin/platform/trial-management",
     features: [
       "Active trials",
       "Expiry tracking",
@@ -84,7 +84,7 @@ const PORTALS: Portal[] = [
     name: "Pricing Management",
     description: "Configure platform pricing and plans",
     icon: DollarSign,
-    route: "/super-admin/pricing-management",
+    route: "/admin/platform/pricing-management",
     features: [
       "Plan tiers",
       "Feature pricing",
@@ -98,7 +98,7 @@ const PORTALS: Portal[] = [
     name: "Currency Monitoring",
     description: "Track and manage multi-currency support",
     icon: Globe,
-    route: "/super-admin/currency-monitoring",
+    route: "/admin/platform/currency-monitoring",
     features: [
       "Exchange rates",
       "Currency conversions",
@@ -112,7 +112,7 @@ const PORTALS: Portal[] = [
     name: "Blog CMS",
     description: "Create and manage blog content",
     icon: FileText,
-    route: "/super-admin/cms-blog",
+    route: "/admin/platform/cms-blog",
     features: [
       "Create posts",
       "Edit content",
@@ -126,7 +126,7 @@ const PORTALS: Portal[] = [
     name: "Pages CMS",
     description: "Manage static pages and content",
     icon: Layout,
-    route: "/super-admin/cms-pages",
+    route: "/admin/platform/cms-pages",
     features: [
       "Page templates",
       "Content editor",

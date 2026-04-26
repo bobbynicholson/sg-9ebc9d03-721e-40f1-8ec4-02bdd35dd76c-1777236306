@@ -79,52 +79,56 @@ const DEV_USERS = [
   },
 ];
 
-async function routeAfterLogin(userId: string, router: any, redirect?: string) {
-  // Honour redirect query param first
-  if (redirect && typeof redirect === "string") {
-    await router.push(redirect);
-    return;
+// Route user after successful login based on active_role
+const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: string) => {
+  try {
+    const profile = await profileService.getProfile(userId);
+    if (!profile) throw new Error("Profile not found");
+
+    // Honor redirectTo if provided
+    if (redirectTo) {
+      router.push(redirectTo);
+      return;
+    }
+
+    // Route based on active_role
+    const role = profile.active_role || profile.role;
+    
+    switch (role) {
+      case "super_admin":
+        router.push("/admin/platform/dashboard");
+        break;
+      case "company_admin":
+      case "admin":
+      case "owner":
+        router.push("/admin/dashboard");
+        break;
+      case "kitchen_staff":
+      case "kitchen":
+        router.push("/kitchen");
+        break;
+      case "shopping_staff":
+      case "shopping":
+        router.push("/shopping");
+        break;
+      case "cleaning_staff":
+      case "cleaning":
+        router.push("/cleaning");
+        break;
+      case "driver":
+        router.push("/drivers");
+        break;
+      case "client":
+        router.push("/client-portal");
+        break;
+      default:
+        router.push("/admin/dashboard");
+    }
+  } catch (error) {
+    console.error("Error routing after login:", error);
+    router.push("/admin/dashboard"); // fallback
   }
-
-  // Get user profile and route based on active_role
-  const profile = await profileService.getProfile(userId);
-  if (!profile || !profile.active_role) {
-    await router.push("/");
-    return;
-  }
-
-  const activeRole = profile.active_role;
-  let dashboardUrl = "/";
-
-  switch (activeRole) {
-    case "super_admin":
-      dashboardUrl = "/cateringms-platform/dashboard";
-      break;
-    case "company_admin":
-    case "admin":
-      dashboardUrl = "/admin/dashboard";
-      break;
-    case "kitchen_staff":
-      dashboardUrl = "/kitchen";
-      break;
-    case "shopping_staff":
-      dashboardUrl = "/shopping";
-      break;
-    case "cleaning_staff":
-      dashboardUrl = "/cleaning";
-      break;
-    case "driver":
-      dashboardUrl = "/drivers";
-      break;
-    case "client":
-      dashboardUrl = "/client-portal";
-      break;
-    default:
-      dashboardUrl = "/";
-  }
-
-  await router.push(dashboardUrl);
-}
+};
 
 export default function LoginPage() {
   const router = useRouter();
