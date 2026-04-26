@@ -62,7 +62,7 @@ interface StaffAssignment {
   cleaning?: string;
 }
 
-function OrderAssignmentsPage() {
+function OrderAssignmentsContent() {
   const [orders] = useState(mockOrders);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [staffAssignments, setStaffAssignments] = useState<Record<string, StaffAssignment>>({});
@@ -712,8 +712,8 @@ function OrderAssignmentsPage() {
 
 export default function ProtectedOrderAssignmentsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.OWNER]}>
-      <OrderAssignmentsPage />
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+      <OrderAssignmentsContent />
     </ProtectedRoute>
   );
 }

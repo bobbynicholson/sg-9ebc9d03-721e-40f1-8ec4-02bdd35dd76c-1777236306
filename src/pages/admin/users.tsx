@@ -530,7 +530,7 @@ function AdminUsersPage() {
 
 export default function UsersPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
       <AdminUsersPage />
     </ProtectedRoute>
   );

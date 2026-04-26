@@ -27,6 +27,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { orderService } from "@/services/orderService";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/userRole";
 
 interface DashboardStats {
   activeOrders: number;
@@ -464,7 +465,7 @@ function AdminDashboardPage() {
 
 export default function AdminDashboard() {
   return (
-    <ProtectedRoute requireAdmin={true}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
       <AdminDashboardPage />
     </ProtectedRoute>
   );
