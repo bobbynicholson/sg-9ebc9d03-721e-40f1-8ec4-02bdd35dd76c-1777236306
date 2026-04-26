@@ -21,8 +21,8 @@ export type AuthenticatedUser = {
   company_name?: string;
   company_slug?: string;
   phone_number?: string;
-  user_metadata?: any;
-  app_metadata?: any;
+  user_metadata?: Record<string, unknown>;
+  app_metadata?: Record<string, unknown>;
   aud?: string;
   created_at?: string;
   updated_at?: string;
@@ -35,11 +35,11 @@ interface AuthContextType {
   companySlug: string | null;
   loading: boolean;
   error: string | null;
-  userRoles: any[];
+  userRoles: UserRole[];
   activeRole: string;
   switchRole: (newRole: UserRole) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, metadata: any, isOwner?: boolean) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<{ user: unknown; error: { message: string } | null }>;
+  signUp: (email: string, password: string, metadata: Record<string, unknown>) => Promise<{ user: unknown; error: { message: string } | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<DbProfile>) => Promise<void>;
 }
@@ -204,7 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { user: data.user, error };
   };
 
-  const signUp = async (email: string, password: string, metadata: any, isOwner = false) => {
+  const signUp = async (email: string, password: string, metadata: Record<string, unknown>) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

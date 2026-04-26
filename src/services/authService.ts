@@ -1,12 +1,11 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+ 
 import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 
 export interface AuthUser {
   id: string;
   email: string;
-  user_metadata?: any;
+  user_metadata?: Record<string, unknown>;
   created_at?: string;
 }
 
@@ -50,7 +49,7 @@ export const authService = {
   },
 
   // Sign up with email and password
-  async signUp(email: string, password: string, metadata?: Record<string, any>): Promise<{ user: AuthUser | null; error: AuthError | null }> {
+  async signUp(email: string, password: string, metadata?: Record<string, unknown>): Promise<{ user: AuthUser | null; error: AuthError | null }> {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -73,10 +72,11 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as Error;
       return { 
         user: null, 
-        error: { message: error?.message || "An unexpected error occurred during sign up" } 
+        error: { message: err?.message || "An unexpected error occurred during sign up" } 
       };
     }
   },
@@ -101,10 +101,11 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as Error;
       return { 
         user: null, 
-        error: { message: error?.message || "An unexpected error occurred during sign in" } 
+        error: { message: err?.message || "An unexpected error occurred during sign in" } 
       };
     }
   },
@@ -124,9 +125,10 @@ export const authService = {
       }
 
       return { error: null };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as Error;
       return { 
-        error: { message: error?.message || "An unexpected error occurred during Google sign in" } 
+        error: { message: err?.message || "An unexpected error occurred during Google sign in" } 
       };
     }
   },
@@ -148,10 +150,11 @@ export const authService = {
       } : null;
 
       return { user: authUser, error: null };
-    } catch (error: any) {
+    } catch (error) {
+      const err = error as Error;
       return { 
         user: null, 
-        error: { message: error?.message || "An unexpected error occurred during OAuth callback" } 
+        error: { message: err?.message || "An unexpected error occurred during OAuth callback" } 
       };
     }
   },
