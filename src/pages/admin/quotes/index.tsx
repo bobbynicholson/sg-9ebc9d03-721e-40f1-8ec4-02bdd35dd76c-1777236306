@@ -112,7 +112,7 @@ export default function AdminQuotes() {
               <CardContent className="p-4">
                 <p className="text-sm text-slate-600 mb-1">Total Value</p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  R{quotes.reduce((sum, q) => sum + q.total, 0).toLocaleString()}
+                  R{quotes.reduce((sum, q) => sum + (q.total ?? 0), 0).toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -150,7 +150,7 @@ export default function AdminQuotes() {
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <Calendar className="w-4 h-4" />
-                            <span className="text-sm">{new Date(quote.event_date).toLocaleDateString()}</span>
+                            <span className="text-sm">{quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "—"}</span>
                           </div>
                           <div className="flex items-center gap-2 text-slate-600">
                             <Users className="w-4 h-4" />
@@ -159,7 +159,7 @@ export default function AdminQuotes() {
                           <div className="flex items-center gap-2 text-slate-600">
                             <DollarSign className="w-4 h-4" />
                             <span className="text-sm font-semibold text-green-600">
-                              R{quote.total.toFixed(2)}
+                              R{(quote.total ?? 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -180,12 +180,12 @@ export default function AdminQuotes() {
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">VAT (15%)</span>
-                            <span className="font-medium">R{quote.tax.toFixed(2)}</span>
+                            <span className="font-medium">R{(quote.tax ?? 0).toFixed(2)}</span>
                           </div>
                           <div className="h-px bg-slate-200" />
                           <div className="flex justify-between font-bold">
                             <span>Total</span>
-                            <span className="text-green-600">R{quote.total.toFixed(2)}</span>
+                            <span className="text-green-600">R{(quote.total ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>

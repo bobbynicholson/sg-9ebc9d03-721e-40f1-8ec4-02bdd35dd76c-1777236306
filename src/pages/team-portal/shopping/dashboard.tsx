@@ -51,10 +51,9 @@ export default function ShoppingDashboard() {
 
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("id, order_number, client_name, event_date, status, menu_items")
+        .select("id, order_number, client_name, event_date, status, order_items(item_name, quantity, special_instructions)")
         .gte("event_date", startStr)
         .lte("event_date", endStr)
-        .in("status", ["confirmed", "preparing", "prep", "pending"])
         .order("event_date", { ascending: true });
 
       if (error) {
@@ -70,25 +69,22 @@ export default function ShoppingDashboard() {
       };
 
       (orders || []).forEach((order: any) => {
-        const items = typeof order.menu_items === "string"
-          ? (() => { try { return JSON.parse(order.menu_items); } catch { return []; } })()
-          : (order.menu_items || []);
+        const items = order.order_items || [];
         if (!Array.isArray(items)) return;
         items.forEach((mi: any, idx: number) => {
-          const name = mi?.name ?? mi?.item_name ?? "Unnamed";
-          const qty = Number(mi?.quantity ?? mi?.qty ?? 1);
-          const unit = mi?.unit ?? "unit";
+          const name = mi?.item_name ?? "Unnamed";
+          const qty = Number(mi?.quantity ?? 1);
           generated.push({
             id: `${order.id}-${idx}`,
             name,
             quantity: qty,
-            unit,
+            unit: "unit",
             category: guessCategory(name),
             orderId: order.order_number || order.id,
             orderName: order.client_name || `Order ${order.order_number || order.id}`,
             eventDate: order.event_date,
             purchased: false,
-            notes: mi?.notes,
+            notes: mi?.special_instructions,
           });
         });
       });

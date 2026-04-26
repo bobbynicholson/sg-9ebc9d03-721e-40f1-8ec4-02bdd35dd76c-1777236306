@@ -36,7 +36,7 @@ interface Order {
   status: string;
   total: number;
   payment_status?: string;
-  tracking_status?: string;
+  delivery_status?: string;
 }
 
 export default function ClientPortalDashboard() {
@@ -60,7 +60,7 @@ export default function ClientPortalDashboard() {
 
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, venue_address, guest_count, status, total, payment_status, tracking_status")
+          .select("id, event_date, venue_address, guest_count, status, total, payment_status, delivery_status")
           .order("event_date", { ascending: false });
 
         if (clientRow?.id) {
