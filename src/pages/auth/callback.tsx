@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { authService } from "@/services/authService";
-import { profileService } from "@/services/profileService";
 import { supabase } from "@/integrations/supabase/client";
+import { getLandingPageForRoleString } from "@/lib/authGuards";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -48,51 +47,9 @@ export default function AuthCallbackPage() {
           console.log("🎭 Callback - User role:", profile?.role);
 
           if (profile?.role) {
-            let dashboardUrl = "/";
-
-            // Handle role-based redirects with slug
-            if ((profile.role as string) === "super_admin") {
-              // Super admin goes to admin dashboard (same as other admins)
-              router.push("/admin/dashboard");
-              return;
-            }
-
-            // Redirect based on role
-            switch (profile.role as string) {
-              case "super_admin":
-                dashboardUrl = "/admin/dashboard";
-                console.log("🌟 Callback - Super Admin redirect:", dashboardUrl);
-                break;
-              case "company_admin":
-              case "admin":
-                dashboardUrl = user?.user_metadata?.company_slug ? `/${user?.user_metadata?.company_slug}/admin/dashboard` : "/admin/dashboard";
-                console.log("👔 Callback - Company Admin redirect:", dashboardUrl);
-                break;
-              case "driver":
-                dashboardUrl = "/team-portal/driver/dashboard";
-                console.log("🚗 Callback - Driver redirect:", dashboardUrl);
-                break;
-              case "kitchen_staff":
-                dashboardUrl = "/team-portal/kitchen/dashboard";
-                console.log("👨‍🍳 Callback - Kitchen Staff redirect:", dashboardUrl);
-                break;
-              case "shopping_staff":
-                dashboardUrl = "/team-portal/shopping/dashboard";
-                console.log("🛒 Callback - Shopping Staff redirect:", dashboardUrl);
-                break;
-              case "cleaning_staff":
-                dashboardUrl = "/team-portal/cleaning/dashboard";
-                console.log("🧹 Callback - Cleaning Staff redirect:", dashboardUrl);
-                break;
-              case "client":
-                dashboardUrl = "/client-portal/dashboard";
-                console.log("👤 Callback - Client redirect:", dashboardUrl);
-                break;
-              default:
-                dashboardUrl = "/";
-                console.log("⚠️ Callback - Unknown role, redirecting to home");
-            }
-
+            // Single source of truth for landing pages: lib/authGuards
+            const dashboardUrl = getLandingPageForRoleString(profile.role as string);
+            console.log("🔄 Callback redirect:", profile.role, "→", dashboardUrl);
             await router.push(dashboardUrl);
           } else {
             console.warn("⚠️ No role found in profile, redirecting to home");

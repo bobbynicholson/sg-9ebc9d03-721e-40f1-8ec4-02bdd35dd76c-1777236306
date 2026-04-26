@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { ROLE_LANDING_PAGES_BY_STRING } from "@/lib/authGuards";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -27,21 +28,8 @@ const PUBLIC_ROUTES = [
   "/pay",
 ];
 
-// Role-based landing pages (server-side mapping)
-const ROLE_LANDING_PAGES: Record<string, string> = {
-  super_admin: "/admin/platform/dashboard",
-  company_admin: "/admin/leads",
-  admin: "/admin/leads",
-  owner: "/admin/leads",
-  kitchen_staff: "/team-portal/kitchen/dashboard",
-  kitchen: "/team-portal/kitchen/dashboard",
-  shopping_staff: "/team-portal/shopping/dashboard",
-  shopping: "/team-portal/shopping/dashboard",
-  driver: "/team-portal/driver/dashboard",
-  cleaning_staff: "/team-portal/cleaning/dashboard",
-  cleaning: "/team-portal/cleaning/dashboard",
-  client: "/client-portal/dashboard",
-};
+// Role-based landing pages — sourced from lib/authGuards (single source of truth)
+const ROLE_LANDING_PAGES = ROLE_LANDING_PAGES_BY_STRING;
 
 // Route authorization rules - maps route prefixes to allowed roles
 const ROUTE_GUARDS: Record<string, string[]> = {

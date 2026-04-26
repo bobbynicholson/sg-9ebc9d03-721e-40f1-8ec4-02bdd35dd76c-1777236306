@@ -1,6 +1,4 @@
 import { UserRole } from "@/types/app";
-import { roleService } from "@/services/roleService";
-import { companyService } from "@/services/companyService";
 import type { Profile } from "@/services/profileService";
 
 // Role-based route permissions
@@ -120,6 +118,36 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.CLEANING_STAFF]: () => "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: () => "/client-portal/dashboard",
 };
+
+// String-keyed landing-page map covering DB role strings + legacy aliases.
+// Edge-safe (no service imports). Use getLandingPageForRoleString from middleware
+// and any callsite that has a raw role string rather than a UserRole enum value.
+export const ROLE_LANDING_PAGES_BY_STRING: Record<string, string> = {
+  super_admin: "/admin/platform/dashboard",
+  company_admin: "/admin/leads",
+  admin: "/admin/leads",
+  owner: "/admin/leads",
+  kitchen_staff: "/team-portal/kitchen/dashboard",
+  kitchen: "/team-portal/kitchen/dashboard",
+  shopping_staff: "/team-portal/shopping/dashboard",
+  shopping: "/team-portal/shopping/dashboard",
+  driver: "/team-portal/driver/dashboard",
+  cleaning_staff: "/team-portal/cleaning/dashboard",
+  cleaning: "/team-portal/cleaning/dashboard",
+  client: "/client-portal/dashboard",
+};
+
+export const DEFAULT_LANDING_PAGE = "/admin/leads";
+
+/**
+ * Single source of truth for "where does role X land after auth?".
+ * Handles both UserRole enum values and raw DB role strings (with legacy aliases).
+ * Falls back to DEFAULT_LANDING_PAGE when role is unknown.
+ */
+export function getLandingPageForRoleString(role: string | null | undefined): string {
+  if (!role) return DEFAULT_LANDING_PAGE;
+  return ROLE_LANDING_PAGES_BY_STRING[role] ?? DEFAULT_LANDING_PAGE;
+}
 
 /**
  * Check if a user with a specific role can access a route
