@@ -31,7 +31,13 @@ const PUBLIC_ROUTES = [
 // Role-based landing pages — sourced from lib/authGuards (single source of truth)
 const ROLE_LANDING_PAGES = ROLE_LANDING_PAGES_BY_STRING;
 
-// Route authorization rules - maps route prefixes to allowed roles
+// Route authorization rules - maps route prefixes to allowed roles.
+// Deny-default: any authenticated route that does not match an entry here is rejected.
+const ALL_AUTHENTICATED_ROLES = [
+  "super_admin", "company_admin", "admin", "owner",
+  "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client",
+];
+
 const ROUTE_GUARDS: Record<string, string[]> = {
   "/admin/platform": ["super_admin"],
   "/admin": ["super_admin", "company_admin", "admin", "owner"],
@@ -40,30 +46,35 @@ const ROUTE_GUARDS: Record<string, string[]> = {
   "/team-portal/driver": ["super_admin", "company_admin", "admin", "owner", "driver"],
   "/team-portal/cleaning": ["super_admin", "company_admin", "admin", "owner", "cleaning_staff"],
   "/team-portal/general": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
+  "/team-portal": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
   "/client-portal": ["super_admin", "company_admin", "admin", "owner", "client"],
-  "/account": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client"],
+  "/client": ["super_admin", "company_admin", "admin", "owner", "client"],
+  "/subscription": ["super_admin", "company_admin", "admin", "owner"],
+  "/account": ALL_AUTHENTICATED_ROLES,
 };
 
-// Check if user role has access to a specific route
+// Check if user role has access to a specific route.
+// Returns false (deny) if no guard matches — every protected prefix must be listed above.
 const isAuthorizedForRoute = (pathname: string, userRole: string): boolean => {
-  // Find matching route guard by checking prefixes (most specific first)
   const sortedGuards = Object.entries(ROUTE_GUARDS).sort((a, b) => b[0].length - a[0].length);
-  
+
   for (const [routePrefix, allowedRoles] of sortedGuards) {
-    if (pathname.startsWith(routePrefix)) {
+    if (pathname === routePrefix || pathname.startsWith(routePrefix + "/")) {
       return allowedRoles.includes(userRole);
     }
   }
-  
-  // If no guard matches, allow access (public or unprotected route)
-  return true;
+
+  return false;
 };
 
 // Check if path is a public route
 const isPublicRoute = (pathname: string) => {
   // Exact match for homepage
   if (pathname === "/") return true;
-  
+
+  // Tenant-scoped login pages: /[slug]/login
+  if (/^\/[^\/]+\/login$/.test(pathname)) return true;
+
   // Dynamic prefixes
   if (
     pathname.startsWith("/blog/") ||
@@ -78,7 +89,7 @@ const isPublicRoute = (pathname: string) => {
   ) {
     return true;
   }
-  
+
   // Exact matches
   return PUBLIC_ROUTES.includes(pathname);
 };
@@ -164,7 +175,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const isPublic = isPublicRoute(pathname);
 
-  // Extract company slug if present for dynamic routing
+  // Extract company slug if present for dynamic tenant routing (/[slug]/admin/...)
   let companySlug: string | null = null;
   const companySlugMatch = pathname.match(/^\/([^\/]+)\/(admin|team-portal|client-portal)/);
   if (companySlugMatch && companySlugMatch[1]) {
@@ -173,107 +184,107 @@ export async function middleware(request: NextRequest) {
 
   // Handle unauthenticated users
   if (!user && !isPublic) {
-    // Determine the correct login URL
     const url = request.nextUrl.clone();
-    
-    // Check if the current route has a specific prefix that indicates a tenant login
+
     if (companySlug && companySlug !== "auth" && companySlug !== "admin" && companySlug !== "api") {
       url.pathname = `/${companySlug}/login`;
     } else {
       url.pathname = "/auth/login";
     }
-    
-    // Don't append redirectTo if we're already redirecting to login to avoid loops
+
     if (pathname !== "/auth/login" && !pathname.endsWith("/login")) {
       url.searchParams.set("redirectTo", pathname);
     }
-    
+
     return NextResponse.redirect(url);
   }
 
+  if (!user) {
+    return response;
+  }
+
+  // Single profile fetch shared across all authenticated checks below
+  let profileRole: string | null = null;
+  let profileCompanyId: string | null = null;
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, company_id")
+      .eq("id", user.id)
+      .single();
+    profileRole = profile?.role ?? null;
+    profileCompanyId = profile?.company_id ?? null;
+  } catch (error) {
+    console.error("[Middleware] Error fetching profile:", error);
+  }
+
+  const roleLandingPage = profileRole ? ROLE_LANDING_PAGES[profileRole] : undefined;
+
   // ✅ Redirect authenticated users away from auth pages to their landing
-  if (user && (pathname === "/auth/login" || pathname === "/auth/register")) {
-    try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+  if (pathname === "/auth/login" || pathname === "/auth/register") {
+    if (roleLandingPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = roleLandingPage;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+    return response;
+  }
 
-      if (profile?.role) {
-        const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
-        if (roleLandingPage) {
-          const url = request.nextUrl.clone();
-          url.pathname = roleLandingPage;
-          url.search = "";
-          return NextResponse.redirect(url);
-        }
+  // ✅ Role-based landing redirect for generic landing routes
+  if (shouldRedirectToRoleLanding(pathname) && roleLandingPage && pathname !== roleLandingPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = roleLandingPage;
+    console.log(`[Middleware] Redirecting ${profileRole} from ${pathname} to ${roleLandingPage}`);
+    return NextResponse.redirect(url);
+  }
+
+  // ✅ Tenant slug validation: /[slug]/admin|team-portal|client-portal/...
+  // super_admin bypasses; everyone else must own the slug they're hitting.
+  if (companySlug && profileRole && profileRole !== "super_admin") {
+    if (!profileCompanyId) {
+      const url = request.nextUrl.clone();
+      url.pathname = roleLandingPage ?? "/auth/login";
+      url.searchParams.set("error", "no_company");
+      return NextResponse.redirect(url);
+    }
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("slug")
+        .eq("id", profileCompanyId)
+        .single();
+      if (!company || company.slug !== companySlug) {
+        console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
+        const url = request.nextUrl.clone();
+        url.pathname = roleLandingPage ?? "/auth/login";
+        url.searchParams.set("error", "tenant_mismatch");
+        return NextResponse.redirect(url);
       }
     } catch (error) {
-      console.error("[Middleware] Error redirecting from auth page:", error);
+      console.error("[Middleware] Error validating tenant slug:", error);
+      const url = request.nextUrl.clone();
+      url.pathname = roleLandingPage ?? "/auth/login";
+      url.searchParams.set("error", "tenant_check_failed");
+      return NextResponse.redirect(url);
     }
   }
 
-  // ✅ ROLE-BASED REDIRECTION (Server-side)
-  // Only redirect authenticated users on specific landing routes
-  if (user && shouldRedirectToRoleLanding(pathname)) {
-    try {
-      // Fetch user profile to get role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.role) {
-        const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
-        
-        if (roleLandingPage && pathname !== roleLandingPage) {
-          const url = request.nextUrl.clone();
-          url.pathname = roleLandingPage;
-          
-          console.log(`[Middleware] Redirecting ${profile.role} from ${pathname} to ${roleLandingPage}`);
-          
-          return NextResponse.redirect(url);
-        }
+  // ✅ Route authorization (deny-default for any non-public route)
+  if (!isPublic && profileRole) {
+    if (!isAuthorizedForRoute(pathname, profileRole)) {
+      console.log(`[Middleware] Unauthorized: ${profileRole} attempted ${pathname}`);
+      if (roleLandingPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = roleLandingPage;
+        url.searchParams.set("error", "unauthorized");
+        return NextResponse.redirect(url);
       }
-    } catch (error) {
-      console.error("[Middleware] Error fetching user role:", error);
-      // Continue without redirect if profile fetch fails
-    }
-  }
-
-  // ✅ ROUTE AUTHORIZATION (Server-side)
-  // Check if authenticated user has access to the requested route
-  if (user && !isPublic) {
-    try {
-      // Fetch user profile to get role
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profile?.role) {
-        // Check if user is authorized for this route
-        if (!isAuthorizedForRoute(pathname, profile.role)) {
-          const url = request.nextUrl.clone();
-          const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
-          
-          console.log(`[Middleware] Unauthorized: ${profile.role} attempted to access ${pathname}`);
-          console.log(`[Middleware] Redirecting to authorized landing page: ${roleLandingPage}`);
-          
-          // Redirect to user's role-appropriate landing page
-          if (roleLandingPage) {
-            url.pathname = roleLandingPage;
-            url.searchParams.set("error", "unauthorized");
-            return NextResponse.redirect(url);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("[Middleware] Error checking route authorization:", error);
-      // Continue without redirect if profile fetch fails
+      // No landing page resolved — refuse rather than fall through
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/login";
+      url.searchParams.set("error", "unauthorized");
+      return NextResponse.redirect(url);
     }
   }
 
