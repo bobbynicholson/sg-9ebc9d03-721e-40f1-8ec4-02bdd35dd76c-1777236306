@@ -467,6 +467,121 @@ function OrderProcessDashboard() {
     );
   };
 
+  const OrderHistoryTimeline = ({ orderId }: { orderId: string }) => {
+    const [history, setHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchHistory = async () => {
+        setLoading(true);
+        const result = await orderService.getOrderStatusHistory(orderId);
+        if (result.success && result.data) {
+          setHistory(result.data);
+        }
+        setLoading(false);
+      };
+
+      fetchHistory();
+    }, [orderId]);
+
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        </div>
+      );
+    }
+
+    if (history.length === 0) {
+      return (
+        <div className="text-center py-12 text-slate-400">
+          <Clock className="w-12 h-12 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No status changes recorded yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="relative">
+          {/* Timeline Line */}
+          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200" />
+
+          {/* History Items */}
+          <div className="space-y-6">
+            {history.map((item, index) => {
+              const config = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+              const Icon = config.icon;
+              const timestamp = new Date(item.created_at);
+              const isFirst = index === 0;
+
+              return (
+                <div key={item.id} className="relative flex gap-4">
+                  {/* Timeline Dot */}
+                  <div className={`relative z-10 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    isFirst ? config.dotColor : "bg-slate-300"
+                  } ${isFirst ? "ring-4 ring-offset-2" : ""}`}
+                  style={isFirst ? { ringColor: config.dotColor.replace('bg-', 'rgba(') + ', 0.2)' } : {}}
+                  >
+                    <Icon className={`w-4 h-4 ${isFirst ? "text-white" : "text-slate-500"}`} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 pb-6">
+                    <Card className={`border-l-4 ${isFirst ? "shadow-md" : ""}`} style={{ borderLeftColor: config.dotColor.replace('bg-', '#') }}>
+                      <CardContent className="pt-4">
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <Badge variant="outline" className={`${config.color} border mb-2`}>
+                                {config.label}
+                              </Badge>
+                              <p className="text-sm font-medium text-slate-900">
+                                Status changed to {config.label}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-slate-500">
+                                {timestamp.toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {timestamp.toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+
+                          {item.notes && (
+                            <p className="text-sm text-slate-600 bg-slate-50 rounded p-2 mt-2">
+                              {item.notes}
+                            </p>
+                          )}
+
+                          {item.changed_by_profile && (
+                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+                              <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-medium">
+                                {item.changed_by_profile.full_name?.charAt(0) || item.changed_by_profile.email?.charAt(0) || "?"}
+                              </div>
+                              <div className="text-xs text-slate-600">
+                                <span className="font-medium">{item.changed_by_profile.full_name || "User"}</span>
+                                {item.changed_by_profile.email && (
+                                  <span className="text-slate-400"> • {item.changed_by_profile.email}</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const OrderDetailsModal = () => {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
@@ -586,10 +701,11 @@ function OrderProcessDashboard() {
           </DialogHeader>
 
           <Tabs defaultValue="details" className="mt-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="menu">Menu Items</TabsTrigger>
               <TabsTrigger value="equipment">Equipment</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-4 mt-4">
@@ -775,6 +891,10 @@ function OrderProcessDashboard() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="space-y-4 mt-4">
+              <OrderHistoryTimeline orderId={editedOrder.id} />
             </TabsContent>
           </Tabs>
         </DialogContent>

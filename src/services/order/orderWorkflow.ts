@@ -182,3 +182,23 @@ async function sendStatusNotifications(order: any) {
     await notificationService.createNotification(notification);
   }
 }
+
+export async function getOrderStatusHistory(orderId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("order_status_history")
+      .select(`
+        *,
+        changed_by_profile:profiles!order_status_history_changed_by_fkey(full_name, email)
+      `)
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return { success: true, data: data || [] };
+  } catch (error: any) {
+    console.error("Error fetching order status history:", error);
+    return { success: false, error: error.message, data: [] };
+  }
+}

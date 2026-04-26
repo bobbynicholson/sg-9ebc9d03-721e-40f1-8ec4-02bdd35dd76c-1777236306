@@ -35,6 +35,7 @@ export const {
   startDelivery,
   completeOrder,
   cancelOrder,
+  getOrderStatusHistory,
 } = workflowOps;
 
 // Re-export all financial operations
@@ -67,6 +68,7 @@ export const orderService = {
   startDelivery,
   completeOrder,
   cancelOrder,
+  getOrderStatusHistory,
   
   // Financials
   calculateOrderTotal,
