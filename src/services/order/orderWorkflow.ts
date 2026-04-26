@@ -16,7 +16,7 @@ export async function updateOrderStatus(
     const { data: order, error } = await supabase
       .from("orders")
       .update({ 
-        status: newStatus,
+        status: newStatus as any,
         updated_at: new Date().toISOString()
       })
       .eq("id", orderId)
@@ -56,7 +56,7 @@ export async function assignDriver(orderId: string, driverId: string) {
 
     // Notify driver
     await notificationService.createNotification({
-      userId: driverId,
+      user_id: driverId,
       title: "New Delivery Assignment",
       message: `You have been assigned to order ${data.order_number}`,
       type: "order",
@@ -83,7 +83,7 @@ export async function assignChef(orderId: string, chefId: string) {
 
     // Notify chef
     await notificationService.createNotification({
-      userId: chefId,
+      user_id: chefId,
       title: "New Order Assignment",
       message: `You have been assigned to prepare order ${data.order_number}`,
       type: "order",

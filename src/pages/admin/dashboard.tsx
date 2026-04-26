@@ -90,7 +90,7 @@ function AdminDashboardPage() {
       const financialData = await analyticsService.getFinancialAnalytics();
 
       // Fetch all orders for additional metrics
-      const allOrders = await orderService.getOrders({ userId: user.id });
+      const allOrders = await orderService.getAllOrders(user.id);
 
       // Count pending quotes
       const { data: quotes, error: quotesError } = await supabase

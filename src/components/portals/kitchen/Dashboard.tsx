@@ -24,26 +24,18 @@ function Dashboard({ companySlug }: PortalComponentProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id) {
-      loadTodaysOrders();
+    if (user?.company_id) {
+      loadOrders();
     }
-  }, [user?.id]);
+  }, [user?.company_id]);
 
-  const loadTodaysOrders = async () => {
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const orders = await orderService.getOrders({
-        filters: {
-          event_date: today,
-          status: "confirmed",
-        },
-      });
-      setTodaysOrders(orders as any);
-    } catch (error) {
-      console.error("Error loading today's orders:", error);
-    } finally {
-      setLoading(false);
-    }
+  const loadOrders = async () => {
+    if (!user?.company_id) return;
+    
+    setLoading(true);
+    const data = await orderService.getAllOrders(user.company_id);
+    setTodaysOrders(data as any);
+    setLoading(false);
   };
 
   const upcomingOrders = todaysOrders.filter(order => {

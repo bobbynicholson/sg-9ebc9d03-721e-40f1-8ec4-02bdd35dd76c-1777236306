@@ -113,12 +113,15 @@ export default async function handler(
     const orderId = custom_str1;
     const paymentType = custom_str2; // "deposit" or "balance"
 
-    // Get the order
-    const order = await orderService.getOrder(orderId);
-    if (!order) {
+    // Get order details
+    const orderResult = await orderService.getOrderById(orderId);
+    
+    if (!orderResult.success || !orderResult.data) {
       console.error("Order not found:", orderId);
       return res.status(404).json({ error: "Order not found" });
     }
+
+    const order = orderResult.data;
 
     // Determine if this is deposit or balance payment
     const isDepositPayment = !order.deposit_paid;
@@ -134,10 +137,11 @@ export default async function handler(
 
     // Record the payment
     if (isDepositPayment) {
-      await orderService.recordDepositPayment(
+      await orderService.recordPayment(
         order.id,
-        pf_payment_id,
-        "payfast"
+        parseFloat(amount_gross),
+        "payfast",
+        pf_payment_id
       );
 
       // Create payment record
@@ -167,8 +171,10 @@ export default async function handler(
       }]);
 
     } else {
-      await orderService.recordBalancePayment(
+      await orderService.recordPayment(
         order.id,
+        parseFloat(amount_gross),
+        "payfast",
         pf_payment_id
       );
 

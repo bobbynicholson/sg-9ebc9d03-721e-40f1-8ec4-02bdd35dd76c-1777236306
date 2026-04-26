@@ -109,7 +109,7 @@ export async function getOrdersByStatus(companyId: string, status: string) {
         assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
       `)
       .eq("company_id", companyId)
-      .eq("status", status)
+      .eq("status", status as any)
       .order("created_at", { ascending: false });
 
     if (error) throw error;

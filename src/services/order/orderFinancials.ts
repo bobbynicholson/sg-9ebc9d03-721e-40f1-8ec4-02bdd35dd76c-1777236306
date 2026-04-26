@@ -32,11 +32,11 @@ export async function recordPayment(
       .insert({
         order_id: orderId,
         amount,
-        payment_method: paymentMethod,
-        transaction_id: transactionId,
-        status: "completed",
-        payment_date: new Date().toISOString(),
-      })
+        payment_method: paymentMethod as any,
+        gateway_transaction_id: transactionId,
+        status: "completed" as any,
+        created_at: new Date().toISOString(),
+      } as any)
       .select()
       .single();
 
@@ -65,12 +65,12 @@ export async function updateOrderPaymentStatus(orderId: string) {
       .from("payments")
       .select("amount")
       .eq("order_id", orderId)
-      .eq("status", "completed");
+      .eq("status", "completed" as any);
 
     const totalPaid = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
     const totalAmount = order?.total_amount || 0;
 
-    let paymentStatus = "unpaid";
+    let paymentStatus: any = "unpaid";
     if (totalPaid >= totalAmount) {
       paymentStatus = "paid";
     } else if (totalPaid > 0) {
@@ -128,17 +128,14 @@ export async function generateInvoice(orderId: string) {
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
       .insert({
-        company_id: order.company_id,
         order_id: orderId,
         client_id: order.client_id,
         invoice_number: invoiceNumber,
         issue_date: new Date().toISOString(),
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        subtotal: order.subtotal,
-        tax_amount: order.tax_amount || 0,
-        total_amount: order.total_amount,
-        status: "pending",
-      })
+        balance_due: order.total_amount - (order.amount_paid || 0),
+        status: "sent" as any,
+      } as any)
       .select()
       .single();
 
