@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
+import { AuditLogsViewer } from "@/components/super-admin/AuditLogsViewer";
 
 const StatCard = ({ 
   title, 
@@ -709,6 +710,11 @@ export default function PlatformDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Audit Logs Section */}
+        <div className="mt-12">
+          <AuditLogsViewer />
+        </div>
       </div>
     </div>
   );

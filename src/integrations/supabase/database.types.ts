@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+ 
 export type Json =
   | string
   | number
@@ -6870,9 +6870,7 @@ export type Database = {
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
       get_all_subscriptions_admin: { Args: never; Returns: Json }
-      get_user_company_id:
-        | { Args: never; Returns: string }
-        | { Args: { user_id: string }; Returns: string }
+      get_user_company_id: { Args: { user_id: string }; Returns: string }
       gettransactionid: { Args: never; Returns: unknown }
       is_company_admin: { Args: { user_id: string }; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
