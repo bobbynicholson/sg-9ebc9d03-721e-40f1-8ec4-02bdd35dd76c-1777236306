@@ -19,7 +19,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import UserRole from "@/constants/UserRole";
 
 interface Driver {
   id: string;

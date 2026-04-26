@@ -41,7 +41,6 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/user";
 
 export default function ProtectedRegionsPage() {
   return (

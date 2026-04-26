@@ -20,7 +20,7 @@ import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Adjust import based on actual path
-import CalendarPage from "@/components/CalendarPage"; // Adjust import based on actual path
+ // Adjust import based on actual path
 import {  UserRole  } from "@/types/app"; // Adjust import based on actual path
 
 export default function ProtectedCalendarPage() {
