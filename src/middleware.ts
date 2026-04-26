@@ -203,6 +203,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // ✅ Redirect authenticated users away from auth pages to their landing
+  if (user && (pathname === "/auth/login" || pathname === "/auth/register")) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role) {
+        const roleLandingPage = ROLE_LANDING_PAGES[profile.role];
+        if (roleLandingPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = roleLandingPage;
+          url.search = "";
+          return NextResponse.redirect(url);
+        }
+      }
+    } catch (error) {
+      console.error("[Middleware] Error redirecting from auth page:", error);
+    }
+  }
+
   // ✅ ROLE-BASED REDIRECTION (Server-side)
   // Only redirect authenticated users on specific landing routes
   if (user && shouldRedirectToRoleLanding(pathname)) {
