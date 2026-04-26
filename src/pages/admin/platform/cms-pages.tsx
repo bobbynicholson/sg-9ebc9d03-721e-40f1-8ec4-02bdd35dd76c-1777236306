@@ -12,7 +12,7 @@ import { Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle } from "lucide-
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
 export default function CMSPageManagement() {

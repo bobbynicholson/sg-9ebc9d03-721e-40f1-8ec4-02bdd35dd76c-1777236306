@@ -51,16 +51,16 @@ export default function AuthCallbackPage() {
             let dashboardUrl = "/";
 
             // Handle role-based redirects with slug
-            if (profile.role === "super_admin") {
+            if ((profile.role as string) === "super_admin") {
               // Super admin goes to platform dashboard
               router.push("/admin/platform/dashboard");
               return;
             }
 
             // Redirect based on role
-            switch (profile.role) {
+            switch (profile.role as string) {
               case "super_admin":
-                dashboardUrl = "/super-admin/dashboard";
+                dashboardUrl = "/admin/platform/dashboard";
                 console.log("🌟 Callback - Super Admin redirect:", dashboardUrl);
                 break;
               case "company_admin":
