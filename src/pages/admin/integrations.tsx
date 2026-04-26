@@ -1,3 +1,5 @@
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +30,7 @@ export default function ProtectedIntegrationsPage() {
   );
 }
 
-export default function IntegrationsPage() {
+function IntegrationsPage() {
   const router = useRouter();
   const { profile } = useAuth();
   const { toast } = useToast();

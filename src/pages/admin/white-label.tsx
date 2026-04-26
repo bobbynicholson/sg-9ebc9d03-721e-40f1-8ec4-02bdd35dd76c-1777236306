@@ -21,7 +21,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types";
+import {  UserRole  } from "@/types/app";
 
 export default function ProtectedWhiteLabelPage() {
   return (

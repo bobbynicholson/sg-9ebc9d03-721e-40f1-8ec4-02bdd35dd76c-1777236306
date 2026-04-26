@@ -16,7 +16,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Importing ProtectedRoute
-import { UserRole } from "@/types/UserRole"; // Importing UserRole
+import {  UserRole  } from "@/types/app"; // Importing UserRole
 
 interface EmailTemplate {
   id: string;
@@ -29,7 +29,7 @@ interface EmailTemplate {
   lastEdited: string;
 }
 
-export default function AfterSalesEmailsPage() {
+function AfterSalesEmailsPage() {
   const [templates, setTemplates] = useState<EmailTemplate[]>(defaultAfterSalesTemplates);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
   const [previewData, setPreviewData] = useState({

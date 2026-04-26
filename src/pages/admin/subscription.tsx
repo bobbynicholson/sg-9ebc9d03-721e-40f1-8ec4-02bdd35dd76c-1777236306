@@ -31,7 +31,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types";
+import {  UserRole  } from "@/types/app";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];

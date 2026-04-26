@@ -1,3 +1,4 @@
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

@@ -1,3 +1,5 @@
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -67,7 +69,7 @@ interface ShortageFlag {
   };
 }
 
-export default function EquipmentShortagesPage() {
+function EquipmentShortagesPage() {
   const { user } = useAuth();
   const [shortages, setShortages] = useState<ShortageFlag[]>([]);
   const [filteredShortages, setFilteredShortages] = useState<ShortageFlag[]>([]);

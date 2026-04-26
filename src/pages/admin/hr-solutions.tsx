@@ -1,3 +1,5 @@
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,12 +91,12 @@ const hrFeatures = [
 export default function ProtectedHRSolutionsPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
-      <HRSolutionsPage />
+      <AdminHRSolutions />
     </ProtectedRoute>
   );
 }
 
-export default function AdminHRSolutions() {
+function AdminHRSolutions() {
   const { user } = useAuth();
 
   return (

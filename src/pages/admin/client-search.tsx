@@ -25,8 +25,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { profileService, Profile } from "@/services/profileService";
 import { useAuth } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
-import { UserRole } from "@/models/UserRole"; // Assumed import for UserRole
+import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
+import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
 
 export default function ProtectedClientSearchPage() {
   return (
@@ -36,7 +36,7 @@ export default function ProtectedClientSearchPage() {
   );
 }
 
-export default function ClientSearchPage() {
+function ClientSearchPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");

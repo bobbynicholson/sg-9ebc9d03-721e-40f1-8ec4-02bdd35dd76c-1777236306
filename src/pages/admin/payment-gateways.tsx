@@ -1,3 +1,5 @@
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +78,7 @@ const gatewayDetails: Record<PaymentGateway, {
   },
 };
 
-export default function PaymentGatewaysPage() {
+function PaymentGatewaysPage() {
   const [configs, setConfigs] = useState<PaymentGatewayConfig[]>([]);
   const [selectedGateway, setSelectedGateway] = useState<PaymentGateway | null>(null);
   const [formData, setFormData] = useState<Partial<PaymentGatewayConfig>>({});

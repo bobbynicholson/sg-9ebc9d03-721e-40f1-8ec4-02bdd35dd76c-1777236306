@@ -36,7 +36,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types";
+import {  UserRole  } from "@/types/app";
 
 export default function ProtectedSettingsPage() {
   return (
@@ -46,7 +46,7 @@ export default function ProtectedSettingsPage() {
   );
 }
 
-export default function SettingsPage() {
+function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [settings, setSettings] = useState({
     company: {

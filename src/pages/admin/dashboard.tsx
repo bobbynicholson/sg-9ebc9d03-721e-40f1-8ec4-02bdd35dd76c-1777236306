@@ -27,7 +27,7 @@ import { analyticsService } from "@/services/analyticsService";
 import { orderService } from "@/services/orderService";
 import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/userRole";
+import {  UserRole  } from "@/types/app";
 
 interface DashboardStats {
   activeOrders: number;

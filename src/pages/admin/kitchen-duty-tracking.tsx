@@ -3,7 +3,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/UserRole";
+import {  UserRole  } from "@/types/app";
 
 /**
  * Kitchen Duty Tracking Page (Admin View)
