@@ -7562,6 +7562,7 @@ export type Database = {
       user_role:
         | "super_admin"
         | "company_admin"
+        | "admin"
         | "kitchen_staff"
         | "driver"
         | "shopping_staff"
@@ -7807,6 +7808,7 @@ export const Constants = {
       user_role: [
         "super_admin",
         "company_admin",
+        "admin",
         "kitchen_staff",
         "driver",
         "shopping_staff",

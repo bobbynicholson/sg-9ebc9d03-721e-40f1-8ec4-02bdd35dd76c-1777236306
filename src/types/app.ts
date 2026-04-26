@@ -242,8 +242,8 @@ export interface Payment {
 export enum UserRole {
   SUPER_ADMIN = "super_admin",
   COMPANY_ADMIN = "company_admin",
-  OWNER = "owner",
   ADMIN = "admin",
+  OWNER = "owner",
   KITCHEN = "kitchen",
   KITCHEN_STAFF = "kitchen_staff",
   CLEANING = "cleaning",

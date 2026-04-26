@@ -6,14 +6,47 @@ import type { Profile } from "@/services/profileService";
 // Role-based route permissions
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.SUPER_ADMIN]: [
-    "/cateringms-platform/*",
+    "/super-admin/*",
     "/admin/*",
     "/team-portal/*",
     "/client-portal/*",
     "*",
   ],
-  [UserRole.ADMIN]: [
+  [UserRole.COMPANY_ADMIN]: [
     "/admin/*",
+    "/team-portal/*",
+  ],
+  [UserRole.ADMIN]: [
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    "/admin/calendar",
+    "/admin/inventory",
+    "/admin/inventory-tracking",
+    "/admin/inventory-recipes",
+    "/admin/users",
+    "/admin/drivers",
+    "/admin/driver-management",
+    "/admin/staff-hours",
+    "/admin/job-progress-overview",
+    "/admin/tracking",
+    "/admin/route-planning",
+    "/admin/equipment-shortages",
+    "/admin/regions",
+    "/admin/email-templates",
+    "/admin/after-sales-emails",
+    "/admin/email-automation-dashboard",
+    "/admin/email-automation-settings",
+    "/admin/notification-settings",
+    "/admin/notifications",
+    "/admin/client-search",
+    "/admin/white-label",
+    "/admin/integrations",
+    "/admin/settings",
+    "/admin/onboarding",
     "/team-portal/*",
   ],
   [UserRole.OWNER]: [
@@ -51,23 +84,45 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.CLIENT]: [
     "/client-portal/*",
   ],
-  [UserRole.COMPANY_ADMIN]: [
-    "/admin/*",
-    "/team-portal/*",
-  ],
   [UserRole.STAFF]: [
     "/team-portal/general/*",
   ],
 };
 
 // Admin roles that can access admin dashboard
-export const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OWNER];
+export const ADMIN_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.COMPANY_ADMIN,
+  UserRole.ADMIN,
+  UserRole.OWNER,
+];
+
+// Roles with full company access (all data, all operations)
+export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.COMPANY_ADMIN,
+  UserRole.OWNER,
+];
+
+// Roles with company access but restricted finance (no payment gateways, subscription, financial dashboard)
+export const RESTRICTED_COMPANY_ACCESS_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+];
+
+// Finance-only routes (company_admin, owner, super_admin only)
+export const FINANCE_ROUTES = [
+  "/admin/financial-dashboard",
+  "/admin/subscription",
+  "/admin/payment-gateways",
+  "/admin/invoices",
+];
 
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
   [UserRole.OWNER]: "Owner",
   [UserRole.SUPER_ADMIN]: "Platform Administrator",
+  [UserRole.COMPANY_ADMIN]: "Company Administrator",
   [UserRole.KITCHEN]: "Kitchen Manager",
   [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
   [UserRole.SHOPPING]: "Shopping Manager",
@@ -76,13 +131,13 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.CLEANING]: "Cleaning Manager",
   [UserRole.CLEANING_STAFF]: "Cleaning Staff",
   [UserRole.CLIENT]: "Client",
-  [UserRole.COMPANY_ADMIN]: "Company Administrator",
   [UserRole.STAFF]: "General Staff",
 };
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
-  [UserRole.SUPER_ADMIN]: () => "/super-admin",
+  [UserRole.SUPER_ADMIN]: () => "/super-admin/dashboard",
+  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.OWNER]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.KITCHEN]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
@@ -93,7 +148,6 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
   [UserRole.CLEANING]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
-  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.STAFF]: (slug) => slug ? `/${slug}/team-portal/general/job-progress` : "/team-portal/general/job-progress",
 };
 
@@ -101,6 +155,14 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
  * Check if a user with a specific role can access a route
  */
 export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
+  // Check if this is a finance route
+  const isFinanceRoute = FINANCE_ROUTES.some(route => pathname === route || pathname.startsWith(route + "/"));
+  
+  // Block admin role from finance routes
+  if (isFinanceRoute && userRole === UserRole.ADMIN) {
+    return false;
+  }
+  
   const allowedRoutes = ROLE_ROUTES[userRole];
   
   if (!allowedRoutes) {
@@ -123,7 +185,7 @@ export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
 }
 
 /**
- * Check if user is an admin (super_admin, admin, or owner)
+ * Check if user is an admin (super_admin, company_admin, admin, or owner)
  */
 export function isAdmin(userRole: UserRole): boolean {
   return ADMIN_ROLES.includes(userRole);
@@ -134,6 +196,27 @@ export function isAdmin(userRole: UserRole): boolean {
  */
 export function canAccessAdminDashboard(userRole: UserRole): boolean {
   return isAdmin(userRole);
+}
+
+/**
+ * Check if user can access financial features
+ */
+export function canAccessFinance(userRole: UserRole): boolean {
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user has full company access (including finance)
+ */
+export function hasFullCompanyAccess(userRole: UserRole): boolean {
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user has restricted company access (no finance)
+ */
+export function hasRestrictedCompanyAccess(userRole: UserRole): boolean {
+  return RESTRICTED_COMPANY_ACCESS_ROLES.includes(userRole);
 }
 
 /**
@@ -177,10 +260,13 @@ export function isPlatformAdmin(userRole: UserRole): boolean {
 }
 
 /**
- * Check if role is a company admin role
+ * Check if role is a company admin role (including admin with restricted access)
  */
 export function isCompanyAdmin(userRole: UserRole): boolean {
-  return userRole === UserRole.ADMIN || userRole === UserRole.OWNER || userRole === UserRole.SUPER_ADMIN;
+  return userRole === UserRole.COMPANY_ADMIN || 
+         userRole === UserRole.ADMIN || 
+         userRole === UserRole.OWNER || 
+         userRole === UserRole.SUPER_ADMIN;
 }
 
 /**

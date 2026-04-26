@@ -226,17 +226,19 @@ export const roleService = {
 
   getRoleDisplayName(role: UserRole): string {
     const roleNames: Record<UserRole, string> = {
-      admin: "Admin",
+      super_admin: "Platform Admin",
+      company_admin: "Company Administrator",
+      admin: "Administrator",
+      owner: "Owner",
+      kitchen: "Kitchen Manager",
+      kitchen_staff: "Kitchen Staff",
+      shopping: "Shopping Manager",
+      shopping_staff: "Shopping Staff",
+      cleaning: "Cleaning Manager",
+      cleaning_staff: "Cleaning Staff",
       driver: "Driver",
       client: "Client",
-      cleaning: "Cleaning Manager",
-      shopping: "Shopping Manager",
-      kitchen: "Kitchen Manager",
-      owner: "Owner",
-      super_admin: "Platform Admin",
-      shopping_staff: "Shopping Staff",
-      cleaning_staff: "Cleaning Staff",
-      kitchen_staff: "Kitchen Staff",
+      staff: "General Staff",
     };
 
     return roleNames[role] || role;
