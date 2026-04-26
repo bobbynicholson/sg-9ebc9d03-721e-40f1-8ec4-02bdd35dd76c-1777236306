@@ -139,7 +139,7 @@ export async function updateStopStatus(
         updated_at: new Date().toISOString(),
         ...(status === "arrived" && { actual_arrival_time: new Date().toISOString() }),
         ...(status === "completed" && { completion_time: new Date().toISOString() }),
-      })
+      } as any)
       .eq("id", stopId);
 
     if (error) throw error;

@@ -25,7 +25,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
-import { driverService } from "@/services/driverService";
+import driverService from "@/services/driverService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
