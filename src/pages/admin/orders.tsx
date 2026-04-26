@@ -1,52 +1,125 @@
 import { useState, useEffect } from "react";
-import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShoppingCart,
   Calendar,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Filter,
+  TrendingUp,
+  Users,
+  DollarSign,
   Search,
+  Filter,
   Download,
   Eye,
   Edit,
-  Trash2,
-  Plus,
-  DollarSign,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  Package,
+  Truck,
+  MapPin,
+  AlertCircle,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PortalLayout } from "@/components/Layout";
 import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
 
-export default function AdminOrders() {
+interface OrderStats {
+  total: number;
+  byStatus: Record<string, number>;
+  revenue: {
+    total: number;
+    pending: number;
+    paid: number;
+  };
+  upcoming: number;
+  inProgress: number;
+}
+
+const STATUS_CONFIG = {
+  pending: { 
+    label: "Pending", 
+    icon: Clock, 
+    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    dotColor: "bg-yellow-500"
+  },
+  confirmed: { 
+    label: "Confirmed", 
+    icon: CheckCircle2, 
+    color: "bg-blue-100 text-blue-800 border-blue-200",
+    dotColor: "bg-blue-500"
+  },
+  preparing: { 
+    label: "In Prep", 
+    icon: Package, 
+    color: "bg-purple-100 text-purple-800 border-purple-200",
+    dotColor: "bg-purple-500"
+  },
+  ready: { 
+    label: "Ready", 
+    icon: CheckCircle2, 
+    color: "bg-green-100 text-green-800 border-green-200",
+    dotColor: "bg-green-500"
+  },
+  in_transit: { 
+    label: "In Transit", 
+    icon: Truck, 
+    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    dotColor: "bg-indigo-500"
+  },
+  delivered: { 
+    label: "Delivered", 
+    icon: MapPin, 
+    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    dotColor: "bg-emerald-500"
+  },
+  completed: { 
+    label: "Completed", 
+    icon: CheckCircle2, 
+    color: "bg-slate-100 text-slate-800 border-slate-200",
+    dotColor: "bg-slate-500"
+  },
+  cancelled: { 
+    label: "Cancelled", 
+    icon: AlertCircle, 
+    color: "bg-red-100 text-red-800 border-red-200",
+    dotColor: "bg-red-500"
+  },
+};
+
+function OrderProcessDashboard() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [stats, setStats] = useState<OrderStats>({
+    total: 0,
+    byStatus: {},
+    revenue: { total: 0, pending: 0, paid: 0 },
+    upcoming: 0,
+    inProgress: 0,
+  });
 
   useEffect(() => {
     if (user) {
       loadOrders();
     }
   }, [user]);
+
+  useEffect(() => {
+    calculateStats();
+  }, [orders]);
 
   const loadOrders = async () => {
     if (!user) return;
@@ -62,162 +135,319 @@ export default function AdminOrders() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { bg: string; text: string }> = {
-      pending: { bg: "bg-yellow-100", text: "text-yellow-800" },
-      confirmed: { bg: "bg-blue-100", text: "text-blue-800" },
-      preparing: { bg: "bg-purple-100", text: "text-purple-800" },
-      ready: { bg: "bg-green-100", text: "text-green-800" },
-      delivered: { bg: "bg-slate-100", text: "text-slate-800" },
-      cancelled: { bg: "bg-red-100", text: "text-red-800" },
-    };
-    const variant = variants[status] || variants.pending;
+  const calculateStats = () => {
+    const byStatus: Record<string, number> = {};
+    let totalRevenue = 0;
+    let pendingRevenue = 0;
+    let paidRevenue = 0;
+    let upcoming = 0;
+    let inProgress = 0;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    orders.forEach((order) => {
+      // Count by status
+      byStatus[order.status] = (byStatus[order.status] || 0) + 1;
+
+      // Revenue calculations
+      const orderTotal = order.total || 0;
+      totalRevenue += orderTotal;
+      
+      if (order.payment_status === "paid") {
+        paidRevenue += orderTotal;
+      } else {
+        pendingRevenue += orderTotal;
+      }
+
+      // Upcoming orders (future events)
+      const eventDate = new Date(order.event_date);
+      if (eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
+        upcoming++;
+      }
+
+      // In progress (confirmed through delivered)
+      if (["confirmed", "preparing", "ready", "in_transit", "delivered"].includes(order.status)) {
+        inProgress++;
+      }
+    });
+
+    setStats({
+      total: orders.length,
+      byStatus,
+      revenue: { total: totalRevenue, pending: pendingRevenue, paid: paidRevenue },
+      upcoming,
+      inProgress,
+    });
+  };
+
+  const getFilteredOrders = () => {
+    return orders.filter((order) => {
+      // Search filter
+      const matchesSearch = 
+        searchTerm === "" ||
+        order.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.venue_address?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Status filter
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+
+      // Date filter
+      let matchesDate = true;
+      if (dateFilter !== "all") {
+        const eventDate = new Date(order.event_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (dateFilter === "today") {
+          matchesDate = eventDate.toDateString() === today.toDateString();
+        } else if (dateFilter === "week") {
+          const weekFromNow = new Date(today);
+          weekFromNow.setDate(today.getDate() + 7);
+          matchesDate = eventDate >= today && eventDate <= weekFromNow;
+        } else if (dateFilter === "month") {
+          const monthFromNow = new Date(today);
+          monthFromNow.setMonth(today.getMonth() + 1);
+          matchesDate = eventDate >= today && eventDate <= monthFromNow;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  };
+
+  const getOrdersByStatus = (status: string) => {
+    return getFilteredOrders().filter((order) => order.status === status);
+  };
+
+  const OrderCard = ({ order }: { order: AppOrder }) => {
+    const config = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
+    const Icon = config.icon;
+    const eventDate = new Date(order.event_date);
+    const isToday = eventDate.toDateString() === new Date().toDateString();
+    const isPast = eventDate < new Date();
+
     return (
-      <Badge className={`${variant.bg} ${variant.text} border-0`}>
-        {status}
-      </Badge>
+      <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4" style={{ borderLeftColor: config.dotColor.replace('bg-', '#') }}>
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h4 className="font-semibold text-slate-900 mb-1">{order.client_name}</h4>
+                <p className="text-sm text-slate-600 truncate">{order.venue_address}</p>
+              </div>
+              <Badge variant="outline" className={`${config.color} border`}>
+                {config.label}
+              </Badge>
+            </div>
+
+            {/* Event Details */}
+            <div className="flex items-center gap-4 text-sm text-slate-600">
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                <span className={isToday ? "font-semibold text-blue-600" : ""}>
+                  {eventDate.toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{order.guest_count} guests</span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <span className="font-semibold text-slate-900">
+                R{order.total?.toLocaleString() || 0}
+              </span>
+              <Link href={`/admin/order-assignments?id=${order.id}`}>
+                <Button variant="ghost" size="sm" className="gap-1">
+                  <Eye className="w-3 h-3" />
+                  View
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (activeTab === "all") return matchesSearch;
-    return matchesSearch && order.status === activeTab;
-  });
+  const KanbanColumn = ({ status, title }: { status: string; title: string }) => {
+    const ordersInStatus = getOrdersByStatus(status);
+    const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
 
-  const stats = {
-    total: orders.length,
-    pending: orders.filter((o) => o.status === "pending").length,
-    confirmed: orders.filter((o) => o.status === "confirmed").length,
-    preparing: orders.filter((o) => o.status === "preparing").length,
-    ready: orders.filter((o) => o.status === "ready").length,
-    delivered: orders.filter((o) => o.status === "delivered").length,
-    revenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
+    return (
+      <div className="flex flex-col min-w-[320px] max-w-[320px]">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${config.dotColor}`} />
+            <h3 className="font-semibold text-slate-900">{title}</h3>
+          </div>
+          <Badge variant="secondary" className="font-semibold">
+            {ordersInStatus.length}
+          </Badge>
+        </div>
+        <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-2">
+          {ordersInStatus.length === 0 ? (
+            <div className="text-center py-8 text-slate-400">
+              <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No orders</p>
+            </div>
+          ) : (
+            ordersInStatus.map((order) => <OrderCard key={order.id} order={order} />)
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
     <>
       <NoIndexMeta />
       <Head>
-        <title>Order Management - CateringMS Admin</title>
+        <title>Order Process Dashboard - CateringMS</title>
       </Head>
 
-      <AdminNav />
-
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <PortalLayout maxWidth="full">
+        <div className="space-y-6">
           {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Order Management
-                  </h1>
-                  <p className="text-slate-600 mt-1">Manage all catering orders</p>
-                </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <ShoppingCart className="w-6 h-6 text-white" />
               </div>
-              <Link href="/admin/order-assignments">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Order
-                </Button>
-              </Link>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Order Process Dashboard
+                </h1>
+                <p className="text-slate-600 mt-1">Track all orders through your workflow</p>
+              </div>
             </div>
+            <Link href="/admin/order-assignments">
+              <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                <ShoppingCart className="w-4 h-4 mr-2" />
+                New Order
+              </Button>
+            </Link>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
-            <Card className="border-0 shadow-lg">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Total Orders</p>
-                  <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-blue-700 mb-1">Total Orders</p>
+                    <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
+                  </div>
+                  <ShoppingCart className="w-8 h-8 text-blue-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Pending</p>
-                  <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-green-700 mb-1">Revenue</p>
+                    <p className="text-2xl font-bold text-green-900">R{(stats.revenue.total / 1000).toFixed(0)}k</p>
+                  </div>
+                  <DollarSign className="w-8 h-8 text-green-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Confirmed</p>
-                  <p className="text-3xl font-bold text-blue-600">{stats.confirmed}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-purple-700 mb-1">In Progress</p>
+                    <p className="text-3xl font-bold text-purple-900">{stats.inProgress}</p>
+                  </div>
+                  <Package className="w-8 h-8 text-purple-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Preparing</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats.preparing}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-orange-700 mb-1">Upcoming</p>
+                    <p className="text-3xl font-bold text-orange-900">{stats.upcoming}</p>
+                  </div>
+                  <Calendar className="w-8 h-8 text-orange-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-yellow-50 to-yellow-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Ready</p>
-                  <p className="text-3xl font-bold text-green-600">{stats.ready}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-yellow-700 mb-1">Pending</p>
+                    <p className="text-3xl font-bold text-yellow-900">{stats.byStatus.pending || 0}</p>
+                  </div>
+                  <Clock className="w-8 h-8 text-yellow-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-lg">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-indigo-100">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Delivered</p>
-                  <p className="text-3xl font-bold text-slate-600">{stats.delivered}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-sm text-green-700 mb-1">Revenue</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    R{stats.revenue.toLocaleString()}
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-indigo-700 mb-1">In Transit</p>
+                    <p className="text-3xl font-bold text-indigo-900">{stats.byStatus.in_transit || 0}</p>
+                  </div>
+                  <Truck className="w-8 h-8 text-indigo-600 opacity-30" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Search and Filters */}
-          <Card className="border-0 shadow-lg mb-6">
+          {/* Filters */}
+          <Card className="border-0 shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by client name or order ID..."
+                  <Input
+                    placeholder="Search by client, order ID, or venue..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="pl-10"
                   />
                 </div>
-                <Button variant="outline" className="gap-2">
-                  <Filter className="w-4 h-4" />
-                  Filters
-                </Button>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="preparing">In Prep</SelectItem>
+                    <SelectItem value="ready">Ready</SelectItem>
+                    <SelectItem value="in_transit">In Transit</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="All Dates" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dates</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" className="gap-2">
                   <Download className="w-4 h-4" />
                   Export
@@ -226,83 +456,39 @@ export default function AdminOrders() {
             </CardContent>
           </Card>
 
-          {/* Orders Table */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-7 bg-slate-100">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-                  <TabsTrigger value="preparing">Preparing</TabsTrigger>
-                  <TabsTrigger value="ready">Ready</TabsTrigger>
-                  <TabsTrigger value="delivered">Delivered</TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
+          {/* Kanban Board */}
+          {loading ? (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="py-24">
+                <div className="text-center">
+                  <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4" />
                   <p className="text-slate-600">Loading orders...</p>
                 </div>
-              ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <ShoppingCart className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600">No orders found</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Order ID</TableHead>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Event Date</TableHead>
-                        <TableHead>Guests</TableHead>
-                        <TableHead>Venue</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredOrders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-medium">{order.id}</TableCell>
-                          <TableCell>{order.client_name}</TableCell>
-                          <TableCell>
-                            {new Date(order.event_date).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>{order.guest_count}</TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {order.venue_address}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(order.status)}</TableCell>
-                          <TableCell className="font-semibold">
-                            R{order.total?.toLocaleString() || 0}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button variant="ghost" size="sm">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-6 min-w-max px-1">
+                <KanbanColumn status="pending" title="Pending" />
+                <KanbanColumn status="confirmed" title="Confirmed" />
+                <KanbanColumn status="preparing" title="In Prep" />
+                <KanbanColumn status="ready" title="Ready" />
+                <KanbanColumn status="in_transit" title="In Transit" />
+                <KanbanColumn status="delivered" title="Delivered" />
+                <KanbanColumn status="completed" title="Completed" />
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </PortalLayout>
     </>
+  );
+}
+
+export default function AdminOrders() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <OrderProcessDashboard />
+    </ProtectedRoute>
   );
 }
