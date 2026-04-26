@@ -127,12 +127,13 @@ export default function LoginPage() {
       
       let dashboardUrl = "/";
 
-      switch (userRole) {
+      switch (profiles.role || profiles.active_role) {
         case "super_admin":
           dashboardUrl = "/super-admin/dashboard";
           console.log("🌟 Super Admin detected - redirecting to:", dashboardUrl);
           break;
         case "company_admin":
+        case "admin":
           dashboardUrl = userCompanySlug ? `/${userCompanySlug}/admin/dashboard` : "/admin/dashboard";
           console.log("👔 Company Admin detected - redirecting to:", dashboardUrl);
           break;

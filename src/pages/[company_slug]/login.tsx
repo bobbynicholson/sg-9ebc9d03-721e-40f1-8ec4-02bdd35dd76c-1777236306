@@ -134,23 +134,30 @@ export default function CompanyLoginPage() {
       let dashboardUrl = "/";
 
       switch (activeRole) {
+        case "super_admin":
+          router.push("/super-admin/dashboard");
+          break;
         case "company_admin":
-          dashboardUrl = `/${company_slug}/admin/dashboard`;
+        case "admin":
+          router.push(`/${slugString}/admin/dashboard`);
+          break;
+        case "owner":
+          router.push(`/${slugString}/admin/dashboard`);
           break;
         case "driver":
-          dashboardUrl = `/${company_slug}/team-portal/driver/dashboard`;
+          dashboardUrl = `/${slugString}/team-portal/driver/dashboard`;
           break;
         case "kitchen_staff":
-          dashboardUrl = `/${company_slug}/team-portal/kitchen/dashboard`;
+          dashboardUrl = `/${slugString}/team-portal/kitchen/dashboard`;
           break;
         case "shopping_staff":
-          dashboardUrl = `/${company_slug}/team-portal/shopping/dashboard`;
+          dashboardUrl = `/${slugString}/team-portal/shopping/dashboard`;
           break;
         case "cleaning_staff":
-          dashboardUrl = `/${company_slug}/team-portal/cleaning/dashboard`;
+          dashboardUrl = `/${slugString}/team-portal/cleaning/dashboard`;
           break;
         case "client":
-          dashboardUrl = `/${company_slug}/client-portal/dashboard`;
+          dashboardUrl = `/${slugString}/client-portal/dashboard`;
           break;
         default:
           dashboardUrl = "/";

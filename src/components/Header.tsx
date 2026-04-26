@@ -18,24 +18,28 @@ import { UserRole } from "@/types/app";
 
 // Helper function to get the correct dashboard path for each role
 const getDashboardPath = (role: UserRole, companySlug?: string): string => {
+  const adminPath = companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
+  
   switch (role) {
     case UserRole.SUPER_ADMIN:
       return "/super-admin/dashboard";
     case UserRole.COMPANY_ADMIN:
     case UserRole.ADMIN:
-      return companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
-    case UserRole.CLIENT:
-      return companySlug ? `/${companySlug}/client-portal/dashboard` : "/client-portal/dashboard";
+    case UserRole.OWNER:
+      return adminPath;
     case UserRole.DRIVER:
-      return companySlug ? `/${companySlug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard";
+      return "/team-portal/driver/dashboard";
     case UserRole.KITCHEN:
-      return companySlug ? `/${companySlug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard";
+    case UserRole.KITCHEN_STAFF:
+      return "/team-portal/kitchen/dashboard";
     case UserRole.SHOPPING:
-      return companySlug ? `/${companySlug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard";
+    case UserRole.SHOPPING_STAFF:
+      return "/team-portal/shopping/dashboard";
     case UserRole.CLEANING:
-      return companySlug ? `/${companySlug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard";
-    case UserRole.STAFF:
-      return companySlug ? `/${companySlug}/team-portal/general/job-progress` : "/team-portal/general/job-progress";
+    case UserRole.CLEANING_STAFF:
+      return "/team-portal/cleaning/dashboard";
+    case UserRole.CLIENT:
+      return "/client-portal/dashboard";
     default:
       return "/";
   }

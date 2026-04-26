@@ -57,7 +57,8 @@ export default function AuthCallbackPage() {
                 console.log("🌟 Callback - Super Admin redirect:", dashboardUrl);
                 break;
               case "company_admin":
-                dashboardUrl = "/admin/dashboard";
+              case "admin":
+                dashboardUrl = companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard";
                 console.log("👔 Callback - Company Admin redirect:", dashboardUrl);
                 break;
               case "driver":
