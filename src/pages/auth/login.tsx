@@ -187,9 +187,9 @@ export default function LoginPage() {
 
     try {
       const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD || "Test123!";
-      const { data, error: signInError } = await authService.signIn(userEmail, devPassword);
+      const { user, error: signInError } = await authService.signIn(userEmail, devPassword);
 
-      if (signInError || !data?.user) {
+      if (signInError || !user) {
         throw new Error(signInError?.message || "Dev login failed");
       }
 
@@ -203,7 +203,7 @@ export default function LoginPage() {
         duration: 2000,
       });
 
-      await routeAfterLogin(data.user.id, router, redirect as string);
+      await routeAfterLogin(user.id, router, redirect as string);
     } catch (err: any) {
       console.error("Dev login error:", err);
       setError(err.message || "Dev login failed");
@@ -223,9 +223,9 @@ export default function LoginPage() {
     }
 
     try {
-      const { data, error: signInError } = await authService.signIn(email.trim(), password);
+      const { user, error: signInError } = await authService.signIn(email.trim(), password);
 
-      if (signInError || !data?.user) {
+      if (signInError || !user) {
         throw new Error(signInError?.message || "Authentication failed");
       }
 
@@ -239,7 +239,7 @@ export default function LoginPage() {
         duration: 2000,
       });
 
-      await routeAfterLogin(data.user.id, router, redirect as string);
+      await routeAfterLogin(user.id, router, redirect as string);
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Login failed");

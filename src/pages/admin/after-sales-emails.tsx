@@ -404,7 +404,7 @@ function AfterSalesEmailsPage() {
 
 export default function ProtectedAfterSalesEmailsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <AfterSalesEmailsPage />
     </ProtectedRoute>
   );

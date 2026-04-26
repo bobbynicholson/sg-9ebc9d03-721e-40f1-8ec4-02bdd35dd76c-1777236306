@@ -33,7 +33,7 @@ import {  UserRole  } from "@/types/app"; // Assuming this is where UserRole is 
 
 export default function ProtectedEmailAutomationDashboard() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <EmailAutomationDashboard />
     </ProtectedRoute>
   );

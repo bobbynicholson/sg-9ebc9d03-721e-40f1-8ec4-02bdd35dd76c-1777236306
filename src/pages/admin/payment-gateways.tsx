@@ -435,7 +435,7 @@ function PaymentGatewaysPage() {
 
 export default function ProtectedPaymentGatewaysPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_ADMIN]}>
       <PaymentGatewaysPage />
     </ProtectedRoute>
   );

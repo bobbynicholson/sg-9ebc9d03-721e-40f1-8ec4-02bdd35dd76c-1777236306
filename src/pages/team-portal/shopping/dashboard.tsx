@@ -142,7 +142,7 @@ export default function ShoppingDashboard() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.SHOPPING} />
+      <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
 
       <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-7xl">

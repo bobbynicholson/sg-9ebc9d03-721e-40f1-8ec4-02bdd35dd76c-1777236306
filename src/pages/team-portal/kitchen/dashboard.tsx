@@ -124,7 +124,7 @@ export default function KitchenDashboard() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.KITCHEN} />
+      <DynamicNav userRole={UserRole.KITCHEN_STAFF} />
 
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-7xl">

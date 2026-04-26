@@ -40,7 +40,7 @@ import {  UserRole  } from "@/types/app";
 
 export default function ProtectedSettingsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <SettingsPage />
     </ProtectedRoute>
   );

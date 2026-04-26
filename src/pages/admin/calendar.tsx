@@ -25,7 +25,7 @@ import {  UserRole  } from "@/types/app"; // Adjust import based on actual path
 
 export default function ProtectedCalendarPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <AdminCalendar />
     </ProtectedRoute>
   );

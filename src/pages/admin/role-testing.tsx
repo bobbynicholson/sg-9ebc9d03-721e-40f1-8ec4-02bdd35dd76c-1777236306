@@ -75,7 +75,7 @@ const testAccounts: TestAccount[] = [
     departments: ["driver"]
   },
   {
-    role: UserRole.SHOPPING,
+    role: UserRole.SHOPPING_STAFF,
     name: "Shopping Manager",
     email: "shopping@test.cateringms.com",
     password: "TestShopping123!",
@@ -87,7 +87,7 @@ const testAccounts: TestAccount[] = [
     departments: ["shopping"]
   },
   {
-    role: UserRole.KITCHEN,
+    role: UserRole.KITCHEN_STAFF,
     name: "Kitchen Staff",
     email: "kitchen@test.cateringms.com",
     password: "TestKitchen123!",
@@ -99,7 +99,7 @@ const testAccounts: TestAccount[] = [
     departments: ["kitchen"]
   },
   {
-    role: UserRole.CLEANING,
+    role: UserRole.CLEANING_STAFF,
     name: "Cleaning Staff",
     email: "cleaning@test.cateringms.com",
     password: "TestCleaning123!",
@@ -233,7 +233,7 @@ ORDER BY p.email;`;
 
 export default function ProtectedRoleTestingPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <RoleTestingPage />
     </ProtectedRoute>
   );

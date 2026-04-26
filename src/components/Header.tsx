@@ -25,17 +25,17 @@ const getDashboardPath = (role: UserRole, companySlug?: string): string => {
       return "/super-admin/dashboard";
     case UserRole.COMPANY_ADMIN:
     case UserRole.ADMIN:
-    case UserRole.OWNER:
+    case UserRole.COMPANY_ADMIN:
       return adminPath;
     case UserRole.DRIVER:
       return "/team-portal/driver/dashboard";
-    case UserRole.KITCHEN:
+    case UserRole.KITCHEN_STAFF:
     case UserRole.KITCHEN_STAFF:
       return "/team-portal/kitchen/dashboard";
-    case UserRole.SHOPPING:
+    case UserRole.SHOPPING_STAFF:
     case UserRole.SHOPPING_STAFF:
       return "/team-portal/shopping/dashboard";
-    case UserRole.CLEANING:
+    case UserRole.CLEANING_STAFF:
     case UserRole.CLEANING_STAFF:
       return "/team-portal/cleaning/dashboard";
     case UserRole.CLIENT:

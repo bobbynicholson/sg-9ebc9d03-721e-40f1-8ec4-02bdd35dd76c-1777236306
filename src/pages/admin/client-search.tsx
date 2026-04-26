@@ -30,7 +30,7 @@ import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
 
 export default function ProtectedClientSearchPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <ClientSearchPage />
     </ProtectedRoute>
   );

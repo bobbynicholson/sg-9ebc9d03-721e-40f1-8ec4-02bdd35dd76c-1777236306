@@ -712,7 +712,7 @@ function OrderAssignmentsContent() {
 
 export default function ProtectedOrderAssignmentsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
       <OrderAssignmentsContent />
     </ProtectedRoute>
   );
