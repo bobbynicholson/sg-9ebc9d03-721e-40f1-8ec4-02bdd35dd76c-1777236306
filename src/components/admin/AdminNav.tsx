@@ -306,6 +306,65 @@ export function AdminNav({ className }: AdminNavProps) {
         }
       ]
     }] : []),
+    ...(profile && profile.role === "super_admin" ? [{
+      title: "Platform Admin",
+      items: [
+        {
+          title: "Platform Dashboard",
+          href: "/admin/platform/dashboard",
+          icon: LayoutDashboard,
+          description: "Platform overview"
+        },
+        {
+          title: "Company Database",
+          href: "/admin/platform/company-database",
+          icon: Building2,
+          description: "Manage all companies"
+        },
+        {
+          title: "User Management",
+          href: "/admin/platform/user-management",
+          icon: Users,
+          description: "Platform-wide users"
+        },
+        {
+          title: "Subscription Management",
+          href: "/admin/platform/subscription-management",
+          icon: CreditCard,
+          description: "Platform subscriptions"
+        },
+        {
+          title: "Pricing Management",
+          href: "/admin/platform/pricing-management",
+          icon: DollarSign,
+          description: "Manage pricing tiers"
+        },
+        {
+          title: "Trial Management",
+          href: "/admin/platform/trial-management",
+          icon: Clock,
+          description: "Manage trial periods"
+        },
+        {
+          title: "Currency Monitoring",
+          href: "/admin/platform/currency-monitoring",
+          icon: TrendingUp,
+          description: "Monitor exchange rates"
+        },
+        {
+          title: "CMS Blog",
+          href: "/admin/platform/cms-blog",
+          icon: FileText,
+          description: "Manage blog content"
+        },
+        {
+          title: "CMS Pages",
+          href: "/admin/platform/cms-pages",
+          icon: Globe,
+          description: "Manage static pages"
+        }
+      ]
+    }] : []),
     {
       title: "Account",
       items: [

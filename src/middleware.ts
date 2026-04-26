@@ -52,6 +52,16 @@ const isPublicRoute = (pathname: string) => {
 };
 
 export async function middleware(request: NextRequest) {
+  // Redirect old platform admin URLs to new unified structure
+  if (request.nextUrl.pathname.startsWith("/cateringms-platform") || 
+      request.nextUrl.pathname.startsWith("/super-admin")) {
+    const url = request.nextUrl.clone();
+    url.pathname = url.pathname
+      .replace("/cateringms-platform", "/admin/platform")
+      .replace("/super-admin", "/admin/platform");
+    return NextResponse.redirect(url, 301); // Permanent redirect
+  }
+
   // 🔧 DEV MODE: Skip all auth checks on localhost if requested
   const isDevEnvironment = 
     (request.nextUrl.hostname === "localhost" || 

@@ -8,6 +8,7 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
   [UserRole.SUPER_ADMIN]: [
     "/super-admin/*",
     "/admin/*",
+    "/admin/platform/*",
     "/team-portal/*",
     "/client-portal/*",
     "*",
@@ -110,7 +111,7 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
-  [UserRole.SUPER_ADMIN]: () => "/super-admin/dashboard",
+  [UserRole.SUPER_ADMIN]: () => "/admin/dashboard",
   [UserRole.COMPANY_ADMIN]: () => "/admin/dashboard",
   [UserRole.ADMIN]: () => "/admin/dashboard",
   [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",

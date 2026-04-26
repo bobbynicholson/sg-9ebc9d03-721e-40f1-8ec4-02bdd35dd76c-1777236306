@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
-import { AuditLogsViewer } from "@/components/super-admin/AuditLogsViewer";
+import { AuditLogsViewer } from "@/components/admin/platform/AuditLogsViewer";
 
 const StatCard = ({ 
   title, 
@@ -191,7 +191,7 @@ export default function PlatformDashboard() {
                 <Button
                   variant="outline"
                   className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
-                  onClick={() => router.push("/super-admin/company-database")}
+                  onClick={() => router.push("/admin/platform/company-database")}
                 >
                   <Users className="w-6 h-6 text-purple-600" />
                   <div className="text-left">
@@ -203,7 +203,7 @@ export default function PlatformDashboard() {
                 <Button
                   variant="outline"
                   className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
-                  onClick={() => router.push("/super-admin/subscription-management")}
+                  onClick={() => router.push("/admin/platform/subscription-management")}
                 >
                   <DollarSign className="w-6 h-6 text-blue-600" />
                   <div className="text-left">
@@ -215,7 +215,7 @@ export default function PlatformDashboard() {
                 <Button
                   variant="outline"
                   className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
-                  onClick={() => router.push("/super-admin/user-management")}
+                  onClick={() => router.push("/admin/platform/user-management")}
                 >
                   <Users className="w-6 h-6 text-green-600" />
                   <div className="text-left">
@@ -277,7 +277,7 @@ export default function PlatformDashboard() {
                 <p>✅ <strong>No authentication required</strong> - Middleware bypasses all auth checks</p>
                 <p>✅ <strong>Access all portals:</strong></p>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li><strong>/super-admin/*</strong> - Platform management (current)</li>
+                  <li><strong>/admin/platform/*</strong> - Platform management (current)</li>
                   <li><strong>/admin/*</strong> - Company admin view (test any company)</li>
                   <li><strong>/[company-slug]/admin/*</strong> - Company-specific admin</li>
                   <li><strong>/team-portal/*</strong> - Staff views (driver, kitchen, etc.)</li>
