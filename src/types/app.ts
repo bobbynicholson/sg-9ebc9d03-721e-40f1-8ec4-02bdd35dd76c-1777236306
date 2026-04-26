@@ -243,16 +243,11 @@ export enum UserRole {
   SUPER_ADMIN = "super_admin",
   COMPANY_ADMIN = "company_admin",
   ADMIN = "admin",
-  OWNER = "owner",
-  KITCHEN = "kitchen",
   KITCHEN_STAFF = "kitchen_staff",
-  CLEANING = "cleaning",
-  CLEANING_STAFF = "cleaning_staff",
-  SHOPPING = "shopping",
   SHOPPING_STAFF = "shopping_staff",
+  CLEANING_STAFF = "cleaning_staff",
   DRIVER = "driver",
   CLIENT = "client",
-  STAFF = "staff",
 }
 
 export interface User {

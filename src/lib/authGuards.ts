@@ -49,20 +49,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/onboarding",
     "/team-portal/*",
   ],
-  [UserRole.OWNER]: [
-    "/admin/*",
-    "/team-portal/*",
-  ],
-  [UserRole.KITCHEN]: [
-    "/team-portal/kitchen/*",
-    "/team-portal/general/*",
-  ],
   [UserRole.KITCHEN_STAFF]: [
     "/team-portal/kitchen/*",
-    "/team-portal/general/*",
-  ],
-  [UserRole.SHOPPING]: [
-    "/team-portal/shopping/*",
     "/team-portal/general/*",
   ],
   [UserRole.SHOPPING_STAFF]: [
@@ -73,19 +61,12 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/team-portal/driver/*",
     "/team-portal/general/*",
   ],
-  [UserRole.CLEANING]: [
-    "/team-portal/cleaning/*",
-    "/team-portal/general/*",
-  ],
   [UserRole.CLEANING_STAFF]: [
     "/team-portal/cleaning/*",
     "/team-portal/general/*",
   ],
   [UserRole.CLIENT]: [
     "/client-portal/*",
-  ],
-  [UserRole.STAFF]: [
-    "/team-portal/general/*",
   ],
 };
 
@@ -94,14 +75,12 @@ export const ADMIN_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.COMPANY_ADMIN,
   UserRole.ADMIN,
-  UserRole.OWNER,
 ];
 
 // Roles with full company access (all data, all operations)
 export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.COMPANY_ADMIN,
-  UserRole.OWNER,
 ];
 
 // Roles with company access but restricted finance (no payment gateways, subscription, financial dashboard)
@@ -120,35 +99,25 @@ export const FINANCE_ROUTES = [
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
-  [UserRole.OWNER]: "Owner",
   [UserRole.SUPER_ADMIN]: "Platform Administrator",
   [UserRole.COMPANY_ADMIN]: "Company Administrator",
-  [UserRole.KITCHEN]: "Kitchen Manager",
   [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
-  [UserRole.SHOPPING]: "Shopping Manager",
   [UserRole.SHOPPING_STAFF]: "Shopping Staff",
   [UserRole.DRIVER]: "Driver/Waiter",
-  [UserRole.CLEANING]: "Cleaning Manager",
   [UserRole.CLEANING_STAFF]: "Cleaning Staff",
   [UserRole.CLIENT]: "Client",
-  [UserRole.STAFF]: "General Staff",
 };
 
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/super-admin/dashboard",
-  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  [UserRole.OWNER]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  [UserRole.KITCHEN]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.COMPANY_ADMIN]: () => "/admin/dashboard",
+  [UserRole.ADMIN]: () => "/admin/dashboard",
   [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
-  [UserRole.SHOPPING]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
   [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
-  [UserRole.CLEANING]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
   [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
-  [UserRole.STAFF]: (slug) => slug ? `/${slug}/team-portal/general/job-progress` : "/team-portal/general/job-progress",
 };
 
 /**
@@ -265,7 +234,6 @@ export function isPlatformAdmin(userRole: UserRole): boolean {
 export function isCompanyAdmin(userRole: UserRole): boolean {
   return userRole === UserRole.COMPANY_ADMIN || 
          userRole === UserRole.ADMIN || 
-         userRole === UserRole.OWNER || 
          userRole === UserRole.SUPER_ADMIN;
 }
 
@@ -274,12 +242,9 @@ export function isCompanyAdmin(userRole: UserRole): boolean {
  */
 export function isStaffRole(userRole: UserRole): boolean {
   const staffRoles: UserRole[] = [
-    UserRole.KITCHEN,
     UserRole.KITCHEN_STAFF,
-    UserRole.SHOPPING,
     UserRole.SHOPPING_STAFF,
     UserRole.DRIVER,
-    UserRole.CLEANING,
     UserRole.CLEANING_STAFF,
   ];
   return staffRoles.includes(userRole);
