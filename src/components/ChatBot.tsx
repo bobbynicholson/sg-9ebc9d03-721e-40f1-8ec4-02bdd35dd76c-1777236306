@@ -20,21 +20,39 @@ interface RoleConfig {
   greeting: string;
   examples: string[];
   color: string;
-  icon: string;
+  icon?: string;
 }
 
 const ROLE_CONFIGS: Record<string, RoleConfig> = {
+  super_admin: {
+    title: "Platform Admin Assistant",
+    greeting: "I can help you manage the entire CateringMS platform, monitor all companies, and handle system-wide operations.",
+    examples: [],
+    color: "from-purple-600 to-pink-600"
+  },
+  company_admin: {
+    title: "Company Admin Assistant",
+    greeting: "I can help you manage your catering business, including orders, staff, inventory, and financial operations.",
+    examples: [],
+    color: "from-blue-600 to-indigo-600"
+  },
   admin: {
     title: "Admin Assistant",
-    greeting: "Hi! I'm your admin assistant. I can help you manage your catering business, analyze data, and make informed decisions.",
+    greeting: "I can help you manage company operations, orders, staff, and inventory. For financial matters, contact your company administrator.",
     examples: [
       "Show me today's revenue",
       "Which orders need immediate attention?",
       "Staff performance this week",
       "Upcoming events summary"
     ],
-    color: "from-purple-500 to-pink-500",
+    color: "from-violet-600 to-purple-600",
     icon: "🎯"
+  },
+  owner: {
+    title: "Owner Assistant",
+    greeting: "I can help you manage your business operations and oversee your team.",
+    examples: [],
+    color: "from-emerald-600 to-teal-600"
   },
   driver: {
     title: "Driver Assistant",

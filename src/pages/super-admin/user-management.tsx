@@ -236,12 +236,12 @@ export default function UserManagementPage() {
 
   const getRoleBadge = (role: string) => {
     const roleConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      super_admin: { label: "Super Admin", variant: "destructive" },
+      super_admin: { label: "Platform Admin", variant: "destructive" },
       company_admin: { label: "Company Admin", variant: "default" },
-      driver: { label: "Driver", variant: "secondary" },
-      kitchen_staff: { label: "Kitchen", variant: "outline" },
-      shopping_staff: { label: "Shopping", variant: "outline" },
-      cleaning_staff: { label: "Cleaning", variant: "outline" },
+      admin: { label: "Admin", variant: "default" },
+      owner: { label: "Owner", variant: "secondary" },
+      kitchen: { label: "Kitchen", variant: "outline" },
+      driver: { label: "Driver", variant: "outline" },
       client: { label: "Client", variant: "outline" },
     };
 
@@ -309,12 +309,12 @@ export default function UserManagementPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="super_admin">Platform Admin</SelectItem>
                       <SelectItem value="company_admin">Company Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="kitchen">Kitchen</SelectItem>
                       <SelectItem value="driver">Driver</SelectItem>
-                      <SelectItem value="kitchen_staff">Kitchen Staff</SelectItem>
-                      <SelectItem value="shopping_staff">Shopping Staff</SelectItem>
-                      <SelectItem value="cleaning_staff">Cleaning Staff</SelectItem>
                       <SelectItem value="client">Client</SelectItem>
                     </SelectContent>
                   </Select>
