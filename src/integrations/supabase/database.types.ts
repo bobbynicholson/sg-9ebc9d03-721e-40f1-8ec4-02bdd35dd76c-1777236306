@@ -1194,16 +1194,25 @@ export type Database = {
       }
       delivery_route_stops: {
         Row: {
+          actual_arrival_time: string | null
           added_by_admin: boolean | null
           amount_spent: number | null
           arrival_time: string | null
+          completion_time: string | null
           created_at: string | null
           departure_time: string | null
           driver_id: string | null
+          estimated_arrival_time: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
+          notes: string | null
           order_id: string | null
           reason: string | null
           receipt_url: string | null
+          route_id: string | null
+          sequence_number: number | null
+          status: string | null
           stop_address: string | null
           stop_lat: number | null
           stop_lng: number | null
@@ -1211,16 +1220,25 @@ export type Database = {
           stop_type: string | null
         }
         Insert: {
+          actual_arrival_time?: string | null
           added_by_admin?: boolean | null
           amount_spent?: number | null
           arrival_time?: string | null
+          completion_time?: string | null
           created_at?: string | null
           departure_time?: string | null
           driver_id?: string | null
+          estimated_arrival_time?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
           order_id?: string | null
           reason?: string | null
           receipt_url?: string | null
+          route_id?: string | null
+          sequence_number?: number | null
+          status?: string | null
           stop_address?: string | null
           stop_lat?: number | null
           stop_lng?: number | null
@@ -1228,23 +1246,91 @@ export type Database = {
           stop_type?: string | null
         }
         Update: {
+          actual_arrival_time?: string | null
           added_by_admin?: boolean | null
           amount_spent?: number | null
           arrival_time?: string | null
+          completion_time?: string | null
           created_at?: string | null
           departure_time?: string | null
           driver_id?: string | null
+          estimated_arrival_time?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
           order_id?: string | null
           reason?: string | null
           receipt_url?: string | null
+          route_id?: string | null
+          sequence_number?: number | null
+          status?: string | null
           stop_address?: string | null
           stop_lat?: number | null
           stop_lng?: number | null
           stop_name?: string | null
           stop_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "delivery_route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_routes: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          driver_id: string | null
+          estimated_duration: number | null
+          id: string
+          route_date: string
+          status: string | null
+          total_distance: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          estimated_duration?: number | null
+          id?: string
+          route_date: string
+          status?: string | null
+          total_distance?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          estimated_duration?: number | null
+          id?: string
+          route_date?: string
+          status?: string | null
+          total_distance?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_routes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_stops: {
         Row: {
@@ -2767,30 +2853,39 @@ export type Database = {
       }
       gps_tracking: {
         Row: {
+          accuracy: number | null
           created_at: string | null
           driver_id: string | null
+          heading: number | null
           id: string
           latitude: number | null
           longitude: number | null
           order_id: string | null
+          speed: number | null
           timestamp: string | null
         }
         Insert: {
+          accuracy?: number | null
           created_at?: string | null
           driver_id?: string | null
+          heading?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           order_id?: string | null
+          speed?: number | null
           timestamp?: string | null
         }
         Update: {
+          accuracy?: number | null
           created_at?: string | null
           driver_id?: string | null
+          heading?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
           order_id?: string | null
+          speed?: number | null
           timestamp?: string | null
         }
         Relationships: [
@@ -4114,6 +4209,48 @@ export type Database = {
           order_id?: string | null
         }
         Relationships: []
+      }
+      order_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          order_id: string | null
+          status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_status_history_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {

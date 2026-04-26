@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/services/routeOptimizationService";
 import dynamic from "next/dynamic";
+import driverService from "@/services/driverService";
 
 // Mock data for testing (until database is populated)
 const MOCK_DRIVERS = [
@@ -228,7 +229,6 @@ export default function RoutePlanning() {
       const success = await routeOptimizationService.saveOptimizedRoute(route);
       if (success) {
         // Send notification to driver
-        const { driverService } = await import("@/services/driverService");
         await driverService.notifyDriverOfRouteAssignment(route.driver_id, {
           stopCount: route.stops.length,
           totalDistance: route.total_distance,

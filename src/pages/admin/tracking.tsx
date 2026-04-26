@@ -16,11 +16,8 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
-
-const AdminTrackingMap = dynamic(
-  () => import("@/components/tracking/AdminTrackingMap").then((mod) => mod.AdminTrackingMap),
-  { ssr: false }
-) as React.ComponentType<any>;
+import { supabase } from "@/integrations/supabase/client";
+import AdminTrackingMap from "@/components/tracking/AdminTrackingMap";
 
 interface OrderWithTracking {
   id: string;

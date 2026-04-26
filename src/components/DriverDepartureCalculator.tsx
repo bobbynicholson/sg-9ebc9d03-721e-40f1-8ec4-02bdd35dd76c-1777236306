@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Navigation, AlertCircle, CheckCircle, MapPin } from "lucide-react";
-import { driverService } from "@/services/driverService";
+import driverService from "@/services/driverService";
 import { format } from "date-fns";
 
 interface DriverDepartureCalculatorProps {

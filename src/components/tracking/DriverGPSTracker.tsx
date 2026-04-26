@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation, Clock, CheckCircle } from "lucide-react";
 import { DriverLocation, DeliveryStatus } from "@/types/tracking";
-import { driverService } from "@/services/driverService";
+import driverService from "@/services/driverService";
 import { proximityService } from "@/services/proximityService";
 
 interface DriverGPSTrackerProps {
