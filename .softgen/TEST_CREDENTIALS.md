@@ -1,90 +1,16 @@
-
 # CateringMS Test Credentials
 **Company:** Spit Braai Delivery
 **Company Slug:** `spit-braai-delivery`
 
 ---
 
-## 🚀 QUICK SETUP - Create All 8 Users at Once
+## ✅ ALL USERS CREATED - Ready to Login!
 
-### Step-by-Step in Supabase Dashboard:
-
-1. **Open Supabase Dashboard:** https://supabase.com/dashboard
-2. **Select your project**
-3. **Go to:** Authentication → Users
-4. **For EACH user below, click "Add User" and fill in:**
+All 8 test users have been created in the database with confirmed emails and correct passwords.
 
 ---
 
-## 👥 User #1: Super Admin
-- Click **"Create New User"**
-- **Email:** `superadmin@cateringms.com`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #2: Company Owner (Callum Rogers)
-- Click **"Create New User"**
-- **Email:** `hello@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #3: Staff (Admin)
-- Click **"Create New User"**
-- **Email:** `admin@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #4: Kitchen Staff
-- Click **"Create New User"**
-- **Email:** `kitchen@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #5: Driver
-- Click **"Create New User"**
-- **Email:** `driver@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #6: Shopping Staff
-- Click **"Create New User"**
-- **Email:** `shopping@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #7: Cleaning Staff
-- Click **"Create New User"**
-- **Email:** `cleaning@spitbraaidelivery.co.za`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
-## 👥 User #8: Client (Test Client Portal)
-- Click **"Create New User"**
-- **Email:** `client@test.com`
-- **Password:** `Test123!`
-- ✅ Toggle **"Auto Confirm User"** to ON
-- Click **"Create User"**
-
----
-
-## ✅ After Creating All Auth Users
-
-The database will **automatically create profiles** for each user with the correct roles via database triggers.
-
-**Verify Setup:**
-1. Go to **Database** → **Table Editor** → **profiles**
-2. You should see all 8 users with their roles assigned
-
----
-
-## 📋 Complete User List (Reference)
+## 📋 Complete User List
 
 | # | Email | Password | Name | Role | Phone |
 |---|-------|----------|------|------|-------|
@@ -135,6 +61,6 @@ After creating all users:
 
 ---
 
-**Setup Time:** ~5 minutes (8 users × 30 seconds each)
-**Status:** ✅ Ready for testing once auth users created
+**Setup Time:** ✅ COMPLETE - Users created via SQL
+**Status:** ✅ Ready for testing immediately
 **Last Updated:** 2026-04-26
