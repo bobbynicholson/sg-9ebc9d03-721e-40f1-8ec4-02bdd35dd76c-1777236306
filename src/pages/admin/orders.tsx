@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ShoppingCart,
   Calendar,
@@ -22,6 +26,13 @@ import {
   Truck,
   MapPin,
   AlertCircle,
+  LayoutGrid,
+  List,
+  ArrowRight,
+  Plus,
+  Trash2,
+  Save,
+  X,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -29,9 +40,10 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalLayout } from "@/components/Layout";
 import { orderService } from "@/services/orderService";
-import type { AppOrder } from "@/types/app";
+import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
+import { useToast } from "@/hooks/use-toast";
 
 interface OrderStats {
   total: number;
@@ -96,13 +108,57 @@ const STATUS_CONFIG = {
   },
 };
 
+// Workflow stages for timeline view
+const WORKFLOW_STAGES = [
+  { key: "pending", label: "Pending", order: 0 },
+  { key: "confirmed", label: "Confirmed", order: 1 },
+  { key: "preparing", label: "In Prep", order: 2 },
+  { key: "ready", label: "Ready", order: 3 },
+  { key: "in_transit", label: "In Transit", order: 4 },
+  { key: "delivered", label: "Delivered", order: 5 },
+  { key: "completed", label: "Completed", order: 6 },
+];
+
+// Get stage status (completed, current, critical, upcoming)
+const getStageStatus = (order: AppOrder, stageKey: string): "completed" | "current" | "critical" | "upcoming" => {
+  const currentStageOrder = WORKFLOW_STAGES.find(s => s.key === order.status)?.order ?? 0;
+  const thisStageOrder = WORKFLOW_STAGES.find(s => s.key === stageKey)?.order ?? 0;
+  
+  if (thisStageOrder < currentStageOrder) {
+    return "completed";
+  } else if (thisStageOrder === currentStageOrder) {
+    // Check if critical (event date is today or past and not completed)
+    const eventDate = new Date(order.event_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (eventDate <= today && order.status !== "completed" && order.status !== "cancelled") {
+      return "critical";
+    }
+    return "current";
+  }
+  return "upcoming";
+};
+
+// Get next stage
+const getNextStage = (order: AppOrder): string | null => {
+  const currentStageOrder = WORKFLOW_STAGES.find(s => s.key === order.status)?.order ?? 0;
+  const nextStage = WORKFLOW_STAGES.find(s => s.order === currentStageOrder + 1);
+  return nextStage ? nextStage.label : null;
+};
+
 function OrderProcessDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
+  const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -262,16 +318,461 @@ function OrderProcessDashboard() {
               <span className="font-semibold text-slate-900">
                 R{order.total?.toLocaleString() || 0}
               </span>
-              <Link href={`/admin/order-assignments?id=${order.id}`}>
-                <Button variant="ghost" size="sm" className="gap-1">
-                  <Eye className="w-3 h-3" />
-                  View
-                </Button>
-              </Link>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1"
+                onClick={() => {
+                  setSelectedOrder(order);
+                  setIsModalOpen(true);
+                }}
+              >
+                <Eye className="w-3 h-3" />
+                View
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  const TimelineRow = ({ order }: { order: AppOrder }) => {
+    const eventDate = new Date(order.event_date);
+    const isToday = eventDate.toDateString() === new Date().toDateString();
+    const isPast = eventDate < new Date();
+    const nextStage = getNextStage(order);
+
+    return (
+      <Card 
+        className="hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => {
+          setSelectedOrder(order);
+          setIsModalOpen(true);
+        }}
+      >
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            {/* Order Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
+                  {isToday && (
+                    <Badge className="bg-blue-500">Today</Badge>
+                  )}
+                  {isPast && order.status !== "completed" && (
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Overdue
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-sm text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    <span>{eventDate.toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    <span className="truncate max-w-xs">{order.venue_address}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    <span>{order.guest_count} guests</span>
+                  </div>
+                  <div className="flex items-center gap-1 font-semibold text-slate-900">
+                    <DollarSign className="w-4 h-4" />
+                    <span>R{order.total?.toLocaleString() || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline Progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Progress</span>
+                {nextStage && (
+                  <div className="flex items-center gap-1 text-orange-600 font-medium">
+                    <ArrowRight className="w-3 h-3" />
+                    Next: {nextStage}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {WORKFLOW_STAGES.map((stage, index) => {
+                  const status = getStageStatus(order, stage.key);
+                  const isLast = index === WORKFLOW_STAGES.length - 1;
+
+                  return (
+                    <div key={stage.key} className="flex items-center flex-1">
+                      {/* Stage Dot */}
+                      <div className="relative group">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                            status === "completed"
+                              ? "bg-green-500 text-white scale-100"
+                              : status === "current"
+                              ? "bg-orange-500 text-white scale-110 ring-4 ring-orange-100 animate-pulse"
+                              : status === "critical"
+                              ? "bg-red-500 text-white scale-110 ring-4 ring-red-100 animate-pulse"
+                              : "bg-slate-200 text-slate-400 scale-90"
+                          }`}
+                        >
+                          {status === "completed" && <CheckCircle2 className="w-4 h-4" />}
+                          {status === "current" && <Clock className="w-4 h-4" />}
+                          {status === "critical" && <AlertCircle className="w-4 h-4" />}
+                          {status === "upcoming" && <div className="w-2 h-2 rounded-full bg-slate-400" />}
+                        </div>
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                          {stage.label}
+                        </div>
+                      </div>
+
+                      {/* Connector Line */}
+                      {!isLast && (
+                        <div className="flex-1 h-1 mx-1">
+                          <div
+                            className={`h-full rounded transition-all ${
+                              status === "completed"
+                                ? "bg-green-500"
+                                : status === "current"
+                                ? "bg-gradient-to-r from-orange-500 to-slate-200"
+                                : status === "critical"
+                                ? "bg-gradient-to-r from-red-500 to-slate-200"
+                                : "bg-slate-200"
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Stage Labels */}
+              <div className="flex items-center gap-2 text-[10px]">
+                {WORKFLOW_STAGES.map((stage) => (
+                  <div key={stage.key} className="flex-1 text-center text-slate-500 truncate">
+                    {stage.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const OrderDetailsModal = () => {
+    if (!selectedOrder) return null;
+
+    const [editedOrder, setEditedOrder] = useState<AppOrder>(selectedOrder);
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+      setSaving(true);
+      try {
+        await orderService.updateOrder(editedOrder.id, {
+          client_name: editedOrder.client_name,
+          venue_address: editedOrder.venue_address,
+          guest_count: editedOrder.guest_count,
+          event_date: editedOrder.event_date,
+          status: editedOrder.status,
+          menu_items: editedOrder.menu_items,
+          equipment_items: editedOrder.equipment_items,
+          notes: editedOrder.notes,
+        });
+        
+        toast({
+          title: "Order Updated",
+          description: "Changes have been saved successfully.",
+        });
+        
+        setEditMode(false);
+        loadOrders(); // Refresh orders list
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update order. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const addMenuItem = () => {
+      const newItem: MenuItem = {
+        id: `new-${Date.now()}`,
+        name: "",
+        category: "main",
+        pricePerPerson: 0,
+        quantity: editedOrder.guest_count || 0,
+        ingredients: [],
+      };
+      setEditedOrder({
+        ...editedOrder,
+        menu_items: [...(editedOrder.menu_items || []), newItem],
+      });
+    };
+
+    const removeMenuItem = (index: number) => {
+      const updated = [...(editedOrder.menu_items || [])];
+      updated.splice(index, 1);
+      setEditedOrder({ ...editedOrder, menu_items: updated });
+    };
+
+    const updateMenuItem = (index: number, field: keyof MenuItem, value: any) => {
+      const updated = [...(editedOrder.menu_items || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      setEditedOrder({ ...editedOrder, menu_items: updated });
+    };
+
+    return (
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl">Order Details</DialogTitle>
+                <DialogDescription className="mt-1">
+                  {editMode ? "Edit order information" : "View order details"}
+                </DialogDescription>
+              </div>
+              {!editMode ? (
+                <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      setEditedOrder(selectedOrder);
+                      setEditMode(false);
+                    }} 
+                    variant="outline" 
+                    size="sm"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSave} disabled={saving} size="sm">
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </DialogHeader>
+
+          <Tabs defaultValue="details" className="mt-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="menu">Menu Items</TabsTrigger>
+              <TabsTrigger value="equipment">Equipment</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Client Name</Label>
+                  <Input
+                    value={editedOrder.client_name}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, client_name: e.target.value })}
+                    disabled={!editMode}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={editedOrder.status}
+                    onValueChange={(value) => setEditedOrder({ ...editedOrder, status: value as any })}
+                    disabled={!editMode}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="preparing">In Prep</SelectItem>
+                      <SelectItem value="ready">Ready</SelectItem>
+                      <SelectItem value="in_transit">In Transit</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label>Venue Address</Label>
+                  <Input
+                    value={editedOrder.venue_address || ""}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, venue_address: e.target.value })}
+                    disabled={!editMode}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Event Date</Label>
+                  <Input
+                    type="date"
+                    value={editedOrder.event_date}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, event_date: e.target.value })}
+                    disabled={!editMode}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Guest Count</Label>
+                  <Input
+                    type="number"
+                    value={editedOrder.guest_count}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, guest_count: parseInt(e.target.value) || 0 })}
+                    disabled={!editMode}
+                  />
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={editedOrder.notes || ""}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, notes: e.target.value })}
+                    disabled={!editMode}
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="menu" className="space-y-4 mt-4">
+              {editMode && (
+                <Button onClick={addMenuItem} variant="outline" size="sm" className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Menu Item
+                </Button>
+              )}
+
+              <div className="space-y-3">
+                {(editedOrder.menu_items || []).map((item, index) => (
+                  <Card key={index}>
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-12 gap-3">
+                        <div className="col-span-5 space-y-2">
+                          <Label className="text-xs">Item Name</Label>
+                          <Input
+                            value={item.name}
+                            onChange={(e) => updateMenuItem(index, "name", e.target.value)}
+                            disabled={!editMode}
+                            placeholder="e.g., Grilled Chicken"
+                          />
+                        </div>
+
+                        <div className="col-span-3 space-y-2">
+                          <Label className="text-xs">Category</Label>
+                          <Select
+                            value={item.category}
+                            onValueChange={(value) => updateMenuItem(index, "category", value)}
+                            disabled={!editMode}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="appetizer">Appetizer</SelectItem>
+                              <SelectItem value="main">Main</SelectItem>
+                              <SelectItem value="side">Side</SelectItem>
+                              <SelectItem value="dessert">Dessert</SelectItem>
+                              <SelectItem value="beverage">Beverage</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="col-span-2 space-y-2">
+                          <Label className="text-xs">Price/Person</Label>
+                          <Input
+                            type="number"
+                            value={item.pricePerPerson}
+                            onChange={(e) => updateMenuItem(index, "pricePerPerson", parseFloat(e.target.value) || 0)}
+                            disabled={!editMode}
+                          />
+                        </div>
+
+                        {editMode && (
+                          <div className="col-span-2 flex items-end">
+                            <Button
+                              onClick={() => removeMenuItem(index)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {(!editedOrder.menu_items || editedOrder.menu_items.length === 0) && (
+                  <div className="text-center py-8 text-slate-400">
+                    <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No menu items added yet</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="equipment" className="space-y-4 mt-4">
+              <div className="space-y-3">
+                {(editedOrder.equipment_items || []).map((item, index) => (
+                  <Card key={index}>
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label className="text-xs">Equipment Name</Label>
+                          <p className="text-sm font-medium mt-1">{item.name}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Quantity</Label>
+                          <p className="text-sm font-medium mt-1">{item.quantity}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Rental Price</Label>
+                          <p className="text-sm font-medium mt-1">R{item.rentalPrice}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {(!editedOrder.equipment_items || editedOrder.equipment_items.length === 0) && (
+                  <div className="text-center py-8 text-slate-400">
+                    <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No equipment items added yet</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -326,12 +827,34 @@ function OrderProcessDashboard() {
                 <p className="text-slate-600 mt-1">Track all orders through your workflow</p>
               </div>
             </div>
-            <Link href="/admin/order-assignments">
-              <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                New Order
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <div className="flex border rounded-lg overflow-hidden">
+                <Button
+                  variant={viewMode === "kanban" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("kanban")}
+                  className="rounded-none"
+                >
+                  <LayoutGrid className="w-4 h-4 mr-2" />
+                  Kanban
+                </Button>
+                <Button
+                  variant={viewMode === "timeline" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("timeline")}
+                  className="rounded-none"
+                >
+                  <List className="w-4 h-4 mr-2" />
+                  Timeline
+                </Button>
+              </div>
+              <Link href="/admin/order-assignments">
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  New Order
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Stats Grid */}
@@ -456,7 +979,7 @@ function OrderProcessDashboard() {
             </CardContent>
           </Card>
 
-          {/* Kanban Board */}
+          {/* Kanban Board / Timeline View */}
           {loading ? (
             <Card className="border-0 shadow-lg">
               <CardContent className="py-24">
@@ -466,7 +989,7 @@ function OrderProcessDashboard() {
                 </div>
               </CardContent>
             </Card>
-          ) : (
+          ) : viewMode === "kanban" ? (
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-6 min-w-max px-1">
                 <KanbanColumn status="pending" title="Pending" />
@@ -478,7 +1001,28 @@ function OrderProcessDashboard() {
                 <KanbanColumn status="completed" title="Completed" />
               </div>
             </div>
+          ) : (
+            <div className="space-y-3">
+              {getFilteredOrders().length === 0 ? (
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="py-24">
+                    <div className="text-center text-slate-400">
+                      <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                      <p className="text-lg font-medium">No orders found</p>
+                      <p className="text-sm mt-1">Try adjusting your filters</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                getFilteredOrders()
+                  .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+                  .map((order) => <TimelineRow key={order.id} order={order} />)
+              )}
+            </div>
           )}
+
+          {/* Order Details Modal */}
+          <OrderDetailsModal />
         </div>
       </PortalLayout>
     </>
