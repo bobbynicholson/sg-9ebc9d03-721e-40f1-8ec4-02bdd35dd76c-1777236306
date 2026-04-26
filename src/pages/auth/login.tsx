@@ -8,8 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, Loader2, Crown, UserCog, Shield, ChefHat, Truck, ShoppingCart, SprayCan, Users } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { authService } from "@/services/authService";
 import { profileService } from "@/services/profileService";
+import { createClient } from "@/lib/supabase/client";
 
 // Dev Mode Test Users
 const DEV_USERS = [
@@ -138,6 +138,7 @@ export default function LoginPage() {
 
   // Clear stale auth on mount
   useEffect(() => {
+    const supabase = createClient();
     // Remove all sb- localStorage keys
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith("sb-")) {
@@ -149,7 +150,7 @@ export default function LoginPage() {
     // Clear session storage
     sessionStorage.clear();
     // Sign out silently
-    authService.signOut().catch(() => {});
+    supabase.auth.signOut().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -187,7 +188,11 @@ export default function LoginPage() {
 
     try {
       const devPassword = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD || "Test123!";
-      const { user, error: signInError } = await authService.signIn(userEmail, devPassword);
+      const supabase = createClient();
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: devPassword,
+      });
 
       if (signInError || !user) {
         throw new Error(signInError?.message || "Dev login failed");
@@ -223,7 +228,11 @@ export default function LoginPage() {
     }
 
     try {
-      const { user, error: signInError } = await authService.signIn(email.trim(), password);
+      const supabase = createClient();
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
       if (signInError || !user) {
         throw new Error(signInError?.message || "Authentication failed");

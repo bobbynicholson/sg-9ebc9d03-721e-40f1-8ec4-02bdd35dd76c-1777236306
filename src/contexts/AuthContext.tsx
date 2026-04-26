@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
@@ -48,6 +48,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const [supabase] = useState(() => createClient());
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [profile, setProfile] = useState<DbProfile | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
