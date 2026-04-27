@@ -56,6 +56,13 @@ interface ProviderRow {
   is_verified: boolean;
   last_test_sent_at: string | null;
   last_test_error: string | null;
+  // auto-attach toggles
+  auto_attach_on_quote_sent: boolean;
+  auto_attach_on_order_confirmed: boolean;
+  auto_attach_on_order_status_change: boolean;
+  magic_link_repeat_customers: boolean;
+  magic_link_repeat_threshold: number;
+  revoke_old_links_on_new: boolean;
 }
 
 const PRICING_TIER_CAPS: Record<string, number> = {
@@ -89,7 +96,14 @@ function EmailSettingsPage() {
     is_verified: false,
     last_test_sent_at: null,
     last_test_error: null,
+    auto_attach_on_quote_sent: true,
+    auto_attach_on_order_confirmed: true,
+    auto_attach_on_order_status_change: false,
+    magic_link_repeat_customers: true,
+    magic_link_repeat_threshold: 2,
+    revoke_old_links_on_new: false,
   });
+  const [queuedCount, setQueuedCount] = useState(0);
   const [smtpPass, setSmtpPass] = useState("");
   const [mailchimpApiKey, setMailchimpApiKey] = useState("");
   const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
@@ -100,7 +114,7 @@ function EmailSettingsPage() {
     (async () => {
       setLoading(true);
       const todayISO = new Date().toISOString().slice(0, 10);
-      const [{ data }, { count }] = await Promise.all([
+      const [{ data }, { count }, { count: queued }] = await Promise.all([
         supabase
           .from("email_provider_settings")
           .select("*")
@@ -113,9 +127,15 @@ function EmailSettingsPage() {
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .gte("sent_at", `${todayISO}T00:00:00`),
+        supabase
+          .from("outgoing_email_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("status", "queued"),
       ]);
       if (cancelled) return;
       setTodayCount(count ?? 0);
+      setQueuedCount(queued ?? 0);
       if (data) {
         setRow({
           ...data,
@@ -161,6 +181,12 @@ function EmailSettingsPage() {
         smtp_secure: row.smtp_secure,
         daily_send_cap: row.daily_send_cap,
         is_verified: false,                // re-verify on every save
+        auto_attach_on_quote_sent:          row.auto_attach_on_quote_sent,
+        auto_attach_on_order_confirmed:     row.auto_attach_on_order_confirmed,
+        auto_attach_on_order_status_change: row.auto_attach_on_order_status_change,
+        magic_link_repeat_customers:        row.magic_link_repeat_customers,
+        magic_link_repeat_threshold:        row.magic_link_repeat_threshold,
+        revoke_old_links_on_new:            row.revoke_old_links_on_new,
         updated_at: new Date().toISOString(),
       };
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
@@ -406,6 +432,83 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Auto-attach client links to outgoing email */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-purple-600" />
+                Auto-attach client links
+                <InfoTooltip content="Toggle which events automatically queue an email to the client with a tokenised /c/order link. Repeat customers can also get a 'View all my events' magic-link CTA. Drafts queue here until the direct-send path (SMTP/OAuth) is configured -- the catering admin can also copy any draft and send it manually." />
+              </CardTitle>
+              <CardDescription>
+                Automatically include the client's tokenised order link when these things happen.
+                {queuedCount > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    <BarChart3 className="w-3 h-3" /> {queuedCount} queued
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {row.provider === "none" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    No provider connected yet. Toggles below queue drafts -- the catering admin can copy any
+                    draft to send manually until SMTP/OAuth is connected, then the queue drains
+                    automatically.
+                  </span>
+                </div>
+              )}
+              <ToggleRow
+                label="When a quote is marked sent"
+                sub="Includes a magic 'View all my bookings' link for repeat customers"
+                checked={row.auto_attach_on_quote_sent}
+                onChange={(v) => setRow({ ...row, auto_attach_on_quote_sent: v })}
+              />
+              <ToggleRow
+                label="When a new order is confirmed"
+                sub="Sends the tokenised order link automatically"
+                checked={row.auto_attach_on_order_confirmed}
+                onChange={(v) => setRow({ ...row, auto_attach_on_order_confirmed: v })}
+              />
+              <ToggleRow
+                label="When an order status changes"
+                sub="Useful for 'preparing -> ready -> on the way' updates. Off by default to avoid noise."
+                checked={row.auto_attach_on_order_status_change}
+                onChange={(v) => setRow({ ...row, auto_attach_on_order_status_change: v })}
+              />
+              <div className="border-t border-slate-100 pt-3">
+                <ToggleRow
+                  label="Repeat-customer magic link"
+                  sub={`When a client has at least ${row.magic_link_repeat_threshold} prior orders, also include a /c/account magic link so they can see every booking they've ever placed with you.`}
+                  checked={row.magic_link_repeat_customers}
+                  onChange={(v) => setRow({ ...row, magic_link_repeat_customers: v })}
+                />
+                <div className="mt-2 ml-1 flex items-center gap-2 text-xs">
+                  <span className="text-slate-600">Threshold:</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={row.magic_link_repeat_threshold}
+                    onChange={(e) => setRow({ ...row, magic_link_repeat_threshold: Math.max(1, Number(e.target.value) || 1) })}
+                    className="w-20 h-8"
+                  />
+                  <span className="text-slate-500">prior orders</span>
+                </div>
+              </div>
+              <div className="border-t border-slate-100 pt-3">
+                <ToggleRow
+                  label="Revoke old links when a new one is generated"
+                  sub="Tightens privacy: each new event email's link supersedes the previous one. Off by default so forwarded links keep working."
+                  checked={row.revoke_old_links_on_new}
+                  onChange={(v) => setRow({ ...row, revoke_old_links_on_new: v })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Mailchimp integration */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
@@ -450,6 +553,29 @@ function EmailSettingsPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function ToggleRow({
+  label, sub, checked, onChange,
+}: { label: string; sub?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        {sub && <p className="text-xs text-slate-600 mt-0.5">{sub}</p>}
+      </div>
+      <span className="relative inline-flex flex-shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="sr-only peer"
+        />
+        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-600 transition-colors" />
+        <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+      </span>
+    </label>
   );
 }
 

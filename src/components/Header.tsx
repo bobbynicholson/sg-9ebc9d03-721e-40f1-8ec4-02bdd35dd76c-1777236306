@@ -11,13 +11,10 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import {
   Menu, X, User, LogOut, Settings, ChevronDown,
   Sparkles, MapPin, Package, ChefHat, Mail, Users,
@@ -139,15 +136,11 @@ export function Header() {
         </div>
 
         {/* Desktop navigation -- mega menus */}
-        <div className="hidden lg:flex">
-          <NavigationMenu>
-            <NavigationMenuList>
-              <MegaMenu label="Features" rootHref="/features" items={featuresMenu} cols={2} wide />
-              <MegaMenu label="Pricing"  rootHref="/pricing"  items={pricingMenu}  cols={1} />
-              <MegaMenu label="Contact"  rootHref="/contact"  items={contactMenu}  cols={1} />
-              <MegaMenu label="Support"  rootHref="/support"  items={supportMenu}  cols={1} />
-            </NavigationMenuList>
-          </NavigationMenu>
+        <div className="hidden lg:flex lg:gap-x-1">
+          <MegaMenu label="Features" rootHref="/features" items={featuresMenu} cols={2} wide />
+          <MegaMenu label="Pricing"  rootHref="/pricing"  items={pricingMenu}  cols={1} />
+          <MegaMenu label="Contact"  rootHref="/contact"  items={contactMenu}  cols={1} />
+          <MegaMenu label="Support"  rootHref="/support"  items={supportMenu}  cols={1} />
         </div>
 
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
@@ -342,61 +335,67 @@ function MegaMenu({
   wide?: boolean;
 }) {
   return (
-    <NavigationMenuItem>
-      <NavigationMenuTrigger className="bg-transparent text-sm font-semibold text-slate-900 hover:text-purple-600 dark:text-slate-100 dark:hover:text-purple-400">
-        {label}
-      </NavigationMenuTrigger>
-      <NavigationMenuContent>
-        <div className={`p-4 ${wide ? "w-[640px]" : "w-[360px]"}`}>
-          <Link
-            href={rootHref}
-            className="block mb-3 px-3 py-2 rounded-md bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:from-purple-100 hover:to-pink-100"
-          >
-            <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-              {label} overview
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">
-              Jump to the {label.toLowerCase()} hub
-            </div>
-          </Link>
-          <ul className={`grid gap-2 ${cols === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
-            {items.map((item) => {
-              const Icon = item.icon;
-              const inner = (
-                <div className="flex items-start gap-3 p-3 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                  <div className="w-9 h-9 rounded-md bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {item.name}
-                    </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                      {item.desc}
-                    </div>
-                  </div>
-                </div>
-              );
-              return (
-                <li key={item.name}>
-                  <NavigationMenuLink asChild>
-                    {item.external ? (
-                      <a href={item.href} target="_blank" rel="noopener noreferrer" className="block">
-                        {inner}
-                      </a>
-                    ) : (
-                      <Link href={item.href} className="block">
-                        {inner}
-                      </Link>
-                    )}
-                  </NavigationMenuLink>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </NavigationMenuContent>
-    </NavigationMenuItem>
+    <HoverCard openDelay={80} closeDelay={120}>
+      <HoverCardTrigger asChild>
+        <Link
+          href={rootHref}
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-semibold text-slate-900 hover:text-purple-600 hover:bg-slate-50 dark:text-slate-100 dark:hover:text-purple-400 dark:hover:bg-slate-800 transition-colors"
+        >
+          {label}
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </Link>
+      </HoverCardTrigger>
+      <HoverCardContent
+        align="start"
+        sideOffset={8}
+        className={`p-3 z-[60] ${wide ? "w-[640px]" : "w-[360px]"}`}
+      >
+        <Link
+          href={rootHref}
+          className="block mb-2 px-3 py-2 rounded-md bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:from-purple-100 hover:to-pink-100"
+        >
+          <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+            {label} overview
+          </div>
+          <div className="text-xs text-slate-600 dark:text-slate-400">
+            Jump to the {label.toLowerCase()} hub
+          </div>
+        </Link>
+        <ul className={`grid gap-1.5 ${cols === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {items.map((item) => {
+            const Icon = item.icon;
+            const inner = (
+              <span className="flex items-start gap-3 p-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <span className="w-9 h-9 rounded-md bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {item.name}
+                  </span>
+                  <span className="block text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    {item.desc}
+                  </span>
+                </span>
+              </span>
+            );
+            return (
+              <li key={item.name}>
+                {item.external ? (
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" className="block">
+                    {inner}
+                  </a>
+                ) : (
+                  <Link href={item.href} className="block">
+                    {inner}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

@@ -17,7 +17,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!orderId) return res.status(400).json({ error: "order_id required" });
 
   const cookieName = `cms_client_token_${orderId}`;
-  const tokenHash = (req.cookies?.[cookieName] || "").trim();
+  // Either the per-order cookie OR the account-scope magic-link cookie is
+  // enough -- the RPC will verify the account-scope cookie's email matches
+  // this order's client_email before unlocking.
+  const tokenHash = (
+    req.cookies?.[cookieName] ||
+    req.cookies?.cms_client_account_token ||
+    ""
+  ).trim();
   if (!tokenHash) return res.status(401).json({ error: "no_cookie" });
 
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;

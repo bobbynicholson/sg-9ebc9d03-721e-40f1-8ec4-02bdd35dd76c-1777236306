@@ -1,0 +1,71 @@
+/**
+ * Validate a magic-link (scope=client) token and return every order
+ * tied to that email under the catering company.
+ *
+ * Same shape as /api/client-tokens/validate -- accepts either a fresh
+ * `?t=...` query token or the cookie set on first visit.
+ */
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
+
+const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
+  const rawToken = String(body.token || "").trim();
+
+  let tokenHash = "";
+  if (rawToken) {
+    tokenHash = sha256Hex(rawToken);
+  } else {
+    tokenHash = (req.cookies?.cms_client_account_token || "").trim();
+  }
+  if (!tokenHash) return res.status(401).json({ error: "no_token" });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return res.status(500).json({ error: "Server misconfigured" });
+  const client = createClient(url, anon, { auth: { persistSession: false } });
+
+  const ip =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (req.socket as any)?.remoteAddress ||
+    null;
+  const ua = (req.headers["user-agent"] as string) || null;
+
+  const { data, error } = await client.rpc("client_view_account", {
+    p_token_hash: tokenHash,
+    p_ip: ip,
+    p_user_agent: ua,
+  });
+
+  if (error) return res.status(500).json({ error: "Lookup failed" });
+  const result = data as any;
+  if (!result?.ok) {
+    if (rawToken) {
+      // Fresh token but invalid -- don't set a cookie
+    } else {
+      // Cookie was bad -- clear it
+      res.setHeader("Set-Cookie", `cms_client_account_token=; Max-Age=0; Path=/`);
+    }
+    return res.status(401).json({ error: result?.code || "invalid" });
+  }
+
+  // First-visit: set cookie so refresh works without the token in URL
+  if (rawToken) {
+    const expiresAt = new Date(result.token.expires_at);
+    const maxAgeSec = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+    const cookie = [
+      `cms_client_account_token=${tokenHash}`,
+      `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 180)}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      "Secure",
+    ].join("; ");
+    res.setHeader("Set-Cookie", cookie);
+  }
+  return res.status(200).json(result);
+}
