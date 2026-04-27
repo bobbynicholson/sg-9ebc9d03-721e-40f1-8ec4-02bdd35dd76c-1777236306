@@ -501,19 +501,14 @@ export function AdminNav({ className }: AdminNavProps) {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-purple-50 hover:text-purple-700",
+                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       active
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md"
-                        : "text-slate-700"
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                     )}
                   >
-                    <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{item.title}</div>
-                      {item.description && !active && (
-                        <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                      )}
-                    </div>
+                    <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
+                    <span className="flex-1 truncate">{item.title}</span>
                     {active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
                   </Link>
                 );
@@ -664,23 +659,16 @@ export function AdminNav({ className }: AdminNavProps) {
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-purple-50 hover:text-purple-700",
+                            "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                             active
-                              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md"
-                              : "text-slate-700",
+                              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
                             isCollapsed ? "justify-center" : ""
                           )}
                           title={isCollapsed ? item.title : ""}
                         >
-                          <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
-                          {!isCollapsed && (
-                            <div className="flex-1 min-w-0">
-                              <div className="truncate">{item.title}</div>
-                              {item.description && !active && (
-                                <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                              )}
-                            </div>
-                          )}
+                          <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
+                          {!isCollapsed && <span className="flex-1 truncate">{item.title}</span>}
                           {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
                         </Link>
                       );

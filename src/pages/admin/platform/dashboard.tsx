@@ -310,20 +310,13 @@ export default function PlatformDashboard() {
 
       <PlatformNav />
 
-      <div className="container mx-auto p-4 sm:p-6 max-w-screen-2xl">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Platform Dashboard</h1>
-          <p className="text-sm sm:text-base text-slate-600">
-            System-wide overview and management
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl mx-auto">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6 sm:mb-8">
           <div className="min-w-0">
-            <h2 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              CateringMS Platform Analytics
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600 mt-1">Internal sales dashboard and business metrics</p>
+            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Platform Analytics
+            </h1>
+            <p className="text-sm text-slate-600 mt-1">System-wide sales and business metrics</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:flex-shrink-0">
             <CompanySwitcher />
@@ -352,41 +345,21 @@ export default function PlatformDashboard() {
           </div>
         </div>
 
-        {/* Platform Health Indicator */}
-        <Card className="mb-6 sm:mb-8 border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                  <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">Platform Health Score</h3>
-                  <p className="text-xs sm:text-sm text-slate-600">All systems operational &bull; 99.9% uptime</p>
-                </div>
-              </div>
-              <div className="text-left sm:text-right">
-                <div className="text-3xl sm:text-4xl font-bold text-green-600">98%</div>
-                <p className="text-xs text-slate-500 mt-0.5">Excellent</p>
-              </div>
+        {/* Platform Health: compact horizontal strip */}
+        <Card className="mb-6 sm:mb-8 border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-200 animate-pulse" />
+              <span className="text-sm font-semibold text-slate-900">Platform Health</span>
+              <span className="text-2xl font-bold text-green-600 tabular-nums">98%</span>
             </div>
-            <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="text-center p-3 bg-white rounded-lg">
-                <p className="text-xs text-slate-600">Active Companies</p>
-                <p className="text-lg font-bold text-slate-900">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg">
-                <p className="text-xs text-slate-600">Avg Response Time</p>
-                <p className="text-lg font-bold text-slate-900">1.2s</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg">
-                <p className="text-xs text-slate-600">Support Tickets</p>
-                <p className="text-lg font-bold text-slate-900">3 open</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg">
-                <p className="text-xs text-slate-600">Failed Payments</p>
-                <p className="text-lg font-bold text-red-600">0</p>
-              </div>
+            <div className="h-4 w-px bg-green-200 hidden sm:block" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600">
+              <span><span className="font-semibold text-slate-900">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
+              <span><span className="font-semibold text-slate-900">1.2s</span> avg response</span>
+              <span><span className="font-semibold text-slate-900">3</span> open tickets</span>
+              <span><span className="font-semibold text-red-600">0</span> failed payments</span>
+              <span>99.9% uptime</span>
             </div>
           </CardContent>
         </Card>
