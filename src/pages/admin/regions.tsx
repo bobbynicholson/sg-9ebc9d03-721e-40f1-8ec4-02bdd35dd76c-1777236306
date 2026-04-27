@@ -1,5 +1,5 @@
 import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,665 +7,580 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  MapPin,
-  Plus,
-  Edit,
-  Trash2,
-  Globe,
-  CheckCircle,
-  XCircle,
-  DollarSign,
-  ArrowLeft,
-  AlertCircle,
-  Settings,
-  Clock,
-  TrendingUp,
-  Users,
-  Building2,
-  Eye,
-  Truck,
-  ChefHat,
-  Package
+  MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle, ArrowLeft,
+  AlertCircle, Loader2, Truck, ChefHat, ShoppingCart, Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { regionService } from "@/services/regionService";
-import { regionManagement } from "@/lib/regionManagement";
-import type { Region } from "@/types/regions";
-import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
+
+interface Region {
+  id: string;
+  company_id: string;
+  name: string;
+  code: string;
+  country: CountryCode;
+  province_state: string | null;
+  city: string | null;
+  address: string | null;
+  manager_user_id: string | null;
+  phone: string | null;
+  email: string | null;
+  timezone: string;
+  currency: string;
+  operating_hours_start: string | null;
+  operating_hours_end: string | null;
+  delivery_radius_km: number | null;
+  auto_assign_orders: boolean;
+  is_active: boolean;
+  notes: string | null;
+  manager?: { id: string; full_name: string; email: string } | null;
+  staff_count?: number;
+  order_count?: number;
+}
+
+interface RegionFormState {
+  name: string;
+  code: string;
+  country: CountryCode;
+  province_state: string;
+  city: string;
+  address: string;
+  manager_user_id: string;
+  phone: string;
+  email: string;
+  timezone: string;
+  currency: string;
+  operating_hours_start: string;
+  operating_hours_end: string;
+  delivery_radius_km: number;
+  auto_assign_orders: boolean;
+  is_active: boolean;
+  notes: string;
+}
+
+const emptyForm = (): RegionFormState => {
+  const za = getCountry("ZA");
+  return {
+    name: "",
+    code: "",
+    country: "ZA",
+    province_state: "",
+    city: "",
+    address: "",
+    manager_user_id: "",
+    phone: "",
+    email: "",
+    timezone: za.defaultTimezone,
+    currency: za.defaultCurrency,
+    operating_hours_start: "06:00",
+    operating_hours_end: "22:00",
+    delivery_radius_km: 50,
+    auto_assign_orders: true,
+    is_active: true,
+    notes: "",
+  };
+};
 
 export default function ProtectedRegionsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <RegionsPage />
     </ProtectedRoute>
   );
 }
 
 function RegionsPage() {
-  const [regions, setRegions] = useState(regionManagement.regions);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string }>>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<Region | null>(null);
+  const [form, setForm] = useState<RegionFormState>(emptyForm);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [newRegion, setNewRegion] = useState({
-    name: "",
-    code: "",
-    province: "",
-    country: "South Africa",
-    status: "active" as const,
-    settings: {
-      timezone: "Africa/Johannesburg",
-      currency: "ZAR",
-      language: "en",
-      operatingHours: { start: "06:00", end: "22:00" },
-      deliveryRadius: 50,
-      autoAssignOrders: true
-    },
-    contact: {
-      managerName: "",
-      managerEmail: "",
-      managerPhone: "",
-      address: "",
-      city: "",
-      postalCode: ""
+  useEffect(() => {
+    if (user?.company_id) {
+      void loadRegions();
+      void loadStaff();
     }
-  });
+  }, [user?.company_id]);
 
-  const consolidatedStats = regionManagement.getConsolidatedStats();
+  const loadRegions = async () => {
+    if (!user?.company_id) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("regions")
+      .select(`
+        *,
+        manager:profiles!regions_manager_user_id_fkey ( id, full_name, email )
+      `)
+      .eq("company_id", user.company_id)
+      .order("name", { ascending: true });
 
-  const provinces = [
-    "Gauteng",
-    "Western Cape",
-    "KwaZulu-Natal",
-    "Eastern Cape",
-    "Free State",
-    "Limpopo",
-    "Mpumalanga",
-    "Northern Cape",
-    "North West"
-  ];
+    if (error) {
+      toast({ title: "Failed to load regions", description: error.message, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
 
-  const handleCreateRegion = () => {
-    regionManagement.createRegion(newRegion);
-    setRegions([...regionManagement.regions]);
-    setIsCreateDialogOpen(false);
-    setNewRegion({
-      name: "",
-      code: "",
-      province: "",
-      country: "South Africa",
-      status: "active",
-      settings: {
-        timezone: "Africa/Johannesburg",
-        currency: "ZAR",
-        language: "en",
-        operatingHours: { start: "06:00", end: "22:00" },
-        deliveryRadius: 50,
-        autoAssignOrders: true
-      },
-      contact: {
-        managerName: "",
-        managerEmail: "",
-        managerPhone: "",
-        address: "",
-        city: "",
-        postalCode: ""
-      }
+    // Enrich with staff/order counts (best-effort; failures shouldn't block UI)
+    const enriched = await Promise.all(
+      (data || []).map(async (r: any) => {
+        const [{ count: staffCount }, { count: orderCount }] = await Promise.all([
+          supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id),
+          supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id),
+        ]);
+        return { ...r, staff_count: staffCount || 0, order_count: orderCount || 0 } as Region;
+      }),
+    );
+
+    setRegions(enriched);
+    setLoading(false);
+  };
+
+  const loadStaff = async () => {
+    if (!user?.company_id) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, active_role")
+      .eq("company_id", user.company_id)
+      .order("full_name");
+    setStaff((data || []) as any);
+  };
+
+  const openCreateDialog = () => {
+    setEditing(null);
+    setForm(emptyForm());
+    setCreateOpen(true);
+  };
+
+  const openEditDialog = (region: Region) => {
+    setEditing(region);
+    setForm({
+      name: region.name || "",
+      code: region.code || "",
+      country: (region.country as CountryCode) || "ZA",
+      province_state: region.province_state || "",
+      city: region.city || "",
+      address: region.address || "",
+      manager_user_id: region.manager_user_id || "",
+      phone: region.phone || "",
+      email: region.email || "",
+      timezone: region.timezone || "Africa/Johannesburg",
+      currency: region.currency || "ZAR",
+      operating_hours_start: region.operating_hours_start || "06:00",
+      operating_hours_end: region.operating_hours_end || "22:00",
+      delivery_radius_km: Number(region.delivery_radius_km ?? 50),
+      auto_assign_orders: region.auto_assign_orders ?? true,
+      is_active: region.is_active ?? true,
+      notes: region.notes || "",
     });
+    setCreateOpen(true);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "inactive":
-        return "bg-gray-100 text-gray-700 border-gray-200";
-      case "pending":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
-    }
+  const onCountryChange = (country: CountryCode) => {
+    const c = getCountry(country);
+    setForm((f) => ({
+      ...f,
+      country,
+      timezone: c.defaultTimezone,
+      currency: c.defaultCurrency,
+      province_state: "",
+    }));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "active":
-        return <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />;
-      case "inactive":
-        return <XCircle className="w-3 h-3 md:w-4 md:h-4" />;
-      case "pending":
-        return <Clock className="w-3 h-3 md:w-4 md:h-4" />;
-      default:
-        return null;
+  const handleSave = async () => {
+    if (!user?.company_id) return;
+    if (!form.name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return;
     }
+    if (!form.code.trim()) {
+      toast({ title: "Region code is required", description: "e.g. JHB, CPT", variant: "destructive" });
+      return;
+    }
+
+    setSubmitting(true);
+    const payload: Record<string, any> = {
+      company_id: user.company_id,
+      name: form.name.trim(),
+      code: form.code.trim().toUpperCase(),
+      country: form.country,
+      province_state: form.province_state || null,
+      city: form.city || null,
+      address: form.address || null,
+      manager_user_id: form.manager_user_id || null,
+      phone: form.phone || null,
+      email: form.email || null,
+      timezone: form.timezone,
+      currency: form.currency,
+      operating_hours_start: form.operating_hours_start,
+      operating_hours_end: form.operating_hours_end,
+      delivery_radius_km: form.delivery_radius_km,
+      auto_assign_orders: form.auto_assign_orders,
+      is_active: form.is_active,
+      notes: form.notes || null,
+    };
+
+    let error: any;
+    if (editing) {
+      ({ error } = await supabase.from("regions").update(payload).eq("id", editing.id));
+    } else {
+      ({ error } = await supabase.from("regions").insert(payload));
+    }
+    setSubmitting(false);
+
+    if (error) {
+      toast({ title: editing ? "Failed to update region" : "Failed to create region", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: editing ? "Region updated" : "Region created", description: form.name });
+    setCreateOpen(false);
+    setEditing(null);
+    setForm(emptyForm());
+    void loadRegions();
   };
+
+  const handleDelete = async (region: Region) => {
+    if (!confirm(`Delete region "${region.name}"? Staff and orders linked to it will be unassigned.`)) return;
+    const { error } = await supabase.from("regions").delete().eq("id", region.id);
+    if (error) {
+      toast({ title: "Failed to delete region", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Region deleted", description: region.name });
+    void loadRegions();
+  };
+
+  const countryConfig = useMemo(() => getCountry(form.country), [form.country]);
+
+  const stats = useMemo(() => ({
+    total: regions.length,
+    active: regions.filter((r) => r.is_active).length,
+    countries: new Set(regions.map((r) => r.country)).size,
+    totalStaff: regions.reduce((s, r) => s + (r.staff_count || 0), 0),
+    totalOrders: regions.reduce((s, r) => s + (r.order_count || 0), 0),
+  }), [regions]);
 
   return (
     <>
       <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
         <title>Regional Settings | CateringMS Admin</title>
       </Head>
-
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          {/* Header - Mobile Optimized */}
-          <div className="mb-6 md:mb-8">
-            <div className="flex flex-col gap-4 mb-4 md:mb-6">
-              <div>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-1 md:mb-2">Regional Operations</h1>
-                <p className="text-sm md:text-base text-slate-600">Manage franchises and regional fulfillment centers across South Africa</p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                <Globe className="w-6 h-6 text-white" />
               </div>
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white w-full sm:w-auto" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Region
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg md:text-xl">Create New Regional Operation</DialogTitle>
-                    <DialogDescription className="text-sm">
-                      Set up a new franchise or regional fulfillment center. Once created, you can assign staff and start fulfilling orders.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 md:space-y-6 py-4">
-                    <div className="space-y-3 md:space-y-4">
-                      <h3 className="font-semibold text-sm md:text-base text-slate-900">Basic Information</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                        <div>
-                          <Label htmlFor="name" className="text-sm">Region Name</Label>
-                          <Input
-                            id="name"
-                            placeholder="e.g., Durban Operations"
-                            value={newRegion.name}
-                            onChange={(e) => setNewRegion({ ...newRegion, name: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="code" className="text-sm">Region Code</Label>
-                          <Input
-                            id="code"
-                            placeholder="e.g., DBN"
-                            value={newRegion.code}
-                            onChange={(e) => setNewRegion({ ...newRegion, code: e.target.value.toUpperCase() })}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                        <div>
-                          <Label htmlFor="province" className="text-sm">Province</Label>
-                          <Select
-                            value={newRegion.province}
-                            onValueChange={(value) => setNewRegion({ ...newRegion, province: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select province" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {provinces.map((province) => (
-                                <SelectItem key={province} value={province}>
-                                  {province}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="country" className="text-sm">Country</Label>
-                          <Input
-                            id="country"
-                            value={newRegion.country}
-                            onChange={(e) => setNewRegion({ ...newRegion, country: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 md:space-y-4">
-                      <h3 className="font-semibold text-sm md:text-base text-slate-900">Regional Manager Contact</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                        <div>
-                          <Label htmlFor="managerName" className="text-sm">Manager Name</Label>
-                          <Input
-                            id="managerName"
-                            placeholder="Full name"
-                            value={newRegion.contact.managerName}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              contact: { ...newRegion.contact, managerName: e.target.value }
-                            })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="managerEmail" className="text-sm">Email</Label>
-                          <Input
-                            id="managerEmail"
-                            type="email"
-                            placeholder="manager@example.com"
-                            value={newRegion.contact.managerEmail}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              contact: { ...newRegion.contact, managerEmail: e.target.value }
-                            })}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="managerPhone" className="text-sm">Phone</Label>
-                        <Input
-                          id="managerPhone"
-                          placeholder="+27 XX XXX XXXX"
-                          value={newRegion.contact.managerPhone}
-                          onChange={(e) => setNewRegion({
-                            ...newRegion,
-                            contact: { ...newRegion.contact, managerPhone: e.target.value }
-                          })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 md:space-y-4">
-                      <h3 className="font-semibold text-sm md:text-base text-slate-900">Location Details</h3>
-                      <div>
-                        <Label htmlFor="address" className="text-sm">Street Address</Label>
-                        <Input
-                          id="address"
-                          placeholder="123 Main Street"
-                          value={newRegion.contact.address}
-                          onChange={(e) => setNewRegion({
-                            ...newRegion,
-                            contact: { ...newRegion.contact, address: e.target.value }
-                          })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                        <div>
-                          <Label htmlFor="city" className="text-sm">City</Label>
-                          <Input
-                            id="city"
-                            placeholder="City name"
-                            value={newRegion.contact.city}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              contact: { ...newRegion.contact, city: e.target.value }
-                            })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="postalCode" className="text-sm">Postal Code</Label>
-                          <Input
-                            id="postalCode"
-                            placeholder="0000"
-                            value={newRegion.contact.postalCode}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              contact: { ...newRegion.contact, postalCode: e.target.value }
-                            })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 md:space-y-4">
-                      <h3 className="font-semibold text-sm md:text-base text-slate-900">Operational Settings</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                        <div>
-                          <Label htmlFor="operatingStart" className="text-sm">Operating Hours Start</Label>
-                          <Input
-                            id="operatingStart"
-                            type="time"
-                            value={newRegion.settings.operatingHours.start}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              settings: {
-                                ...newRegion.settings,
-                                operatingHours: {
-                                  ...newRegion.settings.operatingHours,
-                                  start: e.target.value
-                                }
-                              }
-                            })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="operatingEnd" className="text-sm">Operating Hours End</Label>
-                          <Input
-                            id="operatingEnd"
-                            type="time"
-                            value={newRegion.settings.operatingHours.end}
-                            onChange={(e) => setNewRegion({
-                              ...newRegion,
-                              settings: {
-                                ...newRegion.settings,
-                                operatingHours: {
-                                  ...newRegion.settings.operatingHours,
-                                  end: e.target.value
-                                }
-                              }
-                            })}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="deliveryRadius" className="text-sm">Delivery Radius (km)</Label>
-                        <Input
-                          id="deliveryRadius"
-                          type="number"
-                          value={newRegion.settings.deliveryRadius}
-                          onChange={(e) => setNewRegion({
-                            ...newRegion,
-                            settings: {
-                              ...newRegion.settings,
-                              deliveryRadius: parseInt(e.target.value) || 0
-                            }
-                          })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row justify-end gap-2 md:gap-3 pt-4">
-                      <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto" size="sm">
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCreateRegion} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white w-full sm:w-auto" size="sm">
-                        Create Region
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Regional Operations
+                </h1>
+                <p className="text-slate-600 mt-1">
+                  Run independent kitchens, drivers, and inventory in every region you serve.
+                </p>
+              </div>
             </div>
-
-            {/* Stats Cards - Mobile Optimized Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 mb-6 md:mb-8">
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-                <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <Globe className="w-6 h-6 md:w-8 md:h-8" />
-                      <div className="text-2xl md:text-3xl font-bold">{consolidatedStats.totalRegions}</div>
-                    </div>
-                    <div className="text-purple-100 text-xs md:text-sm">Active Regions</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <TrendingUp className="w-6 h-6 md:w-8 md:h-8 text-green-500" />
-                      <div className="text-2xl md:text-3xl font-bold text-slate-900">{consolidatedStats.totalOrders}</div>
-                    </div>
-                    <div className="text-slate-600 text-xs md:text-sm">Total Orders</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <Users className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />
-                      <div className="text-2xl md:text-3xl font-bold text-slate-900">
-                        {consolidatedStats.totalDrivers + consolidatedStats.totalKitchenStaff}
-                      </div>
-                    </div>
-                    <div className="text-slate-600 text-xs md:text-sm">Total Staff</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <DollarSign className="w-6 h-6 md:w-8 md:h-8 text-amber-500" />
-                      <div className="text-2xl md:text-3xl font-bold text-slate-900">
-                        R{(consolidatedStats.totalRevenue / 1000).toFixed(0)}k
-                      </div>
-                    </div>
-                    <div className="text-slate-600 text-xs md:text-sm">Monthly Revenue</div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Button onClick={openCreateDialog} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+              <Plus className="w-4 h-4" />
+              Add Region
+            </Button>
           </div>
 
-          {/* Regions List - Mobile Optimized Cards */}
-          <div className="grid gap-4 md:gap-6">
-            {regions.map((region) => (
-              <Card key={region.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 border-b px-4 md:px-6 py-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 md:gap-4 flex-1 min-w-0">
-                        <div className="p-2 md:p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg md:rounded-xl flex-shrink-0">
-                          <Building2 className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-lg md:text-2xl truncate">{region.name}</CardTitle>
-                          <div className="flex flex-wrap items-center gap-1 md:gap-2 mt-1">
-                            <Badge variant="outline" className="font-mono text-xs">{region.code}</Badge>
-                            <span className="text-xs md:text-sm text-slate-600 truncate">{region.province}, {region.country}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge className={`${getStatusColor(region.status)} flex-shrink-0 text-xs`}>
-                        {getStatusIcon(region.status)}
-                        <span className="ml-1 capitalize hidden sm:inline">{region.status}</span>
-                      </Badge>
-                    </div>
-                    
-                    {/* Action Buttons - Mobile Stacked */}
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRegion(region);
-                          setIsViewDialogOpen(true);
-                        }}
-                        className="w-full sm:w-auto text-xs md:text-sm"
-                      >
-                        <Eye className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                        View Details
-                      </Button>
-                      <Link href={`/admin/regions/${region.id}`} className="w-full sm:w-auto">
-                        <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 text-white w-full text-xs md:text-sm">
-                          <Settings className="w-3 h-3 md:w-4 md:h-4 mr-1" />
-                          Manage
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4 md:pt-6 px-4 md:px-6">
-                  {/* Stats Grid - Mobile 2 columns, Desktop 4 */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6 mb-4 md:mb-6">
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="p-1.5 md:p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                        <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-lg md:text-2xl font-bold text-slate-900">{region.stats.totalOrders}</div>
-                        <div className="text-xs md:text-sm text-slate-600 truncate">Orders</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="p-1.5 md:p-2 bg-green-100 rounded-lg flex-shrink-0">
-                        <Truck className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-lg md:text-2xl font-bold text-slate-900">{region.stats.activeDrivers}</div>
-                        <div className="text-xs md:text-sm text-slate-600 truncate">Drivers</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="p-1.5 md:p-2 bg-purple-100 rounded-lg flex-shrink-0">
-                        <ChefHat className="w-4 h-4 md:w-5 md:h-5 text-purple-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-lg md:text-2xl font-bold text-slate-900">{region.stats.kitchenStaff}</div>
-                        <div className="text-xs md:text-sm text-slate-600 truncate">Kitchen Staff</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 md:gap-3">
-                      <div className="p-1.5 md:p-2 bg-amber-100 rounded-lg flex-shrink-0">
-                        <Package className="w-4 h-4 md:w-5 md:h-5 text-amber-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-lg md:text-2xl font-bold text-slate-900">
-                          R{(region.stats.inventoryValue / 1000).toFixed(0)}k
-                        </div>
-                        <div className="text-xs md:text-sm text-slate-600 truncate">Inventory</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Manager Info - Mobile Stacked */}
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4 p-3 md:p-4 bg-slate-50 rounded-lg">
-                    <div className="min-w-0">
-                      <div className="text-xs md:text-sm text-slate-600 mb-1">Regional Manager</div>
-                      <div className="font-semibold text-sm md:text-base text-slate-900 truncate">{region.contact.managerName}</div>
-                      <div className="text-xs md:text-sm text-slate-600 truncate">{region.contact.managerEmail}</div>
-                    </div>
-                    <div className="text-left md:text-right flex-shrink-0">
-                      <div className="text-xs md:text-sm text-slate-600 mb-1">Monthly Revenue</div>
-                      <div className="text-xl md:text-2xl font-bold text-green-600">
-                        R{(region.stats.monthlyRevenue / 1000).toFixed(0)}k
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <StatTile label="Total Regions" value={stats.total} />
+            <StatTile label="Active" value={stats.active} accent="text-emerald-600" />
+            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" />
+            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" />
+            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" />
           </div>
 
-          {/* Empty State */}
-          {regions.length === 0 && (
-            <Card className="border-0 shadow-lg">
-              <CardContent className="py-12 md:py-16 text-center px-4">
-                <MapPin className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 text-slate-300" />
-                <h3 className="text-lg md:text-xl font-semibold text-slate-900 mb-2">No regions yet</h3>
-                <p className="text-sm md:text-base text-slate-600 mb-4 md:mb-6">Create your first regional operation to start scaling across South Africa</p>
-                <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white" size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First Region
+          {loading ? (
+            <Card className="border-0 shadow">
+              <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading regions...
+              </CardContent>
+            </Card>
+          ) : regions.length === 0 ? (
+            <Card className="border-0 shadow">
+              <CardContent className="py-16 text-center">
+                <Globe className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="font-semibold text-slate-700 mb-1">No regions yet</p>
+                <p className="text-sm text-slate-500 mb-4">
+                  Add your first region to start running independent operations from a single account.
+                </p>
+                <Button onClick={openCreateDialog} className="gap-2">
+                  <Plus className="w-4 h-4" /> Add Region
                 </Button>
               </CardContent>
             </Card>
-          )}
-        </div>
-
-        {/* View Region Dialog - Mobile Optimized */}
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-lg md:text-xl">Region Details: {selectedRegion?.name}</DialogTitle>
-              <DialogDescription className="text-sm">Complete information about this regional operation</DialogDescription>
-            </DialogHeader>
-            {selectedRegion && (
-              <div className="space-y-4 md:space-y-6 py-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                  <div>
-                    <Label className="text-slate-600 text-sm">Region Code</Label>
-                    <div className="font-semibold text-sm md:text-base">{selectedRegion.code}</div>
-                  </div>
-                  <div>
-                    <Label className="text-slate-600 text-sm">Status</Label>
-                    <Badge className={`${getStatusColor(selectedRegion.status)} mt-1 text-xs`}>
-                      {getStatusIcon(selectedRegion.status)}
-                      <span className="ml-1 capitalize">{selectedRegion.status}</span>
-                    </Badge>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-slate-600 text-sm">Location</Label>
-                  <div className="font-semibold text-sm md:text-base">
-                    {selectedRegion.contact.address}, {selectedRegion.contact.city}, {selectedRegion.province} {selectedRegion.contact.postalCode}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                  <div>
-                    <Label className="text-slate-600 text-sm">Operating Hours</Label>
-                    <div className="font-semibold text-sm md:text-base">
-                      {selectedRegion.settings.operatingHours.start} - {selectedRegion.settings.operatingHours.end}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-slate-600 text-sm">Delivery Radius</Label>
-                    <div className="font-semibold text-sm md:text-base">{selectedRegion.settings.deliveryRadius} km</div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-slate-600 mb-2 block text-sm">Regional Manager</Label>
-                  <Card>
-                    <CardContent className="pt-3 md:pt-4 px-3 md:px-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Name:</span>
-                          <span className="font-semibold truncate ml-2">{selectedRegion.contact.managerName}</span>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {regions.map((region) => (
+                <Card key={region.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <CardTitle className="text-xl">{region.name}</CardTitle>
+                          <Badge variant="outline" className="font-mono text-xs">{region.code}</Badge>
+                          {region.is_active ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                              <CheckCircle className="w-3 h-3" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <XCircle className="w-3 h-3" />
+                              Paused
+                            </Badge>
+                          )}
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Email:</span>
-                          <span className="font-semibold truncate ml-2">{selectedRegion.contact.managerEmail}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Phone:</span>
-                          <span className="font-semibold">{selectedRegion.contact.managerPhone}</span>
-                        </div>
+                        <CardDescription className="flex items-center gap-1 text-sm">
+                          <MapPin className="w-3 h-3" />
+                          {[region.city, region.province_state, getCountry(region.country).name]
+                            .filter(Boolean)
+                            .join(", ") || "Location not set"}
+                        </CardDescription>
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(region)} title="Edit region">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(region)} title="Delete region">
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} />
+                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} />
+                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} />
+                    </div>
+                    <div className="text-sm text-slate-600 space-y-1.5">
+                      {region.manager?.full_name && (
+                        <div><span className="font-medium text-slate-700">Manager:</span> {region.manager.full_name} ({region.manager.email})</div>
+                      )}
+                      {(region.operating_hours_start || region.operating_hours_end) && (
+                        <div><span className="font-medium text-slate-700">Hours:</span> {region.operating_hours_start} -- {region.operating_hours_end}</div>
+                      )}
+                      <div><span className="font-medium text-slate-700">Currency:</span> {region.currency} &nbsp;<span className="font-medium text-slate-700">Timezone:</span> {region.timezone}</div>
+                      <div><span className="font-medium text-slate-700">Delivery radius:</span> {region.delivery_radius_km} km</div>
+                      {region.notes && (
+                        <div className="text-slate-500 italic mt-2">"{region.notes}"</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
-                <div>
-                  <Label className="text-slate-600 mb-2 block text-sm">Performance Statistics</Label>
-                  <div className="grid grid-cols-2 gap-2 md:gap-3">
-                    <Card>
-                      <CardContent className="pt-3 md:pt-4 px-3">
-                        <div className="text-xl md:text-2xl font-bold text-slate-900 mb-1">{selectedRegion.stats.totalOrders}</div>
-                        <div className="text-xs md:text-sm text-slate-600">Total Orders</div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-3 md:pt-4 px-3">
-                        <div className="text-xl md:text-2xl font-bold text-slate-900 mb-1">
-                          R{(selectedRegion.stats.monthlyRevenue / 1000).toFixed(0)}k
-                        </div>
-                        <div className="text-xs md:text-sm text-slate-600">Monthly Revenue</div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
+          <div className="mt-12 text-sm">
+            <Link href="/admin/dashboard" className="text-purple-600 hover:underline inline-flex items-center gap-1">
+              <ArrowLeft className="w-4 h-4" /> Back to dashboard
+            </Link>
+          </div>
+        </div>
         <Footer />
       </div>
+
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setEditing(null); setForm(emptyForm()); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Region" : "Add New Region"}</DialogTitle>
+            <DialogDescription>
+              Run a fulfillment region with its own kitchen, drivers, and operating hours. Staff and orders can be assigned to a region for clean reporting.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="region-name">Region name *</Label>
+                <Input id="region-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Johannesburg" />
+              </div>
+              <div>
+                <Label htmlFor="region-code">Code *</Label>
+                <Input id="region-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="JHB" maxLength={6} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Country</Label>
+                <Select value={form.country} onValueChange={(v) => onCountryChange(v as CountryCode)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{countryConfig.divisionLabel}</Label>
+                <Select value={form.province_state} onValueChange={(v) => setForm({ ...form, province_state: v })}>
+                  <SelectTrigger><SelectValue placeholder={`Select ${countryConfig.divisionLabel.toLowerCase()}`} /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {countryConfig.divisions.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="region-city">City</Label>
+                <Input id="region-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Sandton" />
+              </div>
+              <div>
+                <Label htmlFor="region-address">Headquarters address</Label>
+                <Input id="region-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="123 Rivonia Rd" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Regional manager</Label>
+                <Select value={form.manager_user_id} onValueChange={(v) => setForm({ ...form, manager_user_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select a staff member" /></SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    <SelectItem value="">No manager</SelectItem>
+                    {staff.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.full_name || s.email} ({s.active_role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="region-phone">Phone</Label>
+                <Input id="region-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+27 11 555 0101" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="region-email">Email</Label>
+                <Input id="region-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="region@company.com" />
+              </div>
+              <div>
+                <Label htmlFor="region-currency">Currency</Label>
+                <Input id="region-currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="region-tz">Timezone</Label>
+                <Input id="region-tz" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="region-open">Opens at</Label>
+                <Input id="region-open" type="time" value={form.operating_hours_start} onChange={(e) => setForm({ ...form, operating_hours_start: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="region-close">Closes at</Label>
+                <Input id="region-close" type="time" value={form.operating_hours_end} onChange={(e) => setForm({ ...form, operating_hours_end: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="region-radius">Delivery radius (km)</Label>
+                <Input
+                  id="region-radius"
+                  type="number"
+                  min={0}
+                  value={form.delivery_radius_km}
+                  onChange={(e) => setForm({ ...form, delivery_radius_km: Number(e.target.value || 0) })}
+                />
+              </div>
+              <div className="space-y-3 pt-6">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auto-assign" className="font-normal">Auto-assign orders</Label>
+                  <Switch id="auto-assign" checked={form.auto_assign_orders} onCheckedChange={(v) => setForm({ ...form, auto_assign_orders: v })} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is-active" className="font-normal">Region is active</Label>
+                  <Switch id="is-active" checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="region-notes">Notes</Label>
+              <Input id="region-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything specific about this region" />
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                After creating a region you can assign staff and inventory to it from their respective pages.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
+            <Button onClick={handleSave} disabled={submitting} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 gap-2">
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {editing ? "Save changes" : "Create region"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function StatTile({ label, value, accent = "text-slate-900" }: { label: string; value: number; accent?: string }) {
+  return (
+    <Card className="border-0 shadow">
+      <CardContent className="p-4">
+        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">{label}</p>
+        <p className={`text-2xl font-bold ${accent}`}>{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniStat({ icon: Icon, label, value }: { icon: any; label: string; value: number | string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <div className="flex items-center gap-1 text-xs text-slate-500 mb-0.5">
+        <Icon className="w-3 h-3" />
+        {label}
+      </div>
+      <div className="font-semibold text-slate-900">{value}</div>
+    </div>
   );
 }
