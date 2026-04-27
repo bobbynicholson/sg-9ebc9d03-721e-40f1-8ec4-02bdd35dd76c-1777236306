@@ -75,23 +75,37 @@ export default function ClientBillingPage() {
     try {
       setLoading(true);
 
-      // Get all orders with payment schedules for this client
-      const { data: orders, error } = await supabase
+      // user.id is the auth/profile id; clients.id is a separate row keyed by user_id.
+      // Look up the matching client row first, then filter orders by that client_id
+      // (or by client_email when there is no clients row yet).
+      let ordersQuery = supabase
         .from("orders")
-        .select(`
-          *,
-          payment_schedules!inner(*)
-        `)
-        .eq("client_id", user?.id)
+        .select(`*, payment_schedules(*)`)
         .order("created_at", { ascending: false });
 
+      if (user?.id) {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (clientRow?.id) {
+          ordersQuery = ordersQuery.eq("client_id", clientRow.id);
+        } else if (user.email) {
+          ordersQuery = ordersQuery.eq("client_email", user.email);
+        }
+      }
+
+      const { data: orders, error } = await ordersQuery;
       if (error) throw error;
 
       // Transform orders into invoice records
       const invoiceData: Invoice[] = [];
       
       orders?.forEach((order: any) => {
-        const schedule = order.payment_schedules;
+        // payment_schedules is an array on a left join; pick the first row.
+        const scheduleRaw = order.payment_schedules;
+        const schedule = Array.isArray(scheduleRaw) ? scheduleRaw[0] : scheduleRaw;
         if (!schedule) return;
 
         // Create deposit invoice if not paid

@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
   id: string;
@@ -19,7 +20,7 @@ interface Order {
   venue_address: string;
   guest_count: number;
   status: string;
-  total: number;
+  total_amount: number;
   payment_status?: string;
 }
 
@@ -30,39 +31,41 @@ export default function MyOrders() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
 
   useEffect(() => {
-    const mockOrders: Order[] = [
-      {
-        id: "1",
-        event_date: new Date().toISOString().split("T")[0],
-        venue_address: "123 Main Street, Cape Town",
-        guest_count: 150,
-        status: "confirmed",
-        total: 15000,
-        payment_status: "paid",
-      },
-      {
-        id: "2",
-        event_date: new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
-        venue_address: "456 Beach Road, Durban",
-        guest_count: 200,
-        status: "confirmed",
-        total: 25000,
-        payment_status: "pending",
-      },
-      {
-        id: "3",
-        event_date: new Date(Date.now() - 86400000 * 30).toISOString().split("T")[0],
-        venue_address: "789 Garden Route, George",
-        guest_count: 180,
-        status: "completed",
-        total: 20000,
-        payment_status: "paid",
-      },
-    ];
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-    setOrders(mockOrders);
-    setLoading(false);
-  }, []);
+        let ordersQuery = supabase
+          .from("orders")
+          .select("id, event_date, venue_address, guest_count, status, total_amount, payment_status")
+          .order("event_date", { ascending: false });
+
+        if (clientRow?.id) {
+          ordersQuery = ordersQuery.eq("client_id", clientRow.id);
+        } else {
+          ordersQuery = ordersQuery.eq("client_email", user.email ?? "");
+        }
+
+        const { data, error } = await ordersQuery;
+        if (error) {
+          console.error("Error loading client orders:", error);
+          if (!cancelled) setOrders([]);
+          return;
+        }
+        if (!cancelled) setOrders((data || []) as unknown as Order[]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const filteredOrders = orders.filter((o) => {
     if (filter === "active") return o.status !== "completed" && o.status !== "cancelled";
@@ -179,7 +182,7 @@ export default function MyOrders() {
                             </div>
                             <div className="flex items-center gap-2">
                               <DollarSign className="w-4 h-4" />
-                              <span>R{order.total?.toLocaleString()}</span>
+                              <span>R{Number(order.total_amount || 0).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>
