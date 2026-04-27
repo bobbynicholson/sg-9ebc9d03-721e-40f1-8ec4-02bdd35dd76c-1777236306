@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { ROLE_LANDING_PAGES_BY_STRING } from "@/lib/authGuards";
+import { getLandingPageForRoleString } from "@/lib/authGuards";
 
 // Routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -27,9 +27,6 @@ const PUBLIC_ROUTES = [
   "/page",
   "/pay",
 ];
-
-// Role-based landing pages — sourced from lib/authGuards (single source of truth)
-const ROLE_LANDING_PAGES = ROLE_LANDING_PAGES_BY_STRING;
 
 // Route authorization rules - maps route prefixes to allowed roles.
 // Deny-default: any authenticated route that does not match an entry here is rejected.
@@ -222,7 +219,24 @@ export async function middleware(request: NextRequest) {
     console.error("[Middleware] Error fetching profile:", error);
   }
 
-  const roleLandingPage = profileRole ? ROLE_LANDING_PAGES[profileRole] : undefined;
+  // Resolve user's own company slug for slug-aware landing redirects
+  let userCompanySlug: string | undefined;
+  if (profileCompanyId) {
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("slug")
+        .eq("id", profileCompanyId)
+        .single();
+      userCompanySlug = company?.slug ?? undefined;
+    } catch (error) {
+      console.error("[Middleware] Error fetching user company slug:", error);
+    }
+  }
+
+  const roleLandingPage = profileRole
+    ? getLandingPageForRoleString(profileRole, userCompanySlug)
+    : undefined;
 
   // ✅ Redirect authenticated users away from auth pages to their landing
   if (pathname === "/auth/login" || pathname === "/auth/register") {
@@ -275,8 +289,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // ✅ Route authorization (deny-default for any non-public route)
+  // Strip validated slug prefix so /[slug]/admin/... matches the /admin guard.
+  const guardPath = companySlug ? pathname.replace(`/${companySlug}`, "") || "/" : pathname;
   if (!isPublic && profileRole) {
-    if (!isAuthorizedForRoute(pathname, profileRole)) {
+    if (!isAuthorizedForRoute(guardPath, profileRole)) {
       console.log(`[Middleware] Unauthorized: ${profileRole} attempted ${pathname}`);
       if (roleLandingPage) {
         const url = request.nextUrl.clone();
