@@ -9,16 +9,19 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
 
 export default function AdminLeads() {
   const { user } = useAuth();
+  const router = useRouter();
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -192,43 +195,82 @@ export default function AdminLeads() {
                   {filteredLeads.map((lead) => (
                     <div
                       key={lead.id}
-                      className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                      className="p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
                     >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-slate-900">{lead.client_name}</h3>
-                          <Badge className={getStatusColor(lead.status || "new")}>
-                            {lead.status || "new"}
-                          </Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-slate-900">{lead.client_name}</h3>
+                            <Badge className={getStatusColor(lead.status || "new")}>
+                              {lead.status || "new"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-slate-600">
+                            {lead.company_name && (
+                              <span className="flex items-center gap-1">
+                                {lead.company_name}
+                              </span>
+                            )}
+                            {lead.client_email && (
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {lead.client_email}
+                              </span>
+                            )}
+                            {lead.client_phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {lead.client_phone}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-slate-600">
-                          {lead.company_name && (
-                            <span className="flex items-center gap-1">
-                              {lead.company_name}
-                            </span>
-                          )}
-                          {lead.client_email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="w-3 h-3" />
-                              {lead.client_email}
-                            </span>
-                          )}
-                          {lead.client_phone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3" />
-                              {lead.client_phone}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                          >
+                            {expandedLeadId === lead.id ? "Hide Details" : "View Details"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                          >
+                            Convert to Quote
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                        <Button size="sm">
-                          Convert to Quote
-                        </Button>
-                      </div>
+                      {expandedLeadId === lead.id && (
+                        <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Event Date</p>
+                            <p className="text-slate-900 font-medium">
+                              {lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "TBD"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Guests</p>
+                            <p className="text-slate-900 font-medium">{lead.guest_count || "TBD"}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Event Type</p>
+                            <p className="text-slate-900 font-medium">{lead.event_type || "Not specified"}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 text-xs mb-1">Estimated Value</p>
+                            <p className="text-slate-900 font-medium">
+                              {lead.estimated_value ? `R${Number(lead.estimated_value).toLocaleString()}` : "TBD"}
+                            </p>
+                          </div>
+                          {lead.notes && (
+                            <div className="col-span-2 md:col-span-4">
+                              <p className="text-slate-500 text-xs mb-1">Notes</p>
+                              <p className="text-slate-700">{lead.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
