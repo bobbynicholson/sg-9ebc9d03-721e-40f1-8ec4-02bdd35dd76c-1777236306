@@ -2,6 +2,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -164,10 +165,24 @@ export function PlatformNav({ className }: PlatformNavProps) {
     </Button>
   );
 
-  const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
+  const NavContent = ({ collapsed = false, mobile = false }: { collapsed?: boolean; mobile?: boolean }) => (
     <ScrollArea className="h-full p-4">
       <div className="space-y-6">
-        {!collapsed && <CommandPaletteHint className="w-full justify-center" />}
+        {mobile ? (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-amber-50 hover:bg-amber-100 text-amber-700" hint="Search tenants, users..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/admin/platform/company-database",      label: "Companies",       sub: "All tenants",          icon: Building2,   accent: "from-amber-500 to-orange-500" },
+                { href: "/admin/platform/user-management",       label: "Users",           sub: "Cross-tenant",         icon: Users,       accent: "from-purple-500 to-pink-500" },
+                { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Billing + plans",      icon: CreditCard,  accent: "from-emerald-500 to-teal-500" },
+              ]}
+            />
+          </div>
+        ) : (
+          !collapsed && <CommandPaletteHint className="w-full justify-center" />
+        )}
         {sections.map((section) => (
           <div key={section.title}>
             {!collapsed && (
@@ -234,7 +249,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
                   </div>
                   <p className="text-sm text-amber-100 mt-1">CateringMS internal</p>
                 </div>
-                <NavContent />
+                <NavContent mobile />
               </SheetContent>
             </Sheet>
             <Link href="/admin/platform/dashboard" className="flex items-center gap-2">

@@ -23,6 +23,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 
 interface NavItem {
   title: string;
@@ -142,9 +143,22 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
     return router.pathname === href || router.asPath === href;
   };
 
-  const NavContent = () => (
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
+        {mobile && (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-cyan-50 hover:bg-cyan-100 text-cyan-700" hint="Search jobs, equipment..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/team-portal/cleaning/jobs",      label: "Today's jobs",   sub: "Active cleans",        icon: ClipboardCheck, accent: "from-cyan-500 to-blue-500" },
+                { href: "/team-portal/cleaning/schedule",  label: "Schedule",       sub: "Upcoming events",      icon: Calendar,       accent: "from-purple-500 to-pink-500" },
+                { href: "/team-portal/cleaning/equipment", label: "Equipment",      sub: "Check + return",       icon: Wrench,         accent: "from-amber-500 to-orange-500" },
+              ]}
+            />
+          </div>
+        )}
         {cleaningNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -202,7 +216,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
                   <h2 className="text-xl font-bold text-white">Cleaning Portal</h2>
                   <p className="text-sm text-cyan-100 mt-1">Manage equipment</p>
                 </div>
-                <NavContent />
+                <NavContent mobile />
               </SheetContent>
             </Sheet>
             <Link href={"/team-portal/cleaning/dashboard"} className="flex items-center gap-2">

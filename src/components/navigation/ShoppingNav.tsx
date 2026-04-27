@@ -23,6 +23,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 
 interface NavItem {
   title: string;
@@ -136,9 +137,22 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
     return router.pathname === href || router.asPath === href;
   };
 
-  const NavContent = () => (
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
+        {mobile && (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-emerald-50 hover:bg-emerald-100 text-emerald-700" hint="Search inventory, suppliers..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/team-portal/shopping/alerts",    label: "Stock alerts",   sub: "Shortfalls vs orders", icon: TrendingUp, accent: "from-red-500 to-orange-500" },
+                { href: "/team-portal/shopping/orders",    label: "Open POs",       sub: "Track deliveries",     icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+                { href: "/team-portal/shopping/suppliers", label: "Suppliers",      sub: "Contacts + prices",    icon: Users,        accent: "from-purple-500 to-pink-500" },
+              ]}
+            />
+          </div>
+        )}
         {shoppingNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -196,7 +210,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
                   <h2 className="text-xl font-bold text-white">Shopping Portal</h2>
                   <p className="text-sm text-green-100 mt-1">Manage inventory</p>
                 </div>
-                <NavContent />
+                <NavContent mobile />
               </SheetContent>
             </Sheet>
             <Link href={"/team-portal/shopping/dashboard"} className="flex items-center gap-2">

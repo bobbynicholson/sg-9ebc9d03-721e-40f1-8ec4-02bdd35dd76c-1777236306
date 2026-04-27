@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -84,10 +85,20 @@ export function ClientNav() {
           onClick={() => setOpen(false)}
         >
           <div
-            className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl"
+            className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <nav className="p-4 space-y-2">
+            <nav className="p-4 space-y-3">
+              <MobileSearchTrigger accent="bg-emerald-50 hover:bg-emerald-100 text-emerald-700" hint="Search orders, invoices..." />
+              <MobileQuickActions
+                onNavigate={() => setOpen(false)}
+                actions={[
+                  { href: "/client-portal/my-orders", label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+                  { href: "/client-portal/tracking", label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-emerald-500 to-teal-500" },
+                  { href: "/client-portal/billing",  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-orange-500" },
+                ]}
+              />
+              <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
               {navigation.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -106,6 +117,7 @@ export function ClientNav() {
                   </Link>
                 );
               })}
+              </div>
               <Button
                 variant="ghost"
                 className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"

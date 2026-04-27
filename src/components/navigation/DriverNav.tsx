@@ -25,6 +25,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 
 interface NavItem {
   title: string;
@@ -148,9 +149,22 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
     return router.pathname === href || router.asPath === href;
   };
 
-  const NavContent = () => (
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
+        {mobile && (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-blue-50 hover:bg-blue-100 text-blue-700" hint="Search routes, deliveries..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/team-portal/driver/routes",      label: "Today's routes",   sub: "What you're driving",  icon: Navigation, accent: "from-blue-500 to-indigo-500" },
+                { href: "/team-portal/driver/tracking",   label: "Live tracking",    sub: "Update status",        icon: MapPin,     accent: "from-emerald-500 to-teal-500" },
+                { href: "/team-portal/driver/earnings",   label: "My earnings",      sub: "Hours + pay",          icon: DollarSign, accent: "from-amber-500 to-orange-500" },
+              ]}
+            />
+          </div>
+        )}
         {driverNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -208,7 +222,7 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
                   <h2 className="text-xl font-bold text-white">Driver Portal</h2>
                   <p className="text-sm text-blue-100 mt-1">Manage deliveries</p>
                 </div>
-                <NavContent />
+                <NavContent mobile />
               </SheetContent>
             </Sheet>
             <Link href="/team-portal/driver/dashboard" className="flex items-center gap-2">
@@ -221,28 +235,6 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
           <div className="flex items-center gap-2">
             <NotificationBell />
             <ThemeSwitch />
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <Link href="/team-portal/driver/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <Truck className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-slate-900 dark:text-white">Driver Portal</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeSwitch />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setOpen(!open)}
-            >
-              <Menu className="h-6 w-6" />
-            </Button>
           </div>
         </div>
       </div>

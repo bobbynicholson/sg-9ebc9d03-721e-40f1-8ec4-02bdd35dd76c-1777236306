@@ -23,6 +23,7 @@ import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 
 interface NavItem {
   title: string;
@@ -136,9 +137,22 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
     return router.pathname === href || router.asPath === href;
   };
 
-  const NavContent = () => (
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
+        {mobile && (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-orange-50 hover:bg-orange-100 text-orange-700" hint="Search recipes, prep..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/team-portal/kitchen/prep-list",  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: "from-orange-500 to-red-500" },
+                { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
+                { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: "from-emerald-500 to-teal-500" },
+              ]}
+            />
+          </div>
+        )}
         {kitchenNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -196,7 +210,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
                   <h2 className="text-xl font-bold text-white">Kitchen Portal</h2>
                   <p className="text-sm text-orange-100 mt-1">Manage production</p>
                 </div>
-                <NavContent />
+                <NavContent mobile />
               </SheetContent>
             </Sheet>
             <Link href={"/team-portal/kitchen/dashboard"} className="flex items-center gap-2">

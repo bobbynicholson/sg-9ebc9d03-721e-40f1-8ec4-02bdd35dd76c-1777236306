@@ -201,55 +201,126 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile menu */}
+      {/* Mobile menu -- persona-aware, action-first */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-slate-200 dark:border-slate-700">
-          <div className="space-y-1 px-4 pb-3 pt-2">
-            <MobileMenuSection label="Features" rootHref="/features" items={featuresMenu} />
-            <MobileMenuSection label="Pricing"  rootHref="/pricing"  items={pricingMenu} />
-            <MobileMenuSection label="Contact"  rootHref="/contact"  items={contactMenu} />
-            <MobileMenuSection label="Support"  rootHref="/support"  items={supportMenu} />
+        <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="px-4 pb-6 pt-3 space-y-4">
+            {/* Primary CTA cluster -- what most mobile visitors actually came for */}
             {user ? (
-              <>
+              <Link
+                href={dashboardPath}
+                className="flex items-center justify-between rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3.5 text-base font-semibold text-white shadow-md"
+              >
+                <span>Open my dashboard</span>
+                <ChevronDown className="h-4 w-4 -rotate-90" />
+              </Link>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
                 <Link
-                  href={dashboardPath}
-                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-purple-600 hover:bg-purple-50"
+                  href="/company-signup"
+                  className="flex flex-col items-start rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 px-4 py-3 text-white shadow-md"
                 >
-                  Dashboard
+                  <span className="text-[11px] uppercase tracking-wide opacity-80">Free 14-day trial</span>
+                  <span className="text-base font-semibold">Start now</span>
                 </Link>
                 <Link
-                  href="/account/settings"
-                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
+                  href="/auth/login"
+                  className="flex flex-col items-start rounded-xl border-2 border-slate-200 dark:border-slate-700 px-4 py-3"
                 >
-                  Settings
+                  <span className="text-[11px] uppercase tracking-wide text-slate-500">Existing tenant</span>
+                  <span className="text-base font-semibold text-slate-900 dark:text-slate-100">Sign in</span>
+                </Link>
+              </div>
+            )}
+
+            {/* Quick links -- the 3 things mobile visitors poke before committing */}
+            <div className="grid grid-cols-3 gap-2">
+              <QuickTile href="/pricing"        label="Pricing"  icon={CreditCard} />
+              <QuickTile href="/demo"           label="Demo"     icon={Phone} />
+              <QuickTile href="https://wa.me/27000000000" label="WhatsApp" icon={MessageSquare} external />
+            </div>
+
+            {/* Persona switch -- different audiences want different doors */}
+            {!user && (
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                  I'm signing in as a...
+                </p>
+                <div className="grid grid-cols-3 gap-1.5 text-xs">
+                  <Link href="/auth/login" className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 py-2 text-center font-medium text-slate-900 dark:text-slate-100">
+                    Catering<br />owner
+                  </Link>
+                  <Link href="/auth/login" className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 py-2 text-center font-medium text-slate-900 dark:text-slate-100">
+                    Team<br />member
+                  </Link>
+                  <Link href="/auth/login" className="rounded-lg bg-slate-50 dark:bg-slate-800 px-2 py-2 text-center font-medium text-slate-900 dark:text-slate-100">
+                    Booking<br />client
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Browse the platform */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 px-1 mb-1">
+                Browse
+              </p>
+              <div className="space-y-1">
+                <MobileMenuSection label="Features" rootHref="/features" items={featuresMenu} />
+                <MobileMenuSection label="Pricing"  rootHref="/pricing"  items={pricingMenu} />
+                <MobileMenuSection label="Contact"  rootHref="/contact"  items={contactMenu} />
+                <MobileMenuSection label="Support"  rootHref="/support"  items={supportMenu} />
+              </div>
+            </div>
+
+            {/* Authed extras -- only useful if you're already in */}
+            {user && (
+              <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <Link
+                  href="/account/settings"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Settings className="h-4 w-4" /> Settings
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="block w-full text-left rounded-lg px-3 py-2 text-base font-semibold leading-7 text-red-600 hover:bg-red-50"
+                  className="flex items-center gap-2 w-full text-left rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
                 >
-                  Sign Out
+                  <LogOut className="h-4 w-4" /> Sign out
                 </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/auth/login"
-                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/company-signup"
-                  className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-purple-600 hover:bg-purple-50"
-                >
-                  Get Started
-                </Link>
-              </>
+              </div>
             )}
+
+            {/* Footer chrome -- region & theme only matter on long sessions */}
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <RegionSwitcher />
+              <ThemeSwitch />
+            </div>
           </div>
         </div>
       )}
     </header>
+  );
+}
+
+function QuickTile({
+  href, label, icon: Icon, external,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  external?: boolean;
+}) {
+  const inner = (
+    <span className="flex flex-col items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 px-2 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800">
+      <Icon className="h-4 w-4 text-purple-600 dark:text-purple-300" />
+      {label}
+    </span>
+  );
+  return external ? (
+    <a href={href} target="_blank" rel="noopener noreferrer">{inner}</a>
+  ) : (
+    <Link href={href}>{inner}</Link>
   );
 }
 

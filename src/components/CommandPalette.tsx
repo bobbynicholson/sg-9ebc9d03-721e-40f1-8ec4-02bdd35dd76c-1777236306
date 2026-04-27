@@ -79,7 +79,13 @@ export function CommandPalette() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Custom event so mobile drawers (no keyboard) can trigger the palette.
+    const onCustom = () => setOpen(true);
+    window.addEventListener("cmdk:open", onCustom as EventListener);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("cmdk:open", onCustom as EventListener);
+    };
   }, []);
 
   const handleSignOut = async () => {

@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -409,10 +410,24 @@ export function AdminNav({ className }: AdminNavProps) {
     </Button>
   );
 
-  const NavContent = () => (
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
-        <CommandPaletteHint className="w-full justify-center" />
+        {mobile ? (
+          <div className="space-y-3">
+            <MobileSearchTrigger accent="bg-purple-50 hover:bg-purple-100 text-purple-700" hint="Search anywhere..." />
+            <MobileQuickActions
+              onNavigate={() => setOpen(false)}
+              actions={[
+                { href: "/admin/calendar",  label: "Today's events", sub: "Calendar",       icon: Calendar,     accent: "from-purple-500 to-pink-500" },
+                { href: "/admin/leads",     label: "New leads",      sub: "Quotes inbox",   icon: UserPlus,     accent: "from-blue-500 to-indigo-500" },
+                { href: "/admin/inventory", label: "Stock outlook",  sub: "Demand vs hand", icon: Package,      accent: "from-emerald-500 to-teal-500" },
+              ]}
+            />
+          </div>
+        ) : (
+          <CommandPaletteHint className="w-full justify-center" />
+        )}
         {adminNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -455,29 +470,7 @@ export function AdminNav({ className }: AdminNavProps) {
 
   return (
     <>
-      {/* Mobile Navigation */}
-      <div className="lg:hidden">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="fixed top-4 left-4 z-50 bg-white shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
-            <div className="px-6 py-4 border-b bg-gradient-to-r from-purple-500 to-pink-500">
-              <h2 className="text-xl font-bold text-white">Admin Portal</h2>
-              <p className="text-sm text-purple-100 mt-1">Catering Management System</p>
-            </div>
-            <NavContent />
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Mobile Header */}
+      {/* Mobile Header (single source of truth for the mobile drawer) */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -487,6 +480,13 @@ export function AdminNav({ className }: AdminNavProps) {
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
+                <div className="px-6 py-4 border-b bg-gradient-to-r from-purple-500 to-pink-500">
+                  <h2 className="text-xl font-bold text-white">Admin Portal</h2>
+                  <p className="text-sm text-purple-100 mt-1">Catering Management System</p>
+                </div>
+                <NavContent mobile />
+              </SheetContent>
             </Sheet>
             <Link href="/admin/dashboard" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
