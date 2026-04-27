@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
+import { CommandPalette } from "@/components/CommandPalette";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -15,6 +16,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <BrandingProvider>
           <AuthProvider>
             <Component {...pageProps} />
+            <CommandPalette />
             <MiddlewareErrorToast />
             <Toaster />
           </AuthProvider>

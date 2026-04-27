@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
+import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { canAccessFinance } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 
@@ -424,6 +425,7 @@ export function AdminNav({ className }: AdminNavProps) {
   const NavContent = () => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
+        <CommandPaletteHint className="w-full justify-center" />
         {adminNavSections.map((section) => (
           <div key={section.title}>
             <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -510,17 +512,6 @@ export function AdminNav({ className }: AdminNavProps) {
             <NotificationBell />
             <ThemeSwitch />
           </div>
-        </div>
-      </div>
-
-      {/* Desktop Navigation */}
-      <div className={cn("hidden lg:block", className)}>
-        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
-          <div className="px-6 py-6 border-b bg-gradient-to-r from-purple-500 to-pink-500">
-            <h2 className="text-xl font-bold text-white">Admin Portal</h2>
-            <p className="text-sm text-purple-100 mt-1">Catering Management System</p>
-          </div>
-          <NavContent />
         </div>
       </div>
 

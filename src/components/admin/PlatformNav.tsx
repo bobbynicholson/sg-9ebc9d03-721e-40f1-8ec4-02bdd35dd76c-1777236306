@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 
 interface PlatformNavItem {
   title: string;
@@ -177,6 +178,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
   const NavContent = ({ collapsed = false }: { collapsed?: boolean }) => (
     <ScrollArea className="h-full p-4">
       <div className="space-y-6">
+        {!collapsed && <CommandPaletteHint className="w-full justify-center" />}
         {sections.map((section) => (
           <div key={section.title}>
             {!collapsed && (

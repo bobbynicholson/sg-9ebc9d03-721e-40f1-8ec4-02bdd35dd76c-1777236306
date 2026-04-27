@@ -83,14 +83,16 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
     }
   };
 
+  // Team-portal pages currently live at /team-portal/* (no slug). Only the
+  // admin dashboard has a /[slug]/admin/dashboard wrapper.
   const switchToDepartmentView = (department: string) => {
     setLoading(true);
     const routes: Record<string, string> = {
-      driver: `/${companySlug}/team-portal/driver/dashboard`,
-      kitchen: `/${companySlug}/team-portal/kitchen/dashboard`,
-      shopping: `/${companySlug}/team-portal/shopping/dashboard`,
-      cleaning: `/${companySlug}/team-portal/cleaning/dashboard`,
-      admin: `/${companySlug}/admin/dashboard`,
+      driver: "/team-portal/driver/dashboard",
+      kitchen: "/team-portal/kitchen/dashboard",
+      shopping: "/team-portal/shopping/dashboard",
+      cleaning: "/team-portal/cleaning/dashboard",
+      admin: companySlug ? `/${companySlug}/admin/dashboard` : "/admin/dashboard",
     };
 
     router.push(routes[department] || routes.admin).finally(() => setLoading(false));
@@ -99,10 +101,10 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   const switchToStaffView = (staffMember: StaffMember) => {
     setLoading(true);
     const roleRoutes: Record<string, string> = {
-      driver: `/${companySlug}/team-portal/driver/dashboard`,
-      kitchen_staff: `/${companySlug}/team-portal/kitchen/dashboard`,
-      shopping_staff: `/${companySlug}/team-portal/shopping/dashboard`,
-      cleaning_staff: `/${companySlug}/team-portal/cleaning/dashboard`,
+      driver: "/team-portal/driver/dashboard",
+      kitchen_staff: "/team-portal/kitchen/dashboard",
+      shopping_staff: "/team-portal/shopping/dashboard",
+      cleaning_staff: "/team-portal/cleaning/dashboard",
     };
 
     const route = roleRoutes[staffMember.active_role];
@@ -160,12 +162,17 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2" disabled={loading}>
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={loading}
+          title={`Switch view (currently ${getViewLabel()})`}
+          className="relative"
+        >
           <Eye className="h-4 w-4" />
-          <Badge className={`${getViewBadgeColor()} text-white`}>
-            {getViewLabel()}
-          </Badge>
-          <ChevronDown className="h-4 w-4" />
+          <span
+            className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white ${getViewBadgeColor()}`}
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">

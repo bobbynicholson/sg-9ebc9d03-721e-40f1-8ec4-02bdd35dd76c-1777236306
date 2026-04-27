@@ -242,17 +242,6 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
         </div>
       </div>
 
-      {/* Desktop Navigation */}
-      <div className={cn("hidden lg:block", className)}>
-        <div className="fixed left-0 top-0 h-screen w-64 xl:w-72 border-r bg-white shadow-lg overflow-hidden z-40">
-          <div className="px-6 py-6 border-b bg-gradient-to-r from-blue-500 to-indigo-500">
-            <h2 className="text-xl font-bold text-white">Driver Portal</h2>
-            <p className="text-sm text-blue-100 mt-1">Manage deliveries</p>
-          </div>
-          <NavContent />
-        </div>
-      </div>
-
       {/* Desktop Sidebar */}
       <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
         isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72"
