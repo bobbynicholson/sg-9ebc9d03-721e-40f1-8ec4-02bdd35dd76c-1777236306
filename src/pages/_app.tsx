@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
+import { VersionWatcher } from "@/components/VersionWatcher";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -18,6 +19,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <Component {...pageProps} />
             <CommandPalette />
             <MiddlewareErrorToast />
+            <VersionWatcher />
             <Toaster />
           </AuthProvider>
         </BrandingProvider>

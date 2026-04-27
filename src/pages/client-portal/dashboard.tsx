@@ -27,6 +27,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Order {
   id: string;
@@ -225,7 +226,10 @@ export default function ClientPortalDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Active Events</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Active Events
+                      <InfoTooltip content="Your bookings that aren't completed or cancelled yet -- the catering team is actively working on these." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">{activeOrders.length}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
@@ -239,7 +243,10 @@ export default function ClientPortalDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Completed</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Completed
+                      <InfoTooltip content="Past events that have been delivered and closed out. Your full booking history is on the My Orders page." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{completedOrders.length}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
@@ -253,7 +260,10 @@ export default function ClientPortalDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Total Guests</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Total Guests
+                      <InfoTooltip content="Sum of guest_count across every order you've placed. A rough sense of how many people we've fed for you." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-purple-600">
                       {orders.reduce((sum, o) => sum + o.guest_count, 0)}
                     </p>
@@ -269,7 +279,10 @@ export default function ClientPortalDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Total Spent</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Total Spent
+                      <InfoTooltip content="Sum of total_amount across every non-cancelled order on your account. VAT inclusive." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">
                       R{orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0).toLocaleString()}
                     </p>

@@ -14,6 +14,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { LowStockAlerts } from "@/components/shopping/LowStockAlerts";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ShoppingItem {
   id: string;
@@ -184,13 +185,19 @@ export default function ShoppingDashboard() {
                 <div className="p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
                     <div>
-                      <p className="text-xs sm:text-sm text-slate-600">Urgent Orders Needed</p>
+                      <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                        Urgent Orders Needed
+                        <InfoTooltip content="Inventory items currently below minimum stock that have demand from upcoming events. Source: inventory_demand_outlook view." />
+                      </p>
                       <p className="text-2xl sm:text-3xl font-bold text-green-600">
                         {inventoryItems.filter(i => i.quantityAvailable < i.minimumStock).length}
                       </p>
                     </div>
                     <div className="text-left sm:text-right">
-                      <p className="text-xs sm:text-sm text-slate-600">Estimated Cost</p>
+                      <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                        Estimated Cost
+                        <InfoTooltip content="Reorder quantity multiplied by cost_per_unit summed across all items below minimum stock." />
+                      </p>
                       <p className="text-xl sm:text-2xl font-bold text-slate-900">
                         R{inventoryItems
                           .filter(i => i.quantityAvailable < i.minimumStock)
@@ -213,7 +220,10 @@ export default function ShoppingDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Total Items</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Total Items
+                      <InfoTooltip content="Every distinct ingredient pulled by upcoming orders in the next 14 days, derived from order_items + recipe_ingredients." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-blue-100 flex items-center justify-center self-end md:self-auto">
@@ -227,7 +237,10 @@ export default function ShoppingDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Pending</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Pending
+                      <InfoTooltip content="Items still to buy. Toggled on each row, persisted to localStorage until POs are wired through the suppliers table." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 flex items-center justify-center self-end md:self-auto">
@@ -241,7 +254,10 @@ export default function ShoppingDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Purchased</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Purchased
+                      <InfoTooltip content="Items you've ticked off as bought. Counter clears when the upcoming-orders window rolls forward." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-green-100 flex items-center justify-center self-end md:self-auto">
@@ -255,7 +271,10 @@ export default function ShoppingDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Urgent</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Urgent
+                      <InfoTooltip content="Fresh-category items with events in the next 7 days. Buy these last to stay in date." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-red-100 flex items-center justify-center self-end md:self-auto">

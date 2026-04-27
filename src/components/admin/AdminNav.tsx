@@ -226,6 +226,12 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Communications",
       items: [
         {
+          title: "Email & Integrations",
+          href: "/admin/email-settings",
+          icon: Mail,
+          description: "Connect Gmail, Outlook, SMTP, Mailchimp"
+        },
+        {
           title: "Email Templates",
           href: "/admin/email-templates",
           icon: Mail,
