@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DynamicNav } from "@/components/DynamicNav";
 import { ChatBot } from "@/components/ChatBot";
 import { DutyToggleWidget } from "@/components/kitchen/DutyToggleWidget";
@@ -186,7 +187,10 @@ export default function KitchenDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Today's Orders</p>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                      Today's Orders
+                      <InfoTooltip content="Confirmed / preparing / ready orders with event_date in the next 3 days. The kitchen is actively working on these." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{todayOrders.length}</p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center self-end md:self-auto">
@@ -200,7 +204,10 @@ export default function KitchenDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Total Guests</p>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                      Total Guests
+                      <InfoTooltip content="Sum of guest_count across today's orders. Drives portion calculations for the prep list." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
                       {todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
                     </p>
@@ -216,9 +223,12 @@ export default function KitchenDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">In Prep</p>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                      In Prep
+                      <InfoTooltip content="Orders currently being prepped (status='preparing'). Updates the moment a chef ticks an item." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {orders.filter(o => ["preparing", "prep"].includes(o.status)).length}
+                      {orders.filter(o => o.status === "preparing").length}
                     </p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center self-end md:self-auto">
@@ -232,7 +242,10 @@ export default function KitchenDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Ready</p>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                      Ready
+                      <InfoTooltip content="Orders flagged ready for pickup / dispatch (status='ready'). Drivers see these instantly." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
                       {orders.filter(o => o.status === "ready").length}
                     </p>

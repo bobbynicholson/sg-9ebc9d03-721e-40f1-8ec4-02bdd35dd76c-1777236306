@@ -127,10 +127,16 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Core Management",
       items: [
         {
+          title: "Clients",
+          href: "/admin/clients",
+          icon: User,
+          description: "Status, last touch, suggested actions"
+        },
+        {
           title: "Leads",
           href: "/admin/leads",
           icon: UserPlus,
-          description: "Manage potential clients"
+          description: "Inbound enquiries pipeline"
         },
         {
           title: "Quotes",

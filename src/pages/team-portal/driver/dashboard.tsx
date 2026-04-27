@@ -25,6 +25,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Order = Tables<"orders">;
@@ -431,8 +432,11 @@ export default function DriverDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Today's Jobs</p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Today's Jobs
+                      <InfoTooltip content="Orders assigned to you with event_date = today, where status is confirmed / preparing / ready / in_transit. Picks up both driver_id and assigned_driver_id." />
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
                       {todaysJobs.length}
                     </p>
                   </div>
@@ -447,8 +451,11 @@ export default function DriverDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Completed</p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Completed
+                      <InfoTooltip content="Today's jobs you've finished delivering. Status = delivered or completed for an order with event_date = today." />
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 tabular-nums">
                       {completedToday}
                     </p>
                   </div>
@@ -463,8 +470,11 @@ export default function DriverDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Pending</p>
-                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Pending
+                      <InfoTooltip content="Today's jobs that aren't done yet. Today's jobs minus completed." />
+                    </p>
+                    <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 tabular-nums">
                       {todaysJobs.length - completedToday}
                     </p>
                   </div>
