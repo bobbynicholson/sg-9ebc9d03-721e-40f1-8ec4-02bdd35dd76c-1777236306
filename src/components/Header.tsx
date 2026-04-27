@@ -10,7 +10,20 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, Settings, ChevronDown } from "lucide-react";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
+import {
+  Menu, X, User, LogOut, Settings, ChevronDown,
+  Sparkles, MapPin, Package, ChefHat, Mail, Users,
+  Phone, MessageSquare, BookOpen, LifeBuoy, FileText,
+  CreditCard, Building2, Briefcase,
+} from "lucide-react";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { RegionSwitcher } from "@/components/RegionSwitcher";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
@@ -66,6 +79,33 @@ export function Header() {
     { name: "Support", href: "/support" },
   ];
 
+  const featuresMenu = [
+    { name: "Lead Management",      href: "/features/lead-management",      desc: "Capture and convert quote enquiries", icon: Users },
+    { name: "Kitchen Management",   href: "/features/kitchen-management",   desc: "Recipes, prep lists, production schedule", icon: ChefHat },
+    { name: "Inventory Management", href: "/features/inventory-management", desc: "Stock vs demand, automatic alerts", icon: Package },
+    { name: "GPS Tracking",         href: "/features/gps-tracking",         desc: "Live driver locations and ETAs", icon: MapPin },
+    { name: "Email Automation",     href: "/features/email-automation",     desc: "Quotes, confirmations, after-sales", icon: Mail },
+    { name: "All features",         href: "/features",                      desc: "Browse the full platform overview", icon: Sparkles },
+  ];
+
+  const pricingMenu = [
+    { name: "Plans & pricing", href: "/pricing",        desc: "Compare tiers, see what's included", icon: CreditCard },
+    { name: "For agencies",    href: "/pricing#agency", desc: "Multi-tenant rates for resellers", icon: Building2 },
+    { name: "Start free trial",href: "/company-signup", desc: "Spin up your tenant in 60 seconds", icon: Sparkles },
+  ];
+
+  const contactMenu = [
+    { name: "Sales",          href: "/contact",         desc: "Talk to a real human about your fit", icon: Briefcase },
+    { name: "Book a demo",    href: "/demo",            desc: "30-min walk-through with your data", icon: Phone },
+    { name: "WhatsApp us",    href: "https://wa.me/27000000000", desc: "Quick questions, quick answers", icon: MessageSquare, external: true },
+  ];
+
+  const supportMenu = [
+    { name: "Help centre",   href: "/support",   desc: "Search articles and guides", icon: LifeBuoy },
+    { name: "Documentation", href: "/blog",      desc: "Setup walkthroughs and tips", icon: BookOpen },
+    { name: "Status page",   href: "/security",  desc: "Uptime, security, compliance", icon: FileText },
+  ];
+
   // Get the correct dashboard path based on active role
   const dashboardPath = user && activeRole 
     ? getDashboardPath(activeRole as UserRole, profile?.company_slug)
@@ -98,17 +138,16 @@ export function Header() {
           </button>
         </div>
 
-        {/* Desktop navigation */}
-        <div className="hidden lg:flex lg:gap-x-8">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="text-sm font-semibold leading-6 text-slate-900 hover:text-purple-600 dark:text-slate-100 dark:hover:text-purple-400 transition-colors"
-            >
-              {item.name}
-            </Link>
-          ))}
+        {/* Desktop navigation -- mega menus */}
+        <div className="hidden lg:flex">
+          <NavigationMenu>
+            <NavigationMenuList>
+              <MegaMenu label="Features" rootHref="/features" items={featuresMenu} cols={2} wide />
+              <MegaMenu label="Pricing"  rootHref="/pricing"  items={pricingMenu}  cols={1} />
+              <MegaMenu label="Contact"  rootHref="/contact"  items={contactMenu}  cols={1} />
+              <MegaMenu label="Support"  rootHref="/support"  items={supportMenu}  cols={1} />
+            </NavigationMenuList>
+          </NavigationMenu>
         </div>
 
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
@@ -165,16 +204,11 @@ export function Header() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-slate-200 dark:border-slate-700">
-          <div className="space-y-2 px-4 pb-3 pt-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
-              >
-                {item.name}
-              </Link>
-            ))}
+          <div className="space-y-1 px-4 pb-3 pt-2">
+            <MobileMenuSection label="Features" rootHref="/features" items={featuresMenu} />
+            <MobileMenuSection label="Pricing"  rootHref="/pricing"  items={pricingMenu} />
+            <MobileMenuSection label="Contact"  rootHref="/contact"  items={contactMenu} />
+            <MobileMenuSection label="Support"  rootHref="/support"  items={supportMenu} />
             {user ? (
               <>
                 <Link
@@ -216,5 +250,135 @@ export function Header() {
         </div>
       )}
     </header>
+  );
+}
+
+interface MegaItem {
+  name: string;
+  href: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+  external?: boolean;
+}
+
+function MegaMenu({
+  label, rootHref, items, cols, wide,
+}: {
+  label: string;
+  rootHref: string;
+  items: MegaItem[];
+  cols: 1 | 2;
+  wide?: boolean;
+}) {
+  return (
+    <NavigationMenuItem>
+      <NavigationMenuTrigger className="bg-transparent text-sm font-semibold text-slate-900 hover:text-purple-600 dark:text-slate-100 dark:hover:text-purple-400">
+        {label}
+      </NavigationMenuTrigger>
+      <NavigationMenuContent>
+        <div className={`p-4 ${wide ? "w-[640px]" : "w-[360px]"}`}>
+          <Link
+            href={rootHref}
+            className="block mb-3 px-3 py-2 rounded-md bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 hover:from-purple-100 hover:to-pink-100"
+          >
+            <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+              {label} overview
+            </div>
+            <div className="text-xs text-slate-600 dark:text-slate-400">
+              Jump to the {label.toLowerCase()} hub
+            </div>
+          </Link>
+          <ul className={`grid gap-2 ${cols === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {items.map((item) => {
+              const Icon = item.icon;
+              const inner = (
+                <div className="flex items-start gap-3 p-3 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  <div className="w-9 h-9 rounded-md bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center flex-shrink-0">
+                    <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {item.name}
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      {item.desc}
+                    </div>
+                  </div>
+                </div>
+              );
+              return (
+                <li key={item.name}>
+                  <NavigationMenuLink asChild>
+                    {item.external ? (
+                      <a href={item.href} target="_blank" rel="noopener noreferrer" className="block">
+                        {inner}
+                      </a>
+                    ) : (
+                      <Link href={item.href} className="block">
+                        {inner}
+                      </Link>
+                    )}
+                  </NavigationMenuLink>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </NavigationMenuContent>
+    </NavigationMenuItem>
+  );
+}
+
+function MobileMenuSection({
+  label, rootHref, items,
+}: {
+  label: string;
+  rootHref: string;
+  items: MegaItem[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-slate-100 dark:border-slate-800 last:border-b-0">
+      <div className="flex items-center justify-between">
+        <Link
+          href={rootHref}
+          className="block flex-1 rounded-lg px-3 py-2 text-base font-semibold leading-7 text-slate-900 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          {label}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={`Toggle ${label} submenu`}
+          className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
+        >
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+      {open && (
+        <ul className="pl-3 pb-2 space-y-1">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const inner = (
+              <span className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
+                <Icon className="w-4 h-4 text-purple-600 dark:text-purple-300 flex-shrink-0" />
+                <span className="truncate">{item.name}</span>
+              </span>
+            );
+            return (
+              <li key={item.name}>
+                {item.external ? (
+                  <a href={item.href} target="_blank" rel="noopener noreferrer">{inner}</a>
+                ) : (
+                  <Link href={item.href}>{inner}</Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
