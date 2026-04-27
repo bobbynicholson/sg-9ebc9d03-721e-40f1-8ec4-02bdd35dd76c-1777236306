@@ -36,7 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight,
   Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Slack,
-  MessageSquare, ChefHat, Mail, Link2, Send,
+  MessageSquare, ChefHat, Mail, Link2, Send, Receipt, BookOpen,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -74,6 +74,7 @@ interface WebhookSub {
 const EVENT_TYPES: { id: string; label: string }[] = [
   { id: "lead.created",         label: "New lead" },
   { id: "lead.status_changed",  label: "Lead status changed" },
+  { id: "quote.created",        label: "New quote (any status)" },
   { id: "quote.sent",           label: "Quote sent" },
   { id: "quote.accepted",       label: "Quote accepted" },
   { id: "order.created",        label: "New order booked" },
@@ -91,6 +92,30 @@ interface Recipe {
 }
 
 const RECIPES: Recipe[] = [
+  {
+    title: "Quote in here -> Quote in Xero",
+    description: "Every quote you build in CateringMS auto-creates the matching Xero quote so accounting stays in sync. No more double entry.",
+    trigger: "quote.created",
+    action: "Xero - Create draft quote",
+    icon: Receipt,
+    badge: "Xero sync",
+  },
+  {
+    title: "Xero invoice paid -> Order paid",
+    description: "Client pays the Xero invoice? Their CateringMS order auto-flips to paid (full or partial) and the kitchen / drivers see the green tick.",
+    trigger: "xero.invoice_paid",
+    action: "Webhooks - POST to /api/integrations/invoice-paid",
+    icon: Receipt,
+    badge: "Xero sync",
+  },
+  {
+    title: "Quote in Xero -> Quote in here",
+    description: "Accountant builds a quote in Xero? Zapier mirrors it back so kitchen, ops and dispatch all see it without anyone re-typing.",
+    trigger: "xero.quote_created",
+    action: "Webhooks - POST to /api/integrations/quotes",
+    icon: Receipt,
+    badge: "Xero sync",
+  },
   {
     title: "New leads -> Google Sheet",
     description: "Every fresh enquiry lands as a new row in your sales pipeline sheet, with name, event date, guests, source.",
@@ -338,6 +363,53 @@ function IntegrationsPage() {
                   </div>
                   <p className="text-xs text-slate-600">Zapier sees a sample payload and you can finish the Zap. Done.</p>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Xero accounting */}
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-blue-50 to-cyan-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-blue-600" />
+                Xero accounting
+                <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-200">Setup via Zapier</Badge>
+              </CardTitle>
+              <CardDescription>
+                Two-way sync: quotes flow both directions, payments roll back into orders. No double entry.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-semibold text-slate-900 mb-1">CateringMS quote -> Xero</p>
+                  <p className="text-xs text-slate-600 mb-2">Outbound webhook on <code className="bg-slate-100 px-1 rounded text-[11px]">quote.created</code> -&gt; Zapier "Xero - Create Draft Quote".</p>
+                  <Link href="https://zapier.com/apps/xero/integrations/webhook" target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    Open Xero in Zapier <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-semibold text-slate-900 mb-1">Xero quote -> CateringMS</p>
+                  <p className="text-xs text-slate-600 mb-2">Zapier "New Xero Quote" -&gt; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/quotes</code> with your API key.</p>
+                  <p className="text-[11px] text-slate-500">Idempotent on xero_quote_id -- safe to re-deliver.</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-blue-100">
+                  <p className="font-semibold text-slate-900 mb-1">Xero invoice paid -> Order paid</p>
+                  <p className="text-xs text-slate-600 mb-2">Zapier "Xero - Invoice Paid" -&gt; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/invoice-paid</code>. Auto-flips order status.</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-blue-100 text-xs space-y-1">
+                <p className="font-semibold text-slate-900">Setup steps</p>
+                <ol className="list-decimal list-inside text-slate-700 space-y-0.5">
+                  <li>Generate an API key below (scopes: leads:write, quotes:write, orders:read, invoices:write).</li>
+                  <li>Open Zapier, sign in to both Xero and "Webhooks by Zapier".</li>
+                  <li>Build the three Zaps using the recipe gallery cards below as templates.</li>
+                  <li>Fire test on each from your Zap editor and from the recipe card here -- both should turn green.</li>
+                </ol>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800">
+                <p className="font-semibold mb-1">One-click native Xero connect (coming soon)</p>
+                <p>We're building a "Sign in with Xero" OAuth flow that skips Zapier entirely. Until then the Zapier path above works end-to-end -- no Xero developer account needed on your side.</p>
               </div>
             </CardContent>
           </Card>
