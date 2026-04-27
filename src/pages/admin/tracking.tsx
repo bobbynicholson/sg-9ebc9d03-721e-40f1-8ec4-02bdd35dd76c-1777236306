@@ -58,11 +58,11 @@ export default function AdminTracking() {
   }, [user]);
 
   const loadTrackingData = async () => {
-    if (!user) return;
-    
+    if (!user?.company_id) return;
+
     try {
-      const companyId = user.user_metadata?.company_id || user.id;
-      
+      const companyId = user.company_id;
+
       // Load orders with delivery status
       const allOrders = await orderService.getAllOrders(companyId);
       const activeOrders = allOrders.filter(order => 

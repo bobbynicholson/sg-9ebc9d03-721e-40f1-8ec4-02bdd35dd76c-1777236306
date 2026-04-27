@@ -180,11 +180,10 @@ function OrderProcessDashboard() {
   }, [orders]);
 
   const loadOrders = async () => {
-    if (!user) return;
+    if (!user?.company_id) return;
     setLoading(true);
     try {
-      const companyId = user.user_metadata?.company_id || user.id;
-      const allOrders = await orderService.getAllOrders(companyId);
+      const allOrders = await orderService.getAllOrders(user.company_id);
       setOrders(allOrders as unknown as AppOrder[]);
     } catch (error) {
       console.error("Error loading orders:", error);

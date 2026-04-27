@@ -81,7 +81,7 @@ function AdminDashboardPage() {
   }, [user]);
 
   const loadDashboardMetrics = async () => {
-    if (!user) return;
+    if (!user?.company_id) return;
 
     try {
       setLoading(true);
@@ -91,13 +91,13 @@ function AdminDashboardPage() {
       const financialData = await analyticsService.getFinancialAnalytics();
 
       // Fetch all orders for additional metrics
-      const allOrders = await orderService.getAllOrders(user.id);
+      const allOrders = await orderService.getAllOrders(user.company_id);
 
       // Count pending quotes
       const { data: quotes, error: quotesError } = await supabase
         .from("quotes")
         .select("id", { count: "exact" })
-        .eq("user_id", user.id)
+        .eq("company_id", user.company_id)
         .eq("status", "pending");
 
       if (quotesError) {
@@ -108,7 +108,7 @@ function AdminDashboardPage() {
       const { count: userCount, error: userError } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .eq("company_id", user.user_metadata?.company_id || user.id);
+        .eq("company_id", user.company_id);
 
       if (userError) {
         console.error("Error fetching users:", userError);
@@ -118,7 +118,7 @@ function AdminDashboardPage() {
       const { data: inventory, error: invError } = await supabase
         .from("inventory_batches")
         .select("id", { count: "exact" })
-        .eq("company_id", user.id)
+        .eq("company_id", user.company_id)
         .lt("quantity_remaining", "5");
 
       if (invError) {

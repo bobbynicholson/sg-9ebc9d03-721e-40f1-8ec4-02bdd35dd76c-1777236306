@@ -35,13 +35,12 @@ export default function NewLead() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user?.company_id) return;
 
     setLoading(true);
     try {
-      const companyId = user.user_metadata?.company_id || user.id;
       await leadService.createLead({
-        company_id: companyId,
+        company_id: user.company_id,
         contact_name: formData.name,
         client_name: formData.name,
         client_email: formData.email,

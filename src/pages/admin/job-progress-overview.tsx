@@ -42,11 +42,10 @@ function JobProgressOverviewPage() {
   }, [user]);
 
   const loadOrders = async () => {
-    if (!user) return;
+    if (!user?.company_id) return;
     try {
       setLoading(true);
-      const companyId = user.user_metadata?.company_id || user.id;
-      const data = await orderService.getAllOrders(companyId);
+      const data = await orderService.getAllOrders(user.company_id);
       setOrders(data || []);
     } catch (error) {
       console.error("Error loading orders:", error);
