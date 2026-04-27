@@ -34,7 +34,7 @@ interface Order {
   venue_address: string;
   guest_count: number;
   status: string;
-  total: number;
+  total_amount: number;
   payment_status?: string;
   delivery_status?: string;
 }
@@ -60,7 +60,7 @@ export default function ClientPortalDashboard() {
 
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, venue_address, guest_count, status, total, payment_status, delivery_status")
+          .select("id, event_date, venue_address, guest_count, status, total_amount, payment_status, delivery_status")
           .order("event_date", { ascending: false });
 
         if (clientRow?.id) {
@@ -100,7 +100,7 @@ export default function ClientPortalDashboard() {
   };
 
   const needsPayment = (order: Order) => {
-    return order.payment_status === "pending" && order.total > 0;
+    return order.payment_status === "pending" && order.total_amount > 0;
   };
 
   const handlePayment = async (order: Order) => {
@@ -210,7 +210,7 @@ export default function ClientPortalDashboard() {
                         disabled={processingPayment === order.id}
                         className="w-full xs:w-auto text-sm"
                       >
-                        Pay R{order.total?.toLocaleString()}
+                        Pay R{Number(order.total_amount || 0).toLocaleString()}
                       </Button>
                     </div>
                   ))}
@@ -340,7 +340,7 @@ export default function ClientPortalDashboard() {
                             </div>
                             <div className="flex items-center gap-2">
                               <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
-                              <span>R{order.total?.toLocaleString()}</span>
+                              <span>R{Number(order.total_amount || 0).toLocaleString()}</span>
                             </div>
                           </div>
                         </div>

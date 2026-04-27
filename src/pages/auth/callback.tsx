@@ -47,8 +47,18 @@ export default function AuthCallbackPage() {
           console.log("🎭 Callback - User role:", profile?.role);
 
           if (profile?.role) {
+            // Look up company slug for multi-tenant landing URL
+            let companySlug: string | undefined;
+            if (profile.company_id) {
+              const { data: company } = await supabase
+                .from("companies")
+                .select("slug")
+                .eq("id", profile.company_id)
+                .maybeSingle();
+              companySlug = company?.slug ?? undefined;
+            }
             // Single source of truth for landing pages: lib/authGuards
-            const dashboardUrl = getLandingPageForRoleString(profile.role as string);
+            const dashboardUrl = getLandingPageForRoleString(profile.role as string, companySlug);
             console.log("🔄 Callback redirect:", profile.role, "→", dashboardUrl);
             await router.push(dashboardUrl);
           } else {

@@ -256,12 +256,18 @@ export const userManagementService = {
   /**
    * Get all users with their assigned departments
    */
-  async getAllUsers(): Promise<UserWithDepartments[]> {
+  async getAllUsers(companyId?: string): Promise<UserWithDepartments[]> {
     try {
-      const { data: profiles, error: profilesError } = await supabase
+      let profilesQuery = supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (companyId) {
+        profilesQuery = profilesQuery.eq("company_id", companyId);
+      }
+
+      const { data: profiles, error: profilesError } = await profilesQuery;
 
       if (profilesError) throw profilesError;
 

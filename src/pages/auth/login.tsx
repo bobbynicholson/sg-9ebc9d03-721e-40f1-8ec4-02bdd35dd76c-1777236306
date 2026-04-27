@@ -94,7 +94,20 @@ const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: 
 
     // Route based on active_role — landing map lives in lib/authGuards
     const role = profile.active_role || profile.role;
-    const destination = getLandingPageForRoleString(role);
+
+    // Look up company slug so multi-tenant URLs include /[company_slug]
+    let companySlug: string | undefined;
+    if (profile.company_id) {
+      const sb = createClient();
+      const { data: company } = await sb
+        .from("companies")
+        .select("slug")
+        .eq("id", profile.company_id)
+        .maybeSingle();
+      companySlug = company?.slug ?? undefined;
+    }
+
+    const destination = getLandingPageForRoleString(role, companySlug);
 
     // Use hard navigation to ensure component swap
     window.location.assign(destination);

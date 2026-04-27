@@ -90,7 +90,7 @@ export const clientManagementService = {
           const clientLeads = leads?.filter((l) => l.client_email === profile.email) || [];
 
           const totalSpent = clientOrders.reduce(
-            (sum, order) => sum + Number(order.total || 0),
+            (sum, order) => sum + Number(order.total_amount || 0),
             0
           );
 

@@ -110,43 +110,44 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 // Default landing pages for each role
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/admin/platform/dashboard",
-  [UserRole.COMPANY_ADMIN]: () => "/admin/leads",
-  [UserRole.ADMIN]: () => "/admin/leads",
-  [UserRole.KITCHEN_STAFF]: () => "/team-portal/kitchen/dashboard",
-  [UserRole.SHOPPING_STAFF]: () => "/team-portal/shopping/dashboard",
-  [UserRole.DRIVER]: () => "/team-portal/driver/dashboard",
-  [UserRole.CLEANING_STAFF]: () => "/team-portal/cleaning/dashboard",
-  [UserRole.CLIENT]: () => "/client-portal/dashboard",
+  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
 
 // String-keyed landing-page map covering DB role strings + legacy aliases.
 // Edge-safe (no service imports). Use getLandingPageForRoleString from middleware
 // and any callsite that has a raw role string rather than a UserRole enum value.
-export const ROLE_LANDING_PAGES_BY_STRING: Record<string, string> = {
-  super_admin: "/admin/platform/dashboard",
-  company_admin: "/admin/leads",
-  admin: "/admin/leads",
-  owner: "/admin/leads",
-  kitchen_staff: "/team-portal/kitchen/dashboard",
-  kitchen: "/team-portal/kitchen/dashboard",
-  shopping_staff: "/team-portal/shopping/dashboard",
-  shopping: "/team-portal/shopping/dashboard",
-  driver: "/team-portal/driver/dashboard",
-  cleaning_staff: "/team-portal/cleaning/dashboard",
-  cleaning: "/team-portal/cleaning/dashboard",
-  client: "/client-portal/dashboard",
+export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => string> = {
+  super_admin: () => "/admin/platform/dashboard",
+  company_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  owner: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  kitchen: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  client: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
 
-export const DEFAULT_LANDING_PAGE = "/admin/leads";
+export const DEFAULT_LANDING_PAGE = "/admin/dashboard";
 
 /**
  * Single source of truth for "where does role X land after auth?".
  * Handles both UserRole enum values and raw DB role strings (with legacy aliases).
  * Falls back to DEFAULT_LANDING_PAGE when role is unknown.
  */
-export function getLandingPageForRoleString(role: string | null | undefined): string {
+export function getLandingPageForRoleString(role: string | null | undefined, companySlug?: string): string {
   if (!role) return DEFAULT_LANDING_PAGE;
-  return ROLE_LANDING_PAGES_BY_STRING[role] ?? DEFAULT_LANDING_PAGE;
+  const fn = ROLE_LANDING_PAGES_BY_STRING[role];
+  return fn ? fn(companySlug) : DEFAULT_LANDING_PAGE;
 }
 
 /**

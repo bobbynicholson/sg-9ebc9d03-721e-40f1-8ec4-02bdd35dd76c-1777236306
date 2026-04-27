@@ -564,9 +564,10 @@ export default function FinancialDashboardPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {orders.slice(0, 5).map((order) => {
-                      const estimatedCost = (order.total || 0) * 0.65;
-                      const estimatedProfit = (order.total || 0) - estimatedCost;
-                      const profitMargin = ((estimatedProfit / (order.total || 1)) * 100);
+                      const revenue = Number(order.total_amount) || 0;
+                      const estimatedCost = revenue * 0.65;
+                      const estimatedProfit = revenue - estimatedCost;
+                      const profitMargin = ((estimatedProfit / (revenue || 1)) * 100);
 
                       return (
                         <div key={order.id} className="border rounded-lg p-4">
@@ -589,7 +590,7 @@ export default function FinancialDashboardPage() {
                             <div>
                               <span className="text-slate-600">Revenue:</span>
                               <div className="font-semibold">
-                                {formatCurrency(order.total || 0)}
+                                {formatCurrency(revenue)}
                               </div>
                             </div>
                             <div>

@@ -208,7 +208,7 @@ function OrderProcessDashboard() {
       byStatus[order.status] = (byStatus[order.status] || 0) + 1;
 
       // Revenue calculations
-      const orderTotal = order.total || 0;
+      const orderTotal = Number(order.total_amount) || 0;
       totalRevenue += orderTotal;
       
       if (order.payment_status === "paid") {
@@ -317,7 +317,7 @@ function OrderProcessDashboard() {
             {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <span className="font-semibold text-slate-900">
-                R{order.total?.toLocaleString() || 0}
+                R{Number(order.total_amount || 0).toLocaleString()}
               </span>
               <Button 
                 variant="ghost" 
@@ -384,7 +384,7 @@ function OrderProcessDashboard() {
                   </div>
                   <div className="flex items-center gap-1 font-semibold text-slate-900">
                     <DollarSign className="w-4 h-4" />
-                    <span>R{order.total?.toLocaleString() || 0}</span>
+                    <span>R{Number(order.total_amount || 0).toLocaleString()}</span>
                   </div>
                 </div>
               </div>

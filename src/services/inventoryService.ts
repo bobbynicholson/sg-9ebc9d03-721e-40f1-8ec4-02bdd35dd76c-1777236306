@@ -3,20 +3,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-export type Inventory = Tables<"inventory">;
+export type Inventory = Tables<"inventory_items">;
 
 export const inventoryService = {
-  async getInventory(companyId: string, regionId?: string): Promise<Inventory[]> {
-    let query = supabase
-      .from("inventory")
+  async getInventory(companyId: string): Promise<Inventory[]> {
+    const { data, error } = await supabase
+      .from("inventory_items")
       .select("*")
-      .eq("company_id", companyId);
-
-    if (regionId) {
-      query = query.eq("region_id", regionId);
-    }
-
-    const { data, error } = await query.order("name");
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("item_name");
 
     if (error) {
       console.error("Error fetching inventory:", error);
@@ -28,7 +24,7 @@ export const inventoryService = {
 
   async getInventoryItem(itemId: string): Promise<Inventory | null> {
     const { data, error } = await supabase
-      .from("inventory")
+      .from("inventory_items")
       .select("*")
       .eq("id", itemId)
       .single();
@@ -41,9 +37,9 @@ export const inventoryService = {
     return data;
   },
 
-  async createInventoryItem(item: Inventory): Promise<Inventory | null> {
+  async createInventoryItem(item: Partial<Inventory>): Promise<Inventory | null> {
     const { data, error } = await supabase
-      .from("inventory")
+      .from("inventory_items")
       .insert([item])
       .select()
       .single();
@@ -58,7 +54,7 @@ export const inventoryService = {
 
   async updateInventoryItem(itemId: string, updates: Partial<Inventory>): Promise<Inventory | null> {
     const { data, error } = await supabase
-      .from("inventory")
+      .from("inventory_items")
       .update(updates)
       .eq("id", itemId)
       .select()
@@ -74,8 +70,8 @@ export const inventoryService = {
 
   async deleteInventoryItem(itemId: string): Promise<boolean> {
     const { error } = await supabase
-      .from("inventory")
-      .delete()
+      .from("inventory_items")
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", itemId);
 
     if (error) {
@@ -88,36 +84,19 @@ export const inventoryService = {
 
   async getLowStockItems(companyId: string): Promise<Inventory[]> {
     const { data, error } = await supabase
-      .from("inventory")
+      .from("inventory_items")
       .select("*")
       .eq("company_id", companyId)
-      .eq("status", "low_stock")
-      .order("name");
+      .is("deleted_at", null)
+      .order("item_name");
 
     if (error) {
       console.error("Error fetching low stock items:", error);
       return [];
     }
 
-    return data || [];
+    return (data || []).filter(
+      (i: any) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0),
+    );
   },
-
-  async getExpiringItems(companyId: string, daysAhead: number = 7): Promise<Inventory[]> {
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + daysAhead);
-
-    const { data, error } = await supabase
-      .from("inventory")
-      .select("*")
-      .eq("company_id", companyId)
-      .lte("expiry_date", expiryDate.toISOString().split("T")[0])
-      .order("expiry_date");
-
-    if (error) {
-      console.error("Error fetching expiring items:", error);
-      return [];
-    }
-
-    return data || [];
-  }
 };

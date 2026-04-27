@@ -60,16 +60,16 @@ export default function AdminInventory() {
       const rows = await inventoryService.getInventory(user.company_id);
       const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
         id: row.id,
-        name: row.name ?? "Unnamed",
+        name: row.item_name ?? "Unnamed",
         category: row.category ?? "Other",
-        quantity: Number(row.quantity ?? row.current_stock ?? 0),
-        unit: row.unit ?? "unit",
-        minStock: Number(row.min_stock ?? row.reorder_level ?? 0),
-        maxStock: Number(row.max_stock ?? 0),
-        costPerUnit: Number(row.cost_per_unit ?? row.unit_cost ?? 0),
-        supplier: row.supplier ?? row.supplier_name ?? "—",
-        lastRestocked: row.last_restocked ?? row.updated_at ?? "",
-        expiryDate: row.expiry_date ?? undefined,
+        quantity: Number(row.current_stock ?? 0),
+        unit: row.unit_of_measure ?? "unit",
+        minStock: Number(row.minimum_stock ?? 0),
+        maxStock: Number(row.maximum_stock ?? 0),
+        costPerUnit: Number(row.cost_per_unit ?? 0),
+        supplier: row.preferred_supplier_id ? "Supplier set" : "—",
+        lastRestocked: row.updated_at ?? "",
+        expiryDate: undefined,
       }));
       setInventory(mapped);
     } catch (error) {

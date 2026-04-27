@@ -70,7 +70,7 @@ function AdminUsersPage() {
     try {
       setLoading(true);
       setError(null);
-      const fetchedUsers = await userManagementService.getAllUsers();
+      const fetchedUsers = await userManagementService.getAllUsers(user?.company_id);
       setUsers(fetchedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
