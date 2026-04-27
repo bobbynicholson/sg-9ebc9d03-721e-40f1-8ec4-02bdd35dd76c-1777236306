@@ -11,16 +11,15 @@ type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 type LeadUpdate = Database["public"]["Tables"]["leads"]["Update"];
 
 export const leadService = {
-  async getLeads(userId: string) {
+  async getLeads(companyId: string) {
     const { data, error } = await supabase
       .from("leads")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    
-    // Return raw database types - no transformation
+
     return data || [];
   },
 
@@ -35,11 +34,11 @@ export const leadService = {
     return data;
   },
 
-  async getLeadsByStatus(userId: string, status: string) {
+  async getLeadsByStatus(companyId: string, status: string) {
     const { data, error } = await supabase
       .from("leads")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .eq("status", status)
       .order("event_date", { ascending: true });
 
@@ -248,11 +247,11 @@ Guests: ${lead.guest_count}`;
     return lead;
   },
 
-  async getLeadStats(userId: string) {
+  async getLeadStats(companyId: string) {
     const { data, error } = await supabase
       .from("leads")
       .select("status")
-      .eq("user_id", userId);
+      .eq("company_id", companyId);
 
     if (error) throw error;
 
@@ -268,12 +267,11 @@ Guests: ${lead.guest_count}`;
     return stats;
   },
 
-  async searchLeads(userId: string, searchTerm: string) {
-    // BUG FIX #3: Use safe parameterized queries
+  async searchLeads(companyId: string, searchTerm: string) {
     const { data, error } = await supabase
       .from("leads")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .or(`client_name.ilike.%${searchTerm}%,client_email.ilike.%${searchTerm}%,client_phone.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false });
 

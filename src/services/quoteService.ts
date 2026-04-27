@@ -7,11 +7,11 @@ import { AppOrder, Quote } from "@/types/app";
 import { regionService } from "./regionService";
 
 export const quoteService = {
-  async getQuotes(userId: string): Promise<Quote[]> {
+  async getQuotes(companyId: string): Promise<Quote[]> {
     const { data, error } = await supabase
       .from("quotes")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (error) {

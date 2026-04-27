@@ -27,10 +27,13 @@ export default function AdminLeads() {
   }, [user]);
 
   const loadLeads = async () => {
-    if (!user) return;
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await leadService.getLeads(user.id);
+      const data = await leadService.getLeads(user.company_id);
       setLeads(data);
     } catch (error) {
       console.error("Error loading leads:", error);

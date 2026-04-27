@@ -28,18 +28,21 @@ export default function AdminQuotes() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const fetched = await quoteService.getQuotes(user.id);
+      const fetched = await quoteService.getQuotes(user.company_id!);
       if (!cancelled) {
         setQuotes(fetched);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.company_id]);
 
   const getStatusColor = (status: Quote["status"]) => {
     switch (status) {
