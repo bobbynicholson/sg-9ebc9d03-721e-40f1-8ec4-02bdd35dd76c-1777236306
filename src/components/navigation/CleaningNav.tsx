@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -65,13 +65,13 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
       items: [
         {
           title: "Overview",
-          href: `${baseUrl}/portal/cleaning/dashboard`,
+          href: "/team-portal/cleaning/dashboard",
           icon: LayoutDashboard,
           description: "Today's tasks"
         },
         {
           title: "Notifications",
-          href: `${baseUrl}/portal/cleaning/notifications`,
+          href: "/team-portal/cleaning/notifications",
           icon: Bell,
           description: "Cleaning alerts"
         }
@@ -82,19 +82,19 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
       items: [
         {
           title: "Cleaning Tasks",
-          href: `${baseUrl}/portal/cleaning/tasks`,
+          href: "/team-portal/cleaning/tasks",
           icon: ClipboardCheck,
           description: "Task list"
         },
         {
           title: "Schedules",
-          href: `${baseUrl}/portal/cleaning/schedules`,
+          href: "/team-portal/cleaning/schedules",
           icon: Calendar,
           description: "Cleaning schedules"
         },
         {
           title: "Workflows",
-          href: `${baseUrl}/portal/cleaning/workflows`,
+          href: "/team-portal/cleaning/workflows",
           icon: Sparkles,
           description: "Standard procedures"
         }
@@ -105,19 +105,19 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
       items: [
         {
           title: "Equipment Verification",
-          href: `${baseUrl}/portal/cleaning/equipment`,
+          href: "/team-portal/cleaning/equipment",
           icon: Package,
           description: "Verify equipment"
         },
         {
           title: "Damage Reports",
-          href: `${baseUrl}/portal/cleaning/damage`,
+          href: "/team-portal/cleaning/damage",
           icon: AlertCircle,
           description: "Report damage"
         },
         {
           title: "Supplies",
-          href: `${baseUrl}/portal/cleaning/supplies`,
+          href: "/team-portal/cleaning/supplies",
           icon: Wrench,
           description: "Cleaning supplies"
         }
@@ -128,7 +128,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
       items: [
         {
           title: "Cleaning Settings",
-          href: `${baseUrl}/portal/cleaning/settings`,
+          href: "/team-portal/cleaning/settings",
           icon: Settings,
           description: "Configure settings"
         }
@@ -203,7 +203,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
                 <NavContent />
               </SheetContent>
             </Sheet>
-            <Link href={`${baseUrl}/portal/cleaning/dashboard`} className="flex items-center gap-2">
+            <Link href={"/team-portal/cleaning/dashboard"} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
@@ -225,7 +225,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href={`${baseUrl}/portal/cleaning/dashboard`} className="flex items-center gap-3">
+                <Link href={"/team-portal/cleaning/dashboard"} className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>

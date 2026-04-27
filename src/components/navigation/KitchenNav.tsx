@@ -65,13 +65,13 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       items: [
         {
           title: "Overview",
-          href: `${baseUrl}/portal/kitchen/dashboard`,
+          href: "/team-portal/kitchen/dashboard",
           icon: LayoutDashboard,
           description: "Today's production"
         },
         {
           title: "Notifications",
-          href: `${baseUrl}/portal/kitchen/notifications`,
+          href: "/team-portal/kitchen/notifications",
           icon: Bell,
           description: "Kitchen alerts"
         }
@@ -82,19 +82,19 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       items: [
         {
           title: "Prep List",
-          href: `${baseUrl}/portal/kitchen/prep-list`,
+          href: "/team-portal/kitchen/prep-list",
           icon: ClipboardList,
           description: "Daily prep tasks"
         },
         {
           title: "Production Schedule",
-          href: `${baseUrl}/portal/kitchen/production`,
+          href: "/team-portal/kitchen/production",
           icon: Calendar,
           description: "Upcoming orders"
         },
         {
           title: "Duty Roster",
-          href: `${baseUrl}/portal/kitchen/duty`,
+          href: "/team-portal/kitchen/duty",
           icon: Clock,
           description: "Staff on duty"
         }
@@ -105,13 +105,13 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       items: [
         {
           title: "Menu Items",
-          href: `${baseUrl}/portal/kitchen/menu`,
+          href: "/team-portal/kitchen/menu",
           icon: Utensils,
           description: "Manage menu"
         },
         {
           title: "Kitchen Stock",
-          href: `${baseUrl}/portal/kitchen/stock`,
+          href: "/team-portal/kitchen/stock",
           icon: Package,
           description: "Inventory levels"
         }
@@ -122,7 +122,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       items: [
         {
           title: "Kitchen Settings",
-          href: `${baseUrl}/portal/kitchen/settings`,
+          href: "/team-portal/kitchen/settings",
           icon: Settings,
           description: "Configure kitchen"
         }
@@ -197,7 +197,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
                 <NavContent />
               </SheetContent>
             </Sheet>
-            <Link href={`${baseUrl}/portal/kitchen/dashboard`} className="flex items-center gap-2">
+            <Link href={"/team-portal/kitchen/dashboard"} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-orange-600 to-red-600 rounded-lg flex items-center justify-center">
                 <ChefHat className="w-4 h-4 text-white" />
               </div>
@@ -221,7 +221,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href={`${baseUrl}/portal/kitchen/dashboard`} className="flex items-center gap-3">
+                <Link href={"/team-portal/kitchen/dashboard"} className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
                     <ChefHat className="w-5 h-5 text-white" />
                   </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -65,13 +65,13 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
       items: [
         {
           title: "Overview",
-          href: `${baseUrl}/portal/shopping/dashboard`,
+          href: "/team-portal/shopping/dashboard",
           icon: LayoutDashboard,
           description: "Inventory overview"
         },
         {
           title: "Notifications",
-          href: `${baseUrl}/portal/shopping/notifications`,
+          href: "/team-portal/shopping/notifications",
           icon: Bell,
           description: "Stock alerts"
         }
@@ -82,13 +82,13 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
       items: [
         {
           title: "Current Stock",
-          href: `${baseUrl}/portal/shopping/inventory`,
+          href: "/team-portal/shopping/inventory",
           icon: Warehouse,
           description: "View inventory levels"
         },
         {
           title: "Stock Alerts",
-          href: `${baseUrl}/portal/shopping/alerts`,
+          href: "/team-portal/shopping/alerts",
           icon: TrendingUp,
           description: "Low stock items"
         }
@@ -99,19 +99,19 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
       items: [
         {
           title: "Purchase Orders",
-          href: `${baseUrl}/portal/shopping/orders`,
+          href: "/team-portal/shopping/orders",
           icon: ShoppingCart,
           description: "Create and track POs"
         },
         {
           title: "Suppliers",
-          href: `${baseUrl}/portal/shopping/suppliers`,
+          href: "/team-portal/shopping/suppliers",
           icon: Users,
           description: "Supplier database"
         },
         {
           title: "Invoices",
-          href: `${baseUrl}/portal/shopping/invoices`,
+          href: "/team-portal/shopping/invoices",
           icon: FileText,
           description: "Purchase invoices"
         }
@@ -122,7 +122,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
       items: [
         {
           title: "Shopping Settings",
-          href: `${baseUrl}/portal/shopping/settings`,
+          href: "/team-portal/shopping/settings",
           icon: Settings,
           description: "Configure settings"
         }
@@ -197,7 +197,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
                 <NavContent />
               </SheetContent>
             </Sheet>
-            <Link href={`${baseUrl}/portal/shopping/dashboard`} className="flex items-center gap-2">
+            <Link href={"/team-portal/shopping/dashboard"} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
                 <ShoppingCart className="w-4 h-4 text-white" />
               </div>
@@ -221,7 +221,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href={`${baseUrl}/portal/shopping/dashboard`} className="flex items-center gap-3">
+                <Link href={"/team-portal/shopping/dashboard"} className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
                     <ShoppingCart className="w-5 h-5 text-white" />
                   </div>
