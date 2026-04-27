@@ -166,6 +166,7 @@ export const googleMapsService = {
   async getPlaceDetails(placeId: string): Promise<{
     address: string;
     coordinates: { lat: number; lng: number };
+    addressComponents: any[];
   } | null> {
     try {
       await this.initializeGoogleMaps();
@@ -196,7 +197,8 @@ export const googleMapsService = {
         coordinates: {
           lat: result.geometry.location.lat(),
           lng: result.geometry.location.lng()
-        }
+        },
+        addressComponents: result.address_components || []
       };
     } catch (error) {
       console.error("Error getting place details:", error);

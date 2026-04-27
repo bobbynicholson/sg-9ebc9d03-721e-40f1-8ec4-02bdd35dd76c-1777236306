@@ -328,9 +328,15 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Branding & Settings",
       items: [
         {
+          title: "Company Profile",
+          href: "/admin/company-profile",
+          icon: Building2,
+          description: "Address, branding, lat/lng for routing"
+        },
+        {
           title: "White Label",
           href: "/admin/white-label",
-          icon: Building2,
+          icon: Palette,
           description: "Branding customization"
         },
         {
