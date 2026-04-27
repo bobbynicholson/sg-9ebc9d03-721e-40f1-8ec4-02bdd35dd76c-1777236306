@@ -87,7 +87,7 @@ function AdminUsersPage() {
 
   const loadStats = async () => {
     try {
-      const fetchedStats = await userManagementService.getDepartmentStats();
+      const fetchedStats = await userManagementService.getDepartmentStats(user?.company_id);
       setStats(fetchedStats);
     } catch (error) {
       console.error("Error loading stats:", error);

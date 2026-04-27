@@ -520,24 +520,32 @@ export const userManagementService = {
   },
 
   /**
-   * Get department statistics
+   * Get department / role statistics for a company.
+   * Counts profiles by their role + active_role, mapping legacy aliases
+   * (kitchen_staff -> kitchen, shopping_staff -> shopping, etc).
    */
-  async getDepartmentStats() {
+  async getDepartmentStats(companyId?: string) {
     try {
-      const { data: departments, error } = await supabase
-        .from("user_departments")
-        .select("department");
-
+      let query = supabase.from("profiles").select("role, active_role, is_active");
+      if (companyId) query = query.eq("company_id", companyId);
+      const { data: profiles, error } = await query;
       if (error) throw error;
 
-      const stats: Partial<Record<UserRole, number>> = {};
+      const stats: Partial<Record<string, number>> = {};
+      const normalise = (r: string) => {
+        if (r === "kitchen_staff") return "kitchen";
+        if (r === "shopping_staff") return "shopping";
+        if (r === "cleaning_staff") return "cleaning";
+        return r;
+      };
 
-      departments?.forEach((dept) => {
-        const deptType = dept.department as UserRole;
-        stats[deptType] = (stats[deptType] || 0) + 1;
+      profiles?.forEach((p: any) => {
+        const role = normalise(p.active_role || p.role || "");
+        if (!role) return;
+        stats[role] = (stats[role] || 0) + 1;
       });
 
-      return stats;
+      return stats as Partial<Record<UserRole, number>>;
     } catch (error) {
       console.error("Error fetching department stats:", error);
       throw error;

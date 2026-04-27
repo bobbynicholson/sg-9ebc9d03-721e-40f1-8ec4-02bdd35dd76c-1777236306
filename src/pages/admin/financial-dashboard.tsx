@@ -127,7 +127,7 @@ export default function FinancialDashboardPage() {
   const calculateCurrentCashFlow = (orders: Order[], ledgerData: any) => {
     const receivedPayments = orders
       .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
     
     const staffOwed = ledgerData.totalOwed || 0;
     
@@ -143,25 +143,25 @@ export default function FinancialDashboardPage() {
         const eventDate = new Date(o.event_date);
         return eventDate <= futureDate && o.status !== "cancelled";
       })
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
 
   const calculatePendingPayments = (orders: Order[]) => {
     return orders
       .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
 
   const calculateInventoryCosts = (orders: Order[]) => {
     return orders
       .filter(o => o.status === "confirmed" || o.status === "prep" || o.status === "ready")
-      .reduce((sum, o) => sum + ((o.total || 0) * 0.35), 0);
+      .reduce((sum, o) => sum + ((Number(o.total_amount) || 0) * 0.35), 0);
   };
 
   const calculateProfitMargin = (orders: Order[]) => {
     const totalRevenue = orders
       .filter(o => o.payment_status === "paid")
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
     
     const totalCosts = totalRevenue * 0.65;
     const profit = totalRevenue - totalCosts;
@@ -405,7 +405,7 @@ export default function FinancialDashboardPage() {
                       <span className="text-slate-600">Total Revenue (Paid)</span>
                       <span className="font-semibold">{formatCurrency(
                         orders.filter(o => o.payment_status === "paid")
-                          .reduce((sum, o) => sum + (o.total || 0), 0)
+                          .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0)
                       )}</span>
                     </div>
                     <div className="flex justify-between items-center">
