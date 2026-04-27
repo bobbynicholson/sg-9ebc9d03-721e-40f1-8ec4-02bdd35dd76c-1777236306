@@ -36,14 +36,14 @@ export function useCloseOnDesktop(open: boolean, setOpen: (v: boolean) => void) 
     const onChange = (e: MediaQueryListEvent) => {
       if (e.matches) setOpen(false);
     };
-    // Some older browsers use addListener
+    // Modern browsers use addEventListener; older Safari (< 14) only had
+    // addListener. TypeScript's lib types both as deprecated-but-present,
+    // so no @ts-expect-error needed.
     if (mql.addEventListener) {
       mql.addEventListener("change", onChange);
       return () => mql.removeEventListener("change", onChange);
     }
-    // @ts-expect-error -- legacy fallback
     mql.addListener(onChange);
-    // @ts-expect-error -- legacy fallback
     return () => mql.removeListener(onChange);
   }, [open, setOpen]);
 }
