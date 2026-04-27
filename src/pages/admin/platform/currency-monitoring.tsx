@@ -38,7 +38,7 @@ interface FluctuationAlert {
 }
 
 export default function PlatformCurrencyMonitoringPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth() as any;
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentRate, setCurrentRate] = useState<number>(0);
@@ -47,12 +47,13 @@ export default function PlatformCurrencyMonitoringPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       router.push("/auth/login");
       return;
     }
     loadData();
-  }, [user, router]);
+  }, [authLoading, user, router]);
 
   const loadData = async () => {
     try {

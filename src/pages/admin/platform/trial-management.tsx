@@ -22,7 +22,7 @@ interface CompanyTrialStatus {
 }
 
 export default function TrialManagementPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth() as any;
   const router = useRouter();
   const [companies, setCompanies] = useState<CompanyTrialStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,13 +36,13 @@ export default function TrialManagementPage() {
   });
 
   useEffect(() => {
-    // Wait until auth has settled — null user just means we're still loading.
-    if (user === undefined) return;
+    // Wait for the AuthContext to finish initialising; user/profile start
+    // null and only flip after the supabase session resolves.
+    if (authLoading) return;
     if (!user) {
       router.push("/auth/login");
       return;
     }
-    // Wait for the profile to come back; without it we don't know the role yet.
     if (!profile) return;
 
     const role = (profile as any).active_role || (profile as any).role;
@@ -52,7 +52,7 @@ export default function TrialManagementPage() {
     }
 
     loadTrialCompanies();
-  }, [user, profile]);
+  }, [authLoading, user, profile]);
 
   const loadTrialCompanies = async () => {
     setLoading(true);
