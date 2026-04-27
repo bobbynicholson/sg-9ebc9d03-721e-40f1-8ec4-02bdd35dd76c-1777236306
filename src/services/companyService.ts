@@ -28,9 +28,14 @@ export const companyService = {
   company_slug?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
+      // Companies has `slug`, not `company_slug`, and no `onboarding_completed`.
+      const slug = (data.company_slug || data.name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
       const companyData: CompanyInsert = {
         company_name: data.name,
-        company_slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        slug,
         owner_id: data.owner_id,
         email: data.email,
         phone: data.phone,
@@ -39,8 +44,7 @@ export const companyService = {
         subscription_status: "trial",
         trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         is_active: true,
-        onboarding_completed: false,
-      };
+      } as any;
 
       const { data: company, error } = await supabase
         .from("companies")
@@ -247,7 +251,7 @@ export const companyService = {
         {
           owner_id: user.id,
           company_name: companyName,
-          company_slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          slug: companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           email: email,
           subscription_plan: planId,
           subscription_status: 'trialing',
@@ -265,7 +269,11 @@ export const companyService = {
     
     const { error: profileError } = await supabase
         .from('profiles')
-        .update({ company_id: company.id, roles: ['admin', 'owner'] } as any)
+        .update({
+          company_id: company.id,
+          role: 'company_admin',
+          active_role: 'company_admin',
+        } as any)
         .eq('id', user.id);
 
     if (profileError) {
@@ -342,7 +350,7 @@ export const companyService = {
         .from("companies")
         .insert([{
           company_name: data.company_name,
-          company_slug: data.company_slug,
+          slug: data.company_slug,
           email: data.email,
           phone: data.phone,
           address_line1: data.address_line1,

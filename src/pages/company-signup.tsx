@@ -114,7 +114,9 @@ export default function CompanySignupPage() {
         options: {
           data: {
             full_name: formData.ownerName,
-            role: "admin",
+            // Company owners get the full company_admin role (admin is the
+            // restricted, no-finance role intended for delegated managers).
+            role: "company_admin",
             currency: formData.currency,
             phone_number: formData.phone,
             company_name: formData.companyName
@@ -202,9 +204,10 @@ export default function CompanySignupPage() {
               .from("profiles")
               .update({
                 company_id: companyId,
-                active_role: "admin",
+                role: "company_admin",
+                active_role: "company_admin",
                 full_name: formData.ownerName,
-                phone: formData.phone
+                phone: formData.phone,
               })
               .eq("id", userId)
               .select()
@@ -224,13 +227,13 @@ export default function CompanySignupPage() {
         return;
       }
 
-      // Step 5: Assign admin role (non-blocking - can fail without breaking flow)
-      console.log("👤 Step 5: Assigning admin role...");
+      // Step 5: Assign company_admin role (non-blocking)
+      console.log("👤 Step 5: Assigning company_admin role...");
       try {
-        await roleService.assignRole(userId, UserRole.ADMIN, userId, true);
-        console.log("✅ Admin role assigned");
+        await roleService.assignRole(userId, UserRole.COMPANY_ADMIN, userId, true);
+        console.log("✅ Company admin role assigned");
       } catch (roleError) {
-        console.warn("⚠️ Admin role assignment failed (non-critical):", roleError);
+        console.warn("⚠️ Company admin role assignment failed (non-critical):", roleError);
       }
 
       // Step 6: Attempt auto-login (non-blocking)
