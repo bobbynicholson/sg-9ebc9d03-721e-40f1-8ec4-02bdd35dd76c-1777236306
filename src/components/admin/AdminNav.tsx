@@ -156,7 +156,7 @@ export function AdminNav({ className }: AdminNavProps) {
         },
         {
           title: "Drivers",
-          href: "/admin/drivers",
+          href: "/admin/driver-management",
           icon: Truck,
           description: "Manage delivery drivers"
         },
