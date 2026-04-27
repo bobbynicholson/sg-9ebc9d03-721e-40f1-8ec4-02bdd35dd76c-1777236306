@@ -147,7 +147,7 @@ function PaymentGatewaysPage() {
       </Head>
       
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
           <div>
             <h1 className="text-4xl font-bold mb-2">Payment Gateways</h1>

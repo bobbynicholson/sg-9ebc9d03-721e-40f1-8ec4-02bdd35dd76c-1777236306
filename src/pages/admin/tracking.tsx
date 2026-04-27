@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -149,7 +149,7 @@ export default function AdminTracking() {
 
       <AdminNav />
 
-      <div className="min-h-screen bg-slate-50 pb-20 lg:pl-64">
+      <div className="min-h-screen bg-slate-50 pb-20 lg:pl-64 xl:pl-72">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-6">
