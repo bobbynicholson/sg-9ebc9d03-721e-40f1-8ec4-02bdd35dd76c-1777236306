@@ -2,7 +2,8 @@ import { useState } from "react";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { signOutAndRedirect } from "@/lib/signOut";
 
 interface SignOutButtonProps {
   collapsed?: boolean;
@@ -11,31 +12,18 @@ interface SignOutButtonProps {
 
 /**
  * Standalone sign-out button used at the bottom of every portal sidebar.
- * Clears local cookies/storage and hard-navigates to /auth/login so middleware
- * gets a clean session.
+ * Routes the user back to their tenant login (/{slug}/login) when we know
+ * which company they came from, so they can re-enter via the same branded
+ * URL. Falls back to /auth/login.
  */
 export function SignOutButton({ collapsed = false, className }: SignOutButtonProps) {
+  const { profile } = useAuth() as any;
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Sign out error", err);
-    } finally {
-      try {
-        document.cookie.split(";").forEach((c) => {
-          const n = c.split("=")[0].trim();
-          document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-        });
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch {}
-      window.location.assign("/auth/login");
-    }
+    await signOutAndRedirect(profile);
   };
 
   return (

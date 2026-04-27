@@ -34,7 +34,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndRedirect } from "@/lib/signOut";
 
 interface PaletteItem {
   id: string;
@@ -83,19 +83,7 @@ export function CommandPalette() {
   }, []);
 
   const handleSignOut = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch {}
-    try {
-      document.cookie.split(";").forEach((c) => {
-        const n = c.split("=")[0].trim();
-        document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-      });
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch {}
-    window.location.assign("/auth/login");
+    await signOutAndRedirect(profile);
   };
 
   const adminBase = companySlug ? `/${companySlug}/admin` : "/admin";

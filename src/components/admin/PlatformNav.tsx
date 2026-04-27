@@ -22,7 +22,8 @@ import {
   Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndRedirect } from "@/lib/signOut";
+import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 
 interface PlatformNavItem {
@@ -131,6 +132,7 @@ interface PlatformNavProps {
 
 export function PlatformNav({ className }: PlatformNavProps) {
   const router = useRouter();
+  const { profile } = useAuth() as any;
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -138,22 +140,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Sign out error", err);
-    } finally {
-      try {
-        document.cookie.split(";").forEach((c) => {
-          const n = c.split("=")[0].trim();
-          document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-        });
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch {}
-      window.location.assign("/auth/login");
-    }
+    await signOutAndRedirect(profile);
   };
 
   const isActive = (href: string) =>

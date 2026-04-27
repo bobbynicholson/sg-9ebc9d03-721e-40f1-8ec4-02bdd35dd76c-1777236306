@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { signOutAndRedirect } from "@/lib/signOut";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -82,22 +82,7 @@ export function AdminNav({ className }: AdminNavProps) {
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Sign out error", err);
-    } finally {
-      try {
-        document.cookie.split(";").forEach((c) => {
-          const n = c.split("=")[0].trim();
-          document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-        });
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch {}
-      window.location.assign("/auth/login");
-    }
+    await signOutAndRedirect(profile);
   };
   
   // Get company slug for the view switcher

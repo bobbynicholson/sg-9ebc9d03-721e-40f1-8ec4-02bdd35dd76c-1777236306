@@ -16,12 +16,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { signOutAndRedirect } from "@/lib/signOut";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function ClientNav() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { profile } = useAuth() as any;
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -48,8 +49,7 @@ export function ClientNav() {
   const isActive = (path: string) => router.pathname === path;
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push("/auth/login");
+    await signOutAndRedirect(profile);
   };
 
   return (
