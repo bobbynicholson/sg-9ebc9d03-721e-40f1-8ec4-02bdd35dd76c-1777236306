@@ -10,10 +10,21 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+const ROLE_REDIRECTS: Record<string, (slug: string) => string> = {
+  super_admin: () => "/admin/platform/dashboard",
+  company_admin: (slug) => `/${slug}/admin/dashboard`,
+  admin: (slug) => `/${slug}/admin/dashboard`,
+  owner: (slug) => `/${slug}/admin/dashboard`,
+  driver: (slug) => `/${slug}/team-portal/driver/dashboard`,
+  kitchen_staff: (slug) => `/${slug}/team-portal/kitchen/dashboard`,
+  shopping_staff: (slug) => `/${slug}/team-portal/shopping/dashboard`,
+  cleaning_staff: (slug) => `/${slug}/team-portal/cleaning/dashboard`,
+  client: (slug) => `/${slug}/client-portal/dashboard`,
+};
+
 export default function CompanyLoginPage() {
   const router = useRouter();
-  const { company_slug } = router.query;
-  const { message } = router.query;
+  const { company_slug, message } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,12 +32,11 @@ export default function CompanyLoginPage() {
   const [companyInfo, setCompanyInfo] = useState<{ name: string; logo?: string } | null>(null);
   const { toast } = useToast();
 
-  // Fetch company info based on slug
   useEffect(() => {
     if (!company_slug || typeof company_slug !== "string") return;
 
     const fetchCompanyInfo = async () => {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("companies")
         .select("company_name, logo_url")
         .eq("slug", company_slug)
@@ -35,7 +45,7 @@ export default function CompanyLoginPage() {
       if (data) {
         setCompanyInfo({ name: data.company_name, logo: data.logo_url });
       } else {
-        console.error("Company not found:", error);
+        console.error("Company not found:", fetchError);
         setError("Company not found. Please check the URL.");
       }
     };
@@ -64,112 +74,61 @@ export default function CompanyLoginPage() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const slugString = typeof company_slug === "string" ? company_slug : "";
+
+    if (!email || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
+    if (!slugString) {
+      setError("Invalid login URL.");
+      return;
+    }
+
     setLoading(true);
 
-    if (!email || !company_slug) {
-      setError("Please enter your email address");
+    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (signInError || !authData.user) {
+      setError("Incorrect email or password.");
       setLoading(false);
       return;
     }
 
-    const slugString = company_slug as string;
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("active_role, role, company_id, companies:company_id ( slug )")
+      .eq("id", authData.user.id)
+      .single();
 
-    try {
-      console.log("🔐 Company login attempt for:", email, "at", slugString);
-      
-      // Check if user exists in profiles (case-insensitive)
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select(`
-          *,
-          companies!inner(
-            slug,
-            company_name
-          )
-        `)
-        .ilike("email", email.trim())
-        .single();
-
-      console.log("👤 Profile found:", profiles);
-      console.log("🎭 User role:", profiles?.active_role);
-      console.log("🏢 User company:", profiles?.companies);
-
-      if (profileError || !profiles) {
-        console.error("❌ No profile found:", profileError);
-        setError("No account found with this email address. Please check your email or contact support.");
-        setLoading(false);
-        return;
-      }
-
-      // Verify user belongs to this company (unless super admin)
-      const userCompanySlug = Array.isArray(profiles.companies)
-        ? profiles.companies[0]?.slug
-        : profiles.companies?.slug;
-
-      if (profiles.active_role !== "super_admin" && userCompanySlug !== slugString) {
-        console.error("❌ User belongs to different company:", userCompanySlug, "vs", slugString);
-        setError("This account does not belong to this company. Please use the correct login page.");
-        setLoading(false);
-        return;
-      }
-
-      // Try to login with bypass password
-      console.log("🔑 Attempting authentication...");
-      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: "BYPASS_2026",
-      });
-
-      if (signInError) {
-        console.error("Authentication failed:", signInError);
-        setError("Authentication failed. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      // Redirect based on role
-      const activeRole = profiles.active_role;
-      console.log("🎯 Redirecting user with role:", activeRole);
-      
-      let dashboardUrl = "/";
-
-      switch (activeRole) {
-        case "super_admin":
-          router.push("/admin/platform/dashboard");
-          break;
-        case "company_admin":
-        case "admin":
-          router.push(`/${slugString}/admin/dashboard`);
-          break;
-        case "owner":
-          router.push(`/${slugString}/admin/dashboard`);
-          break;
-        case "driver":
-          dashboardUrl = `/${slugString}/team-portal/driver/dashboard`;
-          break;
-        case "kitchen_staff":
-          dashboardUrl = `/${slugString}/team-portal/kitchen/dashboard`;
-          break;
-        case "shopping_staff":
-          dashboardUrl = `/${slugString}/team-portal/shopping/dashboard`;
-          break;
-        case "cleaning_staff":
-          dashboardUrl = `/${slugString}/team-portal/cleaning/dashboard`;
-          break;
-        case "client":
-          dashboardUrl = `/${slugString}/client-portal/dashboard`;
-          break;
-        default:
-          dashboardUrl = "/";
-      }
-
-      console.log("🚀 Redirect URL:", dashboardUrl);
-      router.push(dashboardUrl);
-    } catch (err) {
-      console.error("💥 Login error:", err);
-      setError("Login failed. Please try again.");
+    if (profileError || !profile) {
+      await supabase.auth.signOut();
+      setError("Your account is not set up. Contact your administrator.");
       setLoading(false);
+      return;
     }
+
+    const profileSlug = Array.isArray(profile.companies)
+      ? profile.companies[0]?.slug
+      : (profile.companies as any)?.slug;
+
+    const activeRole = (profile.active_role || profile.role) as string;
+
+    if (activeRole !== "super_admin" && profileSlug !== slugString) {
+      await supabase.auth.signOut();
+      setError("This account does not belong to this company.");
+      setLoading(false);
+      return;
+    }
+
+    const redirectBuilder = ROLE_REDIRECTS[activeRole];
+    const target = redirectBuilder ? redirectBuilder(profileSlug || slugString) : "/";
+    router.push(target);
   };
 
   if (!company_slug) {
@@ -192,7 +151,7 @@ export default function CompanyLoginPage() {
           <div className="flex items-center gap-3">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
               {companyInfo?.logo ? (
-                <img src={companyInfo.logo} alt="Company Logo" className="w-12 h-12 object-contain" />
+                <img src={companyInfo.logo} alt="Company logo" className="w-12 h-12 object-contain" />
               ) : (
                 <Building2 className="w-8 h-8 text-white" />
               )}
@@ -230,29 +189,29 @@ export default function CompanyLoginPage() {
                   className="pl-10 h-12 text-base"
                   required
                   disabled={loading}
+                  autoComplete="email"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-700 font-medium text-base">
-                Password (Optional)
+                Password
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter password (optional for now)"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 h-12 text-base"
+                  required
                   disabled={loading}
+                  autoComplete="current-password"
                 />
               </div>
-              <p className="text-xs text-slate-500">
-                Password authentication coming soon. Use email only for now.
-              </p>
             </div>
 
             <Button
