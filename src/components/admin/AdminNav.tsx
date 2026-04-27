@@ -232,6 +232,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Connect Gmail, Outlook, SMTP, Mailchimp"
         },
         {
+          title: "Zapier & Webhooks",
+          href: "/admin/integrations",
+          icon: Zap,
+          description: "Pipe leads + orders into 5,000+ apps"
+        },
+        {
           title: "Email Templates",
           href: "/admin/email-templates",
           icon: Mail,
