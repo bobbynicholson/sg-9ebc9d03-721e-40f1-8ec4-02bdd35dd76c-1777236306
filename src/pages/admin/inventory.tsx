@@ -23,6 +23,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InventoryItem {
   id: string;
@@ -44,11 +45,27 @@ export default function AdminInventory() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [outlook, setOutlook] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user?.id) return;
     loadInventory();
+    loadOutlook();
   }, [user?.company_id]);
+
+  const loadOutlook = async () => {
+    if (!user?.company_id) return;
+    const { data, error } = await supabase
+      .from("inventory_demand_outlook")
+      .select("*")
+      .eq("company_id", user.company_id);
+    if (error) {
+      console.error("outlook error", error);
+      setOutlook([]);
+      return;
+    }
+    setOutlook(data || []);
+  };
 
   const loadInventory = async () => {
     if (!user?.company_id) {
@@ -240,6 +257,93 @@ export default function AdminInventory() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Demand Outlook -- ties stock to confirmed orders */}
+          {outlook.length > 0 && (() => {
+            const at_risk = outlook
+              .filter((o: any) => o.status === "shortfall" || o.status === "below_minimum" || o.status === "low")
+              .sort((a: any, b: any) => {
+                const order: Record<string, number> = { shortfall: 0, below_minimum: 1, low: 2 };
+                return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+              })
+              .slice(0, 8);
+            const totalUpcoming = outlook.reduce((s: number, o: any) => s + (Number(o.upcoming_order_count) || 0), 0);
+            if (at_risk.length === 0) return null;
+            return (
+              <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-amber-50 to-orange-50">
+                <CardHeader>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-600" />
+                        Demand outlook
+                      </CardTitle>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {at_risk.length} item{at_risk.length === 1 ? "" : "s"} at risk against confirmed orders
+                      </p>
+                    </div>
+                    <Link href="/team-portal/shopping/alerts">
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <TrendingDown className="w-4 h-4" />
+                        Open shopping alerts
+                      </Button>
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-amber-200">
+                        <tr>
+                          <th className="text-left py-2 pr-3">Item</th>
+                          <th className="text-right py-2 px-3">On hand</th>
+                          <th className="text-right py-2 px-3">Need 7d</th>
+                          <th className="text-right py-2 px-3">After 7d</th>
+                          <th className="text-left py-2 pl-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {at_risk.map((r: any) => {
+                          const tone =
+                            r.status === "shortfall" ? "bg-red-100 text-red-800 border-red-200" :
+                            r.status === "below_minimum" ? "bg-amber-100 text-amber-800 border-amber-200" :
+                            "bg-yellow-100 text-yellow-800 border-yellow-200";
+                          const projected = Number(r.projected_stock_after_7_days);
+                          const projectedTone = projected < 0
+                            ? "text-red-600"
+                            : projected < Number(r.minimum_stock)
+                              ? "text-amber-600"
+                              : "text-slate-900";
+                          return (
+                            <tr key={r.inventory_item_id} className="border-b border-amber-100">
+                              <td className="py-2 pr-3 font-medium text-slate-900">{r.item_name}</td>
+                              <td className="py-2 px-3 text-right tabular-nums">
+                                {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
+                              </td>
+                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                                {Number(r.demand_next_7_days).toLocaleString()}
+                              </td>
+                              <td className={`py-2 px-3 text-right tabular-nums font-medium ${projectedTone}`}>
+                                {projected.toLocaleString()}
+                              </td>
+                              <td className="py-2 pl-3">
+                                <Badge variant="outline" className={`${tone} border capitalize`}>
+                                  {r.status.replace("_", " ")}
+                                </Badge>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-3">
+                    Calculated from {totalUpcoming} confirmed order line item{totalUpcoming === 1 ? "" : "s"} in the next 30 days. Recipe-driven -- editing recipes or stock updates this immediately.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Inventory Table */}
           <Card className="border-0 shadow-lg">
