@@ -382,20 +382,20 @@ function IntegrationsPage() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-semibold text-slate-900 mb-1">CateringMS quote -> Xero</p>
-                  <p className="text-xs text-slate-600 mb-2">Outbound webhook on <code className="bg-slate-100 px-1 rounded text-[11px]">quote.created</code> -&gt; Zapier "Xero - Create Draft Quote".</p>
+                  <p className="font-semibold text-slate-900 mb-1">CateringMS quote &rarr; Xero</p>
+                  <p className="text-xs text-slate-600 mb-2">Outbound webhook on <code className="bg-slate-100 px-1 rounded text-[11px]">quote.created</code> &rarr; Zapier "Xero - Create Draft Quote".</p>
                   <Link href="https://zapier.com/apps/xero/integrations/webhook" target="_blank" rel="noopener" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
                     Open Xero in Zapier <ExternalLink className="w-3 h-3" />
                   </Link>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-semibold text-slate-900 mb-1">Xero quote -> CateringMS</p>
-                  <p className="text-xs text-slate-600 mb-2">Zapier "New Xero Quote" -&gt; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/quotes</code> with your API key.</p>
+                  <p className="font-semibold text-slate-900 mb-1">Xero quote &rarr; CateringMS</p>
+                  <p className="text-xs text-slate-600 mb-2">Zapier "New Xero Quote" &rarr; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/quotes</code> with your API key.</p>
                   <p className="text-[11px] text-slate-500">Idempotent on xero_quote_id -- safe to re-deliver.</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
-                  <p className="font-semibold text-slate-900 mb-1">Xero invoice paid -> Order paid</p>
-                  <p className="text-xs text-slate-600 mb-2">Zapier "Xero - Invoice Paid" -&gt; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/invoice-paid</code>. Auto-flips order status.</p>
+                  <p className="font-semibold text-slate-900 mb-1">Xero invoice paid &rarr; Order paid</p>
+                  <p className="text-xs text-slate-600 mb-2">Zapier "Xero - Invoice Paid" &rarr; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/invoice-paid</code>. Auto-flips order status.</p>
                 </div>
               </div>
               <div className="bg-white rounded-lg p-3 border border-blue-100 text-xs space-y-1">
