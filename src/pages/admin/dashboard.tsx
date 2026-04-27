@@ -87,18 +87,18 @@ function AdminDashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch financial analytics
-      const financialData = await analyticsService.getFinancialAnalytics();
+      // Fetch financial analytics scoped to this company
+      const financialData = await analyticsService.getFinancialAnalytics(user.company_id);
 
       // Fetch all orders for additional metrics
       const allOrders = await orderService.getAllOrders(user.company_id);
 
-      // Count pending quotes
+      // Count pending quotes (draft + sent are awaiting action)
       const { data: quotes, error: quotesError } = await supabase
         .from("quotes")
         .select("id", { count: "exact" })
         .eq("company_id", user.company_id)
-        .eq("status", "pending");
+        .in("status", ["draft", "sent"]);
 
       if (quotesError) {
         console.error("Error fetching quotes:", quotesError);
@@ -114,16 +114,19 @@ function AdminDashboardPage() {
         console.error("Error fetching users:", userError);
       }
 
-      // Count low stock items (if inventory exists)
-      const { data: inventory, error: invError } = await supabase
-        .from("inventory_batches")
-        .select("id", { count: "exact" })
+      // Count low stock items (current_stock < minimum_stock)
+      const { data: inventoryRows, error: invError } = await supabase
+        .from("inventory_items")
+        .select("id, current_stock, minimum_stock")
         .eq("company_id", user.company_id)
-        .lt("quantity_remaining", "5");
+        .is("deleted_at", null);
 
       if (invError) {
         console.error("Error fetching inventory:", invError);
       }
+      const inventory = (inventoryRows || []).filter(
+        (r: any) => Number(r.current_stock || 0) <= Number(r.minimum_stock || 0)
+      );
 
       setStats({
         activeOrders: allOrders.filter(o => 

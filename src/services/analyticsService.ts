@@ -48,41 +48,62 @@ export const analyticsService = {
   /**
    * Get financial analytics for client dashboard (catering company specific)
    */
-  async getFinancialAnalytics() {
+  async getFinancialAnalytics(companyId?: string) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get orders for current user
-      const { data: orders, error: ordersError } = await supabase
+      // Resolve company scope from caller arg or the user's profile
+      let scopedCompanyId = companyId;
+      if (!scopedCompanyId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        scopedCompanyId = profile?.company_id ?? undefined;
+      }
+
+      // Get orders for the user's company (multi-tenant)
+      let ordersQuery = supabase
         .from("orders")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+      if (scopedCompanyId) {
+        ordersQuery = ordersQuery.eq("company_id", scopedCompanyId);
+      } else {
+        // Fallback to user-owned only if no company resolved
+        ordersQuery = ordersQuery.eq("user_id", user.id);
+      }
+      const { data: orders, error: ordersError } = await ordersQuery;
 
       if (ordersError) {
         console.error("Error fetching orders:", ordersError);
         return this.getEmptyFinancialAnalytics();
       }
 
-      // Get payment ledger data
-      const { data: paymentLedger, error: ledgerError } = await supabase
+      // Get payment ledger data scoped to the same company
+      let ledgerQuery = supabase
         .from("staff_work_sessions")
         .select("*")
         .eq("payment_status", "unpaid");
+      if (scopedCompanyId) {
+        ledgerQuery = ledgerQuery.eq("company_id", scopedCompanyId);
+      }
+      const { data: paymentLedger, error: ledgerError } = await ledgerQuery;
 
       if (ledgerError) {
         console.error("Error fetching payment ledger:", ledgerError);
       }
 
-      // Calculate analytics
+      // Calculate analytics — orders.total was dropped, read total_amount
       const totalRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "paid")
-        .reduce((sum, o) => sum + Number(o.total || 0), 0);
+        .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
 
       const pendingRevenue = (orders as Order[] || [])
         .filter(o => o.payment_status === "pending" || o.payment_status === "partial")
-        .reduce((sum, o) => sum + Number(o.total || 0), 0);
+        .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
 
       const totalOrders = orders?.length || 0;
       const completedOrders = orders?.filter(o => o.status === "completed").length || 0;
