@@ -101,32 +101,25 @@ export default function StaffManagementPage() {
     setSaving(true);
 
     try {
-      // Create auth user with bypass password
-      const { data: authData, error: signUpError } = await supabase.auth.admin.createUser({
-        email: newStaff.email.toLowerCase(),
-        password: "BYPASS_2026",
-        email_confirm: true,
-      });
-
-      if (signUpError) throw signUpError;
-
-      if (!authData.user) {
-        throw new Error("Failed to create user");
-      }
-
-      // Create profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: authData.user.id,
+      // supabase.auth.admin.createUser requires a service-role key that we
+      // can't safely expose to the browser. Use the server API route instead;
+      // it does a regular signUp under the hood and the handle_new_user
+      // trigger (plus our auto-confirm trigger) settles the profile.
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email: newStaff.email.toLowerCase(),
+          password: "BYPASS_2026",
           full_name: newStaff.full_name,
           role: newStaff.role,
-          active_role: newStaff.role,
           company_id: user.company_id,
-        } as any);
-
-      if (profileError) throw profileError;
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to create staff");
+      }
 
       toast({
         title: "Staff Added!",
