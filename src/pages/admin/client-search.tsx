@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -134,7 +134,7 @@ function ClientSearchPage() {
       <AdminNav />
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
           <Link href="/admin/dashboard">
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />

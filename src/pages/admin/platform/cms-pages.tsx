@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { cmsService } from "@/services/cmsService";
@@ -246,7 +246,7 @@ export default function CMSPageManagement() {
       
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8 lg:pl-64 xl:pl-72 pt-20 lg:pt-8">
         <PlatformNav />
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-screen-2xl mx-auto">
           <Alert className="mb-6 border-purple-200 bg-purple-50">
             <AlertTriangle className="h-4 w-4 text-purple-600" />
             <AlertDescription className="text-purple-800">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -156,7 +156,7 @@ export default function PlatformDashboard() {
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
-        <div className="container mx-auto p-6 max-w-7xl">
+        <div className="container mx-auto p-6 max-w-screen-2xl">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
@@ -304,25 +304,25 @@ export default function PlatformDashboard() {
 
       <PlatformNav />
 
-      <div className="container mx-auto p-6 max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Platform Dashboard</h1>
-          <p className="text-slate-600">
+      <div className="container mx-auto p-4 sm:p-6 max-w-screen-2xl">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-1">Platform Dashboard</h1>
+          <p className="text-sm sm:text-base text-slate-600">
             System-wide overview and management
           </p>
         </div>
 
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8">
+          <div className="min-w-0">
+            <h2 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               CateringMS Platform Analytics
-            </h1>
-            <p className="text-slate-600">Internal sales dashboard and business metrics</p>
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 mt-1">Internal sales dashboard and business metrics</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 lg:flex-shrink-0">
             <CompanySwitcher />
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[140px] sm:w-[170px]">
                 <SelectValue placeholder="Select period" />
               </SelectTrigger>
               <SelectContent>
@@ -341,30 +341,30 @@ export default function PlatformDashboard() {
               disabled={refreshing}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
         </div>
 
-        {/* Platform Health Indicator - NEW */}
-        <Card className="mb-8 border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
-                  <Activity className="w-8 h-8 text-white" />
+        {/* Platform Health Indicator */}
+        <Card className="mb-6 sm:mb-8 border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                  <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Platform Health Score</h3>
-                  <p className="text-sm text-slate-600">All systems operational • 99.9% uptime</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900">Platform Health Score</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">All systems operational &bull; 99.9% uptime</p>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-4xl font-bold text-green-600">98%</div>
-                <p className="text-xs text-slate-500 mt-1">Excellent</p>
+              <div className="text-left sm:text-right">
+                <div className="text-3xl sm:text-4xl font-bold text-green-600">98%</div>
+                <p className="text-xs text-slate-500 mt-0.5">Excellent</p>
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-4 gap-4">
+            <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="text-center p-3 bg-white rounded-lg">
                 <p className="text-xs text-slate-600">Active Companies</p>
                 <p className="text-lg font-bold text-slate-900">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</p>
@@ -398,7 +398,7 @@ export default function PlatformDashboard() {
               <Button
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
-                onClick={() => window.location.href = '/cateringms-platform/company-database'}
+                onClick={() => window.location.href = '/admin/platform/company-database'}
               >
                 <Users className="w-6 h-6 text-purple-600" />
                 <div className="text-left">
@@ -410,7 +410,7 @@ export default function PlatformDashboard() {
               <Button
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
-                onClick={() => window.location.href = '/cateringms-platform/subscription-management'}
+                onClick={() => window.location.href = '/admin/platform/subscription-management'}
               >
                 <DollarSign className="w-6 h-6 text-blue-600" />
                 <div className="text-left">
@@ -422,7 +422,7 @@ export default function PlatformDashboard() {
               <Button
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
-                onClick={() => window.location.href = '/cateringms-platform/trial-management'}
+                onClick={() => window.location.href = '/admin/platform/trial-management'}
               >
                 <Calendar className="w-6 h-6 text-green-600" />
                 <div className="text-left">

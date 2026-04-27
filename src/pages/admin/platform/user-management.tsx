@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,40 +82,37 @@ export default function UserManagementPage() {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(`
-          id,
-          email,
-          full_name,
-          role,
-          company_id,
-          company_slug,
-          email_verified,
-          created_at,
-          companies (
-            id,
-            company_name,
-            slug
-          )
-        `)
-        .order("created_at", { ascending: false });
+      // Two-step fetch: profiles, then companies map. Avoids supabase-js
+      // failing when the implicit join name is ambiguous and gives us
+      // clearer errors when the schema drifts.
+      const [{ data: profilesData, error: profilesErr }, { data: companiesData, error: companiesErr }] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("id, email, full_name, role, company_id, company_slug, email_verified, created_at")
+            .order("created_at", { ascending: false }),
+          supabase.from("companies").select("id, company_name, slug"),
+        ]);
 
-      if (error) throw error;
+      if (profilesErr) throw profilesErr;
+      if (companiesErr) throw companiesErr;
 
-      const usersWithCompany = data.map(user => ({
+      const companyMap = new Map<string, { company_name: string; slug: string | null }>();
+      (companiesData || []).forEach((c: any) => {
+        companyMap.set(c.id, { company_name: c.company_name, slug: c.slug });
+      });
+
+      const usersWithCompany = (profilesData || []).map((user: any) => ({
         ...user,
-        company_name: Array.isArray(user.companies) 
-          ? user.companies[0]?.company_name 
-          : user.companies?.company_name,
+        company_name: user.company_id ? companyMap.get(user.company_id)?.company_name ?? null : null,
       }));
 
-      setUsers(usersWithCompany);
-    } catch (error) {
+      setUsers(usersWithCompany as any);
+    } catch (error: any) {
       console.error("Error loading users:", error);
       toast({
-        title: "Error",
-        description: "Failed to load users",
+        title: "Failed to load users",
+        description: error?.message || "Unknown error",
         variant: "destructive",
       });
     } finally {
@@ -127,7 +124,7 @@ export default function UserManagementPage() {
     try {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, company_name, company_slug")
+        .select("id, company_name, slug")
         .order("company_name");
 
       if (error) throw error;
@@ -254,7 +251,7 @@ export default function UserManagementPage() {
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
       <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <PlatformNav />
-        <div className="container mx-auto p-6 max-w-7xl">
+        <div className="container mx-auto p-6 max-w-screen-2xl">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">User Management</h1>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -168,7 +168,7 @@ function AdminDashboardPage() {
         </Head>
         <AdminNav />
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
-          <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
@@ -191,7 +191,7 @@ function AdminDashboardPage() {
       <AdminNav />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-7xl">
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-2">

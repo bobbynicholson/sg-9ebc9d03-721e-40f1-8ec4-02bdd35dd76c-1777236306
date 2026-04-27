@@ -1,4 +1,4 @@
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import Head from "next/head";
@@ -241,7 +241,7 @@ function EquipmentShortagesPage() {
       <AdminNav />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
           <div className="mb-6 md:mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Equipment Shortage Flags</h1>
             <p className="text-sm md:text-base text-gray-600">Manage and resolve equipment shortage issues</p>

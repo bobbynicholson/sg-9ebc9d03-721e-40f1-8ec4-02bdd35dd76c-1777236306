@@ -1,4 +1,4 @@
-import { UserRole } from "@/types/app";
+﻿import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -181,7 +181,7 @@ function DriverManagementPage() {
       <NoIndexMeta />
       <AdminNav />
       
-      <div className="container mx-auto px-4 py-8 max-w-7xl lg:pl-64">
+      <div className="container mx-auto px-4 py-8 max-w-screen-2xl lg:pl-64">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">

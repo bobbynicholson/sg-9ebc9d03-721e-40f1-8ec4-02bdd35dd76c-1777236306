@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -35,14 +35,26 @@ import {
   DollarSign,
   Users
 } from "lucide-react";
-import { subscriptionService } from "@/services/subscriptionService";
-import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-type SubscriptionWithProfile = Database["public"]["Tables"]["subscriptions"]["Row"] & {
-  profiles: {
-    full_name: string | null;
-    email: string | null;
-  } | null;
+// We treat every company row as a subscription record. This works whether the
+// company is on a free trial, an active paid plan, or cancelled — the source
+// of truth is companies.subscription_status / subscription_plan, not a
+// separate subscriptions table (which is optional and currently empty).
+type CompanySubscription = {
+  id: string;
+  company_id: string;
+  company_name: string;
+  owner_full_name: string | null;
+  owner_email: string | null;
+  status: string;
+  plan_name: string;
+  billing_cycle: string;
+  amount: number;
+  currency: string;
+  next_billing_date: string | null;
+  trial_ends_at: string | null;
 };
 
 export default function PlatformSubscriptionManagement() {
@@ -53,7 +65,8 @@ export default function PlatformSubscriptionManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [subscriptions, setSubscriptions] = useState<SubscriptionWithProfile[]>([]);
+  const [subscriptions, setSubscriptions] = useState<CompanySubscription[]>([]);
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -71,26 +84,77 @@ export default function PlatformSubscriptionManagement() {
     }
   }, [user]);
 
+  // Resolve a plan name + monthly rate from the company's subscription_plan
+  // string. When we wire real billing later this should look up the plans
+  // table; for now treat unknown plans as 0 so trial/free customers don't
+  // pollute MRR.
+  const resolvePlanPricing = (plan: string | null | undefined) => {
+    const map: Record<string, { name: string; amount: number }> = {
+      starter: { name: "Starter", amount: 499 },
+      growth: { name: "Growth", amount: 1499 },
+      scale: { name: "Scale", amount: 3999 },
+      enterprise: { name: "Enterprise", amount: 9999 },
+    };
+    if (!plan) return { name: "Free trial", amount: 0 };
+    const key = plan.toLowerCase();
+    return map[key] || { name: plan, amount: 0 };
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timeout")), 10000)
-      );
-      
-      const dataPromise = subscriptionService.getAllSubscriptions();
-      
-      const allSubs = await Promise.race([dataPromise, timeoutPromise]) as SubscriptionWithProfile[];
-      
-      setSubscriptions(allSubs);
-      calculateStats(allSubs);
+
+      // 1. Pull every company. Each one is a subscription in our world.
+      const { data: companies, error: companiesErr } = await supabase
+        .from("companies")
+        .select(
+          "id, company_name, slug, owner_id, subscription_status, subscription_plan, trial_ends_at, subscription_starts_at, subscription_ends_at, currency, billing_currency, created_at, is_active",
+        )
+        .order("created_at", { ascending: false });
+      if (companiesErr) throw companiesErr;
+
+      // 2. Pull owner profiles in one round trip and index them.
+      const ownerIds = (companies || []).map((c: any) => c.owner_id).filter(Boolean);
+      const ownersById = new Map<string, { full_name: string | null; email: string | null }>();
+      if (ownerIds.length > 0) {
+        const { data: owners } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", ownerIds);
+        (owners || []).forEach((o: any) =>
+          ownersById.set(o.id, { full_name: o.full_name, email: o.email }),
+        );
+      }
+
+      // 3. Build the synthetic subscription rows.
+      const rows: CompanySubscription[] = (companies || []).map((c: any) => {
+        const owner = c.owner_id ? ownersById.get(c.owner_id) : null;
+        const plan = resolvePlanPricing(c.subscription_plan);
+        // Normalise legacy 'trialing' to 'trial' for filter UX.
+        const status = c.subscription_status === "trialing" ? "trial" : (c.subscription_status || "trial");
+        return {
+          id: c.id,
+          company_id: c.id,
+          company_name: c.company_name || "Unknown company",
+          owner_full_name: owner?.full_name || null,
+          owner_email: owner?.email || null,
+          status,
+          plan_name: plan.name,
+          billing_cycle: status === "trial" ? "trial" : "monthly",
+          amount: status === "active" ? plan.amount : 0,
+          currency: c.billing_currency || c.currency || "ZAR",
+          next_billing_date:
+            status === "trial" ? c.trial_ends_at : c.subscription_ends_at || null,
+          trial_ends_at: c.trial_ends_at,
+        };
+      });
+
+      setSubscriptions(rows);
+      calculateStats(rows);
     } catch (err) {
       console.error("Error loading subscriptions:", err);
       setError(err instanceof Error ? err.message : "Failed to load subscriptions");
-      // Set empty data on error to allow UI to render
       setSubscriptions([]);
       calculateStats([]);
     } finally {
@@ -98,18 +162,49 @@ export default function PlatformSubscriptionManagement() {
     }
   };
 
-  const calculateStats = (subs: SubscriptionWithProfile[]) => {
-    const stats = {
+  const calculateStats = (subs: CompanySubscription[]) => {
+    const newStats = {
       total: subs.length,
-      active: subs.filter(s => s.status === "active").length,
-      trial: subs.filter(s => s.status === "trial").length,
-      cancelled: subs.filter(s => s.status === "cancelled").length,
-      pastDue: subs.filter(s => s.status === "past_due").length,
+      active: subs.filter((s) => s.status === "active").length,
+      trial: subs.filter((s) => s.status === "trial").length,
+      cancelled: subs.filter((s) => s.status === "cancelled").length,
+      pastDue: subs.filter((s) => s.status === "past_due").length,
       totalMRR: subs
-        .filter(s => s.status === "active" && s.billing_cycle === "monthly")
-        .reduce((sum, s) => sum + Number(s.amount), 0)
+        .filter((s) => s.status === "active" && s.billing_cycle === "monthly")
+        .reduce((sum, s) => sum + Number(s.amount), 0),
     };
-    setStats(stats);
+    setStats(newStats);
+  };
+
+  const handleActivate = async (companyId: string) => {
+    const { error: updateErr } = await supabase
+      .from("companies")
+      .update({
+        subscription_status: "active",
+        trial_ends_at: null,
+        subscription_starts_at: new Date().toISOString(),
+      })
+      .eq("id", companyId);
+    if (updateErr) {
+      toast({ title: "Failed to activate", description: updateErr.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Subscription activated" });
+    void loadData();
+  };
+
+  const handleCancel = async (companyId: string) => {
+    if (!confirm("Cancel this subscription? The company stays in the database but is marked cancelled.")) return;
+    const { error: updateErr } = await supabase
+      .from("companies")
+      .update({ subscription_status: "cancelled", subscription_ends_at: new Date().toISOString() })
+      .eq("id", companyId);
+    if (updateErr) {
+      toast({ title: "Failed to cancel", description: updateErr.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Subscription cancelled" });
+    void loadData();
   };
 
   const handleRefresh = async () => {
@@ -118,14 +213,17 @@ export default function PlatformSubscriptionManagement() {
     setRefreshing(false);
   };
 
-  const filteredSubscriptions = subscriptions.filter(sub => {
-    const matchesSearch = 
-      sub.profiles?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.profiles?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.plan_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+  const filteredSubscriptions = subscriptions.filter((sub) => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      !term ||
+      sub.company_name?.toLowerCase().includes(term) ||
+      sub.owner_full_name?.toLowerCase().includes(term) ||
+      sub.owner_email?.toLowerCase().includes(term) ||
+      sub.plan_name?.toLowerCase().includes(term);
+
     const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -193,7 +291,7 @@ export default function PlatformSubscriptionManagement() {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-6 max-w-screen-2xl">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Subscription Management</h1>
@@ -344,11 +442,9 @@ export default function PlatformSubscriptionManagement() {
                       <TableRow key={sub.id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-slate-900">
-                              {sub.profiles?.full_name || "Unknown"}
-                            </p>
+                            <p className="font-medium text-slate-900">{sub.company_name}</p>
                             <p className="text-sm text-slate-500">
-                              {sub.profiles?.email || "No email"}
+                              {sub.owner_full_name || sub.owner_email || "No owner"}
                             </p>
                           </div>
                         </TableCell>
@@ -358,7 +454,7 @@ export default function PlatformSubscriptionManagement() {
                         <TableCell>{getStatusBadge(sub.status)}</TableCell>
                         <TableCell>
                           <p className="font-medium">
-                            {formatCurrency(Number(sub.amount), sub.currency)}
+                            {sub.amount > 0 ? formatCurrency(Number(sub.amount), sub.currency) : <span className="text-slate-400">Free</span>}
                           </p>
                         </TableCell>
                         <TableCell>
@@ -369,10 +465,33 @@ export default function PlatformSubscriptionManagement() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            {sub.status === "trial" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleActivate(sub.company_id)}
+                                title="Convert trial to active subscription"
+                              >
+                                Activate
+                              </Button>
+                            )}
+                            {sub.status === "active" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancel(sub.company_id)}
+                                className="text-red-600 hover:text-red-700"
+                                title="Cancel subscription"
+                              >
+                                <Ban className="h-3.5 w-3.5 mr-1" />
+                                Cancel
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => router.push(`/admin/subscription?userId=${sub.user_id}`)}
+                              onClick={() => router.push(`/admin/platform/company-database?company=${sub.company_id}`)}
+                              title="View company"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -404,7 +523,7 @@ export default function PlatformSubscriptionManagement() {
                   {subscriptions.filter(s => s.status === "past_due").map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
                       <div>
-                        <p className="font-medium text-sm">{sub.profiles?.full_name}</p>
+                        <p className="font-medium text-sm">{sub.company_name}</p>
                         <p className="text-xs text-slate-500">{sub.plan_name}</p>
                       </div>
                       <Button variant="outline" size="sm">
@@ -433,9 +552,9 @@ export default function PlatformSubscriptionManagement() {
                   {subscriptions.filter(s => s.status === "cancelled").slice(0, 3).map((sub) => (
                     <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
                       <div>
-                        <p className="font-medium text-sm">{sub.profiles?.full_name}</p>
+                        <p className="font-medium text-sm">{sub.company_name}</p>
                         <p className="text-xs text-slate-500">
-                          Ended {formatDate(sub.current_period_end)}
+                          Ended {formatDate(sub.next_billing_date)}
                         </p>
                       </div>
                       <Button variant="outline" size="sm">

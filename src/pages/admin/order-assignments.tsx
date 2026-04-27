@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, FC } from "react";
+﻿import { useState, useEffect, useMemo, FC } from "react";
 import React from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -308,7 +308,7 @@ function OrderAssignmentsContent() {
       <AdminNav />
       
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-6 md:mb-8">
             <div className="flex flex-col gap-4 mb-4 md:mb-6">

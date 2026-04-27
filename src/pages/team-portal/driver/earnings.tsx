@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
+﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -79,7 +79,7 @@ export default function DriverEarningsPage() {
       <DriverNav />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">

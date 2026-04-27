@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -269,7 +269,7 @@ export default function ClientBillingPage() {
       <DynamicNav userRole={UserRole.CLIENT} />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-7xl">
+        <div className="container mx-auto px-4 py-6 md:py-8 lg:py-12 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-3 mb-4">

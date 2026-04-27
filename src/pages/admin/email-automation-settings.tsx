@@ -1,4 +1,4 @@
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,7 +223,7 @@ function EmailAutomationSettings() {
     <>
       <NoIndexMeta />
       <AdminNav />
-      <div className="container mx-auto p-6 max-w-7xl lg:pl-64">
+      <div className="container mx-auto p-6 max-w-screen-2xl lg:pl-64">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Email Automation Settings</h1>

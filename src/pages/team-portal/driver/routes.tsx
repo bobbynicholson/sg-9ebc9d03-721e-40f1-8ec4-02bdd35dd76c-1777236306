@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -246,7 +246,7 @@ export default function DriverRoutes() {
       <DriverNav />
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 lg:py-12 max-w-7xl">
+        <div className="container mx-auto px-4 py-6 lg:py-12 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-6 lg:mb-8">
             <div className="flex items-center justify-between mb-4">
