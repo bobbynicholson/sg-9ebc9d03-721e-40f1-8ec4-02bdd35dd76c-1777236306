@@ -29,7 +29,7 @@ export default function CompanyLoginPage() {
       const { data, error } = await supabase
         .from("companies")
         .select("company_name, logo_url")
-        .eq("company_slug", company_slug)
+        .eq("slug", company_slug)
         .single();
 
       if (data) {
@@ -83,7 +83,7 @@ export default function CompanyLoginPage() {
         .select(`
           *,
           companies!inner(
-            company_slug,
+            slug,
             company_name
           )
         `)
@@ -102,9 +102,9 @@ export default function CompanyLoginPage() {
       }
 
       // Verify user belongs to this company (unless super admin)
-      const userCompanySlug = Array.isArray(profiles.companies) 
-        ? profiles.companies[0]?.company_slug 
-        : profiles.companies?.company_slug;
+      const userCompanySlug = Array.isArray(profiles.companies)
+        ? profiles.companies[0]?.slug
+        : profiles.companies?.slug;
 
       if (profiles.active_role !== "super_admin" && userCompanySlug !== slugString) {
         console.error("❌ User belongs to different company:", userCompanySlug, "vs", slugString);
