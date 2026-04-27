@@ -1,4 +1,3 @@
- 
 export type Json =
   | string
   | number
@@ -761,7 +760,6 @@ export type Database = {
           billing_currency: string | null
           city: string | null
           company_name: string
-          company_slug: string | null
           country: string | null
           created_at: string | null
           currency: string | null
@@ -802,7 +800,6 @@ export type Database = {
           billing_currency?: string | null
           city?: string | null
           company_name: string
-          company_slug?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -843,7 +840,6 @@ export type Database = {
           billing_currency?: string | null
           city?: string | null
           company_name?: string
-          company_slug?: string | null
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -3287,6 +3283,7 @@ export type Database = {
           maximum_stock: number | null
           minimum_stock: number | null
           preferred_supplier_id: string | null
+          region_id: string | null
           reorder_quantity: number | null
           shelf_life_days: number | null
           sku: string | null
@@ -3309,6 +3306,7 @@ export type Database = {
           maximum_stock?: number | null
           minimum_stock?: number | null
           preferred_supplier_id?: string | null
+          region_id?: string | null
           reorder_quantity?: number | null
           shelf_life_days?: number | null
           sku?: string | null
@@ -3331,6 +3329,7 @@ export type Database = {
           maximum_stock?: number | null
           minimum_stock?: number | null
           preferred_supplier_id?: string | null
+          region_id?: string | null
           reorder_quantity?: number | null
           shelf_life_days?: number | null
           sku?: string | null
@@ -3352,6 +3351,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -4366,7 +4372,6 @@ export type Database = {
           subtotal: number
           tax: number | null
           tax_amount: number | null
-          total: number | null
           total_amount: number
           updated_at: string | null
           user_id: string | null
@@ -4446,7 +4451,6 @@ export type Database = {
           subtotal: number
           tax?: number | null
           tax_amount?: number | null
-          total?: number | null
           total_amount: number
           updated_at?: string | null
           user_id?: string | null
@@ -4526,7 +4530,6 @@ export type Database = {
           subtotal?: number
           tax?: number | null
           tax_amount?: number | null
-          total?: number | null
           total_amount?: number
           updated_at?: string | null
           user_id?: string | null
@@ -5024,6 +5027,7 @@ export type Database = {
           phone_number: string | null
           phone_verified: boolean | null
           region: string | null
+          region_id: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
           vehicle_registration: string | null
@@ -5055,6 +5059,7 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean | null
           region?: string | null
+          region_id?: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           vehicle_registration?: string | null
@@ -5086,6 +5091,7 @@ export type Database = {
           phone_number?: string | null
           phone_verified?: boolean | null
           region?: string | null
+          region_id?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           vehicle_registration?: string | null
@@ -5098,25 +5104,43 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchase_history: {
         Row: {
+          company_id: string | null
           created_at: string | null
           id: string
           user_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           user_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchase_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quote_items: {
         Row: {
@@ -5488,27 +5512,86 @@ export type Database = {
       }
       regions: {
         Row: {
+          address: string | null
+          auto_assign_orders: boolean | null
+          city: string | null
+          code: string
           company_id: string | null
+          country: string
           created_at: string | null
+          currency: string | null
+          delivery_radius_km: number | null
+          email: string | null
           id: string
+          is_active: boolean | null
+          manager_user_id: string | null
           name: string | null
+          notes: string | null
+          operating_hours_end: string | null
+          operating_hours_start: string | null
+          phone: string | null
+          province_state: string | null
+          timezone: string | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          address?: string | null
+          auto_assign_orders?: boolean | null
+          city?: string | null
+          code: string
           company_id?: string | null
+          country?: string
           created_at?: string | null
+          currency?: string | null
+          delivery_radius_km?: number | null
+          email?: string | null
           id?: string
+          is_active?: boolean | null
+          manager_user_id?: string | null
           name?: string | null
+          notes?: string | null
+          operating_hours_end?: string | null
+          operating_hours_start?: string | null
+          phone?: string | null
+          province_state?: string | null
+          timezone?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          address?: string | null
+          auto_assign_orders?: boolean | null
+          city?: string | null
+          code?: string
           company_id?: string | null
+          country?: string
           created_at?: string | null
+          currency?: string | null
+          delivery_radius_km?: number | null
+          email?: string | null
           id?: string
+          is_active?: boolean | null
+          manager_user_id?: string | null
           name?: string | null
+          notes?: string | null
+          operating_hours_end?: string | null
+          operating_hours_start?: string | null
+          phone?: string | null
+          province_state?: string | null
+          timezone?: string | null
+          updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "regions_manager_user_id_fkey"
+            columns: ["manager_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       return_load_tracking: {
         Row: {
@@ -5993,21 +6076,32 @@ export type Database = {
       }
       supplier_prices: {
         Row: {
+          company_id: string | null
           created_at: string | null
           id: string
           user_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           user_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "supplier_prices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppliers: {
         Row: {
@@ -6873,6 +6967,7 @@ export type Database = {
       get_user_company_id: { Args: { user_id: string }; Returns: string }
       gettransactionid: { Args: never; Returns: unknown }
       is_company_admin: { Args: { user_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
