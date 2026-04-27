@@ -79,7 +79,7 @@ export async function getCompanyIdFromSlug(slug: string): Promise<string | null>
   const { data } = await supabase
     .from("companies")
     .select("id")
-    .eq("company_slug", slug)
+    .eq("slug", slug)
     .single();
 
   return data?.id || null;

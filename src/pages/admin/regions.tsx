@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";

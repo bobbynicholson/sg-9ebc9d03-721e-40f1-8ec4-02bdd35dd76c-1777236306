@@ -376,7 +376,7 @@ function AdminCalendar() {
                               </div>
                               <div>
                                 <span className="font-semibold">
-                                  R{event.total?.toLocaleString() || 0}
+                                  R{Number((event as any).total_amount || 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>
