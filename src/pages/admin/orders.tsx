@@ -176,9 +176,12 @@ function OrderProcessDashboard() {
     }
   }, [user]);
 
+  // Stats follow the filters -- revenue / counts always reflect what's
+  // visible on the page so "This Month" actually means this month.
   useEffect(() => {
     calculateStats();
-  }, [orders]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, dateFilter, statusFilter, searchTerm]);
 
   const loadOrders = async () => {
     if (!user?.company_id) return;
@@ -204,34 +207,32 @@ function OrderProcessDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    orders.forEach((order) => {
-      // Count by status
+    // Stats reflect what the user is filtering for -- if they pick
+    // "This Month", revenue is this month's events, not lifetime.
+    const visible = getFilteredOrders();
+
+    visible.forEach((order) => {
       byStatus[order.status] = (byStatus[order.status] || 0) + 1;
 
-      // Revenue calculations
       const orderTotal = Number(order.total_amount) || 0;
+      // Cancelled orders don't count toward revenue
+      if (order.status === "cancelled") return;
       totalRevenue += orderTotal;
-      
-      if (order.payment_status === "paid") {
-        paidRevenue += orderTotal;
-      } else {
-        pendingRevenue += orderTotal;
-      }
 
-      // Upcoming orders (future events)
+      if (order.payment_status === "paid") paidRevenue += orderTotal;
+      else pendingRevenue += orderTotal;
+
       const eventDate = new Date(order.event_date);
       if (eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
         upcoming++;
       }
-
-      // In progress (confirmed through delivered)
       if (["confirmed", "preparing", "ready", "in_transit", "delivered"].includes(order.status)) {
         inProgress++;
       }
     });
 
     setStats({
-      total: orders.length,
+      total: visible.length,
       byStatus,
       revenue: { total: totalRevenue, pending: pendingRevenue, paid: paidRevenue },
       upcoming,
@@ -251,7 +252,7 @@ function OrderProcessDashboard() {
       // Status filter
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
-      // Date filter
+      // Date filter -- preset windows on the order's event_date
       let matchesDate = true;
       if (dateFilter !== "all") {
         const eventDate = new Date(order.event_date);
@@ -261,13 +262,26 @@ function OrderProcessDashboard() {
         if (dateFilter === "today") {
           matchesDate = eventDate.toDateString() === today.toDateString();
         } else if (dateFilter === "week") {
-          const weekFromNow = new Date(today);
-          weekFromNow.setDate(today.getDate() + 7);
-          matchesDate = eventDate >= today && eventDate <= weekFromNow;
+          // This calendar week (Mon-Sun)
+          const day = today.getDay() === 0 ? 7 : today.getDay();
+          const monday = new Date(today);
+          monday.setDate(today.getDate() - (day - 1));
+          const sunday = new Date(monday);
+          sunday.setDate(monday.getDate() + 6);
+          sunday.setHours(23, 59, 59, 999);
+          matchesDate = eventDate >= monday && eventDate <= sunday;
         } else if (dateFilter === "month") {
-          const monthFromNow = new Date(today);
-          monthFromNow.setMonth(today.getMonth() + 1);
-          matchesDate = eventDate >= today && eventDate <= monthFromNow;
+          // This calendar month (1st through last)
+          const first = new Date(today.getFullYear(), today.getMonth(), 1);
+          const last  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          last.setHours(23, 59, 59, 999);
+          matchesDate = eventDate >= first && eventDate <= last;
+        } else if (dateFilter === "next30") {
+          const thirty = new Date(today);
+          thirty.setDate(today.getDate() + 30);
+          matchesDate = eventDate >= today && eventDate <= thirty;
+        } else if (dateFilter === "past") {
+          matchesDate = eventDate < today;
         }
       }
 
@@ -1101,6 +1115,8 @@ function OrderProcessDashboard() {
                       <SelectItem value="today">Today</SelectItem>
                       <SelectItem value="week">This Week</SelectItem>
                       <SelectItem value="month">This Month</SelectItem>
+                      <SelectItem value="next30">Next 30 days</SelectItem>
+                      <SelectItem value="past">Past events</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button variant="outline" className="gap-2">

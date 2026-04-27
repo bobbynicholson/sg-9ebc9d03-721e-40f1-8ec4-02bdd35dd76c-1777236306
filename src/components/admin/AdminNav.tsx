@@ -81,7 +81,40 @@ export function AdminNav({ className }: AdminNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
   const [signingOut, setSigningOut] = useState(false);
-  const { profile } = useAuth();
+  const { profile, company } = useAuth() as any;
+  const companyName  = company?.company_name || "Admin Portal";
+  const primaryColor   = company?.primary_color   || "#9333ea";
+  const secondaryColor = company?.secondary_color || "#ec4899";
+  // First two letters of the company name for the avatar tile
+  const initials = (companyName as string)
+    .split(" ")
+    .map((s: string) => s[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "CM";
+
+  // Live "events today" pulse: count today's active orders so the user
+  // can glance at the sidebar and know if anything's running right now.
+  const [todayEventCount, setTodayEventCount] = useState<number | null>(null);
+  useEffect(() => {
+    const cid = (profile as any)?.company_id;
+    if (!cid) return;
+    let cancelled = false;
+    const load = async () => {
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const { count } = await (await import("@/integrations/supabase/client")).supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", cid)
+        .eq("event_date", todayISO)
+        .neq("status", "cancelled");
+      if (!cancelled) setTodayEventCount(count ?? 0);
+    };
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [(profile as any)?.company_id]);
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -500,18 +533,33 @@ export function AdminNav({ className }: AdminNavProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
-                <div className="px-6 py-4 border-b bg-gradient-to-r from-purple-500 to-pink-500">
-                  <h2 className="text-xl font-bold text-white">Admin Portal</h2>
-                  <p className="text-sm text-purple-100 mt-1">Catering Management System</p>
+                <div
+                  className="px-6 py-4 border-b text-white"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+                >
+                  <h2 className="text-xl font-bold">{companyName}</h2>
+                  <p className="text-sm opacity-90 mt-1">
+                    {todayEventCount && todayEventCount > 0
+                      ? `${todayEventCount} event${todayEventCount === 1 ? "" : "s"} today`
+                      : "Admin portal"}
+                  </p>
                 </div>
                 <NavContent mobile />
               </SheetContent>
             </Sheet>
-            <Link href="/admin/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">CM</span>
+            <Link href="/admin/dashboard" className="flex items-center gap-2 min-w-0">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+              >
+                {company?.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-lg object-cover" />
+                ) : (
+                  <span className="text-white font-bold text-xs">{initials}</span>
+                )}
               </div>
-              <span className="font-bold text-slate-900 dark:text-white">Admin</span>
+              <span className="font-bold text-slate-900 dark:text-white truncate">{companyName}</span>
             </Link>
           </div>
           <div className="flex items-center gap-2">
@@ -530,13 +578,34 @@ export function AdminNav({ className }: AdminNavProps) {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href="/admin/dashboard" className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold">CM</span>
+                <Link href="/admin/dashboard" className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+                  >
+                    {company?.logo_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-xl object-cover" />
+                    ) : (
+                      <span className="text-white font-bold">{initials}</span>
+                    )}
+                    {!!todayEventCount && todayEventCount > 0 && (
+                      <span
+                        className="absolute -top-1 -right-1 flex h-3 w-3"
+                        title={`${todayEventCount} event${todayEventCount === 1 ? "" : "s"} on today`}
+                      >
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-white" />
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <h1 className="font-bold text-slate-900 dark:text-white">Admin Portal</h1>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">CateringMS</p>
+                  <div className="min-w-0">
+                    <h1 className="font-bold text-slate-900 dark:text-white truncate">{companyName}</h1>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      {todayEventCount && todayEventCount > 0
+                        ? `${todayEventCount} event${todayEventCount === 1 ? "" : "s"} today`
+                        : "Admin portal"}
+                    </p>
                   </div>
                 </Link>
                 <div className="flex items-center gap-2">
@@ -547,8 +616,23 @@ export function AdminNav({ className }: AdminNavProps) {
               </>
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-sm">CM</span>
+                <div
+                  className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
+                  title={companyName}
+                >
+                  {company?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={company.logo_url} alt={companyName} className="w-full h-full rounded-xl object-cover" />
+                  ) : (
+                    <span className="text-white font-bold text-sm">{initials}</span>
+                  )}
+                  {!!todayEventCount && todayEventCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-white" />
+                    </span>
+                  )}
                 </div>
                 <NotificationBell />
               </div>
