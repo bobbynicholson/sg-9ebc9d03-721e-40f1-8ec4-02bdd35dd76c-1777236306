@@ -6656,69 +6656,69 @@ export type Database = {
         Relationships: []
       }
       api_keys: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       chat_messages: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       chat_sessions: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       client_access_tokens: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       email_provider_settings: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       inventory_demand_outlook: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       order_ingredient_demand: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       outgoing_email_log: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       outgoing_email_queue: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       webhook_deliveries: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
       webhook_subscriptions: {
-        Row: { [key: string]: unknown }
-        Insert: { [key: string]: unknown }
-        Update: { [key: string]: unknown }
+        Row: { [key: string]: any }
+        Insert: { [key: string]: any }
+        Update: { [key: string]: any }
         Relationships: []
       }
     }
