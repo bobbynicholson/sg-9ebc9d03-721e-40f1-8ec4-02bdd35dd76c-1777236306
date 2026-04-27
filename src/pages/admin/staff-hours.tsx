@@ -73,8 +73,8 @@ function StaffHoursPage() {
       }
 
       const [sessionsData, ledgerData] = await Promise.all([
-        timeClockService.getAllStaffWorkSessions(startDate, now),
-        paymentLedgerService.getAllPayments(startDate, now),
+        timeClockService.getAllStaffWorkSessions(startDate, now, user?.company_id),
+        paymentLedgerService.getAllPayments(startDate, now, user?.company_id),
       ]);
 
       setSessions(sessionsData);

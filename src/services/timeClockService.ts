@@ -9,11 +9,17 @@ type StaffWorkSession = Database["public"]["Tables"]["staff_work_sessions"]["Row
 
 export const timeClockService = {
   async clockIn(staffId: string, notes?: string, location?: { lat: number; lng: number }) {
+    // Look up the staff's company so the work session is properly tenant-scoped.
+    const { data: staffProfile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", staffId)
+      .maybeSingle();
+
     const { data: entry, error: entryError } = await supabase
       .from("time_clock_entries")
       .insert({
         staff_id: staffId,
-        user_id: staffId,
         entry_type: "clock_in",
         timestamp: new Date().toISOString(),
         location_lat: location?.lat,
@@ -25,12 +31,15 @@ export const timeClockService = {
 
     if (entryError) throw entryError;
 
+    const now = new Date();
     const { data: session, error: sessionError } = await supabase
       .from("staff_work_sessions")
       .insert({
         staff_id: staffId,
-        user_id: staffId,
-        clock_in_time: new Date().toISOString(),
+        company_id: staffProfile?.company_id ?? null,
+        clock_in: now.toISOString(),
+        session_date: now.toISOString().slice(0, 10),
+        payment_status: "unpaid",
       })
       .select()
       .single();
@@ -45,7 +54,6 @@ export const timeClockService = {
       .from("time_clock_entries")
       .insert({
         staff_id: staffId,
-        user_id: staffId,
         entry_type: "clock_out",
         timestamp: new Date().toISOString(),
         location_lat: location?.lat,
@@ -61,8 +69,8 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .select("*")
       .eq("staff_id", staffId)
-      .is("clock_out_time", null)
-      .order("clock_in_time", { ascending: false })
+      .is("clock_out", null)
+      .order("clock_in", { ascending: false })
       .limit(1)
       .single();
 
@@ -70,7 +78,7 @@ export const timeClockService = {
       throw new Error("No open work session found");
     }
 
-    const clockInTime = new Date(openSession.clock_in_time);
+    const clockInTime = new Date(openSession.clock_in);
     const clockOutTime = new Date();
     const totalHours = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
 
@@ -86,9 +94,8 @@ export const timeClockService = {
     const { data: updatedSession, error: updateError } = await supabase
       .from("staff_work_sessions")
       .update({
-        clock_out_time: clockOutTime.toISOString(),
+        clock_out: clockOutTime.toISOString(),
         total_hours: totalHours,
-        hourly_rate: hourlyRate,
         total_earnings: totalEarnings,
       })
       .eq("id", openSession.id)
@@ -105,8 +112,8 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .select("*")
       .eq("staff_id", staffId)
-      .is("clock_out_time", null)
-      .order("clock_in_time", { ascending: false })
+      .is("clock_out", null)
+      .order("clock_in", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -119,13 +126,13 @@ export const timeClockService = {
       .from("staff_work_sessions")
       .select("*")
       .eq("staff_id", staffId)
-      .order("clock_in_time", { ascending: false });
+      .order("clock_in", { ascending: false });
 
     if (startDate) {
-      query = query.gte("clock_in_time", startDate.toISOString());
+      query = query.gte("clock_in", startDate.toISOString());
     }
     if (endDate) {
-      query = query.lte("clock_in_time", endDate.toISOString());
+      query = query.lte("clock_in", endDate.toISOString());
     }
 
     const { data, error } = await query;
@@ -133,7 +140,7 @@ export const timeClockService = {
     return data || [];
   },
 
-  async getAllStaffWorkSessions(startDate?: Date, endDate?: Date) {
+  async getAllStaffWorkSessions(startDate?: Date, endDate?: Date, companyId?: string) {
     let query = supabase
       .from("staff_work_sessions")
       .select(`
@@ -142,21 +149,26 @@ export const timeClockService = {
           id,
           full_name,
           email,
-          role
+          role,
+          company_id
         )
       `)
-      .order("clock_in_time", { ascending: false });
+      .order("clock_in", { ascending: false });
 
     if (startDate) {
-      query = query.gte("clock_in_time", startDate.toISOString());
+      query = query.gte("clock_in", startDate.toISOString());
     }
     if (endDate) {
-      query = query.lte("clock_in_time", endDate.toISOString());
+      query = query.lte("clock_in", endDate.toISOString());
     }
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    if (!data) return [];
+    if (!companyId) return data;
+    // Filter by company at the application layer (Supabase doesn't let us
+    // filter by a joined column inline without an RPC).
+    return data.filter((row: any) => row?.staff?.company_id === companyId);
   },
 
   async getStaffHoursSummary(staffId: string, period: "week" | "month") {

@@ -143,9 +143,9 @@ export default function AdminLeads() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Converted</p>
+                    <p className="text-sm text-slate-600">Won / Converted</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {leads.filter(l => l.status === "converted").length}
+                      {leads.filter(l => l.status === "won" || l.status === "converted").length}
                     </p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -177,6 +177,8 @@ export default function AdminLeads() {
                   <option value="new">New</option>
                   <option value="contacted">Contacted</option>
                   <option value="qualified">Qualified</option>
+                  <option value="quoted">Quoted</option>
+                  <option value="won">Won</option>
                   <option value="converted">Converted</option>
                   <option value="lost">Lost</option>
                 </select>

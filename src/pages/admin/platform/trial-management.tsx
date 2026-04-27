@@ -7,7 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Bell, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertCircle, Bell, CheckCircle, CalendarPlus, Clock, RefreshCw, Crown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface CompanyTrialStatus {
@@ -36,13 +41,17 @@ export default function TrialManagementPage() {
   });
 
   useEffect(() => {
+    // Wait until auth has settled — null user just means we're still loading.
+    if (user === undefined) return;
     if (!user) {
       router.push("/auth/login");
       return;
     }
+    // Wait for the profile to come back; without it we don't know the role yet.
+    if (!profile) return;
 
-    // Check if user has super_admin role
-    if (profile?.active_role !== "super_admin") {
+    const role = (profile as any).active_role || (profile as any).role;
+    if (role !== "super_admin") {
       router.push("/");
       return;
     }
@@ -53,7 +62,8 @@ export default function TrialManagementPage() {
   const loadTrialCompanies = async () => {
     setLoading(true);
     try {
-      // Get all companies with trial status
+      // Match either status the codebase uses ("trial" in this DB, "trialing"
+      // in some Stripe-aligned flows). Anything with a trial_ends_at counts.
       const { data: companiesData, error: companiesError } = await supabase
         .from("companies")
         .select(`
@@ -63,8 +73,8 @@ export default function TrialManagementPage() {
           trial_ends_at,
           subscription_status
         `)
-        .eq("subscription_status", "trialing")
-        .order("trial_ends_at", { ascending: true });
+        .in("subscription_status", ["trial", "trialing"])
+        .order("trial_ends_at", { ascending: true, nullsFirst: false });
 
       if (companiesError) throw companiesError;
 
@@ -176,6 +186,65 @@ export default function TrialManagementPage() {
       return <Badge className="bg-yellow-500">{daysRemaining} days</Badge>;
     } else {
       return <Badge variant="secondary">{daysRemaining} days</Badge>;
+    }
+  };
+
+  const handleExtendTrial = async (companyId: string, currentEndsAt: string, days: number) => {
+    try {
+      // Extend from whichever is later: now, or the current trial end.
+      const base = currentEndsAt ? new Date(currentEndsAt) : new Date();
+      const now = new Date();
+      const start = base.getTime() > now.getTime() ? base : now;
+      const newEnd = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          trial_ends_at: newEnd.toISOString(),
+          subscription_status: "trial",
+        })
+        .eq("id", companyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Trial extended",
+        description: `New end date: ${newEnd.toLocaleDateString()}`,
+      });
+      await loadTrialCompanies();
+    } catch (error: any) {
+      toast({
+        title: "Failed to extend trial",
+        description: error?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConvertToActive = async (companyId: string) => {
+    try {
+      const { error } = await supabase
+        .from("companies")
+        .update({
+          subscription_status: "active",
+          trial_ends_at: null,
+          subscription_starts_at: new Date().toISOString(),
+        })
+        .eq("id", companyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Subscription activated",
+        description: "Company moved off trial onto an active plan.",
+      });
+      await loadTrialCompanies();
+    } catch (error: any) {
+      toast({
+        title: "Failed to activate",
+        description: error?.message ?? "Unknown error",
+        variant: "destructive",
+      });
     }
   };
 
@@ -322,6 +391,7 @@ export default function TrialManagementPage() {
                   <TableHead>Days Left</TableHead>
                   <TableHead>Notifications</TableHead>
                   <TableHead>Last Notification</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -334,7 +404,9 @@ export default function TrialManagementPage() {
                     </TableCell>
                     <TableCell>{company.owner_email}</TableCell>
                     <TableCell>
-                      {new Date(company.trial_ends_at).toLocaleDateString()}
+                      {company.trial_ends_at
+                        ? new Date(company.trial_ends_at).toLocaleDateString()
+                        : "—"}
                     </TableCell>
                     <TableCell>{getUrgencyBadge(company.days_remaining)}</TableCell>
                     <TableCell>
@@ -342,6 +414,39 @@ export default function TrialManagementPage() {
                     </TableCell>
                     <TableCell>
                       {getNotificationBadge(company.last_notification_type)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExtendTrial(company.id, company.trial_ends_at, 7)}
+                          title="Extend trial by 7 days"
+                          className="gap-1"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                          +7d
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExtendTrial(company.id, company.trial_ends_at, 30)}
+                          title="Extend trial by 30 days"
+                          className="gap-1"
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5" />
+                          +30d
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleConvertToActive(company.id)}
+                          title="Mark as active subscription"
+                          className="gap-1"
+                        >
+                          <Crown className="h-3.5 w-3.5" />
+                          Activate
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

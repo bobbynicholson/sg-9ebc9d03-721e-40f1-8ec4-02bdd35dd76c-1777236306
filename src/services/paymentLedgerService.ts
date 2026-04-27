@@ -95,7 +95,7 @@ export const paymentLedgerService = {
     return data || [];
   },
 
-  async getAllPayments(startDate?: Date, endDate?: Date) {
+  async getAllPayments(startDate?: Date, endDate?: Date, companyId?: string) {
     let query = supabase
       .from("staff_payment_ledger")
       .select(`
@@ -104,7 +104,8 @@ export const paymentLedgerService = {
           id,
           full_name,
           email,
-          role
+          role,
+          company_id
         )
       `)
       .order("payment_date", { ascending: false });
@@ -118,7 +119,9 @@ export const paymentLedgerService = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    if (!data) return [];
+    if (!companyId) return data;
+    return data.filter((row: any) => row?.staff?.company_id === companyId);
   },
 
   async getPaymentSummary(period: "week" | "month" | "quarter" | "year") {

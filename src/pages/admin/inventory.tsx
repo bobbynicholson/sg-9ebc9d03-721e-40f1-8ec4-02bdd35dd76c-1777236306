@@ -310,8 +310,10 @@ export default function AdminInventory() {
                                 {item.unit}
                               </div>
                               <div>
-                                <span className="font-medium">Min/Max:</span> {item.minStock}/
-                                {item.maxStock}
+                                <span className="font-medium">Reorder at:</span> {item.minStock} {item.unit}
+                                {item.maxStock > 0 && (
+                                  <span className="text-slate-400"> / max {item.maxStock}</span>
+                                )}
                               </div>
                               <div>
                                 <span className="font-medium">Cost:</span> R{item.costPerUnit}/
@@ -321,6 +323,22 @@ export default function AdminInventory() {
                                 <span className="font-medium">Supplier:</span> {item.supplier}
                               </div>
                             </div>
+                            {item.maxStock > 0 && (
+                              <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    item.quantity <= item.minStock
+                                      ? "bg-red-500"
+                                      : item.quantity >= item.maxStock * 0.85
+                                      ? "bg-emerald-500"
+                                      : "bg-blue-500"
+                                  }`}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(2, (item.quantity / item.maxStock) * 100))}%`,
+                                  }}
+                                />
+                              </div>
+                            )}
                             {item.expiryDate && (
                               <div className="mt-2 text-sm text-slate-600">
                                 <span className="font-medium">Expires:</span>{" "}
