@@ -7,12 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { AlertCircle, Bell, CheckCircle, CalendarPlus, Clock, RefreshCw, Crown } from "lucide-react";
+import { Bell, CheckCircle, CalendarPlus, Clock, RefreshCw, Crown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface CompanyTrialStatus {
