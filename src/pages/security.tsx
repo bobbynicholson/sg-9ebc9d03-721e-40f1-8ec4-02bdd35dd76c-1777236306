@@ -109,7 +109,7 @@ export default function SecurityPage() {
                     className="bg-white text-purple-600 hover:bg-gray-100"
                     asChild
                   >
-                    <Link href="/auth/register">
+                    <Link href="/company-signup">
                       Start Free Trial
                     </Link>
                   </Button>

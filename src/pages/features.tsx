@@ -581,7 +581,7 @@ export default function FeaturesPage() {
               
               {/* Mobile-Optimized CTAs */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-                <Link href="/auth/register" className="w-full sm:w-auto">
+                <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button 
                     size="lg" 
                     className="w-full bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"
@@ -671,7 +671,7 @@ export default function FeaturesPage() {
                 </p>
                 
                 {/* Mobile-Optimized Final CTA */}
-                <Link href="/auth/register" className="inline-block w-full sm:w-auto">
+                <Link href="/company-signup" className="inline-block w-full sm:w-auto">
                   <Button 
                     size="lg" 
                     className="w-full sm:w-auto bg-white text-purple-600 hover:bg-purple-50 h-14 px-8 sm:px-10 text-base sm:text-lg shadow-2xl hover:scale-105 transition-all"

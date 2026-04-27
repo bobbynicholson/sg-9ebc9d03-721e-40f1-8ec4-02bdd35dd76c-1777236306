@@ -64,7 +64,7 @@ export default function EmailAutomationPage() {
                 Automated email sequences that nurture leads, convert quotes, and bring clients back for more bookings
               </p>
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center px-4 sm:px-0">
-                <Link href="/auth/register" className="w-full sm:w-auto">
+                <Link href="/company-signup" className="w-full sm:w-auto">
                   <Button size="lg" className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 md:px-8 py-4 md:py-6 text-base md:text-lg">
                     Start Free Trial
                     <ArrowRight className="w-4 h-4 md:w-5 md:h-5 ml-2" />
@@ -198,7 +198,7 @@ export default function EmailAutomationPage() {
             <p className="text-base sm:text-lg md:text-xl mb-6 md:mb-8 max-w-2xl mx-auto opacity-95 px-2">
               Most quotes need 3-5 follow-ups to convert. Manual follow-ups are inconsistent and time-consuming. Automation does it perfectly, every time.
             </p>
-            <Link href="/auth/register" className="inline-block w-full sm:w-auto px-4 sm:px-0">
+            <Link href="/company-signup" className="inline-block w-full sm:w-auto px-4 sm:px-0">
               <Button size="lg" className="w-full sm:w-auto bg-white text-orange-600 hover:bg-orange-50 px-6 md:px-10 py-4 md:py-6 text-base md:text-lg">
                 Automate Your Follow-Ups Today
                 <ArrowRight className="w-4 h-4 md:w-5 md:h-5 ml-2" />
