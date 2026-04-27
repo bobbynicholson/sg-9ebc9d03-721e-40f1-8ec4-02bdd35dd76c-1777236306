@@ -271,7 +271,7 @@ export default function ClientPortalDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600">Total Spent</p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">
-                      R{orders.reduce((sum, o) => sum + (o.total || 0), 0).toLocaleString()}
+                      R{orders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0).toLocaleString()}
                     </p>
                   </div>
                   <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg bg-slate-100 flex items-center justify-center self-end md:self-auto">
