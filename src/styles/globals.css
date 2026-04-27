@@ -226,3 +226,13 @@
     font-size: 16px !important;
   }
 }
+
+/* When the sidebar is collapsed (icon-only, ~80px), every page wrapper that
+   ships with `lg:pl-64 xl:pl-72` must shrink its left padding to match,
+   otherwise content sits stranded behind 180-200px of dead space.
+   Each Nav writes data-sidebar-collapsed to <html> when toggled. */
+@media (min-width: 1024px) {
+  html[data-sidebar-collapsed="true"] .lg\:pl-64 {
+    padding-left: 5rem !important;
+  }
+}

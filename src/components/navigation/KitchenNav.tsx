@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
-import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 
 interface NavItem {
@@ -47,6 +47,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  useSyncSidebarCollapsed(isCollapsed);
   const baseUrl = companySlug ? `/company/${companySlug}` : "";
 
   // Load collapsed state from localStorage on mount

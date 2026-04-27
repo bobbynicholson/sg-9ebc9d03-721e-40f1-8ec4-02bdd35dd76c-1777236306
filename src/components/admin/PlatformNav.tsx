@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -138,6 +138,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  useSyncSidebarCollapsed(isCollapsed);
   const [signingOut, setSigningOut] = useState(false);
 
   const handleSignOut = async () => {

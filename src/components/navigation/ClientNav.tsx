@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
-import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -28,6 +28,7 @@ export function ClientNav() {
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  useSyncSidebarCollapsed(isCollapsed);
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
