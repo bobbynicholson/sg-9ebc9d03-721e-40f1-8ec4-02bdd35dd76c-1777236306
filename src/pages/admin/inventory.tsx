@@ -58,7 +58,8 @@ export default function AdminInventory() {
     const { data, error } = await supabase
       .from("inventory_demand_outlook")
       .select("*")
-      .eq("company_id", user.company_id);
+      .eq("company_id", user.company_id)
+      .returns<Record<string, unknown>[]>();
     if (error) {
       console.error("outlook error", error);
       setOutlook([]);
