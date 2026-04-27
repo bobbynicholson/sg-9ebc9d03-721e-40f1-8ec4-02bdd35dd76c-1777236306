@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
@@ -24,6 +25,7 @@ export function ClientNav() {
   const router = useRouter();
   const { profile } = useAuth() as any;
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Load collapsed state from localStorage on mount

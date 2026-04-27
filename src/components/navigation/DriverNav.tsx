@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 
 interface NavItem {
   title: string;
@@ -52,6 +53,7 @@ const navItems = [
 export function DriverNav({ className, companySlug }: DriverNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   // Driver pages live at /team-portal/driver/* (no slug). Keep the prop for
   // backward compatibility but ignore for routing purposes.

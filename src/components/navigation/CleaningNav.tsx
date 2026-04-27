@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 
 interface NavItem {
   title: string;
@@ -43,6 +44,7 @@ interface CleaningNavProps {
 export function CleaningNav({ className, companySlug }: CleaningNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const baseUrl = companySlug ? `/company/${companySlug}` : "";
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 import {
   Home,
   FileText,
@@ -96,6 +97,7 @@ interface ClientNavProps {
 export function ClientNav({ className }: ClientNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
 
   const isActive = (href: string) => {
     return router.pathname === href;

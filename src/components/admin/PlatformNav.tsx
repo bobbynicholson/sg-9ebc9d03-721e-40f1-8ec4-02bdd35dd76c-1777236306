@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -134,6 +135,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
   const router = useRouter();
   const { profile } = useAuth() as any;
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 

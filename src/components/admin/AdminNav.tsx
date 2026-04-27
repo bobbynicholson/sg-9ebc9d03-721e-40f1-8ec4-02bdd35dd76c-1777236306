@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
+import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -75,6 +76,7 @@ interface AdminNavProps {
 export function AdminNav({ className }: AdminNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const { profile } = useAuth();
