@@ -35,7 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Zap, Key, Webhook, Copy, Check, Trash2, Plus, ExternalLink, ArrowRight,
-  Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Slack,
+  Sparkles, Activity, AlertTriangle, Loader2, FileSpreadsheet, Bell, Hash,
   MessageSquare, ChefHat, Mail, Link2, Send, Receipt, BookOpen,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -129,7 +129,7 @@ const RECIPES: Recipe[] = [
     description: "Pop open champagne in the team chat the moment a quote is signed off. Includes total + client name.",
     trigger: "quote.accepted",
     action: "Slack - Send channel message",
-    icon: Slack,
+    icon: Hash,
     badge: "Team morale",
   },
   {
