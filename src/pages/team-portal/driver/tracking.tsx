@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, Clock, CheckCircle, Package, AlertCircle } from "lucide-react";
+import { MapPin, Navigation, Clock, CheckCircle, Package } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -10,37 +10,129 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface ActiveDelivery {
+  assignmentId: string;
+  orderId: string;
+  orderNumber: string;
+  clientName: string;
+  clientPhone: string | null;
+  venueAddress: string;
+  guestCount: number;
+  eventDate: string;
+  eventTime: string | null;
+  status: string;
+  picked_up_at: string | null;
+  arrived_at_venue_at: string | null;
+}
+
+const STATUS_LABELS: Record<string, { label: string; tone: string }> = {
+  assigned: { label: "Assigned", tone: "bg-blue-100 text-blue-800" },
+  accepted: { label: "Accepted", tone: "bg-blue-100 text-blue-800" },
+  en_route: { label: "En Route", tone: "bg-amber-100 text-amber-800" },
+  picked_up: { label: "Picked Up", tone: "bg-purple-100 text-purple-800" },
+};
 
 export default function DriverTracking() {
   const { user } = useAuth();
-  const [currentDelivery, setCurrentDelivery] = useState<any>(null);
+  const { toast } = useToast();
+  const [delivery, setDelivery] = useState<ActiveDelivery | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
+  const loadActiveDelivery = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("driver_assignments")
+      .select(`
+        id,
+        order_id,
+        status,
+        picked_up_at,
+        arrived_at_venue_at,
+        orders (
+          order_number,
+          client_name,
+          client_phone,
+          venue_address,
+          guest_count,
+          event_date,
+          event_time
+        )
+      `)
+      .eq("driver_id", user.id)
+      .in("status", ["assigned", "accepted", "en_route", "picked_up"])
+      .order("assigned_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading active delivery:", error);
+      setDelivery(null);
+      setLoading(false);
+      return;
+    }
+
+    if (!data || !data.orders) {
+      setDelivery(null);
+      setLoading(false);
+      return;
+    }
+
+    const order: any = data.orders;
+    setDelivery({
+      assignmentId: data.id,
+      orderId: data.order_id,
+      orderNumber: order.order_number,
+      clientName: order.client_name,
+      clientPhone: order.client_phone,
+      venueAddress: order.venue_address,
+      guestCount: order.guest_count,
+      eventDate: order.event_date,
+      eventTime: order.event_time,
+      status: data.status,
+      picked_up_at: data.picked_up_at,
+      arrived_at_venue_at: data.arrived_at_venue_at,
+    });
+    setLoading(false);
+  };
 
   useEffect(() => {
-    // Mock current delivery
-    const mockDelivery = {
-      id: "del-001",
-      orderId: "ORD-001",
-      orderName: "Sarah Johnson Event",
-      status: "in_transit",
-      destination: {
-        lat: -26.2041,
-        lng: 28.0473,
-        address: "123 Event Venue Rd, Johannesburg"
-      },
-      items: [
-        { name: "Beef", quantity: "30kg" },
-        { name: "Chicken", quantity: "25kg" },
-        { name: "Boerewors", quantity: "20kg" }
-      ],
-      estimatedArrival: new Date(Date.now() + 1800000).toISOString(),
-      distance: 12.5,
-      clientPhone: "+27 82 123 4567"
-    };
+    loadActiveDelivery();
+  }, [user?.id]);
 
-    setCurrentDelivery(mockDelivery);
-    setLoading(false);
-  }, []);
+  const markArrived = async () => {
+    if (!delivery) return;
+    setUpdating(true);
+    const { error } = await supabase
+      .from("driver_assignments")
+      .update({
+        status: "picked_up",
+        arrived_at_venue_at: new Date().toISOString(),
+      })
+      .eq("id", delivery.assignmentId);
+
+    setUpdating(false);
+    if (error) {
+      toast({ title: "Could not update", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Marked as arrived", description: "Status updated to picked up." });
+    loadActiveDelivery();
+  };
+
+  const openNavigation = (address: string) => {
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,
+      "_blank"
+    );
+  };
+
+  const statusMeta = delivery ? STATUS_LABELS[delivery.status] || { label: delivery.status, tone: "bg-slate-100 text-slate-800" } : null;
 
   return (
     <>
@@ -63,7 +155,11 @@ export default function DriverTracking() {
             </div>
           </div>
 
-          {!currentDelivery ? (
+          {loading ? (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="py-12 text-center text-slate-600">Loading...</CardContent>
+            </Card>
+          ) : !delivery ? (
             <Card className="border-0 shadow-lg">
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 mx-auto mb-4 text-slate-300" />
@@ -75,70 +171,79 @@ export default function DriverTracking() {
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>{currentDelivery.orderName}</span>
-                    <Badge className="bg-blue-100 text-blue-800">
+                    <span>{delivery.clientName}</span>
+                    <Badge className={statusMeta!.tone}>
                       <Navigation className="w-4 h-4 mr-1" />
-                      In Transit
+                      {statusMeta!.label}
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
+                    <p className="text-sm text-slate-600 mb-2">Order</p>
+                    <p className="font-medium">{delivery.orderNumber}</p>
+                  </div>
+                  <div>
                     <p className="text-sm text-slate-600 mb-2">Destination</p>
                     <p className="font-medium flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-blue-600" />
-                      {currentDelivery.destination.address}
+                      {delivery.venueAddress}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-4 text-sm flex-wrap">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-orange-600" />
-                      <span>ETA: {new Date(currentDelivery.estimatedArrival).toLocaleTimeString()}</span>
+                      <span>
+                        {new Date(delivery.eventDate).toLocaleDateString()}
+                        {delivery.eventTime ? ` • ${delivery.eventTime}` : ""}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Navigation className="w-4 h-4 text-blue-600" />
-                      <span>{currentDelivery.distance.toFixed(1)} km away</span>
+                      <Package className="w-4 h-4 text-blue-600" />
+                      <span>{delivery.guestCount} guests</span>
                     </div>
                   </div>
                   <div className="pt-4 space-y-2">
-                    <Button className="w-full" size="lg">
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      onClick={() => openNavigation(delivery.venueAddress)}
+                    >
                       <Navigation className="w-4 h-4 mr-2" />
                       Open in Navigation App
                     </Button>
-                    <Button variant="outline" className="w-full" size="lg">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark as Arrived
-                    </Button>
+                    {delivery.status !== "picked_up" && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        size="lg"
+                        onClick={markArrived}
+                        disabled={updating}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        {updating ? "Updating..." : "Mark as Arrived"}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Order Items</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {currentDelivery.items.map((item: any, idx: number) => (
-                      <li key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <span>{item.name}</span>
-                        <span className="font-semibold">{item.quantity}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardHeader>
-                  <CardTitle>Client Contact</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Call Client: {currentDelivery.clientPhone}
-                  </Button>
-                </CardContent>
-              </Card>
+              {delivery.clientPhone && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader>
+                    <CardTitle>Client Contact</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => window.open(`tel:${delivery.clientPhone}`, "_self")}
+                    >
+                      Call Client: {delivery.clientPhone}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </div>
@@ -146,7 +251,7 @@ export default function DriverTracking() {
         <Footer />
       </div>
 
-      <ChatBot userRole="driver" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="driver" companyId={user?.company_id} />
     </>
   );
 }

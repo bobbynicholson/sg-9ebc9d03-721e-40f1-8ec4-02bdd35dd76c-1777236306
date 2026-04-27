@@ -16,21 +16,74 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
+
+type EquipmentStatus = "available" | "in_use" | "cleaning" | "damaged";
+
+interface EquipmentRow {
+  id: string;
+  name: string;
+  status: EquipmentStatus;
+  quantity: number;
+  available_quantity: number;
+}
 
 export default function CleaningDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("verification");
+  const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
+  const [loadingEquipment, setLoadingEquipment] = useState(true);
 
-  const mockEquipment = [
-    { id: '1', name: 'Chafing Dishes', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-20' },
-    { id: '2', name: 'Serving Platters', status: 'in_use', lastCleaned: '2026-04-18', nextInspection: '2026-04-21' },
-    { id: '3', name: 'Gas Burners', status: 'cleaning', lastCleaned: null, nextInspection: '2026-04-20' },
-    { id: '4', name: 'Beverage Dispensers', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-22' },
-    { id: '5', name: 'Table Linens', status: 'cleaning', lastCleaned: null, nextInspection: '2026-04-20' },
-    { id: '6', name: 'Folding Tables', status: 'damaged', lastCleaned: '2026-04-15', nextInspection: '2026-04-20' },
-    { id: '7', name: 'Chairs', status: 'in_use', lastCleaned: '2026-04-18', nextInspection: '2026-04-21' },
-    { id: '8', name: 'Cooler Boxes', status: 'available', lastCleaned: '2026-04-19', nextInspection: '2026-04-23' },
-  ];
+  useEffect(() => {
+    if (!user?.company_id) return;
+
+    const loadEquipment = async () => {
+      setLoadingEquipment(true);
+      const { data: equipmentData, error: equipmentErr } = await supabase
+        .from("equipment")
+        .select("id, name, condition, quantity, available_quantity")
+        .eq("company_id", user.company_id);
+
+      if (equipmentErr) {
+        console.error("Error loading equipment:", equipmentErr);
+        setEquipment([]);
+        setLoadingEquipment(false);
+        return;
+      }
+
+      const { data: cleaningBookings } = await supabase
+        .from("equipment_bookings")
+        .select("equipment_id")
+        .eq("status", "returned");
+
+      const cleaningSet = new Set((cleaningBookings || []).map((b: any) => b.equipment_id));
+
+      const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
+        let status: EquipmentStatus;
+        if (eq.condition === "damaged" || eq.condition === "broken") {
+          status = "damaged";
+        } else if (cleaningSet.has(eq.id)) {
+          status = "cleaning";
+        } else if ((eq.available_quantity ?? 0) < (eq.quantity ?? 0)) {
+          status = "in_use";
+        } else {
+          status = "available";
+        }
+        return {
+          id: eq.id,
+          name: eq.name,
+          status,
+          quantity: eq.quantity ?? 0,
+          available_quantity: eq.available_quantity ?? 0,
+        };
+      });
+
+      setEquipment(rows);
+      setLoadingEquipment(false);
+    };
+
+    loadEquipment();
+  }, [user?.company_id]);
 
   return (
     <>
@@ -67,7 +120,7 @@ export default function CleaningDashboard() {
                     <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   <p className="text-2xl font-bold text-green-600">
-                    {mockEquipment.filter(e => e.status === 'available').length}
+                    {equipment.filter(e => e.status === 'available').length}
                   </p>
                   <p className="text-xs text-slate-600 mt-1">Available</p>
                 </div>
@@ -77,7 +130,7 @@ export default function CleaningDashboard() {
                     <Truck className="w-6 h-6 text-blue-600" />
                   </div>
                   <p className="text-2xl font-bold text-blue-600">
-                    {mockEquipment.filter(e => e.status === 'in_use').length}
+                    {equipment.filter(e => e.status === 'in_use').length}
                   </p>
                   <p className="text-xs text-slate-600 mt-1">In Use</p>
                 </div>
@@ -87,7 +140,7 @@ export default function CleaningDashboard() {
                     <Clock className="w-6 h-6 text-orange-600" />
                   </div>
                   <p className="text-2xl font-bold text-orange-600">
-                    {mockEquipment.filter(e => e.status === 'cleaning').length}
+                    {equipment.filter(e => e.status === 'cleaning').length}
                   </p>
                   <p className="text-xs text-slate-600 mt-1">Cleaning</p>
                 </div>
@@ -97,7 +150,7 @@ export default function CleaningDashboard() {
                     <AlertTriangle className="w-6 h-6 text-red-600" />
                   </div>
                   <p className="text-2xl font-bold text-red-600">
-                    {mockEquipment.filter(e => e.status === 'damaged').length}
+                    {equipment.filter(e => e.status === 'damaged').length}
                   </p>
                   <p className="text-xs text-slate-600 mt-1">Damaged</p>
                 </div>
@@ -114,30 +167,36 @@ export default function CleaningDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockEquipment
-                  .filter(e => e.status === 'cleaning' || e.nextInspection === new Date().toISOString().split('T')[0])
-                  .slice(0, 3)
-                  .map(equipment => (
-                    <div key={equipment.id} className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg border-l-4 border-cyan-500">
-                      <div className="flex items-center gap-3">
-                        <Package className="w-5 h-5 text-cyan-600" />
-                        <div>
-                          <p className="font-semibold text-slate-900">{equipment.name}</p>
-                          <p className="text-xs text-slate-600">
-                            Last cleaned: {equipment.lastCleaned ? new Date(equipment.lastCleaned).toLocaleDateString() : 'Never'}
-                          </p>
+                {loadingEquipment ? (
+                  <div className="text-center py-8 text-slate-500">Loading equipment...</div>
+                ) : (
+                  <>
+                    {equipment
+                      .filter(e => e.status === 'cleaning' || e.status === 'damaged')
+                      .slice(0, 5)
+                      .map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-cyan-50 rounded-lg border-l-4 border-cyan-500">
+                          <div className="flex items-center gap-3">
+                            <Package className="w-5 h-5 text-cyan-600" />
+                            <div>
+                              <p className="font-semibold text-slate-900">{item.name}</p>
+                              <p className="text-xs text-slate-600">
+                                {item.available_quantity} of {item.quantity} available
+                              </p>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline">
+                            Inspect
+                          </Button>
                         </div>
+                      ))}
+                    {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
+                      <div className="text-center py-8 text-slate-500">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
+                        <p>All equipment inspections complete for today!</p>
                       </div>
-                      <Button size="sm" variant="outline">
-                        Inspect
-                      </Button>
-                    </div>
-                  ))}
-                {mockEquipment.filter(e => e.status === 'cleaning').length === 0 && (
-                  <div className="text-center py-8 text-slate-500">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-500" />
-                    <p>All equipment inspections complete for today!</p>
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>

@@ -49,6 +49,7 @@ export default function DriverDashboard() {
   const [showGame, setShowGame] = useState(false);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -186,6 +187,32 @@ export default function DriverDashboard() {
     };
   }, [user?.id, toast]);
 
+  // Load total outstanding earnings (completed deliveries)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const loadEarnings = async () => {
+      const { data, error } = await supabase
+        .from("driver_assignments")
+        .select("total_earnings")
+        .eq("driver_id", user.id)
+        .in("status", ["completed", "delivered"]);
+
+      if (error) {
+        console.error("Error loading driver earnings:", error);
+        return;
+      }
+
+      const total = (data || []).reduce(
+        (sum: number, row: any) => sum + (Number(row.total_earnings) || 0),
+        0
+      );
+      setTotalEarnings(total);
+    };
+
+    loadEarnings();
+  }, [user?.id, jobs.length]);
+
   // Subscribe to order updates (when status changes)
   useEffect(() => {
     if (!user?.id || !user?.company_id) return;
@@ -226,7 +253,6 @@ export default function DriverDashboard() {
     (j) => j.event_date === new Date().toISOString().split("T")[0]
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
-  const totalEarnings = 3850; // Mock earnings
 
   const openNavigation = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
