@@ -4,6 +4,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -14,6 +15,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <BrandingProvider>
           <AuthProvider>
             <Component {...pageProps} />
+            <MiddlewareErrorToast />
             <Toaster />
           </AuthProvider>
         </BrandingProvider>
