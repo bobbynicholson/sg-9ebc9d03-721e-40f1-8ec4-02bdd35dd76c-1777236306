@@ -10,18 +10,6 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const ROLE_REDIRECTS: Record<string, (slug: string) => string> = {
-  super_admin: () => "/admin/platform/dashboard",
-  company_admin: (slug) => `/${slug}/admin/dashboard`,
-  admin: (slug) => `/${slug}/admin/dashboard`,
-  owner: (slug) => `/${slug}/admin/dashboard`,
-  driver: (slug) => `/${slug}/team-portal/driver/dashboard`,
-  kitchen_staff: (slug) => `/${slug}/team-portal/kitchen/dashboard`,
-  shopping_staff: (slug) => `/${slug}/team-portal/shopping/dashboard`,
-  cleaning_staff: (slug) => `/${slug}/team-portal/cleaning/dashboard`,
-  client: (slug) => `/${slug}/client-portal/dashboard`,
-};
-
 export default function CompanyLoginPage() {
   const router = useRouter();
   const { company_slug, message } = router.query;
@@ -126,9 +114,8 @@ export default function CompanyLoginPage() {
       return;
     }
 
-    const redirectBuilder = ROLE_REDIRECTS[activeRole];
-    const target = redirectBuilder ? redirectBuilder(profileSlug || slugString) : "/";
-    router.push(target);
+    // Hard-navigate to "/" — middleware handles slug-aware role landing.
+    window.location.assign("/");
   };
 
   if (!company_slug) {

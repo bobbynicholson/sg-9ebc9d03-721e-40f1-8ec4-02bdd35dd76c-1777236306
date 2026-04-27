@@ -8,9 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, Lock, Loader2, Crown, UserCog, Shield, ChefHat, Truck, ShoppingCart, SprayCan, Users } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { profileService } from "@/services/profileService";
 import { createClient } from "@/lib/supabase/client";
-import { getLandingPageForRoleString } from "@/lib/authGuards";
 
 // Dev Mode Test Users
 const DEV_USERS = [
@@ -80,41 +78,15 @@ const DEV_USERS = [
   },
 ];
 
-// Route user after successful login based on active_role
+// Route user after successful login. We hard-navigate to "/" and let
+// middleware do the slug-aware role landing redirect — single source of truth,
+// no duplicated client-side slug lookup.
 const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: string) => {
-  try {
-    const profile = await profileService.getProfile(userId);
-    if (!profile) throw new Error("Profile not found");
-
-    // Honor redirectTo if provided
-    if (redirectTo) {
-      window.location.assign(redirectTo);
-      return;
-    }
-
-    // Route based on active_role — landing map lives in lib/authGuards
-    const role = profile.active_role || profile.role;
-
-    // Look up company slug so multi-tenant URLs include /[company_slug]
-    let companySlug: string | undefined;
-    if (profile.company_id) {
-      const sb = createClient();
-      const { data: company } = await sb
-        .from("companies")
-        .select("slug")
-        .eq("id", profile.company_id)
-        .maybeSingle();
-      companySlug = company?.slug ?? undefined;
-    }
-
-    const destination = getLandingPageForRoleString(role, companySlug);
-
-    // Use hard navigation to ensure component swap
-    window.location.assign(destination);
-  } catch (error) {
-    console.error("Error routing after login:", error);
-    window.location.assign("/admin/leads"); // fallback
+  if (redirectTo) {
+    window.location.assign(redirectTo);
+    return;
   }
+  window.location.assign("/");
 };
 
 export default function LoginPage() {

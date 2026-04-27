@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getLandingPageForRoleString } from "@/lib/authGuards";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -36,35 +35,9 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // Regular login callback - fetch profile and redirect based on role
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-
-          console.log("🔄 Callback - User profile:", profile);
-          console.log("🎭 Callback - User role:", profile?.role);
-
-          if (profile?.role) {
-            // Look up company slug for multi-tenant landing URL
-            let companySlug: string | undefined;
-            if (profile.company_id) {
-              const { data: company } = await supabase
-                .from("companies")
-                .select("slug")
-                .eq("id", profile.company_id)
-                .maybeSingle();
-              companySlug = company?.slug ?? undefined;
-            }
-            // Single source of truth for landing pages: lib/authGuards
-            const dashboardUrl = getLandingPageForRoleString(profile.role as string, companySlug);
-            console.log("🔄 Callback redirect:", profile.role, "→", dashboardUrl);
-            await router.push(dashboardUrl);
-          } else {
-            console.warn("⚠️ No role found in profile, redirecting to home");
-            router.push("/");
-          }
+          // Regular login callback — hard-navigate to "/" and let middleware
+          // handle the slug-aware role landing redirect.
+          window.location.assign("/");
         } else {
           router.push("/auth/login");
         }
