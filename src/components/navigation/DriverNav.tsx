@@ -53,7 +53,10 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const baseUrl = companySlug ? `/company/${companySlug}` : "";
+  // Driver pages live at /team-portal/driver/* (no slug). Keep the prop for
+  // backward compatibility but ignore for routing purposes.
+  const baseUrl = "";
+  void companySlug;
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -74,13 +77,13 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
       items: [
         {
           title: "Overview",
-          href: `${baseUrl}/portal/driver/dashboard`,
+          href: `/team-portal/driver/dashboard`,
           icon: LayoutDashboard,
           description: "Today's summary"
         },
         {
           title: "Notifications",
-          href: `${baseUrl}/portal/driver/notifications`,
+          href: `/team-portal/driver/notifications`,
           icon: Bell,
           description: "View alerts"
         }
@@ -114,13 +117,13 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
       items: [
         {
           title: "My Earnings",
-          href: `${baseUrl}/portal/driver/earnings`,
+          href: `/team-portal/driver/earnings`,
           icon: DollarSign,
           description: "View your earnings"
         },
         {
           title: "Schedule",
-          href: `${baseUrl}/portal/driver/schedule`,
+          href: `/team-portal/driver/schedule`,
           icon: Calendar,
           description: "Work schedule"
         }
