@@ -233,7 +233,7 @@ export default function LoginPage() {
                   Welcome Back
                 </CardTitle>
                 <CardDescription className="text-sm text-slate-600">
-                  Sign in to your account
+                  Sign in -- we'll route you to your company portal
                 </CardDescription>
               </div>
             </div>
@@ -363,6 +363,10 @@ export default function LoginPage() {
                   <Link href="/company-signup" className="text-purple-600 hover:text-purple-700 font-medium">
                     Sign up for free
                   </Link>
+                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Tip: bookmark the URL in your browser bar after you sign in --
+                  it includes your company name and takes you straight to the right portal next time.
                 </p>
                 <p className="text-xs text-slate-400">
                   Need help?{" "}

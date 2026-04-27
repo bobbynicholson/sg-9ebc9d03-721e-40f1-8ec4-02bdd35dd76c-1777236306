@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -251,7 +252,9 @@ export default function UserManagementPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <PlatformNav />
+        <div className="container mx-auto p-6 max-w-7xl">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
@@ -465,6 +468,7 @@ export default function UserManagementPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </div>
       </div>
     </ProtectedRoute>
   );

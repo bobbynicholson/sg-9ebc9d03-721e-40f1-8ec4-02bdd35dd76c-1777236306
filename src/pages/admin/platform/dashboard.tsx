@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -295,11 +296,13 @@ export default function PlatformDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <Head>
         <title>CateringMS Platform Dashboard - Internal Sales & Metrics</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
+
+      <PlatformNav />
 
       <div className="container mx-auto p-6 max-w-7xl">
         <div className="mb-8">

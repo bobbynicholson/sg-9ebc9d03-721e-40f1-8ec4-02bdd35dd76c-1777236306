@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { SignOutButton } from "@/components/navigation/SignOutButton";
 
 interface NavItem {
   title: string;
@@ -171,6 +172,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
             </div>
           </div>
         ))}
+        <div className="pt-4 border-t border-slate-100"><SignOutButton /></div>
       </div>
     </ScrollArea>
   );
@@ -301,7 +303,8 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
           </ScrollArea>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+            <SignOutButton collapsed={isCollapsed} />
             <Button
               variant="ghost"
               className={`w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 ${

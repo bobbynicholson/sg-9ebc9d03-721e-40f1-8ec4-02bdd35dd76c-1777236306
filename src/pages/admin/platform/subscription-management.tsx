@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -185,7 +186,8 @@ export default function PlatformSubscriptionManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <PlatformNav />
       <Head>
         <title>Subscription Management - CateringMS Platform</title>
         <meta name="robots" content="noindex, nofollow" />

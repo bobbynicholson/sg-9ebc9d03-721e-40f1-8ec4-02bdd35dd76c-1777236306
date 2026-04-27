@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +107,8 @@ export default function PricingManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <PlatformNav />
       <Header />
       
       <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">

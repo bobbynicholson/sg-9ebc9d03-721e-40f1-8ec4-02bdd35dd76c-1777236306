@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -74,7 +75,29 @@ export function AdminNav({ className }: AdminNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const { profile } = useAuth();
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Sign out error", err);
+    } finally {
+      try {
+        document.cookie.split(";").forEach((c) => {
+          const n = c.split("=")[0].trim();
+          document.cookie = `${n}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        });
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+      window.location.assign("/auth/login");
+    }
+  };
   
   // Get company slug for the view switcher
   const companySlug = profile?.company_slug || (router.query.company_slug as string) || "";
@@ -382,6 +405,22 @@ export function AdminNav({ className }: AdminNavProps) {
     return router.pathname === href || router.asPath === href;
   };
 
+  const SignOutBlock = ({ collapsed = false }: { collapsed?: boolean }) => (
+    <Button
+      variant="ghost"
+      onClick={handleSignOut}
+      disabled={signingOut}
+      title="Sign out"
+      className={cn(
+        "w-full mt-3 border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700",
+        collapsed ? "justify-center px-2" : "justify-start gap-3 px-4"
+      )}
+    >
+      <LogOut className="h-4 w-4" />
+      {!collapsed && <span>{signingOut ? "Signing out..." : "Sign out"}</span>}
+    </Button>
+  );
+
   const NavContent = () => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
@@ -420,6 +459,7 @@ export function AdminNav({ className }: AdminNavProps) {
             </div>
           </div>
         ))}
+        <SignOutBlock />
       </div>
     </ScrollArea>
   );
@@ -565,7 +605,8 @@ export function AdminNav({ className }: AdminNavProps) {
           </ScrollArea>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+            <SignOutBlock collapsed={isCollapsed} />
             <Button
               variant="ghost"
               className={`w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 ${

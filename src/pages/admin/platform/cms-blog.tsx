@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -207,7 +208,8 @@ export default function CMSBlogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50 p-8 lg:pl-64 xl:pl-72 pt-20 lg:pt-8">
+      <PlatformNav />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
