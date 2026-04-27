@@ -95,7 +95,7 @@ export default function UserManagementPage() {
           companies (
             id,
             company_name,
-            company_slug
+            slug
           )
         `)
         .order("created_at", { ascending: false });

@@ -28,7 +28,7 @@ export async function getCompanyContext(): Promise<CompanyContext | null> {
       company_id,
       companies!inner(
         id,
-        company_slug
+        slug
       )
     `)
     .eq("id", session.user.id)
@@ -38,7 +38,7 @@ export async function getCompanyContext(): Promise<CompanyContext | null> {
 
   return {
     companyId: profile.company_id,
-    companySlug: profile.companies.company_slug,
+    companySlug: (profile.companies as any).slug,
     userId: profile.id,
     userRole: profile.active_role,
   };
