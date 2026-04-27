@@ -116,14 +116,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 301); // Permanent redirect
   }
 
-  // 🔧 DEV MODE: Skip all auth checks on localhost if requested
-  const isDevEnvironment = 
-    (request.nextUrl.hostname === "localhost" || 
-     request.nextUrl.hostname === "127.0.0.1") &&
-    request.nextUrl.searchParams.has("dev");
+  // 🔧 DEV MODE: Skip all auth checks on localhost if requested.
+  // Triple-gated: NODE_ENV must be non-production (compile-time on Vercel),
+  // hostname must be localhost/127.0.0.1, and ?dev query param must be present.
+  if (process.env.NODE_ENV !== "production") {
+    const isDevEnvironment =
+      (request.nextUrl.hostname === "localhost" ||
+       request.nextUrl.hostname === "127.0.0.1") &&
+      request.nextUrl.searchParams.has("dev");
 
-  if (isDevEnvironment) {
-    return NextResponse.next();
+    if (isDevEnvironment) {
+      return NextResponse.next();
+    }
   }
 
   let response = NextResponse.next({
