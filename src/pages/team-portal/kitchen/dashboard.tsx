@@ -57,7 +57,7 @@ export default function KitchenDashboard() {
         .eq("company_id", user.company_id)
         .gte("event_date", new Date().toISOString().split("T")[0])
         .lte("event_date", threeDaysFromNow.toISOString().split("T")[0])
-        .in("status", ["confirmed", "preparing", "prep", "ready"])
+        .in("status", ["confirmed", "preparing", "ready"])
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true });
 

@@ -33,15 +33,12 @@ export default function ShoppingDashboard() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("all");
 
-  const inventoryItems = [
-    { id: '1', name: 'Beef', quantityAvailable: 5, minimumStock: 20, unit: 'kg', costPerUnit: 120 },
-    { id: '2', name: 'Chicken', quantityAvailable: 8, minimumStock: 25, unit: 'kg', costPerUnit: 80 },
-    { id: '3', name: 'Rice', quantityAvailable: 15, minimumStock: 30, unit: 'kg', costPerUnit: 25 },
-    { id: '4', name: 'Olive Oil', quantityAvailable: 2, minimumStock: 10, unit: 'L', costPerUnit: 150 },
-    { id: '5', name: 'Plates', quantityAvailable: 50, minimumStock: 100, unit: 'units', costPerUnit: 15 },
-  ];
+  const [inventoryItems, setInventoryItems] = useState<Array<{
+    id: string; name: string; quantityAvailable: number; minimumStock: number; unit: string; costPerUnit: number;
+  }>>([]);
 
   useEffect(() => {
+    if (!user?.company_id) return;
     let cancelled = false;
     (async () => {
       const today = new Date();
@@ -49,12 +46,37 @@ export default function ShoppingDashboard() {
       const startStr = today.toISOString().split("T")[0];
       const endStr = cutoff.toISOString().split("T")[0];
 
+      // CRITICAL: scope to this company. Without the eq("company_id") clause
+      // every shopping staff member sees orders from every other catering
+      // company in the system -- multi-tenant leak.
       const { data: orders, error } = await supabase
         .from("orders")
         .select("id, order_number, client_name, event_date, status, order_items(item_name, quantity, special_instructions)")
+        .eq("company_id", user.company_id)
         .gte("event_date", startStr)
         .lte("event_date", endStr)
+        .neq("status", "cancelled")
         .order("event_date", { ascending: true });
+
+      // Live inventory in place of hardcoded Beef/Chicken/Rice mocks
+      const { data: invRows } = await supabase
+        .from("inventory_items")
+        .select("id, item_name, current_stock, minimum_stock, unit_of_measure, cost_per_unit")
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .order("item_name", { ascending: true });
+      if (!cancelled) {
+        setInventoryItems(
+          (invRows || []).map((r: any) => ({
+            id: r.id,
+            name: r.item_name ?? "Unnamed",
+            quantityAvailable: Number(r.current_stock || 0),
+            minimumStock: Number(r.minimum_stock || 0),
+            unit: r.unit_of_measure ?? "unit",
+            costPerUnit: Number(r.cost_per_unit || 0),
+          })),
+        );
+      }
 
       if (error) {
         console.error("Shopping list query failed:", error);
@@ -95,7 +117,7 @@ export default function ShoppingDashboard() {
       if (!cancelled) setItems(merged);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [user?.company_id]);
 
   const handleTogglePurchased = (itemId: string) => {
     const updated = items.map((item) =>

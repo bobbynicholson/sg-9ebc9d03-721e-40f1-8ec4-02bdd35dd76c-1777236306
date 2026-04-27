@@ -88,13 +88,17 @@ export default function DriverDashboard() {
         return;
       }
 
-      // Also get orders directly assigned to driver
+      // Also get orders directly assigned to driver. Catering orders may
+      // have either `driver_id` (legacy) or `assigned_driver_id` (current
+      // dispatch flow) populated, so we OR across both columns. Status
+      // values use the canonical set (preparing / in_transit), not the
+      // legacy strings the page used to filter on.
       const { data: directOrders, error: ordersError } = await supabase
         .from("orders")
         .select("*")
-        .eq("driver_id", user.id)
         .eq("company_id", user.company_id)
-        .in("status", ["confirmed", "prep", "ready", "out_for_delivery"])
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit"])
         .order("event_date", { ascending: true });
 
       if (ordersError) {

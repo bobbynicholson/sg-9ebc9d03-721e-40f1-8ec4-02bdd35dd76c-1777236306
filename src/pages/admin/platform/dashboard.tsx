@@ -30,29 +30,35 @@ import {
 import { analyticsService } from "@/services/analyticsService";
 import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
 import { AuditLogsViewer } from "@/components/admin/platform/AuditLogsViewer";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
-const StatCard = ({ 
-  title, 
-  value, 
-  change, 
-  changeType, 
-  icon: Icon, 
-  subtitle 
-}: { 
-  title: string; 
-  value: string; 
-  change?: string; 
-  changeType?: "positive" | "negative"; 
-  icon: any; 
+const StatCard = ({
+  title,
+  value,
+  change,
+  changeType,
+  icon: Icon,
+  subtitle,
+  tooltip,
+}: {
+  title: string;
+  value: string;
+  change?: string;
+  changeType?: "positive" | "negative";
+  icon: any;
   subtitle?: string;
+  tooltip?: string;
 }) => (
   <Card>
     <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
+      <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+        {title}
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </CardTitle>
       <Icon className="h-4 w-4 text-slate-400" />
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
       {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
       {change && (
         <div className={`flex items-center gap-1 text-xs mt-2 ${
@@ -436,36 +442,32 @@ export default function PlatformDashboard() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
-            title="Total Revenue"
+            title="SaaS Revenue (active)"
             value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
-            subtitle="All-time earnings"
+            subtitle="Sum across active subscriptions"
             icon={DollarSign}
-            change="+12.5% from last month"
-            changeType="positive"
+            tooltip="Sum of subscription amounts where status='active' (monthly + annual). Sourced from get_all_subscriptions_admin RPC. Trial accounts are excluded -- they don't generate revenue yet."
           />
           <StatCard
             title="Active Customers"
             value={analyticsService.formatNumber(metrics?.activeSubscriptions || 0)}
             subtitle={`${metrics?.totalCustomers || 0} total signups`}
             icon={Users}
-            change="+8.2% from last month"
-            changeType="positive"
+            tooltip="Companies with subscription_status='active'. Trial / cancelled / paused accounts are not counted. Total signups includes everyone who ever created a tenant."
           />
           <StatCard
             title="Monthly Recurring Revenue"
             value={analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)}
             subtitle="MRR"
             icon={TrendingUp}
-            change="+15.3% from last month"
-            changeType="positive"
+            tooltip="Sum of monthly-billed subscription amounts where status='active'. Annual plans are not included here -- they roll into Annual Recurring Revenue (ARR)."
           />
           <StatCard
             title="Churn Rate"
             value={analyticsService.formatPercentage(metrics?.churnRate || 0)}
             subtitle="Last 30 days"
             icon={Activity}
-            change="-2.1% from last month"
-            changeType="positive"
+            tooltip="Percent of active customers who cancelled in the last 30 days: cancelled_count / active_subs * 100. A noisy number while the customer base is small -- one cancel can swing it dramatically."
           />
         </div>
 
@@ -475,18 +477,21 @@ export default function PlatformDashboard() {
             value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
             subtitle="Per active subscription"
             icon={DollarSign}
+            tooltip="Total SaaS revenue divided by total subscriber count (active + trial + cancelled). Lower while you're heavy on trials -- normalises as paid mix grows."
           />
           <StatCard
             title="Conversion Rate"
             value={analyticsService.formatPercentage(metrics?.conversionRate || 0)}
             subtitle="Trial to paid"
             icon={TrendingUp}
+            tooltip="Active subscriptions divided by total subscriptions (incl. trials and cancelled). At 0% you're pre-revenue; aim for 30%+ once trials start converting."
           />
           <StatCard
             title="Lifetime Value"
             value={analyticsService.formatCurrency(metrics?.lifetimeValue || 0)}
             subtitle="Estimated LTV"
             icon={Package}
+            tooltip="Average revenue per user multiplied by 24 (rough 2-year lifetime assumption). Replace with cohort-based LTV once you have 6+ months of churn data."
           />
         </div>
 
