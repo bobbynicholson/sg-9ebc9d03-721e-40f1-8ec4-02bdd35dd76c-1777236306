@@ -80,9 +80,7 @@ export default function InvoicesPage() {
             order_number,
             event_date,
             clients (
-              first_name,
-              last_name,
-              company_name,
+              client_name,
               email
             )
           )
@@ -111,9 +109,7 @@ export default function InvoicesPage() {
       .select(`
         *,
         clients (
-          first_name,
-          last_name,
-          company_name,
+          client_name,
           email
         )
       `)
@@ -319,7 +315,8 @@ export default function InvoicesPage() {
     return matchesSearch && matchesStatus;
   });
 
-  if (!user || (activeRole !== "admin" && activeRole !== "super_admin")) {
+  const allowedRoles = ["admin", "super_admin", "company_admin", "owner"];
+  if (!user || !allowedRoles.includes(activeRole as string)) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -414,8 +411,7 @@ export default function InvoicesPage() {
                   >
                     <div className="flex-1">
                       <div className="font-medium">
-                        {order.clients?.company_name || 
-                         `${order.clients?.first_name} ${order.clients?.last_name}`}
+                        {order.clients?.client_name || "Unknown client"}
                       </div>
                       <div className="text-sm text-slate-600">
                         Order #{order.order_number} • {order.event_date ? format(new Date(order.event_date), "dd MMM yyyy") : "No date"}
@@ -501,8 +497,7 @@ export default function InvoicesPage() {
                       </div>
                       <div>
                         <div className="text-sm">
-                          {invoice.orders?.clients?.company_name ||
-                           `${invoice.orders?.clients?.first_name || ""} ${invoice.orders?.clients?.last_name || ""}`.trim()}
+                          {invoice.orders?.clients?.client_name || "Unknown client"}
                         </div>
                         <div className="text-xs text-slate-600">
                           {invoice.orders?.clients?.email}

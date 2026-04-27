@@ -89,16 +89,13 @@ export async function generateInvoiceData(
       .select(`
         *,
         clients (
-          first_name,
-          last_name,
+          client_name,
           email,
           phone,
-          company_name,
-          address_line1,
-          address_line2,
-          city,
-          state_province,
-          postal_code
+          billing_address_line1,
+          billing_address_line2,
+          billing_city,
+          billing_postal_code
         )
       `)
       .eq("id", orderId)
@@ -142,15 +139,13 @@ export async function generateInvoiceData(
     const balanceDue = total - depositPaid;
 
     // 5. Format client details
-    const client = orderData.clients as any;
-    const clientName = client.company_name || 
-      `${client.first_name || ""} ${client.last_name || ""}`.trim();
+    const client = (orderData.clients || {}) as any;
+    const clientName = client.client_name || "Unknown client";
     const clientAddress = [
-      client.address_line1,
-      client.address_line2,
-      client.city,
-      client.state_province,
-      client.postal_code
+      client.billing_address_line1,
+      client.billing_address_line2,
+      client.billing_city,
+      client.billing_postal_code,
     ].filter(Boolean).join(", ");
 
     // 6. Build invoice data

@@ -58,7 +58,7 @@ function ClientSearchPage() {
   const loadClients = async () => {
     try {
       setLoading(true);
-      const data = await profileService.getAllClients();
+      const data = await profileService.getAllClients(user?.company_id);
       setClients(data);
       setFilteredClients(data);
     } catch (error) {

@@ -144,11 +144,14 @@ export const profileService = {
     return data || [];
   },
 
-  async getAllClients(): Promise<Profile[]> {
-    const { data, error } = await supabase
+  async getAllClients(companyId?: string): Promise<Profile[]> {
+    let query = supabase
       .from("profiles")
       .select("*")
+      .eq("role", "client")
       .order("created_at", { ascending: false });
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching all clients:", error);
