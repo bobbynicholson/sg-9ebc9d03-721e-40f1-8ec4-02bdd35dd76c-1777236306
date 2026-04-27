@@ -6,11 +6,11 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Complaint = Tables<"complaints">;
 
 export const complaintService = {
-  async getComplaints(userId: string): Promise<Complaint[]> {
+  async getComplaints(companyId: string): Promise<Complaint[]> {
     const { data, error } = await supabase
       .from("complaints")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (error) {

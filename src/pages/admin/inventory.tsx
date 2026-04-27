@@ -48,13 +48,16 @@ export default function AdminInventory() {
   useEffect(() => {
     if (!user?.id) return;
     loadInventory();
-  }, [user?.id]);
+  }, [user?.company_id]);
 
   const loadInventory = async () => {
-    if (!user?.id) return;
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const rows = await inventoryService.getInventory(user.id);
+      const rows = await inventoryService.getInventory(user.company_id);
       const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
         id: row.id,
         name: row.name ?? "Unnamed",

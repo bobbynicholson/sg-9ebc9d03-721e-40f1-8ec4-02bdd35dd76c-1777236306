@@ -8,11 +8,11 @@ type EquipmentInsert = Database["public"]["Tables"]["equipment"]["Insert"];
 type EquipmentUpdate = Database["public"]["Tables"]["equipment"]["Update"];
 
 export const equipmentManagementService = {
-  async getAllEquipment(userId: string) {
+  async getAllEquipment(companyId: string) {
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("name", { ascending: true });
 
     if (error) throw error;
@@ -30,11 +30,11 @@ export const equipmentManagementService = {
     return data as Equipment;
   },
 
-  async getEquipmentByCategory(userId: string, category: string) {
+  async getEquipmentByCategory(companyId: string, category: string) {
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .eq("category", category)
       .order("name", { ascending: true });
 
@@ -42,11 +42,11 @@ export const equipmentManagementService = {
     return data as Equipment[];
   },
 
-  async getAvailableEquipment(userId: string) {
+  async getAvailableEquipment(companyId: string) {
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .gt("quantity_available", 0)
       .order("category", { ascending: true });
 
@@ -101,7 +101,7 @@ export const equipmentManagementService = {
 
     const { data, error } = await supabase
       .from("equipment")
-      .update({ 
+      .update({
         quantity_available: newAvailable,
         updated_at: new Date().toISOString()
       } as any)
@@ -121,11 +121,11 @@ export const equipmentManagementService = {
     return this.updateEquipmentQuantity(id, quantity);
   },
 
-  async getEquipmentStats(userId: string) {
+  async getEquipmentStats(companyId: string) {
     const { data, error } = await supabase
       .from("equipment")
       .select("category, quantity, available_quantity, condition")
-      .eq("user_id", userId);
+      .eq("company_id", companyId);
 
     if (error) throw error;
     if (!data) return null;
@@ -157,11 +157,11 @@ export const equipmentManagementService = {
     return stats;
   },
 
-  async searchEquipment(userId: string, searchTerm: string) {
+  async searchEquipment(companyId: string, searchTerm: string) {
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .ilike("name", `%${searchTerm}%`)
       .order("name", { ascending: true });
 
@@ -169,14 +169,14 @@ export const equipmentManagementService = {
     return data as Equipment[];
   },
 
-  async getMaintenanceDueEquipment(userId: string, daysThreshold: number = 90) {
+  async getMaintenanceDueEquipment(companyId: string, daysThreshold: number = 90) {
     const thresholdDate = new Date();
     thresholdDate.setDate(thresholdDate.getDate() - daysThreshold);
 
     const { data, error } = await supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .lt("last_maintenance_date", thresholdDate.toISOString())
       .order("last_maintenance_date", { ascending: true });
 

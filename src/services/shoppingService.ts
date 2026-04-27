@@ -11,11 +11,11 @@ export type PurchaseHistory = Tables<"purchase_history">;
 export type SupplierPrice = Tables<"supplier_prices">;
 
 export const shoppingService = {
-  async getShoppingLists(userId: string): Promise<ShoppingList[]> {
+  async getShoppingLists(companyId: string): Promise<ShoppingList[]> {
     const { data, error } = await supabase
       .from("shopping_lists")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("list_date", { ascending: false });
 
     if (error) {
@@ -267,11 +267,11 @@ export const shoppingService = {
     }
   },
 
-  async getPurchaseHistory(userId: string): Promise<PurchaseHistory[]> {
+  async getPurchaseHistory(companyId: string): Promise<PurchaseHistory[]> {
     const { data, error } = await supabase
       .from("purchase_history")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("purchase_date", { ascending: false });
 
     if (error) {
@@ -297,11 +297,11 @@ export const shoppingService = {
     return data;
   },
 
-  async getSupplierPrices(userId: string, itemName?: string): Promise<SupplierPrice[]> {
+  async getSupplierPrices(companyId: string, itemName?: string): Promise<SupplierPrice[]> {
     let query = supabase
       .from("supplier_prices")
       .select("*")
-      .eq("user_id", userId);
+      .eq("company_id", companyId);
 
     if (itemName) {
       query = query.ilike("item_name", `%${itemName}%`);
@@ -319,11 +319,11 @@ export const shoppingService = {
     return data || [];
   },
 
-  async getBestSupplierPrice(userId: string, itemName: string): Promise<SupplierPrice | null> {
+  async getBestSupplierPrice(companyId: string, itemName: string): Promise<SupplierPrice | null> {
     const { data, error } = await supabase
       .from("supplier_prices")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .ilike("item_name", `%${itemName}%`)
       .order("unit_price")
       .limit(1)

@@ -6,11 +6,11 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Inventory = Tables<"inventory">;
 
 export const inventoryService = {
-  async getInventory(userId: string, regionId?: string): Promise<Inventory[]> {
+  async getInventory(companyId: string, regionId?: string): Promise<Inventory[]> {
     let query = supabase
       .from("inventory")
       .select("*")
-      .eq("user_id", userId);
+      .eq("company_id", companyId);
 
     if (regionId) {
       query = query.eq("region_id", regionId);
@@ -86,11 +86,11 @@ export const inventoryService = {
     return true;
   },
 
-  async getLowStockItems(userId: string): Promise<Inventory[]> {
+  async getLowStockItems(companyId: string): Promise<Inventory[]> {
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .eq("status", "low_stock")
       .order("name");
 
@@ -102,14 +102,14 @@ export const inventoryService = {
     return data || [];
   },
 
-  async getExpiringItems(userId: string, daysAhead: number = 7): Promise<Inventory[]> {
+  async getExpiringItems(companyId: string, daysAhead: number = 7): Promise<Inventory[]> {
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + daysAhead);
 
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .lte("expiry_date", expiryDate.toISOString().split("T")[0])
       .order("expiry_date");
 

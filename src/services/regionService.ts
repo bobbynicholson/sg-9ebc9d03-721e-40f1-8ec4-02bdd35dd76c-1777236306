@@ -6,11 +6,11 @@ import type { Tables } from "@/integrations/supabase/types";
 export type Region = Tables<"regions">;
 
 export const regionService = {
-  async getRegions(userId: string): Promise<Region[]> {
+  async getRegions(companyId: string): Promise<Region[]> {
     const { data, error } = await supabase
       .from("regions")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("name");
 
     if (error) {

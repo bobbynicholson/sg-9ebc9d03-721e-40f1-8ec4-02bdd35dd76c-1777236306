@@ -92,11 +92,14 @@ function EquipmentShortagesPage() {
   }, [shortages, searchTerm, statusFilter, priorityFilter]);
 
   const loadShortages = async () => {
-    if (!user) return;
-    
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const data = await equipmentShortageService.getShortageFlags(user.id);
+      const data = await equipmentShortageService.getShortageFlags(user.company_id);
       setShortages(data.map(flag => {
         return {
           id: flag.id,

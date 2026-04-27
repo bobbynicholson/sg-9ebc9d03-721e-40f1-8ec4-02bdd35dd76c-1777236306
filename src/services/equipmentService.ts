@@ -8,11 +8,11 @@ export type Equipment = Tables<"equipment">;
 export type EquipmentBooking = Tables<"equipment_bookings">;
 
 export const equipmentService = {
-  async getEquipment(userId: string, regionId?: string): Promise<Equipment[]> {
+  async getEquipment(companyId: string, regionId?: string): Promise<Equipment[]> {
     let query = supabase
       .from("equipment")
       .select("*")
-      .eq("user_id", userId);
+      .eq("company_id", companyId);
 
     if (regionId) {
       query = query.eq("region_id", regionId);

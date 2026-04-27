@@ -8,11 +8,11 @@ type PaymentGateway = Database["public"]["Tables"]["payment_gateways"]["Row"];
 type PaymentGatewayInsert = Database["public"]["Tables"]["payment_gateways"]["Insert"];
 
 export const paymentGatewayService = {
-  async getPaymentGateways(userId: string): Promise<PaymentGateway[]> {
+  async getPaymentGateways(companyId: string): Promise<PaymentGateway[]> {
     const { data, error } = await supabase
       .from("payment_gateways")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -23,11 +23,11 @@ export const paymentGatewayService = {
     return data || [];
   },
 
-  async getActiveGateways(userId: string): Promise<PaymentGateway[]> {
+  async getActiveGateways(companyId: string): Promise<PaymentGateway[]> {
     const { data, error } = await supabase
       .from("payment_gateways")
       .select("*")
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .eq("is_active", true)
       .order("gateway_name");
 

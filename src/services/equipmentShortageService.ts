@@ -79,7 +79,7 @@ export const equipmentShortageService = {
     }
   },
 
-  async getShortageFlags(userId: string, filters?: {
+  async getShortageFlags(companyId: string, filters?: {
     status?: string;
     priority?: string;
     orderId?: string;
@@ -102,7 +102,7 @@ export const equipmentShortageService = {
           email
         )
       `)
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .order("created_at", { ascending: false });
 
     if (filters?.status) {
@@ -203,18 +203,18 @@ export const equipmentShortageService = {
     });
   },
 
-  async getPendingShortagesCount(userId: string) {
+  async getPendingShortagesCount(companyId: string) {
     const { count, error } = await supabase
       .from("equipment_shortage_flags")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .eq("status", "pending");
 
     if (error) throw error;
     return count || 0;
   },
 
-  async getShortagesByClient(userId: string, clientName: string) {
+  async getShortagesByClient(companyId: string, clientName: string) {
     const { data, error } = await supabase
       .from("equipment_shortage_flags")
       .select(`
@@ -228,7 +228,7 @@ export const equipmentShortageService = {
           category
         )
       `)
-      .eq("user_id", userId)
+      .eq("company_id", companyId)
       .ilike("client_name", `%${clientName}%`)
       .order("created_at", { ascending: false });
 
