@@ -364,7 +364,7 @@ export default function PlatformDashboard() {
             <div className="mt-4 grid grid-cols-4 gap-4">
               <div className="text-center p-3 bg-white rounded-lg">
                 <p className="text-xs text-slate-600">Active Companies</p>
-                <p className="text-lg font-bold text-slate-900">{metrics?.activeSubscriptions || 0}</p>
+                <p className="text-lg font-bold text-slate-900">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</p>
               </div>
               <div className="text-center p-3 bg-white rounded-lg">
                 <p className="text-xs text-slate-600">Avg Response Time</p>

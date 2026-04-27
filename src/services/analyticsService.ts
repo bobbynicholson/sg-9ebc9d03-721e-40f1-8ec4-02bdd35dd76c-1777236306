@@ -15,6 +15,8 @@ interface DashboardMetrics {
   averageRevenuePerUser: number;
   lifetimeValue: number;
   conversionRate: number;
+  totalCompanies?: number;
+  activeCompanies?: number;
 }
 
 interface CustomerGrowth {
@@ -149,12 +151,36 @@ export const analyticsService = {
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     try {
+      // Always pull live company counts directly — subscriptions table is
+      // optional and the RPC may not be configured in every environment.
+      const { count: totalCompanies } = await supabase
+        .from("companies")
+        .select("id", { count: "exact", head: true });
+      const { count: activeCompanies } = await supabase
+        .from("companies")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true);
+
       const { data: subscriptions, error } = await supabase
         .rpc("get_all_subscriptions_admin");
 
       if (error) {
-        console.error("Error fetching subscriptions:", error);
-        throw error;
+        console.warn("[platform] subscriptions RPC failed, falling back to companies-only metrics:", error.message);
+        return {
+          totalRevenue: 0,
+          monthlyRecurringRevenue: 0,
+          annualRecurringRevenue: 0,
+          totalCustomers: totalCompanies ?? 0,
+          activeSubscriptions: activeCompanies ?? 0,
+          trialSubscriptions: 0,
+          cancelledSubscriptions: 0,
+          churnRate: 0,
+          averageRevenuePerUser: 0,
+          lifetimeValue: 0,
+          conversionRate: 0,
+          totalCompanies: totalCompanies ?? 0,
+          activeCompanies: activeCompanies ?? 0,
+        };
       }
 
       const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
@@ -197,7 +223,9 @@ export const analyticsService = {
         churnRate,
         averageRevenuePerUser,
         lifetimeValue: averageRevenuePerUser * 24,
-        conversionRate
+        conversionRate,
+        totalCompanies: totalCompanies ?? 0,
+        activeCompanies: activeCompanies ?? 0,
       };
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
