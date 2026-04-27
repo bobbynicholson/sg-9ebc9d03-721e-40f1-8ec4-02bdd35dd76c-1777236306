@@ -26,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
+import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 
 export default function ProtectedCalendarPage() {
   return (
@@ -471,13 +472,20 @@ function AdminCalendar() {
                                 <span className="truncate">{e.venue_address || "Venue TBD"}</span>
                               </span>
                             </div>
-                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 gap-2">
                               <span className="text-sm font-bold text-slate-900 tabular-nums">
                                 {fmtMoney.format(Number(e.total_amount || 0))}
                               </span>
-                              <span className="text-xs text-purple-600 font-medium flex items-center gap-1">
-                                Open order <ArrowRight className="w-3 h-3" />
-                              </span>
+                              <div
+                                className="flex items-center gap-1"
+                                onClick={(ev) => ev.stopPropagation()}
+                                onMouseDown={(ev) => ev.stopPropagation()}
+                              >
+                                <ClientLinkButton orderId={e.id} companyId={(e as any).company_id} compact />
+                                <span className="text-xs text-purple-600 font-medium flex items-center gap-1">
+                                  Open <ArrowRight className="w-3 h-3" />
+                                </span>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

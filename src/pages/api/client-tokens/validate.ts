@@ -1,0 +1,73 @@
+/**
+ * Validate a client access token and (if valid) set a short-lived
+ * cookie carrying the SHA-256 of the token. The /c/order/[id] page
+ * uses the cookie on subsequent visits so the raw token doesn't sit
+ * in URLs / browser history / referrer headers.
+ *
+ * Cookie name:  cms_client_token_<order_id>
+ * Cookie body:  <hex hash of raw token>
+ * Cookie life:  matches token expires_at, capped at 60 days
+ *
+ * Anyone can call this -- the token is the auth.
+ */
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "node:crypto";
+
+const sha256Hex = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
+  const orderId  = String(body.order_id || "").trim();
+  const rawToken = String(body.token    || "").trim();
+  if (!orderId || !rawToken) {
+    return res.status(400).json({ error: "order_id and token required" });
+  }
+
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return res.status(500).json({ error: "Server misconfigured" });
+  const client = createClient(url, anon, { auth: { persistSession: false } });
+
+  const tokenHash = sha256Hex(rawToken);
+  const ip =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    (req.socket as any)?.remoteAddress ||
+    null;
+  const ua = (req.headers["user-agent"] as string) || null;
+
+  const { data, error } = await client.rpc("client_view_order", {
+    p_token_hash: tokenHash,
+    p_order_id:   orderId,
+    p_ip:         ip,
+    p_user_agent: ua,
+  });
+
+  if (error) {
+    console.error("client_view_order failed:", error);
+    return res.status(500).json({ error: "Lookup failed" });
+  }
+  const result = data as any;
+  if (!result?.ok) {
+    return res.status(401).json({ error: result?.code || "invalid" });
+  }
+
+  // Set a cookie so the page doesn't have to keep the token in the URL
+  const expiresAt = new Date(result.token.expires_at);
+  const maxAgeSec = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000));
+  const cookie = [
+    `cms_client_token_${orderId}=${tokenHash}`,
+    `Max-Age=${Math.min(maxAgeSec, 60 * 60 * 24 * 60)}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Secure",
+  ].join("; ");
+  res.setHeader("Set-Cookie", cookie);
+
+  return res.status(200).json(result);
+}

@@ -46,6 +46,7 @@ import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
+import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 
 interface OrderStats {
   total: number;
@@ -319,18 +320,21 @@ function OrderProcessDashboard() {
               <span className="font-semibold text-slate-900">
                 R{Number(order.total_amount || 0).toLocaleString()}
               </span>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="gap-1"
-                onClick={() => {
-                  setSelectedOrder(order);
-                  setIsModalOpen(true);
-                }}
-              >
-                <Eye className="w-3 h-3" />
-                View
-              </Button>
+              <div className="flex items-center gap-1">
+                <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => {
+                    setSelectedOrder(order);
+                    setIsModalOpen(true);
+                  }}
+                >
+                  <Eye className="w-3 h-3" />
+                  View
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
