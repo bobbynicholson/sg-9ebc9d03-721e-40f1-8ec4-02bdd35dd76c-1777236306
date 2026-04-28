@@ -284,14 +284,14 @@ export default function PlatformSubscriptionManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <PlatformNav />
       <Head>
         <title>Subscription Management - CateringMS Platform</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="container mx-auto p-6 max-w-screen-2xl">
+      <div className="p-6 max-w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Subscription Management</h1>

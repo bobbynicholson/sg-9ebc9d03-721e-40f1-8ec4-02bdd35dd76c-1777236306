@@ -236,8 +236,8 @@ function NewQuotePage() {
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-8 max-w-screen-2xl">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64 xl:pl-72">
+        <div className="px-4 py-8 max-w-full">
           <Link href="/admin/leads">
             <Button variant="ghost" className="mb-3 sm:mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />

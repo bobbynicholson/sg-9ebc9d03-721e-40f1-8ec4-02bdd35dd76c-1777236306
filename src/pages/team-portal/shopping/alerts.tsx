@@ -116,8 +116,8 @@ export default function ShoppingAlertsPage() {
       <Head><title>Stock Alerts - CateringMS</title></Head>
       <ShoppingNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-screen-2xl">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-emerald-50 to-green-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-full">
           <div className="mb-6 sm:mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg flex-shrink-0">

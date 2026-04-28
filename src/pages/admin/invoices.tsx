@@ -331,7 +331,7 @@ export default function InvoicesPage() {
     <div className="min-h-screen bg-slate-50">
       <AdminNav />
       
-      <div className="container mx-auto py-8 px-4">
+      <div className="py-8 px-4">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Invoices</h1>

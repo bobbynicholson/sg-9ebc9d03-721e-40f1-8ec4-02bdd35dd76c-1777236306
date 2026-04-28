@@ -22,7 +22,7 @@ export default function KitchenDutyTrackingPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex items-center justify-center lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex items-center justify-center lg:pl-64 xl:pl-72">
         <div>Kitchen Duty Tracking Content</div>
       </div>
     </>

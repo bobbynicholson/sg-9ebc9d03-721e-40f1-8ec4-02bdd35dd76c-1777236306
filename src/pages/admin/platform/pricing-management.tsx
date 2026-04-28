@@ -107,11 +107,11 @@ export default function PricingManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <PlatformNav />
       <Header />
       
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-screen-2xl">
+      <div className="px-4 py-6 sm:py-8 max-w-full">
         {/* Mobile-Optimized Page Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">

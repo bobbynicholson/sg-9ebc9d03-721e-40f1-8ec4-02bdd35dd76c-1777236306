@@ -403,7 +403,7 @@ export default function CompanyDatabasePage() {
     return (
       <div className="min-h-screen bg-slate-50">
         <Header />
-        <div className="container mx-auto px-4 py-12">
+        <div className="px-4 py-12">
           <Card>
             <CardContent className="p-12 text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -419,11 +419,11 @@ export default function CompanyDatabasePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <PlatformNav />
       <Header />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

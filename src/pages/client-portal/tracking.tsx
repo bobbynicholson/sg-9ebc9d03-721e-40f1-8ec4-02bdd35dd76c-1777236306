@@ -259,7 +259,7 @@ export default function ClientTracking() {
         <NoIndexMeta />
         
         <div className="min-h-screen bg-slate-50 pb-20">
-          <div className="container mx-auto px-4 py-8">
+          <div className="px-4 py-8">
             <Card>
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -288,7 +288,7 @@ export default function ClientTracking() {
       <div className="min-h-screen bg-slate-50 pb-20">
         {/* Header */}
         <div className="bg-white border-b">
-          <div className="container mx-auto px-4 py-6">
+          <div className="px-4 py-6">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Track Your Order</h1>
@@ -306,7 +306,7 @@ export default function ClientTracking() {
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8">
+        <div className="px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Live Map */}
             <div className="lg:col-span-2">

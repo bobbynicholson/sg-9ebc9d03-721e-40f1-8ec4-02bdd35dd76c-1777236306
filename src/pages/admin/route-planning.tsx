@@ -279,8 +279,8 @@ export default function RoutePlanning() {
 
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-64 xl:pl-72">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 py-8 lg:pl-64 xl:pl-72">
+        <div className="max-w-full px-4 sm:px-6 lg:px-8">
           {/* Page Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">

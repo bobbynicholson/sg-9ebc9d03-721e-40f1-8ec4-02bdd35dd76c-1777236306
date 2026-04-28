@@ -270,9 +270,9 @@ export default function TrialManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <PlatformNav />
-    <div className="container mx-auto p-6 max-w-screen-2xl">
+    <div className="p-6 max-w-full">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Trial Management Dashboard</h1>
         <p className="text-muted-foreground">

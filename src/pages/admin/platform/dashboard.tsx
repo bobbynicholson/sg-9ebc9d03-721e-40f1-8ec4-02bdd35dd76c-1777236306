@@ -162,7 +162,7 @@ export default function PlatformDashboard() {
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
-        <div className="container mx-auto p-6 max-w-screen-2xl">
+        <div className="p-6 max-w-full">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">

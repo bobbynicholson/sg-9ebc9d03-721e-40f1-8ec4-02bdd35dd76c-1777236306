@@ -152,8 +152,8 @@ function SettingsPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
-        <div className="max-w-screen-2xl mx-auto space-y-4 md:space-y-6">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 p-4 md:p-6 lg:pl-64 xl:pl-72">
+        <div className="max-w-full space-y-4 md:space-y-6">
           {/* Header - Mobile Optimized */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">

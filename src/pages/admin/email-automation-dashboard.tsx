@@ -118,8 +118,8 @@ function EmailAutomationDashboard() {
       </Head>
 
       <AdminNav />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-8">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:pl-64 xl:pl-72">
+        <div className="px-4 py-8">
           <div className="mb-8">
             <Button
               variant="outline"

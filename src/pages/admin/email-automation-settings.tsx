@@ -223,7 +223,7 @@ function EmailAutomationSettings() {
     <>
       <NoIndexMeta />
       <AdminNav />
-      <div className="container mx-auto p-6 max-w-screen-2xl lg:pl-64 xl:pl-72">
+      <div className="p-6 max-w-full lg:pl-64 xl:pl-72">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold mb-2">Email Automation Settings</h1>

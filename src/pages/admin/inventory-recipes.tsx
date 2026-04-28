@@ -29,7 +29,7 @@ export default function InventoryRecipes() {
   return (
     <div className="min-h-screen bg-slate-50">
       <AdminNav />
-      <div className="container mx-auto px-4 py-8">
+      <div className="px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

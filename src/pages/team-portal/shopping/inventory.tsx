@@ -148,8 +148,8 @@ export default function ShoppingInventoryPage() {
       </Head>
       <NoIndexMeta />
       <ShoppingNav />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
+      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent flex items-center gap-3">

@@ -921,8 +921,8 @@ function AdminRunningTodoPage() {
       </Head>
       <NoIndexMeta />
       <AdminNav />
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
+      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
               <ListChecks className="h-7 w-7 text-purple-600" />

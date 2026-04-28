@@ -181,7 +181,7 @@ function DriverManagementPage() {
       <NoIndexMeta />
       <AdminNav />
       
-      <div className="container mx-auto px-4 py-8 max-w-screen-2xl lg:pl-64 xl:pl-72">
+      <div className="px-4 py-8 max-w-screen-2xl lg:pl-64 xl:pl-72">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">

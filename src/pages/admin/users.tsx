@@ -201,8 +201,8 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
-          <div className="container mx-auto px-4 py-8">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
+          <div className="px-4 py-8">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
@@ -226,8 +226,8 @@ function AdminUsersPage() {
         
         <AdminNav />
         
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
-          <div className="container mx-auto px-4 py-8">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
+          <div className="px-4 py-8">
             <Card className="border-2 border-red-200 bg-red-50">
               <CardContent className="pt-12 pb-12 text-center">
                 <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -256,8 +256,8 @@ function AdminUsersPage() {
       
       <AdminNav />
       
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-4 py-6 md:py-8 max-w-screen-2xl">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72">
+        <div className="px-4 py-6 md:py-8 max-w-full">
           <Link href="/admin/dashboard">
             <Button variant="ghost" className="mb-4" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />

@@ -320,8 +320,8 @@ function SmartShoppingPage() {
       <Head><title>Smart Shopping - CateringMS Admin</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-6 max-w-screen-2xl">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
+        <div className="px-3 sm:px-4 md:px-6 py-6 max-w-screen-2xl">
 
           {/* Header + cart pill */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
