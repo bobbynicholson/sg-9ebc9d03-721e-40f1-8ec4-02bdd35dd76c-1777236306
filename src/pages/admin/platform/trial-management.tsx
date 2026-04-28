@@ -287,7 +287,7 @@ export default function TrialManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
               Total Trials
-              <InfoTooltip content="Companies currently inside their free trial. Source: companies.subscription_status in ('trial', 'trialing')." />
+              <InfoTooltip content="Companies currently inside their free trial period.\n\nThe full pool that the expiry buckets below break down." />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -299,7 +299,7 @@ export default function TrialManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
               7 Days
-              <InfoTooltip content="Trials expiring in 4-7 days. Calculated client-side from companies.trial_ends_at minus today." />
+              <InfoTooltip content="Trials due to expire in the next four to seven days.\n\nA good time to send the first nudge before things get urgent." />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -311,7 +311,7 @@ export default function TrialManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
               3 Days
-              <InfoTooltip content="Trials expiring in 2-3 days. Window where the 3-day reminder email should fire via subscriptionService.triggerTrialExpiryCheck." />
+              <InfoTooltip content="Trials due to expire in the next two to three days.\n\nThis is the window where the three-day reminder email should go out." />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -323,7 +323,7 @@ export default function TrialManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
               1 Day
-              <InfoTooltip content="Trials expiring within the next 24 hours. Last chance window for a final reminder before they're auto-expired." />
+              <InfoTooltip content="Trials due to expire within the next 24 hours.\n\nLast chance for a final reminder before they auto-expire." />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -335,7 +335,7 @@ export default function TrialManagementPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-1.5">
               Expired
-              <InfoTooltip content="Trials whose trial_ends_at has already passed but the company is still flagged 'trial'. They should be converted to active or cancelled." />
+              <InfoTooltip content="Trials whose end date has already passed but the company is still flagged as a trial.\n\nThese need to be converted to a paid subscription or cancelled." />
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -350,7 +350,7 @@ export default function TrialManagementPage() {
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
             Notification Management
-            <InfoTooltip content="Manually triggers subscriptionService.triggerTrialExpiryCheck() which scans every trial company and sends 7/3/1-day reminder emails as needed. Logged in trial_expiry_notifications table." />
+            <InfoTooltip content="Runs the trial expiry check manually. It scans every trial company and sends seven, three and one-day reminder emails where they're due.\n\nEvery send is logged so the same reminder doesn't go out twice." />
           </CardTitle>
           <CardDescription>
             Manually trigger trial expiry notification checks
@@ -387,7 +387,7 @@ export default function TrialManagementPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             Companies on Trial
-            <InfoTooltip content="All trial tenants sorted by trial_ends_at ascending. Owner email comes from profiles via owner_id; notifications count and last type from trial_expiry_notifications joined on company_id." />
+            <InfoTooltip content="Every trial tenant in the order they expire, soonest first.\n\nEach row shows the owner, expiry date and a count of reminders already sent." />
           </CardTitle>
           <CardDescription>
             All companies currently in their trial period, sorted by expiry date

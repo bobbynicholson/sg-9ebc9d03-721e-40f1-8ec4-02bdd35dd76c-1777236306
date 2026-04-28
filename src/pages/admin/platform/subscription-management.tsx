@@ -331,7 +331,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Total Subscriptions
-                <InfoTooltip content="Every tenant in the system, treated as one subscription each. Source: count of rows in companies table (active + trial + cancelled combined)." />
+                <InfoTooltip content="Every tenant on the platform counted as one subscription each.\n\nIncludes active, trial and cancelled accounts together." />
               </CardTitle>
               <Users className="h-4 w-4 text-slate-400" />
             </CardHeader>
@@ -345,7 +345,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Active
-                <InfoTooltip content="Companies on a paid plan today. Source: companies.subscription_status = 'active'." />
+                <InfoTooltip content="Companies on a paid plan right now.\n\nThese are the customers actually generating recurring revenue." />
               </CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
@@ -359,7 +359,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 In Trial
-                <InfoTooltip content="Companies still in their free trial. Source: companies.subscription_status in ('trial', 'trialing'). They contribute zero to MRR." />
+                <InfoTooltip content="Companies still inside their free trial period.\n\nThey don't add to MRR yet -- conversion to paid is what matters here." />
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
@@ -373,7 +373,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 Monthly MRR
-                <InfoTooltip content="Sum of monthly subscription amounts where status='active'. Plan rates come from a hardcoded map (Starter R499 / Growth R1499 / Scale R3999 / Enterprise R9999) -- not from a real billing table yet." />
+                <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates are still based on a fixed price list (Starter R499, Growth R1499, Scale R3999, Enterprise R9999) until proper billing is wired up." />
               </CardTitle>
               <DollarSign className="h-4 w-4 text-purple-500" />
             </CardHeader>
@@ -391,7 +391,7 @@ export default function PlatformSubscriptionManagement() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
                 Customer Subscriptions
-                <InfoTooltip content="Every tenant rendered as a synthetic subscription row. Plan name and amount derived from companies.subscription_plan via a hardcoded price map; next billing pulled from trial_ends_at (trials) or subscription_ends_at (paid)." />
+                <InfoTooltip content="Every tenant shown as a subscription row, with plan, status, amount and next billing date.\n\nFor trials the next billing date is the trial end. For paid customers it's the renewal date." />
               </CardTitle>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 md:w-64">
@@ -528,7 +528,7 @@ export default function PlatformSubscriptionManagement() {
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
                 At Risk ({stats.pastDue})
-                <InfoTooltip content="Companies with a failed or overdue payment. Source: companies.subscription_status = 'past_due'. Reach out before they churn." />
+                <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly -- this is the window where churn usually happens." />
               </CardTitle>
               <CardDescription>Subscriptions requiring attention</CardDescription>
             </CardHeader>
@@ -558,7 +558,7 @@ export default function PlatformSubscriptionManagement() {
               <CardTitle className="flex items-center gap-2">
                 <Ban className="h-5 w-5 text-red-600" />
                 Cancelled ({stats.cancelled})
-                <InfoTooltip content="Companies that have ended their subscription. Source: companies.subscription_status = 'cancelled', sorted by subscription_ends_at. Useful for win-back outreach." />
+                <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
               </CardTitle>
               <CardDescription>Recently cancelled subscriptions</CardDescription>
             </CardHeader>

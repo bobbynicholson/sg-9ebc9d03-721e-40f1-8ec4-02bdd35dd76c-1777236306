@@ -159,7 +159,7 @@ export default function PricingManagementPage() {
               <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 Pricing Conversion Formula
-                <InfoTooltip content="Foreign currency = (ZAR x 3) / fixed exchange rate. Rates and tier prices are hardcoded constants in this file (EXCHANGE_RATES + initial pricing array) -- changes are NOT persisted to a database, they only update local state." />
+                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nHeads up: rates and tier prices live in code right now. Saves only update local state and aren't stored yet." />
               </CardTitle>
             </div>
             <CardDescription className="text-xs sm:text-sm">
@@ -214,7 +214,7 @@ export default function PricingManagementPage() {
                   <div>
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
                       {tier.name} Plan
-                      <InfoTooltip content="Monthly subscription price for this tier across all markets. ZAR is the primary -- USD/GBP/EUR auto-derive from the conversion formula but can be manually overridden. Currently held in local state only; Save does not persist to a database." />
+                      <InfoTooltip content="The monthly subscription price for this tier across every market.\n\nZAR is the primary price. USD, GBP and EUR auto-calculate from the formula but you can override them. Saves are local only for now and don't persist." />
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
                       Monthly subscription pricing across all markets

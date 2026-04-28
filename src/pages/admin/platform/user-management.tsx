@@ -362,7 +362,7 @@ export default function UserManagementPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 All Users ({filteredUsers.length})
-                <InfoTooltip content="Every profile across every tenant on the platform. Source: profiles table joined to companies via company_id. Status badge reads profiles.email_verified -- 'Active' = verified, 'Pending' = not yet confirmed." />
+                <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nThe status badge reflects email verification -- Active means confirmed, Pending means they haven't verified yet." />
               </CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />

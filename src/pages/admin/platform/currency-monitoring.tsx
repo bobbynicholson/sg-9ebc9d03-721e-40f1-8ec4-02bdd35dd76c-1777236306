@@ -162,7 +162,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 Current Rate
-                <InfoTooltip content="Today's USD to ZAR exchange rate. Source: currencyMonitoringService.getCurrentExchangeRate(), which reads the latest row from the exchange_rates table." />
+                <InfoTooltip content="Today's USD to ZAR exchange rate.\n\nPulled from the latest stored rate, refreshed by the daily check." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -184,7 +184,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 90-Day Change
-                <InfoTooltip content="Percentage move of USD/ZAR over the last 90 days: (latest - oldest) / oldest x 100. Computed client-side from getHistoricalRates(90). Positive = ZAR weakening, negative = ZAR strengthening. 15% triggers an alert." />
+                <InfoTooltip content="How much the USD to ZAR rate has moved over the past 90 days.\n\nA positive number means ZAR has weakened, negative means it's strengthened. A move of 15% or more triggers an alert." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -218,7 +218,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 Active Alerts
-                <InfoTooltip content="Currency fluctuation alerts not yet marked resolved. Source: currencyMonitoringService.getUnresolvedAlerts() reading currency_fluctuation_alerts where resolved=false." />
+                <InfoTooltip content="Open currency fluctuation alerts that haven't been resolved yet.\n\nResolve one once the related pricing review or adjustment is done." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -250,7 +250,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
               Exchange Rate History (Last 90 Days)
-              <InfoTooltip content="Daily USD/ZAR rates for the past 90 days. Source: exchange_rates table via getHistoricalRates(90), populated by the daily cron in currencyMonitoringService.runDailyCheck()." />
+              <InfoTooltip content="Daily USD to ZAR exchange rates for the past 90 days.\n\nPopulated by the daily currency check that runs in the background." />
             </CardTitle>
             <CardDescription>
               Track historical USD to ZAR exchange rates
@@ -293,7 +293,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               Fluctuation Alerts
-              <InfoTooltip content="Open alerts where the 90-day rate move breached the 15% threshold. Source: currency_fluctuation_alerts table; each row holds start/end rates, period and percentage_change. Resolve marks them handled (e.g. after a price update)." />
+              <InfoTooltip content="Alerts raised when the 90-day rate move crosses the 15% threshold, with the start and end rates that triggered each one.\n\nMark an alert resolved once the pricing review is done." />
             </CardTitle>
             <CardDescription>
               Manage currency fluctuation alerts and pricing adjustments

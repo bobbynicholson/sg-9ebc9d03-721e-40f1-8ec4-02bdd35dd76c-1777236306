@@ -684,7 +684,7 @@ export default function CompanyDatabasePage() {
                 <div>
                   <p className="text-sm text-slate-600 flex items-center gap-1.5">
                     Total Companies
-                    <InfoTooltip content="Every catering tenant on the platform, regardless of status. Source: companies table row count (excludes only is_active=false soft deletes once filtered)." />
+                    <InfoTooltip content="Every catering tenant on the platform, regardless of subscription status.\n\nDeleted accounts are excluded." />
                   </p>
                   <p className="text-3xl font-bold text-slate-900">
                     {companies.length}
@@ -701,7 +701,7 @@ export default function CompanyDatabasePage() {
                 <div>
                   <p className="text-sm text-slate-600 flex items-center gap-1.5">
                     Active
-                    <InfoTooltip content="Companies with a paid subscription right now. Source: companies.subscription_status = 'active'." />
+                    <InfoTooltip content="Companies on a paid subscription right now.\n\nTrials and cancelled accounts aren't counted here." />
                   </p>
                   <p className="text-3xl font-bold text-green-600">
                     {companies.filter((c) => c.subscription_status === "active").length}
@@ -718,7 +718,7 @@ export default function CompanyDatabasePage() {
                 <div>
                   <p className="text-sm text-slate-600 flex items-center gap-1.5">
                     On Trial
-                    <InfoTooltip content="Companies still inside their free trial window. Source: companies.subscription_status = 'trial'. See trial-management for expiry dates and notification history." />
+                    <InfoTooltip content="Companies still inside their free trial window.\n\nFor trial expiry dates and reminder history, head to Trial Management." />
                   </p>
                   <p className="text-3xl font-bold text-orange-600">
                     {companies.filter((c) => c.subscription_status === "trial").length}
@@ -735,7 +735,7 @@ export default function CompanyDatabasePage() {
                 <div>
                   <p className="text-sm text-slate-600 flex items-center gap-1.5">
                     Total Users
-                    <InfoTooltip content="Sum of every profile across every tenant -- admins, kitchen, drivers, clients combined. Source: count of profiles per company_id, totalled in the page." />
+                    <InfoTooltip content="Every user account across every tenant added together -- admins, kitchen, drivers and clients all included.\n\nA quick way to gauge overall platform usage." />
                   </p>
                   <p className="text-3xl font-bold text-purple-600">
                     {companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
@@ -785,7 +785,7 @@ export default function CompanyDatabasePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Companies ({filteredCompanies.length})
-              <InfoTooltip content="Filtered list of tenants. Each row shows owner (profiles.full_name via owner_id), status, user count (profiles by company_id), order count (orders by company_id) and signup date (companies.created_at)." />
+              <InfoTooltip content="The filtered list of tenants based on the search and status filters above.\n\nEach row covers the owner, current status, user and order counts, and signup date." />
             </CardTitle>
           </CardHeader>
           <CardContent>

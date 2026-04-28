@@ -352,7 +352,7 @@ export default function PlatformDashboard() {
               <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-200 animate-pulse" />
               <span className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                 Platform Health
-                <InfoTooltip content="Composite health score for the SaaS platform. The 98% figure, average response time, ticket count and uptime are currently hardcoded placeholders -- only the active companies count is sourced from get_dashboard_metrics. Wire to a monitoring service before relying on it." />
+                <InfoTooltip content="A quick health snapshot of the platform.\n\nOnly the active companies number is live right now. The 98% score, response time, ticket count and uptime are placeholders until a monitoring service is connected." />
               </span>
               <span className="text-2xl font-bold text-green-600 tabular-nums">98%</span>
             </div>
@@ -373,28 +373,28 @@ export default function PlatformDashboard() {
             value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
             subtitle="Sum across active subscriptions"
             icon={DollarSign}
-            tooltip="Sum of subscription amounts where status='active' (monthly + annual). Sourced from get_all_subscriptions_admin RPC. Trial accounts are excluded -- they don't generate revenue yet."
+            tooltip="Total recurring revenue from every paying customer, monthly and annual combined.\n\nTrial accounts are excluded since they aren't paying yet."
           />
           <StatCard
             title="Active Customers"
             value={analyticsService.formatNumber(metrics?.activeSubscriptions || 0)}
             subtitle={`${metrics?.totalCustomers || 0} total signups`}
             icon={Users}
-            tooltip="Companies with subscription_status='active'. Trial / cancelled / paused accounts are not counted. Total signups includes everyone who ever created a tenant."
+            tooltip="Companies on a paid plan today. Trials, cancelled and paused accounts are not counted here.\n\nTotal signups underneath includes everyone who has ever created a tenant."
           />
           <StatCard
             title="Monthly Recurring Revenue"
             value={analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)}
             subtitle="MRR"
             icon={TrendingUp}
-            tooltip="Sum of monthly-billed subscription amounts where status='active'. Annual plans are not included here -- they roll into Annual Recurring Revenue (ARR)."
+            tooltip="Predictable monthly income from active subscriptions billed each month.\n\nAnnual plans are not included here -- they roll into ARR instead."
           />
           <StatCard
             title="Churn Rate"
             value={analyticsService.formatPercentage(metrics?.churnRate || 0)}
             subtitle="Last 30 days"
             icon={Activity}
-            tooltip="Percent of active customers who cancelled in the last 30 days: cancelled_count / active_subs * 100. A noisy number while the customer base is small -- one cancel can swing it dramatically."
+            tooltip="Share of paying customers who cancelled in the last 30 days.\n\nExpect this number to swing while the customer base is small. One cancellation can move it noticeably."
           />
         </div>
 
@@ -404,21 +404,21 @@ export default function PlatformDashboard() {
             value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
             subtitle="Per active subscription"
             icon={DollarSign}
-            tooltip="Total SaaS revenue divided by total subscriber count (active + trial + cancelled). Lower while you're heavy on trials -- normalises as paid mix grows."
+            tooltip="Average revenue earned per signed-up tenant, including trials and cancelled accounts.\n\nThis number runs low while trials dominate and rises as more accounts convert to paid."
           />
           <StatCard
             title="Conversion Rate"
             value={analyticsService.formatPercentage(metrics?.conversionRate || 0)}
             subtitle="Trial to paid"
             icon={TrendingUp}
-            tooltip="Active subscriptions divided by total subscriptions (incl. trials and cancelled). At 0% you're pre-revenue; aim for 30%+ once trials start converting."
+            tooltip="Share of all signups that have turned into a paying subscription.\n\nA healthy target is 30% or more once trials start converting reliably."
           />
           <StatCard
             title="Lifetime Value"
             value={analyticsService.formatCurrency(metrics?.lifetimeValue || 0)}
             subtitle="Estimated LTV"
             icon={Package}
-            tooltip="Average revenue per user multiplied by 24 (rough 2-year lifetime assumption). Replace with cohort-based LTV once you have 6+ months of churn data."
+            tooltip="A rough estimate of how much revenue a customer brings in over their lifetime, based on a two-year average tenure.\n\nWorth replacing with a proper cohort-based figure once there's six months of churn history to work with."
           />
         </div>
 
@@ -436,7 +436,7 @@ export default function PlatformDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     Customer Growth
-                    <InfoTooltip content="New tenant signups and cumulative platform total per month, with monthly revenue alongside. Source: analyticsService.getCustomerGrowth(), which buckets companies.created_at by month and joins to subscription amounts." />
+                    <InfoTooltip content="New tenant signups each month next to the running platform total, with monthly revenue overlaid.\n\nGrouped by signup month from the companies table." />
                   </CardTitle>
                   <CardDescription>New customers and cumulative total over time</CardDescription>
                 </CardHeader>
@@ -470,7 +470,7 @@ export default function PlatformDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     Subscription Status
-                    <InfoTooltip content="Breakdown of every tenant by subscription state: active, trial and cancelled. Counts come from get_dashboard_metrics RPC; percentages are each bucket divided by total customers." />
+                    <InfoTooltip content="A breakdown of every tenant by subscription state -- active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
                   </CardTitle>
                   <CardDescription>Current subscription distribution</CardDescription>
                 </CardHeader>
@@ -549,7 +549,7 @@ export default function PlatformDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Top Customers by Revenue
-                  <InfoTooltip content="Top 10 tenants ranked by lifetime spend. Source: analyticsService.getTopCustomers(10), summing subscription payments per company across all time." />
+                  <InfoTooltip content="The ten highest-spending tenants on the platform, ranked by lifetime payments.\n\nUseful for spotting who to look after and where to focus account management." />
                 </CardTitle>
                 <CardDescription>Highest spending customers on the platform</CardDescription>
               </CardHeader>
@@ -591,7 +591,7 @@ export default function PlatformDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Plan Distribution
-                  <InfoTooltip content="Tenant count and revenue split per subscription plan (Starter / Growth / Scale / Enterprise). Source: analyticsService.getPlanDistribution(), grouping companies by subscription_plan." />
+                  <InfoTooltip content="How tenants and revenue are spread across each subscription plan -- Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
                 </CardTitle>
                 <CardDescription>Revenue and customer breakdown by subscription plan</CardDescription>
               </CardHeader>
@@ -630,7 +630,7 @@ export default function PlatformDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Geographic Distribution
-                  <InfoTooltip content="Tenant count and revenue grouped by company country and region. Source: analyticsService.getGeographicDistribution(), reading companies.country / companies.state_province." />
+                  <InfoTooltip content="Tenant count and revenue grouped by country and region.\n\nPulled from the country and state set on each company's profile." />
                 </CardTitle>
                 <CardDescription>Customers and revenue by location</CardDescription>
               </CardHeader>
