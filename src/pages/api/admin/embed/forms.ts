@@ -16,11 +16,13 @@ import { getServiceSupabase } from "@/lib/supabase/service";
  * forms (via `?company_id=...`).
  */
 
+// Note: the user_role DB enum has no 'owner' -- the actual admin-tier
+// roles are super_admin / company_admin / admin. Keep this list in sync
+// with src/types/app.ts UserRole + the public.user_role enum.
 const CALLER_ROLES_ALLOWED = new Set([
   "super_admin",
   "company_admin",
   "admin",
-  "owner",
 ]);
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/;

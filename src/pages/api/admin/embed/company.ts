@@ -15,7 +15,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
-const ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
+const ALLOWED = new Set(["super_admin", "company_admin", "admin"]);
 
 function sanitiseTier(t: any) {
   if (!t || typeof t !== "object") return null;
