@@ -57,6 +57,7 @@ import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { canAccessFinance } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
+import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 
 interface NavItem {
   title: string;
@@ -66,7 +67,13 @@ interface NavItem {
 }
 
 interface NavSection {
+  /** Stable id for localStorage persistence -- never change once shipped. */
+  id: string;
   title: string;
+  /** Whether this section is open the first time a user sees it. Pick
+   *  based on usage frequency: daily-use sections open, quarterly sections
+   *  closed. The user can override and we remember their choice. */
+  defaultOpen: boolean;
   items: NavItem[];
 }
 
@@ -144,8 +151,12 @@ export function AdminNav({ className }: AdminNavProps) {
   };
 
   const adminNavSections: NavSection[] = [
+    // Smart defaults: daily-use sections open, quarterly ones closed.
+    // Single-item "Dashboard" group is rendered flat above the accordions.
     {
+      id: "dashboard",
       title: "Dashboard",
+      defaultOpen: true,
       items: [
         {
           title: "Analytics Dashboard",
@@ -159,7 +170,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     },
     {
+      id: "core",
       title: "Core Management",
+      defaultOpen: true,
       items: [
         {
           title: "Clients",
@@ -200,7 +213,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     },
     {
+      id: "team",
       title: "Team Management",
+      defaultOpen: true,
       items: [
         {
           title: "Users",
@@ -223,7 +238,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     },
     {
+      id: "operations",
       title: "Operations",
+      defaultOpen: true,
       items: [
         {
           title: "Delivery Tracking",
@@ -248,11 +265,25 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/regions",
           icon: MapPin,
           description: "Manage service regions"
+        },
+        {
+          title: "Shopping Dashboard",
+          href: "/admin/shopping",
+          icon: ShoppingCart,
+          description: "Procurement overview"
+        },
+        {
+          title: "Client Search",
+          href: "/admin/client-search",
+          icon: Search,
+          description: "Search and filter clients"
         }
       ]
     },
     {
+      id: "comms",
       title: "Communications",
+      defaultOpen: false,
       items: [
         {
           title: "Email & Integrations",
@@ -299,29 +330,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     },
     {
-      title: "Client Portal",
-      items: [
-        {
-          title: "Client Search",
-          href: "/admin/client-search",
-          icon: Search,
-          description: "Search and filter clients"
-        }
-      ]
-    },
-    {
-      title: "Shopping & Procurement",
-      items: [
-        {
-          title: "Shopping Dashboard",
-          href: "/admin/shopping",
-          icon: ShoppingCart,
-          description: "Procurement overview"
-        }
-      ]
-    },
-    {
+      id: "branding",
       title: "Branding & Settings",
+      defaultOpen: false,
       items: [
         {
           title: "Company Profile",
@@ -350,7 +361,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     },
     ...(profile && profile.role === "super_admin" ? [{
+      id: "platform",
       title: "Platform Admin",
+      defaultOpen: false,
       items: [
         {
           title: "Platform Dashboard",
@@ -409,7 +422,9 @@ export function AdminNav({ className }: AdminNavProps) {
       ]
     }] : []),
     {
+      id: "account",
       title: "Account",
+      defaultOpen: false,
       items: [
         {
           title: "My Profile",
@@ -459,12 +474,16 @@ export function AdminNav({ className }: AdminNavProps) {
         ) : (
           <CommandPaletteHint className="w-full justify-center" />
         )}
-        {adminNavSections.map((section) => (
-          <div key={section.title}>
-            <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              {section.title}
-            </h3>
-            <div className="space-y-1">
+        {adminNavSections.map((section) => {
+          const containsActive = section.items.some((i) => isActive(i.href));
+          return (
+            <CollapsibleNavSection
+              key={section.id}
+              title={section.title}
+              storageKey={`admin:${section.id}`}
+              defaultOpen={section.defaultOpen}
+              containsActiveRoute={containsActive}
+            >
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -486,9 +505,9 @@ export function AdminNav({ className }: AdminNavProps) {
                   </Link>
                 );
               })}
-            </div>
-          </div>
-        ))}
+            </CollapsibleNavSection>
+          );
+        })}
         <SignOutBlock />
       </div>
     </ScrollArea>
@@ -616,39 +635,43 @@ export function AdminNav({ className }: AdminNavProps) {
           {/* Navigation */}
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-6">
-              {adminNavSections.map((section) => (
-                <div key={section.title}>
-                  {!isCollapsed && (
-                    <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {section.title}
-                    </h3>
-                  )}
-                  <div className="space-y-1">
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      const active = isActive(item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                            active
-                              ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
-                              : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
-                            isCollapsed ? "justify-center" : ""
-                          )}
-                          title={isCollapsed ? item.title : ""}
-                        >
-                          <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
-                          {!isCollapsed && <span className="flex-1 truncate">{item.title}</span>}
-                          {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+              {adminNavSections.map((section) => {
+                const containsActive = section.items.some((i) => isActive(i.href));
+                const linkRows = section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+                        isCollapsed ? "justify-center" : ""
+                      )}
+                      title={isCollapsed ? item.title : ""}
+                    >
+                      <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
+                      {!isCollapsed && <span className="flex-1 truncate">{item.title}</span>}
+                      {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                    </Link>
+                  );
+                });
+                return (
+                  <CollapsibleNavSection
+                    key={section.id}
+                    title={section.title}
+                    storageKey={`admin:${section.id}`}
+                    defaultOpen={section.defaultOpen}
+                    containsActiveRoute={containsActive}
+                    flatMode={isCollapsed}
+                  >
+                    {linkRows}
+                  </CollapsibleNavSection>
+                );
+              })}
             </div>
           </ScrollArea>
 

@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
+import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 
 interface PlatformNavItem {
   title: string;
@@ -38,13 +39,19 @@ interface PlatformNavItem {
 }
 
 interface PlatformNavSection {
+  /** Stable id for localStorage persistence -- never change once shipped. */
+  id: string;
   title: string;
+  /** Daily-use sections start open; quarterly ones start closed. */
+  defaultOpen: boolean;
   items: PlatformNavItem[];
 }
 
 const sections: PlatformNavSection[] = [
   {
+    id: "overview",
     title: "Overview",
+    defaultOpen: true,
     items: [
       {
         title: "Platform Dashboard",
@@ -55,7 +62,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "customers",
     title: "Customers",
+    defaultOpen: true,
     items: [
       {
         title: "Companies",
@@ -72,7 +81,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "revenue",
     title: "Revenue",
+    defaultOpen: true,
     items: [
       {
         title: "Subscriptions",
@@ -101,7 +112,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "finance",
     title: "Finance & Billing",
+    defaultOpen: false,
     items: [
       {
         title: "Financial Dashboard",
@@ -124,7 +137,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "marketing",
     title: "Marketing",
+    defaultOpen: false,
     items: [
       {
         title: "CMS Pages",
@@ -141,7 +156,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "engineering",
     title: "Engineering",
+    defaultOpen: false,
     items: [
       {
         title: "Running Todo",
@@ -152,7 +169,9 @@ const sections: PlatformNavSection[] = [
     ],
   },
   {
+    id: "account",
     title: "Account",
+    defaultOpen: false,
     items: [
       {
         title: "Switch to Tenant",
@@ -220,40 +239,44 @@ export function PlatformNav({ className }: PlatformNavProps) {
         ) : (
           !collapsed && <CommandPaletteHint className="w-full justify-center" />
         )}
-        {sections.map((section) => (
-          <div key={section.title}>
-            {!collapsed && (
-              <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                {section.title}
-              </h3>
-            )}
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
-                        : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
-                      collapsed ? "justify-center" : "",
-                    )}
-                    title={collapsed ? item.title : ""}
-                  >
-                    <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
-                    {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
-                    {!collapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        {sections.map((section) => {
+          const containsActive = section.items.some((i) => isActive(i.href));
+          const linkRows = section.items.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+                  collapsed ? "justify-center" : "",
+                )}
+                title={collapsed ? item.title : ""}
+              >
+                <Icon className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-500")} />
+                {!collapsed && <span className="flex-1 truncate">{item.title}</span>}
+                {!collapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+              </Link>
+            );
+          });
+          return (
+            <CollapsibleNavSection
+              key={section.id}
+              title={section.title}
+              storageKey={`platform:${section.id}`}
+              defaultOpen={section.defaultOpen}
+              containsActiveRoute={containsActive}
+              flatMode={collapsed}
+            >
+              {linkRows}
+            </CollapsibleNavSection>
+          );
+        })}
         <div className="pt-2"><SignOutButton collapsed={collapsed} /></div>
       </div>
     </ScrollArea>
