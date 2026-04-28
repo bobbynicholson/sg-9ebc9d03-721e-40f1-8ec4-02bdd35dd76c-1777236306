@@ -1,23 +1,226 @@
-﻿import { PortalPagePlaceholder } from "@/components/portal/PortalPagePlaceholder";
+import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Wrench, Search, AlertTriangle, Loader2, Minus } from "lucide-react";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
-import { Wrench } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { inventoryService, type Inventory } from "@/services/inventoryService";
 
-const capabilities = [
-  "Stock view of cleaning consumables",
-  "Low-stock alerts feed the shopping team",
-  "Per-shift usage tracking",
+const CLEANING_KEYWORDS = [
+  "detergent", "cleaner", "soap", "bleach", "sanitiser", "sanitizer",
+  "cloth", "glove", "wipe", "mop", "broom", "spray", "polish", "degreaser",
+  "cleaning", "disinfect", "scrubb", "rubber", "bin liner", "paper towel",
 ];
 
 export default function CleaningSuppliesPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [items, setItems] = useState<Inventory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [belowParOnly, setBelowParOnly] = useState(false);
+
+  const [usingItem, setUsingItem] = useState<Inventory | null>(null);
+  const [usedQty, setUsedQty] = useState<string>("");
+  const [usedNotes, setUsedNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    load();
+  }, [user?.company_id]);
+
+  const load = async () => {
+    if (!user?.company_id) return;
+    setLoading(true);
+    try {
+      const all = await inventoryService.getInventory(user.company_id);
+      const cleaning = (all || []).filter((i) => {
+        const cat = (i.category ?? "").toLowerCase();
+        const name = (i.item_name ?? "").toLowerCase();
+        if (cat.includes("clean") || cat.includes("consumable")) return true;
+        return CLEANING_KEYWORDS.some((kw) => name.includes(kw));
+      });
+      setItems(cleaning);
+    } catch (e) {
+      toast({ title: "Could not load supplies", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return items.filter((i) => {
+      if (belowParOnly) {
+        const stock = Number(i.current_stock || 0);
+        const min = Number(i.minimum_stock || 0);
+        if (stock > min) return false;
+      }
+      if (term) {
+        const hay = `${i.item_name ?? ""} ${i.category ?? ""} ${i.storage_location ?? ""}`.toLowerCase();
+        if (!hay.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [items, search, belowParOnly]);
+
+  const stats = useMemo(() => {
+    const total = items.length;
+    const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
+    const out = items.filter((i) => Number(i.current_stock || 0) <= 0).length;
+    return { total, below, out };
+  }, [items]);
+
+  const openUse = (i: Inventory) => { setUsingItem(i); setUsedQty(""); setUsedNotes(""); };
+  const closeUse = () => { setUsingItem(null); setUsedQty(""); setUsedNotes(""); };
+
+  const saveUsage = async () => {
+    if (!usingItem || !user?.id) return;
+    const qty = Number(usedQty);
+    if (Number.isNaN(qty) || qty <= 0) {
+      toast({ title: "Enter a positive quantity", variant: "destructive" });
+      return;
+    }
+    const current = Number(usingItem.current_stock || 0);
+    const newStock = Math.max(0, current - qty);
+    setSaving(true);
+    try {
+      await inventoryService.adjustStock(
+        usingItem.id, newStock, user.id,
+        usedNotes || `Cleaning used ${qty} ${usingItem.unit_of_measure}`,
+      );
+      toast({ title: "Logged", description: `${usingItem.item_name}: -${qty} ${usingItem.unit_of_measure}` });
+      closeUse();
+      load();
+    } catch (e: any) {
+      toast({ title: "Could not save", description: e?.message ?? "Unknown error", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tone = (i: Inventory) => {
+    const s = Number(i.current_stock || 0);
+    const m = Number(i.minimum_stock || 0);
+    if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200";
+    if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  };
+  const label = (i: Inventory) => {
+    const s = Number(i.current_stock || 0);
+    const m = Number(i.minimum_stock || 0);
+    if (s <= 0) return "Out";
+    if (s <= m) return "Low";
+    return "OK";
+  };
+
   return (
-    <PortalPagePlaceholder
-      Nav={CleaningNav}
-      title="Cleaning Supplies - CateringMS"
-      icon={Wrench}
-      heading="Cleaning Supplies"
-      subheading="Detergents, cloths, gloves"
-      accent="from-cyan-500 to-blue-500"
-      capabilities={capabilities}
-    />
+    <>
+      <Head><title>Cleaning Supplies - CateringMS</title></Head>
+      <NoIndexMeta />
+      <CleaningNav />
+      <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-cyan-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-full">
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
+              <Wrench className="h-7 w-7 text-cyan-600" />
+              Cleaning Supplies
+            </h1>
+            <p className="text-sm text-slate-600 mt-1">Detergents, cloths, gloves -- low-stock items feed straight to the shopping team</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Total supplies</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Low stock</p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Out of stock</p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
+          </div>
+
+          <Card className="mb-6">
+            <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input placeholder="Search by name, category, location..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </div>
+              <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
+                <AlertTriangle className="h-4 w-4 mr-2" />Low only
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2" />Loading...</div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-16 text-slate-500">
+                  <Wrench className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+                  <p className="font-medium">No cleaning supplies found</p>
+                  <p className="text-xs mt-1">Add inventory items with category 'Cleaning' or 'Consumable' to populate this view</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filtered.map((i) => (
+                    <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {i.category ?? "--"}
+                          {i.storage_location ? ` -- ${i.storage_location}` : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <Badge variant="outline" className={tone(i)}>{label(i)}</Badge>
+                        <span className="text-right tabular-nums">
+                          <span className="text-base font-semibold">{Number(i.current_stock ?? 0)}</span>
+                          <span className="text-xs text-slate-500"> {i.unit_of_measure}</span>
+                          <div className="text-[11px] text-slate-400">par {Number(i.minimum_stock ?? 0)}</div>
+                        </span>
+                        <Minus className="h-4 w-4 text-slate-400" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+
+      <Dialog open={!!usingItem} onOpenChange={(o) => !o && closeUse()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log usage</DialogTitle>
+            <DialogDescription>{usingItem && `${usingItem.item_name} -- ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="qty">Used ({usingItem?.unit_of_measure})</Label>
+              <Input id="qty" type="number" min="0" step="any" value={usedQty} onChange={(e) => setUsedQty(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <Label htmlFor="nt">Reason (optional)</Label>
+              <Input id="nt" value={usedNotes} onChange={(e) => setUsedNotes(e.target.value)} placeholder="e.g. shift cleanup, deep clean" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeUse} disabled={saving}>Cancel</Button>
+            <Button onClick={saveUsage} disabled={saving} className="bg-cyan-600 hover:bg-cyan-700">
+              {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving</> : "Log usage"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
