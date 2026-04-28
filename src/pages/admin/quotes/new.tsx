@@ -25,6 +25,7 @@ import { MenuItem, EquipmentItem } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -306,15 +307,31 @@ function NewQuotePage() {
                 <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
                   <div>
                     <Label className="text-xs sm:text-sm">Full Delivery Address</Label>
-                    <Input
+                    {/* Address autocomplete -- uses Google Places to surface a
+                        real venue match the moment the staff member starts
+                        typing, and writes lat/lng straight into the order so
+                        the dispatcher view can plot it on the map. Falls back
+                        to a plain text input automatically if the API key is
+                        missing, so this never blocks quote creation. */}
+                    <AddressAutocomplete
                       value={formData.deliveryAddress}
-                      onChange={(e) => handleDeliveryAddressChange(e.target.value)}
-                      placeholder="123 Main Street, Johannesburg, 2000"
-                      className="bg-white text-sm h-10"
+                      onChange={(pick) => {
+                        handleDeliveryAddressChange(pick.address);
+                        // Stash lat/lng + placeId on the form so the order
+                        // insert can persist them once the quote converts.
+                        // Falls back silently if the picker had no result.
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          deliveryLat: pick.lat,
+                          deliveryLng: pick.lng,
+                          deliveryPlaceId: pick.placeId,
+                          deliveryAddressComponents: pick.components,
+                        }));
+                      }}
+                      placeholder="Start typing the venue address..."
+                      hint="Pick the matched suggestion so we get the exact location for routing. Saves drivers from guessing on the day."
+                      countryCode="za"
                     />
-                    <p className="text-xs text-slate-600 mt-1">
-                      Enter the complete delivery address to calculate distance and fees
-                    </p>
                   </div>
 
                   {deliveryDetails.distance > 0 && (
