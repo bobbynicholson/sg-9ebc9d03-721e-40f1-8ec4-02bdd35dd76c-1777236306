@@ -142,3 +142,75 @@ export function templateFor(status: ClientStatus, ctx: TemplateContext): { subje
       };
   }
 }
+
+/**
+ * Quote-status email templates. Used by the Quote Management page so staff can
+ * fire a personal follow-up email without copy-pasting from a Google doc.
+ *
+ * Each template gets event details + total + a quote reference woven in so the
+ * client knows what they are looking at when they read your message.
+ */
+export type QuoteStatus = "draft" | "sent" | "revised" | "accepted" | "rejected" | "expired";
+
+export interface QuoteTemplateContext {
+  contactName: string;
+  eventName?: string;
+  eventDate?: string;
+  guestCount?: number;
+  total?: number;
+  quoteRef?: string;
+  daysSinceSent?: number;
+  fromName?: string;
+  companyName?: string;
+}
+
+const fmtRand = (v?: number) =>
+  v == null ? "" : `R${Number(v).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`;
+
+export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext): { subject: string; body: string } {
+  const first = (ctx.contactName || "there").split(" ")[0];
+  const sig = `\n\nBest,\n${ctx.fromName || ctx.companyName || "the team"}`;
+  const eventLine = ctx.eventName
+    ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
+    : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your upcoming event`;
+  const ref = ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "";
+  const totalLine = ctx.total ? ` The quote sits at ${fmtRand(ctx.total)} including VAT.` : "";
+
+  switch (status) {
+    case "draft":
+      return {
+        subject: `Quick note about your quote${ref}`,
+        body: `Hi ${first},\n\nJust a heads-up that I am polishing your quote for ${eventLine} -- I will have it across to you shortly. If anything has changed on your side (guest count, venue, dietary), let me know now so I can fold it in.${sig}`,
+      };
+    case "sent":
+      return {
+        subject: `Following up on your quote${ref}`,
+        body: `Hi ${first},\n\nJust circling back on the quote we sent across for ${eventLine}.${totalLine}\n\nAnything you would like changed, or shall we lock in the date for you? Happy to walk through the menu options if it would help.${sig}`,
+      };
+    case "revised":
+      return {
+        subject: `Revised quote ready for ${eventLine.replace(/^your /, "")}`,
+        body: `Hi ${first},\n\nI have revised the quote based on what we last spoke about${totalLine ? "." + totalLine : "."}\n\nHave a quick look when you can and shout if anything still needs tweaking.${sig}`,
+      };
+    case "accepted":
+      return {
+        subject: `Thanks for confirming -- next steps for ${eventLine.replace(/^your /, "")}`,
+        body: `Hi ${first},\n\nThanks for confirming the quote${ref}. Now that we are locked in for ${eventLine}, here is what happens next:\n\n1. Deposit invoice on its way\n2. Final guest numbers + dietary requirements 7 days before\n3. Final walk-through call a week out\n\nReply here if anything has shifted on your side.${sig}`,
+      };
+    case "rejected":
+      return {
+        subject: `Following up`,
+        body: `Hi ${first},\n\nUnderstand the quote did not land this time. No hard feelings -- happy to be kept in mind for the next event. If anything comes up where we can help, drop me a line and I will put a fresh quote together quickly.${sig}`,
+      };
+    case "expired":
+      return {
+        subject: `Your quote has expired -- want me to refresh it?`,
+        body: `Hi ${first},\n\nThe quote we sent for ${eventLine}${ref ? ` ${ref}` : ""} has lapsed. Pricing on a few items may have shifted since.\n\nIf the event is still on, I can put a fresh quote across in a few minutes -- just confirm guest numbers and venue and I will get it out today.${sig}`,
+      };
+    default:
+      return {
+        subject: `Quick check-in${ref}`,
+        body: `Hi ${first},\n\nJust touching base on ${eventLine}.${totalLine}\n\nLet me know if there is anything you would like changed.${sig}`,
+      };
+  }
+}
