@@ -766,6 +766,8 @@ export type Database = {
           custom_domain: string | null
           deleted_at: string | null
           email: string
+          embed_pricing_tiers: Json
+          embed_token: string
           headquarters_lat: number | null
           headquarters_lng: number | null
           id: string
@@ -806,6 +808,8 @@ export type Database = {
           custom_domain?: string | null
           deleted_at?: string | null
           email: string
+          embed_pricing_tiers?: Json
+          embed_token?: string
           headquarters_lat?: number | null
           headquarters_lng?: number | null
           id?: string
@@ -846,6 +850,8 @@ export type Database = {
           custom_domain?: string | null
           deleted_at?: string | null
           email?: string
+          embed_pricing_tiers?: Json
+          embed_token?: string
           headquarters_lat?: number | null
           headquarters_lng?: number | null
           id?: string
@@ -2005,6 +2011,156 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      embed_form_configs: {
+        Row: {
+          company_id: string
+          created_at: string
+          fields: Json
+          id: string
+          is_active: boolean
+          last_submission_at: string | null
+          name: string
+          redirect_url: string | null
+          slug: string
+          submissions_count: number
+          success_message: string | null
+          template_id: string
+          theme: Json
+          updated_at: string
+          views_count: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          last_submission_at?: string | null
+          name: string
+          redirect_url?: string | null
+          slug: string
+          submissions_count?: number
+          success_message?: string | null
+          template_id: string
+          theme?: Json
+          updated_at?: string
+          views_count?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          fields?: Json
+          id?: string
+          is_active?: boolean
+          last_submission_at?: string | null
+          name?: string
+          redirect_url?: string | null
+          slug?: string
+          submissions_count?: number
+          success_message?: string | null
+          template_id?: string
+          theme?: Json
+          updated_at?: string
+          views_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embed_form_configs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      embed_form_submissions: {
+        Row: {
+          company_id: string
+          created_at: string
+          embed_form_id: string
+          id: string
+          ip_hash: string | null
+          is_spam: boolean
+          lead_id: string | null
+          payload: Json
+          referrer: string | null
+          turnstile_score: number | null
+          user_agent: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          embed_form_id: string
+          id?: string
+          ip_hash?: string | null
+          is_spam?: boolean
+          lead_id?: string | null
+          payload: Json
+          referrer?: string | null
+          turnstile_score?: number | null
+          user_agent?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          embed_form_id?: string
+          id?: string
+          ip_hash?: string | null
+          is_spam?: boolean
+          lead_id?: string | null
+          payload?: Json
+          referrer?: string | null
+          turnstile_score?: number | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embed_form_submissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embed_form_submissions_embed_form_id_fkey"
+            columns: ["embed_form_id"]
+            isOneToOne: false
+            referencedRelation: "embed_form_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embed_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      embed_rate_limits: {
+        Row: {
+          count: number
+          embed_token: string
+          id: string
+          ip_hash: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          embed_token: string
+          id?: string
+          ip_hash: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          embed_token?: string
+          id?: string
+          ip_hash?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       equipment: {
         Row: {
