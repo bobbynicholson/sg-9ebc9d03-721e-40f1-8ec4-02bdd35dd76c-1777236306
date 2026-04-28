@@ -39,6 +39,7 @@ import {
   Lightbulb,
   Headphones,
   Layers,
+  Shield,
 } from "lucide-react";
 
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
@@ -1308,6 +1309,81 @@ const embedFormsCards: SprintCard[] = [
   },
 ];
 
+// =====================================================================
+// GROUP 13 -- DEPLOYMENT + TESTING PLAYBOOK FOR THE DEV TEAM (29 Apr 2026)
+// =====================================================================
+// Bobby cannot run the dev steps himself -- he doesn't have node / vercel /
+// cloudflare keys at his fingertips. This group captures every manual
+// action a developer needs to take to land the embed forms feature, plus
+// the page-by-page acceptance test plan he will run on the live site once
+// the build is green again.
+const devOpsCards: SprintCard[] = [
+  {
+    id: "devops-shipped-ops",
+    title: "Already done by Bobby's session (29 Apr 2026) -- audit trail",
+    why: "Migrations + cron job + first round of build fixes were applied directly via the Supabase MCP and Bobby's git access. The dev team should NOT redo these. Listed for traceability.",
+    estimate: "Done",
+    risk: "Low",
+    icon: CheckCircle2,
+    accent: "from-emerald-500 to-green-600",
+    items: [
+      { title: "Migration 1 applied -- companies.embed_token + 3 new tables + RLS + triggers", detail: "Originally 20260428120000_embed_forms.sql. Applied via Supabase MCP. Note: dropped the 'owner' role from RLS policies because user_role enum has no such value (only super_admin / company_admin / admin / kitchen_staff / driver / shopping_staff / cleaning_staff / client). All existing companies (2 of them) auto-got an embed_token.", status: "shipped" },
+      { title: "Migration 2 applied -- companies.auto_reply_to_embed_submissions + increment_embed_form_views RPC", detail: "Originally 20260428130000_embed_forms_api.sql. Applied via Supabase MCP. Service-role grant on the RPC.", status: "shipped" },
+      { title: "Daily cron scheduled -- prune_embed_rate_limits_daily", detail: "pg_cron job runs at 03:15 UTC daily, calling public.prune_embed_rate_limits() which deletes rows older than 24h. SECURITY DEFINER wrapper. Verified live via cron.job table.", status: "shipped" },
+      { title: "Role-enum fix in API guards (commit 3cf8e4d)", detail: "src/pages/api/admin/embed/{forms,company,analytics}.ts had 'owner' in the role allow-list. Removed -- valid admins were going to get 401s.", status: "shipped" },
+      { title: "Build fixes (commit f25166f)", detail: "inventory-recipes.tsx:28 used non-existent RecipeIngredient.ingredient_name (correct field is inventory_item_name). tracking.tsx:146 selected companies.name (correct column is company_name). Both fixed; cascade was failing every embed-forms commit since 4e9551b.", status: "shipped" },
+    ],
+  },
+  {
+    id: "devops-vercel-env",
+    title: "Vercel environment variables (5 minutes per dev)",
+    why: "The embed forms public API hashes IPs with a server-side salt and verifies Cloudflare Turnstile if Turnstile is wired. Both are env vars the dev team needs to set on Vercel. Without EMBED_IP_HASH_SALT, IP hashing still works but uses a placeholder salt -- functional but not production-grade.",
+    estimate: "5 minutes",
+    risk: "Low",
+    icon: Shield,
+    accent: "from-amber-500 to-orange-500",
+    defaultOpen: true,
+    items: [
+      { title: "Set EMBED_IP_HASH_SALT on Vercel (Production + Preview + Development)", detail: "Generated value Bobby can paste: 17c4714759169984f28e618594bbb2222c41d835120fc3265817e3cfcfbc29cc. Vercel -> Project Settings -> Environment Variables -> Add New. Value persists; redeploy from Deployments tab to apply.", status: "todo" },
+      { title: "Set TURNSTILE_SECRET_KEY + NEXT_PUBLIC_TURNSTILE_SITE_KEY (optional, recommended pre-launch)", detail: "Sign up free at https://dash.cloudflare.com/sign-up -> Turnstile -> Add Site (Managed mode). Copy both keys. Without these, anti-spam falls back to honeypot-only -- fine for soft-launch, recommended once tenants go live.", status: "todo" },
+      { title: "Decide the public loader URL", detail: "Templates assume the loader at https://cateringms.com/embed/loader.js. If production domain differs, update src/components/admin/embed/SnippetDialog.tsx defaultLoaderUrl to match. Static assets are served from /public/embed/ via Vercel automatically.", status: "todo" },
+    ],
+  },
+  {
+    id: "devops-page-by-page",
+    title: "Page-by-page acceptance test plan (Bobby drives, dev tags along)",
+    why: "Once builds are green and env vars are set, Bobby will walk the app page-by-page on the Spit Braai tenant. The dev team should pair on the embed-forms wave (the highest-risk piece) and stand by during waves 1-4 to fix anything that breaks.",
+    estimate: "30-45 minutes wall-clock",
+    risk: "Medium",
+    icon: ListChecks,
+    accent: "from-blue-500 to-indigo-500",
+    defaultOpen: true,
+    items: [
+      { title: "WAVE 1 -- nothing-broke smoke test (5 min)", detail: "/admin/dashboard loads; tooltip on Booked Revenue reads in plain English with paragraph break. /admin/clients Compose button works. /admin/quotes Compose button on non-draft quotes opens drawer. /admin/quotes/new address field shows Google Places suggestions. Sidebar accordion sections persist open/closed state on reload.", status: "todo" },
+      { title: "WAVE 2 -- embed forms feature end-to-end (15 min, the big one)", detail: "/admin/integrations/embed loads with empty state. Browse templates -> 10 cards render with live previews. Pick Spit Braai Quick -> customiser opens. Tweak success message, save. Get snippet -> dialog shows snippet with data-token UUID. Open /embed/demo.html?template=spit-braai-quick&token={token}&slug={slug} in a new tab -- form should render with company colours. Submit a fake enquiry -> check /admin/leads for new row with source='embed'.", status: "todo" },
+      { title: "WAVE 3 -- tracking + route planning (10 min)", detail: "/admin/tracking shows 9-block Order Details panel on click. Compose button in the client block works. /admin/route-planning shows real unassigned orders + drivers (no MOCK_ORDERS).", status: "todo" },
+      { title: "WAVE 4 -- global Cmd+K search (2 min)", detail: "Press Cmd+K (or Ctrl+K on Windows) anywhere. Palette opens. Type a client name -- fuzzy results badged Order/Client/Lead/Quote. Enter on a result -> deep-link to right page.", status: "todo" },
+    ],
+  },
+  {
+    id: "devops-known-build-class",
+    title: "Class of error: agent-introduced wrong column references",
+    why: "Two of the embed-forms agents and the tracking-pane agent assumed schema column names without checking. Their fixes are already in but the same class of mistake will likely surface again as the dev team adds more features against this codebase. Write it up now so the next dev does not lose 30 minutes.",
+    estimate: "Reference",
+    risk: "Low",
+    icon: AlertCircle,
+    accent: "from-slate-500 to-slate-600",
+    items: [
+      { title: "Always check src/integrations/supabase/database.types.ts for the canonical column name", detail: "The agent guessed companies.name; the column is companies.company_name. Cost: every commit since 4e9551b failed in Vercel until commit f25166f. Five minutes of typing the column wrong = three hours of cascading red builds. Always grep database.types.ts first.", status: "todo" },
+      { title: "user_role enum values are fixed -- super_admin, company_admin, admin, kitchen_staff, driver, shopping_staff, cleaning_staff, client", detail: "There is no 'owner' role. Every place that checks roles must use only those eight values. The embed-forms agent slipped 'owner' into three API endpoints AND the SQL migration; one caused the migration to fail outright with 'invalid input value for enum user_role: owner', the other three would have given valid admins 401 responses. Already fixed.", status: "todo" },
+      { title: "RecipeIngredient.inventory_item_name (NOT ingredient_name)", detail: "RecipeIngredient lives at src/services/inventoryDeductionService.ts:7-11 and exposes inventory_item_name + quantity_per_serving + unit. The actual recipes table uses recipe_ingredients with a different shape (ingredient_name lives there). When working with the in-memory RECIPE_MAPPINGS, use inventory_item_name. When working with the DB recipe_ingredients table, use ingredient_name.", status: "todo" },
+      { title: "When in doubt, run `npx tsc --noEmit` BEFORE pushing", detail: "Vercel runs the full Next.js build incl type check on every push. A two-second local check catches every cascade-failure error this group has been bitten by. Add this to the team's PR checklist.", status: "todo" },
+    ],
+  },
+];
+
+const groups: Group[] = [
+
 const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
@@ -1321,6 +1397,7 @@ const groups: Group[] = [
   { id: "journey-audit", title: "10. Customer journey audit findings (28 Apr 2026)", description: "Six parallel auditors traced the journeys end-to-end using the rewritten tooltips as contracts: Lead->Quote->Order, Order->Kitchen, Driver->Delivery, Cleaning->Invoice->Payment, SaaS lifecycle, and cross-cutting auth+tenancy+comms. Sixteen wiring fixes shipped in flight. Remaining items split into customer-journey blockers, multi-tenancy + auth, billing/comms that lies, dead UI, and a record of the fixes already shipped.", cards: journeyAuditCards },
   { id: "tracking-route-split", title: "11. Tracking + Route Planning canonical split (29 Apr 2026)", description: "/admin/tracking and /admin/route-planning had drifted into looking like the same page. Recovered the canonical purpose split (LIVE ops vs PRE-FLIGHT dispatch), wired both surfaces to real Supabase data, and rebuilt the Order Details right-pane on tracking as a deep-link dashboard with eight blocks so an owner can answer 'where is order X' in one click.", cards: trackingRouteSplitCards },
   { id: "embed-forms", title: "12. Embeddable lead-capture forms (29 Apr 2026)", description: "Built the U3 market-disrupting feature from Group 6: a public embeddable quote-request form system. Catering tenants drop a script tag into their own marketing site (WordPress / Wix / Squarespace / Webflow / custom) and a token-authed form lands leads in the CRM. Ten templates (Quick Card, Modern Inline, Luxe Vertical, Floating Widget, Detailed Multi-Step, Pricing Calculator, Wedding Specialist, Corporate Catering, Event Estimator, Spit Braai Quick), each white-label colour-aware, conditional-field-aware, accessibility AA, ~33-36KB total bundle. Pricing Calculator + Event Estimator hit a live /estimate endpoint to show 'From R250-R450pp' as the user moves the guest slider -- the conversion-killer feature fewer than 5 of 60 surveyed sites in SA/UK/US ship. Admin gallery at /admin/integrations/embed lets tenants pick, customise (drag-reorder fields, conditional logic, white-label theme overrides, success redirect), and copy a snippet. Ten commits shipped in one parallel build run by four agents.", cards: embedFormsCards },
+  { id: "dev-team-handoff", title: "13. Dev team handoff -- deployment + testing playbook (29 Apr 2026)", description: "Bobby is non-technical -- the items in this group are the manual dev tasks the team needs to handle. Migrations + cron + first round of build fixes are already done by his Claude session. What remains: Vercel env vars, Cloudflare Turnstile signup, walking the page-by-page test plan with him, and a reference card on the class of TypeScript error that bit four commits in a row.", cards: devOpsCards },
 ];
 
 // =====================================================================
