@@ -89,7 +89,7 @@ function JobProgressOverviewPage() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Job Progress Overview</h1>

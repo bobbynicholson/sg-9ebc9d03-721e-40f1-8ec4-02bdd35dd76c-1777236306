@@ -115,7 +115,7 @@ function SubscriptionInvoicesPage() {
       </Head>
       <NoIndexMeta />
       <ClientNav />
-      <div className="min-h-screen bg-gray-50 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen bg-gray-50 lg:pl-72 xl:pl-80">
         <main className="container mx-auto p-4 md:p-8">
           <h1 className="text-3xl font-bold mb-6 text-gray-800">
             Subscriptions & Invoices

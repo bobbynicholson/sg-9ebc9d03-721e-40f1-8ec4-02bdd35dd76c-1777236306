@@ -244,7 +244,7 @@ export default function CMSPageManagement() {
         <title>Page Management - CateringMS Website</title>
       </Head>
       
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8 lg:pl-64 xl:pl-72 pt-20 lg:pt-8">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
         <PlatformNav />
         <div className="max-w-full">
           <Alert className="mb-6 border-purple-200 bg-purple-50">

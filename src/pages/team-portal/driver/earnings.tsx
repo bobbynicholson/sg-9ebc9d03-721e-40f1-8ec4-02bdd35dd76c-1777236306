@@ -78,7 +78,7 @@ export default function DriverEarningsPage() {
       <Head><title>My Earnings - Driver Portal</title></Head>
       <DriverNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-4 py-8 max-w-screen-2xl">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">

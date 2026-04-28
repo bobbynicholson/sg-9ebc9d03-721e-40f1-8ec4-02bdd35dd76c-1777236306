@@ -192,7 +192,7 @@ export default function DriverRoutes() {
           <title>My Routes - Driver Portal</title>
         </Head>
         <DriverNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
           <div className="px-4 py-12 max-w-6xl">
             <div className="text-center">
               <RouteIcon className="w-16 h-16 mx-auto mb-4 text-slate-300 animate-pulse" />
@@ -212,7 +212,7 @@ export default function DriverRoutes() {
           <title>My Routes - Driver Portal</title>
         </Head>
         <DriverNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
           <div className="px-4 py-12 max-w-6xl">
             <Card className="border-0 shadow-lg">
               <CardContent className="py-12 text-center">
@@ -245,7 +245,7 @@ export default function DriverRoutes() {
 
       <DriverNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 lg:py-12 max-w-full">
           {/* Header */}
           <div className="mb-6 lg:mb-8">

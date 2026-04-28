@@ -116,7 +116,7 @@ export default function PlatformCurrencyMonitoringPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 lg:pl-64 xl:pl-72 pt-20 lg:pt-8">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-8 lg:pl-72 xl:pl-80 pt-20 lg:pt-8">
       <PlatformNav />
       <Head>
         <title>Currency Monitoring - CateringMS Platform</title>

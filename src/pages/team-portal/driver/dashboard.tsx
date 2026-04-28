@@ -312,7 +312,7 @@ export default function DriverDashboard() {
 
       <DynamicNav userRole={UserRole.DRIVER} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-screen-2xl">
           {/* Header */}
           <div className="mb-4 sm:mb-6 md:mb-8">

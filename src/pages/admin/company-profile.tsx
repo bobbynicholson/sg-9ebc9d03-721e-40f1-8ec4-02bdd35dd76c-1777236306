@@ -169,7 +169,7 @@ function CompanyProfilePage() {
         <NoIndexMeta />
         <Head><title>Company Profile - CateringMS Admin</title></Head>
         <AdminNav />
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72 flex items-center justify-center">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
         </div>
       </>
@@ -182,7 +182,7 @@ function CompanyProfilePage() {
       <Head><title>Company Profile - CateringMS Admin</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-6 max-w-screen-2xl">
 
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

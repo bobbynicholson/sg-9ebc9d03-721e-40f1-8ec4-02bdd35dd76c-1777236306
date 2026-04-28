@@ -95,7 +95,7 @@ export default function CleaningDashboard() {
 
       <DynamicNav userRole={UserRole.CLEANING_STAFF} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-cyan-50 py-8 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-cyan-50 py-8 lg:pl-72 xl:pl-80">
         <div className="max-w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">

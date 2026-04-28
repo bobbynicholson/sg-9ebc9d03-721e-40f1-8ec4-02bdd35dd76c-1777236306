@@ -228,12 +228,16 @@
 }
 
 /* When the sidebar is collapsed (icon-only, ~80px), every page wrapper that
-   ships with `lg:pl-64 xl:pl-72` must shrink its left padding to match,
-   otherwise content sits stranded behind 180-200px of dead space.
-   Each Nav writes data-sidebar-collapsed to <html> when toggled. */
+   ships with `lg:pl-72 xl:pl-80` must shrink its left padding to match,
+   otherwise content sits stranded behind 192-240px of dead space.
+   Each Nav writes data-sidebar-collapsed to <html> when toggled.
+   Older pages may still use lg:pl-64 / xl:pl-72 -- both are matched here
+   for backwards compatibility. */
 @media (min-width: 1024px) {
   html[data-sidebar-collapsed="true"] .lg\:pl-64,
-  html[data-sidebar-collapsed="true"] .xl\:pl-72 {
+  html[data-sidebar-collapsed="true"] .lg\:pl-72,
+  html[data-sidebar-collapsed="true"] .xl\:pl-72,
+  html[data-sidebar-collapsed="true"] .xl\:pl-80 {
     padding-left: 5rem !important;
   }
 }

@@ -957,7 +957,7 @@ function OrderProcessDashboard() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
           <div className="space-y-6">
             {/* Header */}

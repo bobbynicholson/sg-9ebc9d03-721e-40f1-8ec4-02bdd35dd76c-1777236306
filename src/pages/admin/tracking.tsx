@@ -149,7 +149,7 @@ export default function AdminTracking() {
 
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 pb-20 lg:pl-64 xl:pl-72">
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 pb-20 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8">
           {/* Header */}
           <div className="mb-6">
