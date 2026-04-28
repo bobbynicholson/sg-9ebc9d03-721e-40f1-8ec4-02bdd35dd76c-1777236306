@@ -901,6 +901,79 @@ const productNotesCards: SprintCard[] = [
   },
 ];
 
+// =====================================================================
+// GROUP 9 -- TOOLTIP AUDIT FINDINGS (28 Apr 2026)
+// =====================================================================
+// 5-agent rollout added ~255 hover tooltips across 71 pages and surfaced
+// the data flow issues below. P0 fix already shipped. Everything else
+// is sequenced for Phase 2 work post-launch meeting.
+const tooltipAuditCards: SprintCard[] = [
+  {
+    id: "audit-broken-ux",
+    title: "High-priority misleading or broken UX (audit-surfaced)",
+    why: "Each of these is a card or button that lies to the user -- shows a number that's wrong, claims to save when it doesn't, or filters on stale state. Found while adding info tooltips so every metric explains its data source.",
+    estimate: "3-4 days",
+    risk: "High",
+    icon: AlertTriangle,
+    accent: "from-rose-500 to-red-600",
+    defaultOpen: true,
+    items: [
+      { title: "Multi-tenancy data leak on /admin/driver-management", detail: "userManagementService.getAllUsers() called without company_id meant a company admin saw drivers from every tenant on the platform. P0. Fix shipped 28 Apr 2026 in commit 596ef67 -- now scoped to user.company_id with early return when unauthenticated.", status: "shipped", ref: "src/pages/admin/driver-management.tsx:63-83" },
+      { title: "Pricing Management save button is fake", detail: "/admin/platform/pricing-management.tsx -- saveHandler calls setPricing(editedPricing) only. No Supabase write, no API call. Toast says 'saved' but rates and tier prices are hardcoded constants in the component. Director-level action that does nothing.", status: "todo", ref: "src/pages/admin/platform/pricing-management.tsx:31-44" },
+      { title: "Invoices 'Total Revenue' KPI sums all invoices including drafts + outstanding", detail: "Should filter to status='paid' or relabel to 'Total Invoiced'. Today the number lies to the owner about what they've actually collected.", status: "todo", ref: "src/pages/admin/invoices.tsx:386-388" },
+      { title: "Invoices loadOrders closure bug -- orders show as uninvoiced on first load", detail: "loadOrders filters using stale invoices state from the previous render. On first load invoices is [] so every order appears uninvoiced even when invoices exist.", status: "todo", ref: "src/pages/admin/invoices.tsx:122-126" },
+      { title: "Inventory 'Expiring Soon' KPI is always 0", detail: "expiryDate: undefined is hardcoded in the row mapping, so getExpiringItems() always returns nothing regardless of real data.", status: "todo", ref: "src/pages/admin/inventory.tsx:90" },
+      { title: "Inventory supplier column shows literal 'Supplier set' string", detail: "supplier: row.preferred_supplier_id ? 'Supplier set' : '--' returns a literal placeholder instead of the actual supplier name. Should join to suppliers table.", status: "todo", ref: "src/pages/admin/inventory.tsx:88" },
+      { title: "Calendar 'Upcoming events' KPI capped at 5", detail: "upcoming.length is read from an array sliced earlier for the next-five list view. Use a separate uncapped count.", status: "todo", ref: "src/pages/admin/calendar.tsx:407" },
+      { title: "Currency 90-day trend assumes chronological order", detail: "Reads first vs last entries of historicalRates. If the array isn't strictly sorted the trend calculation is wrong.", status: "todo", ref: "src/pages/admin/platform/currency-monitoring.tsx:90-101" },
+      { title: "Driver schedule shows full orders.total_amount to drivers", detail: "Decision needed -- should drivers see invoice value, or only their own delivery fee? Current behaviour exposes the catering company's revenue to every driver.", status: "todo", ref: "src/pages/team-portal/driver/schedule.tsx" },
+    ],
+  },
+  {
+    id: "audit-mock-localstorage",
+    title: "Mock data + localStorage flows that need real Supabase wiring",
+    why: "Several feature-rich admin and platform pages ship pure mock arrays or persist only to localStorage. They look complete in screenshots but are demo-only. Each needs a Supabase table + RLS + service layer before launch.",
+    estimate: "2-3 weeks (sequenced one feature at a time)",
+    risk: "High",
+    icon: Database,
+    accent: "from-amber-500 to-orange-600",
+    items: [
+      { title: "Platform Health stats are hardcoded literals", detail: "98% / 1.2s avg response / 3 open tickets / 99.9% uptime are not sourced from any monitoring service. Only active companies count is real. Either wire to Better Stack / Sentry / etc. or remove the panel.", status: "todo", ref: "src/pages/admin/platform/dashboard.tsx:354-362" },
+      { title: "MRR computed from hardcoded plan-rate map", detail: "Starter R499 / Growth R1499 / Scale R3999 / Enterprise R9999 hardcoded in the component. No real billing/plans table consulted. Trial accounts default to amount=0. Connect to a subscriptions or billing_invoices table.", status: "todo", ref: "src/pages/admin/platform/subscription-management.tsx:91-101" },
+      { title: "CMS blog AI generation is a setTimeout mock", detail: "generateContent / generateSampleContent / generateFAQs / generateSchema return sample boilerplate after a 2-second delay. Not wired to OpenAI/Claude. Either implement against Anthropic API or remove the AI generation buttons.", status: "todo", ref: "src/pages/admin/platform/cms-blog.tsx:118-119" },
+      { title: "Recipes are hardcoded RECIPE_MAPPINGS constant", detail: "/admin/inventory-recipes is driven by a constant in inventoryDeductionService.ts, not a database table. Editing a recipe requires a code change + redeploy. Move to a recipes table with recipe_ingredients join.", status: "todo", ref: "src/services/inventoryDeductionService.ts" },
+      { title: "Notification settings save to localStorage only", detail: "All toggles (SMS, push, daily summary, etc.) write to localStorage. Page text says 'changes take effect immediately' but no consumer reads them and no server stores them. Move to companies.notification_settings JSONB or a notification_preferences table.", status: "todo", ref: "src/pages/admin/notification-settings.tsx:64-77" },
+      { title: "Payment gateway config localStorage only", detail: "Entire gateway config persists to localStorage('payment_gateway_config'). No Supabase table. PayFast / SnapScan / Yoco credentials need a server-side encrypted store.", status: "todo", ref: "src/pages/admin/payment-gateways.tsx:88-92,131-132" },
+      { title: "Email templates localStorage only", detail: "Template CRUD writes to localStorage('email_templates'). Move to email_templates table with company_id RLS so all staff see the same templates.", status: "todo", ref: "src/pages/admin/email-templates.tsx:322-330" },
+      { title: "SMTP config + automation rules localStorage only", detail: "emailConfig and automationRules saved to localStorage. Not wired to a real send engine -- /admin/email-automation-dashboard reads the same localStorage queues from lib/afterSalesAutomation. Wire to a real ESP (Resend / Postmark) and persist rules in DB.", status: "todo", ref: "src/pages/admin/email-automation-settings.tsx:162,177 + src/pages/admin/email-automation-dashboard.tsx" },
+      { title: "Route planning is pure MOCK_ORDERS / MOCK_DRIVERS", detail: "Entire orders + drivers list is hardcoded. UI is a demo until wired to Supabase. Pull orders from orders.event_date in window + drivers from profiles.role='driver' scoped by company_id.", status: "todo", ref: "src/pages/admin/route-planning.tsx:32-145,167" },
+      { title: "Order assignments are mockOrders + localStorage", detail: "Orders come from mockOrders constant; assignments persist to localStorage('order_assignments' + 'staff_assignments'). Move to order_assignments + staff_assignments tables with company_id RLS.", status: "todo", ref: "src/pages/admin/order-assignments.tsx:66,86-99" },
+      { title: "Onboarding step completion flags hardcoded", detail: "Every step's 'completed' flag is hardcoded in the page; doesn't reflect real account state. Compute from companies.onboarding_status JSONB or derive from the existence of menus / clients / first quote.", status: "todo", ref: "src/pages/admin/onboarding.tsx:28-77" },
+      { title: "Driver earnings hardcoded jobs * R250", detail: "Today's Potential Earnings + Potential Earnings panels multiply job count by R250. Replace with a real per-delivery rate from driver_pay_rates or staff_work_sessions.", status: "todo", ref: "src/pages/team-portal/driver/dashboard.tsx:354 + src/pages/team-portal/driver/routes.tsx:237,432,606" },
+      { title: "team-portal/general/job-progress.tsx is mockJobs", detail: "Entire job list is a mockJobs constant. Should pull from kitchen_assignments.status + driver_assignments.status. Tooltips already reference the future tables.", status: "todo", ref: "src/pages/team-portal/general/job-progress.tsx:42-70" },
+      { title: "Shopping dashboard purchased state in localStorage", detail: "Persisted to localStorage('shopping_items_purchased'). Acceptable as a temporary cache but the source of truth should be shopping_list_items.is_purchased once POs are wired through.", status: "todo", ref: "src/pages/team-portal/shopping/dashboard.tsx:115-129" },
+      { title: "White-label / branding stored in BrandingContext, not DB", detail: "BrandingContext is browser-stored; not synced to the companies row. Tenant logo + colours don't survive a different browser or device.", status: "todo", ref: "src/pages/admin/white-label.tsx + BrandingContext" },
+    ],
+  },
+  {
+    id: "audit-structural",
+    title: "Structural patterns to consolidate",
+    why: "Patterns that emerged across multiple files during the audit. Each one is a small refactor but unblocks a class of future work.",
+    estimate: "1 week",
+    risk: "Low",
+    icon: Layers,
+    accent: "from-indigo-500 to-purple-500",
+    items: [
+      { title: "Triple-duplicate branding/identity surfaces", detail: "/admin/settings 'Company' tab, /admin/company-profile, and /admin/white-label each capture overlapping branding/identity. Editing one doesn't sync to the others. Consolidate to companies table with one canonical UI before launch.", status: "todo" },
+      { title: "Migrate hand-rolled KPI tiles to MetricCard", detail: "Most admin pages re-implement the same KPI card pattern instead of using the shared MetricCard. Migrating makes the tooltip prop free everywhere and gives one place to update card visuals.", status: "todo" },
+      { title: "companies.role_settings JSONB for cleaning/shopping/kitchen/driver settings", detail: "All role-specific settings pages currently save to localStorage. One JSONB column on companies (or a role_settings table keyed by company_id + role) consolidates them and survives device changes.", status: "todo" },
+      { title: "Decide canonical source for subscription state", detail: "Several files compute subscription state client-side from companies.subscription_status. Worth deciding before billing goes live: is companies.subscription_status canonical, or do we need a dedicated subscriptions table that the column derives from?", status: "todo" },
+      { title: "Consolidate MiniStat / StatCard duplicates in driver portal", detail: "deliveries.tsx has MiniStat, earnings.tsx has StatCard, both duplicate MetricCard. Merge into MetricCard so future stat tiles inherit the tooltip pattern automatically.", status: "todo" },
+      { title: "PortalPagePlaceholder optional infoTooltip prop", detail: "Pages still using PortalPagePlaceholder (kitchen/settings, driver/notifications stubs) could take an optional infoTooltip explaining what the page will eventually do. Useful documentation while shells exist before features ship.", status: "todo" },
+    ],
+  },
+];
+
 const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
@@ -910,6 +983,7 @@ const groups: Group[] = [
   { id: "expansion", title: "6. Market expansion -- features to win SA / UK / US", description: "Sourced from a 60-company competitive audit (20 per region) on 28 April 2026. Universal builds (U1-U8) unlock all three markets in one investment; region-specific items address local compliance + buyer expectations; wow-factor moats are global firsts no competitor has shipped.", cards: [...universalCards, ...saExpansionCards, ...ukExpansionCards, ...usExpansionCards, ...wowFactorCards] },
   { id: "reference", title: "7. Reference -- Metrics, risks, team plan", description: "Concrete success metrics, known risks with mitigations, team plan and budget.", cards: referenceCards },
   { id: "product-notes", title: "8. Product notes -- Bobby's roadmap ideas", description: "Feature ideas captured 27 April 2026. AI onboarding, WhatsApp/Facebook automation, events equipment, support model, AI receipt scanning, inventory admin page. All todo -- sequencing TBD.", cards: productNotesCards },
+  { id: "tooltip-audit", title: "9. Tooltip rollout audit findings (28 Apr 2026)", description: "Surfaced while rolling out info tooltips across 71 pages. P0 multi-tenancy leak already fixed (commit 596ef67). Remaining items split into broken UX, mock/localStorage flows that need real persistence, and structural patterns to consolidate.", cards: tooltipAuditCards },
 ];
 
 // =====================================================================
