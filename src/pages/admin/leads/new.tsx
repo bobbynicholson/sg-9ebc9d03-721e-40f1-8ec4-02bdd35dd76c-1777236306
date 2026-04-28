@@ -46,7 +46,8 @@ export default function NewLead() {
         client_email: formData.email,
         email: formData.email,
         client_phone: formData.phone,
-        event_date: new Date(formData.eventDate).toISOString(),
+        // Guard against empty date producing 'Invalid Date' -> ISO crash
+        event_date: formData.eventDate ? new Date(formData.eventDate).toISOString() : null,
         guest_count: parseInt(formData.guestCount) || 0,
         event_type: formData.eventType,
         budget_range: formData.budget,
