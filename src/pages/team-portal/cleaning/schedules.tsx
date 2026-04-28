@@ -139,7 +139,7 @@ export default function CleaningSchedulesPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Calendar className="h-7 w-7 text-cyan-600" />
                 Cleaning Schedules
-                <InfoTooltip content="The full recurring cleaning plan grouped by date. Source: cleaning_schedules table, ordered by scheduled_date and scheduled_time." />
+                <InfoTooltip content="The full recurring cleaning plan, grouped by date and time." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Recurring cleaning plan -- daily / weekly / monthly cadence per area</p>
             </div>

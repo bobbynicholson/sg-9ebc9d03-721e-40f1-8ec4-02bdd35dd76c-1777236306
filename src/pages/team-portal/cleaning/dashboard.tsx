@@ -125,7 +125,7 @@ export default function CleaningDashboard() {
                   </p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     Available
-                    <InfoTooltip content="Equipment with available_quantity = quantity, condition not damaged. Ready to dispatch on the next event." />
+                    <InfoTooltip content="Equipment that's clean, in good condition, and ready to send out on the next event." />
                   </p>
                 </div>
                 
@@ -138,7 +138,7 @@ export default function CleaningDashboard() {
                   </p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     In Use
-                    <InfoTooltip content="Equipment currently out at an event (available_quantity less than quantity). Returns once dispatch logs collection." />
+                    <InfoTooltip content="Equipment that's currently out on a job.\n\nIt comes back here once dispatch logs the collection." />
                   </p>
                 </div>
                 
@@ -151,7 +151,7 @@ export default function CleaningDashboard() {
                   </p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     Cleaning
-                    <InfoTooltip content="Returned items in the cleaning queue (equipment_bookings.status='returned'). Tick off as you finish each one." />
+                    <InfoTooltip content="Items that came back from a job and are sitting in the cleaning queue.\n\nTick each one off as you finish it." />
                   </p>
                 </div>
                 
@@ -164,7 +164,7 @@ export default function CleaningDashboard() {
                   </p>
                   <p className="text-xs text-slate-600 mt-1 flex items-center gap-1">
                     Damaged
-                    <InfoTooltip content="Equipment marked condition='damaged' or 'broken'. Pulled from rotation until repaired or written off." />
+                    <InfoTooltip content="Equipment flagged as damaged or broken.\n\nIt's out of rotation until someone repairs or replaces it." />
                   </p>
                 </div>
               </div>

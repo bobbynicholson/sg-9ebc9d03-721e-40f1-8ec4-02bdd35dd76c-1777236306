@@ -109,7 +109,7 @@ export default function CleaningNotificationsPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Bell className="h-7 w-7 text-cyan-600" />
                 Cleaning Notifications
-                <InfoTooltip content="Alerts addressed to you personally or to anyone with the cleaning_staff role. Source: notifications where recipient_id, user_id or target_role matches." />
+                <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the cleaning team as a whole." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Cleaning alerts, equipment returns, missing items</p>
             </div>

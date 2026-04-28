@@ -93,7 +93,7 @@ export default function ShoppingNotificationsPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Bell className="h-7 w-7 text-emerald-600" />
                 Shopping Notifications
-                <InfoTooltip content="Alerts addressed to you personally or anyone with the shopping_staff role. Source: notifications where recipient_id, user_id or target_role matches." />
+                <InfoTooltip content="Alerts sent to you directly, plus anything addressed to the shopping team as a whole." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Stock alerts, supplier updates, purchase requests</p>
             </div>

@@ -110,7 +110,7 @@ export default function StaffJobProgress() {
             <div>
               <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
                 Job Progress Overview
-                <InfoTooltip content="Cross-team view of every active job with kitchen and driver progress. Currently displays placeholder mock data -- live wiring to orders + kitchen_assignments + driver_assignments is on the Phase 2 todo." />
+                <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place.\n\nThis page is showing sample data for now while we finish wiring it up." />
               </h1>
               <p className="text-slate-600">Monitor all active jobs and their progress in real-time</p>
             </div>
@@ -135,7 +135,7 @@ export default function StaffJobProgress() {
                       <div>
                         <CardTitle className="text-xl flex items-center gap-2">
                           {job.orderName}
-                          <InfoTooltip content="Client / event title. Mocked here, will pull from orders.client_name or events.event_name once wired." />
+                          <InfoTooltip content="The client and event this job is for." />
                         </CardTitle>
                         <p className="text-sm text-slate-600 mt-1">
                           <Calendar className="w-4 h-4 inline mr-1" />
@@ -157,7 +157,7 @@ export default function StaffJobProgress() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
                           Overall Progress
-                          <InfoTooltip content="Combined kitchen + driver progress for the job. Mock value, will be derived from kitchen_assignments.status and driver_assignments.status weights." />
+                          <InfoTooltip content="Overall progress for this job, blending kitchen prep and driver delivery." />
                         </span>
                         <span className="text-sm font-bold text-slate-900">{job.overallProgress}%</span>
                       </div>
@@ -171,7 +171,7 @@ export default function StaffJobProgress() {
                             <ChefHat className="w-5 h-5 text-orange-600" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Kitchen Status
-                              <InfoTooltip content="Where the kitchen is on prep: pending, preparing, ready. Mocked here, will read kitchen_assignments.status once wired." />
+                              <InfoTooltip content="Where the kitchen is with prep: pending, preparing, or ready to go." />
                             </span>
                           </div>
                           <Badge className={getStatusColor(job.kitchenStatus)}>
@@ -204,7 +204,7 @@ export default function StaffJobProgress() {
                             <Truck className="w-5 h-5 text-blue-600" />
                             <span className="font-medium text-slate-900 flex items-center gap-1">
                               Driver Status
-                              <InfoTooltip content="Driver assignment + delivery state: pending, assigned, completed. Mocked here, will read driver_assignments.status once wired." />
+                              <InfoTooltip content="Where the delivery is at: pending, assigned to a driver, or completed." />
                             </span>
                           </div>
                           <Badge className={getStatusColor(job.driverStatus)}>

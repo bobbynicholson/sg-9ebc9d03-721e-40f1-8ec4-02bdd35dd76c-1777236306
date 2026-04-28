@@ -187,7 +187,7 @@ export default function ShoppingDashboard() {
                     <div>
                       <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                         Urgent Orders Needed
-                        <InfoTooltip content="Inventory items currently below minimum stock that have demand from upcoming events. Source: inventory_demand_outlook view." />
+                        <InfoTooltip content="Items that are below minimum stock and also needed for upcoming events.\n\nThese should jump the queue on the next shop." />
                       </p>
                       <p className="text-2xl sm:text-3xl font-bold text-green-600">
                         {inventoryItems.filter(i => i.quantityAvailable < i.minimumStock).length}
@@ -196,7 +196,7 @@ export default function ShoppingDashboard() {
                     <div className="text-left sm:text-right">
                       <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                         Estimated Cost
-                        <InfoTooltip content="Reorder quantity multiplied by cost_per_unit summed across all items below minimum stock." />
+                        <InfoTooltip content="Rough cost to bring every below-par item back up to its minimum level." />
                       </p>
                       <p className="text-xl sm:text-2xl font-bold text-slate-900">
                         R{inventoryItems
@@ -222,7 +222,7 @@ export default function ShoppingDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Total Items
-                      <InfoTooltip content="Every distinct ingredient pulled by upcoming orders in the next 14 days, derived from order_items + recipe_ingredients." />
+                      <InfoTooltip content="Every ingredient needed to cover orders in the next 14 days." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900">{items.length}</p>
                   </div>
@@ -239,7 +239,7 @@ export default function ShoppingDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Pending
-                      <InfoTooltip content="Items still to buy. Toggled on each row, persisted to localStorage until POs are wired through the suppliers table." />
+                      <InfoTooltip content="Items still to buy.\n\nTick each one off as you grab it -- progress is saved on this device." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
                   </div>
@@ -256,7 +256,7 @@ export default function ShoppingDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Purchased
-                      <InfoTooltip content="Items you've ticked off as bought. Counter clears when the upcoming-orders window rolls forward." />
+                      <InfoTooltip content="Items you've already ticked off as bought.\n\nThe count resets as the upcoming events window moves forward." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">{purchasedCount}</p>
                   </div>
@@ -273,7 +273,7 @@ export default function ShoppingDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Urgent
-                      <InfoTooltip content="Fresh-category items with events in the next 7 days. Buy these last to stay in date." />
+                      <InfoTooltip content="Fresh items needed within the next 7 days.\n\nBuy these last so they stay in date." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{urgentCount}</p>
                   </div>

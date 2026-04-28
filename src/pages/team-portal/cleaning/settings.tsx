@@ -103,7 +103,7 @@ export default function CleaningSettingsPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Camera className="h-4 w-4 text-cyan-600" />Photo evidence <InfoTooltip content="Forces a photo upload before staff can finish equipment verification or damage reports. Source: localStorage cms_cleaning_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><Camera className="h-4 w-4 text-cyan-600" />Photo evidence <InfoTooltip content="Forces staff to attach a photo before they can finish an equipment check or a damage report.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Force staff to attach a photo when verifying or reporting damage</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -126,7 +126,7 @@ export default function CleaningSettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Damage and billing <InfoTooltip content="Drives how missing or damaged items get costed and which damage reports auto-escalate to the company admin. Source: localStorage cms_cleaning_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Damage and billing <InfoTooltip content="Controls how missing or damaged items get costed, and which damage reports get pushed straight to the company admin.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>How missing or damaged items get costed and reported</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -161,7 +161,7 @@ export default function CleaningSettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-emerald-600" />Schedules + supplies <InfoTooltip content="Defaults applied when creating new cleaning schedules and the trigger that pings shopping when consumables hit par. Source: localStorage cms_cleaning_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4 text-emerald-600" />Schedules + supplies <InfoTooltip content="Defaults used when you create a new cleaning schedule, plus the alert that goes to shopping when supplies run low.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Defaults for new schedules and the low-stock signal</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

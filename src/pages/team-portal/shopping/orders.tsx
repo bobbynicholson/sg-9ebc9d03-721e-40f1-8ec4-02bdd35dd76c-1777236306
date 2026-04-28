@@ -191,9 +191,9 @@ export default function ShoppingOrdersPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists not yet completed or cancelled. Source: shopping_lists.status not in ('completed','cancelled')." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total lists <InfoTooltip content="All shopping lists across every status, last 50 returned. Source: shopping_lists table count." /></p><p className="text-2xl font-bold tabular-nums">{stats.totalLists}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders with event_date today or later. Source: orders where event_date is today or later and status in ('pending','confirmed','preparing')." /></p><p className="text-2xl font-bold tabular-nums">{stats.upcoming}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></p><p className="text-2xl font-bold tabular-nums">{stats.totalLists}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></p><p className="text-2xl font-bold tabular-nums">{stats.upcoming}</p></CardContent></Card>
           </div>
 
           <div className="flex gap-2 mb-4">

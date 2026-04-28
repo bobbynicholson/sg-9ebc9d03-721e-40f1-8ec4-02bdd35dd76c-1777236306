@@ -164,25 +164,25 @@ export default function ShoppingInventoryPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-slate-600 flex items-center gap-1">Total items <InfoTooltip content="Count of every active inventory line for this company. Source: inventory_items where deleted_at is null." /></p>
+                <p className="text-xs text-slate-600 flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></p>
                 <p className="text-2xl font-bold tabular-nums">{stats.total}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-slate-600 flex items-center gap-1">Below par <InfoTooltip content="Items where current_stock is at or below minimum_stock -- restock candidates. Source: inventory_items.current_stock vs minimum_stock." /></p>
+                <p className="text-xs text-slate-600 flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></p>
                 <p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-slate-600 flex items-center gap-1">Out of stock <InfoTooltip content="Items with zero current_stock -- you cannot fulfil orders that need these. Source: inventory_items.current_stock=0." /></p>
+                <p className="text-xs text-slate-600 flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></p>
                 <p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-slate-600 flex items-center gap-1">Stock value <InfoTooltip content="Total replacement value of stock on hand. Source: sum of inventory_items.current_stock multiplied by cost_per_unit." /></p>
+                <p className="text-xs text-slate-600 flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></p>
                 <p className="text-2xl font-bold tabular-nums">R {stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p>
               </CardContent>
             </Card>
@@ -242,12 +242,12 @@ export default function ShoppingInventoryPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-600">
                         <tr>
-                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="Inventory item name and SKU. Source: inventory_items.item_name and sku." /></span></th>
-                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Free-text category to group like items. Source: inventory_items.category." /></span></th>
-                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Stock <InfoTooltip content="Current quantity on hand in the storage unit. Source: inventory_items.current_stock." /></span></th>
-                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Min <InfoTooltip content="Par level -- below this you should be reordering. Source: inventory_items.minimum_stock." /></span></th>
-                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Computed: 'Out of stock' if zero, 'Below par' if at or below minimum, otherwise 'In stock'." /></span></th>
-                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Cost / unit <InfoTooltip content="Last known cost per unit, used to value stock. Source: inventory_items.cost_per_unit." /></span></th>
+                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="The item's name and SKU code." /></span></th>
+                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Category used to group similar items together." /></span></th>
+                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Stock <InfoTooltip content="How much of this item is sitting in stock right now." /></span></th>
+                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Min <InfoTooltip content="The minimum level for this item.\n\nOnce stock dips below this, it's time to reorder." /></span></th>
+                          <th className="px-4 py-3"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, below par, or in stock." /></span></th>
+                          <th className="px-4 py-3 text-right"><span className="inline-flex items-center gap-1">Cost / unit <InfoTooltip content="The last price you paid per unit.\n\nUsed to work out the total value of stock on hand." /></span></th>
                           <th className="px-4 py-3"></th>
                         </tr>
                       </thead>

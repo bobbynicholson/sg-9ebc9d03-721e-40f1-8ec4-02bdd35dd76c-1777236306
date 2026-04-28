@@ -93,7 +93,7 @@ export default function ShoppingSettingsPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-emerald-600" />Purchase runs <InfoTooltip content="Defaults that drive new shopping lists -- receipt enforcement, auto-generation horizon, lead time. Source: localStorage cms_shopping_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-emerald-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created -- receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Defaults for shopping lists and procurement runs</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -126,7 +126,7 @@ export default function ShoppingSettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Variance + budget <InfoTooltip content="Sets the threshold above which a run gets flagged as overspent and whether the admin gets pinged. Source: localStorage cms_shopping_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" />Variance + budget <InfoTooltip content="Sets when a shopping run gets flagged as over budget and whether the admin gets a notification.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Triggers for price-variance alerts</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -147,7 +147,7 @@ export default function ShoppingSettingsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4 text-blue-600" />Suppliers + alerts <InfoTooltip content="Supplier ranking preference and the auto-notify rule when stock dips. Source: localStorage cms_shopping_settings_<companyId>." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4 text-blue-600" />Suppliers + alerts <InfoTooltip content="How suppliers get ranked, plus the alert that fires when stock runs low.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Supplier preferences and notifications</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
