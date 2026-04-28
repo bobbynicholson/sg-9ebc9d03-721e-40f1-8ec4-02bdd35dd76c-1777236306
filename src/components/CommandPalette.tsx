@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import {
   CommandDialog,
@@ -8,7 +8,6 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandShortcut,
 } from "@/components/ui/command";
 import {
   LayoutDashboard,
@@ -32,9 +31,17 @@ import {
   Search,
   HelpCircle,
   LogOut,
+  Clock,
+  User,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
+import { useFuzzySearch } from "@/hooks/useFuzzySearch";
+import { orderService } from "@/services/orderService";
+import { quoteService } from "@/services/quoteService";
+import { leadService } from "@/services/leadService";
+import { clientManagementService } from "@/services/clientManagementService";
+import { inventoryService } from "@/services/inventoryService";
 
 interface PaletteItem {
   id: string;
@@ -49,18 +56,77 @@ interface PaletteItem {
   roles?: string[];
 }
 
+interface DataResult {
+  id: string;
+  label: string;
+  sublabel?: string;
+  badge: "Order" | "Client" | "Lead" | "Quote" | "Inventory";
+  href: string;
+  /** Free-form haystack for the fuzzy matcher to score against. */
+  haystack: string;
+}
+
+const RECENT_KEY = "cmdk:recent-searches";
+const MAX_RECENT = 5;
+
+function loadRecent(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s) => typeof s === "string").slice(0, MAX_RECENT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(term: string) {
+  if (typeof window === "undefined" || !term.trim()) return;
+  try {
+    const cur = loadRecent();
+    const next = [term, ...cur.filter((t) => t.toLowerCase() !== term.toLowerCase())].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage can fail in private mode -- the palette still works.
+  }
+}
+
+const badgeTone: Record<DataResult["badge"], string> = {
+  Order: "bg-blue-100 text-blue-700",
+  Client: "bg-purple-100 text-purple-700",
+  Lead: "bg-amber-100 text-amber-700",
+  Quote: "bg-emerald-100 text-emerald-700",
+  Inventory: "bg-slate-100 text-slate-700",
+};
+
 /**
  * Global Cmd+K / Ctrl+K command palette.
- * Mounted once in _app.tsx so every authenticated page picks it up.
- * Lets you jump anywhere without learning the URL structure.
+ *
+ * Mounted once in _app.tsx so every authenticated page picks it up. Two
+ * modes share the same input:
+ *   - With no query: navigation shortcuts + recent searches.
+ *   - With a query: live results from orders, clients, leads, quotes,
+ *     inventory (all company-scoped via the user's company_id) AND any
+ *     navigation entry that fuzzy-matches.
+ *
+ * Lets you jump anywhere without learning the URL structure, and lets you
+ * pull up the right order / client / lead by typing two characters of their
+ * name from anywhere in the app.
  */
 export function CommandPalette() {
   const router = useRouter();
   const { profile, user } = useAuth();
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
+  const [recent, setRecent] = useState<string[]>([]);
+  const [data, setData] = useState<DataResult[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
 
   const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
   const companySlug = (profile as any)?.company_slug || "";
+  const companyId = (user as any)?.company_id || (profile as any)?.company_id || "";
   const isAuthed = !!user;
 
   // Cmd+K (Mac) / Ctrl+K (Win/Linux) toggles the palette.
@@ -88,9 +154,125 @@ export function CommandPalette() {
     };
   }, []);
 
-  const handleSignOut = async () => {
+  // Reset state when the dialog closes so the next open is clean.
+  useEffect(() => {
+    if (!open) {
+      setTerm("");
+    } else {
+      setRecent(loadRecent());
+    }
+  }, [open]);
+
+  // Lazy-load company-scoped data the first time the palette is opened with
+  // an authenticated session. We do not refetch on every open -- a small
+  // staleness is fine for a search palette and keeps Supabase quiet.
+  useEffect(() => {
+    if (!open || !companyId || dataLoaded || dataLoading) return;
+    let cancelled = false;
+    setDataLoading(true);
+    (async () => {
+      try {
+        const [orders, quotes, leads, clients, inventory] = await Promise.all([
+          orderService.getAllOrders(companyId).catch(() => []),
+          quoteService.getQuotes(companyId).catch(() => []),
+          leadService.getLeads(companyId).catch(() => []),
+          clientManagementService.getCompanyClients(companyId).catch(() => []),
+          inventoryService.getInventory(companyId).catch(() => []),
+        ]);
+        if (cancelled) return;
+
+        const merged: DataResult[] = [];
+
+        // Orders -- number / id, client name, venue
+        (orders || []).forEach((o: any) => {
+          const ref = o.order_number || (o.id ? `#${String(o.id).slice(0, 8).toUpperCase()}` : "");
+          const label = `${ref || "Order"} -- ${o.client_name || "Unknown client"}`;
+          const sublabel = [o.venue_address, o.event_date && new Date(o.event_date).toLocaleDateString("en-ZA")]
+            .filter(Boolean)
+            .join(" - ");
+          merged.push({
+            id: `order-${o.id}`,
+            label,
+            sublabel,
+            badge: "Order",
+            href: `/admin/orders?orderId=${o.id}`,
+            haystack: [ref, o.order_number, o.client_name, o.venue_address, o.event_name, o.id].filter(Boolean).join(" "),
+          });
+        });
+
+        // Clients -- name, email, phone
+        (clients || []).forEach((c: any) => {
+          const label = c.full_name || c.email || "Unnamed client";
+          const sublabel = [c.email, c.phone_number].filter(Boolean).join(" - ");
+          merged.push({
+            id: `client-${c.id}`,
+            label,
+            sublabel,
+            badge: "Client",
+            href: `/admin/clients?clientId=${c.id}`,
+            haystack: [c.full_name, c.email, c.phone_number, c.company_name].filter(Boolean).join(" "),
+          });
+        });
+
+        // Leads -- name, company, email
+        (leads || []).forEach((l: any) => {
+          const label = l.client_name || l.client_email || "Unnamed lead";
+          const sublabel = [l.client_email, l.company_name, l.event_type].filter(Boolean).join(" - ");
+          merged.push({
+            id: `lead-${l.id}`,
+            label,
+            sublabel,
+            badge: "Lead",
+            href: `/admin/leads`,
+            haystack: [l.client_name, l.client_email, l.company_name, l.event_type, l.notes].filter(Boolean).join(" "),
+          });
+        });
+
+        // Quotes -- number, client, event
+        (quotes || []).forEach((q: any) => {
+          const ref = q.quote_number || (q.id ? `#${String(q.id).slice(0, 8).toUpperCase()}` : "");
+          const label = `${ref || "Quote"} -- ${q.client_name || "Unknown client"}`;
+          const sublabel = [q.event_name, q.event_date && new Date(q.event_date).toLocaleDateString("en-ZA")]
+            .filter(Boolean)
+            .join(" - ");
+          merged.push({
+            id: `quote-${q.id}`,
+            label,
+            sublabel,
+            badge: "Quote",
+            href: `/admin/quotes/${q.id}`,
+            haystack: [ref, q.quote_number, q.client_name, q.client_email, q.event_name, q.id].filter(Boolean).join(" "),
+          });
+        });
+
+        // Inventory -- item name (+ category, sku)
+        (inventory || []).forEach((i: any) => {
+          const label = i.item_name || i.name || "Inventory item";
+          const sublabel = [i.category, i.sku].filter(Boolean).join(" - ");
+          merged.push({
+            id: `inv-${i.id}`,
+            label,
+            sublabel,
+            badge: "Inventory",
+            href: `/admin/inventory-tracking?itemId=${i.id}`,
+            haystack: [i.item_name, i.name, i.category, i.sku, i.location].filter(Boolean).join(" "),
+          });
+        });
+
+        setData(merged);
+        setDataLoaded(true);
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, companyId, dataLoaded, dataLoading]);
+
+  const handleSignOut = useCallback(async () => {
     await signOutAndRedirect(profile);
-  };
+  }, [profile]);
 
   const adminBase = companySlug ? `/${companySlug}/admin` : "/admin";
 
@@ -142,25 +324,65 @@ export function CommandPalette() {
     { id: "acc-profile", label: "My profile / settings", icon: Settings, href: "/account/settings", group: "Account" },
     { id: "acc-help", label: "Contact support", icon: HelpCircle, href: "/support", group: "Account" },
     { id: "acc-signout", label: "Sign out", icon: LogOut, action: handleSignOut, group: "Account", keywords: ["logout","log out","exit"] },
-  ], [adminBase]);
+  ], [adminBase, handleSignOut]);
 
   const items = useMemo(() => {
     if (!isAuthed) return [];
     return allItems.filter((it) => !it.roles || it.roles.length === 0 || it.roles.includes(role));
   }, [allItems, isAuthed, role]);
 
-  const groups = useMemo(() => {
+  // Fuzzy-search the navigation items (always, with debounce 0 so the
+  // dialog feels instant -- the list is tiny).
+  const navIndexed = useMemo(
+    () => items.map((it) => ({
+      ...it,
+      _haystack: `${it.label} ${(it.keywords || []).join(" ")} ${it.hint || ""}`,
+    })),
+    [items],
+  );
+  const { results: navResults } = useFuzzySearch(
+    navIndexed,
+    term,
+    [{ key: "_haystack" as any, weight: 1 }],
+    { debounceMs: 0, includeAllOnEmpty: true, limit: 100 },
+  );
+
+  // Fuzzy-search the loaded company data. Debounced 150ms because there can
+  // be hundreds of items and we don't want to recompute on every keystroke.
+  const { results: dataResults } = useFuzzySearch(
+    data,
+    term,
+    [
+      { key: "label", weight: 2 },
+      { key: "haystack", weight: 1 },
+      { key: "sublabel", weight: 1 },
+    ],
+    { debounceMs: 150, includeAllOnEmpty: false, limit: 25 },
+  );
+
+  const groupedNav = useMemo(() => {
     const order = ["Navigate", "Quick actions", "Team portals", "Platform admin", "Client", "Account"];
     const grouped: Record<string, PaletteItem[]> = {};
-    items.forEach((it) => {
-      grouped[it.group] = grouped[it.group] || [];
-      grouped[it.group].push(it);
+    navResults.forEach((r) => {
+      grouped[r.item.group] = grouped[r.item.group] || [];
+      grouped[r.item.group].push(r.item);
     });
     return order.filter((g) => grouped[g]?.length).map((g) => ({ name: g, items: grouped[g] }));
-  }, [items]);
+  }, [navResults]);
+
+  const groupedData = useMemo(() => {
+    const order: Array<DataResult["badge"]> = ["Order", "Quote", "Lead", "Client", "Inventory"];
+    const grouped: Record<string, DataResult[]> = {};
+    dataResults.forEach((r) => {
+      grouped[r.item.badge] = grouped[r.item.badge] || [];
+      grouped[r.item.badge].push(r.item);
+    });
+    return order.filter((g) => grouped[g]?.length).map((g) => ({ name: g, items: grouped[g] }));
+  }, [dataResults]);
 
   const runItem = (it: PaletteItem) => {
     setOpen(false);
+    if (term.trim()) saveRecent(term.trim());
     if (it.action) {
       void it.action();
     } else if (it.href) {
@@ -168,16 +390,81 @@ export function CommandPalette() {
     }
   };
 
+  const runData = (d: DataResult) => {
+    setOpen(false);
+    if (term.trim()) saveRecent(term.trim());
+    void router.push(d.href);
+  };
+
+  const runRecent = (q: string) => {
+    setTerm(q);
+  };
+
   // Don't render the dialog at all when signed out.
   if (!isAuthed) return null;
 
+  const showRecent = !term.trim() && recent.length > 0;
+  const totalResults = navResults.length + dataResults.length;
+
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Type a page or command... (Cmd K / Ctrl K)" />
+    <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false} label="Global command palette">
+      <CommandInput
+        placeholder="Search orders, clients, leads, quotes, inventory or jump anywhere..."
+        value={term}
+        onValueChange={setTerm}
+      />
       <CommandList>
-        <CommandEmpty>No matches. Try &ldquo;orders&rdquo;, &ldquo;invoice&rdquo;, &ldquo;sign out&rdquo;...</CommandEmpty>
-        {groups.map((g, gi) => (
-          <div key={g.name}>
+        <CommandEmpty>
+          {dataLoading
+            ? "Loading your company data..."
+            : "Nothing matches. Try a client name, order number, venue or page name."}
+        </CommandEmpty>
+
+        {/* Recent searches (no query) */}
+        {showRecent && (
+          <CommandGroup heading="Recent searches">
+            {recent.map((q) => (
+              <CommandItem key={`recent-${q}`} value={`recent ${q}`} onSelect={() => runRecent(q)}>
+                <Clock className="mr-2 h-4 w-4 text-slate-400" />
+                <span>{q}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+        {showRecent && (groupedNav.length > 0) && <CommandSeparator />}
+
+        {/* Live data results -- only when there's a query */}
+        {term.trim() && groupedData.map((g, gi) => (
+          <div key={`data-${g.name}`}>
+            <CommandGroup heading={`${g.name}s`}>
+              {g.items.map((d) => (
+                <CommandItem
+                  key={d.id}
+                  value={`${d.label} ${d.haystack}`}
+                  onSelect={() => runData(d)}
+                >
+                  <DataIcon badge={d.badge} />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{d.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeTone[d.badge]}`}>
+                        {d.badge}
+                      </span>
+                    </div>
+                    {d.sublabel && (
+                      <span className="text-xs text-slate-500 truncate">{d.sublabel}</span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            {(gi < groupedData.length - 1 || groupedNav.length > 0) && <CommandSeparator />}
+          </div>
+        ))}
+
+        {/* Navigation entries -- always shown, top-ranked move to top when searching */}
+        {groupedNav.map((g, gi) => (
+          <div key={`nav-${g.name}`}>
             <CommandGroup heading={g.name}>
               {g.items.map((it) => {
                 const Icon = it.icon;
@@ -194,7 +481,7 @@ export function CommandPalette() {
                 );
               })}
             </CommandGroup>
-            {gi < groups.length - 1 && <CommandSeparator />}
+            {gi < groupedNav.length - 1 && <CommandSeparator />}
           </div>
         ))}
       </CommandList>
@@ -205,6 +492,9 @@ export function CommandPalette() {
         <span className="flex items-center gap-1">
           <kbd className="rounded border bg-slate-50 px-1.5 py-0.5 text-[10px]">esc</kbd> close
         </span>
+        {term.trim() && (
+          <span className="text-slate-400">{totalResults} {totalResults === 1 ? "match" : "matches"}</span>
+        )}
         <span className="ml-auto flex items-center gap-1">
           <Search className="h-3 w-3" />
           {role || "signed in"}
@@ -212,4 +502,13 @@ export function CommandPalette() {
       </div>
     </CommandDialog>
   );
+}
+
+function DataIcon({ badge }: { badge: DataResult["badge"] }) {
+  const cls = "mr-2 h-4 w-4 text-slate-500";
+  if (badge === "Order") return <ShoppingCart className={cls} />;
+  if (badge === "Client") return <User className={cls} />;
+  if (badge === "Lead") return <TrendingUp className={cls} />;
+  if (badge === "Quote") return <FileText className={cls} />;
+  return <Package className={cls} />;
 }
