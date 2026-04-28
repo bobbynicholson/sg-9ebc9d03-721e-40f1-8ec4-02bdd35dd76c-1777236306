@@ -114,13 +114,13 @@ export default function ShoppingSuppliersPage() {
     }
     setSaving(true);
     try {
-      const payload = { ...editing, company_id: user.company_id };
+      const payload = { ...editing, company_id: user.company_id, supplier_name: editing.supplier_name.trim() };
       if (editing.id) {
-        const { error } = await supabase.from("suppliers").update(payload).eq("id", editing.id);
+        const { error } = await supabase.from("suppliers").update(payload as never).eq("id", editing.id);
         if (error) throw error;
         toast({ title: "Supplier updated" });
       } else {
-        const { error } = await supabase.from("suppliers").insert([payload]);
+        const { error } = await supabase.from("suppliers").insert([payload as never]);
         if (error) throw error;
         toast({ title: "Supplier added" });
       }

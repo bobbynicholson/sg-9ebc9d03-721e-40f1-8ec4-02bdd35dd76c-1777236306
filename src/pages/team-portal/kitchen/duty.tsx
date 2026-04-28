@@ -112,7 +112,7 @@ export default function KitchenDutyRosterPage() {
         shift_start: new Date().toISOString(),
         is_active: true,
         shift_type: "kitchen",
-      }]);
+      }] as never);
       if (error) throw error;
       toast({ title: "Clocked in", description: "Welcome to your shift" });
       load();
@@ -150,7 +150,7 @@ export default function KitchenDutyRosterPage() {
           task_type: "handoff",
           notes: handoffNotes.trim(),
           completed_at: new Date().toISOString(),
-        }]);
+        }] as never);
       }
       toast({ title: "Shift ended", description: "Have a good rest" });
       setEndingShift(null);

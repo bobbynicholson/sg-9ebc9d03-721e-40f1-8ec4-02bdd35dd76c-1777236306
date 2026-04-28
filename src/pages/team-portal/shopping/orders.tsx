@@ -129,7 +129,7 @@ export default function ShoppingOrdersPage() {
         list_date: listDate,
         status: "pending",
         notes: listNotes.trim() || null,
-      }]);
+      }] as never);
       if (error) throw error;
       toast({ title: "Shopping list created" });
       closeCreate();

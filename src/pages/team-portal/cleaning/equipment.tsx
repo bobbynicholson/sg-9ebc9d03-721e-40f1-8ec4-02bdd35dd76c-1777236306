@@ -139,7 +139,7 @@ export default function CleaningEquipmentPage() {
           repair_cost: missing * Number(verifyItem.replacement_cost || 0),
           reported_by: user.id,
           resolved: false,
-        }]);
+        }] as never);
       }
       toast({ title: "Verification saved", description: `${verifyItem.name}: ${verified} verified, ${missing} missing` });
       closeVerify();

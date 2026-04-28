@@ -114,7 +114,7 @@ export default function CleaningSchedulesPage() {
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime || null,
         status: "scheduled",
-      }]);
+      }] as never);
       if (error) throw error;
       toast({ title: "Schedule created" });
       closeCreate();

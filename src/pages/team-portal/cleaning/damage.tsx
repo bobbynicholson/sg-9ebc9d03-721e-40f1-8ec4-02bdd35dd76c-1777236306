@@ -129,7 +129,7 @@ export default function CleaningDamagePage() {
         repair_cost: repairCost ? Number(repairCost) : null,
         reported_by: user.id,
         resolved: false,
-      }]);
+      }] as never);
       if (error) throw error;
       toast({ title: "Damage report created" });
       closeCreate();
