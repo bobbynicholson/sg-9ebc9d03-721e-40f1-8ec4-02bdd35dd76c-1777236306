@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 // We treat every company row as a subscription record. This works whether the
 // company is on a free trial, an active paid plan, or cancelled — the source
@@ -328,7 +329,10 @@ export default function PlatformSubscriptionManagement() {
         <div className="grid gap-6 md:grid-cols-4 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Subscriptions</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Total Subscriptions
+                <InfoTooltip content="Every tenant in the system, treated as one subscription each. Source: count of rows in companies table (active + trial + cancelled combined)." />
+              </CardTitle>
               <Users className="h-4 w-4 text-slate-400" />
             </CardHeader>
             <CardContent>
@@ -339,7 +343,10 @@ export default function PlatformSubscriptionManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Active</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Active
+                <InfoTooltip content="Companies on a paid plan today. Source: companies.subscription_status = 'active'." />
+              </CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
@@ -350,7 +357,10 @@ export default function PlatformSubscriptionManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">In Trial</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                In Trial
+                <InfoTooltip content="Companies still in their free trial. Source: companies.subscription_status in ('trial', 'trialing'). They contribute zero to MRR." />
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
@@ -361,7 +371,10 @@ export default function PlatformSubscriptionManagement() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Monthly MRR</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Monthly MRR
+                <InfoTooltip content="Sum of monthly subscription amounts where status='active'. Plan rates come from a hardcoded map (Starter R499 / Growth R1499 / Scale R3999 / Enterprise R9999) -- not from a real billing table yet." />
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
@@ -376,7 +389,10 @@ export default function PlatformSubscriptionManagement() {
         <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <CardTitle>Customer Subscriptions</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Customer Subscriptions
+                <InfoTooltip content="Every tenant rendered as a synthetic subscription row. Plan name and amount derived from companies.subscription_plan via a hardcoded price map; next billing pulled from trial_ends_at (trials) or subscription_ends_at (paid)." />
+              </CardTitle>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 md:w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -512,6 +528,7 @@ export default function PlatformSubscriptionManagement() {
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
                 At Risk ({stats.pastDue})
+                <InfoTooltip content="Companies with a failed or overdue payment. Source: companies.subscription_status = 'past_due'. Reach out before they churn." />
               </CardTitle>
               <CardDescription>Subscriptions requiring attention</CardDescription>
             </CardHeader>
@@ -541,6 +558,7 @@ export default function PlatformSubscriptionManagement() {
               <CardTitle className="flex items-center gap-2">
                 <Ban className="h-5 w-5 text-red-600" />
                 Cancelled ({stats.cancelled})
+                <InfoTooltip content="Companies that have ended their subscription. Source: companies.subscription_status = 'cancelled', sorted by subscription_ends_at. Useful for win-back outreach." />
               </CardTitle>
               <CardDescription>Recently cancelled subscriptions</CardDescription>
             </CardHeader>

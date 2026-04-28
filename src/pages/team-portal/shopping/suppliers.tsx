@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Search, Plus, Loader2, Phone, Mail, MapPin, Star, Pencil } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -158,9 +159,9 @@ export default function ShoppingSuppliersPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Total suppliers</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Active</p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.active}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Avg rating</p><p className="text-2xl font-bold tabular-nums flex items-center gap-1">{stats.avgRating.toFixed(1)}<Star className="h-5 w-5 text-amber-400 fill-amber-400" /></p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total suppliers <InfoTooltip content="Every supplier on file for this company, active or not. Source: suppliers where deleted_at is null." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Active <InfoTooltip content="Suppliers currently in use -- shows up when picking who to buy from. Source: suppliers.is_active not equal to false." /></p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.active}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Avg rating <InfoTooltip content="Mean of supplier ratings (1-5) across all suppliers with a rating set. Source: average of suppliers.rating." /></p><p className="text-2xl font-bold tabular-nums flex items-center gap-1">{stats.avgRating.toFixed(1)}<Star className="h-5 w-5 text-amber-400 fill-amber-400" /></p></CardContent></Card>
           </div>
 
           <Card className="mb-6">

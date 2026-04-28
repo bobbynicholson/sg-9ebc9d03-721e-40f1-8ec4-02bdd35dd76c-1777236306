@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserPlus, Trash2, Building2, Loader2, Search } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 type User = {
   id: string;
@@ -359,7 +360,10 @@ export default function UserManagementPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>All Users ({filteredUsers.length})</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                All Users ({filteredUsers.length})
+                <InfoTooltip content="Every profile across every tenant on the platform. Source: profiles table joined to companies via company_id. Status badge reads profiles.email_verified -- 'Active' = verified, 'Pending' = not yet confirmed." />
+              </CardTitle>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input

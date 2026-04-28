@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,10 +134,10 @@ export default function ShoppingAlertsPage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <StatTile label="Shortfall (7d)"   value={tally.shortfall}     accent="text-red-600"     icon={AlertTriangle} />
-            <StatTile label="Below par"        value={tally.below_minimum} accent="text-amber-600"   icon={AlertCircle} />
-            <StatTile label="Low"              value={tally.low}           accent="text-yellow-600"  icon={AlertCircle} />
-            <StatTile label="OK"               value={tally.ok}            accent="text-emerald-600" icon={Package} />
+            <StatTile label="Shortfall (7d)"   value={tally.shortfall}     accent="text-red-600"     icon={AlertTriangle} tooltip="Items where projected stock after 7 days goes negative -- you literally won't have enough to cover confirmed orders. Source: inventory_demand_outlook view, status='shortfall'." />
+            <StatTile label="Below par"        value={tally.below_minimum} accent="text-amber-600"   icon={AlertCircle} tooltip="Items already under minimum_stock right now. Source: inventory_demand_outlook view, status='below_minimum'." />
+            <StatTile label="Low"              value={tally.low}           accent="text-yellow-600"  icon={AlertCircle} tooltip="Items projected to dip below par within the next 7 days. Source: inventory_demand_outlook view, status='low'." />
+            <StatTile label="OK"               value={tally.ok}            accent="text-emerald-600" icon={Package} tooltip="Items with enough projected stock for the next 7 days of confirmed orders. Source: inventory_demand_outlook view, status='ok'." />
           </div>
 
           <Card className="border-0 shadow-lg">
@@ -163,13 +164,13 @@ export default function ShoppingAlertsPage() {
                   <table className="w-full text-sm">
                     <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th className="text-left py-2 pr-3">Item</th>
-                        <th className="text-right py-2 px-3">On hand</th>
-                        <th className="text-right py-2 px-3">Need 7d</th>
-                        <th className="text-right py-2 px-3">Need 14d</th>
-                        <th className="text-right py-2 px-3">After 7d</th>
-                        <th className="text-right py-2 px-3">Orders</th>
-                        <th className="text-left py-2 pl-3">Status</th>
+                        <th className="text-left py-2 pr-3"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="Inventory line plus its category and minimum stock. Source: inventory_items via inventory_demand_outlook view." /></span></th>
+                        <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1">On hand <InfoTooltip content="Current quantity in stock right now. Source: inventory_items.current_stock." /></span></th>
+                        <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1">Need 7d <InfoTooltip content="Quantity required by confirmed orders in the next 7 days. Source: inventory_demand_outlook.demand_next_7_days." /></span></th>
+                        <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1">Need 14d <InfoTooltip content="Quantity required by confirmed orders in the next 14 days. Source: inventory_demand_outlook.demand_next_14_days." /></span></th>
+                        <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1">After 7d <InfoTooltip content="Projected stock once 7 days of demand is consumed. Negative means you'll run out. Source: inventory_demand_outlook.projected_stock_after_7_days." /></span></th>
+                        <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1">Orders <InfoTooltip content="Number of upcoming orders pulling on this item. Source: inventory_demand_outlook.upcoming_order_count." /></span></th>
+                        <th className="text-left py-2 pl-3"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Urgency tier: shortfall, below_minimum, low, ok. Source: inventory_demand_outlook.status." /></span></th>
                         <th className="w-8"></th>
                       </tr>
                     </thead>
@@ -268,13 +269,16 @@ export default function ShoppingAlertsPage() {
 }
 
 function StatTile({
-  label, value, accent, icon: Icon,
-}: { label: string; value: number; accent: string; icon: React.ComponentType<{ className?: string }> }) {
+  label, value, accent, icon: Icon, tooltip,
+}: { label: string; value: number; accent: string; icon: React.ComponentType<{ className?: string }>; tooltip?: string }) {
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4 flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-1">
+            {label}
+            {tooltip && <InfoTooltip content={tooltip} />}
+          </p>
           <p className={`text-2xl md:text-3xl font-bold mt-1 ${accent}`}>{value}</p>
         </div>
         <Icon className={`w-8 h-8 ${accent} opacity-30`} />

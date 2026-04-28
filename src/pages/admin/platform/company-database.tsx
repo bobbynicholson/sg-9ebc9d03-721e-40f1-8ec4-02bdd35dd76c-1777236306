@@ -49,6 +49,7 @@ import { companyService } from "@/services/companyService";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Company {
   id: string;
@@ -681,7 +682,10 @@ export default function CompanyDatabasePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Total Companies</p>
+                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                    Total Companies
+                    <InfoTooltip content="Every catering tenant on the platform, regardless of status. Source: companies table row count (excludes only is_active=false soft deletes once filtered)." />
+                  </p>
                   <p className="text-3xl font-bold text-slate-900">
                     {companies.length}
                   </p>
@@ -695,7 +699,10 @@ export default function CompanyDatabasePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Active</p>
+                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                    Active
+                    <InfoTooltip content="Companies with a paid subscription right now. Source: companies.subscription_status = 'active'." />
+                  </p>
                   <p className="text-3xl font-bold text-green-600">
                     {companies.filter((c) => c.subscription_status === "active").length}
                   </p>
@@ -709,7 +716,10 @@ export default function CompanyDatabasePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">On Trial</p>
+                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                    On Trial
+                    <InfoTooltip content="Companies still inside their free trial window. Source: companies.subscription_status = 'trial'. See trial-management for expiry dates and notification history." />
+                  </p>
                   <p className="text-3xl font-bold text-orange-600">
                     {companies.filter((c) => c.subscription_status === "trial").length}
                   </p>
@@ -723,7 +733,10 @@ export default function CompanyDatabasePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600">Total Users</p>
+                  <p className="text-sm text-slate-600 flex items-center gap-1.5">
+                    Total Users
+                    <InfoTooltip content="Sum of every profile across every tenant -- admins, kitchen, drivers, clients combined. Source: count of profiles per company_id, totalled in the page." />
+                  </p>
                   <p className="text-3xl font-bold text-purple-600">
                     {companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
                   </p>
@@ -770,7 +783,10 @@ export default function CompanyDatabasePage() {
         {/* Companies Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Companies ({filteredCompanies.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Companies ({filteredCompanies.length})
+              <InfoTooltip content="Filtered list of tenants. Each row shows owner (profiles.full_name via owner_id), status, user count (profiles by company_id), order count (orders by company_id) and signup date (companies.created_at)." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">

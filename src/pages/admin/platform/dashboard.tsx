@@ -350,7 +350,10 @@ export default function PlatformDashboard() {
           <CardContent className="p-4 flex flex-wrap items-center gap-x-6 gap-y-3">
             <div className="flex items-center gap-2.5">
               <div className="w-2 h-2 rounded-full bg-green-500 ring-4 ring-green-200 animate-pulse" />
-              <span className="text-sm font-semibold text-slate-900">Platform Health</span>
+              <span className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                Platform Health
+                <InfoTooltip content="Composite health score for the SaaS platform. The 98% figure, average response time, ticket count and uptime are currently hardcoded placeholders -- only the active companies count is sourced from get_dashboard_metrics. Wire to a monitoring service before relying on it." />
+              </span>
               <span className="text-2xl font-bold text-green-600 tabular-nums">98%</span>
             </div>
             <div className="h-4 w-px bg-green-200 hidden sm:block" />
@@ -431,7 +434,10 @@ export default function PlatformDashboard() {
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Customer Growth</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Customer Growth
+                    <InfoTooltip content="New tenant signups and cumulative platform total per month, with monthly revenue alongside. Source: analyticsService.getCustomerGrowth(), which buckets companies.created_at by month and joins to subscription amounts." />
+                  </CardTitle>
                   <CardDescription>New customers and cumulative total over time</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -462,7 +468,10 @@ export default function PlatformDashboard() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Subscription Status</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Subscription Status
+                    <InfoTooltip content="Breakdown of every tenant by subscription state: active, trial and cancelled. Counts come from get_dashboard_metrics RPC; percentages are each bucket divided by total customers." />
+                  </CardTitle>
                   <CardDescription>Current subscription distribution</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -538,7 +547,10 @@ export default function PlatformDashboard() {
           <TabsContent value="customers" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Top Customers by Revenue</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Top Customers by Revenue
+                  <InfoTooltip content="Top 10 tenants ranked by lifetime spend. Source: analyticsService.getTopCustomers(10), summing subscription payments per company across all time." />
+                </CardTitle>
                 <CardDescription>Highest spending customers on the platform</CardDescription>
               </CardHeader>
               <CardContent>
@@ -577,7 +589,10 @@ export default function PlatformDashboard() {
           <TabsContent value="plans" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Plan Distribution</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Plan Distribution
+                  <InfoTooltip content="Tenant count and revenue split per subscription plan (Starter / Growth / Scale / Enterprise). Source: analyticsService.getPlanDistribution(), grouping companies by subscription_plan." />
+                </CardTitle>
                 <CardDescription>Revenue and customer breakdown by subscription plan</CardDescription>
               </CardHeader>
               <CardContent>
@@ -613,7 +628,10 @@ export default function PlatformDashboard() {
           <TabsContent value="geography" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Geographic Distribution</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Geographic Distribution
+                  <InfoTooltip content="Tenant count and revenue grouped by company country and region. Source: analyticsService.getGeographicDistribution(), reading companies.country / companies.state_province." />
+                </CardTitle>
                 <CardDescription>Customers and revenue by location</CardDescription>
               </CardHeader>
               <CardContent>

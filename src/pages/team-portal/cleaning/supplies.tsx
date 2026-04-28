@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Wrench, Search, AlertTriangle, Loader2, Minus } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -141,9 +142,9 @@ export default function CleaningSuppliesPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Total supplies</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Low stock</p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Out of stock</p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total supplies <InfoTooltip content="Cleaning consumables on file -- detergents, cloths, gloves and similar. Source: inventory_items filtered to category 'cleaning' or matching cleaning keywords." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Low stock <InfoTooltip content="Items where current_stock is at or below minimum_stock. Trigger to flag the shopping team." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock <InfoTooltip content="Items with current_stock = 0. You cannot use these until they are replenished." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
           </div>
 
           <Card className="mb-6">

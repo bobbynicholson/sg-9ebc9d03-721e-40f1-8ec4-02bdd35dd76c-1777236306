@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -141,9 +142,9 @@ export default function CleaningTasksPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Open tasks</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Pending</p><p className="text-2xl font-bold tabular-nums text-blue-600">{stats.pending}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">In progress</p><p className="text-2xl font-bold tabular-nums text-purple-600">{stats.inProgress}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open tasks <InfoTooltip content="Cleaning tasks not yet completed in the current filter view. Source: cleaning_schedules where status not equal to 'completed'." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Pending <InfoTooltip content="Tasks scheduled but nobody has hit Start. Source: cleaning_schedules.status in ('pending','scheduled')." /></p><p className="text-2xl font-bold tabular-nums text-blue-600">{stats.pending}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">In progress <InfoTooltip content="Tasks someone has started but not yet marked done. Source: cleaning_schedules.status='in_progress'." /></p><p className="text-2xl font-bold tabular-nums text-purple-600">{stats.inProgress}</p></CardContent></Card>
           </div>
 
           <div className="flex gap-2 mb-4">

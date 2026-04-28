@@ -14,6 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -172,9 +173,9 @@ export default function CleaningDamagePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Open reports</p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Resolved</p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.resolved}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Outstanding cost</p><p className="text-2xl font-bold tabular-nums">R {stats.cost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Open reports <InfoTooltip content="Damage / loss reports not yet resolved. Source: equipment_damages.resolved=false." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.open}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Resolved <InfoTooltip content="Reports marked done -- repaired, replaced or written off. Source: equipment_damages.resolved=true." /></p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.resolved}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Outstanding cost <InfoTooltip content="Total repair / replacement cost still owed across open reports. Source: sum of equipment_damages.repair_cost where resolved=false." /></p><p className="text-2xl font-bold tabular-nums">R {stats.cost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-4">

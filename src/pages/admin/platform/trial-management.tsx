@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Bell, CheckCircle, CalendarPlus, Clock, RefreshCw, Crown } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { toast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface CompanyTrialStatus {
   id: string;
@@ -284,7 +285,10 @@ export default function TrialManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Trials</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Total Trials
+              <InfoTooltip content="Companies currently inside their free trial. Source: companies.subscription_status in ('trial', 'trialing')." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTrials}</div>
@@ -293,7 +297,10 @@ export default function TrialManagementPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">7 Days</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              7 Days
+              <InfoTooltip content="Trials expiring in 4-7 days. Calculated client-side from companies.trial_ends_at minus today." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{stats.expiringIn7Days}</div>
@@ -302,7 +309,10 @@ export default function TrialManagementPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">3 Days</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              3 Days
+              <InfoTooltip content="Trials expiring in 2-3 days. Window where the 3-day reminder email should fire via subscriptionService.triggerTrialExpiryCheck." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{stats.expiringIn3Days}</div>
@@ -311,7 +321,10 @@ export default function TrialManagementPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">1 Day</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              1 Day
+              <InfoTooltip content="Trials expiring within the next 24 hours. Last chance window for a final reminder before they're auto-expired." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{stats.expiringIn1Day}</div>
@@ -320,7 +333,10 @@ export default function TrialManagementPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Expired</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              Expired
+              <InfoTooltip content="Trials whose trial_ends_at has already passed but the company is still flagged 'trial'. They should be converted to active or cancelled." />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-700">{stats.expired}</div>
@@ -334,6 +350,7 @@ export default function TrialManagementPage() {
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
             Notification Management
+            <InfoTooltip content="Manually triggers subscriptionService.triggerTrialExpiryCheck() which scans every trial company and sends 7/3/1-day reminder emails as needed. Logged in trial_expiry_notifications table." />
           </CardTitle>
           <CardDescription>
             Manually trigger trial expiry notification checks
@@ -368,7 +385,10 @@ export default function TrialManagementPage() {
       {/* Companies Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Companies on Trial</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Companies on Trial
+            <InfoTooltip content="All trial tenants sorted by trial_ends_at ascending. Owner email comes from profiles via owner_id; notifications count and last type from trial_expiry_notifications joined on company_id." />
+          </CardTitle>
           <CardDescription>
             All companies currently in their trial period, sorted by expiry date
           </CardDescription>

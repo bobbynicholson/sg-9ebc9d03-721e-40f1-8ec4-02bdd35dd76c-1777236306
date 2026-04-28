@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -92,6 +93,7 @@ export default function ShoppingNotificationsPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Bell className="h-7 w-7 text-emerald-600" />
                 Shopping Notifications
+                <InfoTooltip content="Alerts addressed to you personally or anyone with the shopping_staff role. Source: notifications where recipient_id, user_id or target_role matches." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Stock alerts, supplier updates, purchase requests</p>
             </div>

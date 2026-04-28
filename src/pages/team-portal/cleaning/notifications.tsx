@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -108,6 +109,7 @@ export default function CleaningNotificationsPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Bell className="h-7 w-7 text-cyan-600" />
                 Cleaning Notifications
+                <InfoTooltip content="Alerts addressed to you personally or to anyone with the cleaning_staff role. Source: notifications where recipient_id, user_id or target_role matches." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Cleaning alerts, equipment returns, missing items</p>
             </div>

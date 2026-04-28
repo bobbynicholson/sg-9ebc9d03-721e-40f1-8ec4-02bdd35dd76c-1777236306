@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Header } from "@/components/Header";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
@@ -107,7 +108,10 @@ export default function StaffJobProgress() {
               <Package className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Job Progress Overview</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+                Job Progress Overview
+                <InfoTooltip content="Cross-team view of every active job with kitchen and driver progress. Currently displays placeholder mock data -- live wiring to orders + kitchen_assignments + driver_assignments is on the Phase 2 todo." />
+              </h1>
               <p className="text-slate-600">Monitor all active jobs and their progress in real-time</p>
             </div>
           </div>
@@ -129,7 +133,10 @@ export default function StaffJobProgress() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <CardTitle className="text-xl">{job.orderName}</CardTitle>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          {job.orderName}
+                          <InfoTooltip content="Client / event title. Mocked here, will pull from orders.client_name or events.event_name once wired." />
+                        </CardTitle>
                         <p className="text-sm text-slate-600 mt-1">
                           <Calendar className="w-4 h-4 inline mr-1" />
                           {new Date(job.eventDate).toLocaleDateString('en-US', {
@@ -148,7 +155,10 @@ export default function StaffJobProgress() {
                   <CardContent className="space-y-6">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-slate-700">Overall Progress</span>
+                        <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                          Overall Progress
+                          <InfoTooltip content="Combined kitchen + driver progress for the job. Mock value, will be derived from kitchen_assignments.status and driver_assignments.status weights." />
+                        </span>
                         <span className="text-sm font-bold text-slate-900">{job.overallProgress}%</span>
                       </div>
                       <Progress value={job.overallProgress} className="h-3" />
@@ -159,7 +169,10 @@ export default function StaffJobProgress() {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <ChefHat className="w-5 h-5 text-orange-600" />
-                            <span className="font-medium text-slate-900">Kitchen Status</span>
+                            <span className="font-medium text-slate-900 flex items-center gap-1">
+                              Kitchen Status
+                              <InfoTooltip content="Where the kitchen is on prep: pending, preparing, ready. Mocked here, will read kitchen_assignments.status once wired." />
+                            </span>
                           </div>
                           <Badge className={getStatusColor(job.kitchenStatus)}>
                             {job.kitchenStatus}
@@ -189,7 +202,10 @@ export default function StaffJobProgress() {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <Truck className="w-5 h-5 text-blue-600" />
-                            <span className="font-medium text-slate-900">Driver Status</span>
+                            <span className="font-medium text-slate-900 flex items-center gap-1">
+                              Driver Status
+                              <InfoTooltip content="Driver assignment + delivery state: pending, assigned, completed. Mocked here, will read driver_assignments.status once wired." />
+                            </span>
                           </div>
                           <Badge className={getStatusColor(job.driverStatus)}>
                             {job.driverStatus}

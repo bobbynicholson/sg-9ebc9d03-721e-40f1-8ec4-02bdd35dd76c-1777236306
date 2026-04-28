@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ExchangeRate {
   id: string;
@@ -159,8 +160,9 @@ export default function PlatformCurrencyMonitoringPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-2 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 Current Rate
+                <InfoTooltip content="Today's USD to ZAR exchange rate. Source: currencyMonitoringService.getCurrentExchangeRate(), which reads the latest row from the exchange_rates table." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -180,8 +182,9 @@ export default function PlatformCurrencyMonitoringPage() {
 
           <Card className="border-2 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 90-Day Change
+                <InfoTooltip content="Percentage move of USD/ZAR over the last 90 days: (latest - oldest) / oldest x 100. Computed client-side from getHistoricalRates(90). Positive = ZAR weakening, negative = ZAR strengthening. 15% triggers an alert." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -213,8 +216,9 @@ export default function PlatformCurrencyMonitoringPage() {
 
           <Card className="border-2 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 Active Alerts
+                <InfoTooltip content="Currency fluctuation alerts not yet marked resolved. Source: currencyMonitoringService.getUnresolvedAlerts() reading currency_fluctuation_alerts where resolved=false." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -246,6 +250,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
               Exchange Rate History (Last 90 Days)
+              <InfoTooltip content="Daily USD/ZAR rates for the past 90 days. Source: exchange_rates table via getHistoricalRates(90), populated by the daily cron in currencyMonitoringService.runDailyCheck()." />
             </CardTitle>
             <CardDescription>
               Track historical USD to ZAR exchange rates
@@ -288,6 +293,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
               Fluctuation Alerts
+              <InfoTooltip content="Open alerts where the 90-day rate move breached the 15% threshold. Source: currency_fluctuation_alerts table; each row holds start/end rates, period and percentage_change. Resolve marks them handled (e.g. after a price update)." />
             </CardTitle>
             <CardDescription>
               Manage currency fluctuation alerts and pricing adjustments

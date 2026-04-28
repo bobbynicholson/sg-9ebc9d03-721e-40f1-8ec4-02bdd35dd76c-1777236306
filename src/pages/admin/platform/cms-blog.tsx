@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cmsService } from "@/services/cmsService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface BlogBrief {
   topic: string;
@@ -248,6 +249,7 @@ export default function CMSBlogPage() {
                       <CardTitle className="flex items-center gap-2">
                         <Search className="w-5 h-5" />
                         Content Brief
+                        <InfoTooltip content="Inputs to the AI generator. Currently the generation step is a 2-second mock that returns sample text -- not a real OpenAI/Claude call. On Publish the post is saved via cmsService.createBlogPost into the blog_posts table." />
                       </CardTitle>
                       <CardDescription>
                         Provide details for the AI to generate your blog post
@@ -600,7 +602,10 @@ export default function CMSBlogPage() {
           <TabsContent value="manage">
             <Card>
               <CardHeader>
-                <CardTitle>Published Blog Posts</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Published Blog Posts
+                  <InfoTooltip content="Every blog post on cateringms.com (drafts + published). Source: cmsService.getAllBlogPosts() reading the blog_posts table, ordered by published_date desc." />
+                </CardTitle>
                 <CardDescription>Manage your existing blog content</CardDescription>
               </CardHeader>
               <CardContent>

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Receipt, Search, Loader2, FileText, Download, ExternalLink } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -100,11 +101,11 @@ export default function ShoppingInvoicesPage() {
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Completed runs</p><p className="text-2xl font-bold tabular-nums">{stats.completedCount}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Total spend</p><p className="text-2xl font-bold tabular-nums">R {stats.totalSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Receipts on file</p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.withReceipt}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Completed runs <InfoTooltip content="Shopping lists marked done -- the buyer has finished the run. Source: shopping_lists.status='completed'." /></p><p className="text-2xl font-bold tabular-nums">{stats.completedCount}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total spend <InfoTooltip content="Sum of actual_total across all completed runs in the list. Source: sum of shopping_lists.actual_total where status='completed'." /></p><p className="text-2xl font-bold tabular-nums">R {stats.totalSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Receipts on file <InfoTooltip content="Runs with a receipt URL attached. Required by settings before completion if receiptRequiredOnComplete is on. Source: shopping_lists.receipt_url not null." /></p><p className="text-2xl font-bold tabular-nums text-emerald-600">{stats.withReceipt}</p></CardContent></Card>
             <Card><CardContent className="p-4">
-              <p className="text-xs text-slate-600">Estimate variance</p>
+              <p className="text-xs text-slate-600 flex items-center gap-1">Estimate variance <InfoTooltip content="Total actual minus total estimated across all runs. Positive means you went over budget. Source: shopping_lists.actual_total minus estimated_total." /></p>
               <p className={`text-2xl font-bold tabular-nums ${stats.variance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                 {stats.variance >= 0 ? "+" : ""}R {stats.variance.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
               </p>

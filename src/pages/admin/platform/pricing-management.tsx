@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface PricingTier {
   name: string;
@@ -156,7 +157,10 @@ export default function PricingManagementPage() {
           <CardHeader className="pb-3 sm:pb-6">
             <div className="flex items-center gap-2">
               <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
-              <CardTitle className="text-base sm:text-lg">Pricing Conversion Formula</CardTitle>
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                Pricing Conversion Formula
+                <InfoTooltip content="Foreign currency = (ZAR x 3) / fixed exchange rate. Rates and tier prices are hardcoded constants in this file (EXCHANGE_RATES + initial pricing array) -- changes are NOT persisted to a database, they only update local state." />
+              </CardTitle>
             </div>
             <CardDescription className="text-xs sm:text-sm">
               This formula ensures consistent international pricing based on ZAR
@@ -208,7 +212,10 @@ export default function PricingManagementPage() {
               <CardHeader className="bg-gradient-to-r from-slate-50 to-purple-50 pb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-xl sm:text-2xl">{tier.name} Plan</CardTitle>
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                      {tier.name} Plan
+                      <InfoTooltip content="Monthly subscription price for this tier across all markets. ZAR is the primary -- USD/GBP/EUR auto-derive from the conversion formula but can be manually overridden. Currently held in local state only; Save does not persist to a database." />
+                    </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
                       Monthly subscription pricing across all markets
                     </CardDescription>

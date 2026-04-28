@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Search, ChevronDown, ChevronRight as ChevronRightIcon, Clock, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -147,6 +148,7 @@ export default function CleaningWorkflowsPage() {
             <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
               <Sparkles className="h-7 w-7 text-cyan-600" />
               Cleaning Workflows
+              <InfoTooltip content="SOPs grouped by equipment category, pulled from a static SOP map and matched to your equipment.category. Source: equipment.category joined to SOPS_BY_CATEGORY." />
             </h1>
             <p className="text-sm text-slate-600 mt-1">Step-by-step SOPs per equipment category -- food-safety compliant</p>
           </div>

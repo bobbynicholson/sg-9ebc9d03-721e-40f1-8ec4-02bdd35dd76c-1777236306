@@ -14,6 +14,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Package, Search, Loader2, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningNav } from "@/components/navigation/CleaningNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -167,9 +168,9 @@ export default function CleaningEquipmentPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Equipment items</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Damaged / poor</p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.damaged}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Replacement value</p><p className="text-2xl font-bold tabular-nums">R {stats.totalValue.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Equipment items <InfoTooltip content="Distinct equipment SKUs registered for this company. Source: equipment table count, scoped to company_id." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Damaged / poor <InfoTooltip content="Items currently flagged condition='damaged' or 'poor'. Pull from rotation until repaired. Source: equipment.condition." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.damaged}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Replacement value <InfoTooltip content="Total cost to replace all equipment if it walked. Source: sum of equipment.replacement_cost multiplied by equipment.quantity." /></p><p className="text-2xl font-bold tabular-nums">R {stats.totalValue.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}</p></CardContent></Card>
           </div>
 
           <Card className="mb-6">
