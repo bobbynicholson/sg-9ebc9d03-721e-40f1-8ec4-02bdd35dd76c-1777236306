@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import { orderService } from "@/services/orderService";
 import driverService from "@/services/driverService";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
-import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
+import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
 
 // Dynamically import the map component with SSR disabled
 const AdminTrackingMap = dynamic(
@@ -24,61 +24,67 @@ const AdminTrackingMap = dynamic(
   { ssr: false }
 );
 
-interface OrderWithTracking {
-  id: string;
-  client_name: string;
-  venue_address: string;
-  venue_lat?: number;
-  venue_lng?: number;
-  delivery_time: string;
-  status: string;
-  driver_id?: string;
-  driver_name?: string;
-  driver_phone?: string;
-  driver_lat?: number;
-  driver_lng?: number;
-  last_updated?: string;
-  estimated_arrival?: string;
-}
-
+/**
+ * /admin/tracking -- the LIVE operational view.
+ *
+ * Different from /admin/route-planning which is the PRE-FLIGHT dispatcher
+ * view. This page is for the owner / admin watching today's jobs run:
+ * confirmed -> preparing -> ready -> in_transit -> delivered, plus driver
+ * GPS pings ticking through. Audience is whoever's worried about whether
+ * the food is going to land where it's meant to land, on time.
+ */
 export default function AdminTracking() {
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { user, profile } = useAuth() as any;
   const [orders, setOrders] = useState<any[]>([]);
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [driverFilter, setDriverFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    loadTrackingData();
-  }, [user]);
-
-  const loadTrackingData = async () => {
-    if (!user?.company_id) return;
+  const loadTrackingData = useCallback(async () => {
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const companyId = user.company_id;
 
-      // Load orders with delivery status
+      // LIVE scope: orders with active statuses AND event_date >= today.
+      // Past events stay off this view -- they belong on the orders page.
       const allOrders = await orderService.getAllOrders(companyId);
-      const activeOrders = allOrders.filter(order => 
-        ["confirmed", "preparing", "ready", "out_for_delivery"].includes(order.status || "")
-      );
-      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const activeStatuses = ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit", "delivered"];
+      const activeOrders = allOrders.filter((order: any) => {
+        if (!activeStatuses.includes(order.status || "")) return false;
+        // event_date may be null on some legacy rows -- include them so
+        // staff can still find the order if they're looking for it.
+        if (!order.event_date) return true;
+        const eventDate = new Date(order.event_date);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() >= today.getTime();
+      });
+
       // Load driver data
       const driverData = await driverService.getAllDrivers(companyId);
       setDrivers(driverData);
-      
-      // Enrich orders with driver location data
-      const enrichedOrders = activeOrders.map(order => {
-        const driver = driverData.find(d => d.id === order.driver_id) as any;
+
+      // Enrich orders with driver location data. Try assigned_driver_id
+      // first then fall back to legacy driver_id (audit fix lives here).
+      const enrichedOrders = activeOrders.map((order: any) => {
+        const driverId = order.assigned_driver_id || order.driver_id;
+        const driver = driverData.find((d: any) => d.id === driverId) as any;
         return {
           ...order,
+          driver_id: driverId,
           driver_name: driver?.full_name,
           driver_phone: driver?.phone,
           driver_lat: driver?.current_lat,
@@ -86,41 +92,91 @@ export default function AdminTracking() {
           last_updated: driver?.location_updated_at,
         };
       });
-      
+
       setOrders(enrichedOrders);
-      setLoading(false);
+
+      // Keep selectedOrder synced when refreshes happen so the right pane
+      // updates rather than going stale on auto-refresh.
+      setSelectedOrder((current: any) => {
+        if (!current) return current;
+        return enrichedOrders.find((o: any) => o.id === current.id) || current;
+      });
     } catch (error) {
       console.error("Error loading tracking data:", error);
+    } finally {
       setLoading(false);
     }
-  };
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    loadTrackingData();
+  }, [loadTrackingData]);
+
+  // Auto-refresh: re-pull every 30s when toggled on. Verifies the toggle
+  // actually does something -- previous build had the state but no timer.
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (autoRefresh) {
+      refreshTimerRef.current = setInterval(() => {
+        loadTrackingData();
+      }, 30000);
+    }
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, [autoRefresh, loadTrackingData]);
+
+  // Pull company name once for the compose drawer signature
+  useEffect(() => {
+    if (companyName || !user?.company_id) return;
+    (async () => {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase
+          .from("companies")
+          .select("name")
+          .eq("id", user.company_id)
+          .maybeSingle();
+        if (data?.name) setCompanyName(data.name);
+      } catch {
+        /* fall back to undefined -- compose drawer handles it */
+      }
+    })();
+  }, [user?.company_id, companyName]);
 
   const handleDriverLocationUpdate = (updatedLocations: any[]) => {
     setDriverLocations(updatedLocations);
   };
 
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
       order.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.venue_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.driver_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     const matchesDriver = driverFilter === "all" || order.driver_id === driverFilter;
-    
+
     return matchesSearch && matchesStatus && matchesDriver;
   });
 
   const getStatusColor = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       confirmed: "bg-blue-100 text-blue-800",
       preparing: "bg-yellow-100 text-yellow-800",
       ready: "bg-purple-100 text-purple-800",
       out_for_delivery: "bg-orange-100 text-orange-800",
+      in_transit: "bg-orange-100 text-orange-800",
       delivered: "bg-green-100 text-green-800",
       cancelled: "bg-red-100 text-red-800",
     };
-    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
+    return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   const getStatusIcon = (status: string) => {
@@ -128,16 +184,17 @@ export default function AdminTracking() {
       case "confirmed": return <Clock className="w-4 h-4" />;
       case "preparing": return <Package className="w-4 h-4" />;
       case "ready": return <TrendingUp className="w-4 h-4" />;
-      case "out_for_delivery": return <Navigation className="w-4 h-4" />;
+      case "out_for_delivery":
+      case "in_transit": return <Navigation className="w-4 h-4" />;
       case "delivered": return <Package className="w-4 h-4" />;
       default: return <AlertCircle className="w-4 h-4" />;
     }
   };
 
   const stats = {
-    active: orders.filter(o => o.status === "out_for_delivery").length,
-    preparing: orders.filter(o => o.status === "preparing").length,
-    ready: orders.filter(o => o.status === "ready").length,
+    active: orders.filter((o) => o.status === "out_for_delivery" || o.status === "in_transit").length,
+    preparing: orders.filter((o) => o.status === "preparing").length,
+    ready: orders.filter((o) => o.status === "ready").length,
     total: orders.length,
   };
 
@@ -158,7 +215,7 @@ export default function AdminTracking() {
               Real-Time Delivery Tracking
             </h1>
             <p className="text-slate-600">
-              Monitor all active deliveries and driver locations in real-time
+              Live operational view -- today's jobs in flight, with driver pins ticking through.
             </p>
           </div>
 
@@ -204,7 +261,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content={"Every order in motion right now, from confirmed through to out for delivery.\n\nDelivered and cancelled orders aren't counted."} /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content={"Every order in motion right now, from confirmed through to out for delivery.\n\nDelivered today is included so an owner can confirm completed jobs without leaving the page."} /></p>
                     <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
                   </div>
                   <MapPin className="w-8 h-8 text-blue-600" />
@@ -225,7 +282,7 @@ export default function AdminTracking() {
                     className="w-full"
                   />
                 </div>
-                
+
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by status" />
@@ -236,6 +293,7 @@ export default function AdminTracking() {
                     <SelectItem value="preparing">Preparing</SelectItem>
                     <SelectItem value="ready">Ready</SelectItem>
                     <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -245,7 +303,7 @@ export default function AdminTracking() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Drivers</SelectItem>
-                    {drivers.map(driver => (
+                    {drivers.map((driver) => (
                       <SelectItem key={driver.id} value={driver.id}>
                         {driver.full_name}
                       </SelectItem>
@@ -306,64 +364,14 @@ export default function AdminTracking() {
                       {selectedOrder ? "Order Details" : "Active Orders"}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="max-h-[550px] overflow-y-auto">
+                  <CardContent className="max-h-[700px] overflow-y-auto">
                     {selectedOrder ? (
-                      <div className="space-y-4">
-                        <div>
-                          <Badge className={getStatusColor(selectedOrder.status || "")}>
-                            {selectedOrder.status}
-                          </Badge>
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm text-slate-600 mb-1">Client</p>
-                          <p className="font-semibold">{selectedOrder.client_name}</p>
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-slate-600 mb-1">Delivery Address</p>
-                          <p className="text-sm">{selectedOrder.venue_address}</p>
-                        </div>
-
-                        <div>
-                          <p className="text-sm text-slate-600 mb-1">Delivery Time</p>
-                          <p className="text-sm">{selectedOrder.delivery_time}</p>
-                        </div>
-
-                        {selectedOrder.driver_name && (
-                          <>
-                            <div className="border-t pt-4">
-                              <p className="text-sm text-slate-600 mb-2">Driver Information</p>
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <User className="w-4 h-4 text-slate-600" />
-                                  <span className="text-sm">{selectedOrder.driver_name}</span>
-                                </div>
-                                {selectedOrder.driver_phone && (
-                                  <div className="flex items-center gap-2">
-                                    <Phone className="w-4 h-4 text-slate-600" />
-                                    <span className="text-sm">{selectedOrder.driver_phone}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {selectedOrder.last_updated && (
-                              <div className="text-xs text-slate-500">
-                                Last updated: {new Date(selectedOrder.last_updated).toLocaleTimeString()}
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          onClick={() => setSelectedOrder(null)}
-                        >
-                          Close Details
-                        </Button>
-                      </div>
+                      <OrderDetailsPanel
+                        order={selectedOrder}
+                        fromName={profile?.full_name || companyName}
+                        companyName={companyName}
+                        onClose={() => setSelectedOrder(null)}
+                      />
                     ) : (
                       <div className="space-y-3">
                         {filteredOrders.length === 0 ? (
@@ -371,18 +379,16 @@ export default function AdminTracking() {
                             No active orders to display
                           </p>
                         ) : (
-                          filteredOrders.map(order => (
+                          filteredOrders.map((order) => (
                             <div
                               key={order.id}
                               className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                              onClick={() => {
-                                setSelectedOrder(order);
-                              }}
+                              onClick={() => setSelectedOrder(order)}
                             >
                               <div className="flex items-start justify-between mb-2">
-                                <div className="flex-1">
-                                  <p className="font-semibold text-sm">{order.client_name}</p>
-                                  <p className="text-xs text-slate-600">{order.venue_address}</p>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-sm truncate">{order.client_name}</p>
+                                  <p className="text-xs text-slate-600 truncate">{order.venue_address}</p>
                                 </div>
                                 <Badge className={getStatusColor(order.status || "")}>
                                   {order.status}
@@ -417,11 +423,11 @@ export default function AdminTracking() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {filteredOrders.map(order => (
+                      {filteredOrders.map((order) => (
                         <div key={order.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                           <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
                                 <h3 className="font-semibold text-slate-900">{order.client_name}</h3>
                                 <Badge className={getStatusColor(order.status || "")}>
                                   <span className="flex items-center gap-1">
@@ -430,25 +436,25 @@ export default function AdminTracking() {
                                   </span>
                                 </Badge>
                               </div>
-                              
+
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-600">
                                 <div className="flex items-start gap-2">
                                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                   <span>{order.venue_address}</span>
                                 </div>
-                                
+
                                 <div className="flex items-center gap-2">
                                   <Clock className="w-4 h-4 flex-shrink-0" />
-                                  <span>{order.delivery_time}</span>
+                                  <span>{order.delivery_time || (order.event_date ? new Date(order.event_date).toLocaleString("en-ZA") : "No time set")}</span>
                                 </div>
-                                
+
                                 {order.driver_name && (
                                   <>
                                     <div className="flex items-center gap-2">
                                       <User className="w-4 h-4 flex-shrink-0" />
                                       <span>{order.driver_name}</span>
                                     </div>
-                                    
+
                                     {order.driver_phone && (
                                       <div className="flex items-center gap-2">
                                         <Phone className="w-4 h-4 flex-shrink-0" />
@@ -459,18 +465,16 @@ export default function AdminTracking() {
                                 )}
                               </div>
                             </div>
-                            
+
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setSelectedOrder(order);
-                              }}
+                              onClick={() => setSelectedOrder(order)}
                             >
                               View on Map
                             </Button>
                           </div>
-                          
+
                           {order.last_updated && (
                             <div className="text-xs text-slate-500 mt-2">
                               Last updated: {new Date(order.last_updated).toLocaleString()}

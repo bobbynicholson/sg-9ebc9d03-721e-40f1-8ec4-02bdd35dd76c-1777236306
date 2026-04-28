@@ -1,0 +1,694 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
+/**
+ * Rich Order Details right-pane shown on /admin/tracking when the admin
+ * picks an active order. Replaces the four-line summary with a long,
+ * scannable, deep-linkable dashboard so an owner can answer "where is
+ * order X" in one click instead of five.
+ *
+ * Each block hides itself when the underlying data is missing rather
+ * than showing "N/A" rows. Compose drawer mirrors the QuoteComposeDrawer
+ * pattern shipped on /admin/quotes (commit 46ec141).
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import {
+  MapPin,
+  Phone,
+  Mail,
+  ExternalLink,
+  User,
+  Truck,
+  ChefHat,
+  Package,
+  CreditCard,
+  FileText,
+  MessageCircle,
+  Eye,
+  ArrowRight,
+  Clock,
+  CheckCircle2,
+  Circle,
+  Send,
+  Copy,
+  X,
+  AlertTriangle,
+  Receipt,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { composeEmail } from "@/lib/composeEmail";
+import { useToast } from "@/hooks/use-toast";
+
+const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+
+interface OrderLike {
+  id: string;
+  order_number?: string;
+  event_name?: string;
+  event_date?: string;
+  delivery_time?: string;
+  status?: string;
+  client_id?: string;
+  client_name?: string;
+  client_email?: string;
+  client_phone?: string;
+  venue_address?: string;
+  venue_lat?: number | null;
+  venue_lng?: number | null;
+  driver_id?: string;
+  assigned_driver_id?: string;
+  driver_name?: string;
+  driver_phone?: string;
+  driver_lat?: number | null;
+  driver_lng?: number | null;
+  last_updated?: string;
+  total_amount?: number;
+  deposit_amount?: number;
+  deposit_paid?: boolean;
+  balance_amount?: number;
+  payment_status?: string;
+  menu_items?: any[];
+  equipment_items?: any[];
+}
+
+interface Props {
+  order: OrderLike;
+  fromName?: string;
+  companyName?: string;
+  onClose: () => void;
+}
+
+const STATUS_FLOW = [
+  { key: "pending", label: "Pending" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "preparing", label: "Preparing" },
+  { key: "ready", label: "Ready" },
+  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "delivered", label: "Delivered" },
+];
+
+const STATUS_TONE: Record<string, string> = {
+  pending: "bg-slate-100 text-slate-800",
+  confirmed: "bg-blue-100 text-blue-800",
+  preparing: "bg-yellow-100 text-yellow-800",
+  ready: "bg-purple-100 text-purple-800",
+  out_for_delivery: "bg-orange-100 text-orange-800",
+  in_transit: "bg-orange-100 text-orange-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+};
+
+function statusIndex(status: string) {
+  // Treat in_transit as out_for_delivery for the timeline (status drift
+  // tracked in the audit -- different surfaces use different labels).
+  const normalised = status === "in_transit" ? "out_for_delivery" : status;
+  return STATUS_FLOW.findIndex((s) => s.key === normalised);
+}
+
+function formatPhoneForWa(phone?: string): string {
+  if (!phone) return "";
+  // Strip everything except digits + plus sign for the wa.me link
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  return cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
+}
+
+export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
+  const { toast } = useToast();
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [statusHistory, setStatusHistory] = useState<any[]>([]);
+  const [kitchenStats, setKitchenStats] = useState<{ total: number; done: number } | null>(null);
+  const [equipmentCount, setEquipmentCount] = useState<number>(0);
+  const [equipmentFlagged, setEquipmentFlagged] = useState<number>(0);
+  const [tokenLink, setTokenLink] = useState<string | null>(null);
+
+  // Pull async sections in parallel. Each block tolerates failure --
+  // missing data hides the block rather than crashing the pane.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      // Status history
+      try {
+        const { data } = await supabase
+          .from("order_status_history")
+          .select("*")
+          .eq("order_id", order.id)
+          .order("created_at", { ascending: true });
+        if (!cancelled) setStatusHistory(data || []);
+      } catch {
+        /* table may not exist yet -- timeline falls back to current status */
+      }
+
+      // Kitchen prep tasks
+      try {
+        const { count: total } = await supabase
+          .from("kitchen_task_completions")
+          .select("*", { count: "exact", head: true })
+          .eq("order_id", order.id);
+
+        const { count: done } = await supabase
+          .from("kitchen_task_completions")
+          .select("*", { count: "exact", head: true })
+          .eq("order_id", order.id)
+          .eq("status", "completed");
+
+        if (!cancelled && total !== null) {
+          setKitchenStats({ total: total || 0, done: done || 0 });
+        }
+      } catch {
+        /* hide block */
+      }
+
+      // Equipment items + any flagged shortages
+      try {
+        const items = (order.equipment_items || []) as any[];
+        if (!cancelled) {
+          setEquipmentCount(items.length);
+          setEquipmentFlagged(items.filter((i: any) => i?.flagged || i?.shortage).length);
+        }
+      } catch {
+        /* hide block */
+      }
+
+      // Active tokenised client link (so admin can preview the client view)
+      try {
+        const { data } = await supabase
+          .from("client_access_tokens")
+          .select("token_prefix, expires_at, revoked_at")
+          .eq("order_id", order.id)
+          .is("revoked_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled && data) {
+          // We can't reconstruct the raw token; route the admin to the
+          // bare /c/order/{id} which will redirect them to login or the
+          // client view depending on session state.
+          const origin = typeof window !== "undefined" ? window.location.origin : "";
+          setTokenLink(`${origin}/c/order/${order.id}`);
+        }
+      } catch {
+        /* hide block */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order.id, order.equipment_items]);
+
+  const currentStatusIdx = statusIndex(order.status || "");
+
+  // Today / Overdue badge
+  const eventBadge = useMemo(() => {
+    if (!order.event_date) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const event = new Date(order.event_date);
+    event.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((event.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0 && order.status !== "delivered") return { text: "Overdue", tone: "bg-red-100 text-red-800" };
+    if (diffDays === 0) return { text: "Today", tone: "bg-amber-100 text-amber-800" };
+    if (diffDays === 1) return { text: "Tomorrow", tone: "bg-blue-100 text-blue-800" };
+    return null;
+  }, [order.event_date, order.status]);
+
+  const venueMapsUrl = order.venue_address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.venue_address)}`
+    : null;
+
+  const total = Number(order.total_amount) || 0;
+  const deposit = Number(order.deposit_amount) || 0;
+  const balance = Number(order.balance_amount) || (total - deposit);
+  const paid = order.deposit_paid ? deposit : 0;
+  const hasPaymentInfo = total > 0 || deposit > 0;
+  const hasOutstanding = balance > 0 && order.payment_status !== "paid";
+
+  return (
+    <div className="space-y-4">
+      {/* HEADER */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-mono text-xs text-slate-500">
+              {order.order_number || `ORD-${order.id.slice(0, 8).toUpperCase()}`}
+            </p>
+            {eventBadge && (
+              <Badge className={`${eventBadge.tone} text-xs`}>{eventBadge.text}</Badge>
+            )}
+          </div>
+          <h2 className="text-lg font-semibold text-slate-900 leading-tight mt-1">
+            {order.event_name || order.client_name || "Order"}
+          </h2>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <Badge className={STATUS_TONE[order.status || ""] || "bg-slate-100 text-slate-800"}>
+              {(order.status || "").replace(/_/g, " ")}
+            </Badge>
+            {order.event_date && (
+              <span className="text-xs text-slate-500">
+                {new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                {order.delivery_time && ` -- ${new Date(order.delivery_time).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}`}
+              </span>
+            )}
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* CLIENT BLOCK */}
+      {(order.client_name || order.client_email || order.client_phone) && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <User className="h-3 w-3" /> Client
+            </div>
+            <div className="text-sm">
+              <p className="font-medium text-slate-900">{order.client_name || "Unknown"}</p>
+              {order.client_email && (
+                <a href={`mailto:${order.client_email}`} className="text-blue-600 hover:underline text-xs flex items-center gap-1 mt-0.5">
+                  <Mail className="h-3 w-3" /> {order.client_email}
+                </a>
+              )}
+              {order.client_phone && (
+                <a href={`tel:${order.client_phone}`} className="text-blue-600 hover:underline text-xs flex items-center gap-1 mt-0.5">
+                  <Phone className="h-3 w-3" /> {order.client_phone}
+                </a>
+              )}
+            </div>
+            <div className="flex gap-1.5 flex-wrap pt-1">
+              {order.client_email && (
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs" onClick={() => setComposeOpen(true)}>
+                  <Send className="h-3 w-3" /> Compose
+                </Button>
+              )}
+              {order.client_phone && (
+                <a
+                  href={`https://wa.me/${formatPhoneForWa(order.client_phone)}`}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                    <MessageCircle className="h-3 w-3" /> WhatsApp
+                  </Button>
+                </a>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* VENUE BLOCK */}
+      {order.venue_address && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <MapPin className="h-3 w-3" /> Venue
+            </div>
+            <p className="text-sm text-slate-900">{order.venue_address}</p>
+            {venueMapsUrl && (
+              <a href={venueMapsUrl} target="_blank" rel="noopener">
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                  <ExternalLink className="h-3 w-3" /> Open in Google Maps
+                </Button>
+              </a>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* LIVE PROGRESS TIMELINE */}
+      {currentStatusIdx >= 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <Clock className="h-3 w-3" /> Live progress
+            </div>
+            <ol className="space-y-2 mt-1">
+              {STATUS_FLOW.map((step, idx) => {
+                const reached = idx <= currentStatusIdx;
+                const isCurrent = idx === currentStatusIdx;
+                return (
+                  <li key={step.key} className="flex items-center gap-2 text-xs">
+                    {reached ? (
+                      <CheckCircle2 className={`h-4 w-4 flex-shrink-0 ${isCurrent ? "text-orange-500" : "text-emerald-500"}`} />
+                    ) : (
+                      <Circle className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                    )}
+                    <span className={`${reached ? "text-slate-900" : "text-slate-400"} ${isCurrent ? "font-semibold" : ""}`}>
+                      {step.label}
+                    </span>
+                    {isCurrent && (
+                      <span className="ml-auto text-[10px] text-orange-600 font-semibold uppercase">Now</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+            {statusHistory.length > 0 && (
+              <p className="text-[10px] text-slate-400 pt-2 border-t mt-2">
+                {statusHistory.length} status change{statusHistory.length === 1 ? "" : "s"} recorded.
+                Last: {new Date(statusHistory[statusHistory.length - 1].created_at).toLocaleString("en-ZA")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* QUICK ACTIONS */}
+      <Card>
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+            <ArrowRight className="h-3 w-3" /> Quick actions
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Link href={`/admin/orders?orderId=${order.id}`} legacyBehavior>
+              <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                <FileText className="h-3 w-3" /> Full order
+              </Button></a>
+            </Link>
+            <Link href={`/admin/invoices?orderId=${order.id}`} legacyBehavior>
+              <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                <Receipt className="h-3 w-3" /> Invoice
+              </Button></a>
+            </Link>
+            <Link href={`/admin/kitchen-duty-tracking?orderId=${order.id}`} legacyBehavior>
+              <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                <ChefHat className="h-3 w-3" /> Kitchen prep
+              </Button></a>
+            </Link>
+            {order.driver_phone && (
+              <a href={`tel:${order.driver_phone}`}>
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                  <Phone className="h-3 w-3" /> Call driver
+                </Button>
+              </a>
+            )}
+            {tokenLink && (
+              <a href={tokenLink} target="_blank" rel="noopener">
+                <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                  <Eye className="h-3 w-3" /> Client view
+                </Button>
+              </a>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* PAYMENT BLOCK */}
+      {hasPaymentInfo && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <CreditCard className="h-3 w-3" /> Payment
+            </div>
+            <p className="text-sm text-slate-900">
+              <span className="font-semibold">{fmtMoney.format(paid)}</span>
+              <span className="text-slate-500"> paid of </span>
+              <span className="font-semibold">{fmtMoney.format(total)}</span>
+              <span className="text-slate-500"> total</span>
+            </p>
+            <div className="flex items-center gap-2 text-xs text-slate-600">
+              <span>Deposit: {fmtMoney.format(deposit)}</span>
+              <span>{order.deposit_paid ? <Badge className="bg-emerald-100 text-emerald-800 text-[10px]">Paid</Badge> : <Badge variant="outline" className="text-[10px]">Outstanding</Badge>}</span>
+            </div>
+            {balance > 0 && (
+              <div className="text-xs text-slate-600">Balance: <span className="font-semibold text-slate-900">{fmtMoney.format(balance)}</span></div>
+            )}
+            {hasOutstanding && (
+              <Link href={`/admin/invoices?orderId=${order.id}&action=balance`} legacyBehavior>
+                <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs w-full mt-1">
+                  <Receipt className="h-3 w-3" /> Generate balance invoice
+                </Button></a>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KITCHEN PREP BLOCK */}
+      {kitchenStats && kitchenStats.total > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <ChefHat className="h-3 w-3" /> Kitchen prep
+            </div>
+            <p className="text-sm text-slate-900">
+              <span className="font-semibold">{kitchenStats.done}</span>
+              <span className="text-slate-500"> / </span>
+              <span className="font-semibold">{kitchenStats.total}</span>
+              <span className="text-slate-500"> prep tasks done</span>
+            </p>
+            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${kitchenStats.total > 0 ? (kitchenStats.done / kitchenStats.total) * 100 : 0}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* EQUIPMENT BLOCK */}
+      {equipmentCount > 0 && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <Package className="h-3 w-3" /> Equipment
+            </div>
+            <p className="text-sm text-slate-900">
+              <span className="font-semibold">{equipmentCount}</span>
+              <span className="text-slate-500"> item{equipmentCount === 1 ? "" : "s"} on this order</span>
+            </p>
+            {equipmentFlagged > 0 && (
+              <Link href="/admin/equipment-shortages" legacyBehavior>
+                <a className="text-xs text-amber-700 hover:underline flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {equipmentFlagged} flagged -- open in Equipment Shortages
+                </a>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* DRIVER BLOCK */}
+      {(order.driver_id || order.assigned_driver_id) && order.driver_name && (
+        <Card>
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+              <Truck className="h-3 w-3" /> Driver
+            </div>
+            <div className="text-sm">
+              <p className="font-medium text-slate-900">{order.driver_name}</p>
+              {order.driver_phone && (
+                <a href={`tel:${order.driver_phone}`} className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-0.5">
+                  <Phone className="h-3 w-3" /> {order.driver_phone}
+                </a>
+              )}
+              {order.last_updated && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Last GPS ping: {new Date(order.last_updated).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </div>
+            <Link href="/admin/route-planning" legacyBehavior>
+              <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
+                <Truck className="h-3 w-3" /> Reassign driver
+              </Button></a>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* COMPOSE DRAWER */}
+      <Sheet open={composeOpen} onOpenChange={setComposeOpen}>
+        <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
+          <ComposeDrawer
+            order={order}
+            fromName={fromName}
+            companyName={companyName}
+            onClose={() => setComposeOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+/**
+ * Compose drawer for an order. Mirrors QuoteComposeDrawer's four-channel
+ * pattern (Gmail / Outlook / mailto / clipboard) so the email looks like
+ * it came from the user, not from us.
+ */
+function ComposeDrawer({
+  order,
+  fromName,
+  companyName,
+  onClose,
+}: {
+  order: OrderLike;
+  fromName?: string;
+  companyName?: string;
+  onClose: () => void;
+}) {
+  const initial = useMemo(() => {
+    const first = (order.client_name || "there").split(" ")[0];
+    const sig = `\n\nBest,\n${fromName || companyName || "the team"}`;
+    const eventLine = order.event_name
+      ? order.event_date
+        ? `your ${order.event_name} on ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
+        : `your ${order.event_name}`
+      : order.event_date
+        ? `your event on ${new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}`
+        : `your upcoming event`;
+
+    let subject = `Quick update on your order`;
+    let body = `Hi ${first},\n\nJust a quick note about ${eventLine}.${sig}`;
+
+    switch (order.status) {
+      case "preparing":
+        subject = `We're prepping for ${eventLine.replace(/^your /, "")}`;
+        body = `Hi ${first},\n\nThe kitchen is on it for ${eventLine}. Anything you'd like to flag before we finish prep, let me know now and I'll fold it in.${sig}`;
+        break;
+      case "ready":
+        subject = `Ready to dispatch -- ${eventLine.replace(/^your /, "")}`;
+        body = `Hi ${first},\n\nEverything is packed and ready for ${eventLine}. The driver will leave shortly. I'll send a tracking link once they're on the road.${sig}`;
+        break;
+      case "out_for_delivery":
+      case "in_transit":
+        subject = `Driver on the way`;
+        body = `Hi ${first},\n\nThe driver is on the way to you for ${eventLine}. I'll let you know if anything changes.${sig}`;
+        break;
+      case "delivered":
+        subject = `Delivered -- enjoy ${eventLine.replace(/^your /, "")}`;
+        body = `Hi ${first},\n\nWe've completed delivery for ${eventLine}. Hope it all goes brilliantly. Let me know how it lands and I'll be in touch about the balance once the event wraps.${sig}`;
+        break;
+    }
+
+    return { subject, body };
+  }, [order, fromName, companyName]);
+
+  const [subject, setSubject] = useState(initial.subject);
+  const [body, setBody] = useState(initial.body);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setSubject(initial.subject);
+    setBody(initial.body);
+  }, [initial.subject, initial.body]);
+
+  const payload = { to: order.client_email || "", subject, body, fromName };
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle className="flex items-center gap-2">
+          <Send className="w-5 h-5 text-emerald-600" />
+          Compose to {order.client_name}
+        </SheetTitle>
+        <SheetDescription>
+          Personal status update. Sent through your own inbox so it looks like it came from you.
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="space-y-4 mt-4">
+        <Card className="border-0 shadow-sm bg-slate-50">
+          <CardContent className="py-3 px-4 text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Email</span>
+              <span className="font-medium text-slate-900">{order.client_email || "(none)"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Status</span>
+              <span className="font-medium text-slate-900 capitalize">{(order.status || "").replace(/_/g, " ")}</span>
+            </div>
+            {order.event_date && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Event date</span>
+                <span className="font-medium text-slate-900">
+                  {new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
+                </span>
+              </div>
+            )}
+            {order.total_amount != null && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Total</span>
+                <span className="font-medium text-slate-900">{fmtMoney.format(order.total_amount)}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div>
+          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
+          <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1" />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={12}
+            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono"
+          />
+          <p className="text-[11px] text-slate-500 mt-1">
+            Edit freely -- the template is a starting point based on the order's status.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+          <Button
+            variant="default"
+            disabled={!order.client_email}
+            onClick={() => window.open(composeEmail.gmailUrl(payload), "_blank", "noopener")}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+          >
+            <ExternalLink className="w-4 h-4" /> Open in Gmail
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!order.client_email}
+            onClick={() => window.open(composeEmail.outlookUrl(payload), "_blank", "noopener")}
+            className="gap-2"
+          >
+            <ExternalLink className="w-4 h-4" /> Open in Outlook
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!order.client_email}
+            onClick={() => { window.location.href = composeEmail.mailto(payload); }}
+            className="gap-2"
+          >
+            <Mail className="w-4 h-4" /> Default mail app
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const ok = await composeEmail.copyToClipboard(payload);
+              if (ok) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }
+            }}
+            className="gap-2"
+          >
+            <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
+          </Button>
+        </div>
+
+        <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>
+      </div>
+    </>
+  );
+}
+
+export default OrderDetailsPanel;
