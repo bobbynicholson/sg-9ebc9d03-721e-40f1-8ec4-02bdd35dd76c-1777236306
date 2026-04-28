@@ -38,6 +38,7 @@ import {
   Package,
   Lightbulb,
   Headphones,
+  Layers,
 } from "lucide-react";
 
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
