@@ -50,18 +50,18 @@ const StatCard = ({
   tooltip?: string;
 }) => (
   <Card>
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-        {title}
-        {tooltip && <InfoTooltip content={tooltip} />}
-      </CardTitle>
-      <Icon className="h-4 w-4 text-slate-400" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
-      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+    <CardContent className="p-4">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+          {title}
+          {tooltip && <InfoTooltip content={tooltip} />}
+        </span>
+        <Icon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+      </div>
+      <div className="text-xl sm:text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
+      {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
       {change && (
-        <div className={`flex items-center gap-1 text-xs mt-2 ${
+        <div className={`flex items-center gap-1 text-[11px] mt-1 ${
           changeType === "positive" ? "text-green-600" : "text-red-600"
         }`}>
           {changeType === "positive" ? (
@@ -364,56 +364,7 @@ export default function PlatformDashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions - NEW */}
-        <Card className="mb-8 border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-purple-600" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-purple-500 hover:bg-purple-50"
-                onClick={() => window.location.href = '/admin/platform/company-database'}
-              >
-                <Users className="w-6 h-6 text-purple-600" />
-                <div className="text-left">
-                  <div className="font-semibold">Manage Companies</div>
-                  <div className="text-xs text-slate-500">View all registered companies</div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-blue-500 hover:bg-blue-50"
-                onClick={() => window.location.href = '/admin/platform/subscription-management'}
-              >
-                <DollarSign className="w-6 h-6 text-blue-600" />
-                <div className="text-left">
-                  <div className="font-semibold">Subscriptions</div>
-                  <div className="text-xs text-slate-500">Manage billing & plans</div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-auto p-4 flex flex-col items-start gap-2 hover:border-green-500 hover:bg-green-50"
-                onClick={() => window.location.href = '/admin/platform/trial-management'}
-              >
-                <Calendar className="w-6 h-6 text-green-600" />
-                <div className="text-left">
-                  <div className="font-semibold">Trial Management</div>
-                  <div className="text-xs text-slate-500">Monitor free trials</div>
-                </div>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4 mb-4 sm:mb-6">
           <StatCard
             title="SaaS Revenue (active)"
             value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
@@ -444,9 +395,9 @@ export default function PlatformDashboard() {
           />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 mb-6 sm:mb-8">
           <StatCard
-            title="Average Revenue Per User"
+            title="Avg Revenue Per User"
             value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
             subtitle="Per active subscription"
             icon={DollarSign}
