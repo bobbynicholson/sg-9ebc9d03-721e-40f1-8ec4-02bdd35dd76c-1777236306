@@ -33,6 +33,11 @@ import {
   Globe,
   Award,
   Flag,
+  MessageSquare,
+  ScanLine,
+  Package,
+  Lightbulb,
+  Headphones,
 } from "lucide-react";
 
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
@@ -789,6 +794,113 @@ const wowFactorCards: SprintCard[] = [
   },
 ];
 
+// =====================================================================
+// GROUP 8 -- PRODUCT NOTES: BOBBY'S ROADMAP IDEAS
+// =====================================================================
+const productNotesCards: SprintCard[] = [
+  {
+    id: "ai-onboarding",
+    title: "AI-assisted client onboarding",
+    why: "New catering companies signing up on a 30-day trial need to see value fast. Manual data entry kills trials before they convert. AI-assisted setup (upload existing customers, seed inventory, pre-fill menus) gets a new tenant to 'live' in hours instead of days.",
+    estimate: "3-4 weeks",
+    risk: "Medium",
+    icon: Sparkles,
+    accent: "from-violet-500 to-purple-600",
+    defaultOpen: true,
+    items: [
+      { title: "CSV / vCard bulk customer import with AI field mapping", detail: "Upload a spreadsheet with any column headers -- AI maps them to the correct profile fields. Preview + confirm step with manual override. Covers the most common blocker: 'I already have 200 customers in Excel'.", status: "todo" },
+      { title: "Guided onboarding wizard (6 steps, 10 minutes to live)", detail: "Step 1: company profile + logo. Step 2: menu/service packages. Step 3: import customers. Step 4: configure payment gateway (PayFast/Stripe). Step 5: invite first staff member. Step 6: send first quote. Progress bar persists across sessions.", status: "todo" },
+      { title: "Seed data library -- pre-built menu templates by cuisine type", detail: "SA braai, SA wedding, corporate buffet, cocktail function, kosher, halal. One-click load into the tenant's menu. Removes blank-canvas paralysis on trial day 1.", status: "todo" },
+      { title: "30-day trial progress tracker on admin dashboard", detail: "Show the tenant: 'You have used 6 of 7 core features. 3 steps left to fully activate. Your trial ends in 18 days.' Drives activation before the paywall hits.", status: "todo" },
+      { title: "AI 'completion score' that nudges the tenant owner via email", detail: "Day 3 / Day 7 / Day 14 emails if onboarding steps are incomplete. Personalised to what is actually missing for that tenant. Not generic drip -- specific: 'You haven't added a menu yet. Start here.'", status: "todo" },
+    ],
+  },
+  {
+    id: "whatsapp-facebook",
+    title: "WhatsApp + Facebook automated response integration",
+    why: "SA catering enquiries land overwhelmingly in WhatsApp and Facebook Messenger first. Caterers either miss them or spend hours copy-pasting. An AI responder that actions tasks directly from a message thread (create quote, send email, update order) is the single highest-leverage distribution channel in the SA market.",
+    estimate: "4-6 weeks",
+    risk: "High",
+    icon: MessageSquare,
+    accent: "from-green-500 to-emerald-600",
+    items: [
+      { title: "WhatsApp Business API inbound message handler", detail: "Connect tenant's WhatsApp Business number via Meta's Cloud API or a BSP (Vonage, 360dialog). All inbound messages land in the CateringMS lead inbox with full thread history.", status: "todo" },
+      { title: "Facebook Messenger lead inbox connector", detail: "Same pattern as WhatsApp -- Meta Messenger webhook drops enquiries into the lead pipeline. One unified inbox for both channels.", status: "todo" },
+      { title: "AI intent classification + auto-response drafting", detail: "Classify inbound: quote request / availability check / complaint / existing-order query. Draft a context-aware reply using tenant's menu + calendar. Staff approves with one tap or it auto-sends after 60 seconds (configurable).", status: "todo" },
+      { title: "In-thread quote creation -- 'Create quote for this lead' from WhatsApp", detail: "Staff taps one button in the CateringMS inbox UI -- quote is created, PDF generated, and the PayFast deposit link is dropped back into the WhatsApp thread. Zero context-switching.", status: "todo" },
+      { title: "In-thread email dispatch to catering company clients from the app", detail: "Compose and send a branded email to the client directly from within the WhatsApp/Facebook thread view. Full audit trail. Replies route back to the same inbox.", status: "todo" },
+      { title: "Eskom load-shedding alert auto-message to affected clients (SA)", detail: "When EskomSePush flags a schedule change that hits a delivery window, auto-WhatsApp the affected client: 'Your event on Fri 2pm is in Stage 4 -- here is our contingency plan'. Removes the number-one SA client panic trigger.", status: "todo" },
+    ],
+  },
+  {
+    id: "events-equipment",
+    title: "Events equipment module (hire + own inventory)",
+    why: "Many catering companies are also event suppliers -- they hire out or own tables, chairs, cutlery, crockery, ice buckets, chafing dishes, linen. This is tracked nowhere today. It is a high-margin revenue line that competitors don't support end-to-end.",
+    estimate: "3-4 weeks",
+    risk: "Medium",
+    icon: Package,
+    accent: "from-orange-500 to-amber-600",
+    items: [
+      { title: "Equipment catalogue with 'own vs hired-in' flag per item", detail: "Two types: items the company owns outright (depreciation tracked) and items they hire in from a third-party supplier (hire cost per use). Both appear on quotes and invoices as distinct line types.", status: "todo" },
+      { title: "Event equipment package builder (table of X + linens + cutlery for X pax)", detail: "Define reusable packages -- 'Cocktail for 100': 10 x high tables, 20 x cocktail chairs, 100 x champagne flutes, 100 x side plates. One-click attach to an order. Auto-deducts from available stock.", status: "todo" },
+      { title: "Equipment categories: cutlery, crockery, glassware, tables, chairs, linens, ice buckets, chafing dishes, decor", detail: "Pre-seeded category list matching the cleaning portal's verification flow. Shared equipment registry so the cleaning team's post-event count feeds directly back into stock availability.", status: "todo" },
+      { title: "Availability calendar for owned equipment", detail: "Show which items are committed to which events on which dates. Prevent double-booking. Alert if a quote is accepted but required equipment is already out.", status: "todo" },
+      { title: "Hired-in cost tracking + auto-add to order cost sheet", detail: "When hired equipment is used, the hire cost is auto-added to the order's internal cost breakdown (visible to admin/owner, not client). Feeds the profit-margin report.", status: "todo" },
+      { title: "Post-event equipment return reconciliation linked to cleaning portal", detail: "After an event, the cleaning team's verification count (existing equipment.tsx page) updates available_quantity in real time. Damage reports auto-flag for client billing.", status: "todo" },
+    ],
+  },
+  {
+    id: "onboarding-support",
+    title: "Support during onboarding -- who handles the calls",
+    why: "When a trial client hits a wall, they churn. The support model during onboarding needs to be defined and built into the product before launch. An unclear support path at sign-up is a conversion killer.",
+    estimate: "1 week",
+    risk: "Low",
+    icon: Headphones,
+    accent: "from-sky-500 to-blue-600",
+    items: [
+      { title: "Define the support tier model: self-serve vs concierge vs assisted onboarding", detail: "Decision needed: free tier = help docs + chat bot. Paid = email SLA. Premium = WhatsApp direct with a human. This decision gates the build -- do not build the wrong tier first.", status: "todo" },
+      { title: "In-app help widget (Intercom / Crisp / custom)", detail: "Contextual help bubble on every page. Triggered by inactivity or error state. Routes to docs first, human second. Reduces inbound support load 60-70%.", status: "todo" },
+      { title: "Onboarding call booking flow (for premium / high-value signups)", detail: "Calendly or native booking widget surfaced after payment. 30-minute setup call with Bobby / designated onboarding person. The human touch that converts hesitant buyers.", status: "todo" },
+      { title: "Searchable knowledge base (Mintlify / Notion public / custom)", detail: "How-to articles for every major workflow. Linked from every help icon in the UI. Reduces the same 5 questions that every new tenant asks.", status: "todo" },
+      { title: "Support inbox routing -- define who owns what", detail: "Document internally: billing questions go to X. Technical bugs go to Y. Onboarding help goes to Z. This is a people + process spec, not just a code spec. Must be decided before launch.", status: "todo" },
+    ],
+  },
+  {
+    id: "ai-receipt-scanning",
+    title: "AI receipt + slip scanning --> inventory",
+    why: "Shopping staff come back from a run with a pile of slips. Manual entry is slow, error-prone, and doesn't happen. AI scanning (like Adobe Scan) pulls line items, quantities, and prices directly into inventory with a manual override step. Eliminates the biggest data-entry bottleneck in the shopping workflow.",
+    estimate: "2-3 weeks",
+    risk: "Medium",
+    icon: ScanLine,
+    accent: "from-teal-500 to-cyan-600",
+    items: [
+      { title: "Mobile camera capture or PDF/image upload in the shopping portal", detail: "Staff can take a photo of a till slip on their phone or upload a scanned PDF. Works from the existing shopping portal -- no new app required.", status: "todo" },
+      { title: "AI OCR + line-item extraction (Google Vision / AWS Textract / OpenAI Vision)", detail: "Extract: store name, date, line items (description, qty, unit price, total), grand total. Map extracted items against the existing inventory catalogue by name similarity + unit type.", status: "todo" },
+      { title: "Confidence score + manual override UI", detail: "Each matched item shows a confidence score. Low-confidence items are flagged for manual review. Staff can correct the match before confirming. Prevents silent bad data.", status: "todo" },
+      { title: "Auto-update inventory quantities + actual cost on shopping list", detail: "On confirm: inventory.available_quantity incremented, inventory_transactions row written, shopping_list.actual_total updated. Same audit trail as manual entry.", status: "todo" },
+      { title: "Receipt image stored on Supabase Storage + linked to shopping list", detail: "Original slip image retained for audit / accountant review. Linked to the shopping list record so it appears in the shopping history with a 'View receipt' button.", status: "todo" },
+      { title: "Multi-slip batch processing (one run = multiple stores, multiple slips)", detail: "A typical shopping run hits 3-4 stores. Staff uploads all slips at once, reviews each extracted list sequentially, confirms. One action covers the whole run.", status: "todo" },
+    ],
+  },
+  {
+    id: "inventory-admin",
+    title: "Inventory + costs management admin page",
+    why: "Admins and owners need to see and edit stock levels for seeded inventory items without touching the database. Today there is no UI for this -- stock levels can only be changed via the kitchen/shopping portals indirectly. A dedicated admin inventory page with inline editing, category filtering, and cost tracking closes this gap.",
+    estimate: "1-2 weeks",
+    risk: "Low",
+    icon: Lightbulb,
+    accent: "from-yellow-500 to-orange-500",
+    items: [
+      { title: "Admin inventory list page at /admin/inventory", detail: "Full inventory catalogue with search, category filter, and status filter. Shows: name, category, current stock, unit, unit cost, par level (minimum stock trigger), last updated. Paginated for large catalogues.", status: "todo" },
+      { title: "Inline quantity + cost editing with save confirmation", detail: "Click a row to edit available_quantity, unit_cost, and par_level inline. Save triggers an inventory_transaction record for audit trail. No modal needed -- inline is faster.", status: "todo" },
+      { title: "Par level alert indicator -- items below par flagged in amber/red", detail: "At-a-glance: which items are below the minimum stock threshold and need reordering. Sortable by urgency. Feeds into the shopping portal's 'low stock' alert list.", status: "todo" },
+      { title: "Bulk CSV import / export for seeded inventory", detail: "Export the full inventory as CSV for offline editing. Re-import updates quantities and costs in bulk. Critical for initial setup and periodic stock-takes.", status: "todo" },
+      { title: "Inventory cost summary -- total stock value by category", detail: "Dashboard card at the top: total stock value (qty x unit_cost), broken down by category. Helps the owner see where their money is tied up in stock.", status: "todo" },
+      { title: "Add to PlatformNav (super_admin) and AdminNav (company_admin + owner)", detail: "Link from the admin sidebar under 'Operations'. Super_admin sees all tenants' inventories (with company_id filter). Company admin / owner sees their own.", status: "todo" },
+    ],
+  },
+];
+
 const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
@@ -797,6 +909,7 @@ const groups: Group[] = [
   { id: "launch", title: "5. Pre-launch -- Performance, security audit, launch", description: "Performance targets, external security audit, monitoring setup, soft launch (10 companies) then public launch.", cards: launchCards },
   { id: "expansion", title: "6. Market expansion -- features to win SA / UK / US", description: "Sourced from a 60-company competitive audit (20 per region) on 28 April 2026. Universal builds (U1-U8) unlock all three markets in one investment; region-specific items address local compliance + buyer expectations; wow-factor moats are global firsts no competitor has shipped.", cards: [...universalCards, ...saExpansionCards, ...ukExpansionCards, ...usExpansionCards, ...wowFactorCards] },
   { id: "reference", title: "7. Reference -- Metrics, risks, team plan", description: "Concrete success metrics, known risks with mitigations, team plan and budget.", cards: referenceCards },
+  { id: "product-notes", title: "8. Product notes -- Bobby's roadmap ideas", description: "Feature ideas captured 27 April 2026. AI onboarding, WhatsApp/Facebook automation, events equipment, support model, AI receipt scanning, inventory admin page. All todo -- sequencing TBD.", cards: productNotesCards },
 ];
 
 // =====================================================================
