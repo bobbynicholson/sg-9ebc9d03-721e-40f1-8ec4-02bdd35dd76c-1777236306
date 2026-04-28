@@ -52,17 +52,18 @@ export default function KitchenNotificationsPage() {
   const [tab, setTab] = useState<"all" | "unread">("all");
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     load();
-  }, [user?.id, tab]);
+  }, [user?.id, user?.company_id, tab]);
 
   const load = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
     setLoading(true);
     try {
       let q = supabase
         .from("notifications")
         .select("*")
+        .eq("company_id", user.company_id)
         .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.kitchen_staff`)
         .order("created_at", { ascending: false })
         .limit(100);

@@ -26,9 +26,9 @@ export const kitchenDutyService = {
     return data;
   },
 
-  // Get all active duty shifts
-  async getActiveDutyShifts(): Promise<DutyShift[]> {
-    const { data, error } = await supabase
+  // Get all active duty shifts (scoped to a company)
+  async getActiveDutyShifts(companyId?: string): Promise<DutyShift[]> {
+    let q = supabase
       .from("kitchen_duty_shifts")
       .select(`
         *,
@@ -41,6 +41,10 @@ export const kitchenDutyService = {
       `)
       .eq("is_active", true)
       .order("shift_start", { ascending: false });
+
+    if (companyId) q = q.eq("company_id", companyId);
+
+    const { data, error } = await q;
 
     if (error) throw error;
     return data || [];

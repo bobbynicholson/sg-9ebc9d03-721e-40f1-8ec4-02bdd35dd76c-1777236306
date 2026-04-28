@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock } from "lucide-react";
 import { kitchenDutyService } from "@/services/kitchenDutyService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface StaffMember {
   id: string;
@@ -21,19 +22,22 @@ interface DutyShift {
 }
 
 export function OnDutyBoard() {
+  const { user } = useAuth();
   const [activeShifts, setActiveShifts] = useState<DutyShift[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.company_id) return;
     loadActiveShifts();
     // Refresh every 30 seconds
     const interval = setInterval(loadActiveShifts, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.company_id]);
 
   const loadActiveShifts = async () => {
+    if (!user?.company_id) return;
     try {
-      const shifts = await kitchenDutyService.getActiveDutyShifts();
+      const shifts = await kitchenDutyService.getActiveDutyShifts(user.company_id);
       setActiveShifts(shifts as any);
     } catch (error) {
       console.error("Error loading active shifts:", error);
