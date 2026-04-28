@@ -61,9 +61,13 @@ function DriverManagementPage() {
   }, [user]);
 
   const loadDrivers = async () => {
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const allUsers = await userManagementService.getAllUsers();
+      const allUsers = await userManagementService.getAllUsers(user.company_id);
       const driverUsers = allUsers.filter(u => u.role === "driver");
       setDrivers(driverUsers as Driver[]);
     } catch (err) {
