@@ -88,6 +88,20 @@ export default async function handler(
           completed_at: new Date().toISOString()
         }]);
 
+        // Mark the underlying order as completed once the final invoice is paid.
+        // Closes out the post-event journey so the order drops out of the
+        // open list and the financial dashboard counts it under collected.
+        if (invoiceData.order_id) {
+          await supabase
+            .from("orders")
+            .update({
+              status: "completed",
+              payment_status: "paid",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", invoiceData.order_id);
+        }
+
         // Send notification
         await supabase.from("notifications").insert([{
           company_id: companyId,
@@ -99,7 +113,7 @@ export default async function handler(
         }]);
 
         // TODO: Send invoice payment confirmation email
-        console.log(`✅ Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
+        console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
       }
 
       return res.status(200).json({ 

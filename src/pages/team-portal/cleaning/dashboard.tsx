@@ -55,6 +55,7 @@ export default function CleaningDashboard() {
       const { data: cleaningBookings } = await supabase
         .from("equipment_bookings")
         .select("equipment_id")
+        .eq("company_id", user.company_id)
         .eq("status", "returned");
 
       const cleaningSet = new Set((cleaningBookings || []).map((b: any) => b.equipment_id));
@@ -398,7 +399,7 @@ export default function CleaningDashboard() {
         <Footer />
       </div>
 
-      <ChatBot userRole="cleaning" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="cleaning" companyId={user?.company_id} />
     </>
   );
 }
