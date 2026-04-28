@@ -302,7 +302,7 @@ export default function PlatformDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
       <Head>
         <title>CateringMS Platform Dashboard - Internal Sales & Metrics</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -310,7 +310,7 @@ export default function PlatformDashboard() {
 
       <PlatformNav />
 
-      <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-full">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between mb-6 sm:mb-8">
           <div className="min-w-0">
             <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
