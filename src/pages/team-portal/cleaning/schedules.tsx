@@ -113,7 +113,7 @@ export default function CleaningSchedulesPage() {
         frequency,
         scheduled_date: scheduledDate,
         scheduled_time: scheduledTime || null,
-        status: "pending",
+        status: "scheduled",
       }]);
       if (error) throw error;
       toast({ title: "Schedule created" });
