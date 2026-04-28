@@ -1109,6 +1109,92 @@ const journeyAuditCards: SprintCard[] = [
   },
 ];
 
+// =====================================================================
+// GROUP 11 -- TRACKING + ROUTE PLANNING CANONICAL SPLIT (29 Apr 2026)
+// =====================================================================
+// /admin/tracking and /admin/route-planning had drifted into looking like
+// the same page. Bobby remembered there was a deliberate split but couldn't
+// recall the intent. Archaeology of the git log + service shape made the
+// canonical split obvious:
+//
+//   - /admin/tracking      = LIVE ops view (today's jobs, GPS pings,
+//                            status changes ticking through). Audience:
+//                            owner / admin during a shift.
+//   - /admin/route-planning = PRE-FLIGHT dispatch view (tomorrow's
+//                            confirmed orders, optimiser, driver lock-in).
+//                            Audience: dispatcher the night before.
+//
+// Both pages share the underlying tables but render different slices.
+const trackingRouteSplitCards: SprintCard[] = [
+  {
+    id: "tracking-canonical",
+    title: "Canonical purpose split + thesis",
+    why: "Two pages had become confusing duplicates. Recovered the intent from the commit history (2dad5e5 'real-time map tracking', 042d31e 'automated route planning'), service shape (routeOptimizationService.optimizeAllDriverRoutes vs gpsTracking.getDriverLocation), and tooltip language. Documented so the next dev doesn't re-merge them.",
+    estimate: "Done",
+    risk: "Low",
+    icon: GitBranch,
+    accent: "from-emerald-500 to-green-600",
+    items: [
+      { title: "Tracking = LIVE ops view (today's jobs in flight)", detail: "Filters orders to event_date >= today AND status in (confirmed, preparing, ready, in_transit / out_for_delivery, delivered). Auto-refresh actually re-fetches every 30s. Selected order stays in sync across refreshes.", status: "shipped" },
+      { title: "Route Planning = PRE-FLIGHT dispatch view (tomorrow's confirmed orders)", detail: "Pulls unassigned orders + active drivers from the DB, runs the optimiser, persists routes via saveOptimizedRoute. After Apply, the order disappears from the queue and the driver gets a notification.", status: "shipped" },
+      { title: "Both pages now have distinct headers + descriptions reflecting audience", detail: "Tracking: 'Live operational view -- today's jobs in flight, with driver pins ticking through.' Route Planning: 'Pre-flight dispatch: assign drivers to confirmed orders, run the optimiser, lock in routes.'", status: "shipped" },
+    ],
+  },
+  {
+    id: "tracking-data-wiring",
+    title: "Real-data wiring on both surfaces",
+    why: "Route planning shipped with MOCK_ORDERS / MOCK_DRIVERS hardcoded since 1668521. Tracking partially wired but reading stale driver_id. Both now query Supabase scoped by company_id.",
+    estimate: "Done",
+    risk: "Low",
+    icon: Database,
+    accent: "from-emerald-500 to-green-600",
+    items: [
+      { title: "Route planning: replaced MOCK_DRIVERS / MOCK_ORDERS with live queries", detail: "routeOptimizationService.getUnassignedOrders(companyId) + driverService.getAllDrivers(companyId). Active drivers only (is_active defaulting to true for legacy rows).", status: "shipped" },
+      { title: "Optimise All Routes now persists to DB", detail: "Calls routeOptimizationService.optimizeAllDriverRoutes which writes to orders.driver_id + assigned_driver_id and fires the driver notification. Removed the mock short-circuit in applyRoute.", status: "shipped" },
+      { title: "Tracking: reads assigned_driver_id first, falls back to legacy driver_id", detail: "Brings the page in line with the audit fix in 71bb93e where the optimiser writes both columns.", status: "shipped" },
+      { title: "Tracking: auto-refresh actually re-fetches", detail: "Previous build had the toggle state but no setInterval. Now 30s polling when ON, cleared when OFF or unmounted.", status: "shipped" },
+    ],
+  },
+  {
+    id: "tracking-rich-pane",
+    title: "Rich Order Details right-pane",
+    why: "Old pane showed status / client / address / time. New pane is a deep-link dashboard with eight blocks so an owner can find the answer to 'where is order X' in one click instead of five.",
+    estimate: "Done",
+    risk: "Low",
+    icon: Layout,
+    accent: "from-emerald-500 to-green-600",
+    items: [
+      { title: "Header with Today / Tomorrow / Overdue badge", detail: "Order number, event name + date + time, status pill, time-relative badge derived from event_date.", status: "shipped" },
+      { title: "Client block with mailto + tel + WhatsApp + Compose drawer", detail: "Compose mirrors the QuoteComposeDrawer pattern from 46ec141: status-aware template, four send channels (Gmail, Outlook, mailto, clipboard).", status: "shipped" },
+      { title: "Venue block with Open in Google Maps", detail: "https://www.google.com/maps/search/?api=1&query=... -- works without an API key.", status: "shipped" },
+      { title: "Live progress timeline", detail: "Pending -> confirmed -> preparing -> ready -> out_for_delivery -> delivered with current step highlighted. Reads order_status_history when populated; falls back gracefully when the table is empty.", status: "shipped" },
+      { title: "Quick actions chips", detail: "Full order, Invoice, Kitchen prep, Call driver, Client view link (when active client_access_token exists). Each is a deep link, not an inline action.", status: "shipped" },
+      { title: "Payment block with paid-of-total summary + balance invoice link", detail: "'R45,000 paid of R60,000 total' line, deposit / balance breakdown, link to /admin/invoices?orderId=...&action=balance when outstanding.", status: "shipped" },
+      { title: "Kitchen prep block: X/Y prep tasks done with progress bar", detail: "Counts kitchen_task_completions for the order_id, both total and status='completed'.", status: "shipped" },
+      { title: "Equipment block with shortage link", detail: "Counts order.equipment_items, links to /admin/equipment-shortages when any item is flagged.", status: "shipped" },
+      { title: "Driver block (only when assigned)", detail: "Driver name, phone tel: link, last GPS ping time, reassign link to /admin/route-planning. Block hidden entirely when no driver to avoid empty rows.", status: "shipped" },
+    ],
+  },
+  {
+    id: "tracking-still-todo",
+    title: "Known gaps + flagged for follow-up",
+    why: "What this work didn't fix. Each item is a real issue surfaced during the wiring but out of scope for the canonical-split commit. Add to the audit backlog.",
+    estimate: "1-2 weeks",
+    risk: "Medium",
+    icon: AlertTriangle,
+    accent: "from-amber-500 to-orange-600",
+    items: [
+      { title: "venue_lat / venue_lng never populated on order create", detail: "routeOptimizationService.getUnassignedOrders filters by .not('venue_lat', 'is', null) so any order without geocoded coordinates is silently excluded from dispatch. Wire googleMapsService.geocodeAddress into the order create flow + a backfill script for existing rows.", status: "todo" },
+      { title: "gps_tracking.upsert onConflict 'driver_id' is structurally wrong", detail: "Already flagged in Group 10 (journey-blockers) but worth re-flagging here: the LIVE map relies on this table, and the upsert on a non-unique column will eventually fight with itself. Either change to insert (history) or add a driver_locations table with driver_id unique.", status: "todo" },
+      { title: "Map uses Leaflet / OpenStreetMap, not Google Maps -- no API key needed", detail: "Documented for clarity. The 'Open in Google Maps' link in the venue block uses the public maps URL scheme which doesn't require a key. If we ever switch the embed to Google we'll need a key + billing.", status: "todo" },
+      { title: "kitchen_task_completions schema may not have order_id column on every tenant", detail: "If the count returns null we hide the block silently. Confirm the column exists across all tenants; either backfill or add a defensive check on the kitchen-duty-tracking creation path.", status: "todo" },
+      { title: "order_status_history may not be populated on all orders", detail: "orderWorkflow.updateOrderStatus inserts into order_status_history, but legacy orders pre-dating that code path won't have entries. Timeline still renders from current status, but the 'X status changes recorded' line will read 0 for older orders. Backfill on next migration sweep.", status: "todo" },
+      { title: "Route planning fuel cost still uses USD-style 1.5/L", detail: "Already flagged in Group 10 (journey-dead-ui). Display now reads R rather than $ but the underlying constant in routeOptimizationService.calculateRouteStats is currency-blind. Fix at service level.", status: "todo" },
+      { title: "Reassign Driver link routes to /admin/route-planning instead of opening an inline picker", detail: "Inline driver-pick on the right pane would be nicer but adds scope. For now the link works -- dispatcher can re-run the optimiser with the order back in the queue.", status: "todo" },
+    ],
+  },
+];
+
 const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
@@ -1120,6 +1206,7 @@ const groups: Group[] = [
   { id: "product-notes", title: "8. Product notes -- Bobby's roadmap ideas", description: "Feature ideas captured 27 April 2026. AI onboarding, WhatsApp/Facebook automation, events equipment, support model, AI receipt scanning, inventory admin page. All todo -- sequencing TBD.", cards: productNotesCards },
   { id: "tooltip-audit", title: "9. Tooltip rollout audit findings (28 Apr 2026)", description: "Surfaced while rolling out info tooltips across 71 pages. P0 multi-tenancy leak already fixed (commit 596ef67). Remaining items split into broken UX, mock/localStorage flows that need real persistence, and structural patterns to consolidate.", cards: tooltipAuditCards },
   { id: "journey-audit", title: "10. Customer journey audit findings (28 Apr 2026)", description: "Six parallel auditors traced the journeys end-to-end using the rewritten tooltips as contracts: Lead->Quote->Order, Order->Kitchen, Driver->Delivery, Cleaning->Invoice->Payment, SaaS lifecycle, and cross-cutting auth+tenancy+comms. Sixteen wiring fixes shipped in flight. Remaining items split into customer-journey blockers, multi-tenancy + auth, billing/comms that lies, dead UI, and a record of the fixes already shipped.", cards: journeyAuditCards },
+  { id: "tracking-route-split", title: "11. Tracking + Route Planning canonical split (29 Apr 2026)", description: "/admin/tracking and /admin/route-planning had drifted into looking like the same page. Recovered the canonical purpose split (LIVE ops vs PRE-FLIGHT dispatch), wired both surfaces to real Supabase data, and rebuilt the Order Details right-pane on tracking as a deep-link dashboard with eight blocks so an owner can answer 'where is order X' in one click.", cards: trackingRouteSplitCards },
 ];
 
 // =====================================================================
