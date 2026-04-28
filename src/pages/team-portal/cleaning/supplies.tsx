@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,21 +61,27 @@ export default function CleaningSuppliesPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  const preFiltered = useMemo(() => {
     return items.filter((i) => {
       if (belowParOnly) {
         const stock = Number(i.current_stock || 0);
         const min = Number(i.minimum_stock || 0);
         if (stock > min) return false;
       }
-      if (term) {
-        const hay = `${i.item_name ?? ""} ${i.category ?? ""} ${i.storage_location ?? ""}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
       return true;
     });
-  }, [items, search, belowParOnly]);
+  }, [items, belowParOnly]);
+
+  const filtered = useFuzzyItems(
+    preFiltered,
+    search,
+    [
+      { key: "item_name" as any, weight: 3 },
+      { key: "category" as any, weight: 2 },
+      { key: "storage_location" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const total = items.length;

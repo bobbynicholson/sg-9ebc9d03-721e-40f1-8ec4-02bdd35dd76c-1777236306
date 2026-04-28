@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -214,19 +215,23 @@ export default function PlatformSubscriptionManagement() {
     setRefreshing(false);
   };
 
-  const filteredSubscriptions = subscriptions.filter((sub) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      !term ||
-      sub.company_name?.toLowerCase().includes(term) ||
-      sub.owner_full_name?.toLowerCase().includes(term) ||
-      sub.owner_email?.toLowerCase().includes(term) ||
-      sub.plan_name?.toLowerCase().includes(term);
+  const statusFilteredSubs = useMemo(() => {
+    return statusFilter === "all"
+      ? subscriptions
+      : subscriptions.filter((sub: any) => sub.status === statusFilter);
+  }, [subscriptions, statusFilter]);
 
-    const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
+  const filteredSubscriptions = useFuzzyItems(
+    statusFilteredSubs,
+    searchTerm,
+    [
+      { key: "company_name" as any, weight: 3 },
+      { key: "owner_full_name" as any, weight: 2 },
+      { key: "owner_email" as any, weight: 2 },
+      { key: "plan_name" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const formatCurrency = (amount: number, currency: string = "ZAR") => {
     return new Intl.NumberFormat("en-ZA", {

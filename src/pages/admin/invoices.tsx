@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Button } from "@/components/ui/button";
@@ -306,15 +307,22 @@ export default function InvoicesPage() {
     );
   };
 
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = 
-      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.orders?.clients?.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
+  const statusFilteredInvoices = useMemo(() => {
+    return statusFilter === "all"
+      ? invoices
+      : invoices.filter((inv: any) => inv.status === statusFilter);
+  }, [invoices, statusFilter]);
 
-    return matchesSearch && matchesStatus;
-  });
+  const filteredInvoices = useFuzzyItems(
+    statusFilteredInvoices,
+    searchTerm,
+    [
+      { key: "invoice_number" as any, weight: 3 },
+      { key: ((inv: any) => inv.orders?.clients?.email || "") as any, weight: 2, label: "client_email" },
+      { key: ((inv: any) => inv.orders?.clients?.full_name || inv.orders?.client_name || "") as any, weight: 2, label: "client_name" },
+    ],
+    { limit: 0 },
+  );
 
   const allowedRoles = ["admin", "super_admin", "company_admin", "owner"];
   if (!user || !allowedRoles.includes(activeRole as string)) {

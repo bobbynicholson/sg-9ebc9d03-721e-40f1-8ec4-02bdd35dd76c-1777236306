@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,14 @@ export default function InventoryRecipes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [guestCount, setGuestCount] = useState(100);
 
-  const filteredRecipes = RECIPE_MAPPINGS.filter(recipe =>
-    recipe.menu_item_name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRecipes = useFuzzyItems(
+    RECIPE_MAPPINGS,
+    searchTerm,
+    [
+      { key: "menu_item_name" as any, weight: 3 },
+      { key: ((r: Recipe) => (r.ingredients || []).map((i) => i.ingredient_name).join(" ")) as any, weight: 1, label: "ingredients" },
+    ],
+    { limit: 0 },
   );
 
   const calculateIngredientTotal = (ingredient: RecipeIngredient, guests: number) => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,20 +123,25 @@ export default function CleaningWorkflowsPage() {
     }
   };
 
+  const fuzzyFiltered = useFuzzyItems(
+    items,
+    search,
+    [
+      { key: "name" as any, weight: 3 },
+      { key: "category" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
+
   const grouped = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const filtered = items.filter((i) => {
-      if (!term) return true;
-      return `${i.name ?? ""} ${i.category ?? ""}`.toLowerCase().includes(term);
-    });
     const map: Record<string, Equipment[]> = {};
-    filtered.forEach((i) => {
+    fuzzyFiltered.forEach((i) => {
       const k = i.category ?? "Uncategorised";
       if (!map[k]) map[k] = [];
       map[k].push(i);
     });
     return map;
-  }, [items, search]);
+  }, [fuzzyFiltered]);
 
   return (
     <>

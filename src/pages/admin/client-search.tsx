@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -42,7 +43,6 @@ function ClientSearchPage() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [clients, setClients] = useState<Profile[]>([]);
-  const [filteredClients, setFilteredClients] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("all");
 
@@ -52,16 +52,11 @@ function ClientSearchPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    filterClients();
-  }, [searchTerm, selectedRegion, clients]);
-
   const loadClients = async () => {
     try {
       setLoading(true);
       const data = await profileService.getAllClients(user?.company_id);
       setClients(data);
-      setFilteredClients(data);
     } catch (error) {
       console.error("Error loading clients:", error);
     } finally {
@@ -69,27 +64,25 @@ function ClientSearchPage() {
     }
   };
 
-  const filterClients = () => {
-    let filtered = [...clients];
+  // Region filter applied first so the fuzzy matcher only ranks clients
+  // in the region the user has scoped to.
+  const regionFilteredClients = useMemo(() => {
+    return selectedRegion === "all"
+      ? clients
+      : clients.filter((c) => c.region === selectedRegion);
+  }, [clients, selectedRegion]);
 
-    // Filter by search term
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(client => 
-        client.full_name?.toLowerCase().includes(term) ||
-        client.email?.toLowerCase().includes(term) ||
-        client.phone?.toLowerCase().includes(term) ||
-        client.company_name?.toLowerCase().includes(term)
-      );
-    }
-
-    // Filter by region
-    if (selectedRegion !== "all") {
-      filtered = filtered.filter(client => client.region === selectedRegion);
-    }
-
-    setFilteredClients(filtered);
-  };
+  const filteredClients = useFuzzyItems(
+    regionFilteredClients,
+    searchTerm,
+    [
+      { key: "full_name" as any, weight: 3 },
+      { key: "email" as any, weight: 2 },
+      { key: "phone" as any, weight: 1 },
+      { key: "company_name" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const handleSearch = async (value: string) => {
     setSearchTerm(value);

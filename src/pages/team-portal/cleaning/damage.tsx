@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,11 +95,15 @@ export default function CleaningDamagePage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter((d) => `${d.notes ?? ""} ${d.damage_type ?? ""}`.toLowerCase().includes(term));
-  }, [items, search]);
+  const filtered = useFuzzyItems(
+    items,
+    search,
+    [
+      { key: "notes" as any, weight: 2 },
+      { key: "damage_type" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const open = items.filter((d) => !d.resolved).length;

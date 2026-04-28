@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,15 +88,21 @@ export default function ShoppingSuppliersPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return items.filter((s) => {
-      if (!showInactive && s.is_active === false) return false;
-      if (!term) return true;
-      const hay = `${s.supplier_name ?? ""} ${s.contact_person ?? ""} ${s.email ?? ""} ${s.city ?? ""}`.toLowerCase();
-      return hay.includes(term);
-    });
-  }, [items, search, showInactive]);
+  const preFiltered = useMemo(() => {
+    return showInactive ? items : items.filter((s) => s.is_active !== false);
+  }, [items, showInactive]);
+
+  const filtered = useFuzzyItems(
+    preFiltered,
+    search,
+    [
+      { key: "supplier_name" as any, weight: 3 },
+      { key: "contact_person" as any, weight: 2 },
+      { key: "email" as any, weight: 2 },
+      { key: "city" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const total = items.length;

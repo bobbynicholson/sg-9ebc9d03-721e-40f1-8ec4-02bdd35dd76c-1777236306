@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -130,9 +131,15 @@ export function EquipmentVerificationPanel() {
     }
   };
 
-  const filteredVerifications = pendingVerifications.filter((v) =>
-    v.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.order?.order_number?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredVerifications = useFuzzyItems(
+    pendingVerifications,
+    searchTerm,
+    [
+      { key: ((v: any) => v.equipment?.name || "") as any, weight: 3, label: "equipment_name" },
+      { key: ((v: any) => v.order?.order_number || "") as any, weight: 2, label: "order_number" },
+      { key: ((v: any) => v.order?.client_name || "") as any, weight: 2, label: "client_name" },
+    ],
+    { limit: 0 },
   );
 
   return (

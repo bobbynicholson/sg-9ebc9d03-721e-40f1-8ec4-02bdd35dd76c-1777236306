@@ -1,6 +1,7 @@
 ﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,6 @@ interface ShortageFlag {
 function EquipmentShortagesPage() {
   const { user } = useAuth();
   const [shortages, setShortages] = useState<ShortageFlag[]>([]);
-  const [filteredShortages, setFilteredShortages] = useState<ShortageFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedShortage, setSelectedShortage] = useState<ShortageFlag | null>(null);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
@@ -88,9 +88,25 @@ function EquipmentShortagesPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    filterShortages();
-  }, [shortages, searchTerm, statusFilter, priorityFilter]);
+  // Status + priority filter applied first; the fuzzy hook ranks the rest.
+  const preFilteredShortages = useMemo(() => {
+    return shortages.filter((s) => {
+      if (statusFilter !== "all" && s.status !== statusFilter) return false;
+      if (priorityFilter !== "all" && s.priority !== priorityFilter) return false;
+      return true;
+    });
+  }, [shortages, statusFilter, priorityFilter]);
+
+  const filteredShortages = useFuzzyItems(
+    preFilteredShortages,
+    searchTerm,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "equipment_name" as any, weight: 2 },
+      { key: ((s: ShortageFlag) => s.order?.order_number || "") as any, weight: 2, label: "order_number" },
+    ],
+    { limit: 0 },
+  );
 
   const loadShortages = async () => {
     if (!user?.company_id) {
@@ -139,28 +155,7 @@ function EquipmentShortagesPage() {
     }
   };
 
-  const filterShortages = () => {
-    let filtered = [...shortages];
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        s =>
-          s.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          s.equipment_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          s.order?.order_number?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(s => s.status === statusFilter);
-    }
-
-    if (priorityFilter !== "all") {
-      filtered = filtered.filter(s => s.priority === priorityFilter);
-    }
-
-    setFilteredShortages(filtered);
-  };
+  // (filterShortages was replaced by the useMemo + useFuzzyItems above.)
 
   const handleResolveShortage = async () => {
     if (!selectedShortage || !user) return;

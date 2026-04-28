@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useMemo, FC } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import React from "react";
 import Link from "next/link";
 import Head from "next/head";
@@ -266,26 +267,29 @@ function OrderAssignmentsContent() {
     }
   };
 
-  const filteredOrders = useMemo(() => {
-    let result = orders;
+  const statusFilteredOrders = useMemo(() => {
     if (filterStatus === "unassigned") {
-      result = orders.filter((order) => !getAssignmentForOrder(order.id));
-    } else if (filterStatus !== "all") {
+      return orders.filter((order) => !getAssignmentForOrder(order.id));
+    }
+    if (filterStatus !== "all") {
       const assignedOrders = assignments
-        .filter(a => a.status === filterStatus)
-        .map(a => a.orderId);
-      result = orders.filter((order) => assignedOrders.includes(order.id));
+        .filter((a) => a.status === filterStatus)
+        .map((a) => a.orderId);
+      return orders.filter((order) => assignedOrders.includes(order.id));
     }
+    return orders;
+  }, [orders, assignments, filterStatus]);
 
-    if (searchTerm) {
-      result = result.filter(
-        (order) =>
-          order.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    return result;
-  }, [orders, assignments, filterStatus, searchTerm]);
+  const filteredOrders = useFuzzyItems(
+    statusFilteredOrders,
+    searchTerm,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "id" as any, weight: 2 },
+      { key: "venue_address" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const unassignedCount = orders.filter(o => !getAssignmentForOrder(o.id)).length;
   const pendingCount = assignments.filter(a => a.status === "pending").length;

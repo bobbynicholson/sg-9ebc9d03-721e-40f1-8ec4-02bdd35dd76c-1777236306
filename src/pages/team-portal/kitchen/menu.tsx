@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -127,17 +128,21 @@ export default function KitchenMenuItemsPage() {
     return ["all", ...Array.from(s).sort()];
   }, [items]);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return items.filter((i) => {
-      if (category !== "all" && i.category !== category) return false;
-      if (term) {
-        const hay = `${i.item_name ?? ""} ${i.category ?? ""} ${i.description ?? ""} ${(i.dietary_tags || []).join(" ")}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
-      return true;
-    });
-  }, [items, search, category]);
+  const categoryFiltered = useMemo(() => {
+    return category === "all" ? items : items.filter((i) => i.category === category);
+  }, [items, category]);
+
+  const filtered = useFuzzyItems(
+    categoryFiltered,
+    search,
+    [
+      { key: "item_name" as any, weight: 3 },
+      { key: "category" as any, weight: 2 },
+      { key: "description" as any, weight: 1 },
+      { key: ((i: any) => (i.dietary_tags || []).join(" ")) as any, weight: 1, label: "dietary_tags" },
+    ],
+    { limit: 0 },
+  );
 
   const grouped = useMemo(() => {
     const map: Record<string, MenuItem[]> = {};

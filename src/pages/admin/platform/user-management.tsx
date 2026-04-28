@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -228,9 +229,16 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredUsers = useFuzzyItems(
+    users,
+    searchTerm,
+    [
+      { key: "full_name" as any, weight: 3 },
+      { key: "email" as any, weight: 2 },
+      { key: "company_name" as any, weight: 2 },
+      { key: "role" as any, weight: 1 },
+    ],
+    { limit: 0 },
   );
 
   const getRoleBadge = (role: string) => {

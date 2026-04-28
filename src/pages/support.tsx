@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -123,9 +124,16 @@ export default function SupportPage() {
     await loadTicketMessages(ticket.id);
   };
 
-  const filteredTickets = tickets.filter((ticket) =>
-    ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ticket.ticket_number.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTickets = useFuzzyItems(
+    tickets,
+    searchQuery,
+    [
+      { key: "subject" as any, weight: 3 },
+      { key: "ticket_number" as any, weight: 2 },
+      { key: "description" as any, weight: 1 },
+      { key: "status" as any, weight: 1 },
+    ],
+    { limit: 0 },
   );
 
   if (!user) {

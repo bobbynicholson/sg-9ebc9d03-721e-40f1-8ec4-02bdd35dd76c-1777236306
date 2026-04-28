@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -183,12 +184,18 @@ function AdminUsersPage() {
     }
   };
 
-  const filteredUsers = searchTerm
-    ? users.filter(user => 
-        user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : users;
+  const fuzzyUsers = useFuzzyItems(
+    users,
+    searchTerm,
+    [
+      { key: "full_name" as any, weight: 3 },
+      { key: "email" as any, weight: 2 },
+      { key: "role" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
+
+  const filteredUsers = searchTerm ? fuzzyUsers : users;
 
   if (loading) {
     return (

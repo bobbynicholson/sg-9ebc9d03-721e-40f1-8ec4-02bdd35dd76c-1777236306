@@ -1,5 +1,6 @@
 ﻿import { UserRole } from "@/types/app";
 import { useState, useEffect } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,9 +173,15 @@ function DriverManagementPage() {
     }
   };
 
-  const filteredDrivers = drivers.filter(driver =>
-    driver.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    driver.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDrivers = useFuzzyItems(
+    drivers,
+    searchQuery,
+    [
+      { key: "full_name" as any, weight: 3 },
+      { key: "email" as any, weight: 2 },
+      { key: "phone_number" as any, weight: 1 },
+    ],
+    { limit: 0 },
   );
 
   const activeDrivers = drivers.filter(d => d.is_active).length;

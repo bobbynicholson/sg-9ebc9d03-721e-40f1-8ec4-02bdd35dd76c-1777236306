@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,14 +68,19 @@ export default function ShoppingInvoicesPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return items.filter((l) => {
-      if (hasReceiptOnly && !l.receipt_url) return false;
-      if (!term) return true;
-      return `${l.list_date ?? ""} ${l.notes ?? ""}`.toLowerCase().includes(term);
-    });
-  }, [items, search, hasReceiptOnly]);
+  const preFiltered = useMemo(() => {
+    return hasReceiptOnly ? items.filter((l) => !!l.receipt_url) : items;
+  }, [items, hasReceiptOnly]);
+
+  const filtered = useFuzzyItems(
+    preFiltered,
+    search,
+    [
+      { key: "list_date" as any, weight: 2 },
+      { key: "notes" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const completed = items.filter((l) => l.status === "completed");

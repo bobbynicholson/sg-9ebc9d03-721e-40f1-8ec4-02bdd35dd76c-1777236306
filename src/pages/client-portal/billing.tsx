@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -52,7 +53,6 @@ export default function ClientBillingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -67,9 +67,37 @@ export default function ClientBillingPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    filterAndSortInvoices();
-  }, [invoices, searchQuery, statusFilter, sortBy]);
+  // Status filter + sort happen first; the fuzzy hook ranks the rest.
+  const statusSortedInvoices = useMemo(() => {
+    const filtered = statusFilter === "all"
+      ? [...invoices]
+      : invoices.filter((inv) => inv.status === statusFilter);
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "date":
+          return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
+        case "amount":
+          return b.amount - a.amount;
+        case "status":
+          const statusOrder = { overdue: 0, pending: 1, paid: 2, failed: 3 } as const;
+          return (statusOrder as any)[a.status] - (statusOrder as any)[b.status];
+        default:
+          return 0;
+      }
+    });
+    return filtered;
+  }, [invoices, statusFilter, sortBy]);
+
+  const filteredInvoices = useFuzzyItems(
+    statusSortedInvoices,
+    searchQuery,
+    [
+      { key: "invoice_number" as any, weight: 3 },
+      { key: "order_number" as any, weight: 2 },
+      { key: "event_location" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const loadInvoices = async () => {
     try {
@@ -181,41 +209,7 @@ export default function ClientBillingPage() {
     }
   };
 
-  const filterAndSortInvoices = () => {
-    let filtered = [...invoices];
-
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (inv) =>
-          inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          inv.event_location.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((inv) => inv.status === statusFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "date":
-          return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
-        case "amount":
-          return b.amount - a.amount;
-        case "status":
-          const statusOrder = { overdue: 0, pending: 1, paid: 2, failed: 3 };
-          return statusOrder[a.status] - statusOrder[b.status];
-        default:
-          return 0;
-      }
-    });
-
-    setFilteredInvoices(filtered);
-  };
+  // (filterAndSortInvoices replaced by the useMemo + useFuzzyItems above.)
 
   const getStatusBadge = (status: Invoice["status"]) => {
     const variants = {

@@ -1,6 +1,7 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,14 +127,23 @@ function NotificationsPage() {
     }
   };
 
-  const filteredNotifications = notifications.filter((n) => {
-    const matchesSearch =
-      n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.message.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPriority = priorityFilter === "all" || n.priority === priorityFilter;
-    const matchesType = typeFilter === "all" || n.notification_type === typeFilter;
-    return matchesSearch && matchesPriority && matchesType;
-  });
+  const preFilteredNotifications = useMemo(() => {
+    return notifications.filter((n) => {
+      const matchesPriority = priorityFilter === "all" || n.priority === priorityFilter;
+      const matchesType = typeFilter === "all" || n.notification_type === typeFilter;
+      return matchesPriority && matchesType;
+    });
+  }, [notifications, priorityFilter, typeFilter]);
+
+  const filteredNotifications = useFuzzyItems(
+    preFilteredNotifications,
+    searchTerm,
+    [
+      { key: "title" as any, weight: 3 },
+      { key: "message" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 

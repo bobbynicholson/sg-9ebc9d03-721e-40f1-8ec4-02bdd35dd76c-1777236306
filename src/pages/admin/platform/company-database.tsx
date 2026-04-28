@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -73,7 +74,6 @@ export default function CompanyDatabasePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -109,9 +109,24 @@ export default function CompanyDatabasePage() {
     }
   }, [profile]);
 
-  useEffect(() => {
-    filterCompanies();
-  }, [companies, searchTerm, statusFilter]);
+  // Status filter applied first; the fuzzy hook ranks the remainder.
+  // Super-admin tool, so no company_id scoping (sees every tenant).
+  const statusFilteredCompanies = useMemo(() => {
+    return statusFilter === "all"
+      ? companies
+      : companies.filter((c: any) => c.subscription_status === statusFilter);
+  }, [companies, statusFilter]);
+
+  const filteredCompanies = useFuzzyItems(
+    statusFilteredCompanies,
+    searchTerm,
+    [
+      { key: "company_name" as any, weight: 3 },
+      { key: "company_slug" as any, weight: 2 },
+      { key: "email" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const loadCompanies = async () => {
     try {
@@ -163,28 +178,7 @@ export default function CompanyDatabasePage() {
     }
   };
 
-  const filterCompanies = () => {
-    let filtered = companies;
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (company) =>
-          company.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          company.company_slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          company.email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (company) => company.subscription_status === statusFilter
-      );
-    }
-
-    setFilteredCompanies(filtered);
-  };
+  // (filterCompanies replaced by useMemo + useFuzzyItems above.)
 
   const handleAddCompany = async () => {
     try {
