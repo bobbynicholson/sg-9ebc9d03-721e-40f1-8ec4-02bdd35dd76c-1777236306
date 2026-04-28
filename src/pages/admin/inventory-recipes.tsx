@@ -25,7 +25,7 @@ export default function InventoryRecipes() {
     searchTerm,
     [
       { key: "menu_item_name" as any, weight: 3 },
-      { key: ((r: Recipe) => (r.ingredients || []).map((i) => i.ingredient_name).join(" ")) as any, weight: 1, label: "ingredients" },
+      { key: ((r: Recipe) => (r.ingredients || []).map((i) => i.inventory_item_name).join(" ")) as any, weight: 1, label: "ingredients" },
     ],
     { limit: 0 },
   );

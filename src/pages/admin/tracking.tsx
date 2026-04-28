@@ -141,10 +141,10 @@ export default function AdminTracking() {
         const { supabase } = await import("@/integrations/supabase/client");
         const { data } = await supabase
           .from("companies")
-          .select("name")
+          .select("company_name")
           .eq("id", user.company_id)
           .maybeSingle();
-        if (data?.name) setCompanyName(data.name);
+        if (data?.company_name) setCompanyName(data.company_name);
       } catch {
         /* fall back to undefined -- compose drawer handles it */
       }
