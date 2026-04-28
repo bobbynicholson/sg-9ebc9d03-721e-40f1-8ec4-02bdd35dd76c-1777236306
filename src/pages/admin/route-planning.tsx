@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -29,240 +29,165 @@ import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/servic
 import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
 
-// Mock data for testing (until database is populated)
-const MOCK_DRIVERS = [
-  {
-    id: "driver-1",
-    full_name: "John Smith",
-    current_lat: -26.1076,
-    current_lng: 28.0567,
-    available: true
-  },
-  {
-    id: "driver-2", 
-    full_name: "Sarah Johnson",
-    current_lat: -26.1300,
-    current_lng: 28.0200,
-    available: true
-  },
-  {
-    id: "driver-3",
-    full_name: "Mike Williams",
-    current_lat: -26.0900,
-    current_lng: 28.1000,
-    available: true
-  }
-];
-
-const MOCK_ORDERS: DeliveryStop[] = [
-  {
-    id: "order-1",
-    order_id: "order-1",
-    client_name: "Acme Corp",
-    venue_address: "Sandton Convention Centre, Sandton",
-    venue_lat: -26.1076,
-    venue_lng: 28.0567,
-    delivery_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    priority: 1,
-    status: "confirmed"
-  },
-  {
-    id: "order-2",
-    order_id: "order-2",
-    client_name: "Tech Summit 2024",
-    venue_address: "Gallagher Convention Centre, Midrand",
-    venue_lat: -25.9895,
-    venue_lng: 28.1287,
-    delivery_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-    priority: 2,
-    status: "confirmed"
-  },
-  {
-    id: "order-3",
-    order_id: "order-3",
-    client_name: "Wedding Celebration",
-    venue_address: "Shepstone Gardens, Johannesburg",
-    venue_lat: -26.1445,
-    venue_lng: 28.0293,
-    delivery_time: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-    priority: 1,
-    status: "preparing"
-  },
-  {
-    id: "order-4",
-    order_id: "order-4",
-    client_name: "Corporate Lunch",
-    venue_address: "Rosebank Towers, Rosebank",
-    venue_lat: -26.1467,
-    venue_lng: 28.0436,
-    delivery_time: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
-    priority: 1,
-    status: "ready"
-  },
-  {
-    id: "order-5",
-    order_id: "order-5",
-    client_name: "Birthday Party",
-    venue_address: "The Venue, Melrose Arch",
-    venue_lat: -26.1288,
-    venue_lng: 28.0778,
-    delivery_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
-    priority: 2,
-    status: "confirmed"
-  },
-  {
-    id: "order-6",
-    order_id: "order-6",
-    client_name: "Business Conference",
-    venue_address: "The Forum, Bryanston",
-    venue_lat: -26.0658,
-    venue_lng: 28.0183,
-    delivery_time: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-    priority: 2,
-    status: "confirmed"
-  },
-  {
-    id: "order-7",
-    order_id: "order-7",
-    client_name: "Networking Event",
-    venue_address: "The Pivot, Montecasino",
-    venue_lat: -26.0294,
-    venue_lng: 27.9644,
-    delivery_time: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
-    priority: 3,
-    status: "confirmed"
-  },
-  {
-    id: "order-8",
-    order_id: "order-8",
-    client_name: "Office Party",
-    venue_address: "Discovery Head Office, Sandton",
-    venue_lat: -26.1022,
-    venue_lng: 28.0608,
-    delivery_time: new Date(Date.now() + 2.5 * 60 * 60 * 1000).toISOString(),
-    priority: 2,
-    status: "preparing"
-  }
-];
-
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
   { ssr: false }
 );
 
+interface DriverProfile {
+  id: string;
+  full_name: string;
+  current_lat?: number | null;
+  current_lng?: number | null;
+  available?: boolean;
+  is_active?: boolean;
+}
+
+/**
+ * /admin/route-planning -- the PRE-FLIGHT dispatcher view.
+ *
+ * Different from /admin/tracking which is the LIVE ops view. This page is
+ * for the dispatcher the night before: pull every confirmed order that
+ * still needs a driver, run the optimiser, lock in routes that the driver
+ * portal then renders. After a route is applied the order disappears from
+ * the unassigned list and shows up in the driver's portal.
+ */
 export default function RoutePlanning() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [optimising, setOptimising] = useState(false);
   const [unassignedOrders, setUnassignedOrders] = useState<DeliveryStop[]>([]);
+  const [drivers, setDrivers] = useState<DriverProfile[]>([]);
   const [optimizedRoutes, setOptimizedRoutes] = useState<OptimizedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<OptimizedRoute | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [driverFilter, setDriverFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [driverFilter, setDriverFilter] = useState<string>("all");
 
-  useEffect(() => {
-    loadUnassignedOrders();
-  }, [user]);
-
-  const loadUnassignedOrders = async () => {
-    setUnassignedOrders(MOCK_ORDERS);
-  };
-
-  const optimizeAllRoutes = async () => {
+  const loadDispatchData = useCallback(async () => {
+    if (!user?.company_id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const routes: OptimizedRoute[] = [];
-      const ordersPerDriver = Math.ceil(MOCK_ORDERS.length / MOCK_DRIVERS.length);
-      
-      for (let i = 0; i < MOCK_DRIVERS.length; i++) {
-        const driver = MOCK_DRIVERS[i];
-        const driverOrders = MOCK_ORDERS.slice(i * ordersPerDriver, (i + 1) * ordersPerDriver);
-        
-        if (driverOrders.length > 0) {
-          const route = await routeOptimizationService.optimizeRoute(
-            driver.id,
-            driverOrders,
-            driver.current_lat,
-            driver.current_lng
-          );
-          
-          if (route) {
-            routes.push({
-              ...route,
-              driver_name: driver.full_name
-            });
-          }
-        }
-      }
-      
-      setOptimizedRoutes(routes);
-      
-      if (routes.length > 0) {
-        setSelectedRoute(routes[0]);
-        toast({
-          title: "Routes Optimized!",
-          description: `Generated ${routes.length} optimized routes for your drivers.`,
-        });
-      }
+      const [orders, driverList] = await Promise.all([
+        routeOptimizationService.getUnassignedOrders(user.company_id),
+        driverService.getAllDrivers(user.company_id),
+      ]);
+
+      // Drivers must be active to receive routes; legacy rows may not have
+      // is_active set so default to true rather than excluding them.
+      const activeDrivers = (driverList || []).filter(
+        (d: any) => d.is_active === undefined || d.is_active === true
+      );
+
+      setUnassignedOrders(orders);
+      setDrivers(activeDrivers);
     } catch (error) {
-      console.error("Error optimizing routes:", error);
+      console.error("Error loading dispatch data:", error);
       toast({
-        title: "Optimization Failed",
-        description: "Could not optimize routes. Please try again.",
+        title: "Could not load dispatch data",
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.company_id, toast]);
 
-  const applyRoute = async (route: OptimizedRoute) => {
-    // Handle mock data gracefully to prevent UUID cast errors in the database
-    if (route.driver_id.startsWith("driver-")) {
+  useEffect(() => {
+    loadDispatchData();
+  }, [loadDispatchData]);
+
+  const optimizeAllRoutes = async () => {
+    if (!user?.company_id) return;
+    if (drivers.length === 0) {
       toast({
-        title: "Route Applied! (Mock Demo)",
-        description: `Automated push notification sent to ${route.driver_name}: "New Route Assigned 🗺️ (${route.stops.length} stops)"`,
+        title: "No active drivers",
+        description: "Add at least one driver before running the optimiser.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (unassignedOrders.length === 0) {
+      toast({
+        title: "Nothing to optimise",
+        description: "No unassigned orders are waiting for a route.",
       });
       return;
     }
 
+    setOptimising(true);
+    try {
+      const routes = await routeOptimizationService.optimizeAllDriverRoutes(user.company_id);
+
+      // The service returns routes keyed by driver_id only; weave the
+      // driver name in so the UI can label cards correctly.
+      const named = routes.map((route) => {
+        const driver = drivers.find((d) => d.id === route.driver_id);
+        return { ...route, driver_name: driver?.full_name || "Driver" };
+      });
+
+      setOptimizedRoutes(named);
+      if (named.length > 0) {
+        setSelectedRoute(named[0]);
+        toast({
+          title: "Routes optimised",
+          description: `Built ${named.length} route${named.length === 1 ? "" : "s"} across ${named.reduce((sum, r) => sum + r.stops.length, 0)} stops.`,
+        });
+      } else {
+        toast({
+          title: "Optimiser returned no routes",
+          description: "Drivers may be missing GPS coordinates. Check driver profiles.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error optimizing routes:", error);
+      toast({
+        title: "Optimisation failed",
+        description: "Could not build routes. Try again or check the console.",
+        variant: "destructive",
+      });
+    } finally {
+      setOptimising(false);
+    }
+  };
+
+  const applyRoute = async (route: OptimizedRoute) => {
     try {
       const success = await routeOptimizationService.saveOptimizedRoute(route);
-      if (success) {
-        // Send notification to driver
-        await driverService.notifyDriverOfRouteAssignment(route.driver_id, {
-          stopCount: route.stops.length,
-          totalDistance: route.total_distance,
-          totalDuration: route.total_duration,
-          firstStopAddress: route.stops[0]?.venue_address || "Unknown",
-          firstStopTime: route.stops[0]?.delivery_time || new Date().toISOString()
-        });
-
-        toast({
-          title: "Route Applied!",
-          description: `Route assigned and notifications sent to ${route.driver_name} (in-app, email, and WhatsApp).`,
-        });
-        // Refresh unassigned orders
-        loadUnassignedOrders();
-      } else {
-        throw new Error("Failed to save route");
+      if (!success) {
+        throw new Error("saveOptimizedRoute returned false");
       }
+
+      toast({
+        title: "Route applied",
+        description: `${route.driver_name} now sees ${route.stops.length} stops in the driver portal.`,
+      });
+
+      // Drop the applied route's stops from the optimisation panel and
+      // refresh unassigned orders so the dispatcher sees the queue shrink.
+      setOptimizedRoutes((prev) => prev.filter((r) => r.driver_id !== route.driver_id));
+      setSelectedRoute(null);
+      loadDispatchData();
     } catch (error) {
       console.error("Error applying route:", error);
       toast({
-        title: "Error",
-        description: "Failed to apply route and notify driver.",
+        title: "Could not apply route",
+        description: "Route was not saved. Try again.",
         variant: "destructive",
       });
     }
   };
 
-  const filteredOrders = unassignedOrders.filter(order => {
+  const filteredOrders = unassignedOrders.filter((order) => {
     if (statusFilter !== "all" && order.status !== statusFilter) return false;
     return true;
   });
 
-  const filteredRoutes = optimizedRoutes.filter(route => {
+  const filteredRoutes = optimizedRoutes.filter((route) => {
     if (driverFilter !== "all" && route.driver_id !== driverFilter) return false;
     return true;
   });
@@ -284,34 +209,44 @@ export default function RoutePlanning() {
         <div className="max-w-full px-4 sm:px-6 lg:px-8">
           {/* Page Header */}
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-slate-900 mb-2">
                   <Route className="inline-block mr-3 text-blue-600" />
-                  Route Planning & Optimization
+                  Route Planning &amp; Optimisation
                 </h1>
                 <p className="text-slate-600">
-                  AI-powered route optimization for efficient deliveries
+                  Pre-flight dispatch: assign drivers to confirmed orders, run the optimiser, lock in routes.
                 </p>
               </div>
-              <Button
-                onClick={optimizeAllRoutes}
-                disabled={loading || unassignedOrders.length === 0}
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Optimizing...
-                  </>
-                ) : (
-                  <>
-                    <Navigation className="mr-2 h-4 w-4" />
-                    Optimize All Routes
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={loadDispatchData}
+                  disabled={loading}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button
+                  onClick={optimizeAllRoutes}
+                  disabled={optimising || unassignedOrders.length === 0 || drivers.length === 0}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {optimising ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Optimising...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      Optimise All Routes
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -321,7 +256,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content={"Deliveries that still need a driver assigned.\n\nDemo data shown until live wiring lands."} /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content={"Confirmed orders that still need a driver assigned. Pulled live from the orders table for your company."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{unassignedOrders.length}</p>
                   </div>
                   <AlertCircle className="h-8 w-8 text-orange-500" />
@@ -333,7 +268,19 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimized Routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Drivers <InfoTooltip content={"Drivers with role=driver and is_active=true on your team."} /></p>
+                    <p className="text-2xl font-bold text-slate-900">{drivers.length}</p>
+                  </div>
+                  <Truck className="h-8 w-8 text-emerald-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimised Routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{optimizedRoutes.length}</p>
                   </div>
                   <Route className="h-8 w-8 text-blue-500" />
@@ -345,7 +292,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content={"Total kilometres across every route the optimiser has built today."} /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content={"Total kilometres across every route built in this session."} /></p>
                     <p className="text-2xl font-bold text-slate-900">
                       {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
                     </p>
@@ -354,43 +301,121 @@ export default function RoutePlanning() {
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Est. Time <InfoTooltip content={"Estimated total drive time across every planned route, shown in minutes."} /></p>
-                    <p className="text-2xl font-bold text-slate-900">
-                      {Math.round(optimizedRoutes.reduce((sum, r) => sum + r.total_duration, 0))} min
-                    </p>
-                  </div>
-                  <Clock className="h-8 w-8 text-purple-500" />
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
+          {/* Empty state */}
+          {!loading && unassignedOrders.length === 0 && optimizedRoutes.length === 0 && (
+            <Card className="mb-6 border-dashed">
+              <CardContent className="py-12 text-center">
+                <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-900">Nothing waiting on dispatch</h3>
+                <p className="text-sm text-slate-600 mt-1 max-w-md mx-auto">
+                  No confirmed orders need a driver right now. Once a quote is converted and confirmed, the order will land here for routing.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Route List */}
+            {/* Unassigned + Routes column */}
             <div className="lg:col-span-1 space-y-4">
+              {/* Unassigned orders queue */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5 text-orange-500" />
+                    Unassigned Orders
+                    <InfoTooltip content={"Confirmed orders waiting on a driver. Run the optimiser to distribute these across your team."} />
+                  </CardTitle>
+                  <CardDescription>
+                    {filteredOrders.length} of {unassignedOrders.length} order{unassignedOrders.length === 1 ? "" : "s"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="preparing">Preparing</SelectItem>
+                      <SelectItem value="ready">Ready</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {filteredOrders.length === 0 ? (
+                    <p className="text-xs text-slate-500 text-center py-6">
+                      Queue is empty. Confirmed orders without a driver appear here.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                      {filteredOrders.map((order) => (
+                        <div
+                          key={order.id}
+                          className="p-3 border rounded-lg hover:bg-slate-50 text-sm"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900 truncate">{order.client_name}</p>
+                              <p className="text-xs text-slate-500 truncate">{order.venue_address}</p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                {order.delivery_time
+                                  ? new Date(order.delivery_time).toLocaleString("en-ZA", {
+                                      day: "numeric",
+                                      month: "short",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : "No delivery time"}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs capitalize flex-shrink-0">
+                              {order.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Optimised driver routes */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Driver Routes
-                    <InfoTooltip content={"One card per route, showing the stops, distance, time, and a rough fuel estimate."} />
+                    <InfoTooltip content={"One card per route. Click Apply to lock the route in -- the driver gets a notification and the orders move to their portal."} />
                   </CardTitle>
                   <CardDescription>
-                    {optimizedRoutes.length} optimized route{optimizedRoutes.length !== 1 ? "s" : ""}
+                    {filteredRoutes.length} optimised route{filteredRoutes.length === 1 ? "" : "s"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {optimizedRoutes.length === 0 ? (
+                  {drivers.length > 0 && (
+                    <Select value={driverFilter} onValueChange={setDriverFilter}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Filter by driver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All drivers</SelectItem>
+                        {drivers.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {filteredRoutes.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">
-                      Click "Optimize All Routes" to generate efficient delivery sequences
+                      Click &quot;Optimise All Routes&quot; to generate efficient delivery sequences
                     </p>
                   ) : (
-                    optimizedRoutes.map((route, index) => {
+                    filteredRoutes.map((route, index) => {
                       const stats = getRouteStats(route);
                       return (
                         <Card
@@ -404,18 +429,18 @@ export default function RoutePlanning() {
                         >
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold flex-shrink-0">
                                   {index + 1}
                                 </div>
-                                <div>
-                                  <p className="font-semibold text-slate-900">Driver {index + 1}</p>
-                                  <p className="text-xs text-slate-500">{route.stops.length} stops</p>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-slate-900 truncate">{route.driver_name || "Driver"}</p>
+                                  <p className="text-xs text-slate-500">{route.stops.length} stop{route.stops.length === 1 ? "" : "s"}</p>
                                 </div>
                               </div>
-                              <Badge className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 text-green-800 flex-shrink-0">
                                 <CheckCircle className="w-3 h-3 mr-1" />
-                                Optimized
+                                Ready
                               </Badge>
                             </div>
 
@@ -434,7 +459,7 @@ export default function RoutePlanning() {
                               </div>
                               <div className="flex items-center gap-1 text-slate-600">
                                 <Fuel className="w-3 h-3" />
-                                <span>${stats.estimatedFuelCost}</span>
+                                <span>R{stats.estimatedFuelCost}</span>
                               </div>
                             </div>
 
@@ -447,7 +472,7 @@ export default function RoutePlanning() {
                               }}
                             >
                               <Save className="w-3 h-3 mr-1" />
-                              Apply Route
+                              Apply &amp; notify driver
                             </Button>
                           </CardContent>
                         </Card>
@@ -464,11 +489,11 @@ export default function RoutePlanning() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Route Visualization
+                    Route Visualisation
                   </CardTitle>
                   <CardDescription>
                     {selectedRoute
-                      ? `Showing optimized route with ${selectedRoute.stops.length} stops`
+                      ? `Showing optimised route with ${selectedRoute.stops.length} stops`
                       : "Select a route to view on map"}
                   </CardDescription>
                 </CardHeader>
@@ -481,7 +506,7 @@ export default function RoutePlanning() {
                         <MapPin className="h-16 w-16 text-slate-400 mx-auto mb-4" />
                         <p className="text-slate-500">
                           {optimizedRoutes.length === 0
-                            ? "Generate routes to see visualization"
+                            ? "Generate routes to see visualisation"
                             : "Select a route from the list"}
                         </p>
                       </div>
@@ -494,7 +519,7 @@ export default function RoutePlanning() {
               {selectedRoute && (
                 <Card className="mt-6">
                   <CardHeader>
-                    <CardTitle>Route Details & Stops</CardTitle>
+                    <CardTitle>Route Details &amp; Stops</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -505,22 +530,22 @@ export default function RoutePlanning() {
                               {index + 1}
                             </div>
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-1">
-                              <h4 className="font-semibold text-slate-900">{stop.client_name}</h4>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-1 gap-2">
+                              <h4 className="font-semibold text-slate-900 truncate">{stop.client_name}</h4>
                               <Badge className={
                                 stop.priority === 1 ? "bg-red-100 text-red-800" :
                                 stop.priority === 3 ? "bg-gray-100 text-gray-800" :
                                 "bg-yellow-100 text-yellow-800"
                               }>
-                                {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"} Priority
+                                {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"} priority
                               </Badge>
                             </div>
-                            <p className="text-sm text-slate-600 mb-2">{stop.venue_address}</p>
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <p className="text-sm text-slate-600 mb-2 truncate">{stop.venue_address}</p>
+                            <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {new Date(stop.delivery_time).toLocaleString()}
+                                {stop.delivery_time ? new Date(stop.delivery_time).toLocaleString("en-ZA") : "No time set"}
                               </span>
                               <span className="flex items-center gap-1">
                                 <MapPin className="w-3 h-3" />
@@ -536,14 +561,14 @@ export default function RoutePlanning() {
                     <div className="mt-6 p-4 bg-green-50 rounded-lg">
                       <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
                         <Leaf className="h-4 w-4" />
-                        Environmental Impact
+                        Environmental impact
                       </h4>
                       <p className="text-sm text-green-800">
-                        This optimized route will produce approximately{" "}
+                        This optimised route will produce approximately{" "}
                         <span className="font-semibold">
                           {routeOptimizationService.calculateRouteStats(selectedRoute).carbonFootprint.toFixed(2)} kg CO₂
                         </span>
-                        . Route optimization helps reduce emissions by up to 30%.
+                        . Route optimisation helps cut emissions by up to 30%.
                       </p>
                     </div>
                   </CardContent>
@@ -555,7 +580,7 @@ export default function RoutePlanning() {
       </div>
 
       <Footer />
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
   );
 }
