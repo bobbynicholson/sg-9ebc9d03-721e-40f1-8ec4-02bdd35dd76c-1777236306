@@ -288,10 +288,11 @@ export default function AdminTracking() {
                   </CardHeader>
                   <CardContent>
                     <div className="h-[600px] relative">
-                      <AdminTrackingMap 
-                        orders={filteredOrders} 
+                      <AdminTrackingMap
+                        orders={filteredOrders}
                         driverLocations={driverLocations}
                         onDriverLocationUpdate={handleDriverLocationUpdate}
+                        companyId={user?.company_id}
                       />
                     </div>
                   </CardContent>
@@ -488,7 +489,7 @@ export default function AdminTracking() {
         <Footer />
       </div>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="admin" companyId={user?.company_id} />
     </>
   );
 }

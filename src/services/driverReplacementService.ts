@@ -230,13 +230,20 @@ export const driverReplacementService = {
 
     const companyName = companyProfile?.company_name || companyProfile?.full_name || "Your Catering Company";
 
-    // Get all active drivers except the original driver
-    const { data: drivers } = await supabase
+    // Get all active drivers in the same company except the original
+    // driver. Without the company scope, replacement requests would
+    // broadcast to drivers of every tenant on the platform.
+    const originalCompanyId = (request.profiles as any)?.company_id;
+    let driversQuery = supabase
       .from('profiles')
       .select('id, full_name, email, phone, phone_number')
       .eq('role', 'driver')
       .eq('is_active', true)
       .neq('id', request.original_driver_id);
+    if (originalCompanyId) {
+      driversQuery = driversQuery.eq('company_id', originalCompanyId);
+    }
+    const { data: drivers } = await driversQuery;
 
     if (!drivers || drivers.length === 0) {
       console.warn("⚠️ No available drivers found for replacement request");

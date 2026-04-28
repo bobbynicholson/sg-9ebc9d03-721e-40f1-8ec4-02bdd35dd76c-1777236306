@@ -110,11 +110,15 @@ export default function ClientTracking() {
         .eq("client_id", clientData.id)
         .order("event_date", { ascending: false });
       
-      // Filter to show orders that are active or recently delivered
-      const activeOrders = (fetchedOrders || []).filter((o: any) => 
+      // Filter to show orders that are active or recently delivered.
+      // We expose driver_id on the mapped order so that loadDriverLocation
+      // can look up the driver's GPS row -- the join produces
+      // `assigned_driver.id` but the rest of this page reads `driver_id`.
+      const activeOrders = (fetchedOrders || []).filter((o: any) =>
         ["preparing", "ready", "out_for_delivery", "delivered"].includes(o.status)
       ).map((o: any) => ({
         ...o,
+        driver_id: o.driver_id || o.assigned_driver_id || o.assigned_driver?.id,
         driver_name: o.assigned_driver?.full_name,
         driver_phone: o.assigned_driver?.phone
       }));
@@ -139,15 +143,17 @@ export default function ClientTracking() {
     if (!order.driver_id) return;
     
     try {
+      // Use maybeSingle so the 'no rows yet' case isn't treated as an
+      // error (the driver may not have started GPS yet).
       const { data: driver } = await supabase
         .from("gps_tracking")
         .select("*")
         .eq("driver_id", order.driver_id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (driver) {
+      if (driver && driver.latitude && driver.longitude) {
         setDriverLocation({
           lat: driver.latitude,
           lng: driver.longitude,

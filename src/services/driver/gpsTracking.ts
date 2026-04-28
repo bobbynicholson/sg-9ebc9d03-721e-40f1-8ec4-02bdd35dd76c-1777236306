@@ -51,13 +51,15 @@ export async function getDriverLocation(
   driverId: string
 ): Promise<{ success: boolean; location?: GPSLocation; error?: string }> {
   try {
+    // maybeSingle keeps the 'driver hasn't reported a location yet' case
+    // from raising an error.
     const { data, error } = await supabase
       .from("gps_tracking")
       .select("*")
       .eq("driver_id", driverId)
       .order("timestamp", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 

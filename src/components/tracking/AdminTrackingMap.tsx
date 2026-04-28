@@ -37,6 +37,7 @@ interface AdminTrackingMapProps {
   orders: Order[];
   driverLocations: DriverLocation[];
   onDriverLocationUpdate?: (locations: DriverLocation[]) => void;
+  companyId?: string;
 }
 
 // Custom driver icon (green car)
@@ -74,7 +75,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
-export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpdate }: AdminTrackingMapProps) {
+export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpdate, companyId }: AdminTrackingMapProps) {
   const [liveDriverLocations, setLiveDriverLocations] = useState<DriverLocation[]>(driverLocations);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
   const subscriptionRef = useRef<any>(null);
@@ -113,7 +114,12 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
           
           if (payload.eventType === "UPDATE" && payload.new) {
             const updatedDriver = payload.new as any;
-            
+
+            // Realtime channels can't filter on multiple columns so we
+            // enforce the company scope here. Without this, drivers from
+            // other tenants would appear on the map.
+            if (companyId && updatedDriver.company_id !== companyId) return;
+
             // Only update if driver has valid coordinates
             if (updatedDriver.current_lat && updatedDriver.current_lng) {
               setLiveDriverLocations((prev) => {
@@ -153,17 +159,25 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [driverLocations, onDriverLocationUpdate]);
+  }, [driverLocations, onDriverLocationUpdate, companyId]);
 
   // Fallback: Refresh driver locations every 30 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
-      const { data: drivers } = await supabase
+      let query = supabase
         .from("profiles")
         .select("id, full_name, current_lat, current_lng, status, available")
         .eq("role", "driver")
         .not("current_lat", "is", null)
         .not("current_lng", "is", null);
+
+      // Scope the polling fallback to the admin's company so other
+      // tenants' drivers never appear on the map.
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+
+      const { data: drivers } = await query;
 
       if (drivers) {
         const locations: DriverLocation[] = drivers.map((d: any) => ({
@@ -181,7 +195,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
     }, 30000); // 30 seconds
 
     return () => clearInterval(interval);
-  }, [onDriverLocationUpdate]);
+  }, [onDriverLocationUpdate, companyId]);
 
   if (mapCenter[0] === 0 && mapCenter[1] === 0) {
     return (

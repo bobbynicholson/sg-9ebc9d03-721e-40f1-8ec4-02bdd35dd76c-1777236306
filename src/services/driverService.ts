@@ -80,12 +80,25 @@ const getAllDrivers = async (companyId: string) => {
   return data || [];
 };
 
-const startJob = async (orderId: string) => {
-  return deliveryOps.updateDeliveryStatus(orderId, 'out_for_delivery', '');
+const startJob = async (orderId: string, driverId?: string) => {
+  // Resolve the calling driver if the caller didn't pass one. Without a
+  // driverId the underlying update would fail because deliveryManagement
+  // scopes the write by `assigned_driver_id`.
+  let resolvedDriverId = driverId;
+  if (!resolvedDriverId) {
+    const { data } = await supabase.auth.getUser();
+    resolvedDriverId = data.user?.id ?? '';
+  }
+  return deliveryOps.updateDeliveryStatus(orderId, 'out_for_delivery', resolvedDriverId);
 };
 
-const completeJob = async (orderId: string) => {
-  return deliveryOps.updateDeliveryStatus(orderId, 'delivered', '');
+const completeJob = async (orderId: string, driverId?: string) => {
+  let resolvedDriverId = driverId;
+  if (!resolvedDriverId) {
+    const { data } = await supabase.auth.getUser();
+    resolvedDriverId = data.user?.id ?? '';
+  }
+  return deliveryOps.updateDeliveryStatus(orderId, 'delivered', resolvedDriverId);
 };
 
 // Default export for convenience

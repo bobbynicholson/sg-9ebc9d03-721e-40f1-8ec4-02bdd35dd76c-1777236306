@@ -227,7 +227,7 @@ export default function DriverRoutes() {
           </div>
           <Footer />
         </div>
-        <ChatBot userRole="driver" companyId={user?.user_metadata?.company_id} />
+        <ChatBot userRole="driver" companyId={user?.company_id} />
       </>
     );
   }
@@ -690,7 +690,7 @@ export default function DriverRoutes() {
         />
       )}
 
-      <ChatBot userRole="driver" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="driver" companyId={user?.company_id} />
     </>
   );
 }

@@ -103,13 +103,13 @@ export function TimeClockWidget() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Started at</span>
               <span className="text-sm">
-                {new Date(currentSession.clock_in_time).toLocaleTimeString()}
+                {new Date(currentSession.clock_in).toLocaleTimeString()}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Duration</span>
               <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                {formatDuration(currentSession.clock_in_time)}
+                {formatDuration(currentSession.clock_in)}
               </span>
             </div>
           </div>

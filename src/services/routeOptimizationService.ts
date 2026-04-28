@@ -175,10 +175,12 @@ export const routeOptimizationService = {
    * Get all pending orders for a driver
    */
   async getDriverPendingOrders(driverId: string): Promise<DeliveryStop[]> {
+    // Orders may have either `driver_id` (legacy) or `assigned_driver_id`
+    // (current dispatch flow) populated, so we OR across both columns.
     const { data, error } = await supabase
       .from("orders")
       .select("*")
-      .eq("driver_id", driverId)
+      .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
       .in("status", ["confirmed", "preparing", "ready", "out_for_delivery"])
       .not("venue_lat", "is", null)
       .not("venue_lng", "is", null);
@@ -205,11 +207,14 @@ export const routeOptimizationService = {
    * Get all unassigned orders that need routing
    */
   async getUnassignedOrders(companyId: string): Promise<DeliveryStop[]> {
+    // An order is unassigned only when both legacy `driver_id` and the
+    // canonical `assigned_driver_id` are empty.
     const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("company_id", companyId)
       .is("driver_id", null)
+      .is("assigned_driver_id", null)
       .in("status", ["confirmed", "preparing", "ready"])
       .not("venue_lat", "is", null)
       .not("venue_lng", "is", null);
@@ -318,13 +323,16 @@ export const routeOptimizationService = {
         ).toISOString(), // Rough estimate
       }));
 
-      // Update orders with driver and sequence
+      // Update orders with driver and sequence. Write both `driver_id`
+      // (legacy) and `assigned_driver_id` (canonical) so every consumer
+      // sees the assignment regardless of which column they read.
       for (let i = 0; i < route.stops.length; i++) {
         const stop = route.stops[i];
         await supabase
           .from("orders")
           .update({
             driver_id: route.driver_id,
+            assigned_driver_id: route.driver_id,
             delivery_sequence: i + 1,
           } as any)
           .eq("id", stop.order_id);
