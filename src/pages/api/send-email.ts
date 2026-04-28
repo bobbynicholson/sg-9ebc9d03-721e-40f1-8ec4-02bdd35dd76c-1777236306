@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { emailService } from "@/services/emailService";
+import { createPagesServerClient } from "@/lib/supabase/server";
 
 /**
  * API Route for sending emails
@@ -20,6 +21,28 @@ export default async function handler(
       return res.status(400).json({
         error: "Missing required fields: companyId and to are required.",
       });
+    }
+
+    // SECURITY: caller must be authenticated and belong to the company they're
+    // sending email "from". Without this, anyone with the endpoint URL could
+    // pump messages through another tenant's configured Resend/SMTP credentials.
+    // companyWelcome is the one exception -- it's invoked by the public signup
+    // flow before the user has a session.
+    if (emailType !== "companyWelcome") {
+      const ssr = createPagesServerClient({ req, res });
+      const { data: { user } } = await ssr.auth.getUser();
+      if (!user) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const { data: profile } = await ssr
+        .from("profiles")
+        .select("company_id, role, active_role")
+        .eq("id", user.id)
+        .maybeSingle();
+      const callerRole = (profile as any)?.active_role || (profile as any)?.role;
+      if (callerRole !== "super_admin" && (profile as any)?.company_id !== companyId) {
+        return res.status(403).json({ error: "Cannot send email for another company" });
+      }
     }
 
     let result = false;
