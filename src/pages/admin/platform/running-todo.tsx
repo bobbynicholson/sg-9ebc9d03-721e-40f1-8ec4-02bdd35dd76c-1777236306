@@ -1383,8 +1383,6 @@ const devOpsCards: SprintCard[] = [
 ];
 
 const groups: Group[] = [
-
-const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
   { id: "integration", title: "3. Pre-launch -- Integration setup", description: "Each integration is code-complete. What is needed is credentials and a short configuration step.", cards: integrationCards },
