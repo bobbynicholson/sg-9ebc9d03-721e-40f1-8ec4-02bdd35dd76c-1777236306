@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CateringMS Embed -- Live Preview</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #F8FAFC; margin: 0; padding: 24px; color: #0F172A; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    p.lede { margin: 0 0 18px; color: #475569; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; padding: 14px; background: #fff; border: 1px solid #E5E7EB; border-radius: 12px; }
+    .controls label { font-size: 12px; color: #475569; display: flex; flex-direction: column; gap: 4px; }
+    .controls input, .controls select { font: inherit; padding: 8px 10px; border: 1px solid #CBD5E1; border-radius: 8px; min-width: 160px; }
+    .stage { padding: 30px; background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; min-height: 400px; }
+    .meta { font-size: 12px; color: #64748B; margin-top: 12px; }
+    code { background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>CateringMS embed live preview</h1>
+    <p class="lede">Pick a template, set a brand colour, and the form renders into the stage below. Used by the admin live-preview iframe.</p>
+
+    <form class="controls" id="ctrl">
+      <label>Template
+        <select name="template">
+          <option value="quick-card">quick-card</option>
+          <option value="modern-inline">modern-inline</option>
+          <option value="luxe-vertical">luxe-vertical</option>
+          <option value="floating-widget">floating-widget</option>
+          <option value="detailed-multi-step">detailed-multi-step</option>
+          <option value="pricing-calculator">pricing-calculator</option>
+          <option value="wedding-specialist">wedding-specialist</option>
+          <option value="corporate-catering">corporate-catering</option>
+          <option value="event-estimator">event-estimator</option>
+          <option value="spit-braai-quick">spit-braai-quick</option>
+        </select>
+      </label>
+      <label>Token
+        <input name="token" placeholder="dev-token" value="dev-token">
+      </label>
+      <label>Slug
+        <input name="slug" value="default">
+      </label>
+      <label>Primary colour
+        <input name="primary" type="color" value="#0F172A">
+      </label>
+      <label>&nbsp;
+        <button type="submit" style="padding:9px 16px;border:none;border-radius:8px;background:#0F172A;color:#fff;cursor:pointer;font-weight:600">Reload</button>
+      </label>
+    </form>
+
+    <div class="stage" id="stage">
+      <!-- Embed mounts here -->
+    </div>
+    <p class="meta">Loader: <code>./loader.js</code> &middot; Templates: <code>./templates/{id}.js</code> &middot; Helpers: <code>./helpers.js</code></p>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var form = document.getElementById('ctrl');
+      ['template', 'token', 'slug', 'primary'].forEach(function (k) {
+        var v = params.get(k);
+        if (v && form.elements[k]) form.elements[k].value = v;
+      });
+
+      function mount() {
+        var template = form.elements.template.value;
+        var token = form.elements.token.value || 'dev-token';
+        var slug = form.elements.slug.value || 'default';
+        var primary = form.elements.primary.value || '#0F172A';
+
+        var stage = document.getElementById('stage');
+        stage.innerHTML = '';
+        var div = document.createElement('div');
+        div.setAttribute('data-embed-form', '');
+        div.setAttribute('data-token', token);
+        div.setAttribute('data-slug', slug);
+        div.setAttribute('data-template', template);
+        div.setAttribute('data-demo', 'true');
+        div.style.setProperty('--brand-primary', primary);
+        stage.appendChild(div);
+
+        // Reset module caches and re-run loader.
+        delete window.__cmsTemplates;
+        var old = document.getElementById('cms-loader');
+        if (old) old.parentNode.removeChild(old);
+        var s = document.createElement('script');
+        s.id = 'cms-loader';
+        s.src = './loader.js?_=' + Date.now();
+        s.async = true;
+        document.body.appendChild(s);
+
+        var url = new URL(location.href);
+        ['template', 'token', 'slug', 'primary'].forEach(function (k) { url.searchParams.set(k, form.elements[k].value); });
+        history.replaceState({}, '', url);
+      }
+
+      form.addEventListener('submit', function (ev) { ev.preventDefault(); mount(); });
+      mount();
+    })();
+  </script>
+</body>
+</html>

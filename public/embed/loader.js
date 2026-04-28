@@ -1,0 +1,250 @@
+/* CateringMS embed loader -- single entry point.
+   Tenants drop a <script async src=".../embed/loader.js"> + a <div data-embed-form>.
+   Vanilla JS, IIFE, no globals leaked. */
+(function () {
+  'use strict';
+
+  // Resolve the API base from the script's own URL so it Just Works on prod and dev.
+  var SELF = document.currentScript || (function () {
+    var ss = document.getElementsByTagName('script');
+    return ss[ss.length - 1];
+  })();
+  var SELF_SRC = (SELF && SELF.src) || '';
+  var API_BASE = (function () {
+    try {
+      var u = new URL(SELF_SRC);
+      return u.origin;
+    } catch (e) {
+      return '';
+    }
+  })();
+  var EMBED_BASE = (function () {
+    try {
+      var u = new URL(SELF_SRC);
+      return u.origin + u.pathname.replace(/loader\.js.*$/, '');
+    } catch (e) {
+      return '/embed/';
+    }
+  })();
+
+  var TEMPLATE_IDS = {
+    'quick-card': 1,
+    'modern-inline': 1,
+    'luxe-vertical': 1,
+    'floating-widget': 1,
+    'detailed-multi-step': 1,
+    'pricing-calculator': 1,
+    'wedding-specialist': 1,
+    'corporate-catering': 1,
+    'event-estimator': 1,
+    'spit-braai-quick': 1
+  };
+
+  var helpersPromise = null;
+  var templatePromises = {};
+  var configCache = {};
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function getHelpers() {
+    if (window.__cmsEmbedHelpers) return Promise.resolve(window.__cmsEmbedHelpers);
+    if (!helpersPromise) {
+      helpersPromise = loadScript(EMBED_BASE + 'helpers.js').then(function () {
+        return window.__cmsEmbedHelpers;
+      });
+    }
+    return helpersPromise;
+  }
+
+  function getTemplate(id) {
+    if (!TEMPLATE_IDS[id]) id = 'quick-card';
+    if (window.__cmsTemplates && window.__cmsTemplates[id]) {
+      return Promise.resolve(window.__cmsTemplates[id]);
+    }
+    if (!templatePromises[id]) {
+      templatePromises[id] = loadScript(EMBED_BASE + 'templates/' + id + '.js').then(function () {
+        return (window.__cmsTemplates && window.__cmsTemplates[id]) || null;
+      });
+    }
+    return templatePromises[id];
+  }
+
+  function fetchConfig(token, slug) {
+    var key = token + '::' + (slug || 'default');
+    if (configCache[key]) return Promise.resolve(configCache[key]);
+    var url = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/config?slug=' + encodeURIComponent(slug || 'default');
+    return fetch(url, { credentials: 'omit', mode: 'cors' }).then(function (r) {
+      if (!r.ok) throw new Error('Config request failed (' + r.status + ')');
+      return r.json();
+    }).then(function (data) {
+      configCache[key] = data;
+      return data;
+    });
+  }
+
+  function fallbackConfig(slug, templateOverride) {
+    return {
+      slug: slug || 'default',
+      template: templateOverride || 'quick-card',
+      brand: {
+        companyName: 'Catering Co.',
+        primaryColor: '#0F172A',
+        secondaryColor: '#F59E0B',
+        logoUrl: null
+      },
+      theme: {},
+      currency: 'ZAR',
+      successMessage: 'Thanks. We will be in touch shortly.',
+      redirectUrl: null,
+      tiers: [],
+      fields: [
+        { id: 'name', type: 'text', label: 'Your name', required: true, order: 1 },
+        { id: 'email', type: 'email', label: 'Email', required: true, order: 2 },
+        { id: 'phone', type: 'phone', label: 'Phone', required: false, order: 3 },
+        { id: 'event_date', type: 'date', label: 'Event date', required: true, order: 4 },
+        { id: 'guests', type: 'number', label: 'Guests', required: true, validation: { min: 1, max: 5000 }, order: 5 }
+      ]
+    };
+  }
+
+  function showError(host, msg) {
+    host.innerHTML = '';
+    var d = document.createElement('div');
+    d.style.cssText = 'font:14px system-ui,-apple-system,sans-serif;color:#991B1B;padding:12px;border:1px solid #FECACA;border-radius:8px;background:#FEF2F2';
+    d.textContent = msg;
+    host.appendChild(d);
+  }
+
+  function mount(hostEl) {
+    if (hostEl.__cmsMounted) return;
+    hostEl.__cmsMounted = true;
+
+    var token = hostEl.getAttribute('data-token');
+    var slug = hostEl.getAttribute('data-slug') || 'default';
+    var templateOverride = hostEl.getAttribute('data-template') || null;
+    var demoMode = hostEl.getAttribute('data-demo') === 'true';
+
+    if (!token && !demoMode) {
+      showError(hostEl, 'Embed form is missing data-token.');
+      return;
+    }
+
+    // Attach an open shadow root for style isolation.
+    var shadow = hostEl.attachShadow ? hostEl.attachShadow({ mode: 'open' }) : hostEl;
+
+    // Insert a loading placeholder immediately so layout doesn't jump.
+    var placeholder = document.createElement('div');
+    placeholder.style.cssText = 'min-height:120px;display:flex;align-items:center;justify-content:center;font:14px system-ui,sans-serif;color:#6B7280';
+    placeholder.textContent = 'Loading form...';
+    shadow.appendChild(placeholder);
+
+    var configReq = demoMode
+      ? Promise.resolve(fallbackConfig(slug, templateOverride))
+      : fetchConfig(token, slug).catch(function () {
+          // Graceful degradation: still render something usable in dev.
+          return fallbackConfig(slug, templateOverride);
+        });
+
+    Promise.all([configReq, getHelpers()]).then(function (results) {
+      var config = results[0];
+      var helpers = results[1];
+      if (templateOverride) config.template = templateOverride;
+      var templateId = config.template || 'quick-card';
+
+      return getTemplate(templateId).then(function (tpl) {
+        if (!tpl || typeof tpl.render !== 'function') {
+          throw new Error('Template not available: ' + templateId);
+        }
+        // Clear placeholder, apply theme, render.
+        shadow.innerHTML = '';
+        helpers.applyTheme(shadow, config.brand, config.theme);
+
+        // Wrap submission so the loader controls success/redirect uniformly.
+        var renderHelpers = Object.assign({}, helpers, {
+          submit: function (payload, turnstileToken, honeypot) {
+            return helpers.submitForm(API_BASE, token, slug, payload, turnstileToken, honeypot);
+          },
+          estimate: function (guests, tierId) {
+            return helpers.fetchEstimate(API_BASE, token, guests, tierId);
+          },
+          onSuccess: function (response) {
+            handleSuccess(shadow, config, response, helpers);
+          },
+          apiBase: API_BASE,
+          token: token,
+          slug: slug
+        });
+
+        tpl.render(shadow, config, config.brand || {}, renderHelpers);
+      });
+    }).catch(function (err) {
+      // Replace shadow content with a graceful error.
+      try {
+        shadow.innerHTML = '';
+        var d = document.createElement('div');
+        d.style.cssText = 'font:14px system-ui,-apple-system,sans-serif;color:#991B1B;padding:12px;border:1px solid #FECACA;border-radius:8px;background:#FEF2F2';
+        d.textContent = 'Sorry, the form could not load. ' + (err && err.message ? err.message : '');
+        shadow.appendChild(d);
+      } catch (e) { /* ignore */ }
+    });
+  }
+
+  function handleSuccess(shadow, config, response, helpers) {
+    var redirect = (response && response.redirect_url) || config.redirectUrl;
+    if (redirect) {
+      try { window.top.location.href = redirect; return; } catch (e) {
+        window.location.href = redirect;
+        return;
+      }
+    }
+    shadow.innerHTML = '';
+    helpers.injectStyles(shadow, '');
+    helpers.applyTheme(shadow, config.brand, config.theme);
+    var msg = (response && response.message) || config.successMessage || 'Thanks. We will be in touch shortly.';
+    var wrap = helpers.el('div', { class: 'cms-form cms-success', role: 'status', 'aria-live': 'polite' }, [
+      helpers.el('h3', { text: 'Thank you' }),
+      helpers.el('p', { text: msg })
+    ]);
+    shadow.appendChild(wrap);
+    helpers.announce(shadow, 'Form submitted successfully.');
+  }
+
+  function init() {
+    var nodes = document.querySelectorAll('[data-embed-form]');
+    for (var i = 0; i < nodes.length; i++) mount(nodes[i]);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Watch for late-injected mount points (e.g. SPA hosts).
+  if (typeof MutationObserver !== 'undefined') {
+    var mo = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        var added = muts[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType !== 1) continue;
+          if (n.matches && n.matches('[data-embed-form]')) mount(n);
+          if (n.querySelectorAll) {
+            var inner = n.querySelectorAll('[data-embed-form]');
+            for (var k = 0; k < inner.length; k++) mount(inner[k]);
+          }
+        }
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  }
+})();
