@@ -91,10 +91,10 @@ export default function DriverDeliveriesPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <MiniStat label="All deliveries" value={stats.total} icon={Truck} accent="text-slate-900" tooltip="Every order assigned to you, past or upcoming. Source: orders where assigned_driver_id or driver_id matches your user id." />
-            <MiniStat label="Upcoming" value={stats.upcoming} icon={Clock} accent="text-amber-600" tooltip="Future or today's events you still need to deliver. Source: orders.event_date >= today and status not in completed / delivered / cancelled." />
-            <MiniStat label="Completed" value={stats.completed} icon={CheckCircle2} accent="text-emerald-600" tooltip="Orders you've finished. Source: orders.status in completed or delivered." />
-            <MiniStat label="Total guests served" value={stats.totalGuests} icon={Package} accent="text-blue-600" tooltip="Lifetime sum of orders.guest_count across every order assigned to you. Past + upcoming combined." />
+            <MiniStat label="All deliveries" value={stats.total} icon={Truck} accent="text-slate-900" tooltip="Every delivery ever assigned to you, past and upcoming." />
+            <MiniStat label="Upcoming" value={stats.upcoming} icon={Clock} accent="text-amber-600" tooltip="Deliveries from today onwards that you still need to do." />
+            <MiniStat label="Completed" value={stats.completed} icon={CheckCircle2} accent="text-emerald-600" tooltip="Deliveries you've finished and signed off." />
+            <MiniStat label="Total guests served" value={stats.totalGuests} icon={Package} accent="text-blue-600" tooltip="The total guest count across every delivery you've ever done.\n\nPast and upcoming combined." />
           </div>
 
           <Card className="border-0 shadow-lg">

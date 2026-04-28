@@ -199,7 +199,7 @@ export default function KitchenDutyRosterPage() {
                 <div>
                   <p className="text-xs text-slate-600 flex items-center gap-1">
                     Your status
-                    <InfoTooltip content="Shows whether you have an open shift right now. Source: kitchen_duty_shifts row where staff_id = your user id and is_active = true." />
+                    <InfoTooltip content="Whether you're clocked in for a shift right now." />
                   </p>
                   <p className="text-base font-semibold text-slate-900">
                     {myActiveShift
@@ -222,7 +222,7 @@ export default function KitchenDutyRosterPage() {
 
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
             On duty now -- {active.length}
-            <InfoTooltip content="Every kitchen staffer with an open shift right now. Source: kitchen_duty_shifts where company_id matches and is_active = true." />
+            <InfoTooltip content="Everyone currently clocked in for a kitchen shift." />
           </h2>
           <Card className="mb-6">
             <CardContent className="p-0">
@@ -256,7 +256,7 @@ export default function KitchenDutyRosterPage() {
 
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
             Recent shifts
-            <InfoTooltip content="Last 20 closed shifts for this company. Source: kitchen_duty_shifts where is_active = false, ordered by shift_end descending." />
+            <InfoTooltip content="The last 20 shifts that have ended, newest first." />
           </h2>
           <Card>
             <CardContent className="p-0">

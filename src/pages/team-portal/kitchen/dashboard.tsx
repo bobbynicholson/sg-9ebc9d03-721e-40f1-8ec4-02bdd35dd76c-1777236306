@@ -189,7 +189,7 @@ export default function KitchenDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
                       Today's Orders
-                      <InfoTooltip content="Confirmed / preparing / ready orders with event_date in the next 3 days. The kitchen is actively working on these." />
+                      <InfoTooltip content="Orders happening today that the kitchen is actively working on.\n\nIncludes anything confirmed, in prep, or ready to go." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{todayOrders.length}</p>
                   </div>
@@ -206,7 +206,7 @@ export default function KitchenDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
                       Total Guests
-                      <InfoTooltip content="Sum of guest_count across today's orders. Drives portion calculations for the prep list." />
+                      <InfoTooltip content="How many people you're cooking for today across all events.\n\nUse this to size your portions and prep list." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
                       {todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
@@ -225,7 +225,7 @@ export default function KitchenDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
                       In Prep
-                      <InfoTooltip content="Orders currently being prepped (status='preparing'). Updates the moment a chef ticks an item." />
+                      <InfoTooltip content="Orders the kitchen is busy prepping right now.\n\nUpdates the moment someone ticks a task off." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 dark:text-orange-400">
                       {orders.filter(o => o.status === "preparing").length}
@@ -244,7 +244,7 @@ export default function KitchenDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 flex items-center gap-1">
                       Ready
-                      <InfoTooltip content="Orders flagged ready for pickup / dispatch (status='ready'). Drivers see these instantly." />
+                      <InfoTooltip content="Orders packed and waiting for the driver to collect.\n\nDrivers see these the moment you mark them ready." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
                       {orders.filter(o => o.status === "ready").length}

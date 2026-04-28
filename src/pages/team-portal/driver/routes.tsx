@@ -346,7 +346,7 @@ export default function DriverRoutes() {
                   <div>
                     <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
                       Total Distance
-                      <InfoTooltip content="Total kilometres across every leg of today's optimised route. Source: routeOptimizationService.getDriverOptimizedRoute().total_distance." />
+                      <InfoTooltip content="Total kilometres you'll cover across every stop on today's route." />
                     </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {route.total_distance.toFixed(1)} km
@@ -363,7 +363,7 @@ export default function DriverRoutes() {
                   <div>
                     <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
                       Est. Time
-                      <InfoTooltip content="Estimated drive time for the full route in minutes. Source: routeOptimizationService.getDriverOptimizedRoute().total_duration." />
+                      <InfoTooltip content="Roughly how long the full route should take, including driving between stops." />
                     </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {route.total_duration} min
@@ -380,7 +380,7 @@ export default function DriverRoutes() {
                   <div>
                     <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
                       Fuel Cost
-                      <InfoTooltip content="Estimated fuel rand cost for the full route. Source: routeOptimizationService.calculateRouteStats().estimatedFuelCost (distance times an internal cost-per-km estimate)." />
+                      <InfoTooltip content="Rough fuel cost for the whole route in rands.\n\nBased on the distance and an average cost per kilometre." />
                     </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       R{stats.estimatedFuelCost}
@@ -397,7 +397,7 @@ export default function DriverRoutes() {
                   <div>
                     <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
                       CO₂ Impact
-                      <InfoTooltip content="Estimated kilograms of CO₂ from this route. Source: routeOptimizationService.calculateRouteStats().carbonFootprint." />
+                      <InfoTooltip content="Estimated kilograms of CO₂ this route will produce." />
                     </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {stats.carbonFootprint.toFixed(1)} kg

@@ -109,7 +109,7 @@ export default function DriverEarningsPage() {
                   icon={DollarSign}
                   accent="from-emerald-500 to-green-600"
                   sublabel={`${stats.totalHours.toFixed(1)} hours over ${stats.sessionCount} shifts`}
-                  tooltip="Sum of total_earnings across every shift you've ever logged. Source: staff_work_sessions where staff_id = your user id."
+                  tooltip="Everything you've earned across every shift you've worked."
                 />
                 <StatCard
                   label="Already paid"
@@ -117,7 +117,7 @@ export default function DriverEarningsPage() {
                   icon={CheckCircle2}
                   accent="from-blue-500 to-indigo-600"
                   sublabel={`${stats.paidCount} paid shift${stats.paidCount === 1 ? "" : "s"}`}
-                  tooltip="Earnings from shifts the office has already paid out. Source: staff_work_sessions where payment_status = paid."
+                  tooltip="Earnings from shifts that have already been paid out to you."
                 />
                 <StatCard
                   label="Pending payout"
@@ -125,7 +125,7 @@ export default function DriverEarningsPage() {
                   icon={Clock}
                   accent="from-amber-500 to-orange-600"
                   sublabel={`${stats.unpaidCount} shift${stats.unpaidCount === 1 ? "" : "s"} awaiting payment`}
-                  tooltip="Earnings sitting in the queue for the next payroll run. Source: staff_work_sessions where payment_status is anything other than paid."
+                  tooltip="Earnings still waiting to be paid out on the next payroll run."
                 />
                 <StatCard
                   label="Last 30 days"
@@ -133,7 +133,7 @@ export default function DriverEarningsPage() {
                   icon={TrendingUp}
                   accent="from-purple-500 to-pink-600"
                   sublabel={`${formatR(stats.thisWeek)} this week`}
-                  tooltip="Earnings from shifts started in the last 30 days. Source: staff_work_sessions where clock_in is within the rolling 30-day window."
+                  tooltip="What you've earned over the past 30 days."
                 />
               </div>
 
@@ -217,22 +217,22 @@ function ShiftTable({ sessions }: { sessions: WorkSession[] }) {
         <thead className="bg-slate-50 text-slate-500">
           <tr>
             <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Date<InfoTooltip content="Shift date. Source: staff_work_sessions.session_date." /></span>
+              <span className="inline-flex items-center gap-1">Date<InfoTooltip content="The day this shift was worked." /></span>
             </th>
             <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Clock in<InfoTooltip content="Time you started the shift. Source: staff_work_sessions.clock_in." /></span>
+              <span className="inline-flex items-center gap-1">Clock in<InfoTooltip content="The time you started this shift." /></span>
             </th>
             <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Clock out<InfoTooltip content="Time you ended the shift. Active means you're still on the clock. Source: staff_work_sessions.clock_out." /></span>
+              <span className="inline-flex items-center gap-1">Clock out<InfoTooltip content="The time you ended this shift.\n\n'Active' means you're still on the clock." /></span>
             </th>
             <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Hours<InfoTooltip content="Total worked hours for this shift. Source: staff_work_sessions.total_hours." /></span>
+              <span className="inline-flex items-center gap-1">Hours<InfoTooltip content="How long you worked on this shift." /></span>
             </th>
             <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Earnings<InfoTooltip content="Pay calculated for this shift -- hours times your rate plus any bonuses. Source: staff_work_sessions.total_earnings." /></span>
+              <span className="inline-flex items-center gap-1">Earnings<InfoTooltip content="What you earned for this shift.\n\nHours worked times your rate, plus any bonuses." /></span>
             </th>
             <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Status<InfoTooltip content="Whether the shift has been paid out yet. Source: staff_work_sessions.payment_status." /></span>
+              <span className="inline-flex items-center gap-1">Status<InfoTooltip content="Whether this shift has been paid out yet." /></span>
             </th>
           </tr>
         </thead>

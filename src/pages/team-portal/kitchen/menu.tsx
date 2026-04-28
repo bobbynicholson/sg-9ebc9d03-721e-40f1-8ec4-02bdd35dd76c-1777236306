@@ -277,7 +277,7 @@ export default function KitchenMenuItemsPage() {
               <div>
                 <h3 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
                 Ingredients
-                <InfoTooltip content="Recipe ingredients linked to this menu item. Source: recipe_ingredients joined via recipes.menu_item_id." />
+                <InfoTooltip content="The ingredients listed in the recipe for this dish." />
               </h3>
                 {ingredientsLoading ? (
                   <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading ingredients...</div>

@@ -169,9 +169,9 @@ export default function KitchenProductionPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Events this week<InfoTooltip content="Non-cancelled orders with event_date inside the visible week. Source: orders.event_date between weekStart and weekStart + 7 days." /></p><p className="text-2xl font-bold tabular-nums">{totals.events}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total guests<InfoTooltip content="Sum of orders.guest_count across the events visible this week. Drives bulk-prep maths." /></p><p className="text-2xl font-bold tabular-nums">{totals.guests}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total portions<InfoTooltip content="Sum of order_items.quantity across this week's order line items -- one quantity per dish ordered, before plating splits." /></p><p className="text-2xl font-bold tabular-nums">{totals.dishes}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Events this week<InfoTooltip content="Confirmed events booked during the week shown above." /></p><p className="text-2xl font-bold tabular-nums">{totals.events}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total guests<InfoTooltip content="How many people you're feeding across the whole week.\n\nUse this for bulk-prep planning." /></p><p className="text-2xl font-bold tabular-nums">{totals.guests}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total portions<InfoTooltip content="Total dishes to plate across every event this week.\n\nCounted before any plating splits." /></p><p className="text-2xl font-bold tabular-nums">{totals.dishes}</p></CardContent></Card>
           </div>
 
           {loading ? (

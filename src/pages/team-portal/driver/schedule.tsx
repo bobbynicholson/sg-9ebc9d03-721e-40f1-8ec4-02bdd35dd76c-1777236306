@@ -89,7 +89,7 @@ export default function DriverSchedulePage() {
             <div>
               <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 flex items-center gap-2">
                 My Schedule
-                <InfoTooltip content="Future jobs assigned to you, grouped Today / Tomorrow / This week / This month / Later. Source: orders where assigned_driver_id or driver_id matches you, event_date >= today, status not cancelled." />
+                <InfoTooltip content="Upcoming deliveries assigned to you.\n\nGrouped by Today, Tomorrow, This week, This month, and Later." />
               </h1>
               <p className="text-slate-600 mt-1">Upcoming jobs assigned to you</p>
             </div>
@@ -152,7 +152,7 @@ export default function DriverSchedulePage() {
                           <div className="md:text-right">
                             <p className="font-semibold text-slate-900 flex items-center gap-1 md:justify-end">
                               R{Number(o.total_amount || 0).toLocaleString()}
-                              <InfoTooltip content="Total invoice value for the customer, not your delivery fee. Source: orders.total_amount." />
+                              <InfoTooltip content="The total bill the customer is paying for the event.\n\nThis isn't your delivery fee." />
                             </p>
                             <p className="text-xs text-slate-500">order value</p>
                           </div>

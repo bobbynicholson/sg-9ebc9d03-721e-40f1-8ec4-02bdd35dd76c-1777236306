@@ -434,7 +434,7 @@ export default function DriverDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Today's Jobs
-                      <InfoTooltip content="Orders assigned to you with event_date = today, where status is confirmed / preparing / ready / in_transit. Picks up both driver_id and assigned_driver_id." />
+                      <InfoTooltip content="Deliveries assigned to you for today." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 tabular-nums">
                       {todaysJobs.length}
@@ -453,7 +453,7 @@ export default function DriverDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Completed
-                      <InfoTooltip content="Today's jobs you've finished delivering. Status = delivered or completed for an order with event_date = today." />
+                      <InfoTooltip content="Today's deliveries you've already finished and signed off." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600 tabular-nums">
                       {completedToday}
@@ -472,7 +472,7 @@ export default function DriverDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Pending
-                      <InfoTooltip content="Today's jobs that aren't done yet. Today's jobs minus completed." />
+                      <InfoTooltip content="Deliveries still left to do today." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600 tabular-nums">
                       {todaysJobs.length - completedToday}
@@ -491,7 +491,7 @@ export default function DriverDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Earnings
-                      <InfoTooltip content="Outstanding pay from completed deliveries. Source: sum of driver_assignments.total_earnings where status is completed or delivered." />
+                      <InfoTooltip content="What you've earned from finished deliveries that haven't been paid out yet." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
                       R{totalEarnings}

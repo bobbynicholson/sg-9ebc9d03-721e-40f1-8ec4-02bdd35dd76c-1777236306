@@ -194,7 +194,7 @@ export default function KitchenPrepListPage() {
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">
                   Prep List
-                  <InfoTooltip content="Per-order ingredient pull list. Source: order_ingredient_demand view (orders joined to recipe_ingredients) for confirmed / preparing / ready orders from today onwards." />
+                  <InfoTooltip content="Everything you need to pull from stores, broken down per order.\n\nCovers every confirmed event from today onwards." />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Per-order ingredient call-out from confirmed bookings
@@ -279,7 +279,7 @@ export default function KitchenPrepListPage() {
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
                                 Menu
-                                <InfoTooltip content="Distinct menu_items linked to this order. Source: order_items.menu_item_id joined to menu_items." />
+                                <InfoTooltip content="The dishes the client ordered for this event." />
                               </p>
                               <div className="flex flex-wrap gap-1">
                                 {menuItems.map((m) => (
@@ -292,7 +292,7 @@ export default function KitchenPrepListPage() {
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
                                 Ingredients to pull
-                                <InfoTooltip content="Quantity required summed across all menu items in this order. Tick or warning compares quantity_required against inventory_demand_outlook.current_stock." />
+                                <InfoTooltip content="Total quantity needed for this order, added up across every dish.\n\nA red warning means stock is short, a green tick means you have enough." />
                               </p>
                               <ul className="text-sm divide-y divide-slate-100">
                                 {ingredients.map((ing) => {
