@@ -141,9 +141,10 @@ export default function KitchenDutyRosterPage() {
         })
         .eq("id", endingShift.id);
       if (error) throw error;
-      if (handoffNotes.trim() && user?.id) {
+      if (handoffNotes.trim() && user?.id && endingShift.order_id) {
         await supabase.from("kitchen_task_completions").insert([{
           order_id: endingShift.order_id,
+          completed_by: user.id,
           user_id: user.id,
           staff_id: user.id,
           task_type: "handoff",
