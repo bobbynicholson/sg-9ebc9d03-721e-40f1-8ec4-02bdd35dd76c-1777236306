@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign, 
+import {
+  DollarSign,
   Plus,
   Calendar,
   Mail,
@@ -22,11 +22,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminQuotes() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.company_id) {
@@ -44,6 +47,27 @@ export default function AdminQuotes() {
     })();
     return () => { cancelled = true; };
   }, [user?.company_id]);
+
+  const handleSend = async (quoteId: string) => {
+    setSendingId(quoteId);
+    try {
+      const ok = await quoteService.sendQuoteToClient(quoteId);
+      if (ok) {
+        toast({ title: "Quote sent", description: "Email queued and status updated to Sent." });
+        // Reflect new status locally without a full refetch
+        setQuotes((prev) => prev.map((q) =>
+          q.id === quoteId ? { ...q, status: "sent", sent_at: new Date().toISOString() } as Quote : q
+        ));
+      } else {
+        toast({ title: "Send failed", description: "Could not send the quote. Check the client email.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("Send quote failed:", err);
+      toast({ title: "Send failed", description: "Something went wrong sending this quote.", variant: "destructive" });
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   const getStatusColor = (status: Quote["status"]) => {
     switch (status) {
@@ -196,9 +220,13 @@ export default function AdminQuotes() {
 
                       <div className="flex gap-2 ml-4">
                         {quote.status === "draft" && (
-                          <Button size="sm">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSend(quote.id)}
+                            disabled={sendingId === quote.id}
+                          >
                             <Send className="w-4 h-4 mr-2" />
-                            Send
+                            {sendingId === quote.id ? "Sending..." : "Send"}
                           </Button>
                         )}
                         <Link href={`/admin/quotes/${quote.id}`}>
