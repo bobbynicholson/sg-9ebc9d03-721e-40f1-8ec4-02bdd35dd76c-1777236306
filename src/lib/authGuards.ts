@@ -30,7 +30,6 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/drivers",
     "/admin/driver-management",
     "/admin/staff-hours",
-    "/admin/job-progress-overview",
     "/admin/tracking",
     "/admin/route-planning",
     "/admin/equipment-shortages",

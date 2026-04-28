@@ -116,6 +116,11 @@ export function AdminNav({ className }: AdminNavProps) {
     return () => { cancelled = true; clearInterval(t); };
   }, [(profile as any)?.company_id]);
 
+  // Close mobile drawer on every route change
+  useEffect(() => {
+    setOpen(false);
+  }, [router.pathname]);
+
   const handleSignOut = async () => {
     if (signingOut) return;
     setSigningOut(true);
@@ -223,12 +228,6 @@ export function AdminNav({ className }: AdminNavProps) {
     {
       title: "Operations",
       items: [
-        {
-          title: "Job Progress Overview",
-          href: "/admin/job-progress-overview",
-          icon: TrendingUp,
-          description: "Monitor all jobs"
-        },
         {
           title: "Delivery Tracking",
           href: "/admin/tracking",
