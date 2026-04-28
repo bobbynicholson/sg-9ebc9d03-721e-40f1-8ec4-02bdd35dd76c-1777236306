@@ -153,12 +153,9 @@ export function AdminNav({ className }: AdminNavProps) {
           icon: LayoutDashboard,
           description: "Business insights and metrics"
         },
-        {
-          title: "Notifications",
-          href: "/admin/notifications",
-          icon: Bell,
-          description: "View all notifications"
-        }
+        // Notifications hidden 28 Apr 2026 -- mobile drawer overlay bug
+        // surfaces on click. Re-enable once the sidebar overlay is fixed
+        // and the notifications page audit lands.
       ]
     },
     {
