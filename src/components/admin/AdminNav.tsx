@@ -350,6 +350,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/settings",
           icon: Settings,
           description: "General configuration"
+        },
+        {
+          title: "Running Todo",
+          href: "/admin/running-todo",
+          icon: ClipboardList,
+          description: "Audit-derived backlog"
         }
       ]
     },

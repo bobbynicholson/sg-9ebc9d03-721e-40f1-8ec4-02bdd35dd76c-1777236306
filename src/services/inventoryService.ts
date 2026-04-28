@@ -82,6 +82,49 @@ export const inventoryService = {
     return true;
   },
 
+  /**
+   * Update current_stock and write an audit row to inventory_transactions
+   * with transaction_type='adjustment'. Quantity stored is the delta
+   * (positive = stock added, negative = stock removed).
+   */
+  async adjustStock(
+    itemId: string,
+    newStock: number,
+    performedBy: string,
+    notes?: string,
+  ): Promise<Inventory | null> {
+    const current = await this.getInventoryItem(itemId);
+    if (!current) throw new Error("Inventory item not found");
+
+    const previous = Number(current.current_stock || 0);
+    const delta = Number(newStock) - previous;
+
+    const { data, error } = await supabase
+      .from("inventory_items")
+      .update({ current_stock: newStock, updated_at: new Date().toISOString() })
+      .eq("id", itemId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adjusting stock:", error);
+      throw error;
+    }
+
+    if (delta !== 0) {
+      await supabase.from("inventory_transactions").insert([{
+        company_id: current.company_id,
+        inventory_item_id: itemId,
+        transaction_type: "adjustment",
+        quantity: delta,
+        performed_by: performedBy,
+        notes: notes ?? `Manual adjustment from ${previous} to ${newStock}`,
+      }]);
+    }
+
+    return data;
+  },
+
   async getLowStockItems(companyId: string): Promise<Inventory[]> {
     const { data, error } = await supabase
       .from("inventory_items")
