@@ -353,29 +353,6 @@ export function AdminNav({ className }: AdminNavProps) {
         }
       ]
     },
-    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
-      title: "Finance & Billing",
-      items: [
-        {
-          title: "Financial Dashboard",
-          href: "/admin/financial-dashboard",
-          icon: DollarSign,
-          description: "Financial insights"
-        },
-        {
-          title: "Subscription",
-          href: "/admin/subscription",
-          icon: CreditCard,
-          description: "Manage subscriptions"
-        },
-        {
-          title: "Payment Gateways",
-          href: "/admin/payment-gateways",
-          icon: CreditCard,
-          description: "Configure payments"
-        }
-      ]
-    }] : []),
     ...(profile && profile.role === "super_admin" ? [{
       title: "Platform Admin",
       items: [

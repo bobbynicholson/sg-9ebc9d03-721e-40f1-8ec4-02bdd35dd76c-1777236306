@@ -11,6 +11,7 @@ import {
   Building2,
   Users,
   CreditCard,
+  DollarSign,
   Calendar,
   Tag,
   Activity,
@@ -96,6 +97,29 @@ const sections: PlatformNavSection[] = [
         href: "/admin/platform/currency-monitoring",
         icon: ArrowLeftRight,
         description: "FX rates & alerts",
+      },
+    ],
+  },
+  {
+    title: "Finance & Billing",
+    items: [
+      {
+        title: "Financial Dashboard",
+        href: "/admin/financial-dashboard",
+        icon: DollarSign,
+        description: "Financial insights",
+      },
+      {
+        title: "Subscription",
+        href: "/admin/subscription",
+        icon: CreditCard,
+        description: "Manage subscriptions",
+      },
+      {
+        title: "Payment Gateways",
+        href: "/admin/payment-gateways",
+        icon: CreditCard,
+        description: "Configure payments",
       },
     ],
   },
