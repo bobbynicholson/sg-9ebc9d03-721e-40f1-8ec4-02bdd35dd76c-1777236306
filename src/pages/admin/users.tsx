@@ -70,7 +70,9 @@ function AdminUsersPage() {
     try {
       setLoading(true);
       setError(null);
-      const fetchedUsers = await userManagementService.getAllUsers(user?.company_id);
+      const fetchedUsers = await userManagementService.getAllUsers(user?.company_id, {
+        excludeRoles: ["client"],
+      });
       setUsers(fetchedUsers);
     } catch (error) {
       console.error("Error loading users:", error);
@@ -87,7 +89,9 @@ function AdminUsersPage() {
 
   const loadStats = async () => {
     try {
-      const fetchedStats = await userManagementService.getDepartmentStats(user?.company_id);
+      const fetchedStats = await userManagementService.getDepartmentStats(user?.company_id, {
+        excludeRoles: ["client"],
+      });
       setStats(fetchedStats);
     } catch (error) {
       console.error("Error loading stats:", error);

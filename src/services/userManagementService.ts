@@ -256,7 +256,7 @@ export const userManagementService = {
   /**
    * Get all users with their assigned departments
    */
-  async getAllUsers(companyId?: string): Promise<UserWithDepartments[]> {
+  async getAllUsers(companyId?: string, opts?: { excludeRoles?: string[] }): Promise<UserWithDepartments[]> {
     try {
       let profilesQuery = supabase
         .from("profiles")
@@ -265,6 +265,10 @@ export const userManagementService = {
 
       if (companyId) {
         profilesQuery = profilesQuery.eq("company_id", companyId);
+      }
+
+      if (opts?.excludeRoles && opts.excludeRoles.length > 0) {
+        profilesQuery = profilesQuery.not("role", "in", `(${opts.excludeRoles.map((r) => `"${r}"`).join(",")})`);
       }
 
       const { data: profiles, error: profilesError } = await profilesQuery;
@@ -524,10 +528,13 @@ export const userManagementService = {
    * Counts profiles by their role + active_role, mapping legacy aliases
    * (kitchen_staff -> kitchen, shopping_staff -> shopping, etc).
    */
-  async getDepartmentStats(companyId?: string) {
+  async getDepartmentStats(companyId?: string, opts?: { excludeRoles?: string[] }) {
     try {
       let query = supabase.from("profiles").select("role, active_role, is_active");
       if (companyId) query = query.eq("company_id", companyId);
+      if (opts?.excludeRoles && opts.excludeRoles.length > 0) {
+        query = query.not("role", "in", `(${opts.excludeRoles.map((r) => `"${r}"`).join(",")})`);
+      }
       const { data: profiles, error } = await query;
       if (error) throw error;
 
