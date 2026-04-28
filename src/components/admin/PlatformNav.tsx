@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   LogOut,
   Crown,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -112,6 +113,17 @@ const sections: PlatformNavSection[] = [
         href: "/admin/platform/cms-blog",
         icon: Newspaper,
         description: "Blog posts",
+      },
+    ],
+  },
+  {
+    title: "Engineering",
+    items: [
+      {
+        title: "Running Todo",
+        href: "/admin/running-todo",
+        icon: ListChecks,
+        description: "Audit-derived backlog",
       },
     ],
   },
