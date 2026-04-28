@@ -315,8 +315,9 @@ function IntegrationsPage() {
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                   Integrations & Zapier
+                  <InfoTooltip content="API keys (inbound) and webhook subscriptions (outbound) connecting CateringMS to Zapier. Source: api_keys and webhook_subscriptions tables filtered by company_id." />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Connect CateringMS to Google Sheets, Slack, WhatsApp, Mailchimp -- anywhere Zapier reaches.

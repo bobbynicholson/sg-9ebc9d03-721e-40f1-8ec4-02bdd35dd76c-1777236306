@@ -31,6 +31,7 @@ import { equipmentShortageService } from "@/services/equipmentShortageService";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -253,7 +254,7 @@ function EquipmentShortagesPage() {
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Pending <InfoTooltip content="Shortage flags awaiting review. Source: equipment_shortage_flags.status='pending' via equipmentShortageService.getShortageFlags()." /></p>
                     <p className="text-2xl md:text-3xl font-bold text-orange-600">{pendingCount}</p>
                   </div>
                   <AlertTriangle className="w-8 h-8 md:w-10 md:h-10 text-orange-500" />
@@ -265,7 +266,7 @@ function EquipmentShortagesPage() {
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-gray-600 mb-1">Investigating</p>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Investigating <InfoTooltip content="Flags being looked into. Source: equipment_shortage_flags.status='investigating'." /></p>
                     <p className="text-2xl md:text-3xl font-bold text-blue-600">{investigatingCount}</p>
                   </div>
                   <Clock className="w-8 h-8 md:w-10 md:h-10 text-blue-500" />
@@ -277,7 +278,7 @@ function EquipmentShortagesPage() {
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-gray-600 mb-1">Resolved</p>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Resolved <InfoTooltip content="Closed shortage cases. Source: equipment_shortage_flags.status='resolved'." /></p>
                     <p className="text-2xl md:text-3xl font-bold text-green-600">{resolvedCount}</p>
                   </div>
                   <CheckCircle className="w-8 h-8 md:w-10 md:h-10 text-green-500" />
@@ -289,7 +290,7 @@ function EquipmentShortagesPage() {
               <CardContent className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs md:text-sm text-gray-600 mb-1">Impact</p>
+                    <p className="text-xs md:text-sm text-gray-600 mb-1 flex items-center gap-1">Impact <InfoTooltip content="Total rand value of pending shortages. Source: sum of equipment_shortage_flags.financial_impact where status='pending'." /></p>
                     <p className="text-xl md:text-2xl lg:text-3xl font-bold text-red-600">
                       R{totalFinancialImpact.toFixed(0)}
                     </p>

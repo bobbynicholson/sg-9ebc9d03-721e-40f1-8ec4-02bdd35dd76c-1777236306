@@ -28,6 +28,7 @@ import { Footer } from "@/components/Footer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assuming this is where the component is imported
 import {  UserRole  } from "@/types/app"; // Assuming this is where UserRole is imported
 
@@ -159,6 +160,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Total Scheduled
+                  <InfoTooltip content="All emails ever queued across every order. Source: getEmailStatistics() over getEmailQueues() in lib/afterSalesAutomation.ts (currently localStorage-backed)." />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -171,6 +173,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
                   Sent
+                  <InfoTooltip content="Emails successfully dispatched. Source: scheduledEmails.status='sent' in afterSalesAutomation queue." />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -183,6 +186,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   Pending
+                  <InfoTooltip content="Emails waiting to be sent at their scheduled date. Source: scheduledEmails.status='pending'." />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -195,6 +199,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
                   Success Rate
+                  <InfoTooltip content="Sent divided by sent + failed, as a percentage. Source: getEmailStatistics() successRate field." />
                 </CardTitle>
               </CardHeader>
               <CardContent>

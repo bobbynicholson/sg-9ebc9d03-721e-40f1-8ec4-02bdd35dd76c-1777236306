@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Importing ProtectedRoute
 import {  UserRole  } from "@/types/app"; // Importing UserRole
 
@@ -143,7 +144,7 @@ function AfterSalesEmailsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3 px-4 pt-4">
-                <CardTitle className="text-sm md:text-base font-medium">Total Email Sequence</CardTitle>
+                <CardTitle className="text-sm md:text-base font-medium flex items-center gap-1">Total Email Sequence <InfoTooltip content="Length of the after-sales journey: 6 messages spread over 12 months. Source: defaultAfterSalesTemplates in lib/afterSalesTemplates.ts." /></CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl md:text-3xl font-bold text-blue-600">6 Emails</div>
@@ -153,7 +154,7 @@ function AfterSalesEmailsPage() {
 
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3 px-4 pt-4">
-                <CardTitle className="text-sm md:text-base font-medium">Active Templates</CardTitle>
+                <CardTitle className="text-sm md:text-base font-medium flex items-center gap-1">Active Templates <InfoTooltip content="Templates currently switched on (toggle in the list below). Source: count of templates where isActive=true in local component state -- not yet persisted." /></CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl md:text-3xl font-bold text-green-600">{totalActiveEmails}</div>
@@ -163,7 +164,7 @@ function AfterSalesEmailsPage() {
 
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3 px-4 pt-4">
-                <CardTitle className="text-sm md:text-base font-medium">Email Frequency</CardTitle>
+                <CardTitle className="text-sm md:text-base font-medium flex items-center gap-1">Email Frequency <InfoTooltip content="Hardcoded label describing cadence (every 2 months). Source: static text in after-sales-emails.tsx." /></CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl md:text-3xl font-bold text-indigo-600">Every 2 Mo</div>

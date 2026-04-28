@@ -194,7 +194,7 @@ function CompanyProfilePage() {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">Company profile</h1>
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content="Single source of truth for company name, contact details, HQ coords and brand colours. Source: companies table joined to user.company_id." /></h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   This drives the sidebar branding, client-facing pages, route planning and delivery fees.
                 </p>
@@ -212,6 +212,7 @@ function CompanyProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-purple-600" />
                 Identity
+                <InfoTooltip content="Customer-facing name, contact channels and registration details. Source: companies.company_name, email, phone, website, registration_number, tax_number." />
               </CardTitle>
               <CardDescription>What clients and your team see across the app.</CardDescription>
             </CardHeader>

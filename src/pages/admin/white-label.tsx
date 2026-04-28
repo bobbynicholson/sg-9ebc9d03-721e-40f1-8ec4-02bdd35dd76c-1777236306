@@ -20,6 +20,7 @@ import { useBranding } from "@/contexts/BrandingContext";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 
@@ -112,8 +113,9 @@ function WhiteLabelPage() {
                   <Palette className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                     White Label Branding
+                    <InfoTooltip content="Logo, organisation name and three-colour palette applied to client-facing portals and emails. Source: BrandingContext via useBranding() -- persists in browser storage today, not yet synced to companies row." />
                   </h1>
                   <p className="text-slate-600 mt-1">Customize your platform with your own branding</p>
                 </div>
@@ -134,6 +136,7 @@ function WhiteLabelPage() {
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
                     Logo & Organization
+                    <InfoTooltip content="Brand name and logo image used on all client-facing pages. Source: BrandingContext.organizationName and logoUrl." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -193,6 +196,7 @@ function WhiteLabelPage() {
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5" />
                     Color Palette
+                    <InfoTooltip content="Primary, secondary and accent hex values used across buttons, gradients and highlights. Source: BrandingContext.colors." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">

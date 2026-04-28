@@ -14,6 +14,7 @@ import { Save, Send, Settings, Mail, Clock, CheckCircle, AlertCircle } from "luc
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface EmailConfig {
   provider: string;
@@ -226,7 +227,7 @@ function EmailAutomationSettings() {
       <div className="p-6 max-w-full lg:pl-72 xl:pl-80">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Email Automation Settings</h1>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">Email Automation Settings <InfoTooltip content="SMTP credentials and per-trigger automation rules. Currently persists to localStorage 'emailConfig' / 'automationRules' -- not Supabase, not actually wired to send mail until the backend is connected." /></h1>
             <p className="text-muted-foreground">
               Configure email service provider and automation rules
             </p>
@@ -258,7 +259,7 @@ function EmailAutomationSettings() {
           <TabsContent value="smtp" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Email Service Provider</CardTitle>
+                <CardTitle className="flex items-center gap-2">Email Service Provider <InfoTooltip content="SMTP host, port, username and password used to send mail. Source: localStorage 'emailConfig' (not yet Supabase-backed)." /></CardTitle>
                 <CardDescription>
                   Configure your SMTP settings to enable automated emails
                 </CardDescription>
@@ -440,7 +441,7 @@ function EmailAutomationSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle>Automation Rules</CardTitle>
+                  <CardTitle className="flex items-center gap-2">Automation Rules <InfoTooltip content="Per-trigger templates (quote sent, follow-ups, reminders, etc.). Source: localStorage 'automationRules', initial defaults hardcoded in email-automation-settings.tsx." /></CardTitle>
                   <CardDescription>
                     Select a rule to edit
                   </CardDescription>

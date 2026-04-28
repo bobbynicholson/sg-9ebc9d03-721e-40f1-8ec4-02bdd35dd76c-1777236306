@@ -14,6 +14,7 @@ import { CreditCard, Globe, MapPin, Check, AlertCircle, Settings } from "lucide-
 import { PaymentGatewayConfig, PaymentGateway } from "@/types/payments";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 const gatewayDetails: Record<PaymentGateway, {
   name: string;
@@ -150,7 +151,7 @@ function PaymentGatewaysPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Payment Gateways</h1>
+            <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">Payment Gateways <InfoTooltip content="Connect a card processor so clients can pay invoices online. Currently writes config to localStorage only -- requires Supabase + payment_gateway_configs table to go live." /></h1>
             <p className="text-muted-foreground">Configure your payment processing options</p>
           </div>
 
@@ -384,7 +385,7 @@ function PaymentGatewaysPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Before Launch Checklist</CardTitle>
+              <CardTitle className="flex items-center gap-2">Before Launch Checklist <InfoTooltip content="Static reminders of integrations needed before accepting real payments. Source: hardcoded list in payment-gateways.tsx." /></CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">

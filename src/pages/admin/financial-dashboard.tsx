@@ -29,6 +29,7 @@ import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -234,8 +235,9 @@ export default function FinancialDashboardPage() {
                       ) : (
                         <Sparkles className="w-5 h-5 text-yellow-600" />
                       )}
-                      <span className="text-sm font-medium text-slate-600">
+                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">
                         Financial Health
+                        <InfoTooltip content="Composite score (0-100) computed from cash flow, 30-day projection vs pending, staff cover ratio, and profit margin. Source: calculateHealthScore() in financial-dashboard.tsx." />
                       </span>
                     </div>
                     <div className="text-3xl font-bold text-slate-900">
@@ -301,8 +303,9 @@ export default function FinancialDashboardPage() {
             <Card className="border-2 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-slate-600">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Current Cash Flow
+                    <InfoTooltip content="Paid order revenue minus staff payments owed. Source: orders.total_amount where payment_status='paid' minus paymentLedgerService.totalOwed." />
                   </CardTitle>
                   <DollarSign className="w-5 h-5 text-green-600" />
                 </div>
@@ -330,8 +333,9 @@ export default function FinancialDashboardPage() {
             <Card className="border-2 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-slate-600">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     30-Day Projection
+                    <InfoTooltip content="Sum of total_amount for non-cancelled orders with event_date in the next 30 days. Source: orders.total_amount filtered by event_date and status." />
                   </CardTitle>
                   <TrendingUp className="w-5 h-5 text-blue-600" />
                 </div>
@@ -349,8 +353,9 @@ export default function FinancialDashboardPage() {
             <Card className="border-2 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-slate-600">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Pending Payments
+                    <InfoTooltip content="Total invoiced on orders where payment is still pending or partial. Source: orders.total_amount where payment_status in ('pending','partial')." />
                   </CardTitle>
                   <CreditCard className="w-5 h-5 text-yellow-600" />
                 </div>
@@ -368,8 +373,9 @@ export default function FinancialDashboardPage() {
             <Card className="border-2 hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-slate-600">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Profit Margin
+                    <InfoTooltip content="Estimated profit on paid orders, using a hardcoded 65% cost ratio (not real cost data). Source: calculateProfitMargin() in financial-dashboard.tsx -- flagged as estimate only." />
                   </CardTitle>
                   <TrendingUp className="w-5 h-5 text-purple-600" />
                 </div>
@@ -398,36 +404,36 @@ export default function FinancialDashboardPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Financial Summary</CardTitle>
+                    <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content="Snapshot of revenue collected, money outstanding, staff owed, and inventory cost estimate. Source: orders + paymentLedgerService aggregates." /></CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Total Revenue (Paid)</span>
+                      <span className="text-slate-600 flex items-center gap-1">Total Revenue (Paid) <InfoTooltip content="Sum of total_amount across all orders marked paid. Source: orders.total_amount where payment_status='paid'." /></span>
                       <span className="font-semibold">{formatCurrency(
                         orders.filter(o => o.payment_status === "paid")
                           .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0)
                       )}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Pending Payments</span>
+                      <span className="text-slate-600 flex items-center gap-1">Pending Payments <InfoTooltip content="Outstanding balance on orders not yet fully paid. Source: orders.total_amount where payment_status in ('pending','partial')." /></span>
                       <span className="font-semibold text-yellow-600">
                         {formatCurrency(metrics?.pendingPayments || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Staff Payments Owed</span>
+                      <span className="text-slate-600 flex items-center gap-1">Staff Payments Owed <InfoTooltip content="Total wages logged but not yet marked paid. Source: paymentLedgerService.getPaymentLedger().totalOwed." /></span>
                       <span className="font-semibold text-red-600">
                         {formatCurrency(metrics?.staffPaymentsOwed || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Estimated Inventory Costs</span>
+                      <span className="text-slate-600 flex items-center gap-1">Estimated Inventory Costs <InfoTooltip content="Rough estimate at 35% of in-flight order value (confirmed/prep/ready). Not real inventory cost data -- flagged as estimate. Source: calculateInventoryCosts() in financial-dashboard.tsx." /></span>
                       <span className="font-semibold">
                         {formatCurrency(metrics?.inventoryCosts || 0)}
                       </span>
                     </div>
                     <div className="border-t pt-4 flex justify-between items-center">
-                      <span className="font-semibold">Net Cash Flow</span>
+                      <span className="font-semibold flex items-center gap-1">Net Cash Flow <InfoTooltip content="Same value as Current Cash Flow card -- paid revenue minus staff owed. Source: calculateCurrentCashFlow() in financial-dashboard.tsx." /></span>
                       <span className={`font-bold text-lg ${
                         (metrics?.currentCashFlow || 0) > 0 ? "text-green-600" : "text-red-600"
                       }`}>
@@ -466,7 +472,7 @@ export default function FinancialDashboardPage() {
             <TabsContent value="projections">
               <Card>
                 <CardHeader>
-                  <CardTitle>Revenue Projections</CardTitle>
+                  <CardTitle className="flex items-center gap-2">Revenue Projections <InfoTooltip content="Forward look at booked revenue based on event_date, regardless of current payment status. Source: orders.total_amount filtered by event_date window." /></CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -520,7 +526,7 @@ export default function FinancialDashboardPage() {
             <TabsContent value="expenses">
               <Card>
                 <CardHeader>
-                  <CardTitle>Expense Tracking</CardTitle>
+                  <CardTitle className="flex items-center gap-2">Expense Tracking <InfoTooltip content="Two cost lines: staff wages owed (real) and inventory cost estimate (35% of in-flight orders, not real data). Source: paymentLedgerService + calculateInventoryCosts()." /></CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -559,7 +565,7 @@ export default function FinancialDashboardPage() {
             <TabsContent value="orders">
               <Card>
                 <CardHeader>
-                  <CardTitle>Order Profitability Analysis</CardTitle>
+                  <CardTitle className="flex items-center gap-2">Order Profitability Analysis <InfoTooltip content="Per-order revenue minus a flat 65% cost assumption -- estimate only, not real cost-of-sales data. Source: orders.total_amount with hardcoded 0.65 cost ratio." /></CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">

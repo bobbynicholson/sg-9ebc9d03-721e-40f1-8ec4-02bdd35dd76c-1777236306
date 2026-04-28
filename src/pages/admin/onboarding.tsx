@@ -19,6 +19,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Link from "next/link";
@@ -100,7 +101,7 @@ export default function AdminOnboarding() {
               <Rocket className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Getting Started</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">Getting Started <InfoTooltip content="Six-step setup checklist. Currently every step's 'completed' flag is hardcoded in onboardingSteps array (onboarding.tsx) -- not yet checked against real account state. Flag: progress is mocked." /></h1>
               <p className="text-slate-600">Complete these steps to set up your account</p>
             </div>
           </div>
@@ -109,8 +110,8 @@ export default function AdminOnboarding() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                    Setup Progress
+                  <h3 className="text-lg font-semibold text-slate-900 mb-1 flex items-center gap-1">
+                    Setup Progress <InfoTooltip content="Percentage of onboarding steps marked complete. Currently hardcoded in the steps array -- does not reflect real config. Flag at onboarding.tsx:28-77." />
                   </h3>
                   <p className="text-sm text-slate-600">
                     {completedCount} of {steps.length} steps completed

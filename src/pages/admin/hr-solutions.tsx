@@ -14,6 +14,7 @@ import {
   UserPlus
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -115,7 +116,7 @@ function AdminHRSolutions() {
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">HR Solutions</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">HR Solutions <InfoTooltip content="Hub of staff-related tools. Active features link to existing admin pages; Coming Soon items are not yet built. Source: hardcoded hrFeatures array in hr-solutions.tsx -- flag: status flags are static, not driven by feature flags or roles." /></h1>
               <p className="text-slate-600">Comprehensive staff management tools</p>
             </div>
           </div>

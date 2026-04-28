@@ -43,6 +43,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail } from "@/lib/composeEmail";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -330,8 +331,9 @@ function SmartShoppingPage() {
                 <ShoppingCart className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                   Smart Shopping
+                  <InfoTooltip content="Joins inventory_items, inventory_demand_outlook view, order_ingredient_demand view and suppliers to compute what to buy, when, and from whom. Source: Supabase views filtered by company_id." />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it.
@@ -362,6 +364,7 @@ function SmartShoppingPage() {
               accent="text-red-600"
               icon={AlertTriangle}
               hint="Below 7-day demand"
+              tooltip="Items where current_stock can't cover the next 7 days of confirmed orders. Source: inventory_demand_outlook.status='shortfall'."
             />
             <SummaryTile
               label="Below par"
@@ -369,6 +372,7 @@ function SmartShoppingPage() {
               accent="text-amber-600"
               icon={TrendingDown}
               hint="Below minimum_stock"
+              tooltip="Stock has dropped under the minimum threshold but isn't short for upcoming orders yet. Source: inventory_demand_outlook.status='below_minimum'."
             />
             <SummaryTile
               label="Urgent (≤2 days)"
@@ -376,6 +380,7 @@ function SmartShoppingPage() {
               accent="text-orange-600"
               icon={Flame}
               hint="Perishables expiring soon"
+              tooltip="Items whose buy-by date is two days or less away, factoring in shelf_life_days. Source: derived from earliest event_date minus inventory_items.shelf_life_days."
             />
             <SummaryTile
               label="Estimated PO total"
@@ -384,6 +389,7 @@ function SmartShoppingPage() {
               icon={Receipt}
               hint="Buy-now items at supplier prices"
               isMoney
+              tooltip="Sum of reorder_quantity x cost_per_unit across every shortfall + below-par item. Source: inventory_items.cost_per_unit and reorder_quantity."
             />
           </div>
 
@@ -564,12 +570,12 @@ function SmartShoppingPage() {
   );
 }
 
-function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney }: any) {
+function SummaryTile({ label, value, accent, icon: Icon, hint, isMoney, tooltip }: any) {
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4 flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
           <p className={`text-2xl md:text-3xl font-bold mt-1 ${accent} ${isMoney ? "" : "tabular-nums"}`}>{value}</p>
           {hint && <p className="text-[11px] text-slate-500 mt-0.5">{hint}</p>}
         </div>

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
@@ -320,7 +321,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Unassigned Orders</p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content="Deliveries with no driver yet allocated. Currently using MOCK_ORDERS in route-planning.tsx -- not real data until wired to orders table." /></p>
                     <p className="text-2xl font-bold text-slate-900">{unassignedOrders.length}</p>
                   </div>
                   <AlertCircle className="h-8 w-8 text-orange-500" />
@@ -332,7 +333,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Optimized Routes</p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimized Routes <InfoTooltip content="Number of routes built by the optimiser this session. Source: routeOptimizationService.optimizeRoute() output." /></p>
                     <p className="text-2xl font-bold text-slate-900">{optimizedRoutes.length}</p>
                   </div>
                   <Route className="h-8 w-8 text-blue-500" />
@@ -344,7 +345,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Total Distance</p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content="Sum of distance across all generated routes, in kilometres. Source: OptimizedRoute.total_distance from routeOptimizationService." /></p>
                     <p className="text-2xl font-bold text-slate-900">
                       {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
                     </p>
@@ -358,7 +359,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Est. Time</p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Est. Time <InfoTooltip content="Estimated drive time across all routes, in minutes. Source: OptimizedRoute.total_duration from routeOptimizationService." /></p>
                     <p className="text-2xl font-bold text-slate-900">
                       {Math.round(optimizedRoutes.reduce((sum, r) => sum + r.total_duration, 0))} min
                     </p>
@@ -377,6 +378,7 @@ export default function RoutePlanning() {
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Driver Routes
+                    <InfoTooltip content="One card per optimised route, with stops, distance, duration and fuel estimate. Source: routeOptimizationService.calculateRouteStats()." />
                   </CardTitle>
                   <CardDescription>
                     {optimizedRoutes.length} optimized route{optimizedRoutes.length !== 1 ? "s" : ""}

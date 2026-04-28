@@ -239,8 +239,9 @@ function EmailSettingsPage() {
               <Mail className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                 Email & Integrations
+                <InfoTooltip content="Email provider config (Gmail OAuth, MS365 OAuth, SMTP) plus daily send caps. Source: email_provider_settings table joined to companies -- direct send via Supabase edge function is still in flight." />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
                 Send personal mail through your own inbox. Plug in Mailchimp for bulk.

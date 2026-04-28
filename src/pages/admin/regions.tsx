@@ -27,6 +27,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Region {
   id: string;
@@ -311,11 +312,11 @@ function RegionsPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <StatTile label="Total Regions" value={stats.total} />
-            <StatTile label="Active" value={stats.active} accent="text-emerald-600" />
-            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" />
-            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" />
-            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" />
+            <StatTile label="Total Regions" value={stats.total} tooltip="Number of regions configured for this company. Source: count of rows in regions table where company_id matches." />
+            <StatTile label="Active" value={stats.active} accent="text-emerald-600" tooltip="Regions currently switched on. Source: regions.is_active = true." />
+            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" tooltip="Distinct countries across all regions. Source: distinct regions.country values." />
+            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" tooltip="Total profiles assigned to any region. Source: profiles.region_id grouped per region." />
+            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" tooltip="Total orders allocated to any region. Source: orders.region_id grouped per region." />
           </div>
 
           {loading ? (
@@ -379,9 +380,9 @@ function RegionsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-3 mb-4">
-                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} />
-                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} />
-                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} />
+                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip="Profiles assigned to this region. Source: profiles.region_id = this region." />
+                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} tooltip="Orders allocated to this region. Source: orders.region_id = this region." />
+                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} tooltip="Whether new orders in this region's catchment are auto-routed to it. Source: regions.auto_assign_orders." />
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
                       {region.manager?.full_name && (
@@ -564,23 +565,24 @@ function RegionsPage() {
   );
 }
 
-function StatTile({ label, value, accent = "text-slate-900" }: { label: string; value: number; accent?: string }) {
+function StatTile({ label, value, accent = "text-slate-900", tooltip }: { label: string; value: number; accent?: string; tooltip?: string }) {
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">{label}</p>
+        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">{label}{tooltip && <InfoTooltip content={tooltip} />}</p>
         <p className={`text-2xl font-bold ${accent}`}>{value}</p>
       </CardContent>
     </Card>
   );
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: any; label: string; value: number | string }) {
+function MiniStat({ icon: Icon, label, value, tooltip }: { icon: any; label: string; value: number | string; tooltip?: string }) {
   return (
     <div className="rounded-lg bg-slate-50 px-3 py-2">
       <div className="flex items-center gap-1 text-xs text-slate-500 mb-0.5">
         <Icon className="w-3 h-3" />
         {label}
+        {tooltip && <InfoTooltip content={tooltip} />}
       </div>
       <div className="font-semibold text-slate-900">{value}</div>
     </div>

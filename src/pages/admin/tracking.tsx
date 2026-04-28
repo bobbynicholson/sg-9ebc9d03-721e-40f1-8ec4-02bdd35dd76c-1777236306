@@ -9,6 +9,7 @@ import { MapPin, Clock, Package, User, Phone, Navigation, TrendingUp, AlertCircl
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import driverService from "@/services/driverService";
@@ -167,7 +168,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Out for Delivery</p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Out for Delivery <InfoTooltip content="Orders currently with a driver en route. Source: orders.status='out_for_delivery' from orderService.getAllOrders." /></p>
                     <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
                   </div>
                   <Navigation className="w-8 h-8 text-orange-600" />
@@ -179,7 +180,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Preparing</p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Preparing <InfoTooltip content="Orders currently in the kitchen being prepped. Source: orders.status='preparing'." /></p>
                     <p className="text-2xl font-bold text-yellow-600">{stats.preparing}</p>
                   </div>
                   <Package className="w-8 h-8 text-yellow-600" />
@@ -191,7 +192,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Ready</p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content="Orders prepped and waiting for a driver to collect. Source: orders.status='ready'." /></p>
                     <p className="text-2xl font-bold text-purple-600">{stats.ready}</p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-purple-600" />
@@ -203,7 +204,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600">Total Active</p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content="All in-flight orders not yet delivered or cancelled. Source: orders.status in (confirmed, preparing, ready, out_for_delivery)." /></p>
                     <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
                   </div>
                   <MapPin className="w-8 h-8 text-blue-600" />
@@ -283,7 +284,7 @@ export default function AdminTracking() {
                 {/* Map */}
                 <Card className="lg:col-span-2">
                   <CardHeader>
-                    <CardTitle>Live Tracking Map</CardTitle>
+                    <CardTitle className="flex items-center gap-2">Live Tracking Map <InfoTooltip content="Shows venue pins for active orders and last known driver locations. Source: drivers.current_lat / current_lng joined to orders.driver_id." /></CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[600px] relative">

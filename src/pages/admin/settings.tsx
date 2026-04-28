@@ -161,7 +161,7 @@ function SettingsPage() {
                 <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">System Settings</h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">System Settings <InfoTooltip content="Tabbed config for company info, notifications, automation, pricing, operations, finance and email. Source: localStorage 'admin_settings' mirrored to auth.user_metadata.admin_settings -- not in a dedicated Supabase table yet." /></h1>
                 <p className="text-sm md:text-base text-slate-600">Configure platform preferences</p>
               </div>
             </div>
@@ -350,6 +350,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Settings className="w-4 h-4 md:w-5 md:h-5" />
                     Company Information
+                    <InfoTooltip content="Display name, contact details and kitchen coords used by quote calc and route planning. Note: separate from /admin/company-profile (companies table) -- this tab writes to auth metadata. Flag: dual source of truth." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -431,6 +432,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Bell className="w-4 h-4 md:w-5 md:h-5" />
                     Notification Preferences
+                    <InfoTooltip content="Per-event toggles for email and SMS alerts. Source: settings.notifications inside admin_settings (auth metadata)." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6">
@@ -539,6 +541,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Clock className="w-4 h-4 md:w-5 md:h-5" />
                     Automation Rules
+                    <InfoTooltip content="Cadence for follow-ups, reminders and review requests. Source: settings.automation in admin_settings -- needs the email engine wired before this actually fires anything." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -623,6 +626,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Pricing Rules
+                    <InfoTooltip content="Premium and discount rules used by the quote builder. Source: settings.pricing in admin_settings." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -704,6 +708,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <ChefHat className="w-4 h-4 md:w-5 md:h-5" />
                     Operational Settings
+                    <InfoTooltip content="Lead times, buffers and delivery cost rate. Driver radius + per-km cost feed quote delivery fee calc. Source: settings.operations in admin_settings." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -787,6 +792,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Financial Settings
+                    <InfoTooltip content="Currency, VAT, deposit %, balance due rules and cancellation fee. Source: settings.financial in admin_settings -- drives invoice generation and the deposit/balance flow." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -916,6 +922,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Mail className="w-4 h-4 md:w-5 md:h-5" />
                     After-Sales Email Automation
+                    <InfoTooltip content="Summary of the 12-month, 6-email post-event journey. Templates managed at /admin/after-sales-emails. Source: defaultAfterSalesTemplates in lib/afterSalesTemplates." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">

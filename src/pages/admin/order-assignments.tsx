@@ -51,6 +51,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { userManagementService } from "@/services/userManagementService";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
@@ -314,7 +315,7 @@ function OrderAssignmentsContent() {
             <div className="flex flex-col gap-4 mb-4 md:mb-6">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-1 md:mb-2">Order Assignment Hub</h1>
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-slate-900 mb-1 md:mb-2 flex items-center gap-2">Order Assignment Hub <InfoTooltip content="Allocates orders to regions, then to kitchen/shopping/driver/cleaning staff. Orders come from mockOrders (lib/mockData) and assignments persist to localStorage 'order_assignments' / 'staff_assignments'. Flag: orders are mocked, not from Supabase." /></h1>
                   <p className="text-sm md:text-base text-slate-600">Assign orders to regions and staff members</p>
                 </div>
                 <Link href="/admin/regions" className="w-full md:w-auto">
@@ -335,7 +336,7 @@ function OrderAssignmentsContent() {
                       <AlertCircle className="w-6 h-6 md:w-8 md:h-8" />
                       <div className="text-2xl md:text-3xl font-bold">{unassignedCount}</div>
                     </div>
-                    <div className="text-amber-100 text-xs md:text-sm">Unassigned Orders</div>
+                    <div className="text-amber-100 text-xs md:text-sm flex items-center gap-1">Unassigned Orders <InfoTooltip content="Orders without a region allocated. Source: mockOrders minus rows in localStorage 'order_assignments'." /></div>
                   </div>
                 </CardContent>
               </Card>
@@ -347,7 +348,7 @@ function OrderAssignmentsContent() {
                       <Clock className="w-6 h-6 md:w-8 md:h-8 text-yellow-500" />
                       <div className="text-2xl md:text-3xl font-bold text-slate-900">{pendingCount}</div>
                     </div>
-                    <div className="text-slate-600 text-xs md:text-sm">Pending Accept</div>
+                    <div className="text-slate-600 text-xs md:text-sm flex items-center gap-1">Pending Accept <InfoTooltip content="Region-allocated orders awaiting regional manager acceptance. Source: order_assignments.status='pending'." /></div>
                   </div>
                 </CardContent>
               </Card>
@@ -359,7 +360,7 @@ function OrderAssignmentsContent() {
                       <TrendingUp className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />
                       <div className="text-2xl md:text-3xl font-bold text-slate-900">{activeCount}</div>
                     </div>
-                    <div className="text-slate-600 text-xs md:text-sm">In Progress</div>
+                    <div className="text-slate-600 text-xs md:text-sm flex items-center gap-1">In Progress <InfoTooltip content="Accepted orders currently being fulfilled. Source: order_assignments.status='in_progress'." /></div>
                   </div>
                 </CardContent>
               </Card>
@@ -371,7 +372,7 @@ function OrderAssignmentsContent() {
                       <Building2 className="w-6 h-6 md:w-8 md:h-8 text-purple-500" />
                       <div className="text-2xl md:text-3xl font-bold text-slate-900">{regions.length}</div>
                     </div>
-                    <div className="text-slate-600 text-xs md:text-sm">Active Regions</div>
+                    <div className="text-slate-600 text-xs md:text-sm flex items-center gap-1">Active Regions <InfoTooltip content="Regions marked active. Source: regionManagement.regions where status='active' (lib/regionManagement). Flag: not yet pulling from regions Supabase table." /></div>
                   </div>
                 </CardContent>
               </Card>
