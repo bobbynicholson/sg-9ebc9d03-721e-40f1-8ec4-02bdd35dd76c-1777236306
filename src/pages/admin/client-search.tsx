@@ -152,7 +152,7 @@ function ClientSearchPage() {
               <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
                   Client Search
-                  <InfoTooltip content="Searchable directory of every registered client profile -- name, email, phone, company and region. Source: profiles.role = 'client' filtered by company_id via profileService.getAllClients." />
+                  <InfoTooltip content={"Searchable directory of your registered clients. Look them up by name, email, phone, company or region."} />
                 </h1>
                 <p className="text-slate-600 mt-1">Find and manage your clients</p>
               </div>

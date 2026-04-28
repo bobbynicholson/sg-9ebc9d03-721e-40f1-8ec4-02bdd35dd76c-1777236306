@@ -200,8 +200,8 @@ function DriverManagementPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <InfoTooltip 
-                content="Create a new driver account with login credentials. The driver will be able to access their portal immediately."
+              <InfoTooltip
+                content={"Create a new driver account with login details. They can sign in to their portal as soon as you save."}
                 side="left"
               />
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -294,7 +294,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Drivers <InfoTooltip content="All accounts with the driver role visible to this admin. Source: profiles.role = 'driver' via userManagementService.getAllUsers." /></p>
+                    <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Drivers <InfoTooltip content={"Every driver account on your team, active or not."} /></p>
                     <p className="text-3xl font-bold text-blue-900">{drivers.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
@@ -308,7 +308,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Active <InfoTooltip content="Drivers currently enabled and able to log in. Source: profiles.is_active = true filtered by role 'driver'." /></p>
+                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Active <InfoTooltip content={"Drivers currently enabled and able to log in."} /></p>
                     <p className="text-3xl font-bold text-green-900">{activeDrivers}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
@@ -322,7 +322,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-700 mb-1 flex items-center gap-1.5">Inactive <InfoTooltip content="Driver accounts that have been deactivated and cannot log in. Source: profiles.is_active = false filtered by role 'driver'." /></p>
+                    <p className="text-sm text-slate-700 mb-1 flex items-center gap-1.5">Inactive <InfoTooltip content={"Driver accounts that have been switched off and cannot log in."} /></p>
                     <p className="text-3xl font-bold text-slate-900">{inactiveDrivers}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-slate-500 flex items-center justify-center">
@@ -350,7 +350,7 @@ function DriverManagementPage() {
         {/* Drivers List */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center gap-1.5">All Drivers <InfoTooltip content="Every driver record matching the search above, both active and inactive. Source: profiles filtered by role 'driver'." /></CardTitle>
+            <CardTitle className="flex items-center gap-1.5">All Drivers <InfoTooltip content={"Every driver matching your search, active and inactive."} /></CardTitle>
             <CardDescription>
               Manage your delivery drivers and their account status
             </CardDescription>
@@ -412,8 +412,8 @@ function DriverManagementPage() {
                             {driver.is_active ? "Active" : "Inactive"}
                           </Badge>
 
-                          <InfoTooltip 
-                            content={driver.is_active ? "Deactivate this driver to prevent them from logging in and seeing jobs." : "Activate this driver to allow them to login and access jobs."}
+                          <InfoTooltip
+                            content={driver.is_active ? "Switch this driver off so they can no longer log in or see jobs." : "Switch this driver on so they can log in and pick up jobs."}
                             side="left"
                           />
                           

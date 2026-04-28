@@ -98,7 +98,7 @@ export default function AdminLeads() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content="Every lead on file for this company, regardless of status. Source: leads table filtered by company_id via leadService.getLeads." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Total Leads <InfoTooltip content={"Every lead on file for your company, across every status."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{leads.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -112,7 +112,7 @@ export default function AdminLeads() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content="Leads that have just come in and have not yet been worked. Source: leads.status = 'new'." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">New <InfoTooltip content={"Fresh leads that have just come in and have not been worked yet."} /></p>
                     <p className="text-2xl font-bold text-blue-600">
                       {leads.filter(l => l.status === "new").length}
                     </p>
@@ -128,7 +128,7 @@ export default function AdminLeads() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Qualified <InfoTooltip content="Leads confirmed as a real opportunity but not yet converted to a quote. Source: leads.status = 'qualified'." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Qualified <InfoTooltip content={"Real opportunities that have been worked but not yet quoted."} /></p>
                     <p className="text-2xl font-bold text-purple-600">
                       {leads.filter(l => l.status === "qualified").length}
                     </p>
@@ -144,7 +144,7 @@ export default function AdminLeads() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Won / Converted <InfoTooltip content="Leads that turned into a confirmed booking. Source: leads.status in ('won', 'converted')." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1.5">Won / Converted <InfoTooltip content={"Leads that turned into a confirmed booking."} /></p>
                     <p className="text-2xl font-bold text-green-600">
                       {leads.filter(l => l.status === "won" || l.status === "converted").length}
                     </p>

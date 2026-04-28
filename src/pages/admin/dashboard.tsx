@@ -296,7 +296,7 @@ function AdminDashboardPage() {
               label="Booked Revenue"
               value={fmt.format(stats.bookedRevenue)}
               hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
-              tooltip={`Total value of orders that are confirmed (deposit secured, partial, or fully paid) with event_date in ${range.label}. Source: orders.total_amount where status is confirmed/preparing/ready/in_transit/delivered/completed OR deposit_paid=true OR payment_status in (paid, partial). Cancelled orders excluded.`}
+              tooltip={`Total value of confirmed bookings for ${range.label.toLowerCase()}. Includes deposits paid, partial payments and fully paid orders.\n\nCancelled orders are not counted.`}
               icon={DollarSign}
               iconColor="text-green-600"
               badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
@@ -306,7 +306,7 @@ function AdminDashboardPage() {
               label="Collected"
               value={fmt.format(stats.collectedRevenue)}
               hint={`Money received in ${range.label}`}
-              tooltip="Money actually received: amount_paid if recorded, otherwise deposit_amount where deposit_paid=true plus balance_amount where balance_paid=true. Falls back to total_amount when payment_status='paid' with no breakdown."
+              tooltip={"Money actually banked from clients in this period. Includes deposits, partial payments and fully settled invoices.\n\nPulled from recorded payments on each order."}
               icon={CheckCircle}
               iconColor="text-emerald-600"
               badge={{ text: `${stats.collectedOrders} paid`, tone: "green" }}
@@ -316,7 +316,7 @@ function AdminDashboardPage() {
               label="Outstanding"
               value={fmt.format(stats.outstandingRevenue)}
               hint="Booked minus collected"
-              tooltip="Money still owed across confirmed bookings in this range. Calculated as booked revenue minus collected revenue. The Tollie balance, partial deposits and unpaid invoices show up here."
+              tooltip={"What clients still owe you on confirmed bookings in this period. This is booked revenue less what you have already collected.\n\nUnpaid balances and partial deposits land here."}
               icon={TrendingUp}
               iconColor="text-blue-600"
               badge={{ text: "Owed", tone: "blue" }}
@@ -326,7 +326,7 @@ function AdminDashboardPage() {
               label="Active Orders"
               value={stats.activeOrders}
               hint="Currently in progress"
-              tooltip="Orders with status confirmed, preparing, ready, or in_transit, with event_date in range. The kitchen and drivers are working on these right now."
+              tooltip={"Orders the kitchen and drivers are working on right now. Anything confirmed, in prep, ready, or out for delivery in this period."}
               icon={ShoppingCart}
               iconColor="text-purple-600"
               badge={{ text: "In progress", tone: "purple" }}
@@ -340,7 +340,7 @@ function AdminDashboardPage() {
               label="Avg Order Value"
               value={fmt.format(stats.averageOrderValue)}
               hint="Per booked order"
-              tooltip="Booked revenue divided by booked order count for the selected range. Higher AOV = bigger events / more profitable mix."
+              tooltip={"Average value per booked order in this period. A higher number means bigger events or a richer mix."}
               icon={TrendingUp}
               iconColor="text-emerald-600"
               loading={loading}
@@ -349,7 +349,7 @@ function AdminDashboardPage() {
               label="Completion Rate"
               value={`${stats.completionRate.toFixed(1)}%`}
               hint={`${stats.completedOrdersInRange} of ${stats.totalOrdersInRange} done`}
-              tooltip="Orders with status='completed' divided by all non-cancelled orders in this range. Anything below 95% is worth digging into."
+              tooltip={"Share of orders in this period that finished as completed. Anything below 95% is worth a closer look."}
               icon={CheckCircle}
               iconColor="text-green-600"
               loading={loading}
@@ -358,7 +358,7 @@ function AdminDashboardPage() {
               label="Upcoming Events"
               value={stats.upcomingEvents}
               hint="Confirmed, event_date >= today"
-              tooltip="Confirmed events in the selected range whose event_date is today or later and that haven't been completed or cancelled. These are what your team is heading into."
+              tooltip={"Confirmed events in this period that are dated today or later and have not yet been completed or cancelled. What the team is heading into next."}
               icon={Calendar}
               iconColor="text-indigo-600"
               loading={loading}
@@ -367,7 +367,7 @@ function AdminDashboardPage() {
               label="Team Members"
               value={stats.activeUsers}
               hint="Active users"
-              tooltip="All profiles attached to this company. Not bound to date range -- represents your current team size."
+              tooltip={"Everyone attached to your company right now. This is your current team size and is not affected by the date filter."}
               icon={Users}
               iconColor="text-cyan-600"
               loading={loading}

@@ -571,7 +571,7 @@ export default function InventoryTracking() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Items <InfoTooltip content="All inventory items recorded for this company. Source: inventory_items filtered by company_id." /></CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Items <InfoTooltip content={"Every inventory item recorded for your company."} /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{inventoryItems.length}</div>
@@ -579,7 +579,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Low Stock <InfoTooltip content="Items where current_stock is at or below minimum_stock and need a reorder. Source: inventory_items.current_stock and inventory_items.minimum_stock." /></CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Low Stock <InfoTooltip content={"Items sitting at or below their minimum level. Time to reorder."} /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-orange-600">{lowStockCount}</div>
@@ -587,7 +587,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Out of Stock <InfoTooltip content="Items with zero stock on hand. Source: inventory_items.current_stock = 0." /></CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Out of Stock <InfoTooltip content={"Items with zero stock on the shelf."} /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-red-600">{outOfStockCount}</div>
@@ -595,7 +595,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Value <InfoTooltip content="Sum of current_stock multiplied by cost_per_unit across all items. Source: inventory_items.current_stock and inventory_items.cost_per_unit." /></CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of the stock you currently hold, across every item."} /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">R{totalValue.toFixed(2)}</div>
@@ -763,7 +763,7 @@ export default function InventoryTracking() {
           <TabsContent value="movements">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-1.5">Stock Movement History <InfoTooltip content="Last 50 stock adjustments -- purchases, usage, waste, transfers, returns and corrections. Source: inventory_transactions joined to inventory_items and profiles." /></CardTitle>
+                <CardTitle className="flex items-center gap-1.5">Stock Movement History <InfoTooltip content={"The last 50 stock movements: purchases, usage, waste, transfers, returns and corrections."} /></CardTitle>
                 <CardDescription>Recent inventory adjustments</CardDescription>
               </CardHeader>
               <CardContent>

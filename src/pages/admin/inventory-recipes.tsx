@@ -69,7 +69,7 @@ export default function InventoryRecipes() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Recipes <InfoTooltip content="Menu items mapped to inventory ingredients. Source: hardcoded RECIPE_MAPPINGS in src/services/inventoryDeductionService.ts (not yet a database table)." /></CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Recipes <InfoTooltip content={"Menu items linked to the inventory ingredients they consume."} /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{RECIPE_MAPPINGS.length}</div>
@@ -78,7 +78,7 @@ export default function InventoryRecipes() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Unique Ingredients <InfoTooltip content="Distinct inventory_item_name values referenced across all recipe mappings. Source: RECIPE_MAPPINGS ingredient list (hardcoded)." />
+                Unique Ingredients <InfoTooltip content={"Distinct ingredients used across all your recipe mappings."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -90,7 +90,7 @@ export default function InventoryRecipes() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Calculator <InfoTooltip content="Set a guest count to preview the ingredient quantities each recipe would deduct. Local input only -- does not save anywhere." />
+                Calculator <InfoTooltip content={"Type in a guest count to preview the ingredients each recipe would use.\n\nThis is just a preview. Nothing gets saved or deducted."} />
               </CardTitle>
             </CardHeader>
             <CardContent>

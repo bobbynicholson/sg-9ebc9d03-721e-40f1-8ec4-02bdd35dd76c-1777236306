@@ -280,8 +280,8 @@ function AdminUsersPage() {
               </div>
               
               <div className="flex items-center gap-2">
-                <InfoTooltip 
-                  content="Refresh the user list to see the latest changes and department assignments."
+                <InfoTooltip
+                  content={"Refresh the user list to pick up the latest changes and department assignments."}
                   side="left"
                 />
                 <Button
@@ -300,13 +300,13 @@ function AdminUsersPage() {
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Users <InfoTooltip content="All users on this company excluding clients. Source: profiles via userManagementService.getAllUsers, excludeRoles=['client']." /></p>
+                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Users <InfoTooltip content={"Everyone on your team. Clients are not counted here."} /></p>
                 <p className="text-2xl md:text-3xl font-bold text-slate-900">{users.length}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Active <InfoTooltip content="Users currently flagged as enabled and able to log in. Source: profiles.is_active = true." /></p>
+                <p className="text-xs md:text-sm text-slate-600 mb-1 flex items-center gap-1.5">Active <InfoTooltip content={"Users currently enabled and able to log in."} /></p>
                 <p className="text-2xl md:text-3xl font-bold text-green-600">
                   {users.filter(u => u.is_active).length}
                 </p>
@@ -317,7 +317,7 @@ function AdminUsersPage() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-1">
                     <role.icon className="w-3 h-3 md:w-4 md:h-4 text-slate-600" />
-                    <p className="text-xs md:text-sm text-slate-600 flex items-center gap-1.5">{role.label} <InfoTooltip content={`Number of users assigned to the ${role.label} department for this company. Source: user_departments.department aggregated by userManagementService.getDepartmentStats.`} /></p>
+                    <p className="text-xs md:text-sm text-slate-600 flex items-center gap-1.5">{role.label} <InfoTooltip content={`Number of users assigned to the ${role.label} department.`} /></p>
                   </div>
                   <p className="text-2xl md:text-3xl font-bold text-slate-900">
                     {stats[role.value] || 0}
@@ -400,8 +400,8 @@ function AdminUsersPage() {
 
                         {editingUser !== targetUser.id && (
                           <div className="flex items-center gap-2">
-                            <InfoTooltip 
-                              content="Click to assign or modify departments for this user. You can assign multiple departments and set one as primary."
+                            <InfoTooltip
+                              content={"Click to assign or change departments for this user.\n\nYou can pick more than one and mark one as primary."}
                               side="left"
                             />
                             <Button
@@ -424,8 +424,8 @@ function AdminUsersPage() {
                               <Label className="font-semibold text-slate-700 text-sm md:text-base">
                                 Assign Departments:
                               </Label>
-                              <InfoTooltip 
-                                content="Select all departments this user should have access to. The primary department determines their default portal view when they log in."
+                              <InfoTooltip
+                                content={"Tick every department this user needs access to.\n\nThe primary one is where they land when they log in."}
                                 side="right"
                               />
                             </div>
@@ -453,8 +453,8 @@ function AdminUsersPage() {
                                     </Label>
                                     {isSelected && (
                                       <div className="flex items-center gap-1">
-                                        <InfoTooltip 
-                                          content="The primary department is where the user will land when they first log in. They can switch between all assigned departments."
+                                        <InfoTooltip
+                                          content={"The primary department is where this user lands when they log in. They can switch between all the departments you have assigned."}
                                           side="top"
                                           className="mr-1"
                                         />
@@ -481,8 +481,8 @@ function AdminUsersPage() {
                           
                           <div className="flex flex-col sm:flex-row gap-2 pt-2">
                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <InfoTooltip 
-                                content="Save the department assignments. The user will be able to access all selected department portals."
+                              <InfoTooltip
+                                content={"Save these department assignments. The user will be able to access every portal you have ticked."}
                                 side="top"
                               />
                               <Button 

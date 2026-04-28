@@ -1010,7 +1010,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Orders <InfoTooltip content="Count of orders matching the current search, status and date filters. Source: orders table filtered by company_id via orderService.getAllOrders." /></p>
+                      <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Orders <InfoTooltip content={"Number of orders that match your current search, status and date filters."} /></p>
                       <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
                     </div>
                     <ShoppingCart className="w-8 h-8 text-blue-600 opacity-30" />
@@ -1022,7 +1022,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Revenue <InfoTooltip content="Sum of total_amount across the visible (filtered) orders, excluding cancelled orders. Source: orders.total_amount." /></p>
+                      <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Revenue <InfoTooltip content={"Total value of the orders shown above.\n\nCancelled orders are not counted."} /></p>
                       <p className="text-2xl font-bold text-green-900">R{(stats.revenue.total / 1000).toFixed(0)}k</p>
                     </div>
                     <DollarSign className="w-8 h-8 text-green-600 opacity-30" />
@@ -1034,7 +1034,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-purple-700 mb-1 flex items-center gap-1.5">In Progress <InfoTooltip content="Orders with status confirmed, preparing, ready, in_transit or delivered. Source: orders.status." /></p>
+                      <p className="text-sm text-purple-700 mb-1 flex items-center gap-1.5">In Progress <InfoTooltip content={"Orders the team is actively working on, anywhere from confirmed through to delivered."} /></p>
                       <p className="text-3xl font-bold text-purple-900">{stats.inProgress}</p>
                     </div>
                     <Package className="w-8 h-8 text-purple-600 opacity-30" />
@@ -1046,7 +1046,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-orange-700 mb-1 flex items-center gap-1.5">Upcoming <InfoTooltip content="Visible orders with an event_date today or later that are not completed or cancelled. Source: orders.event_date and orders.status." /></p>
+                      <p className="text-sm text-orange-700 mb-1 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Orders in the current view dated today or later that are still open."} /></p>
                       <p className="text-3xl font-bold text-orange-900">{stats.upcoming}</p>
                     </div>
                     <Calendar className="w-8 h-8 text-orange-600 opacity-30" />
@@ -1058,7 +1058,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-yellow-700 mb-1 flex items-center gap-1.5">Pending <InfoTooltip content="Visible orders awaiting confirmation. Source: orders.status = 'pending'." /></p>
+                      <p className="text-sm text-yellow-700 mb-1 flex items-center gap-1.5">Pending <InfoTooltip content={"Orders waiting for you to confirm them."} /></p>
                       <p className="text-3xl font-bold text-yellow-900">{stats.byStatus.pending || 0}</p>
                     </div>
                     <Clock className="w-8 h-8 text-yellow-600 opacity-30" />
@@ -1070,7 +1070,7 @@ function OrderProcessDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-indigo-700 mb-1 flex items-center gap-1.5">In Transit <InfoTooltip content="Visible orders currently being delivered to the venue. Source: orders.status = 'in_transit'." /></p>
+                      <p className="text-sm text-indigo-700 mb-1 flex items-center gap-1.5">In Transit <InfoTooltip content={"Orders that are out on the road being delivered right now."} /></p>
                       <p className="text-3xl font-bold text-indigo-900">{stats.byStatus.in_transit || 0}</p>
                     </div>
                     <Truck className="w-8 h-8 text-indigo-600 opacity-30" />

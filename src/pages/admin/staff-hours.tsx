@@ -160,7 +160,7 @@ function StaffHoursPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Staff <InfoTooltip content="Distinct staff members who clocked in at least once during the selected period. Source: time_clock_sessions grouped by staff_id via timeClockService.getAllStaffWorkSessions." /></CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Staff <InfoTooltip content={"Number of staff who clocked in at least once during this period."} /></CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -171,7 +171,7 @@ function StaffHoursPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Hours <InfoTooltip content="Sum of total_hours across every clocked session in the selected period. Source: time_clock_sessions.total_hours." /></CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Total Hours <InfoTooltip content={"Total hours your team has clocked during this period."} /></CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -182,7 +182,7 @@ function StaffHoursPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Unpaid <InfoTooltip content="Earnings on sessions where payment_status is still 'unpaid' -- the wage bill outstanding to staff. Source: time_clock_sessions.total_earnings filtered by payment_status." /></CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Unpaid <InfoTooltip content={"What you still owe staff for shifts that have not yet been paid out."} /></CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -193,7 +193,7 @@ function StaffHoursPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Paid Out <InfoTooltip content="Sum of payments processed to staff during the selected period. Source: staff_payments.total_amount via paymentLedgerService.getAllPayments." /></CardTitle>
+                <CardTitle className="text-sm font-medium flex items-center gap-1.5">Paid Out <InfoTooltip content={"Total paid out to staff during this period."} /></CardTitle>
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -363,7 +363,7 @@ function StaffHoursPage() {
             <TabsContent value="ledger" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content="Every payment recorded against staff sessions in the selected period, with method, hours and rate. Source: staff_payments via paymentLedgerService.getAllPayments." /></CardTitle>
+                  <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content={"Every staff payment in this period, including the method, hours covered and rate paid."} /></CardTitle>
                   <CardDescription>
                     Complete record of all staff payments
                   </CardDescription>

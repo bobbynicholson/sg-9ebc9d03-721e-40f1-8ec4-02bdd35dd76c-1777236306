@@ -346,7 +346,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total Invoices <InfoTooltip content="All invoices on file for this company across every status. Source: invoices table filtered by company_id." />
+                Total Invoices <InfoTooltip content={"Every invoice on file for your company, across every status."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -356,7 +356,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Outstanding <InfoTooltip content="Invoices issued but not yet paid in full. Source: invoices.status = 'outstanding'." />
+                Outstanding <InfoTooltip content={"Invoices that have been sent but are not yet paid in full."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -368,7 +368,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Paid <InfoTooltip content="Invoices the client has settled in full. Source: invoices.status = 'paid'." />
+                Paid <InfoTooltip content={"Invoices the client has settled in full."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -380,7 +380,7 @@ export default function InvoicesPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Total Revenue <InfoTooltip content="Sum of total_amount across every invoice regardless of status -- this is total invoiced, not just paid. Source: invoices.total_amount." />
+                Total Revenue <InfoTooltip content={"Total value invoiced across every invoice, no matter the status.\n\nThis is what you have billed, not what has been paid."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -398,7 +398,7 @@ export default function InvoicesPage() {
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                 Uninvoiced Orders ({orders.length})
-                <InfoTooltip content="Confirmed or completed orders that don't yet have an invoice generated. Source: orders.status in ('confirmed', 'completed') minus order_ids already in invoices." />
+                <InfoTooltip content={"Confirmed or completed orders that still need an invoice generated."} />
               </CardTitle>
               <CardDescription>
                 These confirmed/completed orders don't have invoices yet
@@ -470,7 +470,7 @@ export default function InvoicesPage() {
         {/* Invoices List */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-1.5">Invoice History <InfoTooltip content="All invoices for this company sorted by created_at descending, filtered by the search and status above. Source: invoices joined to orders and clients." /></CardTitle>
+            <CardTitle className="flex items-center gap-1.5">Invoice History <InfoTooltip content={"Every invoice for your company, newest first, narrowed by your search and status filters."} /></CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
