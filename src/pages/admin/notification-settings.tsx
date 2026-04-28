@@ -20,6 +20,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface NotificationSettings {
   email: {
@@ -110,6 +111,7 @@ export default function NotificationSettings() {
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-blue-600" />
                   Email Notifications
+                  <InfoTooltip content="Toggles for email alerts on order events, payments and daily summaries. Source: stored locally in localStorage under 'notification_settings' -- not yet wired to a server preference table." />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -169,6 +171,7 @@ export default function NotificationSettings() {
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-purple-600" />
                   Push Notifications
+                  <InfoTooltip content="In-app push toggles for urgent alerts, new orders, staff and inventory updates. Source: localStorage 'notification_settings' -- consumer wiring still in progress." />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -228,6 +231,7 @@ export default function NotificationSettings() {
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-green-600" />
                   SMS Notifications
+                  <InfoTooltip content="SMS preferences for critical alerts and payment reminders. Source: localStorage 'notification_settings' -- requires SMS provider integration to actually deliver." />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

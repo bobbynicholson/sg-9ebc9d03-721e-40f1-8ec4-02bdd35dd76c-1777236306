@@ -45,6 +45,7 @@ import {
   syncInvoiceToAccounting,
   getIntegrationStatus 
 } from "@/services/accountingIntegrationService";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -344,8 +345,8 @@ export default function InvoicesPage() {
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Total Invoices
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Total Invoices <InfoTooltip content="All invoices on file for this company across every status. Source: invoices table filtered by company_id." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -354,8 +355,8 @@ export default function InvoicesPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Outstanding
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Outstanding <InfoTooltip content="Invoices issued but not yet paid in full. Source: invoices.status = 'outstanding'." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -366,8 +367,8 @@ export default function InvoicesPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Paid
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Paid <InfoTooltip content="Invoices the client has settled in full. Source: invoices.status = 'paid'." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -378,8 +379,8 @@ export default function InvoicesPage() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Total Revenue
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Total Revenue <InfoTooltip content="Sum of total_amount across every invoice regardless of status -- this is total invoiced, not just paid. Source: invoices.total_amount." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -397,6 +398,7 @@ export default function InvoicesPage() {
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-yellow-600" />
                 Uninvoiced Orders ({orders.length})
+                <InfoTooltip content="Confirmed or completed orders that don't yet have an invoice generated. Source: orders.status in ('confirmed', 'completed') minus order_ids already in invoices." />
               </CardTitle>
               <CardDescription>
                 These confirmed/completed orders don't have invoices yet
@@ -468,7 +470,7 @@ export default function InvoicesPage() {
         {/* Invoices List */}
         <Card>
           <CardHeader>
-            <CardTitle>Invoice History</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">Invoice History <InfoTooltip content="All invoices for this company sorted by created_at descending, filtered by the search and status above. Source: invoices joined to orders and clients." /></CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (

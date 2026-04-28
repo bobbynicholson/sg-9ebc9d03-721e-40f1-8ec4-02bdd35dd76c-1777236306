@@ -24,6 +24,7 @@ import {
   XCircle,
   Clock,
 } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface InventoryItem {
   id: string;
@@ -570,7 +571,7 @@ export default function InventoryTracking() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Items</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Items <InfoTooltip content="All inventory items recorded for this company. Source: inventory_items filtered by company_id." /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{inventoryItems.length}</div>
@@ -578,7 +579,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Low Stock</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Low Stock <InfoTooltip content="Items where current_stock is at or below minimum_stock and need a reorder. Source: inventory_items.current_stock and inventory_items.minimum_stock." /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-orange-600">{lowStockCount}</div>
@@ -586,7 +587,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Out of Stock</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Out of Stock <InfoTooltip content="Items with zero stock on hand. Source: inventory_items.current_stock = 0." /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-red-600">{outOfStockCount}</div>
@@ -594,7 +595,7 @@ export default function InventoryTracking() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Value</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Value <InfoTooltip content="Sum of current_stock multiplied by cost_per_unit across all items. Source: inventory_items.current_stock and inventory_items.cost_per_unit." /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">R{totalValue.toFixed(2)}</div>
@@ -762,7 +763,7 @@ export default function InventoryTracking() {
           <TabsContent value="movements">
             <Card>
               <CardHeader>
-                <CardTitle>Stock Movement History</CardTitle>
+                <CardTitle className="flex items-center gap-1.5">Stock Movement History <InfoTooltip content="Last 50 stock adjustments -- purchases, usage, waste, transfers, returns and corrections. Source: inventory_transactions joined to inventory_items and profiles." /></CardTitle>
                 <CardDescription>Recent inventory adjustments</CardDescription>
               </CardHeader>
               <CardContent>

@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   Info,
 } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedNotificationsPage() {
   return (
@@ -147,6 +148,7 @@ function NotificationsPage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-3">
                 <Bell className="h-8 w-8 text-blue-600" />
                 Notifications
+                <InfoTooltip content="Your inbox of system alerts -- low stock, delivery updates, order changes, system events. Source: notifications table filtered by user_id and active role via notificationService.getNotifications." />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
                 Manage your system alerts and updates
@@ -203,6 +205,7 @@ function NotificationsPage() {
             <TabsList>
               <TabsTrigger value="all">All ({notifications.length})</TabsTrigger>
               <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
+              <InfoTooltip content="All shows every notification for your user / role; Unread filters to those where is_read = false. Source: notifications.is_read." className="ml-2" />
             </TabsList>
             <div className="flex gap-2">
               {unreadCount > 0 && (

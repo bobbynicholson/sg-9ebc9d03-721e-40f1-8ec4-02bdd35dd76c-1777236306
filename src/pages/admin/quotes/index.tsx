@@ -21,6 +21,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function AdminQuotes() {
   const { user } = useAuth();
@@ -91,13 +92,13 @@ export default function AdminQuotes() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Total Quotes</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Quotes <InfoTooltip content="Every quote on file for this company across all statuses. Source: quotes table filtered by company_id via quoteService.getQuotes." /></p>
                 <p className="text-2xl font-bold text-slate-900">{quotes.length}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Sent</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Sent <InfoTooltip content="Quotes that have been issued to a client and are awaiting a response. Source: quotes.status = 'sent'." /></p>
                 <p className="text-2xl font-bold text-blue-600">
                   {quotes.filter(q => q.status === "sent").length}
                 </p>
@@ -105,7 +106,7 @@ export default function AdminQuotes() {
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Accepted</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Accepted <InfoTooltip content="Quotes the client has approved -- typically the next step is converting these into orders. Source: quotes.status = 'accepted'." /></p>
                 <p className="text-2xl font-bold text-green-600">
                   {quotes.filter(q => q.status === "accepted").length}
                 </p>
@@ -113,7 +114,7 @@ export default function AdminQuotes() {
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1">Total Value</p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content="Sum of total across every quote in the list, regardless of status. Source: quotes.total." /></p>
                 <p className="text-2xl font-bold text-emerald-600">
                   R{quotes.reduce((sum, q) => sum + (q.total ?? 0), 0).toLocaleString()}
                 </p>

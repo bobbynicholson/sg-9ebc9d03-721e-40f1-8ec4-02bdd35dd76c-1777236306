@@ -27,6 +27,7 @@ import { profileService, Profile } from "@/services/profileService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
 import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedClientSearchPage() {
   return (
@@ -149,8 +150,9 @@ function ClientSearchPage() {
                 <Search className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
                   Client Search
+                  <InfoTooltip content="Searchable directory of every registered client profile -- name, email, phone, company and region. Source: profiles.role = 'client' filtered by company_id via profileService.getAllClients." />
                 </h1>
                 <p className="text-slate-600 mt-1">Find and manage your clients</p>
               </div>

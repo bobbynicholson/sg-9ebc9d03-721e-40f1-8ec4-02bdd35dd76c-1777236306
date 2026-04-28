@@ -37,6 +37,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -443,13 +444,13 @@ function ClientsCRM() {
                   <table className="w-full text-sm">
                     <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th className="text-left py-3 pl-4 pr-2">Contact</th>
-                        <th className="text-left py-3 px-2">Status</th>
-                        <th className="text-left py-3 px-2">Suggested action</th>
-                        <th className="text-right py-3 px-2">Orders</th>
-                        <th className="text-right py-3 px-2">Total spent</th>
-                        <th className="text-left py-3 px-2">Last touch</th>
-                        <th className="text-right py-3 pr-4">Quick mail</th>
+                        <th className="text-left py-3 pl-4 pr-2"><span className="inline-flex items-center gap-1.5">Contact <InfoTooltip content="Name, email and phone, merged across the clients, leads and orders tables for this company. Source: clients, leads, orders." /></span></th>
+                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Status <InfoTooltip content="Computed bucket -- VIP, active, returning, won, quiet, cold, hot lead, quoted or lost -- based on order count, total spent, recency and lead status. Computed in-page from clients, leads and orders." /></span></th>
+                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Suggested action <InfoTooltip content="Recommended next step generated from the contact's status, days since last event and time since they came in. Computed in-page, no DB column." /></span></th>
+                        <th className="text-right py-3 px-2"><span className="inline-flex items-center gap-1.5">Orders <InfoTooltip content="Number of non-cancelled orders linked to this contact by email or name. Source: orders.status filtered by client_email/client_name." /></span></th>
+                        <th className="text-right py-3 px-2"><span className="inline-flex items-center gap-1.5">Total spent <InfoTooltip content="Sum of total_amount across non-cancelled orders for this contact. Source: orders.total_amount." /></span></th>
+                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Last touch <InfoTooltip content="Days since the most recent past event_date, or since the manual mark-as-contacted timestamp stored in localStorage. Source: orders.event_date plus local crm-contacted-{companyId} record." /></span></th>
+                        <th className="text-right py-3 pr-4"><span className="inline-flex items-center gap-1.5">Quick mail <InfoTooltip content="Opens a compose drawer that hands off to Gmail, Outlook or your default mail app so the email goes from your address. No bulk send." /></span></th>
                       </tr>
                     </thead>
                     <tbody>

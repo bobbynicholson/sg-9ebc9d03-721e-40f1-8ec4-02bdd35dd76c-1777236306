@@ -290,7 +290,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-blue-700 mb-1">Total Drivers</p>
+                    <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Drivers <InfoTooltip content="All accounts with the driver role visible to this admin. Source: profiles.role = 'driver' via userManagementService.getAllUsers." /></p>
                     <p className="text-3xl font-bold text-blue-900">{drivers.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
@@ -304,7 +304,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-green-700 mb-1">Active</p>
+                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Active <InfoTooltip content="Drivers currently enabled and able to log in. Source: profiles.is_active = true filtered by role 'driver'." /></p>
                     <p className="text-3xl font-bold text-green-900">{activeDrivers}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
@@ -318,7 +318,7 @@ function DriverManagementPage() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-700 mb-1">Inactive</p>
+                    <p className="text-sm text-slate-700 mb-1 flex items-center gap-1.5">Inactive <InfoTooltip content="Driver accounts that have been deactivated and cannot log in. Source: profiles.is_active = false filtered by role 'driver'." /></p>
                     <p className="text-3xl font-bold text-slate-900">{inactiveDrivers}</p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-slate-500 flex items-center justify-center">
@@ -346,7 +346,7 @@ function DriverManagementPage() {
         {/* Drivers List */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>All Drivers</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">All Drivers <InfoTooltip content="Every driver record matching the search above, both active and inactive. Source: profiles filtered by role 'driver'." /></CardTitle>
             <CardDescription>
               Manage your delivery drivers and their account status
             </CardDescription>

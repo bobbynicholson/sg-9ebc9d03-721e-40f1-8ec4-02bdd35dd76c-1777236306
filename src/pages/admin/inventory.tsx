@@ -24,6 +24,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface InventoryItem {
   id: string;
@@ -174,7 +175,7 @@ export default function AdminInventory() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 mb-1">Total Items</p>
+                    <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Items <InfoTooltip content="Distinct items currently tracked in this company's inventory. Source: inventory_items via inventoryService.getInventory." /></p>
                     <p className="text-3xl font-bold text-slate-900">{inventory.length}</p>
                   </div>
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -188,7 +189,7 @@ export default function AdminInventory() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-red-700 mb-1">Low Stock</p>
+                    <p className="text-sm text-red-700 mb-1 flex items-center gap-1.5">Low Stock <InfoTooltip content="Items where current_stock is below minimum_stock and need reordering. Source: inventory_items.current_stock and inventory_items.minimum_stock." /></p>
                     <p className="text-3xl font-bold text-red-900">
                       {getLowStockItems().length}
                     </p>
@@ -204,7 +205,7 @@ export default function AdminInventory() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-amber-700 mb-1">Expiring Soon</p>
+                    <p className="text-sm text-amber-700 mb-1 flex items-center gap-1.5">Expiring Soon <InfoTooltip content="Items with an expiry_date within the next 30 days. Source: inventory_items.expiry_date." /></p>
                     <p className="text-3xl font-bold text-amber-900">
                       {getExpiringItems().length}
                     </p>
@@ -220,7 +221,7 @@ export default function AdminInventory() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-green-700 mb-1">Total Value</p>
+                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content="Sum of current_stock multiplied by cost_per_unit across all tracked items. Source: inventory_items.current_stock and inventory_items.cost_per_unit." /></p>
                     <p className="text-2xl font-bold text-green-900">
                       R{totalValue.toLocaleString()}
                     </p>
@@ -296,11 +297,11 @@ export default function AdminInventory() {
                     <table className="w-full text-sm">
                       <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-amber-200">
                         <tr>
-                          <th className="text-left py-2 pr-3">Item</th>
-                          <th className="text-right py-2 px-3">On hand</th>
-                          <th className="text-right py-2 px-3">Need 7d</th>
-                          <th className="text-right py-2 px-3">After 7d</th>
-                          <th className="text-left py-2 pl-3">Status</th>
+                          <th className="text-left py-2 pr-3"><span className="inline-flex items-center gap-1.5">Item <InfoTooltip content="Inventory item name as recorded in inventory_items.item_name. Source: inventory_demand_outlook view." /></span></th>
+                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">On hand <InfoTooltip content="Current stock level for the item right now. Source: inventory_demand_outlook.current_stock." /></span></th>
+                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">Need 7d <InfoTooltip content="Quantity required by confirmed orders in the next seven days, calculated from recipes. Source: inventory_demand_outlook.demand_next_7_days." /></span></th>
+                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">After 7d <InfoTooltip content="Projected stock balance after the next seven days of demand have run through. Source: inventory_demand_outlook.projected_stock_after_7_days." /></span></th>
+                          <th className="text-left py-2 pl-3"><span className="inline-flex items-center gap-1.5">Status <InfoTooltip content="Risk classification: shortfall (will go negative), below_minimum (below reorder point), low (running thin) or healthy. Source: inventory_demand_outlook.status." /></span></th>
                         </tr>
                       </thead>
                       <tbody>

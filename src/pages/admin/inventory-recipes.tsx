@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Calculator,
 } from "lucide-react";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function InventoryRecipes() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,7 +69,7 @@ export default function InventoryRecipes() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Recipes</CardTitle>
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Total Recipes <InfoTooltip content="Menu items mapped to inventory ingredients. Source: hardcoded RECIPE_MAPPINGS in src/services/inventoryDeductionService.ts (not yet a database table)." /></CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{RECIPE_MAPPINGS.length}</div>
@@ -76,8 +77,8 @@ export default function InventoryRecipes() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Unique Ingredients
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Unique Ingredients <InfoTooltip content="Distinct inventory_item_name values referenced across all recipe mappings. Source: RECIPE_MAPPINGS ingredient list (hardcoded)." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -88,8 +89,8 @@ export default function InventoryRecipes() {
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Calculator
+              <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+                Calculator <InfoTooltip content="Set a guest count to preview the ingredient quantities each recipe would deduct. Local input only -- does not save anywhere." />
               </CardTitle>
             </CardHeader>
             <CardContent>

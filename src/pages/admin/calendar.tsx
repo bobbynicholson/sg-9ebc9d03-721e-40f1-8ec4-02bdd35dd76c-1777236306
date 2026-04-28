@@ -27,6 +27,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function ProtectedCalendarPage() {
   return (
@@ -352,6 +353,7 @@ function AdminCalendar() {
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="w-5 h-5 text-purple-600" />
                     Next 5 events
+                    <InfoTooltip content="The next five non-cancelled orders with an event_date today or later, sorted soonest first. Source: orders.event_date and orders.status." />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -390,11 +392,11 @@ function AdminCalendar() {
               <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardContent className="pt-6 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Total events</span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content="Every order on file for this company, regardless of status or date. Source: orders filtered by company_id." /></span>
                     <span className="text-2xl font-bold text-slate-900 tabular-nums">{orders.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">{monthNames[month]}</span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content="Orders with an event_date in the month currently shown on the calendar. Source: orders.event_date." /></span>
                     <span className="text-2xl font-bold text-blue-900 tabular-nums">
                       {orders.filter((o: any) => {
                         const d = new Date(o.event_date);
@@ -403,7 +405,7 @@ function AdminCalendar() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Upcoming</span>
+                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Upcoming <InfoTooltip content="Non-cancelled orders with an event_date today or later, capped at the next five shown above. Source: orders.event_date and orders.status." /></span>
                     <span className="text-2xl font-bold text-emerald-900 tabular-nums">{upcoming.length}</span>
                   </div>
                 </CardContent>
