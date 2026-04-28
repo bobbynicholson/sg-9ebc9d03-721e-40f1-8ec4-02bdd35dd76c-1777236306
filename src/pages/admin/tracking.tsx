@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -154,17 +155,26 @@ export default function AdminTracking() {
     setDriverLocations(updatedLocations);
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.venue_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.driver_name?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Apply status + driver filters first so the fuzzy matcher only ranks
+  // orders the user has narrowed to (smart search rollout 29 Apr 2026).
+  const statusDriverFilteredOrders = useMemo(() => {
+    return orders.filter((order: any) => {
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesDriver = driverFilter === "all" || order.driver_id === driverFilter;
+      return matchesStatus && matchesDriver;
+    });
+  }, [orders, statusFilter, driverFilter]);
 
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    const matchesDriver = driverFilter === "all" || order.driver_id === driverFilter;
-
-    return matchesSearch && matchesStatus && matchesDriver;
-  });
+  const filteredOrders = useFuzzyItems(
+    statusDriverFilteredOrders,
+    searchTerm,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "venue_address" as any, weight: 2 },
+      { key: "driver_name" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {

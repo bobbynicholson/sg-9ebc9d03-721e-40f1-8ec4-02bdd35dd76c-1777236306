@@ -38,6 +38,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -333,19 +334,24 @@ function ClientsCRM() {
     return n;
   }, [contacts]);
 
-  const visible = useMemo(() => {
-    let rows = contacts;
-    if (filter !== "all") rows = rows.filter((c) => c.status === filter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      rows = rows.filter((c) =>
-        (c.name || "").toLowerCase().includes(q) ||
-        (c.email || "").toLowerCase().includes(q) ||
-        (c.phone || "").toLowerCase().includes(q),
-      );
-    }
-    return rows;
-  }, [contacts, filter, search]);
+  // Status filter is applied first so the fuzzy matcher only ranks contacts
+  // the user is currently scoped to (e.g. "VIPs called Sarah").
+  const statusFiltered = useMemo(() => {
+    return filter === "all" ? contacts : contacts.filter((c) => c.status === filter);
+  }, [contacts, filter]);
+
+  // Smart fuzzy search across name, email, phone with name weighted highest.
+  // The hook debounces and scores -- gives us prefix > substring > fuzzy.
+  const visible = useFuzzyItems(
+    statusFiltered,
+    search,
+    [
+      { key: "name" as any, weight: 3 },
+      { key: "email" as any, weight: 2 },
+      { key: "phone" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const markContacted = (key: string) => {
     setContactedKeys((prev) => ({ ...prev, [key]: new Date().toISOString() }));

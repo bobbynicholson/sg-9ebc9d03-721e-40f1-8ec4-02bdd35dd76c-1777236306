@@ -1,6 +1,7 @@
 ﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,22 +110,32 @@ export default function AdminInventory() {
     );
   };
 
-  const filteredInventory = inventory.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    if (activeTab === "all") return matchesSearch;
-    if (activeTab === "low-stock") return matchesSearch && item.quantity < item.minStock;
-    if (activeTab === "out-of-stock") return matchesSearch && item.quantity === 0;
+  // Apply tab filter first, then fuzzy-rank the remainder so low-stock /
+  // expiring views still benefit from smart search across name + category.
+  const tabFilteredInventory = useMemo(() => {
+    if (activeTab === "all") return inventory;
+    if (activeTab === "low-stock") return inventory.filter((i) => i.quantity < i.minStock);
+    if (activeTab === "out-of-stock") return inventory.filter((i) => i.quantity === 0);
     if (activeTab === "expiring") {
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-      return (
-        matchesSearch &&
-        item.expiryDate &&
-        new Date(item.expiryDate) < thirtyDaysFromNow
-      );
+      const thirty = new Date();
+      thirty.setDate(thirty.getDate() + 30);
+      return inventory.filter((i) => i.expiryDate && new Date(i.expiryDate) < thirty);
     }
-    return matchesSearch;
-  });
+    return inventory;
+  }, [inventory, activeTab]);
+
+  const filteredInventory = useFuzzyItems(
+    tabFilteredInventory,
+    searchTerm,
+    [
+      { key: "name" as any, weight: 3 },
+      { key: "category" as any, weight: 2 },
+      { key: "sku" as any, weight: 2 },
+      { key: "supplier" as any, weight: 1 },
+      { key: "location" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const totalValue = inventory.reduce(
     (sum, item) => sum + item.quantity * item.costPerUnit,

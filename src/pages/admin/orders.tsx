@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -241,16 +242,11 @@ function OrderProcessDashboard() {
     });
   };
 
-  const getFilteredOrders = () => {
+  // Apply non-search filters (status + date window) first so the fuzzy
+  // matcher only ranks the orders the user has narrowed to. Memoised so the
+  // fuzzy hook doesn't get a fresh array on every render.
+  const statusDateFilteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Search filter
-      const matchesSearch = 
-        searchTerm === "" ||
-        order.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.venue_address?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Status filter
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
       // Date filter -- preset windows on the order's event_date
@@ -286,9 +282,26 @@ function OrderProcessDashboard() {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesStatus && matchesDate;
     });
-  };
+  }, [orders, statusFilter, dateFilter]);
+
+  // Smart fuzzy search across client name, order id, venue and event name.
+  // client name is weighted highest because that's what staff almost always
+  // type to find an order.
+  const fuzzyOrders = useFuzzyItems(
+    statusDateFilteredOrders,
+    searchTerm,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "id" as any, weight: 2 },
+      { key: "venue_address" as any, weight: 1 },
+      { key: "event_name" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
+
+  const getFilteredOrders = () => fuzzyOrders;
 
   const getOrdersByStatus = (status: string) => {
     return getFilteredOrders().filter((order) => order.status === status);
@@ -1086,7 +1099,7 @@ function OrderProcessDashboard() {
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <Input
-                      placeholder="Search by client, order ID, or venue..."
+                      placeholder="Search by client, order ID, venue or event..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"

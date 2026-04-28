@@ -6,14 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2,
+  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 
 interface DriverOrder {
   id: string;
@@ -44,6 +46,19 @@ export default function DriverDeliveriesPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<DriverOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // Smart search across client / venue so a driver can quickly find a job
+  // by typing the customer's name or part of the address.
+  const filteredOrders = useFuzzyItems(
+    orders,
+    search,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "venue_address" as any, weight: 2 },
+    ],
+    { limit: 0 },
+  );
 
   useEffect(() => {
     if (!user?.id) return;
@@ -109,22 +124,33 @@ export default function DriverDeliveriesPage() {
                   Loading deliveries...
                 </div>
               ) : (
-                <Tabs defaultValue="all">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-                    <TabsTrigger value="upcoming">Upcoming ({stats.upcoming})</TabsTrigger>
-                    <TabsTrigger value="completed">Completed ({stats.completed})</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="all">
-                    <DeliveryList orders={orders} />
-                  </TabsContent>
-                  <TabsContent value="upcoming">
-                    <DeliveryList orders={orders.filter((o) => new Date(o.event_date) >= new Date(new Date().toDateString()) && !["completed","delivered","cancelled"].includes(o.status))} />
-                  </TabsContent>
-                  <TabsContent value="completed">
-                    <DeliveryList orders={orders.filter((o) => ["completed","delivered"].includes(o.status))} />
-                  </TabsContent>
-                </Tabs>
+                <>
+                  <div className="relative max-w-md mb-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      placeholder="Search by client or venue..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Tabs defaultValue="all">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="all">All ({filteredOrders.length})</TabsTrigger>
+                      <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+                      <TabsTrigger value="completed">Completed</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="all">
+                      <DeliveryList orders={filteredOrders} />
+                    </TabsContent>
+                    <TabsContent value="upcoming">
+                      <DeliveryList orders={filteredOrders.filter((o) => new Date(o.event_date) >= new Date(new Date().toDateString()) && !["completed","delivered","cancelled"].includes(o.status))} />
+                    </TabsContent>
+                    <TabsContent value="completed">
+                      <DeliveryList orders={filteredOrders.filter((o) => ["completed","delivered"].includes(o.status))} />
+                    </TabsContent>
+                  </Tabs>
+                </>
               )}
             </CardContent>
           </Card>

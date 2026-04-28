@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,8 +70,8 @@ export default function ShoppingInventoryPage() {
     return ["all", ...Array.from(set).sort()];
   }, [items]);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  // Apply non-search filters first, then fuzzy-rank.
+  const preFilteredItems = useMemo(() => {
     return items.filter((i) => {
       if (category !== "all" && i.category !== category) return false;
       if (belowParOnly) {
@@ -78,13 +79,21 @@ export default function ShoppingInventoryPage() {
         const min = Number(i.minimum_stock || 0);
         if (stock > min) return false;
       }
-      if (term) {
-        const hay = `${i.item_name ?? ""} ${i.sku ?? ""} ${i.category ?? ""} ${i.storage_location ?? ""}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
       return true;
     });
-  }, [items, search, category, belowParOnly]);
+  }, [items, category, belowParOnly]);
+
+  const filtered = useFuzzyItems(
+    preFilteredItems,
+    search,
+    [
+      { key: "item_name" as any, weight: 3 },
+      { key: "sku" as any, weight: 2 },
+      { key: "category" as any, weight: 2 },
+      { key: "storage_location" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const total = items.length;

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -409,17 +410,31 @@ export default function InventoryTracking() {
     return { label: "In Stock", color: "bg-green-500", icon: CheckCircle };
   };
 
-  const filteredItems = inventoryItems.filter(item => {
-    const matchesSearch = item.item_name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    const status = getStockStatus(item);
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "low" && item.current_stock <= item.minimum_stock) ||
-      (statusFilter === "out" && item.current_stock === 0) ||
-      (statusFilter === "ok" && item.current_stock > item.minimum_stock);
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  // Apply category + status filters first, then fuzzy-rank by name / sku /
+  // supplier / location so a query like "olive PE-12" still finds it.
+  const categoryStatusFiltered = useMemo(() => {
+    return inventoryItems.filter((item) => {
+      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+      const matchesStatus = statusFilter === "all" ||
+        (statusFilter === "low" && item.current_stock <= item.minimum_stock) ||
+        (statusFilter === "out" && item.current_stock === 0) ||
+        (statusFilter === "ok" && item.current_stock > item.minimum_stock);
+      return matchesCategory && matchesStatus;
+    });
+  }, [inventoryItems, categoryFilter, statusFilter]);
+
+  const filteredItems = useFuzzyItems(
+    categoryStatusFiltered,
+    searchTerm,
+    [
+      { key: "item_name" as any, weight: 3 },
+      { key: "sku" as any, weight: 2 },
+      { key: "category" as any, weight: 2 },
+      { key: "supplier" as any, weight: 1 },
+      { key: "location" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const categories = [...new Set(inventoryItems.map(item => item.category))];
   const lowStockCount = inventoryItems.filter(item => item.current_stock <= item.minimum_stock).length;
@@ -609,7 +624,7 @@ export default function InventoryTracking() {
             <div className="flex gap-4">
               <div className="flex-1">
                 <Input
-                  placeholder="Search items..."
+                  placeholder="Search by name, SKU, category, supplier, location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full"

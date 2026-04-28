@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,12 +47,25 @@ export default function AdminLeads() {
     }
   };
 
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.client_email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Apply status filter first, then fuzzy-rank the remainder. Searches
+  // across name, email, company, event type and notes so a query like
+  // "wedding 25" still surfaces a lead with that event type + guest count.
+  const statusFilteredLeads = useMemo(() => {
+    return statusFilter === "all" ? leads : leads.filter((l) => l.status === statusFilter);
+  }, [leads, statusFilter]);
+
+  const filteredLeads = useFuzzyItems(
+    statusFilteredLeads,
+    searchTerm,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "client_email" as any, weight: 2 },
+      { key: "company_name" as any, weight: 2 },
+      { key: "event_type" as any, weight: 1 },
+      { key: "notes" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -163,7 +177,7 @@ export default function AdminLeads() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
-                    placeholder="Search leads..."
+                    placeholder="Search by name, company, email, event type..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"

@@ -16,7 +16,9 @@ import {
   Send,
   Copy,
   ExternalLink,
+  Search,
 } from "lucide-react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -53,6 +55,23 @@ export default function AdminQuotes() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState("");
+
+  // Smart fuzzy search across client name, email, event name, venue, ref
+  // and the formatted total so a query like "12000" or "wedding" works.
+  const filteredQuotes = useFuzzyItems(
+    quotes,
+    search,
+    [
+      { key: "client_name" as any, weight: 3 },
+      { key: "client_email" as any, weight: 2 },
+      { key: ((q: Quote) => (q as any).event_name) as any, weight: 2, label: "event_name" },
+      { key: ((q: Quote) => (q as any).venue || (q as any).venue_address) as any, weight: 1, label: "venue" },
+      { key: ((q: Quote) => (q as any).quote_number || q.id) as any, weight: 2, label: "quote_ref" },
+      { key: ((q: Quote) => q.total != null ? `R${q.total} ${q.total}` : "") as any, weight: 1, label: "total" },
+    ],
+    { limit: 0 },
+  );
 
   useEffect(() => {
     if (!user?.company_id) {
@@ -187,6 +206,26 @@ export default function AdminQuotes() {
             </div>
           </div>
 
+          {/* Smart search across client, event, ref + total. Debounced. */}
+          {quotes.length > 0 && (
+            <div className="mb-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Search by client, event, venue, quote ref or total..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {search.trim() && (
+                <p className="text-xs text-slate-500 mt-1.5">
+                  Showing {filteredQuotes.length} of {quotes.length} quotes.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-4">
             {quotes.length === 0 ? (
               <Card className="border-2 border-dashed">
@@ -199,8 +238,16 @@ export default function AdminQuotes() {
                   </Link>
                 </CardContent>
               </Card>
+            ) : filteredQuotes.length === 0 ? (
+              <Card className="border-2 border-dashed">
+                <CardContent className="p-12 text-center">
+                  <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No quotes match your search</h3>
+                  <p className="text-slate-600">Try a different client name, event or quote reference.</p>
+                </CardContent>
+              </Card>
             ) : (
-              quotes.map((quote) => {
+              filteredQuotes.map((quote) => {
                 const canCompose = !!quote.client_email && quote.status !== "draft";
                 const composeHint = !quote.client_email
                   ? "No email on this quote -- add one to enable compose"

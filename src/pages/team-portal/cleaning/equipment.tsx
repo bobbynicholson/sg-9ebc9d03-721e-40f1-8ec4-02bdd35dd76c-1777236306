@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,14 +88,21 @@ export default function CleaningEquipmentPage() {
     return ["all", ...Array.from(s).sort()];
   }, [items]);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return items.filter((i) => {
-      if (category !== "all" && i.category !== category) return false;
-      if (term && !`${i.name ?? ""} ${i.category ?? ""}`.toLowerCase().includes(term)) return false;
-      return true;
-    });
-  }, [items, search, category]);
+  // Apply category filter first; the fuzzy hook takes it from there.
+  const categoryFiltered = useMemo(() => {
+    return category === "all" ? items : items.filter((i) => i.category === category);
+  }, [items, category]);
+
+  const filtered = useFuzzyItems(
+    categoryFiltered,
+    search,
+    [
+      { key: "name" as any, weight: 3 },
+      { key: "category" as any, weight: 1 },
+      { key: "location" as any, weight: 1 },
+    ],
+    { limit: 0 },
+  );
 
   const stats = useMemo(() => {
     const total = items.length;
