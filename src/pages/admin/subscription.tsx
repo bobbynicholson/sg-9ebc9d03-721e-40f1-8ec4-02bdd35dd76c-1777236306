@@ -290,7 +290,7 @@ function SubscriptionPage() {
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
                   Current Plan
-                  <InfoTooltip content="Active subscription plan, billing cycle, and status. Source: subscriptions table via subscriptionService.getSubscription()." />
+                  <InfoTooltip content={"Your current plan, how often you are billed, and whether the subscription is active."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -343,14 +343,14 @@ function SubscriptionPage() {
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   Usage This Quarter
-                  <InfoTooltip content="Active client and order counts versus your plan's quarterly cap. Source: subscriptionService.checkUsageLimits() comparing live counts to plan limits." />
+                  <InfoTooltip content={"How many active clients and orders you have used this quarter, compared to your plan's cap.\n\nUseful when deciding whether to upgrade."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Clients <InfoTooltip content="Number of clients counted against your plan limit this quarter. Source: usageLimits.currentActiveClients from subscriptionService." /></span>
+                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">Active Clients <InfoTooltip content={"Active clients counting toward your plan limit this quarter."} /></span>
                       <span className="text-sm font-bold">
                         {usageLimits?.currentActiveClients || 0} / {usageLimits?.activeClientsLimit || 0}
                       </span>
@@ -363,7 +363,7 @@ function SubscriptionPage() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">Orders This Quarter <InfoTooltip content="Orders booked in the current billing quarter against your plan limit. Source: usageLimits.currentOrders from subscriptionService." /></span>
+                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">Orders This Quarter <InfoTooltip content={"Orders booked so far this billing quarter, against your plan's quarterly limit."} /></span>
                       <span className="text-sm font-bold">
                         {usageLimits?.currentOrders || 0} / {usageLimits?.ordersLimit || 0}
                       </span>
@@ -390,7 +390,7 @@ function SubscriptionPage() {
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
                 Billing History
-                <InfoTooltip content="Past invoices and payment outcomes for this account. Source: billing_history table via subscriptionService.getBillingHistory()." />
+                <InfoTooltip content={"A record of past invoices and whether they were paid successfully."} />
               </CardTitle>
               <CardDescription>View your past invoices and payment history</CardDescription>
             </CardHeader>

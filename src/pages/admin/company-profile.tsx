@@ -194,7 +194,7 @@ function CompanyProfilePage() {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content="Single source of truth for company name, contact details, HQ coords and brand colours. Source: companies table joined to user.company_id." /></h1>
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, HQ location and brand colours all live here.\n\nThis is what feeds the sidebar branding, the client-facing pages, route planning, and delivery fees."} /></h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   This drives the sidebar branding, client-facing pages, route planning and delivery fees.
                 </p>
@@ -212,7 +212,7 @@ function CompanyProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-purple-600" />
                 Identity
-                <InfoTooltip content="Customer-facing name, contact channels and registration details. Source: companies.company_name, email, phone, website, registration_number, tax_number." />
+                <InfoTooltip content={"The name, phone, email, website, and registration details that show up everywhere clients and your team see your brand."} />
               </CardTitle>
               <CardDescription>What clients and your team see across the app.</CardDescription>
             </CardHeader>
@@ -262,7 +262,7 @@ function CompanyProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-600" />
                 Kitchen / HQ address
-                <InfoTooltip content="Used as the origin for every delivery distance and route plan. The lat/lng below are what googleMapsService.calculateDeliveryFee uses -- so accuracy here makes every quote's delivery fee accurate." />
+                <InfoTooltip content={"This is the starting point for every delivery distance and route plan.\n\nThe more accurate the address and coordinates, the more accurate every quote's delivery fee will be."} />
               </CardTitle>
               <CardDescription>
                 {hasMapsKey
@@ -336,7 +336,7 @@ function CompanyProfilePage() {
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-pink-600" />
                 Brand colours
-                <InfoTooltip content="These drive the sidebar gradient, the client-facing /c/order page header, the magic-link /c/account page, and any branded email we send. Pick a preset or paste your own hex." />
+                <InfoTooltip content={"These colours appear on the sidebar, your client-facing order pages, and any branded email we send out.\n\nPick one of the presets or paste your own hex codes."} />
               </CardTitle>
               <CardDescription>Used everywhere we render your brand.</CardDescription>
             </CardHeader>

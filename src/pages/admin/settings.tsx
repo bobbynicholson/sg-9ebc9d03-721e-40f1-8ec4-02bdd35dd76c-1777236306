@@ -161,13 +161,13 @@ function SettingsPage() {
                 <Settings className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">System Settings <InfoTooltip content="Tabbed config for company info, notifications, automation, pricing, operations, finance and email. Source: localStorage 'admin_settings' mirrored to auth.user_metadata.admin_settings -- not in a dedicated Supabase table yet." /></h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">System Settings <InfoTooltip content={"Every operational setting in one place: company info, notifications, automation, pricing, operations, finance, and email.\n\nWork through the tabs and hit Save All when you are done."} /></h1>
                 <p className="text-sm md:text-base text-slate-600">Configure platform preferences</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <InfoTooltip 
-                content="Save all your settings changes across all tabs. Your preferences will be applied immediately."
+                content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away."}
                 side="left"
               />
               <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700 w-full sm:w-auto" size="sm">
@@ -220,7 +220,7 @@ function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <InfoTooltip 
-                      content="Customize your company's branding including logo, colors, and visual identity to match your brand perfectly."
+                      content={"Set your logo, colour palette, and visual identity so client-facing pages match your brand."}
                       side="left"
                       className="text-white hover:text-white/80"
                     />
@@ -266,7 +266,7 @@ function SettingsPage() {
                   <div className="flex flex-col gap-2 md:gap-3">
                     <div className="flex items-center gap-2">
                       <InfoTooltip 
-                        content="Set up multiple regional operations with independent teams, kitchens, and drivers while maintaining centralized control."
+                        content={"Run multiple regions with their own teams, kitchens, and drivers, all under one head office."}
                         side="left"
                         className="text-white hover:text-white/80"
                       />
@@ -314,7 +314,7 @@ function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <InfoTooltip 
-                      content="Configure payment gateways to accept online payments from your clients. Support for local and international payment methods."
+                      content={"Connect a payment gateway so clients can pay online -- local and international options supported."}
                       side="left"
                       className="text-white hover:text-white/80"
                     />
@@ -350,7 +350,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Settings className="w-4 h-4 md:w-5 md:h-5" />
                     Company Information
-                    <InfoTooltip content="Display name, contact details and kitchen coords used by quote calc and route planning. Note: separate from /admin/company-profile (companies table) -- this tab writes to auth metadata. Flag: dual source of truth." />
+                    <InfoTooltip content={"Your display name, contact details, and kitchen location used in quotes and route planning.\n\nNote: there is a separate Company Profile page that holds the master record -- those values take priority."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -432,7 +432,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Bell className="w-4 h-4 md:w-5 md:h-5" />
                     Notification Preferences
-                    <InfoTooltip content="Per-event toggles for email and SMS alerts. Source: settings.notifications inside admin_settings (auth metadata)." />
+                    <InfoTooltip content={"Toggle email and SMS alerts on a per-event basis -- new bookings, status changes, payments and so on."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6">
@@ -541,7 +541,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Clock className="w-4 h-4 md:w-5 md:h-5" />
                     Automation Rules
-                    <InfoTooltip content="Cadence for follow-ups, reminders and review requests. Source: settings.automation in admin_settings -- needs the email engine wired before this actually fires anything." />
+                    <InfoTooltip content={"Set how often follow-ups, reminders, and review requests go out.\n\nThe live email engine needs to be connected before any of this actually fires."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -626,7 +626,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Pricing Rules
-                    <InfoTooltip content="Premium and discount rules used by the quote builder. Source: settings.pricing in admin_settings." />
+                    <InfoTooltip content={"Premium uplifts and discount rules the quote builder applies automatically."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -708,7 +708,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <ChefHat className="w-4 h-4 md:w-5 md:h-5" />
                     Operational Settings
-                    <InfoTooltip content="Lead times, buffers and delivery cost rate. Driver radius + per-km cost feed quote delivery fee calc. Source: settings.operations in admin_settings." />
+                    <InfoTooltip content={"Lead times, prep buffers, driver radius and per-kilometre rate.\n\nThese feed the delivery fee calculation on every quote."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -792,7 +792,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
                     Financial Settings
-                    <InfoTooltip content="Currency, VAT, deposit %, balance due rules and cancellation fee. Source: settings.financial in admin_settings -- drives invoice generation and the deposit/balance flow." />
+                    <InfoTooltip content={"Currency, VAT, deposit percentage, balance due rules, and cancellation fees.\n\nThis drives every invoice and the deposit/balance flow on the booking side."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -922,7 +922,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Mail className="w-4 h-4 md:w-5 md:h-5" />
                     After-Sales Email Automation
-                    <InfoTooltip content="Summary of the 12-month, 6-email post-event journey. Templates managed at /admin/after-sales-emails. Source: defaultAfterSalesTemplates in lib/afterSalesTemplates." />
+                    <InfoTooltip content={"Quick summary of the 12-month, six-email post-event journey.\n\nEdit the actual wording over on the After-Sales Emails page."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">

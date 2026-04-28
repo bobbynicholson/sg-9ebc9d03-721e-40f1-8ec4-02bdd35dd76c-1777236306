@@ -227,7 +227,7 @@ function EmailAutomationSettings() {
       <div className="p-6 max-w-full lg:pl-72 xl:pl-80">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">Email Automation Settings <InfoTooltip content="SMTP credentials and per-trigger automation rules. Currently persists to localStorage 'emailConfig' / 'automationRules' -- not Supabase, not actually wired to send mail until the backend is connected." /></h1>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">Email Automation Settings <InfoTooltip content={"SMTP credentials and the rules for what gets emailed when.\n\nSettings are saved on this device only and won't actually send mail until the backend is connected."} /></h1>
             <p className="text-muted-foreground">
               Configure email service provider and automation rules
             </p>
@@ -259,7 +259,7 @@ function EmailAutomationSettings() {
           <TabsContent value="smtp" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">Email Service Provider <InfoTooltip content="SMTP host, port, username and password used to send mail. Source: localStorage 'emailConfig' (not yet Supabase-backed)." /></CardTitle>
+                <CardTitle className="flex items-center gap-2">Email Service Provider <InfoTooltip content={"The SMTP host, port, and login details used to send your emails.\n\nSaved on this device only for now."} /></CardTitle>
                 <CardDescription>
                   Configure your SMTP settings to enable automated emails
                 </CardDescription>
@@ -441,7 +441,7 @@ function EmailAutomationSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Automation Rules <InfoTooltip content="Per-trigger templates (quote sent, follow-ups, reminders, etc.). Source: localStorage 'automationRules', initial defaults hardcoded in email-automation-settings.tsx." /></CardTitle>
+                  <CardTitle className="flex items-center gap-2">Automation Rules <InfoTooltip content={"One rule per trigger -- quote sent, follow-up, reminder, and so on.\n\nPick a rule on the left to edit its template."} /></CardTitle>
                   <CardDescription>
                     Select a rule to edit
                   </CardDescription>

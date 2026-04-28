@@ -333,7 +333,7 @@ function SmartShoppingPage() {
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                   Smart Shopping
-                  <InfoTooltip content="Joins inventory_items, inventory_demand_outlook view, order_ingredient_demand view and suppliers to compute what to buy, when, and from whom. Source: Supabase views filtered by company_id." />
+                  <InfoTooltip content={"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when."} />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it.
@@ -364,7 +364,7 @@ function SmartShoppingPage() {
               accent="text-red-600"
               icon={AlertTriangle}
               hint="Below 7-day demand"
-              tooltip="Items where current_stock can't cover the next 7 days of confirmed orders. Source: inventory_demand_outlook.status='shortfall'."
+              tooltip={"Items where you don't have enough stock to cover the next 7 days of confirmed orders."}
             />
             <SummaryTile
               label="Below par"
@@ -372,7 +372,7 @@ function SmartShoppingPage() {
               accent="text-amber-600"
               icon={TrendingDown}
               hint="Below minimum_stock"
-              tooltip="Stock has dropped under the minimum threshold but isn't short for upcoming orders yet. Source: inventory_demand_outlook.status='below_minimum'."
+              tooltip={"Stock has slipped below your minimum threshold but you can still cover upcoming orders.\n\nGood time to top up before it becomes urgent."}
             />
             <SummaryTile
               label="Urgent (≤2 days)"
@@ -380,7 +380,7 @@ function SmartShoppingPage() {
               accent="text-orange-600"
               icon={Flame}
               hint="Perishables expiring soon"
-              tooltip="Items whose buy-by date is two days or less away, factoring in shelf_life_days. Source: derived from earliest event_date minus inventory_items.shelf_life_days."
+              tooltip={"Perishables you need to buy in the next two days, taking shelf life into account."}
             />
             <SummaryTile
               label="Estimated PO total"
@@ -389,7 +389,7 @@ function SmartShoppingPage() {
               icon={Receipt}
               hint="Buy-now items at supplier prices"
               isMoney
-              tooltip="Sum of reorder_quantity x cost_per_unit across every shortfall + below-par item. Source: inventory_items.cost_per_unit and reorder_quantity."
+              tooltip={"What you'll spend if you place a purchase order for everything currently flagged as short or below par.\n\nUses your supplier pricing and reorder quantities."}
             />
           </div>
 

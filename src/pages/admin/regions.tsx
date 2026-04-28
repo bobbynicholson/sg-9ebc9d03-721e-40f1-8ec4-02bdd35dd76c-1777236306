@@ -312,11 +312,11 @@ function RegionsPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <StatTile label="Total Regions" value={stats.total} tooltip="Number of regions configured for this company. Source: count of rows in regions table where company_id matches." />
-            <StatTile label="Active" value={stats.active} accent="text-emerald-600" tooltip="Regions currently switched on. Source: regions.is_active = true." />
-            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" tooltip="Distinct countries across all regions. Source: distinct regions.country values." />
-            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" tooltip="Total profiles assigned to any region. Source: profiles.region_id grouped per region." />
-            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" tooltip="Total orders allocated to any region. Source: orders.region_id grouped per region." />
+            <StatTile label="Total Regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
+            <StatTile label="Active" value={stats.active} accent="text-emerald-600" tooltip={"Regions that are currently switched on and accepting work."} />
+            <StatTile label="Countries" value={stats.countries} accent="text-purple-600" tooltip={"How many different countries you operate in across your regions."} />
+            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" tooltip={"Total staff members linked to any region."} />
+            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" tooltip={"Total orders allocated to any region."} />
           </div>
 
           {loading ? (
@@ -380,9 +380,9 @@ function RegionsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-3 gap-3 mb-4">
-                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip="Profiles assigned to this region. Source: profiles.region_id = this region." />
-                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} tooltip="Orders allocated to this region. Source: orders.region_id = this region." />
-                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} tooltip="Whether new orders in this region's catchment are auto-routed to it. Source: regions.auto_assign_orders." />
+                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this region."} />
+                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} tooltip={"Orders allocated to this region."} />
+                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} tooltip={"Whether new orders inside this region's catchment are routed here automatically."} />
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
                       {region.manager?.full_name && (

@@ -241,7 +241,7 @@ function EmailSettingsPage() {
             <div>
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                 Email & Integrations
-                <InfoTooltip content="Email provider config (Gmail OAuth, MS365 OAuth, SMTP) plus daily send caps. Source: email_provider_settings table joined to companies -- direct send via Supabase edge function is still in flight." />
+                <InfoTooltip content={"How CateringMS sends mail on your behalf -- Gmail, Microsoft 365, or your own SMTP server -- plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
                 Send personal mail through your own inbox. Plug in Mailchimp for bulk.
@@ -256,7 +256,7 @@ function EmailSettingsPage() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
                   <span className="font-semibold text-slate-900">Today's send count</span>
-                  <InfoTooltip content="Counts emails dispatched via direct send (SMTP/OAuth). Compose-link clicks are tracked but don't count against the cap because they leave through your own inbox quota." />
+                  <InfoTooltip content={"Counts emails sent straight from CateringMS through your provider.\n\nCompose-link clicks are tracked separately and don't count against this cap, since those go out through your own inbox."} />
                 </div>
                 <span className="text-2xl font-bold text-slate-900 tabular-nums">
                   {todayCount} <span className="text-sm font-normal text-slate-500">/ {row.daily_send_cap}</span>
@@ -328,7 +328,7 @@ function EmailSettingsPage() {
                 <div>
                   <Label htmlFor="from_email">
                     From address
-                    <InfoTooltip content="The address recipients will see in the From field. For Gmail/Outlook OAuth this is locked to your authenticated account." />
+                    <InfoTooltip content={"The address that shows up in the recipient's inbox.\n\nFor Gmail or Outlook sign-in, this is locked to the account you connected."} />
                   </Label>
                   <Input
                     id="from_email"
@@ -390,7 +390,7 @@ function EmailSettingsPage() {
                   <div>
                     <Label htmlFor="smtp_pass">
                       Password
-                      <InfoTooltip content="Stored encrypted at rest. Leave blank to keep the existing password unchanged." />
+                      <InfoTooltip content={"Stored encrypted on our side.\n\nLeave this blank to keep the password you already saved."} />
                     </Label>
                     <Input id="smtp_pass" type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="-- unchanged --" />
                   </div>
@@ -406,7 +406,7 @@ function EmailSettingsPage() {
                 <div>
                   <Label htmlFor="cap">
                     Daily send cap
-                    <InfoTooltip content={`Defaults to your plan limit of ${tierCap}. You can lower this if you want a tighter ceiling -- super-admin can raise it.`} />
+                    <InfoTooltip content={`Your plan allows up to ${tierCap} a day. You can drop this lower if you want a tighter ceiling.\n\nOnly super-admin can raise it above the plan limit.`} />
                   </Label>
                   <Input
                     id="cap"
@@ -439,7 +439,7 @@ function EmailSettingsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-purple-600" />
                 Auto-attach client links
-                <InfoTooltip content="Toggle which events automatically queue an email to the client with a tokenised /c/order link. Repeat customers can also get a 'View all my events' magic-link CTA. Drafts queue here until the direct-send path (SMTP/OAuth) is configured -- the catering admin can also copy any draft and send it manually." />
+                <InfoTooltip content={"Pick which moments automatically queue a client email with their secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here -- you can copy and send any draft from your own inbox in the meantime."} />
               </CardTitle>
               <CardDescription>
                 Automatically include the client's tokenised order link when these things happen.
@@ -524,7 +524,7 @@ function EmailSettingsPage() {
             <CardContent className="space-y-3">
               <div>
                 <Label htmlFor="mc_api">API key
-                  <InfoTooltip content="Find this in Mailchimp under Account > Extras > API keys. Stored encrypted." />
+                  <InfoTooltip content={"In Mailchimp, head to Account > Extras > API keys to grab one.\n\nStored encrypted on our side."} />
                 </Label>
                 <Input id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder={mailchimpAudienceId ? "-- unchanged --" : "Enter Mailchimp API key"} />
               </div>

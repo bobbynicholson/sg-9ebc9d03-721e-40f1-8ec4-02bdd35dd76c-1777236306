@@ -431,7 +431,7 @@ function EmailTemplatesPage() {
                 <Mail className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">Email Templates <InfoTooltip content="Editable copy for every automated email. Currently stored in browser localStorage under 'email_templates' -- not in Supabase, so changes do not sync across devices or get sent via the real mail engine." /></h1>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">Email Templates <InfoTooltip content={"Edit the wording of every automated email your clients receive.\n\nChanges are saved on this device only and won't send through the live mail engine until full wiring lands."} /></h1>
                 <p className="text-sm md:text-base text-slate-600 hidden sm:block">Customize automated communications</p>
               </div>
             </div>

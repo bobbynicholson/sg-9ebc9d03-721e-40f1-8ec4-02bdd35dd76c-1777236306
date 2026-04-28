@@ -317,7 +317,7 @@ function IntegrationsPage() {
               <div className="min-w-0">
                 <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                   Integrations & Zapier
-                  <InfoTooltip content="API keys (inbound) and webhook subscriptions (outbound) connecting CateringMS to Zapier. Source: api_keys and webhook_subscriptions tables filtered by company_id." />
+                  <InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Connect CateringMS to Google Sheets, Slack, WhatsApp, Mailchimp -- anywhere Zapier reaches.
@@ -421,7 +421,7 @@ function IntegrationsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Webhook className="w-5 h-5 text-orange-600" />
                 Outbound webhooks
-                <InfoTooltip content="When something happens in CateringMS we POST a JSON payload to the URL you paste here. Use Zapier 'Webhooks - Catch Hook' as the receiver to trigger any of 5,000+ Zapier actions." />
+                <InfoTooltip content={"When something happens in CateringMS, we send the details to a URL you choose.\n\nPaste a Zapier 'Catch Hook' URL here and you can trigger any of the 5,000+ apps Zapier connects to."} />
               </CardTitle>
               <CardDescription>
                 Paste a Zapier "Catch Hook" URL and CateringMS will POST every matching event to it.
@@ -530,7 +530,7 @@ function IntegrationsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-emerald-600" />
                 Inbound API keys
-                <InfoTooltip content="Use these to push data INTO CateringMS from Zapier (or anywhere). Example: a Facebook Lead Ad form fires Zapier, which calls our /api/integrations/leads endpoint with the API key as a Bearer token, and a new lead lands in your pipeline." />
+                <InfoTooltip content={"Use these to push data into CateringMS from anywhere -- Zapier, Make, your own scripts, Facebook Lead Ads.\n\nExample: a Lead Ads form fills, Zapier hits our leads endpoint with the API key, and a new lead drops into your pipeline."} />
               </CardTitle>
               <CardDescription>
                 Push leads into CateringMS from Zapier, Make, your own scripts, or Facebook Lead Ads.

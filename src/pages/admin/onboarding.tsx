@@ -101,7 +101,7 @@ export default function AdminOnboarding() {
               <Rocket className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">Getting Started <InfoTooltip content="Six-step setup checklist. Currently every step's 'completed' flag is hardcoded in onboardingSteps array (onboarding.tsx) -- not yet checked against real account state. Flag: progress is mocked." /></h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">Getting Started <InfoTooltip content={"A six-step checklist to walk you through getting set up.\n\nDemo data shown until live wiring lands -- step states won't update against your real account state yet."} /></h1>
               <p className="text-slate-600">Complete these steps to set up your account</p>
             </div>
           </div>
@@ -111,7 +111,7 @@ export default function AdminOnboarding() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-1 flex items-center gap-1">
-                    Setup Progress <InfoTooltip content="Percentage of onboarding steps marked complete. Currently hardcoded in the steps array -- does not reflect real config. Flag at onboarding.tsx:28-77." />
+                    Setup Progress <InfoTooltip content={"How far through setup you are.\n\nThis is currently demo data and won't reflect your real account state yet."} />
                   </h3>
                   <p className="text-sm text-slate-600">
                     {completedCount} of {steps.length} steps completed

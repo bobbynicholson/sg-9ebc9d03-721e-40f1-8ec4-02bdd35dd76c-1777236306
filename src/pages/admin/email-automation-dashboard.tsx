@@ -160,7 +160,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Total Scheduled
-                  <InfoTooltip content="All emails ever queued across every order. Source: getEmailStatistics() over getEmailQueues() in lib/afterSalesAutomation.ts (currently localStorage-backed)." />
+                  <InfoTooltip content={"Every email ever queued across every order.\n\nDemo data shown until live wiring lands."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -173,7 +173,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
                   Sent
-                  <InfoTooltip content="Emails successfully dispatched. Source: scheduledEmails.status='sent' in afterSalesAutomation queue." />
+                  <InfoTooltip content={"Emails that have already gone out successfully."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -186,7 +186,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   Pending
-                  <InfoTooltip content="Emails waiting to be sent at their scheduled date. Source: scheduledEmails.status='pending'." />
+                  <InfoTooltip content={"Emails sitting in the queue, waiting for their scheduled send date."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -199,7 +199,7 @@ function EmailAutomationDashboard() {
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
                   Success Rate
-                  <InfoTooltip content="Sent divided by sent + failed, as a percentage. Source: getEmailStatistics() successRate field." />
+                  <InfoTooltip content={"The percentage of emails that went out successfully versus the ones that failed."} />
                 </CardTitle>
               </CardHeader>
               <CardContent>

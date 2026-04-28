@@ -168,7 +168,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Out for Delivery <InfoTooltip content="Orders currently with a driver en route. Source: orders.status='out_for_delivery' from orderService.getAllOrders." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Out for Delivery <InfoTooltip content={"Orders that are with a driver right now, on the way to the venue."} /></p>
                     <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
                   </div>
                   <Navigation className="w-8 h-8 text-orange-600" />
@@ -180,7 +180,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Preparing <InfoTooltip content="Orders currently in the kitchen being prepped. Source: orders.status='preparing'." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Preparing <InfoTooltip content={"Orders being prepped in the kitchen right now."} /></p>
                     <p className="text-2xl font-bold text-yellow-600">{stats.preparing}</p>
                   </div>
                   <Package className="w-8 h-8 text-yellow-600" />
@@ -192,7 +192,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content="Orders prepped and waiting for a driver to collect. Source: orders.status='ready'." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content={"Orders that are prepped, packed, and waiting for a driver to collect."} /></p>
                     <p className="text-2xl font-bold text-purple-600">{stats.ready}</p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-purple-600" />
@@ -204,7 +204,7 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content="All in-flight orders not yet delivered or cancelled. Source: orders.status in (confirmed, preparing, ready, out_for_delivery)." /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content={"Every order in motion right now, from confirmed through to out for delivery.\n\nDelivered and cancelled orders aren't counted."} /></p>
                     <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
                   </div>
                   <MapPin className="w-8 h-8 text-blue-600" />
@@ -284,7 +284,7 @@ export default function AdminTracking() {
                 {/* Map */}
                 <Card className="lg:col-span-2">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">Live Tracking Map <InfoTooltip content="Shows venue pins for active orders and last known driver locations. Source: drivers.current_lat / current_lng joined to orders.driver_id." /></CardTitle>
+                    <CardTitle className="flex items-center gap-2">Live Tracking Map <InfoTooltip content={"Pins for every active venue and the last known position of each driver.\n\nDriver pins update as their devices report new locations."} /></CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[600px] relative">

@@ -116,7 +116,7 @@ function AdminHRSolutions() {
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">HR Solutions <InfoTooltip content="Hub of staff-related tools. Active features link to existing admin pages; Coming Soon items are not yet built. Source: hardcoded hrFeatures array in hr-solutions.tsx -- flag: status flags are static, not driven by feature flags or roles." /></h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">HR Solutions <InfoTooltip content={"One landing page for every staff-related tool.\n\nActive cards take you straight to the feature; coming-soon cards mark what is next on the roadmap."} /></h1>
               <p className="text-slate-600">Comprehensive staff management tools</p>
             </div>
           </div>

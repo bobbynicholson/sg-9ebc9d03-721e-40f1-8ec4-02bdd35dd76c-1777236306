@@ -321,7 +321,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content="Deliveries with no driver yet allocated. Currently using MOCK_ORDERS in route-planning.tsx -- not real data until wired to orders table." /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Unassigned Orders <InfoTooltip content={"Deliveries that still need a driver assigned.\n\nDemo data shown until live wiring lands."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{unassignedOrders.length}</p>
                   </div>
                   <AlertCircle className="h-8 w-8 text-orange-500" />
@@ -333,7 +333,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimized Routes <InfoTooltip content="Number of routes built by the optimiser this session. Source: routeOptimizationService.optimizeRoute() output." /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Optimized Routes <InfoTooltip content={"How many routes the optimiser has built so far in this session."} /></p>
                     <p className="text-2xl font-bold text-slate-900">{optimizedRoutes.length}</p>
                   </div>
                   <Route className="h-8 w-8 text-blue-500" />
@@ -345,7 +345,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content="Sum of distance across all generated routes, in kilometres. Source: OptimizedRoute.total_distance from routeOptimizationService." /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Total Distance <InfoTooltip content={"Total kilometres across every route the optimiser has built today."} /></p>
                     <p className="text-2xl font-bold text-slate-900">
                       {optimizedRoutes.reduce((sum, r) => sum + r.total_distance, 0).toFixed(1)} km
                     </p>
@@ -359,7 +359,7 @@ export default function RoutePlanning() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Est. Time <InfoTooltip content="Estimated drive time across all routes, in minutes. Source: OptimizedRoute.total_duration from routeOptimizationService." /></p>
+                    <p className="text-sm font-medium text-slate-600 flex items-center gap-1">Est. Time <InfoTooltip content={"Estimated total drive time across every planned route, shown in minutes."} /></p>
                     <p className="text-2xl font-bold text-slate-900">
                       {Math.round(optimizedRoutes.reduce((sum, r) => sum + r.total_duration, 0))} min
                     </p>
@@ -378,7 +378,7 @@ export default function RoutePlanning() {
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Driver Routes
-                    <InfoTooltip content="One card per optimised route, with stops, distance, duration and fuel estimate. Source: routeOptimizationService.calculateRouteStats()." />
+                    <InfoTooltip content={"One card per route, showing the stops, distance, time, and a rough fuel estimate."} />
                   </CardTitle>
                   <CardDescription>
                     {optimizedRoutes.length} optimized route{optimizedRoutes.length !== 1 ? "s" : ""}
