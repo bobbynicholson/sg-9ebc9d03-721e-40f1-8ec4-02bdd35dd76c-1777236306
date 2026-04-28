@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Clock, Loader2, Play, Square, ChefHat } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -196,7 +197,10 @@ export default function KitchenDutyRosterPage() {
                   <ChefHat className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <p className="text-xs text-slate-600">Your status</p>
+                  <p className="text-xs text-slate-600 flex items-center gap-1">
+                    Your status
+                    <InfoTooltip content="Shows whether you have an open shift right now. Source: kitchen_duty_shifts row where staff_id = your user id and is_active = true." />
+                  </p>
                   <p className="text-base font-semibold text-slate-900">
                     {myActiveShift
                       ? `On shift -- ${fmtDuration(myActiveShift.shift_start)}`
@@ -216,7 +220,10 @@ export default function KitchenDutyRosterPage() {
             </CardContent>
           </Card>
 
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">On duty now -- {active.length}</h2>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+            On duty now -- {active.length}
+            <InfoTooltip content="Every kitchen staffer with an open shift right now. Source: kitchen_duty_shifts where company_id matches and is_active = true." />
+          </h2>
           <Card className="mb-6">
             <CardContent className="p-0">
               {loading ? (
@@ -247,7 +254,10 @@ export default function KitchenDutyRosterPage() {
             </CardContent>
           </Card>
 
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">Recent shifts</h2>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+            Recent shifts
+            <InfoTooltip content="Last 20 closed shifts for this company. Source: kitchen_duty_shifts where is_active = false, ordered by shift_end descending." />
+          </h2>
           <Card>
             <CardContent className="p-0">
               {recent.length === 0 ? (

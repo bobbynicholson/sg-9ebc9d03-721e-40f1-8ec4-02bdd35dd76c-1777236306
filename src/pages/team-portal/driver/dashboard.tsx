@@ -489,7 +489,10 @@ export default function DriverDashboard() {
               <CardContent className="pt-3 sm:pt-4 md:pt-6 px-2 sm:px-3 md:px-6 pb-3 sm:pb-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
-                    <p className="text-xs sm:text-sm text-slate-600">Earnings</p>
+                    <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
+                      Earnings
+                      <InfoTooltip content="Outstanding pay from completed deliveries. Source: sum of driver_assignments.total_earnings where status is completed or delivered." />
+                    </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-600">
                       R{totalEarnings}
                     </p>

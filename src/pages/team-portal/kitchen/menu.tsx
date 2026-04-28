@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { BookOpen, Search, Loader2, Clock, Users as UsersIcon, ImageOff } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -274,7 +275,10 @@ export default function KitchenMenuItemsPage() {
                 </div>
               )}
               <div>
-                <h3 className="font-semibold text-sm mb-2">Ingredients</h3>
+                <h3 className="font-semibold text-sm mb-2 flex items-center gap-1.5">
+                Ingredients
+                <InfoTooltip content="Recipe ingredients linked to this menu item. Source: recipe_ingredients joined via recipes.menu_item_id." />
+              </h3>
                 {ingredientsLoading ? (
                   <div className="text-sm text-slate-500 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading ingredients...</div>
                 ) : ingredients.length === 0 ? (

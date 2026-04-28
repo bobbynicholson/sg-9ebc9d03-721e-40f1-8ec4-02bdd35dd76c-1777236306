@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Clock, Users, Truck, Loader2, AlertCircle } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,7 +87,10 @@ export default function DriverSchedulePage() {
               <Calendar className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-slate-900">My Schedule</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 flex items-center gap-2">
+                My Schedule
+                <InfoTooltip content="Future jobs assigned to you, grouped Today / Tomorrow / This week / This month / Later. Source: orders where assigned_driver_id or driver_id matches you, event_date >= today, status not cancelled." />
+              </h1>
               <p className="text-slate-600 mt-1">Upcoming jobs assigned to you</p>
             </div>
           </div>
@@ -146,7 +150,10 @@ export default function DriverSchedulePage() {
                             </div>
                           </div>
                           <div className="md:text-right">
-                            <p className="font-semibold text-slate-900">R{Number(o.total_amount || 0).toLocaleString()}</p>
+                            <p className="font-semibold text-slate-900 flex items-center gap-1 md:justify-end">
+                              R{Number(o.total_amount || 0).toLocaleString()}
+                              <InfoTooltip content="Total invoice value for the customer, not your delivery fee. Source: orders.total_amount." />
+                            </p>
                             <p className="text-xs text-slate-500">order value</p>
                           </div>
                         </div>

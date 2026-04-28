@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,10 +91,10 @@ export default function DriverDeliveriesPage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <MiniStat label="All deliveries" value={stats.total} icon={Truck} accent="text-slate-900" />
-            <MiniStat label="Upcoming" value={stats.upcoming} icon={Clock} accent="text-amber-600" />
-            <MiniStat label="Completed" value={stats.completed} icon={CheckCircle2} accent="text-emerald-600" />
-            <MiniStat label="Total guests served" value={stats.totalGuests} icon={Package} accent="text-blue-600" />
+            <MiniStat label="All deliveries" value={stats.total} icon={Truck} accent="text-slate-900" tooltip="Every order assigned to you, past or upcoming. Source: orders where assigned_driver_id or driver_id matches your user id." />
+            <MiniStat label="Upcoming" value={stats.upcoming} icon={Clock} accent="text-amber-600" tooltip="Future or today's events you still need to deliver. Source: orders.event_date >= today and status not in completed / delivered / cancelled." />
+            <MiniStat label="Completed" value={stats.completed} icon={CheckCircle2} accent="text-emerald-600" tooltip="Orders you've finished. Source: orders.status in completed or delivered." />
+            <MiniStat label="Total guests served" value={stats.totalGuests} icon={Package} accent="text-blue-600" tooltip="Lifetime sum of orders.guest_count across every order assigned to you. Past + upcoming combined." />
           </div>
 
           <Card className="border-0 shadow-lg">
@@ -135,13 +136,16 @@ export default function DriverDeliveriesPage() {
 }
 
 function MiniStat({
-  label, value, icon: Icon, accent,
-}: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; accent: string }) {
+  label, value, icon: Icon, accent, tooltip,
+}: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; accent: string; tooltip?: string }) {
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center gap-1">
+            {label}
+            {tooltip && <InfoTooltip content={tooltip} />}
+          </p>
           <Icon className="w-4 h-4 text-slate-400" />
         </div>
         <p className={`text-2xl font-bold ${accent}`}>{value}</p>

@@ -12,6 +12,7 @@ import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ActiveDelivery {
   assignmentId: string;
@@ -150,7 +151,10 @@ export default function DriverTracking() {
               <Navigation className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Current Delivery</h1>
+              <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+                Current Delivery
+                <InfoTooltip content="The most recent driver_assignment for you that's still in flight (status assigned / accepted / en_route / picked_up). Source: driver_assignments joined to orders." />
+              </h1>
               <p className="text-slate-600">Track your active delivery</p>
             </div>
           </div>
@@ -180,11 +184,17 @@ export default function DriverTracking() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <p className="text-sm text-slate-600 mb-2">Order</p>
+                    <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
+                      Order
+                      <InfoTooltip content="Public order reference. Source: orders.order_number on the linked order." />
+                    </p>
                     <p className="font-medium">{delivery.orderNumber}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-600 mb-2">Destination</p>
+                    <p className="text-sm text-slate-600 mb-2 flex items-center gap-1">
+                      Destination
+                      <InfoTooltip content="Where to deliver this order. Source: orders.venue_address. Tap the navigate button to open in Google Maps." />
+                    </p>
                     <p className="font-medium flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-blue-600" />
                       {delivery.venueAddress}

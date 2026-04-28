@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, Check, Loader2, AlertCircle, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -112,6 +113,7 @@ export default function KitchenNotificationsPage() {
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-3">
                 <Bell className="h-7 w-7 text-orange-600" />
                 Kitchen Notifications
+                <InfoTooltip content="Last 100 notifications addressed to you, your user id, or the kitchen_staff role. Source: notifications.recipient_id, user_id, or target_role match." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">Dispatch alerts, prep updates and orders coming in</p>
             </div>

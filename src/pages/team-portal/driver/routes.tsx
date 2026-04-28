@@ -21,6 +21,7 @@ import {
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -343,7 +344,10 @@ export default function DriverRoutes() {
               <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs lg:text-sm text-slate-600">Total Distance</p>
+                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
+                      Total Distance
+                      <InfoTooltip content="Total kilometres across every leg of today's optimised route. Source: routeOptimizationService.getDriverOptimizedRoute().total_distance." />
+                    </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {route.total_distance.toFixed(1)} km
                     </p>
@@ -357,7 +361,10 @@ export default function DriverRoutes() {
               <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs lg:text-sm text-slate-600">Est. Time</p>
+                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
+                      Est. Time
+                      <InfoTooltip content="Estimated drive time for the full route in minutes. Source: routeOptimizationService.getDriverOptimizedRoute().total_duration." />
+                    </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {route.total_duration} min
                     </p>
@@ -371,7 +378,10 @@ export default function DriverRoutes() {
               <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs lg:text-sm text-slate-600">Fuel Cost</p>
+                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
+                      Fuel Cost
+                      <InfoTooltip content="Estimated fuel rand cost for the full route. Source: routeOptimizationService.calculateRouteStats().estimatedFuelCost (distance times an internal cost-per-km estimate)." />
+                    </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       R{stats.estimatedFuelCost}
                     </p>
@@ -385,7 +395,10 @@ export default function DriverRoutes() {
               <CardContent className="pt-4 lg:pt-6 px-3 lg:px-6 pb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs lg:text-sm text-slate-600">CO₂ Impact</p>
+                    <p className="text-xs lg:text-sm text-slate-600 flex items-center gap-1">
+                      CO₂ Impact
+                      <InfoTooltip content="Estimated kilograms of CO₂ from this route. Source: routeOptimizationService.calculateRouteStats().carbonFootprint." />
+                    </p>
                     <p className="text-lg lg:text-2xl font-bold text-slate-900">
                       {stats.carbonFootprint.toFixed(1)} kg
                     </p>

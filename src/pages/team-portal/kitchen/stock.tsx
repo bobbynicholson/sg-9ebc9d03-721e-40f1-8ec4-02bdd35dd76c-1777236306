@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Package, Search, AlertTriangle, Minus, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -140,9 +141,9 @@ export default function KitchenStockPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Total items</p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Below par</p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600">Out of stock</p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total items<InfoTooltip content="Every active line on inventory_items for this company. Source: inventoryService.getInventory()." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Below par<InfoTooltip content="Items where current_stock is at or below minimum_stock. These need re-ordering." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock<InfoTooltip content="Items where current_stock is zero or less. Cannot fulfil orders that need them." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
           </div>
 
           <Card className="mb-6">

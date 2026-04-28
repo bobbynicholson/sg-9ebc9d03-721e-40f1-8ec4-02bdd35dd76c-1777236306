@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -191,7 +192,10 @@ export default function KitchenPrepListPage() {
                 <ClipboardList className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900">Prep List</h1>
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">
+                  Prep List
+                  <InfoTooltip content="Per-order ingredient pull list. Source: order_ingredient_demand view (orders joined to recipe_ingredients) for confirmed / preparing / ready orders from today onwards." />
+                </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   Per-order ingredient call-out from confirmed bookings
                 </p>
@@ -273,7 +277,10 @@ export default function KitchenPrepListPage() {
                           </CardHeader>
                           <CardContent className="space-y-3">
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Menu</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+                                Menu
+                                <InfoTooltip content="Distinct menu_items linked to this order. Source: order_items.menu_item_id joined to menu_items." />
+                              </p>
                               <div className="flex flex-wrap gap-1">
                                 {menuItems.map((m) => (
                                   <Badge key={m.menu_item_name} variant="secondary" className="text-xs">
@@ -283,7 +290,10 @@ export default function KitchenPrepListPage() {
                               </div>
                             </div>
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Ingredients to pull</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1 flex items-center gap-1">
+                                Ingredients to pull
+                                <InfoTooltip content="Quantity required summed across all menu items in this order. Tick or warning compares quantity_required against inventory_demand_outlook.current_stock." />
+                              </p>
                               <ul className="text-sm divide-y divide-slate-100">
                                 {ingredients.map((ing) => {
                                   const health = stockHealth(ing.inventory_item_id, ing.quantity);

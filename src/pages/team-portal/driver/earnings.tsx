@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,6 +109,7 @@ export default function DriverEarningsPage() {
                   icon={DollarSign}
                   accent="from-emerald-500 to-green-600"
                   sublabel={`${stats.totalHours.toFixed(1)} hours over ${stats.sessionCount} shifts`}
+                  tooltip="Sum of total_earnings across every shift you've ever logged. Source: staff_work_sessions where staff_id = your user id."
                 />
                 <StatCard
                   label="Already paid"
@@ -115,6 +117,7 @@ export default function DriverEarningsPage() {
                   icon={CheckCircle2}
                   accent="from-blue-500 to-indigo-600"
                   sublabel={`${stats.paidCount} paid shift${stats.paidCount === 1 ? "" : "s"}`}
+                  tooltip="Earnings from shifts the office has already paid out. Source: staff_work_sessions where payment_status = paid."
                 />
                 <StatCard
                   label="Pending payout"
@@ -122,6 +125,7 @@ export default function DriverEarningsPage() {
                   icon={Clock}
                   accent="from-amber-500 to-orange-600"
                   sublabel={`${stats.unpaidCount} shift${stats.unpaidCount === 1 ? "" : "s"} awaiting payment`}
+                  tooltip="Earnings sitting in the queue for the next payroll run. Source: staff_work_sessions where payment_status is anything other than paid."
                 />
                 <StatCard
                   label="Last 30 days"
@@ -129,6 +133,7 @@ export default function DriverEarningsPage() {
                   icon={TrendingUp}
                   accent="from-purple-500 to-pink-600"
                   sublabel={`${formatR(stats.thisWeek)} this week`}
+                  tooltip="Earnings from shifts started in the last 30 days. Source: staff_work_sessions where clock_in is within the rolling 30-day window."
                 />
               </div>
 
@@ -169,19 +174,23 @@ export default function DriverEarningsPage() {
 }
 
 function StatCard({
-  label, value, sublabel, icon: Icon, accent,
+  label, value, sublabel, icon: Icon, accent, tooltip,
 }: {
   label: string;
   value: string;
   sublabel?: string;
   icon: React.ComponentType<{ className?: string }>;
   accent: string;
+  tooltip?: string;
 }) {
   return (
     <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center gap-1">
+            {label}
+            {tooltip && <InfoTooltip content={tooltip} />}
+          </p>
           <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${accent} flex items-center justify-center`}>
             <Icon className="w-4 h-4 text-white" />
           </div>
@@ -207,12 +216,24 @@ function ShiftTable({ sessions }: { sessions: WorkSession[] }) {
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
-            <th className="text-left px-4 py-2 font-medium">Date</th>
-            <th className="text-left px-4 py-2 font-medium">Clock in</th>
-            <th className="text-left px-4 py-2 font-medium">Clock out</th>
-            <th className="text-right px-4 py-2 font-medium">Hours</th>
-            <th className="text-right px-4 py-2 font-medium">Earnings</th>
-            <th className="text-right px-4 py-2 font-medium">Status</th>
+            <th className="text-left px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Date<InfoTooltip content="Shift date. Source: staff_work_sessions.session_date." /></span>
+            </th>
+            <th className="text-left px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Clock in<InfoTooltip content="Time you started the shift. Source: staff_work_sessions.clock_in." /></span>
+            </th>
+            <th className="text-left px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Clock out<InfoTooltip content="Time you ended the shift. Active means you're still on the clock. Source: staff_work_sessions.clock_out." /></span>
+            </th>
+            <th className="text-right px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Hours<InfoTooltip content="Total worked hours for this shift. Source: staff_work_sessions.total_hours." /></span>
+            </th>
+            <th className="text-right px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Earnings<InfoTooltip content="Pay calculated for this shift -- hours times your rate plus any bonuses. Source: staff_work_sessions.total_earnings." /></span>
+            </th>
+            <th className="text-right px-4 py-2 font-medium">
+              <span className="inline-flex items-center gap-1">Status<InfoTooltip content="Whether the shift has been paid out yet. Source: staff_work_sessions.payment_status." /></span>
+            </th>
           </tr>
         </thead>
         <tbody>
