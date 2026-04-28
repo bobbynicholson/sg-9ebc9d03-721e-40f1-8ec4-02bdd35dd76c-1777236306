@@ -24,6 +24,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
+import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 
 interface NavItem {
   title: string;
@@ -33,7 +34,11 @@ interface NavItem {
 }
 
 interface NavSection {
+  /** Stable id for localStorage persistence -- never change once shipped. */
+  id: string;
   title: string;
+  /** Initial open state if no preference is stored yet. */
+  defaultOpen: boolean;
   items: NavItem[];
 }
 
@@ -65,7 +70,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
 
   const kitchenNavSections: NavSection[] = [
     {
+      id: "dashboard",
       title: "Dashboard",
+      defaultOpen: true,
       items: [
         {
           title: "Overview",
@@ -82,7 +89,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       ]
     },
     {
+      id: "production",
       title: "Production",
+      defaultOpen: true,
       items: [
         {
           title: "Prep List",
@@ -105,7 +114,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       ]
     },
     {
+      id: "menu-inventory",
       title: "Menu & Inventory",
+      defaultOpen: false,
       items: [
         {
           title: "Menu Items",
@@ -122,7 +133,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
       ]
     },
     {
+      id: "settings",
       title: "Settings",
+      defaultOpen: false,
       items: [
         {
           title: "Kitchen Settings",
@@ -154,12 +167,16 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
             />
           </div>
         )}
-        {kitchenNavSections.map((section) => (
-          <div key={section.title}>
-            <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              {section.title}
-            </h3>
-            <div className="space-y-1">
+        {kitchenNavSections.map((section) => {
+          const containsActive = section.items.some((i) => isActive(i.href));
+          return (
+            <CollapsibleNavSection
+              key={section.id}
+              title={section.title}
+              storageKey={`kitchen:${section.id}`}
+              defaultOpen={section.defaultOpen}
+              containsActiveRoute={containsActive}
+            >
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
@@ -186,9 +203,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
                   </Link>
                 );
               })}
-            </div>
-          </div>
-        ))}
+            </CollapsibleNavSection>
+          );
+        })}
         <div className="pt-4 border-t border-slate-100"><SignOutButton /></div>
       </div>
     </ScrollArea>
@@ -265,46 +282,50 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
           {/* Navigation */}
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-6">
-              {kitchenNavSections.map((section) => (
-                <div key={section.title}>
-                  {!isCollapsed && (
-                    <h3 className="mb-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {section.title}
-                    </h3>
-                  )}
-                  <div className="space-y-1">
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      const active = isActive(item.href);
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-orange-50 hover:text-orange-700",
-                            active
-                              ? "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-md"
-                              : "text-slate-700",
-                            isCollapsed ? "justify-center" : ""
+              {kitchenNavSections.map((section) => {
+                const containsActive = section.items.some((i) => isActive(i.href));
+                const linkRows = section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-orange-50 hover:text-orange-700",
+                        active
+                          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-md"
+                          : "text-slate-700",
+                        isCollapsed ? "justify-center" : ""
+                      )}
+                      title={isCollapsed ? item.title : ""}
+                    >
+                      <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
+                      {!isCollapsed && (
+                        <div className="flex-1 min-w-0">
+                          <div className="truncate">{item.title}</div>
+                          {item.description && !active && (
+                            <div className="text-xs text-slate-500 truncate">{item.description}</div>
                           )}
-                          title={isCollapsed ? item.title : ""}
-                        >
-                          <Icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-slate-600")} />
-                          {!isCollapsed && (
-                            <div className="flex-1 min-w-0">
-                              <div className="truncate">{item.title}</div>
-                              {item.description && !active && (
-                                <div className="text-xs text-slate-500 truncate">{item.description}</div>
-                              )}
-                            </div>
-                          )}
-                          {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                        </div>
+                      )}
+                      {!isCollapsed && active && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                    </Link>
+                  );
+                });
+                return (
+                  <CollapsibleNavSection
+                    key={section.id}
+                    title={section.title}
+                    storageKey={`kitchen:${section.id}`}
+                    defaultOpen={section.defaultOpen}
+                    containsActiveRoute={containsActive}
+                    flatMode={isCollapsed}
+                  >
+                    {linkRows}
+                  </CollapsibleNavSection>
+                );
+              })}
             </div>
           </ScrollArea>
 

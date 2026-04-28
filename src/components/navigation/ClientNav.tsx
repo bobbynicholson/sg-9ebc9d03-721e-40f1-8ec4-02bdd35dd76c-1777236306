@@ -21,6 +21,22 @@ import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesk
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
+
+interface ClientNavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface ClientNavSection {
+  /** Stable id for localStorage persistence -- never change once shipped. */
+  id: string;
+  title: string;
+  /** Initial open state if no preference is stored yet. */
+  defaultOpen: boolean;
+  items: ClientNavItem[];
+}
 
 export function ClientNav() {
   const router = useRouter();
@@ -43,11 +59,25 @@ export function ClientNav() {
     localStorage.setItem("clientNav-collapsed", JSON.stringify(newState));
   };
 
-  const navigation = [
-    { name: "Dashboard", href: "/client-portal/dashboard", icon: LayoutDashboard },
-    { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
-    { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
-    { name: "Billing", href: "/client-portal/billing", icon: Receipt },
+  const clientNavSections: ClientNavSection[] = [
+    {
+      id: "dashboard",
+      title: "Dashboard",
+      defaultOpen: true,
+      items: [
+        { name: "Dashboard", href: "/client-portal/dashboard", icon: LayoutDashboard },
+      ]
+    },
+    {
+      id: "orders",
+      title: "Orders",
+      defaultOpen: true,
+      items: [
+        { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
+        { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
+        { name: "Billing", href: "/client-portal/billing", icon: Receipt },
+      ]
+    }
   ];
 
   const isActive = (path: string) => router.pathname === path;
@@ -99,23 +129,36 @@ export function ClientNav() {
                   { href: "/client-portal/billing",  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-orange-500" },
                 ]}
               />
-              <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
+              <div className="pt-2 mt-2 border-t border-slate-100 space-y-4">
+              {clientNavSections.map((section) => {
+                const containsActive = section.items.some((i) => isActive(i.href));
                 return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isActive(item.href)
-                        ? "bg-blue-50 text-blue-600 font-medium"
-                        : "text-slate-700 hover:bg-slate-100"
-                    }`}
-                    onClick={() => setOpen(false)}
+                  <CollapsibleNavSection
+                    key={section.id}
+                    title={section.title}
+                    storageKey={`client:${section.id}`}
+                    defaultOpen={section.defaultOpen}
+                    containsActiveRoute={containsActive}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span>{item.name}</span>
-                  </Link>
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                            isActive(item.href)
+                              ? "bg-blue-50 text-blue-600 font-medium"
+                              : "text-slate-700 hover:bg-slate-100"
+                          }`}
+                          onClick={() => setOpen(false)}
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{item.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </CollapsibleNavSection>
                 );
               })}
               </div>
@@ -165,23 +208,38 @@ export function ClientNav() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-            {navigation.map((item) => {
-              const Icon = item.icon;
+          <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+            {clientNavSections.map((section) => {
+              const containsActive = section.items.some((i) => isActive(i.href));
+              const linkRows = section.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                      isActive(item.href)
+                        ? "bg-blue-50 text-blue-600 font-medium shadow-sm"
+                        : "text-slate-700 hover:bg-slate-100"
+                    } ${isCollapsed ? "justify-center" : ""}`}
+                    title={isCollapsed ? item.name : ""}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    {!isCollapsed && <span>{item.name}</span>}
+                  </Link>
+                );
+              });
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive(item.href)
-                      ? "bg-blue-50 text-blue-600 font-medium shadow-sm"
-                      : "text-slate-700 hover:bg-slate-100"
-                  } ${isCollapsed ? "justify-center" : ""}`}
-                  title={isCollapsed ? item.name : ""}
+                <CollapsibleNavSection
+                  key={section.id}
+                  title={section.title}
+                  storageKey={`client:${section.id}`}
+                  defaultOpen={section.defaultOpen}
+                  containsActiveRoute={containsActive}
+                  flatMode={isCollapsed}
                 >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
+                  {linkRows}
+                </CollapsibleNavSection>
               );
             })}
           </nav>
