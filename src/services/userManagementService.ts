@@ -483,13 +483,19 @@ export const userManagementService = {
   /**
    * Search users by name or email
    */
-  async searchUsers(searchTerm: string): Promise<UserWithDepartments[]> {
+  async searchUsers(searchTerm: string, companyId?: string): Promise<UserWithDepartments[]> {
     try {
-      const { data: profiles, error: profilesError } = await supabase
+      let profilesQuery = supabase
         .from("profiles")
         .select("*")
         .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .order("created_at", { ascending: false });
+
+      if (companyId) {
+        profilesQuery = profilesQuery.eq("company_id", companyId);
+      }
+
+      const { data: profiles, error: profilesError } = await profilesQuery;
 
       if (profilesError) throw profilesError;
 

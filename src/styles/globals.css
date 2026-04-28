@@ -232,7 +232,8 @@
    otherwise content sits stranded behind 180-200px of dead space.
    Each Nav writes data-sidebar-collapsed to <html> when toggled. */
 @media (min-width: 1024px) {
-  html[data-sidebar-collapsed="true"] .lg\:pl-64 {
+  html[data-sidebar-collapsed="true"] .lg\:pl-64,
+  html[data-sidebar-collapsed="true"] .xl\:pl-72 {
     padding-left: 5rem !important;
   }
 }
