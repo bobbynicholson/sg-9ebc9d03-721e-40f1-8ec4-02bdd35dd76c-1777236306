@@ -121,7 +121,7 @@ const sections: PlatformNavSection[] = [
     items: [
       {
         title: "Running Todo",
-        href: "/admin/running-todo",
+        href: "/admin/platform/running-todo",
         icon: ListChecks,
         description: "Audit-derived backlog",
       },

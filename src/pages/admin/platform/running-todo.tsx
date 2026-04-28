@@ -3,7 +3,7 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -920,7 +920,7 @@ function AdminRunningTodoPage() {
         <title>Running Todo - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <AdminNav />
+      <PlatformNav />
       <main className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <div className="px-3 sm:px-4 md:px-6 py-6 sm:py-8 max-w-screen-2xl">
           <div className="mb-6">
@@ -1009,7 +1009,7 @@ function AdminRunningTodoPage() {
 
 export default function ProtectedAdminRunningTodo() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
       <AdminRunningTodoPage />
     </ProtectedRoute>
   );
