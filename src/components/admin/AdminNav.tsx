@@ -48,7 +48,8 @@ import {
   Target,
   ChefHat,
   ChevronLeft,
-  Palette
+  Palette,
+  Code2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -296,6 +297,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/integrations",
           icon: Zap,
           description: "Pipe leads + orders into 5,000+ apps"
+        },
+        {
+          title: "Lead Capture Forms",
+          href: "/admin/integrations/embed",
+          icon: Code2,
+          description: "Public embeddable forms"
         },
         {
           title: "Email Templates",
