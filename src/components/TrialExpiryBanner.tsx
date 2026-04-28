@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { AlertCircle, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { subscriptionService } from "@/services/subscriptionService";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
@@ -10,33 +9,37 @@ interface TrialStatus {
   isInTrial: boolean;
   daysRemaining: number;
   trialEndsAt: string | null;
-  hasUnreadNotifications: boolean;
 }
 
+// Reads trial state straight from the company row that AuthContext already
+// fetches. The previous implementation queried the `subscriptions` table via
+// subscriptionService.checkTrialStatus, but new tenants are created with a
+// trial against companies.subscription_status (no subscriptions row exists),
+// so the banner never appeared. This now matches the rest of the codebase
+// which treats companies as the source of truth for subscription state.
 export function TrialExpiryBanner() {
-  const { user, profile } = useAuth();
-  const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
+  const { profile, company } = useAuth() as any;
   const [dismissed, setDismissed] = useState(false);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user?.id) {
-      loadTrialStatus();
+  const trialStatus: TrialStatus | null = (() => {
+    if (!company) return null;
+    const status = company.subscription_status;
+    const isTrialStatus = status === "trial" || status === "trialing";
+    if (!isTrialStatus || !company.trial_ends_at) {
+      return { isInTrial: false, daysRemaining: 0, trialEndsAt: null };
     }
-  }, [user?.id]);
-
-  const loadTrialStatus = async () => {
-    if (!user?.id) return;
-
-    try {
-      const status = await subscriptionService.checkTrialStatus(user.id);
-      setTrialStatus(status);
-    } catch (error) {
-      console.error("Error loading trial status:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const now = new Date();
+    const trialEnd = new Date(company.trial_ends_at);
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    );
+    return {
+      isInTrial: daysRemaining >= 0,
+      daysRemaining,
+      trialEndsAt: company.trial_ends_at,
+    };
+  })();
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -48,7 +51,7 @@ export function TrialExpiryBanner() {
 
   // Check if banner was already dismissed for this day count
   useEffect(() => {
-    if (trialStatus?.daysRemaining) {
+    if (trialStatus?.daysRemaining !== undefined && trialStatus.daysRemaining !== null) {
       const wasDismissed = localStorage.getItem(`trial-banner-dismissed-${trialStatus.daysRemaining}`);
       if (wasDismissed === "true") {
         setDismissed(true);
@@ -56,7 +59,7 @@ export function TrialExpiryBanner() {
     }
   }, [trialStatus?.daysRemaining]);
 
-  if (loading || !trialStatus || !trialStatus.isInTrial || dismissed) {
+  if (!trialStatus || !trialStatus.isInTrial || dismissed) {
     return null;
   }
 

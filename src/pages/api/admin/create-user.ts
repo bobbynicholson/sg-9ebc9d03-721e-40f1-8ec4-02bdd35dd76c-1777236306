@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { createPagesServerClient } from "@/lib/supabase/server";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 // Map UserRole enum values to database-accepted role values
@@ -17,12 +18,43 @@ function mapRoleToDatabase(role: string): string {
   return roleMap[role] || role;
 }
 
+// Roles permitted to create users via this endpoint. Anyone outside this set
+// is rejected before we touch supabase.auth.signUp.
+const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // SECURITY: require an authenticated caller and check their role + company.
+  // Previously this route was wide open -- anyone could create users with any
+  // role (including super_admin) tied to any company_id.
+  const ssrClient = createPagesServerClient({ req, res });
+  const {
+    data: { user: callerAuth },
+  } = await ssrClient.auth.getUser();
+
+  if (!callerAuth) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+
+  const { data: callerProfile, error: callerProfileErr } = await ssrClient
+    .from("profiles")
+    .select("role, active_role, company_id")
+    .eq("id", callerAuth.id)
+    .single();
+
+  if (callerProfileErr || !callerProfile) {
+    return res.status(403).json({ error: "Caller profile not found" });
+  }
+
+  const callerRole = (callerProfile as any).active_role || (callerProfile as any).role;
+  if (!CALLER_ROLES_ALLOWED.has(callerRole)) {
+    return res.status(403).json({ error: "Forbidden: insufficient role" });
   }
 
   const {
@@ -38,6 +70,17 @@ export default async function handler(
 
   if (!email || !password || !full_name || !role || !company_id) {
     return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  // Non-super-admins can only create users inside their own company, and may
+  // never mint another super_admin.
+  if (callerRole !== "super_admin") {
+    if ((callerProfile as any).company_id !== company_id) {
+      return res.status(403).json({ error: "Cannot create users for another company" });
+    }
+    if (role === "super_admin") {
+      return res.status(403).json({ error: "Cannot create super_admin users" });
+    }
   }
 
   try {

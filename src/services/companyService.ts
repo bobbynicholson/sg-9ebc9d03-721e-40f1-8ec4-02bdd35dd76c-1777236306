@@ -33,6 +33,9 @@ export const companyService = {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
+      // 30-day trial -- matches the platform-wide policy and the figure shown
+      // in /admin/platform/trial-management. The previous 14-day window was
+      // out of step with the rest of the codebase.
       const companyData: CompanyInsert = {
         company_name: data.name,
         slug,
@@ -42,7 +45,7 @@ export const companyService = {
         currency: data.currency || "ZAR",
         timezone: data.timezone || "Africa/Johannesburg",
         subscription_status: "trial",
-        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         is_active: true,
       } as any;
 
@@ -342,9 +345,9 @@ export const companyService = {
       
       const userId = userData.user.id;
 
-      // 2. Create the company
+      // 2. Create the company (30-day trial, matches platform policy)
       const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 14);
+      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
       const { data: company, error: companyError } = await supabase
         .from("companies")
