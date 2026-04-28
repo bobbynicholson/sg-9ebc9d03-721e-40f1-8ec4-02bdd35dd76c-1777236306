@@ -975,6 +975,140 @@ const tooltipAuditCards: SprintCard[] = [
   },
 ];
 
+// =====================================================================
+// GROUP 10 -- JOURNEY AUDIT FINDINGS (28 Apr 2026)
+// =====================================================================
+// Six parallel auditors traced the customer journeys end-to-end using the
+// rewritten tooltips as contracts. Verdict: only the kitchen prep view
+// and the equipment-shortage resolution paths are usable end-to-end. Sales
+// funnel, billing, dispatch, and SaaS subscription auto-activation all
+// require manual SQL or super_admin intervention. Seven commits shipped
+// during the audit (multi-tenancy + auth fixes); the remaining items below.
+const journeyAuditCards: SprintCard[] = [
+  {
+    id: "journey-blockers",
+    title: "P0 -- Customer journey blockers",
+    why: "Each item below means a real user cannot complete a core action without a developer or super_admin manually intervening. These are the items that make the difference between 'demoable' and 'launchable'.",
+    estimate: "3-4 weeks",
+    risk: "High",
+    icon: AlertTriangle,
+    accent: "from-rose-600 to-red-700",
+    defaultOpen: true,
+    items: [
+      // Sales funnel
+      { title: "Quote builder writes only to localStorage", detail: "/admin/quotes/new persists the entire quote (line items, pricing, notes) to localStorage. Never calls quoteService.createQuote. Quotes never exist in the database. Tooltip says 'Demo data shown until live wiring lands' but the page is the primary quote-creation surface for staff.", status: "todo", ref: "src/pages/admin/quotes/new.tsx:196-227" },
+      { title: "No public lead capture form on the marketing site", detail: "Homepage / pricing / demo pages have no form wired to leadService.createLead. The only inbound path is /api/integrations/leads (Zapier / Facebook only). Anonymous visitors cannot submit an enquiry that lands in the leads table.", status: "todo" },
+      { title: "No client-side quote acceptance route", detail: "/c/order/[id] is an order view, not a quote acceptance page. There is no /c/quote/[id] route, no Accept button, no way for a client to accept a quote via the tokenised link. The 'client accepts' step in the journey simply does not exist in code.", status: "todo" },
+      { title: "Quote detail page has zero action buttons", detail: "/admin/quotes/[id].tsx has only Back and View Orders. Tooltip / spec says Send, Resend, Edit, Accept-as-client, Convert-to-Order should be there. Staff cannot operate on individual quotes from the detail view today.", status: "todo", ref: "src/pages/admin/quotes/[id].tsx" },
+      { title: "Payment webhook never sends confirmation emails", detail: "/api/webhooks/payment-confirmation has '// TODO: Actual email sending via Resend/SMTP' and a console.log. Deposit and balance confirmations never reach clients. Order is marked paid in the DB but the client receives nothing.", status: "todo", ref: "src/pages/api/webhooks/payment-confirmation.ts:282" },
+      { title: "Math.random() delivery distance on quote builder", detail: "Quote builder's delivery distance is `Math.floor(Math.random() * 30) + 5`. Pure fiction. Should call googleMapsService.calculateDistance from venue postal to kitchen.", status: "todo", ref: "src/pages/admin/quotes/new.tsx:117" },
+      // Fulfilment
+      { title: "Inventory deduction is hardcoded for one tenant", detail: "inventoryDeductionService uses a RECIPE_MAPPINGS constant tuned to Spit Braai's menu names. Any other tenant deducts zero ingredients because their menu names won't match. Inventory deduction is effectively single-tenant. Migrate to recipes + recipe_ingredients tables joined by company_id.", status: "todo", ref: "src/services/inventoryDeductionService.ts:24" },
+      { title: "Order assignments page is mockOrders + localStorage", detail: "/admin/order-assignments reads mockOrders and persists assignments to localStorage. Real assignments never reach the DB. Tooltip self-flags this. Wire to a real order_assignments + staff_assignments table.", status: "todo", ref: "src/pages/admin/order-assignments.tsx:47-99" },
+      { title: "Kitchen-duty-tracking page is a placeholder div", detail: "Page renders the literal text 'Kitchen Duty Tracking Content' in a placeholder div. Linked from AdminNav. Either build the admin duty roster overview or remove the nav entry.", status: "todo", ref: "src/pages/admin/kitchen-duty-tracking.tsx:26" },
+      // Dispatch
+      { title: "Route planning dispatch UI is mock data", detail: "/admin/route-planning is hardcoded MOCK_DRIVERS and MOCK_ORDERS. applyRoute short-circuits for mock IDs. Wire driverService.getAllDrivers(companyId) and routeOptimizationService.getUnassignedOrders(companyId) so dispatched routes hit the DB and surface in the driver portal.", status: "todo", ref: "src/pages/admin/route-planning.tsx:32-146" },
+      { title: "GPS upsert on event-log table is structurally wrong", detail: "gpsTracking.updateDriverLocation does upsert onConflict 'driver_id' on gps_tracking, an event-log table where driver_id is not unique. Either change to insert (history) or add a driver_locations 'current state' table with driver_id unique. Today the constraint will fight every second update.", status: "todo", ref: "src/services/driver/gpsTracking.ts:26" },
+      // Billing closure
+      { title: "Client portal invoices and admin invoices are different data models", detail: "/client-portal/billing.tsx synthesises invoices from payment_schedules client-side and never reads the invoices table. Final invoices generated in /admin/invoices are completely invisible to the client portal. Two parallel invoice models that don't talk.", status: "todo", ref: "src/pages/client-portal/billing.tsx:74-169" },
+      { title: "Damage auto-bill is cosmetic theatre", detail: "/team-portal/cleaning/equipment.tsx shows 'Auto-bill: R...' in the verification dialog. saveVerification writes the equipment_damages row but invoiceGenerationService never reads equipment_damages. The promised damage bill never reaches an invoice.", status: "todo", ref: "src/pages/team-portal/cleaning/equipment.tsx:272 + src/services/invoiceGenerationService.ts" },
+      { title: "Invoice email handler logs only, no real provider", detail: "/api/send-invoice-email returns 200 after a console.log. No actual send. Wire to Resend or SES via emailService and only return success when the provider acknowledges.", status: "todo", ref: "src/pages/api/send-invoice-email.ts:31" },
+      // SaaS lifecycle
+      { title: "No subscription activation webhook -- trial-to-active is manual", detail: "/api/webhooks/payment-confirmation handles orders + invoices only. There is no path that converts a successful subscription payment into companies.subscription_status='active'. Every paying customer today requires super_admin to manually click Activate in trial-management. Add a payment_type='subscription' branch + create subscription_invoices.", status: "todo", ref: "src/pages/api/webhooks/payment-confirmation.ts" },
+      { title: "/subscription/checkout is a dead-end UX", detail: "The page posts to PayFast with userId: temp_${Date.now()}. Nothing in the database is updated when the user completes checkout. The whole /pricing -> /subscription/checkout flow is decorative. Persist the company_id pre-redirect and reconcile it in the webhook.", status: "todo", ref: "src/pages/subscription/checkout.tsx:91" },
+      { title: "After-sales email automation is an in-memory mock", detail: "lib/afterSalesAutomation.ts is `let mockEmailQueues: AfterSalesEmailQueue[] = []`. Wipes on every server restart. Never persisted, never sent. Marketed as a feature on the admin email-automation pages. Do NOT enable for any pilot tenant. Replace with email_queues table + cron-driven processor.", status: "todo", ref: "src/lib/afterSalesAutomation.ts:209" },
+    ],
+  },
+  {
+    id: "journey-tenancy",
+    title: "Multi-tenancy + auth findings (cross-cutting)",
+    why: "Three security holes were found and patched in flight (commits 596ef67, 4f3bc10, f0b4e6f). The remaining items are RLS-dependent paths that can leak across tenants if RLS isn't enabled on the underlying tables, plus signature-level footguns where the wrong call burns a tenant boundary silently.",
+    estimate: "1-2 weeks (RLS verification first, code follows)",
+    risk: "High",
+    icon: ShieldAlert,
+    accent: "from-amber-500 to-orange-600",
+    items: [
+      { title: "Run pg_tables.rowsecurity audit on every multi-tenant table", detail: "Single-record getters across leadService, quoteService, orderCRUD, inventoryService trust RLS for tenant isolation (e.g. getQuote, updateOrder, deleteLead, adjustStock all skip company_id filter). If RLS isn't enabled on every multi-tenant table, every single-record path is a cross-tenant leak. Check: `select tablename, rowsecurity from pg_tables where schemaname='public'` and confirm = true on companies, profiles, orders, leads, quotes, invoices, inventory_items, equipment, kitchen_*, cleaning_*, shopping_*, driver_*, payment_records, gps_tracking, notifications.", status: "todo" },
+      { title: "userManagementService.getAllUsers / searchUsers companyId is optional", detail: "Both methods accept companyId as optional. Two callers were just patched (driver-management, users.tsx) but the signature itself remains a footgun. Make companyId required (or add a separate getAllUsersAcrossPlatform for super_admin) so a future caller can't omit it.", status: "todo", ref: "src/services/userManagementService.ts:259,486" },
+      { title: "profileService methods completely unscoped by company_id", detail: "getProfiles({role}), getUsersByRole, searchClients, getClientsByRegion all return profiles across every tenant unless RLS catches every one. Add company_id parameter and filter at the query level.", status: "todo", ref: "src/services/profileService.ts:84,117,132,164" },
+      { title: "notificationService.markAsRead + deleteNotification have no ownership check", detail: "Both methods accept a notificationId and update / delete without checking the caller is the recipient. RLS-dependent. Add a verify-ownership step or a Postgres function that scopes by auth.uid().", status: "todo", ref: "src/services/notificationService.ts:128,197" },
+      { title: "EquipmentVerificationPanel + BrokenEquipmentDashboard scoped by user_id", detail: "Both components filter equipment data by user_id rather than company_id. Inside a single tenant, staff member A won't see staff member B's verifications. Should be company_id throughout.", status: "todo", ref: "src/components/cleaning/EquipmentVerificationPanel.tsx:64 + src/components/cleaning/BrokenEquipmentDashboard.tsx:41" },
+      { title: "gps_tracking table has no company_id column", detail: "RLS on gps_tracking can only key off the joined driver_id -> profiles.company_id. Add a denormalised company_id column or wrap reads in a company-aware view.", status: "todo", ref: "src/services/driver/gpsTracking.ts (table schema)" },
+      { title: "?dev=true middleware backdoor", detail: "Triple-gated (NODE_ENV != production AND localhost AND ?dev) so on Vercel production it is neutralised at compile time. Low risk but worth removing to reduce surface area and support a clean security audit narrative.", status: "todo", ref: "src/middleware.ts:118-130" },
+      { title: "notificationService.broadcastNotification footgun", detail: "params.userId is used as a company_id filter (profiles.eq('company_id', params.userId)). Currently uncalled anywhere but the misleading parameter name will trip up the next dev. Rename to companyId and update the type.", status: "todo", ref: "src/services/notificationService.ts:265" },
+      { title: "lib/companyIsolation.ts helper exists but has zero callers", detail: "getCompanyContext, validateCompanyAccess, withCompanyFilter, validateCompanyMutation all defined but unused. Either retire the helper or migrate the services to use it (would close several of the items above for free).", status: "todo" },
+    ],
+  },
+  {
+    id: "journey-comms-billing",
+    title: "Comms + billing logic that lies to the user",
+    why: "Four items where the UI says 'sent' or 'saved' or 'collected' but the underlying behaviour is silently wrong. Each one erodes trust the moment a tenant double-checks.",
+    estimate: "1 week",
+    risk: "High",
+    icon: AlertCircle,
+    accent: "from-orange-500 to-amber-500",
+    items: [
+      { title: "emailService silently no-ops when no provider configured", detail: "When a tenant has no Resend / SMTP row in email_settings, emailService.sendEmail falls through to console.log and returns status: 'sent'. Tenants believe email is going out. Either return status: 'simulated' or surface a 'no provider configured' banner on the admin email pages.", status: "todo", ref: "src/services/emailService.ts:161" },
+      { title: "Invoices 'Total Revenue' KPI sums all invoices including drafts + outstanding", detail: "Should filter to status='paid' or relabel to 'Total Invoiced'. Today the number lies to the owner about what they have actually collected. (Confirmed by closure auditor; was already in Group 9.)", status: "todo", ref: "src/pages/admin/invoices.tsx:386-388" },
+      { title: "Invoices loadOrders closure bug -- orders show as uninvoiced on first load", detail: "loadOrders filters using stale invoices state from the previous render. On first load invoices is [] so every order appears uninvoiced. (Confirmed by closure auditor; was already in Group 9.)", status: "todo", ref: "src/pages/admin/invoices.tsx:122-126" },
+      { title: "Driver schedule + deliveries expose customer total_amount to drivers", detail: "Both pages render the full orders.total_amount column. Drivers see what the catering company is charging the client. Decision needed: hide it or replace with a driver-fee column. Today this leaks revenue data to every driver on every shift.", status: "todo", ref: "src/pages/team-portal/driver/schedule.tsx:154 + src/pages/team-portal/driver/deliveries.tsx:188" },
+      { title: "VAT defaults to 15% silently if company has no tax_rate", detail: "invoiceGenerationService applies 15% VAT regardless of tenant region if the companies row has no tax_rate set. UK / US tenants get the wrong rate without warning. Block invoice generation until tax_rate is configured.", status: "todo", ref: "src/services/invoiceGenerationService.ts:135" },
+      { title: "Onboarding completion in localStorage", detail: "onboardingService.getOnboardingProgress reads / writes localStorage[onboarding_${userId}]. Not synced to companies.onboarding_completed. super_admin can never see real onboarding progress; switching browser loses progress. Move to a server-side state derived from real signals (first menu created, first lead added, first quote sent).", status: "todo", ref: "src/services/onboardingService.ts" },
+      { title: "Two trial enum values in use ('trial' vs 'trialing')", detail: "companies.subscription_status accepts both. trial-management filters both; subscription-management normalises in JS. Pick one (recommend 'trialing' to match Stripe) and migrate the other rows.", status: "todo" },
+      { title: "Hardcoded R150/hour in timeClockService", detail: "Pay rate is a literal in code. Should come from companies.default_hourly_rate or per-profile hourly_rate. Critical before drivers / kitchen staff start logging real hours.", status: "todo", ref: "src/services/timeClockService.ts:91" },
+      { title: "Hardcoded R250/delivery in driver dashboard + routes", detail: "Today's Potential Earnings + Potential Earnings panels multiply job count by R250. Already in Group 9; re-confirmed by driver auditor. Replace with driver_pay_rates or company-default rate.", status: "todo", ref: "src/pages/team-portal/driver/dashboard.tsx:354 + src/pages/team-portal/driver/routes.tsx:238,445,619" },
+    ],
+  },
+  {
+    id: "journey-dead-ui",
+    title: "Dead UI + orphaned components",
+    why: "Buttons that don't fire, components that never get rendered, status enums that drift between files. None of these are launch-blockers individually but together they make the app feel half-finished and create confusion when a real user clicks something that does nothing.",
+    estimate: "3-4 days",
+    risk: "Medium",
+    icon: ListChecks,
+    accent: "from-slate-500 to-slate-600",
+    items: [
+      { title: "/admin/inventory has dead Add / Edit / Delete / Sync / Filters / Export buttons", detail: "All five top-bar actions lack onClick handlers. Working CRUD lives at /admin/inventory-tracking instead. Either consolidate the two pages or wire the buttons. (Group 9 also flagged the supplier label + expiryDate hardcoding on this page.)", status: "todo", ref: "src/pages/admin/inventory.tsx" },
+      { title: "Convert to Quote button doesn't actually convert in the DB", detail: "/admin/leads/index.tsx:241 routes to /admin/quotes/new?leadId=... but quotes/new reads the lead from localStorage. The conversion never happens at the leadService level. Lead status stays 'new'.", status: "todo", ref: "src/pages/admin/leads/index.tsx:241" },
+      { title: "DriverConfirmationPanel is orphaned", detail: "Four-stage delivery checklist component exists at components/driver/DriverConfirmationPanel.tsx but is not surfaced from any audited driver page (dashboard, routes, deliveries, tracking, schedule). Either wire it into the delivery flow or delete it.", status: "todo", ref: "src/components/driver/DriverConfirmationPanel.tsx" },
+      { title: "order_number generated as ORD-${quote.id.substring(0,8)} -- collision risk", detail: "convertQuoteToOrder generates an order_number from the first 8 chars of the quote UUID. Running the conversion twice (e.g. retry after a failure) collides on the unique constraint. Use a real sequence per company_id or add a random suffix.", status: "todo", ref: "src/services/quoteService.ts:130" },
+      { title: "Status drift -- 'out_for_delivery' vs 'in_transit'", detail: "orderWorkflow.startDelivery writes status='out_for_delivery' but every UI surface (orders kanban, c/order/[id] timeline) reads 'in_transit'. The status label disappears on the dashboard the moment the driver clocks in. Pick one and migrate.", status: "todo", ref: "src/services/order/orderWorkflow.ts:114" },
+      { title: "Calendar 'Upcoming' KPI capped at 5", detail: "upcoming.length is read from an array sliced earlier for the next-five list view. Use a separate uncapped count for the KPI. (Group 9 confirmed by sales-funnel auditor.)", status: "todo", ref: "src/pages/admin/calendar.tsx:407" },
+      { title: "Currency 90-day trend assumes chronological order", detail: "Reads first vs last entries of historicalRates without sorting. If the array isn't strictly sorted the trend calculation is wrong. (Group 9 confirmed.)", status: "todo", ref: "src/pages/admin/platform/currency-monitoring.tsx:90-101" },
+      { title: "/client/subscription-invoices is gated behind UserRole.CLIENT", detail: "This page is SaaS subscription billing (CateringMS billing the catering company) but its role guard is UserRole.CLIENT. End clients of catering companies are seeing CateringMS's billing screen. Should be UserRole.COMPANY_ADMIN / OWNER.", status: "todo", ref: "src/pages/client/subscription-invoices.tsx" },
+      { title: "/api/integrations/invoice-paid updates orders not invoices", detail: "Zapier inbound webhook flips order.payment_status only. Doesn't touch invoices.status. Two paths can drift over time. Should update both transactionally.", status: "todo", ref: "src/pages/api/integrations/invoice-paid.ts" },
+      { title: "estimatedFuelCost in routeOptimizationService uses USD-style 1.5/L", detail: "Currency-blind hardcoded value. Make currency-aware via companies.currency or a regional config.", status: "todo", ref: "src/services/routeOptimizationService.ts:391" },
+    ],
+  },
+  {
+    id: "journey-fixes-shipped",
+    title: "Audit fixes already shipped (28 Apr 2026 audit trail)",
+    why: "Reference list of every fix the six audit agents shipped in flight on 28 April 2026 while the audit ran. Recorded for traceability. Items below are SHIPPED, not todo.",
+    estimate: "Done",
+    risk: "Low",
+    icon: CheckCircle2,
+    accent: "from-emerald-500 to-green-600",
+    items: [
+      { title: "Multi-tenancy fix on /admin/driver-management", detail: "userManagementService.getAllUsers() called without company_id meant company admins saw drivers across every tenant. Now scoped to user.company_id with early return.", status: "shipped", ref: "596ef67" },
+      { title: "/api/admin/create-user authentication", detail: "Endpoint was unauthenticated -- any anonymous POST could create users with arbitrary role + company_id. Now requires authenticated caller; super_admin can mint anywhere, company-level roles only inside their own tenant and never as super_admin.", status: "shipped", ref: "4f3bc10" },
+      { title: "/api/send-email caller-company lock", detail: "Endpoint was wide open and accepted companyId from the request body unauthenticated. Now derives company_id from the authenticated caller.", status: "shipped", ref: "f0b4e6f" },
+      { title: "Multi-tenancy fix on kitchen notifications + duty service", detail: "kitchen/notifications.tsx query and kitchenDutyService.getActiveDutyShifts both lacked company_id filtering. Both fixed.", status: "shipped", ref: "318c758" },
+      { title: "Multi-tenancy fix on cleaning/dashboard equipment_bookings", detail: "Query lacked company_id filter and ChatBot read user.user_metadata.company_id. Both fixed.", status: "shipped", ref: "14c7b3a" },
+      { title: "Multi-tenancy fix on AdminTrackingMap", detail: "Live driver location subscription + 30s poll had no company filter; admin saw drivers across every tenant. AdminTrackingMap now accepts companyId.", status: "shipped", ref: "71bb93e" },
+      { title: "TimeClockWidget displayed NaN duration", detail: "Read currentSession.clock_in_time -- no such column. Now reads clock_in correctly.", status: "shipped", ref: "71bb93e" },
+      { title: "Driver startJob / completeJob were silent no-ops", detail: "Passed empty string as driverId. Now resolves driverId from auth session before calling deliveryOps.updateDeliveryStatus.", status: "shipped", ref: "71bb93e" },
+      { title: "Route optimiser missed orders dispatched via assigned_driver_id", detail: "routeOptimizationService.getUnassignedOrders + getDriverPendingOrders only matched legacy driver_id. Now ORs across both columns and writes both on saveOptimizedRoute.", status: "shipped", ref: "71bb93e" },
+      { title: "Client tracking never showed driver pin", detail: "/client-portal/tracking never set driver_id so the GPS row was never fetched. Now hydrates driver_id from the joined assigned driver.", status: "shipped", ref: "71bb93e" },
+      { title: "send-invoice-email content-type bug", detail: "Handler used formidable but the body was JSON; every invoice email send returned 500. Now reads JSON body. (Underlying 'no real provider' issue still open as a P0.)", status: "shipped", ref: "14c7b3a" },
+      { title: "Webhook flips order.status='completed' on paid invoice", detail: "Payment confirmation webhook didn't propagate to order status. Now does.", status: "shipped", ref: "14c7b3a" },
+      { title: "Trial period normalised to 30 days", detail: "companyService.createCompany was 14 days; createCompanyAndOwner was 30. Both now 30 days to match the UI.", status: "shipped", ref: "4f3bc10" },
+      { title: "TrialExpiryBanner now reads from companies", detail: "Banner queried an empty subscriptions table via subscriptionService and never showed. Now reads companies.subscription_status via AuthContext.", status: "shipped", ref: "4f3bc10" },
+      { title: "Sales funnel: dead Send button on /admin/quotes wired", detail: "Send button had no onClick handler. Now triggers quoteService.sendQuote.", status: "shipped", ref: "73811cd" },
+      { title: "Sales funnel: empty event_date crashed manual lead creation", detail: "leadService.createLead would error on empty string event_date. Now guarded.", status: "shipped", ref: "a68c5f3" },
+    ],
+  },
+];
+
 const groups: Group[] = [
   { id: "built", title: "1. Foundation -- What's already built", description: "Production-ready features. ~89,000 lines of code, 138 tables, 8 portals. Items in this group are functional but may have audit-flagged caveats noted inline.", cards: builtFeatures },
   { id: "audit", title: "2. Audit findings -- Phase 1 shipped, Phase 2 planned", description: "215-IQ multi-specialist audit (architecture, DB, security, business logic, UI/UX) flagged ~150 actionable findings. Phase 1 is done; Phase 2A-F sequenced by minimum-blast-radius.", cards: auditCards },
@@ -985,6 +1119,7 @@ const groups: Group[] = [
   { id: "reference", title: "7. Reference -- Metrics, risks, team plan", description: "Concrete success metrics, known risks with mitigations, team plan and budget.", cards: referenceCards },
   { id: "product-notes", title: "8. Product notes -- Bobby's roadmap ideas", description: "Feature ideas captured 27 April 2026. AI onboarding, WhatsApp/Facebook automation, events equipment, support model, AI receipt scanning, inventory admin page. All todo -- sequencing TBD.", cards: productNotesCards },
   { id: "tooltip-audit", title: "9. Tooltip rollout audit findings (28 Apr 2026)", description: "Surfaced while rolling out info tooltips across 71 pages. P0 multi-tenancy leak already fixed (commit 596ef67). Remaining items split into broken UX, mock/localStorage flows that need real persistence, and structural patterns to consolidate.", cards: tooltipAuditCards },
+  { id: "journey-audit", title: "10. Customer journey audit findings (28 Apr 2026)", description: "Six parallel auditors traced the journeys end-to-end using the rewritten tooltips as contracts: Lead->Quote->Order, Order->Kitchen, Driver->Delivery, Cleaning->Invoice->Payment, SaaS lifecycle, and cross-cutting auth+tenancy+comms. Sixteen wiring fixes shipped in flight. Remaining items split into customer-journey blockers, multi-tenancy + auth, billing/comms that lies, dead UI, and a record of the fixes already shipped.", cards: journeyAuditCards },
 ];
 
 // =====================================================================
