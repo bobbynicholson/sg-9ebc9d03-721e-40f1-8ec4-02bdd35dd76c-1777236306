@@ -182,7 +182,9 @@ export default function AdminInventory() {
   const [rowDetail, setRowDetail] = useState<{
     recipes: Array<{ recipe_id: string; recipe_name: string; quantity: number; unit: string }>;
     movements: any[];
-  }>({ recipes: [], movements: [] });
+    batches: any[];
+    costHistory: Array<{ date: string; unit_cost: number }>;
+  }>({ recipes: [], movements: [], batches: [], costHistory: [] });
   const [rowDetailLoading, setRowDetailLoading] = useState(false);
 
   // ── Add ─────────────────────────────────────────────────────────
@@ -390,14 +392,16 @@ export default function AdminInventory() {
       return;
     }
     setExpandedRowId(item.id);
-    setRowDetail({ recipes: [], movements: [] });
+    setRowDetail({ recipes: [], movements: [], batches: [], costHistory: [] });
     setRowDetailLoading(true);
     try {
-      const [recipes, movements] = await Promise.all([
+      const [recipes, movements, batches, costHistory] = await Promise.all([
         inventoryService.getRecipesUsingItem(item.id),
         inventoryService.getMovementsForItem(item.id, 10),
+        inventoryService.getBatchesForItem(item.id),
+        inventoryService.getCostHistoryForItem(item.id, 90),
       ]);
-      setRowDetail({ recipes, movements });
+      setRowDetail({ recipes, movements, batches, costHistory });
     } catch (err) {
       console.error("Error loading row detail:", err);
     } finally {
@@ -1356,33 +1360,155 @@ export default function AdminInventory() {
                         {rowDetailLoading ? (
                           <p className="text-xs text-slate-500">Loading details...</p>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Recipe usage */}
-                            <div>
-                              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
-                                In {rowDetail.recipes.length} recipe{rowDetail.recipes.length === 1 ? "" : "s"}
-                              </h4>
-                              {rowDetail.recipes.length === 0 ? (
-                                <p className="text-xs text-slate-500">Not linked to any recipe yet.</p>
-                              ) : (
-                                <ul className="space-y-1">
-                                  {rowDetail.recipes.slice(0, 6).map(r => (
-                                    <li key={r.recipe_id} className="text-xs text-slate-700 flex justify-between gap-2">
-                                      <span className="truncate">{r.recipe_name}</span>
-                                      <span className="text-slate-500 tabular-nums whitespace-nowrap">
-                                        {r.quantity} {r.unit}
-                                      </span>
-                                    </li>
-                                  ))}
-                                  {rowDetail.recipes.length > 6 && (
-                                    <li className="text-xs text-slate-500">+ {rowDetail.recipes.length - 6} more</li>
+                          <div className="space-y-5">
+                            {/* Top row: recipes · batches · cost history */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                              {/* Recipe usage */}
+                              <div>
+                                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                  In {rowDetail.recipes.length} recipe{rowDetail.recipes.length === 1 ? "" : "s"}
+                                </h4>
+                                {rowDetail.recipes.length === 0 ? (
+                                  <p className="text-xs text-slate-500">Not linked to any recipe yet.</p>
+                                ) : (
+                                  <ul className="space-y-1">
+                                    {rowDetail.recipes.slice(0, 6).map(r => (
+                                      <li key={r.recipe_id} className="text-xs text-slate-700 flex justify-between gap-2">
+                                        <span className="truncate">{r.recipe_name}</span>
+                                        <span className="text-slate-500 tabular-nums whitespace-nowrap">
+                                          {r.quantity} {r.unit}
+                                        </span>
+                                      </li>
+                                    ))}
+                                    {rowDetail.recipes.length > 6 && (
+                                      <li className="text-xs text-slate-500">+ {rowDetail.recipes.length - 6} more</li>
+                                    )}
+                                  </ul>
+                                )}
+                              </div>
+
+                              {/* Batches on hand (FIFO order) */}
+                              <div>
+                                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                  Batches on hand
+                                  {rowDetail.batches.length > 0 && (
+                                    <span className="ml-1 text-slate-400 font-normal">
+                                      ({rowDetail.batches.length})
+                                    </span>
                                   )}
-                                </ul>
-                              )}
+                                </h4>
+                                {rowDetail.batches.length === 0 ? (
+                                  <p className="text-xs text-slate-500">
+                                    No batch records yet. Receive stock to start tracking expiry per batch.
+                                  </p>
+                                ) : (
+                                  <ul className="space-y-1.5">
+                                    {rowDetail.batches.slice(0, 5).map((b: any, idx: number) => {
+                                      const daysToExpiry = b.expiry_date
+                                        ? Math.ceil((new Date(b.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                                        : null;
+                                      const expiryTone =
+                                        daysToExpiry == null ? "text-slate-400" :
+                                        daysToExpiry < 0     ? "text-red-700 font-semibold" :
+                                        daysToExpiry <= 7    ? "text-amber-700 font-semibold" :
+                                        daysToExpiry <= 30   ? "text-amber-600" :
+                                                               "text-emerald-700";
+                                      const expiryLabel =
+                                        daysToExpiry == null ? "no expiry" :
+                                        daysToExpiry < 0     ? `expired ${-daysToExpiry}d ago` :
+                                        daysToExpiry === 0   ? "expires today" :
+                                        daysToExpiry === 1   ? "expires tomorrow" :
+                                                               `${daysToExpiry}d left`;
+                                      return (
+                                        <li key={b.id} className="text-xs flex items-start justify-between gap-2 border-b border-slate-200 pb-1.5 last:border-b-0">
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-slate-700 truncate">
+                                              {idx === 0 && (
+                                                <span className="inline-block px-1 py-0 text-[9px] font-semibold uppercase tracking-wide bg-emerald-100 text-emerald-800 rounded mr-1.5">
+                                                  Use first
+                                                </span>
+                                              )}
+                                              {b.batch_number || `Received ${b.received_date}`}
+                                            </p>
+                                            <p className="text-slate-500 mt-0.5">
+                                              {Number(b.quantity).toLocaleString()} {item.unit}
+                                              {b.suppliers?.supplier_name && <> · {b.suppliers.supplier_name}</>}
+                                            </p>
+                                          </div>
+                                          <span className={`tabular-nums whitespace-nowrap ${expiryTone}`}>
+                                            {expiryLabel}
+                                          </span>
+                                        </li>
+                                      );
+                                    })}
+                                    {rowDetail.batches.length > 5 && (
+                                      <li className="text-xs text-slate-500">+ {rowDetail.batches.length - 5} more</li>
+                                    )}
+                                  </ul>
+                                )}
+                              </div>
+
+                              {/* Cost history sparkline */}
+                              <div>
+                                <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                  Cost trend (90 days)
+                                </h4>
+                                {rowDetail.costHistory.length < 2 ? (
+                                  <p className="text-xs text-slate-500">
+                                    {rowDetail.costHistory.length === 0
+                                      ? "No cost data logged yet."
+                                      : "Need a second receipt to chart a trend."}
+                                  </p>
+                                ) : (() => {
+                                  const points = rowDetail.costHistory;
+                                  const first = points[0].unit_cost;
+                                  const last = points[points.length - 1].unit_cost;
+                                  const min = Math.min(...points.map(p => p.unit_cost));
+                                  const max = Math.max(...points.map(p => p.unit_cost));
+                                  const range = max - min || 1;
+                                  const w = 200;
+                                  const h = 40;
+                                  const pad = 2;
+                                  const path = points.map((p, i) => {
+                                    const x = pad + (i / Math.max(1, points.length - 1)) * (w - pad * 2);
+                                    const y = h - pad - ((p.unit_cost - min) / range) * (h - pad * 2);
+                                    return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+                                  }).join(" ");
+                                  const change = first > 0 ? ((last - first) / first) * 100 : 0;
+                                  const changeTone =
+                                    Math.abs(change) < 1 ? "text-slate-500" :
+                                    change > 0 ? "text-red-600" : "text-emerald-700";
+                                  const trendStroke = change > 0 ? "#dc2626" : change < 0 ? "#059669" : "#64748b";
+                                  return (
+                                    <div>
+                                      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-10 mb-1">
+                                        <path d={path} fill="none" stroke={trendStroke} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+                                        <circle
+                                          cx={w - pad}
+                                          cy={h - pad - ((last - min) / range) * (h - pad * 2)}
+                                          r="2"
+                                          fill={trendStroke}
+                                        />
+                                      </svg>
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-700 tabular-nums">
+                                          R{last.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                        </span>
+                                        <span className={`tabular-nums font-medium ${changeTone}`}>
+                                          {change > 0 ? "+" : ""}{change.toFixed(1)}%
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-slate-400 mt-0.5">
+                                        {points.length} data point{points.length === 1 ? "" : "s"}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </div>
 
-                            {/* Movement history */}
-                            <div className="md:col-span-2">
+                            {/* Bottom row: full-width movement history */}
+                            <div>
                               <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
                                 Recent movements
                               </h4>

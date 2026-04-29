@@ -771,6 +771,7 @@ export type Database = {
           headquarters_lat: number | null
           headquarters_lng: number | null
           id: string
+          inventory_settings: Json
           is_active: boolean | null
           legal_name: string | null
           logo_url: string | null
@@ -813,6 +814,7 @@ export type Database = {
           headquarters_lat?: number | null
           headquarters_lng?: number | null
           id?: string
+          inventory_settings?: Json
           is_active?: boolean | null
           legal_name?: string | null
           logo_url?: string | null
@@ -855,6 +857,7 @@ export type Database = {
           headquarters_lat?: number | null
           headquarters_lng?: number | null
           id?: string
+          inventory_settings?: Json
           is_active?: boolean | null
           legal_name?: string | null
           logo_url?: string | null
@@ -3372,39 +3375,57 @@ export type Database = {
       }
       inventory_batches: {
         Row: {
-          batch_number: string
+          batch_number: string | null
           company_id: string
           created_at: string
+          deleted_at: string | null
           expiry_date: string | null
           id: string
+          initial_quantity: number
           inventory_item_id: string
+          notes: string | null
           quantity: number
           received_date: string
+          reference_number: string | null
           status: string
+          supplier_id: string | null
+          unit_cost: number | null
           updated_at: string
         }
         Insert: {
-          batch_number: string
+          batch_number?: string | null
           company_id: string
           created_at?: string
+          deleted_at?: string | null
           expiry_date?: string | null
           id?: string
+          initial_quantity?: number
           inventory_item_id: string
+          notes?: string | null
           quantity: number
           received_date?: string
+          reference_number?: string | null
           status?: string
+          supplier_id?: string | null
+          unit_cost?: number | null
           updated_at?: string
         }
         Update: {
-          batch_number?: string
+          batch_number?: string | null
           company_id?: string
           created_at?: string
+          deleted_at?: string | null
           expiry_date?: string | null
           id?: string
+          initial_quantity?: number
           inventory_item_id?: string
+          notes?: string | null
           quantity?: number
           received_date?: string
+          reference_number?: string | null
           status?: string
+          supplier_id?: string | null
+          unit_cost?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -3420,6 +3441,13 @@ export type Database = {
             columns: ["inventory_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_batches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]

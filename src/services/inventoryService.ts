@@ -113,6 +113,12 @@ export const inventoryService = {
       throw error;
     }
 
+    // FIFO batch consumption on outflows. Skipped silently when no batches
+    // exist for legacy items, so this never blocks the user.
+    if (delta < 0 && transactionType !== "adjustment") {
+      await this._consumeFromBatches(itemId, Math.abs(delta));
+    }
+
     if (delta !== 0) {
       await supabase.from("inventory_transactions").insert([{
         company_id: current.company_id,
@@ -125,6 +131,50 @@ export const inventoryService = {
     }
 
     return data;
+  },
+
+  /**
+   * FIFO consumption helper. Walks active batches for an item ordered by
+   * received_date ASC and decrements each batch's remaining quantity until
+   * the requested amount is fulfilled. Best effort -- if there's not enough
+   * tracked in batches, we just consume what's available and let the caller's
+   * inventory_items.current_stock update absorb the rest. Means batches and
+   * current_stock can drift on legacy items, but new items stay accurate.
+   */
+  async _consumeFromBatches(itemId: string, qty: number): Promise<void> {
+    if (qty <= 0) return;
+    const { data: batches, error } = await supabase
+      .from("inventory_batches")
+      .select("id, quantity")
+      .eq("inventory_item_id", itemId)
+      .is("deleted_at", null)
+      .gt("quantity", 0)
+      .order("received_date", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.warn("Could not load batches for FIFO consumption:", error);
+      return;
+    }
+    if (!batches || batches.length === 0) return;
+
+    let remaining = qty;
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const inBatch = Number(batch.quantity || 0);
+      const take = Math.min(inBatch, remaining);
+      const newQty = inBatch - take;
+      const updates: any = { quantity: newQty };
+      if (newQty <= 0) updates.status = "depleted";
+      const { error: updErr } = await supabase
+        .from("inventory_batches")
+        .update(updates)
+        .eq("id", batch.id);
+      if (updErr) {
+        console.warn(`Could not update batch ${batch.id}:`, updErr);
+        break;
+      }
+      remaining -= take;
+    }
   },
 
   /**
@@ -309,6 +359,22 @@ export const inventoryService = {
           notes: noteParts.join(" · "),
         }]);
 
+        // Phase 4: also create a batch row so FIFO + expiry tracking work.
+        await supabase.from("inventory_batches").insert([{
+          company_id: payload.companyId,
+          inventory_item_id: line.itemId,
+          batch_number: line.batchNumber || null,
+          received_date: payload.receivedDate || new Date().toISOString().slice(0, 10),
+          expiry_date: line.expiryDate || null,
+          quantity: qty,
+          initial_quantity: qty,
+          unit_cost: line.unitCost ?? null,
+          supplier_id: payload.supplierId,
+          reference_number: payload.invoiceNumber || null,
+          notes: payload.notes || null,
+          status: "active",
+        }]);
+
         received += 1;
       } catch (e: any) {
         errors.push(e?.message ?? "Unknown error");
@@ -408,7 +474,122 @@ export const inventoryService = {
       notes: composedNote,
     }]);
 
+    // FIFO consume from batches (best effort)
+    await this._consumeFromBatches(payload.itemId, qty);
+
     return data;
+  },
+
+  // ── Phase 4: batches, settings, cost history ────────────────────
+
+  /**
+   * Active batches for an item, oldest first. Powers the "Batches on hand"
+   * section of the row drawer. Includes supplier name via a left join so the
+   * UI shows where each batch came from.
+   */
+  async getBatchesForItem(itemId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("inventory_batches")
+      .select("id, batch_number, received_date, expiry_date, quantity, initial_quantity, unit_cost, status, reference_number, suppliers:supplier_id(supplier_name)")
+      .eq("inventory_item_id", itemId)
+      .is("deleted_at", null)
+      .gt("quantity", 0)
+      .order("received_date", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("Error fetching batches:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  /**
+   * Items with at least one batch expiring within `withinDays` days. Used by
+   * the Expiring tab and the "Expiring soon" stat card so we surface real
+   * expiry, not just the perishable flag.
+   */
+  async getExpiringBatches(companyId: string, withinDays: number): Promise<any[]> {
+    const today = new Date();
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() + withinDays);
+    const { data, error } = await supabase
+      .from("inventory_batches")
+      .select("id, inventory_item_id, batch_number, received_date, expiry_date, quantity, inventory_items:inventory_item_id(item_name, category, unit_of_measure)")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .gt("quantity", 0)
+      .not("expiry_date", "is", null)
+      .lte("expiry_date", cutoff.toISOString().slice(0, 10))
+      .order("expiry_date", { ascending: true });
+    if (error) {
+      console.error("Error fetching expiring batches:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  /**
+   * Cost history for the item -- last 90 days of transactions where unit_cost
+   * was logged. Powers the sparkline on the row drawer.
+   */
+  async getCostHistoryForItem(itemId: string, days = 90): Promise<Array<{ date: string; unit_cost: number }>> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const { data, error } = await supabase
+      .from("inventory_transactions")
+      .select("created_at, unit_cost")
+      .eq("inventory_item_id", itemId)
+      .gte("created_at", since.toISOString())
+      .not("unit_cost", "is", null)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.warn("Error fetching cost history:", error);
+      return [];
+    }
+    return (data || [])
+      .filter((r: any) => Number(r.unit_cost) > 0)
+      .map((r: any) => ({ date: r.created_at, unit_cost: Number(r.unit_cost) }));
+  },
+
+  /**
+   * Inventory-level company settings. Falls back to defaults when the
+   * column is empty so callers always get a usable shape.
+   */
+  async getCompanyInventorySettings(companyId: string): Promise<{
+    expiryWarnings: Record<string, number>;
+    reorderBufferPercent: number;
+  }> {
+    const defaults = { expiryWarnings: { Default: 30 }, reorderBufferPercent: 0 };
+    const { data, error } = await supabase
+      .from("companies")
+      .select("inventory_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (error || !data) return defaults;
+    const raw = (data as any).inventory_settings || {};
+    return {
+      expiryWarnings: raw.expiry_warnings || defaults.expiryWarnings,
+      reorderBufferPercent: Number(raw.reorder_buffer_percent ?? 0),
+    };
+  },
+
+  async updateCompanyInventorySettings(
+    companyId: string,
+    settings: { expiryWarnings: Record<string, number>; reorderBufferPercent: number },
+  ): Promise<boolean> {
+    const payload = {
+      expiry_warnings: settings.expiryWarnings,
+      reorder_buffer_percent: settings.reorderBufferPercent,
+    };
+    const { error } = await supabase
+      .from("companies")
+      .update({ inventory_settings: payload })
+      .eq("id", companyId);
+    if (error) {
+      console.error("Error saving inventory settings:", error);
+      throw error;
+    }
+    return true;
   },
 
   /**

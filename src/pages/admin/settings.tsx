@@ -38,6 +38,7 @@ import { GetServerSideProps } from "next";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
+import { InventorySettingsTab } from "@/components/admin/inventory/InventorySettingsTab";
 
 export default function ProtectedSettingsPage() {
   return (
@@ -401,6 +402,7 @@ function SettingsPage() {
                 <TabsTrigger value="automation" className="text-xs md:text-sm whitespace-nowrap">Automation</TabsTrigger>
                 <TabsTrigger value="pricing" className="text-xs md:text-sm whitespace-nowrap">Pricing</TabsTrigger>
                 <TabsTrigger value="operations" className="text-xs md:text-sm whitespace-nowrap">Operations</TabsTrigger>
+                <TabsTrigger value="inventory" className="text-xs md:text-sm whitespace-nowrap">Inventory</TabsTrigger>
                 <TabsTrigger value="financial" className="text-xs md:text-sm whitespace-nowrap">Financial</TabsTrigger>
                 <TabsTrigger value="email-automation" className="text-xs md:text-sm whitespace-nowrap">Email Auto</TabsTrigger>
               </TabsList>
@@ -846,6 +848,10 @@ function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="inventory">
+              <InventorySettingsTab />
             </TabsContent>
 
             <TabsContent value="financial">
