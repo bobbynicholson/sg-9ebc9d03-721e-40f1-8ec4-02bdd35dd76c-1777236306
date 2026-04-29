@@ -549,10 +549,17 @@ export default function RoutePlanning() {
                                   <p className="text-xs text-slate-500">{route.stops.length} stop{route.stops.length === 1 ? "" : "s"}</p>
                                 </div>
                               </div>
-                              <Badge className="bg-green-100 text-green-800 flex-shrink-0">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Ready
-                              </Badge>
+                              {route.infeasible_count != null && route.infeasible_count > 0 ? (
+                                <Badge className="bg-red-100 text-red-800 flex-shrink-0 gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {route.infeasible_count} late
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800 flex-shrink-0">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Ready
+                                </Badge>
+                              )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -633,35 +640,73 @@ export default function RoutePlanning() {
                     <CardTitle>Route Details &amp; Stops</CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {selectedRoute.infeasible_count != null && selectedRoute.infeasible_count > 0 && (
+                      <div className="mb-4 p-3 rounded-md border border-red-200 bg-red-50 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                        <div className="text-sm">
+                          <p className="font-semibold text-red-800">
+                            {selectedRoute.infeasible_count} of {selectedRoute.stops.length} stop{selectedRoute.stops.length === 1 ? "" : "s"} will breach the time window
+                          </p>
+                          <p className="text-xs text-red-700 mt-0.5">
+                            Predicted arrival is later than the delivery deadline. Reassign or split the route.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-4">
-                      {selectedRoute.stops.map((stop, index) => (
-                        <div key={stop.id} className="flex items-start gap-4 pb-4 border-b last:border-0">
+                      {selectedRoute.stops.map((stop: any, index: number) => (
+                        <div
+                          key={stop.id}
+                          className={`flex items-start gap-4 pb-4 border-b last:border-0 ${
+                            stop.time_window_breach ? "bg-red-50/40 -mx-2 px-2 rounded" : ""
+                          }`}
+                        >
                           <div className="flex-shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold text-sm">
+                            <div className={`w-8 h-8 rounded-full text-white flex items-center justify-center font-semibold text-sm ${
+                              stop.time_window_breach ? "bg-red-600" : "bg-blue-600"
+                            }`}>
                               {index + 1}
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between mb-1 gap-2">
+                            <div className="flex items-start justify-between mb-1 gap-2 flex-wrap">
                               <h4 className="font-semibold text-slate-900 truncate">{stop.client_name}</h4>
-                              <Badge className={
-                                stop.priority === 1 ? "bg-red-100 text-red-800" :
-                                stop.priority === 3 ? "bg-gray-100 text-gray-800" :
-                                "bg-yellow-100 text-yellow-800"
-                              }>
-                                {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"} priority
-                              </Badge>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {stop.time_window_breach && (
+                                  <Badge className="bg-red-100 text-red-800 border-0 text-[10px] gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Will be late
+                                  </Badge>
+                                )}
+                                <Badge className={
+                                  stop.priority === 1 ? "bg-red-100 text-red-800" :
+                                  stop.priority === 3 ? "bg-gray-100 text-gray-800" :
+                                  "bg-yellow-100 text-yellow-800"
+                                }>
+                                  {stop.priority === 1 ? "High" : stop.priority === 3 ? "Low" : "Normal"} priority
+                                </Badge>
+                              </div>
                             </div>
                             <p className="text-sm text-slate-600 mb-2 truncate">{stop.venue_address}</p>
                             <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {stop.delivery_time ? new Date(stop.delivery_time).toLocaleString("en-ZA") : "No time set"}
+                                Due {stop.delivery_time ? new Date(stop.delivery_time).toLocaleString("en-ZA", { dateStyle: "short", timeStyle: "short" }) : "—"}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                Stop #{index + 1}
-                              </span>
+                              {stop.predicted_arrival_at && (
+                                <span className={`flex items-center gap-1 tabular-nums ${
+                                  stop.time_window_breach ? "text-red-700 font-medium" : "text-emerald-700"
+                                }`}>
+                                  <Clock className="w-3 h-3" />
+                                  ETA {new Date(stop.predicted_arrival_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                                  {stop.slack_minutes != null && (
+                                    <span className="text-slate-500">
+                                      {" "}({stop.slack_minutes >= 0 ? `${stop.slack_minutes}m slack` : `${Math.abs(stop.slack_minutes)}m late`})
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

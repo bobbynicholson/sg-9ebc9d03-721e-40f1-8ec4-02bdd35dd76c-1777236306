@@ -15,6 +15,14 @@ export interface DeliveryStop {
   delivery_time: string;
   priority: number;
   status: string;
+  /** Phase 2B: arrival buffer in minutes used to check feasibility. */
+  arrival_buffer_minutes?: number;
+  /** Phase 2B: filled by the optimiser. ISO string. */
+  predicted_arrival_at?: string;
+  /** Phase 2B: filled by the optimiser. True when predicted arrival is past delivery_time - buffer. */
+  time_window_breach?: boolean;
+  /** Phase 2B: filled by the optimiser. Slack in minutes; negative means breach. */
+  slack_minutes?: number;
 }
 
 export interface OptimizedRoute {
@@ -24,6 +32,10 @@ export interface OptimizedRoute {
   total_distance: number;
   total_duration: number;
   estimated_completion: string;
+  /** Phase 2B: how many stops in the route would breach their time window. */
+  infeasible_count?: number;
+  /** Phase 2B: false when one or more stops breach. */
+  feasible?: boolean;
 }
 
 interface RouteSegment {
@@ -139,18 +151,37 @@ export const routeOptimizationService = {
       });
 
       if (nearestStop) {
-        // Add stop to optimized route
-        optimizedStops.push(nearestStop);
-        totalDistance += nearestDistance;
-
         // Estimate travel time
         const travelTime = this.estimateTravelTime(nearestDistance);
         totalDuration += travelTime;
+        totalDistance += nearestDistance;
 
         // Update current time (travel time + 15 min stop time)
-        currentTime = new Date(currentTime.getTime() + (travelTime + 15) * 60000);
+        const arrivalTime = new Date(currentTime.getTime() + travelTime * 60000);
 
-        // Update current position
+        // Phase 2B: time-window feasibility per stop.
+        // Slack = (delivery_time - arrival_buffer) - predicted_arrival.
+        // Negative slack means we'll be late.
+        const buffer = nearestStop.arrival_buffer_minutes ?? 0;
+        const deliveryDeadline = new Date(nearestStop.delivery_time);
+        let slackMinutes: number | undefined;
+        let timeWindowBreach = false;
+        if (!isNaN(deliveryDeadline.getTime())) {
+          const deadlineMs = deliveryDeadline.getTime() - buffer * 60000;
+          slackMinutes = Math.round((deadlineMs - arrivalTime.getTime()) / 60000);
+          timeWindowBreach = slackMinutes < 0;
+        }
+
+        // Add stop to optimised route with predicted arrival info
+        optimizedStops.push({
+          ...nearestStop,
+          predicted_arrival_at: arrivalTime.toISOString(),
+          time_window_breach: timeWindowBreach,
+          slack_minutes: slackMinutes,
+        });
+
+        // Update current time and position (travel + 15 min service)
+        currentTime = new Date(arrivalTime.getTime() + 15 * 60000);
         currentLat = nearestStop.venue_lat;
         currentLng = nearestStop.venue_lng;
 
@@ -159,8 +190,9 @@ export const routeOptimizationService = {
       }
     }
 
-    // Calculate estimated completion time
+    // Calculate estimated completion time + feasibility rollup
     const estimatedCompletion = currentTime.toISOString();
+    const infeasibleCount = optimizedStops.filter(s => s.time_window_breach).length;
 
     return {
       driver_id: driverId,
@@ -168,6 +200,8 @@ export const routeOptimizationService = {
       total_distance: Math.round(totalDistance * 100) / 100,
       total_duration: Math.round(totalDuration),
       estimated_completion: estimatedCompletion,
+      infeasible_count: infeasibleCount,
+      feasible: infeasibleCount === 0,
     };
   },
 
@@ -224,17 +258,39 @@ export const routeOptimizationService = {
       return [];
     }
 
-    return ((data as any[]) || []).map((order) => ({
-      id: order.id,
-      order_id: order.id,
-      client_name: order.client_name,
-      venue_address: order.venue_address,
-      venue_lat: order.venue_lat,
-      venue_lng: order.venue_lng,
-      delivery_time: order.delivery_time || order.event_date,
-      priority: order.priority || 2,
-      status: order.status,
-    }));
+    // Pull the arrival buffer from dispatch_settings so each stop carries it
+    // through the optimiser. Falls back to 30 minutes when unset.
+    const { data: company } = await supabase
+      .from("companies")
+      .select("dispatch_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    const arrivalBufferMinutes = Number(
+      (company as any)?.dispatch_settings?.arrival_buffer_minutes ?? 30,
+    );
+
+    return ((data as any[]) || []).map((order) => {
+      // Build a proper deadline. Prefer event_date + event_time when both exist,
+      // fall back to delivery_time, then event_date noon.
+      let deliveryTime = order.delivery_time;
+      if (!deliveryTime && order.event_date) {
+        deliveryTime = order.event_time
+          ? `${order.event_date}T${order.event_time}`
+          : `${order.event_date}T12:00`;
+      }
+      return {
+        id: order.id,
+        order_id: order.id,
+        client_name: order.client_name,
+        venue_address: order.venue_address,
+        venue_lat: order.venue_lat,
+        venue_lng: order.venue_lng,
+        delivery_time: deliveryTime,
+        priority: order.priority || 2,
+        status: order.status,
+        arrival_buffer_minutes: arrivalBufferMinutes,
+      };
+    });
   },
 
   /**

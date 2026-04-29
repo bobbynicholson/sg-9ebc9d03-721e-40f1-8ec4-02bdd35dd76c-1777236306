@@ -657,6 +657,86 @@ export const dispatchService = {
     }
     return data || [];
   },
+
+  // ── Per-driver performance analytics (Phase 2B) ──────────────────────────
+
+  /**
+   * Performance rollup for a single driver over the last N days.
+   * Used by the Drivers page to surface real on-time rate, distance, earnings.
+   *
+   * On-time = delivered_at <= event_time + arrival_buffer (from settings).
+   * Late = delivered_at > event_time + arrival_buffer.
+   * Pending = no delivered_at yet (excluded from rate denominator).
+   */
+  async getDriverPerformance(
+    companyId: string,
+    driverId: string,
+    days = 30,
+  ): Promise<{
+    completedJobs: number;
+    onTimeRate: number | null;     // 0-1, null when no completed jobs
+    totalKm: number;
+    totalEarnings: number;
+    declineCount: number;
+    declineReasons: string[];
+  }> {
+    const settings = await this.getDispatchSettings(companyId);
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    const sinceISO = since.toISOString();
+
+    // Completed orders + km (driver wears two columns -- match either).
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("event_date, event_time, delivered_at, delivery_distance_km, status")
+      .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
+      .gte("event_date", sinceISO.slice(0, 10));
+
+    let completedJobs = 0;
+    let onTime = 0;
+    let totalKm = 0;
+    for (const o of orders || []) {
+      if ((o as any).status !== "delivered" && (o as any).status !== "completed") continue;
+      completedJobs += 1;
+      totalKm += Number((o as any).delivery_distance_km || 0);
+      if ((o as any).event_date && (o as any).event_time && (o as any).delivered_at) {
+        const eventDt = new Date(`${(o as any).event_date}T${(o as any).event_time}`);
+        const deadline = eventDt.getTime() + settings.arrivalBufferMinutes * 60_000;
+        const delivered = new Date((o as any).delivered_at).getTime();
+        if (!isNaN(deadline) && !isNaN(delivered) && delivered <= deadline) onTime += 1;
+      }
+    }
+    const onTimeRate = completedJobs > 0 ? onTime / completedJobs : null;
+
+    // Earnings sum + decline reasons from driver_assignments.
+    const { data: assignments } = await supabase
+      .from("driver_assignments")
+      .select("total_earnings, status, rejection_reason, created_at")
+      .eq("driver_id", driverId)
+      .gte("created_at", sinceISO);
+
+    let totalEarnings = 0;
+    let declineCount = 0;
+    const declineReasons: string[] = [];
+    for (const a of assignments || []) {
+      if ((a as any).status === "completed") {
+        totalEarnings += Number((a as any).total_earnings || 0);
+      }
+      if ((a as any).status === "rejected") {
+        declineCount += 1;
+        if ((a as any).rejection_reason) declineReasons.push((a as any).rejection_reason);
+      }
+    }
+
+    return {
+      completedJobs,
+      onTimeRate,
+      totalKm: Math.round(totalKm * 10) / 10,
+      totalEarnings: Math.round(totalEarnings * 100) / 100,
+      declineCount,
+      declineReasons,
+    };
+  },
 };
 
 // Re-export the SLA helper so the queue UI can compute "minutes until breach"

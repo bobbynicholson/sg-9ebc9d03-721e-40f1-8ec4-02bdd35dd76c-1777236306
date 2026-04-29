@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ShiftScheduleDialog } from "@/components/admin/dispatch/ShiftScheduleDialog";
 import { vehicleService, type Vehicle } from "@/services/vehicleService";
+import { dispatchService } from "@/services/dispatchService";
 
 interface Driver {
   id: string;
@@ -79,6 +80,14 @@ function DriverManagementPage() {
   // Phase 1B: live signals per driver
   const [loadByDriver, setLoadByDriver] = useState<Record<string, number>>({});
   const [lastPingByDriver, setLastPingByDriver] = useState<Record<string, string>>({});
+  // Phase 2B: 30-day performance rollup per driver
+  const [perfByDriver, setPerfByDriver] = useState<Record<string, {
+    completedJobs: number;
+    onTimeRate: number | null;
+    totalKm: number;
+    totalEarnings: number;
+    declineCount: number;
+  }>>({});
 
   // Edit driver dialog
   const [editTarget, setEditTarget] = useState<Driver | null>(null);
@@ -147,6 +156,28 @@ function DriverManagementPage() {
         if (did && !pingMap[did]) pingMap[did] = (p as any).timestamp;
       }
       setLastPingByDriver(pingMap);
+
+      // Phase 2B: 30-day performance rollup. Fetched in parallel; failures
+      // per-driver don't block the others.
+      const perfEntries = await Promise.all(driverIds.map(async (id) => {
+        try {
+          const p = await dispatchService.getDriverPerformance(user.company_id, id, 30);
+          return [id, p] as const;
+        } catch {
+          return [id, null] as const;
+        }
+      }));
+      const perfMap: typeof perfByDriver = {};
+      for (const [id, p] of perfEntries) {
+        if (p) perfMap[id] = {
+          completedJobs: p.completedJobs,
+          onTimeRate: p.onTimeRate,
+          totalKm: p.totalKm,
+          totalEarnings: p.totalEarnings,
+          declineCount: p.declineCount,
+        };
+      }
+      setPerfByDriver(perfMap);
     } catch (err) {
       console.error("Error loading drivers:", err);
       toast({
@@ -582,7 +613,7 @@ function DriverManagementPage() {
                             </div>
                           </div>
 
-                          {/* Live signals */}
+                          {/* Live signals + 30-day rollup */}
                           <div className="hidden sm:flex items-center gap-4 text-xs shrink-0">
                             <div className="text-center">
                               <p className={`text-lg font-bold tabular-nums ${capacityFull ? "text-red-700" : "text-slate-900"}`}>
@@ -590,6 +621,37 @@ function DriverManagementPage() {
                               </p>
                               <p className="text-[10px] uppercase tracking-wide text-slate-500">jobs today</p>
                             </div>
+                            {(() => {
+                              const perf = perfByDriver[driver.id];
+                              if (!perf) return null;
+                              return (
+                                <>
+                                  <div className="text-center">
+                                    <p className={`text-lg font-bold tabular-nums ${
+                                      perf.onTimeRate == null ? "text-slate-400" :
+                                      perf.onTimeRate >= 0.95 ? "text-emerald-700" :
+                                      perf.onTimeRate >= 0.85 ? "text-amber-700" :
+                                                                "text-red-700"
+                                    }`}>
+                                      {perf.onTimeRate == null ? "—" : `${Math.round(perf.onTimeRate * 100)}%`}
+                                    </p>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">on-time 30d</p>
+                                  </div>
+                                  <div className="text-center hidden lg:block">
+                                    <p className="text-lg font-bold tabular-nums text-slate-900">
+                                      {perf.completedJobs}
+                                    </p>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">jobs 30d</p>
+                                  </div>
+                                  <div className="text-center hidden lg:block">
+                                    <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                                      {perf.totalKm > 0 ? `${perf.totalKm} km` : "—"}
+                                    </p>
+                                    <p className="text-[10px] uppercase tracking-wide text-slate-500">distance 30d</p>
+                                  </div>
+                                </>
+                              );
+                            })()}
                             <div className="text-center">
                               <p className="text-sm font-medium text-slate-700">
                                 {lastPing ? relativeTime(lastPing) : "—"}

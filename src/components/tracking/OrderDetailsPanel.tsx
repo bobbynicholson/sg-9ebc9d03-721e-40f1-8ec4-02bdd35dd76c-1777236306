@@ -44,6 +44,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/composeEmail";
 import { useToast } from "@/hooks/use-toast";
+import { ReassignDriverDialog } from "@/components/admin/dispatch/ReassignDriverDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { Camera, FileSignature } from "lucide-react";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -52,6 +55,7 @@ interface OrderLike {
   order_number?: string;
   event_name?: string;
   event_date?: string;
+  event_time?: string | null;
   delivery_time?: string;
   status?: string;
   client_id?: string;
@@ -75,6 +79,11 @@ interface OrderLike {
   payment_status?: string;
   menu_items?: any[];
   equipment_items?: any[];
+  pod_photo_url?: string | null;
+  pod_signature_url?: string | null;
+  pod_recipient_name?: string | null;
+  pod_captured_at?: string | null;
+  requires_refrigeration?: boolean;
 }
 
 interface Props {
@@ -120,7 +129,11 @@ function formatPhoneForWa(phone?: string): string {
 
 export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
   const { toast } = useToast();
+  const { user, profile } = useAuth() as any;
+  const companyId = profile?.company_id ?? user?.company_id ?? null;
+  const userId = user?.id ?? "";
   const [composeOpen, setComposeOpen] = useState(false);
+  const [reassignOpen, setReassignOpen] = useState(false);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [kitchenStats, setKitchenStats] = useState<{ total: number; done: number } | null>(null);
   const [equipmentCount, setEquipmentCount] = useState<number>(0);
@@ -500,11 +513,64 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </p>
               )}
             </div>
-            <Link href="/admin/route-planning" legacyBehavior>
-              <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
-                <Truck className="h-3 w-3" /> Reassign driver
-              </Button></a>
-            </Link>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1 h-7 text-xs"
+              onClick={() => setReassignOpen(true)}
+            >
+              <Truck className="h-3 w-3" /> Reassign driver
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PROOF OF DELIVERY -- only when captured */}
+      {(order.pod_photo_url || order.pod_signature_url || order.pod_captured_at) && (
+        <Card className="border-emerald-200 bg-emerald-50/30">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 uppercase tracking-wide">
+              <CheckCircle2 className="h-3 w-3" /> Proof of delivery
+            </div>
+            {order.pod_recipient_name && (
+              <p className="text-sm">
+                <span className="text-slate-500">Received by:</span>{" "}
+                <span className="font-medium text-slate-900">{order.pod_recipient_name}</span>
+              </p>
+            )}
+            {order.pod_captured_at && (
+              <p className="text-xs text-slate-500">
+                Captured {new Date(order.pod_captured_at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              {order.pod_photo_url && (
+                <a href={order.pod_photo_url} target="_blank" rel="noopener noreferrer" className="group">
+                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-emerald-200 relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={order.pod_photo_url} alt="Delivery photo" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center text-transparent group-hover:text-white text-xs font-medium">
+                      <Eye className="w-4 h-4 mr-1" />
+                      View
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <Camera className="w-3 h-3" /> Photo
+                  </p>
+                </a>
+              )}
+              {order.pod_signature_url && (
+                <a href={order.pod_signature_url} target="_blank" rel="noopener noreferrer" className="group">
+                  <div className="aspect-square rounded-md overflow-hidden bg-white border border-emerald-200 relative flex items-center justify-center p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={order.pod_signature_url} alt="Signature" className="max-w-full max-h-full object-contain" />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                    <FileSignature className="w-3 h-3" /> Signature
+                  </p>
+                </a>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -520,6 +586,24 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
           />
         </SheetContent>
       </Sheet>
+
+      {/* REASSIGN DRIVER DIALOG (Phase 2B one-click swap) */}
+      <ReassignDriverDialog
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        companyId={companyId}
+        performedBy={userId}
+        order={{
+          id: order.id,
+          client_name: order.client_name,
+          event_date: order.event_date || new Date().toISOString().slice(0, 10),
+          event_time: order.event_time,
+          venue_lat: order.venue_lat,
+          venue_lng: order.venue_lng,
+          requires_refrigeration: order.requires_refrigeration,
+        }}
+        allowUnassign
+      />
     </div>
   );
 }
