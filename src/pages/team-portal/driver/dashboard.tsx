@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
+import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MessageCircle } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -61,6 +64,8 @@ export default function DriverDashboard() {
   const [declineCtx, setDeclineCtx] = useState<{ assignmentId: string; orderId: string; clientName?: string } | null>(null);
   // Map order_id -> assignment_id so the decline dialog can target the right row
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
+  // Phase 5B: chat dialog
+  const [chatJob, setChatJob] = useState<Job | null>(null);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -577,6 +582,16 @@ export default function DriverDashboard() {
                           <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Navigate</span>
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setChatJob(job)}
+                          className="flex-1 sm:flex-none text-xs sm:text-sm"
+                          title="Chat with dispatcher"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Chat</span>
+                        </Button>
 
                         {/* Phase 5: Confirm delivery -- POD capture dialog */}
                         {!["delivered", "completed", "cancelled", "rejected"].includes(job.status) && (
@@ -643,6 +658,27 @@ export default function DriverDashboard() {
           onDeclined={() => { setDeclineCtx(null); loadDriverJobs(); }}
         />
       )}
+
+      {/* Phase 5B: Driver chat with dispatcher */}
+      <Dialog open={!!chatJob} onOpenChange={open => !open && setChatJob(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-blue-600" />
+              Chat · {chatJob?.client_name}
+            </DialogTitle>
+          </DialogHeader>
+          {chatJob && user?.id && user?.company_id && (
+            <OrderChatPanel
+              companyId={user.company_id}
+              orderId={chatJob.id}
+              userId={user.id}
+              senderRole="driver"
+              maxHeight="320px"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* AI Chatbot */}
       <ChatBot userRole="driver" companyId={user?.company_id} />

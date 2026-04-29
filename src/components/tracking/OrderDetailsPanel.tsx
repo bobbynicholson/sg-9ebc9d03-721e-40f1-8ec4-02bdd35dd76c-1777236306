@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { composeEmail } from "@/lib/composeEmail";
 import { useToast } from "@/hooks/use-toast";
 import { ReassignDriverDialog } from "@/components/admin/dispatch/ReassignDriverDialog";
+import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
 
@@ -571,6 +572,25 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </a>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* DRIVER CHAT BLOCK -- only when there's a driver to talk to */}
+      {(order.driver_id || order.assigned_driver_id) && companyId && userId && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+              <MessageCircle className="h-3 w-3" /> Driver chat
+            </div>
+            <OrderChatPanel
+              companyId={companyId}
+              orderId={order.id}
+              userId={userId}
+              senderRole="dispatcher"
+              compact
+              maxHeight="220px"
+            />
           </CardContent>
         </Card>
       )}
