@@ -13,6 +13,7 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { openNavigation as openMapsNavigation, type NavOrigin } from "@/lib/driverNavigation";
 
 interface ActiveDelivery {
   assignmentId: string;
@@ -21,6 +22,8 @@ interface ActiveDelivery {
   clientName: string;
   clientPhone: string | null;
   venueAddress: string;
+  venueLat: number | null;
+  venueLng: number | null;
   guestCount: number;
   eventDate: string;
   eventTime: string | null;
@@ -42,6 +45,28 @@ export default function DriverTracking() {
   const [delivery, setDelivery] = useState<ActiveDelivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [kitchenOrigin, setKitchenOrigin] = useState<NavOrigin | null>(null);
+
+  // Load kitchen origin once for navigation start point
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const parts = [data.address_line1, data.city, data.state_province, data.postal_code].filter(Boolean);
+      setKitchenOrigin({
+        lat: data.headquarters_lat ?? null,
+        lng: data.headquarters_lng ?? null,
+        address: parts.length > 0 ? parts.join(", ") : null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
 
   const loadActiveDelivery = async () => {
     if (!user?.id) return;
@@ -60,6 +85,8 @@ export default function DriverTracking() {
           client_name,
           client_phone,
           venue_address,
+          venue_lat,
+          venue_lng,
           guest_count,
           event_date,
           event_time
@@ -92,6 +119,8 @@ export default function DriverTracking() {
       clientName: order.client_name,
       clientPhone: order.client_phone,
       venueAddress: order.venue_address,
+      venueLat: order.venue_lat ?? null,
+      venueLng: order.venue_lng ?? null,
       guestCount: order.guest_count,
       eventDate: order.event_date,
       eventTime: order.event_time,
@@ -126,10 +155,11 @@ export default function DriverTracking() {
     loadActiveDelivery();
   };
 
-  const openNavigation = (address: string) => {
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,
-      "_blank"
+  const openNavigation = () => {
+    if (!delivery) return;
+    openMapsNavigation(
+      { lat: delivery.venueLat, lng: delivery.venueLng, address: delivery.venueAddress },
+      kitchenOrigin ?? undefined,
     );
   };
 
@@ -217,7 +247,7 @@ export default function DriverTracking() {
                     <Button
                       className="w-full"
                       size="lg"
-                      onClick={() => openNavigation(delivery.venueAddress)}
+                      onClick={() => openNavigation()}
                     >
                       <Navigation className="w-4 h-4 mr-2" />
                       Open in Navigation App

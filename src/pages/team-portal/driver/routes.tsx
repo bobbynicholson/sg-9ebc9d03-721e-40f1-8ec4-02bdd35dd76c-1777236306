@@ -30,6 +30,8 @@ import driverService from "@/services/driverService";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
+import { openNavigation as openMapsNavigation, type NavOrigin } from "@/lib/driverNavigation";
+import { supabase } from "@/integrations/supabase/client";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -46,6 +48,28 @@ export default function DriverRoutes() {
   const [tripCompleted, setTripCompleted] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<{ id: string; name: string } | null>(null);
+  const [kitchenOrigin, setKitchenOrigin] = useState<NavOrigin | null>(null);
+
+  // Load kitchen origin once -- used as the start point for every navigation
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const parts = [data.address_line1, data.city, data.state_province, data.postal_code].filter(Boolean);
+      setKitchenOrigin({
+        lat: data.headquarters_lat ?? null,
+        lng: data.headquarters_lng ?? null,
+        address: parts.length > 0 ? parts.join(", ") : null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
 
   useEffect(() => {
     if (user?.id) {
@@ -119,9 +143,15 @@ export default function DriverRoutes() {
     }
   };
 
-  const openNavigation = (address: string) => {
-    const encodedAddress = encodeURIComponent(address);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, "_blank");
+  /**
+   * Open Google Maps with kitchen as origin and the venue as destination.
+   * Accepts either a stop object (uses lat/lng) or a plain address string.
+   */
+  const openNavigation = (stopOrAddress: { venue_lat?: number | null; venue_lng?: number | null; venue_address?: string | null } | string) => {
+    const dest = typeof stopOrAddress === "string"
+      ? { address: stopOrAddress }
+      : { lat: stopOrAddress.venue_lat, lng: stopOrAddress.venue_lng, address: stopOrAddress.venue_address ?? null };
+    openMapsNavigation(dest, kitchenOrigin ?? undefined);
   };
 
   const openStatusModal = (deliveryId: string, clientName: string) => {
@@ -174,8 +204,10 @@ export default function DriverRoutes() {
 
   const handleNavigateToStop = (stop: any) => {
     if (stop.venue_lat && stop.venue_lng) {
-      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.venue_lat},${stop.venue_lng}`;
-      window.open(googleMapsUrl, "_blank");
+      openMapsNavigation(
+        { lat: stop.venue_lat, lng: stop.venue_lng, address: stop.venue_address ?? null },
+        kitchenOrigin ?? undefined,
+      );
     } else {
       toast({
         title: "Navigation unavailable",
@@ -457,7 +489,7 @@ export default function DriverRoutes() {
 
                       <div className="space-y-2 pt-2">
                         <Button
-                          onClick={() => openNavigation(currentStop.venue_address)}
+                          onClick={() => openNavigation(currentStop)}
                           disabled={!tripStarted}
                           className="w-full bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                           size="lg"
@@ -627,7 +659,7 @@ export default function DriverRoutes() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openNavigation(stop.venue_address)}
+                                onClick={() => openNavigation(stop)}
                                 disabled={!tripStarted}
                                 className="flex-1 sm:flex-none"
                               >

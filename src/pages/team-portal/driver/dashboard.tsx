@@ -20,6 +20,7 @@ import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDi
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
+import { openNavigation as openMapsNavigation, type NavOrigin } from "@/lib/driverNavigation";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -43,6 +44,8 @@ interface Job {
   order_number: string;
   client_name: string;
   venue_address: string;
+  venue_lat?: number | null;
+  venue_lng?: number | null;
   guest_count: number;
   event_time: string;
   status: string;
@@ -66,6 +69,30 @@ export default function DriverDashboard() {
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
   // Phase 5B: chat dialog
   const [chatJob, setChatJob] = useState<Job | null>(null);
+  // Kitchen origin for navigation
+  const [kitchenOrigin, setKitchenOrigin] = useState<NavOrigin | null>(null);
+
+  // Load the kitchen address + coords once (used as the navigation origin
+  // so Google Maps shows the route from kitchen -> venue, not just venue).
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("companies")
+        .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const parts = [data.address_line1, data.city, data.state_province, data.postal_code].filter(Boolean);
+      setKitchenOrigin({
+        lat: data.headquarters_lat ?? null,
+        lng: data.headquarters_lng ?? null,
+        address: parts.length > 0 ? parts.join(", ") : null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -88,6 +115,8 @@ export default function DriverDashboard() {
             order_number,
             client_name,
             venue_address,
+            venue_lat,
+            venue_lng,
             guest_count,
             event_time,
             event_date,
@@ -137,6 +166,8 @@ export default function DriverDashboard() {
           order_number: a.orders.order_number,
           client_name: a.orders.client_name,
           venue_address: a.orders.venue_address,
+          venue_lat: a.orders.venue_lat ?? null,
+          venue_lng: a.orders.venue_lng ?? null,
           guest_count: a.orders.guest_count,
           event_time: a.orders.event_time || "TBD",
           status: a.status,
@@ -144,11 +175,13 @@ export default function DriverDashboard() {
           pickup_time: a.orders.pickup_time,
         }));
 
-      const directJobs: Job[] = (directOrders || []).map((o: Order) => ({
+      const directJobs: Job[] = (directOrders || []).map((o: any) => ({
         id: o.id,
         order_number: o.order_number,
         client_name: o.client_name || "Client",
         venue_address: o.venue_address,
+        venue_lat: o.venue_lat ?? null,
+        venue_lng: o.venue_lng ?? null,
         guest_count: o.guest_count,
         event_time: o.event_time || "TBD",
         status: o.status || "pending",
@@ -281,9 +314,16 @@ export default function DriverDashboard() {
   );
   const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
 
-  const openNavigation = (address: string) => {
-    const encodedAddress = encodeURIComponent(address);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`, "_blank");
+  /**
+   * Open Google Maps with kitchen as origin and the venue as destination.
+   * Falls back to address-only origin if HQ coords are missing, and to
+   * device GPS if no kitchen address is set on the company at all.
+   */
+  const openNavigation = (job: Job) => {
+    openMapsNavigation(
+      { lat: job.venue_lat, lng: job.venue_lng, address: job.venue_address },
+      kitchenOrigin ?? undefined,
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -576,7 +616,7 @@ export default function DriverDashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => openNavigation(job.venue_address)}
+                          onClick={() => openNavigation(job)}
                           className="flex-1 sm:flex-none text-xs sm:text-sm"
                         >
                           <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
