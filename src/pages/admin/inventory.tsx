@@ -1,4 +1,4 @@
-﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -7,6 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Package,
   AlertTriangle,
@@ -18,6 +28,7 @@ import {
   Edit,
   Trash2,
   RefreshCw,
+  ArrowUpDown,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -41,26 +52,80 @@ interface InventoryItem {
   expiryDate?: string;
 }
 
+const CATEGORIES = [
+  "Produce",
+  "Meat & Poultry",
+  "Seafood",
+  "Dairy",
+  "Dry Goods",
+  "Beverages",
+  "Condiments",
+  "Bakery",
+  "Frozen",
+  "Cleaning",
+  "Equipment",
+  "Other",
+];
+
+const emptyForm = {
+  item_name: "",
+  category: "Other",
+  unit_of_measure: "unit",
+  current_stock: "",
+  minimum_stock: "",
+  maximum_stock: "",
+  cost_per_unit: "",
+};
+
 export default function AdminInventory() {
   const { user } = useAuth();
+  const companyId = (user as any)?.company_id ?? null;
+  const userId = user?.id ?? "";
+
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [outlook, setOutlook] = useState<any[]>([]);
 
+  // ── Add Item modal ──────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({ ...emptyForm });
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState("");
+
+  // ── Edit modal ─────────────────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<InventoryItem | null>(null);
+  const [editForm, setEditForm] = useState({ ...emptyForm });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // ── Adjust Stock modal ─────────────────────────────────────────
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustTarget, setAdjustTarget] = useState<InventoryItem | null>(null);
+  const [adjustDelta, setAdjustDelta] = useState("");
+  const [adjustNote, setAdjustNote] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
+  const [adjustError, setAdjustError] = useState("");
+
+  // ── Delete confirm ─────────────────────────────────────────────
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   useEffect(() => {
     if (!user?.id) return;
     loadInventory();
     loadOutlook();
-  }, [user?.company_id]);
+  }, [(user as any)?.company_id]);
 
   const loadOutlook = async () => {
-    if (!user?.company_id) return;
+    if (!companyId) return;
     const { data, error } = await supabase
       .from("inventory_demand_outlook")
       .select("*")
-      .eq("company_id", user.company_id)
+      .eq("company_id", companyId)
       .returns<Record<string, unknown>[]>();
     if (error) {
       console.error("outlook error", error);
@@ -71,13 +136,13 @@ export default function AdminInventory() {
   };
 
   const loadInventory = async () => {
-    if (!user?.company_id) {
+    if (!companyId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const rows = await inventoryService.getInventory(user.company_id);
+      const rows = await inventoryService.getInventory(companyId);
       const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
         id: row.id,
         name: row.item_name ?? "Unnamed",
@@ -100,6 +165,147 @@ export default function AdminInventory() {
     }
   };
 
+  // ── Add handlers ───────────────────────────────────────────────
+  const openAdd = () => {
+    setAddForm({ ...emptyForm });
+    setAddError("");
+    setAddOpen(true);
+  };
+
+  const handleAddSave = async () => {
+    if (!addForm.item_name.trim()) {
+      setAddError("Item name is required.");
+      return;
+    }
+    if (!companyId) {
+      setAddError("No company associated with your account.");
+      return;
+    }
+    setAddSaving(true);
+    setAddError("");
+    try {
+      await inventoryService.createInventoryItem({
+        company_id: companyId,
+        item_name: addForm.item_name.trim(),
+        category: addForm.category,
+        unit_of_measure: addForm.unit_of_measure.trim() || "unit",
+        current_stock: addForm.current_stock !== "" ? Number(addForm.current_stock) : 0,
+        minimum_stock: addForm.minimum_stock !== "" ? Number(addForm.minimum_stock) : 0,
+        maximum_stock: addForm.maximum_stock !== "" ? Number(addForm.maximum_stock) : 0,
+        cost_per_unit: addForm.cost_per_unit !== "" ? Number(addForm.cost_per_unit) : 0,
+      });
+      setAddOpen(false);
+      await loadInventory();
+    } catch (err: any) {
+      setAddError(err?.message ?? "Failed to save item.");
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  // ── Edit handlers ──────────────────────────────────────────────
+  const openEdit = (item: InventoryItem) => {
+    setEditTarget(item);
+    setEditForm({
+      item_name: item.name,
+      category: item.category,
+      unit_of_measure: item.unit,
+      current_stock: String(item.quantity),
+      minimum_stock: String(item.minStock),
+      maximum_stock: String(item.maxStock),
+      cost_per_unit: String(item.costPerUnit),
+    });
+    setEditError("");
+    setEditOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    if (!editForm.item_name.trim()) {
+      setEditError("Item name is required.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError("");
+    try {
+      await inventoryService.updateInventoryItem(editTarget.id, {
+        item_name: editForm.item_name.trim(),
+        category: editForm.category,
+        unit_of_measure: editForm.unit_of_measure.trim() || "unit",
+        current_stock: editForm.current_stock !== "" ? Number(editForm.current_stock) : 0,
+        minimum_stock: editForm.minimum_stock !== "" ? Number(editForm.minimum_stock) : 0,
+        maximum_stock: editForm.maximum_stock !== "" ? Number(editForm.maximum_stock) : 0,
+        cost_per_unit: editForm.cost_per_unit !== "" ? Number(editForm.cost_per_unit) : 0,
+      });
+      setEditOpen(false);
+      await loadInventory();
+    } catch (err: any) {
+      setEditError(err?.message ?? "Failed to update item.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  // ── Adjust stock handlers ──────────────────────────────────────
+  const openAdjust = (item: InventoryItem) => {
+    setAdjustTarget(item);
+    setAdjustDelta("");
+    setAdjustNote("");
+    setAdjustError("");
+    setAdjustOpen(true);
+  };
+
+  const handleAdjustSave = async () => {
+    if (!adjustTarget) return;
+    const delta = Number(adjustDelta);
+    if (adjustDelta === "" || isNaN(delta)) {
+      setAdjustError("Enter a quantity to add or remove (use a negative number to remove stock).");
+      return;
+    }
+    const newTotal = adjustTarget.quantity + delta;
+    if (newTotal < 0) {
+      setAdjustError(`Cannot go below 0. Current stock is ${adjustTarget.quantity} ${adjustTarget.unit}.`);
+      return;
+    }
+    setAdjustSaving(true);
+    setAdjustError("");
+    try {
+      await inventoryService.adjustStock(
+        adjustTarget.id,
+        newTotal,
+        userId,
+        adjustNote.trim() || undefined
+      );
+      setAdjustOpen(false);
+      await loadInventory();
+    } catch (err: any) {
+      setAdjustError(err?.message ?? "Failed to adjust stock.");
+    } finally {
+      setAdjustSaving(false);
+    }
+  };
+
+  // ── Delete handlers ────────────────────────────────────────────
+  const openDelete = (item: InventoryItem) => {
+    setDeleteTarget(item);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await inventoryService.deleteInventoryItem(deleteTarget.id);
+      setDeleteOpen(false);
+      await loadInventory();
+    } catch (err: any) {
+      console.error("Delete failed:", err);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // ── Derived data ───────────────────────────────────────────────
   const getLowStockItems = () => inventory.filter((item) => item.quantity < item.minStock);
   const getOutOfStockItems = () => inventory.filter((item) => item.quantity === 0);
   const getExpiringItems = () => {
@@ -110,8 +316,6 @@ export default function AdminInventory() {
     );
   };
 
-  // Apply tab filter first, then fuzzy-rank the remainder so low-stock /
-  // expiring views still benefit from smart search across name + category.
   const tabFilteredInventory = useMemo(() => {
     if (activeTab === "all") return inventory;
     if (activeTab === "low-stock") return inventory.filter((i) => i.quantity < i.minStock);
@@ -142,6 +346,101 @@ export default function AdminInventory() {
     0
   );
 
+  // ── Shared form field renderer ─────────────────────────────────
+  const renderItemForm = (
+    form: typeof emptyForm,
+    setForm: (f: typeof emptyForm) => void,
+    error: string
+  ) => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="col-span-2">
+          <Label htmlFor="item_name">Item name *</Label>
+          <Input
+            id="item_name"
+            value={form.item_name}
+            onChange={(e) => setForm({ ...form, item_name: e.target.value })}
+            placeholder="e.g. Chicken Breast"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <select
+            id="category"
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label htmlFor="unit_of_measure">Unit of measure</Label>
+          <Input
+            id="unit_of_measure"
+            value={form.unit_of_measure}
+            onChange={(e) => setForm({ ...form, unit_of_measure: e.target.value })}
+            placeholder="e.g. kg, litre, unit"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="current_stock">Current stock</Label>
+          <Input
+            id="current_stock"
+            type="number"
+            min="0"
+            value={form.current_stock}
+            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
+            placeholder="0"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="cost_per_unit">Cost per unit (R)</Label>
+          <Input
+            id="cost_per_unit"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.cost_per_unit}
+            onChange={(e) => setForm({ ...form, cost_per_unit: e.target.value })}
+            placeholder="0.00"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="minimum_stock">Reorder at (min stock)</Label>
+          <Input
+            id="minimum_stock"
+            type="number"
+            min="0"
+            value={form.minimum_stock}
+            onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })}
+            placeholder="0"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="maximum_stock">Max stock</Label>
+          <Input
+            id="maximum_stock"
+            type="number"
+            min="0"
+            value={form.maximum_stock}
+            onChange={(e) => setForm({ ...form, maximum_stock: e.target.value })}
+            placeholder="0"
+            className="mt-1"
+          />
+        </div>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+
   return (
     <>
       <NoIndexMeta />
@@ -168,11 +467,14 @@ export default function AdminInventory() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={loadInventory}>
                   <RefreshCw className="w-4 h-4" />
                   Sync
                 </Button>
-                <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2">
+                <Button
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
+                  onClick={openAdd}
+                >
                   <Plus className="w-4 h-4" />
                   Add Item
                 </Button>
@@ -379,7 +681,14 @@ export default function AdminInventory() {
               ) : filteredInventory.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600">No items found</p>
+                  <p className="text-slate-600 mb-4">No items found</p>
+                  <Button
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
+                    onClick={openAdd}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add your first item
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -463,12 +772,33 @@ export default function AdminInventory() {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
+                          <div className="flex items-center gap-1 ml-4 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Adjust stock"
+                              onClick={() => openAdjust(item)}
+                              className="text-slate-500 hover:text-green-700 hover:bg-green-50"
+                            >
+                              <ArrowUpDown className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Edit item"
+                              onClick={() => openEdit(item)}
+                              className="text-slate-500 hover:text-blue-700 hover:bg-blue-50"
+                            >
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="w-4 h-4 text-red-600" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Delete item"
+                              onClick={() => openDelete(item)}
+                              className="text-slate-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
@@ -481,6 +811,153 @@ export default function AdminInventory() {
           </Card>
         </div>
       </div>
+
+      {/* ── Add Item Modal ─────────────────────────────────────────── */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5 text-green-600" />
+              Add inventory item
+            </DialogTitle>
+          </DialogHeader>
+          {renderItemForm(addForm, setAddForm, addError)}
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={addSaving}>Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleAddSave}
+              disabled={addSaving}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              {addSaving ? "Saving..." : "Add item"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Modal ─────────────────────────────────────────────── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" />
+              Edit item -- {editTarget?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {renderItemForm(editForm, setEditForm, editError)}
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={editSaving}>Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleEditSave}
+              disabled={editSaving}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            >
+              {editSaving ? "Saving..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Adjust Stock Modal ─────────────────────────────────────── */}
+      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowUpDown className="w-5 h-5 text-green-600" />
+              Adjust stock -- {adjustTarget?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {adjustTarget && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm">
+                <span className="text-slate-500">Current stock:</span>{" "}
+                <span className="font-semibold text-slate-900">
+                  {adjustTarget.quantity} {adjustTarget.unit}
+                </span>
+              </div>
+              <div>
+                <Label htmlFor="adjust_delta">
+                  Quantity to add or remove
+                </Label>
+                <p className="text-xs text-slate-500 mb-1.5">
+                  Positive number to receive stock, negative to use or remove.
+                </p>
+                <Input
+                  id="adjust_delta"
+                  type="number"
+                  value={adjustDelta}
+                  onChange={(e) => setAdjustDelta(e.target.value)}
+                  placeholder="e.g. 10 or -3"
+                  className="mt-1"
+                  autoFocus
+                />
+                {adjustDelta !== "" && !isNaN(Number(adjustDelta)) && (
+                  <p className="text-xs mt-1.5 text-slate-600">
+                    New total:{" "}
+                    <span className={`font-semibold ${adjustTarget.quantity + Number(adjustDelta) < 0 ? "text-red-600" : "text-slate-900"}`}>
+                      {adjustTarget.quantity + Number(adjustDelta)} {adjustTarget.unit}
+                    </span>
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="adjust_note">Note (optional)</Label>
+                <Input
+                  id="adjust_note"
+                  value={adjustNote}
+                  onChange={(e) => setAdjustNote(e.target.value)}
+                  placeholder="e.g. Weekly delivery, used for event"
+                  className="mt-1"
+                />
+              </div>
+              {adjustError && <p className="text-sm text-red-600">{adjustError}</p>}
+            </div>
+          )}
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={adjustSaving}>Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleAdjustSave}
+              disabled={adjustSaving}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+            >
+              {adjustSaving ? "Saving..." : "Update stock"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm Modal ───────────────────────────────────── */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <Trash2 className="w-5 h-5" />
+              Delete item
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-700">
+            Remove <span className="font-semibold">{deleteTarget?.name}</span> from inventory? This cannot be undone.
+          </p>
+          <DialogFooter className="mt-2">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleteLoading}>Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

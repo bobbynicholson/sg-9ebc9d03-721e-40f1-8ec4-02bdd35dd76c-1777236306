@@ -5,7 +5,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock,
-  AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart,
+  AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, Plus,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -380,7 +380,7 @@ function AdminDashboardPage() {
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <Link
                   href="/admin/orders"
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg hover:shadow-md transition-all"
@@ -409,6 +409,27 @@ function AdminDashboardPage() {
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Financial Reports</div>
                     <div className="text-xs text-slate-600">Deeper analytics</div>
+                  </div>
+                </Link>
+                <Link
+                  href="/admin/inventory"
+                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg hover:shadow-md transition-all"
+                >
+                  <div className="relative flex-shrink-0">
+                    <Package className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
+                    {stats.lowStockItems > 0 && (
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold leading-none">
+                        {stats.lowStockItems > 9 ? "9+" : stats.lowStockItems}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm sm:text-base text-slate-900">Inventory</div>
+                    <div className="text-xs text-slate-600">
+                      {stats.lowStockItems > 0
+                        ? `${stats.lowStockItems} item${stats.lowStockItems !== 1 ? "s" : ""} low`
+                        : "Add items + adjust stock"}
+                    </div>
                   </div>
                 </Link>
               </div>
