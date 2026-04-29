@@ -44,6 +44,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { regionManagement } from "@/lib/regionManagement";
 import { mockOrders } from "@/lib/mockData";
 import { Footer } from "@/components/Footer";
@@ -78,7 +79,7 @@ function OrderAssignmentsContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [availableStaff, setAvailableStaff] = useState<any[]>([]);
-  const { user } = useAuth();
+  const { user, profile } = useAuth() as any;
   const { toast } = useToast();
 
   const regions = regionManagement.regions.filter(r => r.status === "active");
@@ -120,10 +121,29 @@ function OrderAssignmentsContent() {
 
   const loadAvailableStaff = async (department: string) => {
     if (!user?.id) return;
-    
+
+    // Map UI department labels to the actual user_role enum values stored in profiles.
+    const roleMap: Record<string, string> = {
+      kitchen:  "kitchen_staff",
+      driver:   "driver",
+      shopping: "shopping_staff",
+      cleaning: "cleaning_staff",
+    };
+    const role = roleMap[department];
+    if (!role) return;
+
     try {
-      const staff = await userManagementService.getUsersByDepartment(department as any);
-      setAvailableStaff(staff);
+      const companyId = profile?.company_id;
+      let query = supabase
+        .from("profiles")
+        .select("id, full_name, email, role")
+        .eq("role", role);
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+      const { data, error } = await query.order("full_name");
+      if (error) throw error;
+      setAvailableStaff(data || []);
     } catch (error) {
       console.error("Error loading staff:", error);
       toast({
@@ -182,21 +202,23 @@ function OrderAssignmentsContent() {
   const handleAssignStaff = () => {
     if (!selectedOrder || !selectedDepartment || !selectedStaffMember) return;
 
+    const staffMember = availableStaff.find(s => s.id === selectedStaffMember);
     const updatedAssignments = {
       ...staffAssignments,
       [selectedOrder.id]: {
         ...staffAssignments[selectedOrder.id],
         [selectedDepartment]: selectedStaffMember,
+        // Also store the name so the card can display it without re-fetching.
+        [`${selectedDepartment}_name`]: staffMember?.full_name || "",
       }
     };
 
     setStaffAssignments(updatedAssignments);
     localStorage.setItem("staff_assignments", JSON.stringify(updatedAssignments));
-    
-    const staffMember = availableStaff.find(s => s.id === selectedStaffMember);
+
     toast({
       title: "Staff Assigned",
-      description: `${staffMember?.full_name} has been assigned to ${selectedDepartment} for order ${selectedOrder.id}`,
+      description: `${staffMember?.full_name || "Staff member"} has been assigned to ${selectedDepartment} for order ${selectedOrder.id}`,
     });
 
     setIsStaffDialogOpen(false);
@@ -469,7 +491,8 @@ function OrderAssignmentsContent() {
                               {departments.map((dept) => {
                                 const Icon = dept.icon;
                                 const assignedStaff = staffAssignment[dept.key];
-                                const staffMember = assignedStaff ? availableStaff.find(s => s.id === assignedStaff) : null;
+                                const assignedName = staffAssignment[`${dept.key}_name`] as string | undefined;
+                                const staffMember = assignedStaff ? { full_name: assignedName || "Staff assigned" } : null;
                                 
                                 return (
                                   <div key={dept.key} className={`border-2 rounded-lg p-3 ${assignedStaff ? 'border-green-200 bg-green-50' : 'border-slate-200 bg-slate-50'}`}>
