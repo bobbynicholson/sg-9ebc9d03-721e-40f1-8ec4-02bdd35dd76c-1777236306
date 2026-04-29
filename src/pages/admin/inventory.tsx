@@ -1,12 +1,11 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import {
   Package,
   AlertTriangle,
@@ -29,6 +30,10 @@ import {
   Trash2,
   RefreshCw,
   ArrowUpDown,
+  ChevronDown,
+  ChevronRight,
+  Activity,
+  CheckCircle2,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -47,9 +52,14 @@ interface InventoryItem {
   minStock: number;
   maxStock: number;
   costPerUnit: number;
-  supplier: string;
-  lastRestocked: string;
-  expiryDate?: string;
+  supplierId: string | null;
+  supplierName: string;
+  sku: string;
+  storageLocation: string;
+  storageInstructions: string;
+  isPerishable: boolean;
+  shelfLifeDays: number | null;
+  lastUpdated: string;
 }
 
 const CATEGORIES = [
@@ -67,6 +77,35 @@ const CATEGORIES = [
   "Other",
 ];
 
+// Reason codes map to inventory_transactions.transaction_type so the audit
+// log carries truthful intent instead of every movement reading "adjustment".
+type StockReasonKey =
+  | "received"
+  | "used"
+  | "waste"
+  | "count"
+  | "transfer_out"
+  | "return";
+
+interface StockReason {
+  key: StockReasonKey;
+  label: string;
+  helper: string;
+  /** Direction of stock change. "absolute" means user enters the new total (count correction). */
+  direction: "in" | "out" | "absolute";
+  /** Maps to the inventory_transactions.transaction_type enum. */
+  transactionType: "adjustment" | "usage" | "waste" | "transfer" | "return";
+}
+
+const STOCK_REASONS: StockReason[] = [
+  { key: "received",     label: "Received from supplier",  helper: "Delivery arrived. Adds to stock.",          direction: "in",       transactionType: "adjustment" },
+  { key: "used",         label: "Used for service",        helper: "Used for an event or prep. Removes stock.", direction: "out",      transactionType: "usage"      },
+  { key: "waste",        label: "Waste or spoilage",       helper: "Spoilage, breakage, quality reject.",       direction: "out",      transactionType: "waste"      },
+  { key: "count",        label: "Count correction",        helper: "Stock count came back different.",          direction: "absolute", transactionType: "adjustment" },
+  { key: "transfer_out", label: "Transfer out",            helper: "Moved to another kitchen or venue.",        direction: "out",      transactionType: "transfer"   },
+  { key: "return",       label: "Return to supplier",      helper: "Sent back. Removes stock.",                 direction: "out",      transactionType: "return"     },
+];
+
 const emptyForm = {
   item_name: "",
   category: "Other",
@@ -75,41 +114,83 @@ const emptyForm = {
   minimum_stock: "",
   maximum_stock: "",
   cost_per_unit: "",
+  sku: "",
+  storage_location: "",
 };
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 45) return "just now";
+  if (diffSec < 90) return "1 min ago";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 45) return `${diffMin} min ago`;
+  if (diffMin < 90) return "1 hour ago";
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hours ago`;
+  if (diffHr < 36) return "yesterday";
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 30) return `${diffDay} days ago`;
+  const diffMonth = Math.round(diffDay / 30);
+  if (diffMonth < 12) return `${diffMonth} months ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function readableTransactionType(t: string): string {
+  switch (t) {
+    case "adjustment": return "Adjustment";
+    case "usage":      return "Used";
+    case "waste":      return "Waste";
+    case "transfer":   return "Transfer";
+    case "return":     return "Return";
+    default:           return t;
+  }
+}
 
 export default function AdminInventory() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const companyId = (user as any)?.company_id ?? null;
   const userId = user?.id ?? "";
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState<"all" | "below_reorder" | "out" | "expiring">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [outlook, setOutlook] = useState<any[]>([]);
+  const [lastActivity, setLastActivity] = useState<{ created_at: string; transaction_type: string; item_name?: string } | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [rowDetail, setRowDetail] = useState<{
+    recipes: Array<{ recipe_id: string; recipe_name: string; quantity: number; unit: string }>;
+    movements: any[];
+  }>({ recipes: [], movements: [] });
+  const [rowDetailLoading, setRowDetailLoading] = useState(false);
 
-  // ── Add Item modal ──────────────────────────────────────────────
+  // ── Add ─────────────────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ ...emptyForm });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState("");
 
-  // ── Edit modal ─────────────────────────────────────────────────
+  // ── Edit ────────────────────────────────────────────────────────
   const [editOpen, setEditOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<InventoryItem | null>(null);
   const [editForm, setEditForm] = useState({ ...emptyForm });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
-  // ── Adjust Stock modal ─────────────────────────────────────────
-  const [adjustOpen, setAdjustOpen] = useState(false);
-  const [adjustTarget, setAdjustTarget] = useState<InventoryItem | null>(null);
-  const [adjustDelta, setAdjustDelta] = useState("");
-  const [adjustNote, setAdjustNote] = useState("");
-  const [adjustSaving, setAdjustSaving] = useState(false);
-  const [adjustError, setAdjustError] = useState("");
+  // ── Move stock (was Adjust) ─────────────────────────────────────
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<InventoryItem | null>(null);
+  const [moveReasonKey, setMoveReasonKey] = useState<StockReasonKey>("received");
+  const [moveQty, setMoveQty] = useState("");
+  const [moveAbsoluteCount, setMoveAbsoluteCount] = useState("");
+  const [moveNote, setMoveNote] = useState("");
+  const [moveSaving, setMoveSaving] = useState(false);
+  const [moveError, setMoveError] = useState("");
 
-  // ── Delete confirm ─────────────────────────────────────────────
+  // ── Delete ──────────────────────────────────────────────────────
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -118,6 +199,8 @@ export default function AdminInventory() {
     if (!user?.id) return;
     loadInventory();
     loadOutlook();
+    loadLastActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.company_id]);
 
   const loadOutlook = async () => {
@@ -127,22 +210,15 @@ export default function AdminInventory() {
       .select("*")
       .eq("company_id", companyId)
       .returns<Record<string, unknown>[]>();
-    if (error) {
-      console.error("outlook error", error);
-      setOutlook([]);
-      return;
-    }
+    if (error) { setOutlook([]); return; }
     setOutlook(data || []);
   };
 
   const loadInventory = async () => {
-    if (!companyId) {
-      setLoading(false);
-      return;
-    }
+    if (!companyId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const rows = await inventoryService.getInventory(companyId);
+      const rows = await inventoryService.getInventoryWithSuppliers(companyId);
       const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
         id: row.id,
         name: row.item_name ?? "Unnamed",
@@ -152,16 +228,56 @@ export default function AdminInventory() {
         minStock: Number(row.minimum_stock ?? 0),
         maxStock: Number(row.maximum_stock ?? 0),
         costPerUnit: Number(row.cost_per_unit ?? 0),
-        supplier: row.preferred_supplier_id ? "Supplier set" : "—",
-        lastRestocked: row.updated_at ?? "",
-        expiryDate: undefined,
+        supplierId: row.preferred_supplier_id ?? null,
+        supplierName: row.suppliers?.supplier_name ?? "",
+        sku: row.sku ?? "",
+        storageLocation: row.storage_location ?? "",
+        storageInstructions: row.storage_instructions ?? "",
+        isPerishable: Boolean(row.is_perishable),
+        shelfLifeDays: row.shelf_life_days ?? null,
+        lastUpdated: row.updated_at ?? "",
       }));
       setInventory(mapped);
-    } catch (error) {
-      console.error("Error loading inventory:", error);
+    } catch (err) {
+      console.error("Error loading inventory:", err);
       setInventory([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLastActivity = async () => {
+    if (!companyId) return;
+    const result = await inventoryService.getLastActivity(companyId);
+    setLastActivity(result);
+  };
+
+  const refreshAll = useCallback(() => {
+    loadInventory();
+    loadOutlook();
+    loadLastActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // ── Row expand: load recipes + movements lazily ────────────────
+  const toggleRow = async (item: InventoryItem) => {
+    if (expandedRowId === item.id) {
+      setExpandedRowId(null);
+      return;
+    }
+    setExpandedRowId(item.id);
+    setRowDetail({ recipes: [], movements: [] });
+    setRowDetailLoading(true);
+    try {
+      const [recipes, movements] = await Promise.all([
+        inventoryService.getRecipesUsingItem(item.id),
+        inventoryService.getMovementsForItem(item.id, 10),
+      ]);
+      setRowDetail({ recipes, movements });
+    } catch (err) {
+      console.error("Error loading row detail:", err);
+    } finally {
+      setRowDetailLoading(false);
     }
   };
 
@@ -173,14 +289,8 @@ export default function AdminInventory() {
   };
 
   const handleAddSave = async () => {
-    if (!addForm.item_name.trim()) {
-      setAddError("Item name is required.");
-      return;
-    }
-    if (!companyId) {
-      setAddError("No company associated with your account.");
-      return;
-    }
+    if (!addForm.item_name.trim()) { setAddError("Item name is required."); return; }
+    if (!companyId) { setAddError("No company on your profile."); return; }
     setAddSaving(true);
     setAddError("");
     try {
@@ -193,11 +303,14 @@ export default function AdminInventory() {
         minimum_stock: addForm.minimum_stock !== "" ? Number(addForm.minimum_stock) : 0,
         maximum_stock: addForm.maximum_stock !== "" ? Number(addForm.maximum_stock) : 0,
         cost_per_unit: addForm.cost_per_unit !== "" ? Number(addForm.cost_per_unit) : 0,
+        sku: addForm.sku.trim() || null,
+        storage_location: addForm.storage_location.trim() || null,
       });
       setAddOpen(false);
-      await loadInventory();
+      toast({ title: "Item added", description: addForm.item_name.trim() });
+      refreshAll();
     } catch (err: any) {
-      setAddError(err?.message ?? "Failed to save item.");
+      setAddError(err?.message ?? "Could not save the item.");
     } finally {
       setAddSaving(false);
     }
@@ -214,6 +327,8 @@ export default function AdminInventory() {
       minimum_stock: String(item.minStock),
       maximum_stock: String(item.maxStock),
       cost_per_unit: String(item.costPerUnit),
+      sku: item.sku,
+      storage_location: item.storageLocation,
     });
     setEditError("");
     setEditOpen(true);
@@ -221,10 +336,7 @@ export default function AdminInventory() {
 
   const handleEditSave = async () => {
     if (!editTarget) return;
-    if (!editForm.item_name.trim()) {
-      setEditError("Item name is required.");
-      return;
-    }
+    if (!editForm.item_name.trim()) { setEditError("Item name is required."); return; }
     setEditSaving(true);
     setEditError("");
     try {
@@ -236,56 +348,118 @@ export default function AdminInventory() {
         minimum_stock: editForm.minimum_stock !== "" ? Number(editForm.minimum_stock) : 0,
         maximum_stock: editForm.maximum_stock !== "" ? Number(editForm.maximum_stock) : 0,
         cost_per_unit: editForm.cost_per_unit !== "" ? Number(editForm.cost_per_unit) : 0,
+        sku: editForm.sku.trim() || null,
+        storage_location: editForm.storage_location.trim() || null,
       });
       setEditOpen(false);
-      await loadInventory();
+      toast({ title: "Saved", description: editForm.item_name.trim() });
+      refreshAll();
     } catch (err: any) {
-      setEditError(err?.message ?? "Failed to update item.");
+      setEditError(err?.message ?? "Could not save the item.");
     } finally {
       setEditSaving(false);
     }
   };
 
-  // ── Adjust stock handlers ──────────────────────────────────────
-  const openAdjust = (item: InventoryItem) => {
-    setAdjustTarget(item);
-    setAdjustDelta("");
-    setAdjustNote("");
-    setAdjustError("");
-    setAdjustOpen(true);
+  // ── Move stock handlers (the new reason-coded flow) ────────────
+  const openMove = (item: InventoryItem) => {
+    setMoveTarget(item);
+    setMoveReasonKey("received");
+    setMoveQty("");
+    setMoveAbsoluteCount(String(item.quantity));
+    setMoveNote("");
+    setMoveError("");
+    setMoveOpen(true);
   };
 
-  const handleAdjustSave = async () => {
-    if (!adjustTarget) return;
-    const delta = Number(adjustDelta);
-    if (adjustDelta === "" || isNaN(delta)) {
-      setAdjustError("Enter a quantity to add or remove (use a negative number to remove stock).");
-      return;
+  const moveReason = STOCK_REASONS.find(r => r.key === moveReasonKey)!;
+
+  const computedNewTotal = useMemo(() => {
+    if (!moveTarget) return 0;
+    if (moveReason.direction === "absolute") {
+      const n = Number(moveAbsoluteCount);
+      return isNaN(n) ? moveTarget.quantity : n;
     }
-    const newTotal = adjustTarget.quantity + delta;
+    const n = Number(moveQty);
+    if (isNaN(n) || moveQty === "") return moveTarget.quantity;
+    if (moveReason.direction === "in") return moveTarget.quantity + Math.abs(n);
+    return moveTarget.quantity - Math.abs(n);
+  }, [moveTarget, moveReason, moveQty, moveAbsoluteCount]);
+
+  const handleMoveSave = async () => {
+    if (!moveTarget) return;
+    const newTotal = computedNewTotal;
+
+    if (moveReason.direction === "absolute") {
+      if (moveAbsoluteCount === "" || isNaN(Number(moveAbsoluteCount))) {
+        setMoveError("Enter the actual count.");
+        return;
+      }
+    } else {
+      if (moveQty === "" || isNaN(Number(moveQty)) || Number(moveQty) === 0) {
+        setMoveError("Enter a quantity greater than zero.");
+        return;
+      }
+    }
     if (newTotal < 0) {
-      setAdjustError(`Cannot go below 0. Current stock is ${adjustTarget.quantity} ${adjustTarget.unit}.`);
+      setMoveError(`Stock cannot go below zero. You have ${moveTarget.quantity} ${moveTarget.unit} on hand.`);
       return;
     }
-    setAdjustSaving(true);
-    setAdjustError("");
+
+    const previousStock = moveTarget.quantity;
+    const targetItem = moveTarget;
+
+    setMoveSaving(true);
+    setMoveError("");
     try {
+      const composedNote = moveNote.trim()
+        ? `${moveReason.label}: ${moveNote.trim()}`
+        : moveReason.label;
       await inventoryService.adjustStock(
-        adjustTarget.id,
+        targetItem.id,
         newTotal,
         userId,
-        adjustNote.trim() || undefined
+        composedNote,
+        moveReason.transactionType,
       );
-      setAdjustOpen(false);
-      await loadInventory();
+      setMoveOpen(false);
+      const delta = newTotal - previousStock;
+      const sign = delta >= 0 ? "+" : "";
+      toast({
+        title: `${moveReason.label}`,
+        description: `${targetItem.name}: ${sign}${delta} ${targetItem.unit}. Now ${newTotal} ${targetItem.unit}.`,
+        action: (
+          <ToastAction
+            altText="Undo this stock movement"
+            onClick={async () => {
+              try {
+                await inventoryService.adjustStock(
+                  targetItem.id,
+                  previousStock,
+                  userId,
+                  `Undo: ${moveReason.label}`,
+                  "adjustment",
+                );
+                toast({ title: "Reverted", description: `${targetItem.name} back to ${previousStock} ${targetItem.unit}.` });
+                refreshAll();
+              } catch (e: any) {
+                toast({ title: "Could not undo", description: e?.message, variant: "destructive" });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+      refreshAll();
     } catch (err: any) {
-      setAdjustError(err?.message ?? "Failed to adjust stock.");
+      setMoveError(err?.message ?? "Could not update stock.");
     } finally {
-      setAdjustSaving(false);
+      setMoveSaving(false);
     }
   };
 
-  // ── Delete handlers ────────────────────────────────────────────
+  // ── Delete handlers (with undo) ────────────────────────────────
   const openDelete = (item: InventoryItem) => {
     setDeleteTarget(item);
     setDeleteOpen(true);
@@ -293,108 +467,860 @@ export default function AdminInventory() {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
+    const targetItem = deleteTarget;
     setDeleteLoading(true);
     try {
-      await inventoryService.deleteInventoryItem(deleteTarget.id);
+      await inventoryService.deleteInventoryItem(targetItem.id);
       setDeleteOpen(false);
-      await loadInventory();
+      toast({
+        title: "Item removed",
+        description: `${targetItem.name}. Stock history is kept.`,
+        action: (
+          <ToastAction
+            altText="Restore this item"
+            onClick={async () => {
+              try {
+                await inventoryService.restoreInventoryItem(targetItem.id);
+                toast({ title: "Restored", description: targetItem.name });
+                refreshAll();
+              } catch (e: any) {
+                toast({ title: "Could not restore", description: e?.message, variant: "destructive" });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+      refreshAll();
     } catch (err: any) {
-      console.error("Delete failed:", err);
+      toast({ title: "Could not delete", description: err?.message, variant: "destructive" });
     } finally {
       setDeleteLoading(false);
     }
   };
 
   // ── Derived data ───────────────────────────────────────────────
-  const getLowStockItems = () => inventory.filter((item) => item.quantity < item.minStock);
-  const getOutOfStockItems = () => inventory.filter((item) => item.quantity === 0);
-  const getExpiringItems = () => {
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    return inventory.filter(
-      (item) => item.expiryDate && new Date(item.expiryDate) < thirtyDaysFromNow
-    );
-  };
+  const belowReorderItems = useMemo(
+    () => inventory.filter(i => i.quantity <= i.minStock && i.quantity > 0),
+    [inventory],
+  );
+  const outOfStockItems = useMemo(
+    () => inventory.filter(i => i.quantity === 0),
+    [inventory],
+  );
+  const belowReorderCount = belowReorderItems.length + outOfStockItems.length;
 
-  const tabFilteredInventory = useMemo(() => {
+  const atRiskItems = useMemo(() => {
+    return outlook
+      .filter((o: any) => ["shortfall", "below_minimum", "low"].includes(o.status))
+      .sort((a: any, b: any) => {
+        const order: Record<string, number> = { shortfall: 0, below_minimum: 1, low: 2 };
+        return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+      });
+  }, [outlook]);
+
+  const stockOnHandValue = useMemo(
+    () => inventory.reduce((sum, item) => sum + item.quantity * item.costPerUnit, 0),
+    [inventory],
+  );
+
+  const tabFiltered = useMemo(() => {
     if (activeTab === "all") return inventory;
-    if (activeTab === "low-stock") return inventory.filter((i) => i.quantity < i.minStock);
-    if (activeTab === "out-of-stock") return inventory.filter((i) => i.quantity === 0);
+    if (activeTab === "below_reorder") return inventory.filter(i => i.quantity <= i.minStock && i.quantity > 0);
+    if (activeTab === "out") return inventory.filter(i => i.quantity === 0);
     if (activeTab === "expiring") {
-      const thirty = new Date();
-      thirty.setDate(thirty.getDate() + 30);
-      return inventory.filter((i) => i.expiryDate && new Date(i.expiryDate) < thirty);
+      // Phase 4 wires real per-batch expiry. For now, surface perishable items
+      // flagged as such, sorted by shelf life ascending.
+      return inventory
+        .filter(i => i.isPerishable)
+        .sort((a, b) => (a.shelfLifeDays ?? 999) - (b.shelfLifeDays ?? 999));
     }
     return inventory;
   }, [inventory, activeTab]);
 
   const filteredInventory = useFuzzyItems(
-    tabFilteredInventory,
+    tabFiltered,
     searchTerm,
     [
       { key: "name" as any, weight: 3 },
-      { key: "category" as any, weight: 2 },
       { key: "sku" as any, weight: 2 },
-      { key: "supplier" as any, weight: 1 },
-      { key: "location" as any, weight: 1 },
+      { key: "category" as any, weight: 2 },
+      { key: "supplierName" as any, weight: 2 },
+      { key: "storageLocation" as any, weight: 1 },
     ],
     { limit: 0 },
   );
 
-  const totalValue = inventory.reduce(
-    (sum, item) => sum + item.quantity * item.costPerUnit,
-    0
-  );
+  return (
+    <>
+      <NoIndexMeta />
+      <Head><title>Inventory - CateringMS Admin</title></Head>
+      <AdminNav />
 
-  // ── Shared form field renderer ─────────────────────────────────
-  const renderItemForm = (
-    form: typeof emptyForm,
-    setForm: (f: typeof emptyForm) => void,
-    error: string
-  ) => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="col-span-2">
-          <Label htmlFor="item_name">Item name *</Label>
-          <Input
-            id="item_name"
-            value={form.item_name}
-            onChange={(e) => setForm({ ...form, item_name: e.target.value })}
-            placeholder="e.g. Chicken Breast"
-            className="mt-1"
-          />
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
+        <div className="px-4 py-6 max-w-screen-2xl">
+
+          {/* Compressed header */}
+          <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-sm">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900">Inventory</h1>
+                <p className="text-sm text-slate-500">
+                  {inventory.length} item{inventory.length === 1 ? "" : "s"}
+                  {lastActivity && <> · last movement {relativeTime(lastActivity.created_at)}</>}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-2" onClick={refreshAll}>
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+                onClick={openAdd}
+              >
+                <Plus className="w-4 h-4" />
+                New item
+              </Button>
+            </div>
+          </div>
+
+          {/* Stat cards (4 new ones, ordered by what to act on first) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab("below_reorder")}
+              className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
+                activeTab === "below_reorder" ? "ring-2 ring-red-200 border-red-300" : "border-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  Below reorder
+                  <InfoTooltip content="Items at or below their reorder point. Order these next." />
+                </p>
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">{belowReorderCount}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {outOfStockItems.length > 0 ? `${outOfStockItems.length} fully out` : "Click to filter"}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById("at-risk-panel");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="text-left rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  At risk 7 days
+                  <InfoTooltip content="Items where confirmed bookings will use more than you have on hand in the next seven days." />
+                </p>
+                <TrendingDown className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">{atRiskItems.length}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                {atRiskItems.length === 0 ? "All covered" : "Click to jump"}
+              </p>
+            </button>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  Stock on hand
+                  <InfoTooltip content="Value of stock on hand at last cost. Sum of quantity × cost per unit across all items." />
+                </p>
+                <Package className="w-4 h-4 text-emerald-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">
+                R{stockOnHandValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">at last cost</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  Last activity
+                  <InfoTooltip content="Most recent stock movement on any item. A pulse check that the team is using the system." />
+                </p>
+                <Activity className="w-4 h-4 text-blue-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">
+                {lastActivity ? relativeTime(lastActivity.created_at) : "—"}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 truncate">
+                {lastActivity?.item_name
+                  ? `${readableTransactionType(lastActivity.transaction_type)} · ${lastActivity.item_name}`
+                  : "no movements yet"}
+              </p>
+            </div>
+          </div>
+
+          {/* At risk this week (the most valuable block, now first) */}
+          <Card id="at-risk-panel" className="border-0 shadow-sm mb-6">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {atRiskItems.length === 0 ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    )}
+                    At risk this week
+                  </CardTitle>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {atRiskItems.length === 0
+                      ? "All covered for the next 7 days against confirmed bookings."
+                      : `${atRiskItems.length} item${atRiskItems.length === 1 ? "" : "s"} will run short on confirmed bookings.`}
+                  </p>
+                </div>
+                {atRiskItems.length > 0 && (
+                  <Link href="/team-portal/shopping/alerts">
+                    <Button size="sm" variant="outline" className="gap-2">
+                      <TrendingDown className="w-4 h-4" />
+                      Build shopping list
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardHeader>
+            {atRiskItems.length > 0 && (
+              <CardContent className="pt-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="text-left py-2 pr-3 font-medium">Item</th>
+                        <th className="text-right py-2 px-3 font-medium">On hand</th>
+                        <th className="text-right py-2 px-3 font-medium">Needed (7 days)</th>
+                        <th className="text-right py-2 px-3 font-medium">Projected on hand</th>
+                        <th className="text-left py-2 pl-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {atRiskItems.slice(0, 12).map((r: any) => {
+                        const tone =
+                          r.status === "shortfall" ? "bg-red-50 text-red-800 border-red-200" :
+                          r.status === "below_minimum" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                          "bg-yellow-50 text-yellow-800 border-yellow-200";
+                        const projected = Number(r.projected_stock_after_7_days);
+                        const projectedTone = projected < 0
+                          ? "text-red-600 font-medium"
+                          : projected < Number(r.minimum_stock)
+                            ? "text-amber-600 font-medium"
+                            : "text-slate-900";
+                        const statusLabel =
+                          r.status === "shortfall"      ? "Will run out" :
+                          r.status === "below_minimum"  ? "Below reorder" :
+                          r.status === "low"            ? "Low" :
+                                                          r.status;
+                        return (
+                          <tr key={r.inventory_item_id} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="py-2 pr-3 font-medium text-slate-900">{r.item_name}</td>
+                            <td className="py-2 px-3 text-right tabular-nums">
+                              {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
+                            </td>
+                            <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                              {Number(r.demand_next_7_days).toLocaleString()}
+                            </td>
+                            <td className={`py-2 px-3 text-right tabular-nums ${projectedTone}`}>
+                              {projected.toLocaleString()}
+                            </td>
+                            <td className="py-2 pl-3">
+                              <Badge variant="outline" className={`${tone} border`}>
+                                {statusLabel}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-slate-500 mt-3">
+                  Pulled from confirmed lines over the next 7 days. Updates the moment recipes or stock change.
+                </p>
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Search + filter chips + decorative buttons (Phase 3 will wire) */}
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search items, suppliers, SKU"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
+                <Filter className="w-4 h-4" />
+                Filters
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
+                <Download className="w-4 h-4" />
+                Export
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveTab("all")}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  activeTab === "all"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                All ({inventory.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("below_reorder")}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  activeTab === "below_reorder"
+                    ? "bg-red-600 text-white border-red-600"
+                    : "bg-white text-red-700 border-red-200 hover:bg-red-50"
+                }`}
+              >
+                Below reorder ({belowReorderItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("out")}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  activeTab === "out"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Out ({outOfStockItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("expiring")}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  activeTab === "expiring"
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"
+                }`}
+              >
+                Perishable
+              </button>
+            </div>
+          </div>
+
+          {/* Dense table */}
+          <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {/* Table header */}
+            <div className="hidden md:grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <div></div>
+              <div>Item</div>
+              <div>Category</div>
+              <div className="text-right">On hand</div>
+              <div>Stock level</div>
+              <div className="text-right">Reorder / Par</div>
+              <div className="text-right">Last cost</div>
+              <div>Supplier</div>
+              <div className="text-right">Actions</div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Loading inventory...</p>
+              </div>
+            ) : filteredInventory.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                {inventory.length === 0 ? (
+                  <>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Nothing in inventory yet</p>
+                    <p className="text-xs text-slate-500 mb-4">Add your first item. Try chicken, butter, or rice.</p>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 gap-2" onClick={openAdd}>
+                      <Plus className="w-4 h-4" />
+                      Add an item
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-500">No items match this filter.</p>
+                )}
+              </div>
+            ) : (
+              filteredInventory.map(item => {
+                const isOut = item.quantity === 0;
+                const isLow = item.quantity <= item.minStock && !isOut;
+                const par = item.maxStock > 0 ? item.maxStock : Math.max(item.minStock * 2, 1);
+                const fillPct = Math.min(100, Math.max(0, (item.quantity / par) * 100));
+                const reorderTickPct = par > 0 ? Math.min(100, Math.max(0, (item.minStock / par) * 100)) : 0;
+                const barColour =
+                  isOut ? "bg-red-500" :
+                  isLow ? "bg-amber-500" :
+                  fillPct >= 75 ? "bg-emerald-500" :
+                  "bg-blue-500";
+                const leftBorder =
+                  isOut ? "border-l-red-500" :
+                  isLow ? "border-l-amber-500" :
+                  "border-l-transparent";
+
+                const isExpanded = expandedRowId === item.id;
+
+                return (
+                  <div key={item.id} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
+                    {/* Desktop dense row */}
+                    <div
+                      className="hidden md:grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => toggleRow(item)}
+                    >
+                      <div className="flex items-center justify-center text-slate-400">
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
+                        {(item.sku || item.storageLocation) && (
+                          <p className="text-xs text-slate-500 truncate">
+                            {item.sku && <span>SKU {item.sku}</span>}
+                            {item.sku && item.storageLocation && <span> · </span>}
+                            {item.storageLocation && <span>{item.storageLocation}</span>}
+                          </p>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <Badge variant="outline" className="text-xs font-normal text-slate-600 border-slate-200 bg-slate-50">
+                          {item.category}
+                        </Badge>
+                      </div>
+                      <div className="text-right tabular-nums">
+                        <p className={`text-sm font-semibold ${isOut ? "text-red-600" : isLow ? "text-amber-700" : "text-slate-900"}`}>
+                          {item.quantity}
+                        </p>
+                        <p className="text-xs text-slate-500">{item.unit}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="relative h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className={`absolute left-0 top-0 h-full ${barColour}`}
+                            style={{ width: `${fillPct}%` }}
+                          />
+                          {item.minStock > 0 && reorderTickPct < 100 && (
+                            <div
+                              className="absolute top-0 h-full w-px bg-slate-400"
+                              style={{ left: `${reorderTickPct}%` }}
+                              title={`Reorder at ${item.minStock} ${item.unit}`}
+                            />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          {isOut ? "Out of stock" : isLow ? "Below reorder" : `${Math.round(fillPct)}% of par`}
+                        </p>
+                      </div>
+                      <div className="text-right tabular-nums text-sm text-slate-700">
+                        <span className="text-slate-900">{item.minStock}</span>
+                        {item.maxStock > 0 && <span className="text-slate-400"> / {item.maxStock}</span>}
+                      </div>
+                      <div className="text-right tabular-nums text-sm text-slate-700">
+                        {item.costPerUnit > 0 ? `R${item.costPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "—"}
+                      </div>
+                      <div className="min-w-0 text-sm text-slate-700 truncate">
+                        {item.supplierName || <span className="text-slate-400">—</span>}
+                      </div>
+                      <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50"
+                          title="Move stock"
+                          onClick={() => openMove(item)}
+                        >
+                          <ArrowUpDown className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-blue-700 hover:bg-blue-50"
+                          title="Edit"
+                          onClick={() => openEdit(item)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-red-700 hover:bg-red-50"
+                          title="Delete"
+                          onClick={() => openDelete(item)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Mobile compact card */}
+                    <div
+                      className="md:hidden p-3 hover:bg-slate-50 cursor-pointer"
+                      onClick={() => toggleRow(item)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
+                            <Badge variant="outline" className="text-[10px] font-normal text-slate-600 border-slate-200 bg-slate-50">
+                              {item.category}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-500">
+                            <span className={isOut ? "text-red-600 font-semibold" : isLow ? "text-amber-700 font-semibold" : "text-slate-900 font-semibold"}>
+                              {item.quantity} {item.unit}
+                            </span>
+                            <span className="text-slate-400"> · reorder {item.minStock}</span>
+                            {item.supplierName && <span> · {item.supplierName}</span>}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openMove(item)}>
+                            <ArrowUpDown className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(item)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded drawer */}
+                    {isExpanded && (
+                      <div className="bg-slate-50 border-t border-slate-200 px-4 py-4">
+                        {rowDetailLoading ? (
+                          <p className="text-xs text-slate-500">Loading details...</p>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Recipe usage */}
+                            <div>
+                              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                In {rowDetail.recipes.length} recipe{rowDetail.recipes.length === 1 ? "" : "s"}
+                              </h4>
+                              {rowDetail.recipes.length === 0 ? (
+                                <p className="text-xs text-slate-500">Not linked to any recipe yet.</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {rowDetail.recipes.slice(0, 6).map(r => (
+                                    <li key={r.recipe_id} className="text-xs text-slate-700 flex justify-between gap-2">
+                                      <span className="truncate">{r.recipe_name}</span>
+                                      <span className="text-slate-500 tabular-nums whitespace-nowrap">
+                                        {r.quantity} {r.unit}
+                                      </span>
+                                    </li>
+                                  ))}
+                                  {rowDetail.recipes.length > 6 && (
+                                    <li className="text-xs text-slate-500">+ {rowDetail.recipes.length - 6} more</li>
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+
+                            {/* Movement history */}
+                            <div className="md:col-span-2">
+                              <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">
+                                Recent movements
+                              </h4>
+                              {rowDetail.movements.length === 0 ? (
+                                <p className="text-xs text-slate-500">No movements yet.</p>
+                              ) : (
+                                <ul className="space-y-1.5">
+                                  {rowDetail.movements.map(m => {
+                                    const qty = Number(m.quantity);
+                                    const sign = qty > 0 ? "+" : "";
+                                    return (
+                                      <li key={m.id} className="text-xs flex items-start justify-between gap-3 py-1 border-b border-slate-200 last:border-b-0">
+                                        <div className="min-w-0 flex-1">
+                                          <span className="font-medium text-slate-700">
+                                            {readableTransactionType(m.transaction_type)}
+                                          </span>
+                                          {m.notes && (
+                                            <span className="text-slate-500"> · {m.notes}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-right whitespace-nowrap">
+                                          <span className={`tabular-nums font-medium ${qty > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                                            {sign}{qty} {item.unit}
+                                          </span>
+                                          <span className="text-slate-400 ml-2">{relativeTime(m.created_at)}</span>
+                                        </div>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Storage notes if present */}
+                        {(item.storageInstructions || item.isPerishable) && (
+                          <div className="mt-4 pt-3 border-t border-slate-200 text-xs text-slate-600">
+                            {item.isPerishable && (
+                              <span className="inline-flex items-center gap-1 mr-3">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                Perishable{item.shelfLifeDays ? ` · shelf life ${item.shelfLifeDays}d` : ""}
+                              </span>
+                            )}
+                            {item.storageInstructions && <span>{item.storageInstructions}</span>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* ── Add modal ──────────────────────────────────────────────── */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New item</DialogTitle>
+          </DialogHeader>
+          <ItemForm form={addForm} setForm={setAddForm} error={addError} />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={addSaving}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleAddSave} disabled={addSaving} className="bg-emerald-600 hover:bg-emerald-700">
+              {addSaving ? "Saving..." : "Add item"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit modal ─────────────────────────────────────────────── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit {editTarget?.name}</DialogTitle>
+          </DialogHeader>
+          <ItemForm form={editForm} setForm={setEditForm} error={editError} />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={editSaving}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleEditSave} disabled={editSaving} className="bg-blue-600 hover:bg-blue-700">
+              {editSaving ? "Saving..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Move stock modal (reason-coded) ─────────────────────────── */}
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move stock · {moveTarget?.name}</DialogTitle>
+          </DialogHeader>
+          {moveTarget && (
+            <div className="space-y-4">
+              <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+                <span className="text-slate-500">On hand:</span>{" "}
+                <span className="font-semibold text-slate-900">
+                  {moveTarget.quantity} {moveTarget.unit}
+                </span>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Reason</Label>
+                <div className="mt-2 space-y-1.5">
+                  {STOCK_REASONS.map(r => (
+                    <label
+                      key={r.key}
+                      className={`flex items-start gap-3 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
+                        moveReasonKey === r.key
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="moveReason"
+                        value={r.key}
+                        checked={moveReasonKey === r.key}
+                        onChange={() => setMoveReasonKey(r.key)}
+                        className="mt-0.5 accent-emerald-600"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">{r.label}</p>
+                        <p className="text-xs text-slate-500">{r.helper}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {moveReason.direction === "absolute" ? (
+                <div>
+                  <Label htmlFor="absCount">Actual count on hand</Label>
+                  <Input
+                    id="absCount"
+                    type="number"
+                    min="0"
+                    value={moveAbsoluteCount}
+                    onChange={e => setMoveAbsoluteCount(e.target.value)}
+                    className="mt-1"
+                    autoFocus
+                  />
+                  {moveAbsoluteCount !== "" && !isNaN(Number(moveAbsoluteCount)) && (
+                    <p className="text-xs text-slate-600 mt-1.5">
+                      Adjusts by {Number(moveAbsoluteCount) - moveTarget.quantity >= 0 ? "+" : ""}
+                      {Number(moveAbsoluteCount) - moveTarget.quantity} {moveTarget.unit}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="moveQty">
+                    {moveReason.direction === "in" ? "How much received?" : "How much removed?"}
+                  </Label>
+                  <Input
+                    id="moveQty"
+                    type="number"
+                    min="0"
+                    value={moveQty}
+                    onChange={e => setMoveQty(e.target.value)}
+                    placeholder={moveReason.direction === "in" ? "e.g. 10" : "e.g. 3"}
+                    className="mt-1"
+                    autoFocus
+                  />
+                  {moveQty !== "" && !isNaN(Number(moveQty)) && Number(moveQty) > 0 && (
+                    <p className="text-xs text-slate-600 mt-1.5">
+                      New total: <span className={`font-semibold ${computedNewTotal < 0 ? "text-red-600" : "text-slate-900"}`}>
+                        {computedNewTotal} {moveTarget.unit}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="moveNote">Note (optional)</Label>
+                <Input
+                  id="moveNote"
+                  value={moveNote}
+                  onChange={e => setMoveNote(e.target.value)}
+                  placeholder="Invoice number, event name, anything useful"
+                  className="mt-1"
+                />
+              </div>
+
+              {moveError && <p className="text-sm text-red-600">{moveError}</p>}
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={moveSaving}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleMoveSave} disabled={moveSaving} className="bg-emerald-600 hover:bg-emerald-700">
+              {moveSaving ? "Saving..." : "Update stock"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete confirm ─────────────────────────────────────────── */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-700">Delete item</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-700">
+            Delete <span className="font-semibold">{deleteTarget?.name}</span>?
+            Stock history is kept. The item is removed from lists. You can undo for a few seconds.
+          </p>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={deleteLoading}>Cancel</Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={deleteLoading}>
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ── Item form (shared by Add + Edit) ──────────────────────────────
+function ItemForm({
+  form,
+  setForm,
+  error,
+}: {
+  form: typeof emptyForm;
+  setForm: (f: typeof emptyForm) => void;
+  error: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label htmlFor="item_name">Item name *</Label>
+        <Input
+          id="item_name"
+          value={form.item_name}
+          onChange={e => setForm({ ...form, item_name: e.target.value })}
+          placeholder="e.g. Chicken breast"
+          className="mt-1"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <Label htmlFor="category">Category</Label>
           <select
             id="category"
             value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            onChange={e => setForm({ ...form, category: e.target.value })}
+            className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <Label htmlFor="unit_of_measure">Unit of measure</Label>
+          <Label htmlFor="unit_of_measure">Unit</Label>
           <Input
             id="unit_of_measure"
             value={form.unit_of_measure}
-            onChange={(e) => setForm({ ...form, unit_of_measure: e.target.value })}
-            placeholder="e.g. kg, litre, unit"
+            onChange={e => setForm({ ...form, unit_of_measure: e.target.value })}
+            placeholder="kg, litre, unit"
             className="mt-1"
           />
         </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="current_stock">Current stock</Label>
+          <Label htmlFor="current_stock">On hand</Label>
           <Input
             id="current_stock"
             type="number"
             min="0"
             value={form.current_stock}
-            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
+            onChange={e => setForm({ ...form, current_stock: e.target.value })}
             placeholder="0"
             className="mt-1"
           />
@@ -407,32 +1333,56 @@ export default function AdminInventory() {
             min="0"
             step="0.01"
             value={form.cost_per_unit}
-            onChange={(e) => setForm({ ...form, cost_per_unit: e.target.value })}
+            onChange={e => setForm({ ...form, cost_per_unit: e.target.value })}
             placeholder="0.00"
             className="mt-1"
           />
         </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label htmlFor="minimum_stock">Reorder at (min stock)</Label>
+          <Label htmlFor="minimum_stock">Reorder point</Label>
           <Input
             id="minimum_stock"
             type="number"
             min="0"
             value={form.minimum_stock}
-            onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })}
+            onChange={e => setForm({ ...form, minimum_stock: e.target.value })}
             placeholder="0"
             className="mt-1"
           />
         </div>
         <div>
-          <Label htmlFor="maximum_stock">Max stock</Label>
+          <Label htmlFor="maximum_stock">Par level</Label>
           <Input
             id="maximum_stock"
             type="number"
             min="0"
             value={form.maximum_stock}
-            onChange={(e) => setForm({ ...form, maximum_stock: e.target.value })}
+            onChange={e => setForm({ ...form, maximum_stock: e.target.value })}
             placeholder="0"
+            className="mt-1"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label htmlFor="sku">SKU</Label>
+          <Input
+            id="sku"
+            value={form.sku}
+            onChange={e => setForm({ ...form, sku: e.target.value })}
+            placeholder="optional"
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="storage_location">Storage location</Label>
+          <Input
+            id="storage_location"
+            value={form.storage_location}
+            onChange={e => setForm({ ...form, storage_location: e.target.value })}
+            placeholder="e.g. Walk-in fridge"
             className="mt-1"
           />
         </div>
@@ -440,531 +1390,11 @@ export default function AdminInventory() {
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
-
-  return (
-    <>
-      <NoIndexMeta />
-      <Head>
-        <title>Inventory Management - CateringMS Admin</title>
-      </Head>
-
-      <AdminNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                  <Package className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    Inventory Management
-                  </h1>
-                  <p className="text-slate-600 mt-1">Monitor stock levels and supplies</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="gap-2" onClick={loadInventory}>
-                  <RefreshCw className="w-4 h-4" />
-                  Sync
-                </Button>
-                <Button
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-                  onClick={openAdd}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Total Items <InfoTooltip content={"Number of distinct items currently tracked in your inventory."} /></p>
-                    <p className="text-3xl font-bold text-slate-900">{inventory.length}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-blue-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-orange-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-red-700 mb-1 flex items-center gap-1.5">Low Stock <InfoTooltip content={"Items that have dropped below their minimum and need reordering."} /></p>
-                    <p className="text-3xl font-bold text-red-900">
-                      {getLowStockItems().length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-red-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-yellow-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-700 mb-1 flex items-center gap-1.5">Expiring Soon <InfoTooltip content={"Items with an expiry date in the next 30 days. Use them up or move them on."} /></p>
-                    <p className="text-3xl font-bold text-amber-900">
-                      {getExpiringItems().length}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                    <TrendingDown className="w-6 h-6 text-amber-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Total Value <InfoTooltip content={"Total value of stock you have on hand right now, based on each item's cost per unit."} /></p>
-                    <p className="text-2xl font-bold text-green-900">
-                      R{totalValue.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                    <Package className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Search and Filters */}
-          <Card className="border-0 shadow-lg mb-6">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search inventory items..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-                <Button variant="outline" className="gap-2">
-                  <Filter className="w-4 h-4" />
-                  Filters
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <Download className="w-4 h-4" />
-                  Export
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Demand Outlook -- ties stock to confirmed orders */}
-          {outlook.length > 0 && (() => {
-            const at_risk = outlook
-              .filter((o: any) => o.status === "shortfall" || o.status === "below_minimum" || o.status === "low")
-              .sort((a: any, b: any) => {
-                const order: Record<string, number> = { shortfall: 0, below_minimum: 1, low: 2 };
-                return (order[a.status] ?? 9) - (order[b.status] ?? 9);
-              })
-              .slice(0, 8);
-            const totalUpcoming = outlook.reduce((s: number, o: any) => s + (Number(o.upcoming_order_count) || 0), 0);
-            if (at_risk.length === 0) return null;
-            return (
-              <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-amber-50 to-orange-50">
-                <CardHeader>
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-600" />
-                        Demand outlook
-                      </CardTitle>
-                      <p className="text-sm text-slate-600 mt-1">
-                        {at_risk.length} item{at_risk.length === 1 ? "" : "s"} at risk against confirmed orders
-                      </p>
-                    </div>
-                    <Link href="/team-portal/shopping/alerts">
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <TrendingDown className="w-4 h-4" />
-                        Open shopping alerts
-                      </Button>
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-amber-200">
-                        <tr>
-                          <th className="text-left py-2 pr-3"><span className="inline-flex items-center gap-1.5">Item <InfoTooltip content={"The name of the inventory item."} /></span></th>
-                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">On hand <InfoTooltip content={"How much of this item you have in stock right now."} /></span></th>
-                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">Need 7d <InfoTooltip content={"How much of this item your confirmed orders for the next seven days will use, based on the recipes."} /></span></th>
-                          <th className="text-right py-2 px-3"><span className="inline-flex items-center gap-1.5">After 7d <InfoTooltip content={"What you will be left with once the next seven days of bookings have run through."} /></span></th>
-                          <th className="text-left py-2 pl-3"><span className="inline-flex items-center gap-1.5">Status <InfoTooltip content={"How tight stock is looking. Shortfall means you will run out, below minimum means below the reorder point, low means thin, healthy means you are fine."} /></span></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {at_risk.map((r: any) => {
-                          const tone =
-                            r.status === "shortfall" ? "bg-red-100 text-red-800 border-red-200" :
-                            r.status === "below_minimum" ? "bg-amber-100 text-amber-800 border-amber-200" :
-                            "bg-yellow-100 text-yellow-800 border-yellow-200";
-                          const projected = Number(r.projected_stock_after_7_days);
-                          const projectedTone = projected < 0
-                            ? "text-red-600"
-                            : projected < Number(r.minimum_stock)
-                              ? "text-amber-600"
-                              : "text-slate-900";
-                          return (
-                            <tr key={r.inventory_item_id} className="border-b border-amber-100">
-                              <td className="py-2 pr-3 font-medium text-slate-900">{r.item_name}</td>
-                              <td className="py-2 px-3 text-right tabular-nums">
-                                {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
-                              </td>
-                              <td className="py-2 px-3 text-right tabular-nums text-slate-700">
-                                {Number(r.demand_next_7_days).toLocaleString()}
-                              </td>
-                              <td className={`py-2 px-3 text-right tabular-nums font-medium ${projectedTone}`}>
-                                {projected.toLocaleString()}
-                              </td>
-                              <td className="py-2 pl-3">
-                                <Badge variant="outline" className={`${tone} border capitalize`}>
-                                  {r.status.replace("_", " ")}
-                                </Badge>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-3">
-                    Calculated from {totalUpcoming} confirmed order line item{totalUpcoming === 1 ? "" : "s"} in the next 30 days. Recipe-driven -- editing recipes or stock updates this immediately.
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })()}
-
-          {/* Inventory Table */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4 bg-slate-100">
-                  <TabsTrigger value="all">All Items</TabsTrigger>
-                  <TabsTrigger value="low-stock">Low Stock</TabsTrigger>
-                  <TabsTrigger value="out-of-stock">Out of Stock</TabsTrigger>
-                  <TabsTrigger value="expiring">Expiring</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-4" />
-                  <p className="text-slate-600">Loading inventory...</p>
-                </div>
-              ) : filteredInventory.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600 mb-4">No items found</p>
-                  <Button
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 gap-2"
-                    onClick={openAdd}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add your first item
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredInventory.map((item) => {
-                    const isLowStock = item.quantity < item.minStock;
-                    const isOutOfStock = item.quantity === 0;
-                    const thirtyDaysFromNow = new Date();
-                    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-                    const isExpiring =
-                      item.expiryDate && new Date(item.expiryDate) < thirtyDaysFromNow;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`p-4 rounded-lg border-2 ${
-                          isOutOfStock
-                            ? "bg-red-50 border-red-200"
-                            : isLowStock
-                            ? "bg-orange-50 border-orange-200"
-                            : "bg-white border-slate-200"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h4 className="font-semibold text-lg text-slate-900">
-                                {item.name}
-                              </h4>
-                              <Badge className="bg-slate-100 text-slate-700">
-                                {item.category}
-                              </Badge>
-                              {isOutOfStock && (
-                                <Badge className="bg-red-100 text-red-800">Out of Stock</Badge>
-                              )}
-                              {isLowStock && !isOutOfStock && (
-                                <Badge className="bg-orange-100 text-orange-800">Low Stock</Badge>
-                              )}
-                              {isExpiring && (
-                                <Badge className="bg-amber-100 text-amber-800">Expiring Soon</Badge>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-slate-600">
-                              <div>
-                                <span className="font-medium">Stock:</span> {item.quantity}{" "}
-                                {item.unit}
-                              </div>
-                              <div>
-                                <span className="font-medium">Reorder at:</span> {item.minStock} {item.unit}
-                                {item.maxStock > 0 && (
-                                  <span className="text-slate-400"> / max {item.maxStock}</span>
-                                )}
-                              </div>
-                              <div>
-                                <span className="font-medium">Cost:</span> R{item.costPerUnit}/
-                                {item.unit}
-                              </div>
-                              <div>
-                                <span className="font-medium">Supplier:</span> {item.supplier}
-                              </div>
-                            </div>
-                            {item.maxStock > 0 && (
-                              <div className="mt-2 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    item.quantity <= item.minStock
-                                      ? "bg-red-500"
-                                      : item.quantity >= item.maxStock * 0.85
-                                      ? "bg-emerald-500"
-                                      : "bg-blue-500"
-                                  }`}
-                                  style={{
-                                    width: `${Math.min(100, Math.max(2, (item.quantity / item.maxStock) * 100))}%`,
-                                  }}
-                                />
-                              </div>
-                            )}
-                            {item.expiryDate && (
-                              <div className="mt-2 text-sm text-slate-600">
-                                <span className="font-medium">Expires:</span>{" "}
-                                {new Date(item.expiryDate).toLocaleDateString()}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 ml-4 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Adjust stock"
-                              onClick={() => openAdjust(item)}
-                              className="text-slate-500 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <ArrowUpDown className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Edit item"
-                              onClick={() => openEdit(item)}
-                              className="text-slate-500 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Delete item"
-                              onClick={() => openDelete(item)}
-                              className="text-slate-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* ── Add Item Modal ─────────────────────────────────────────── */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-green-600" />
-              Add inventory item
-            </DialogTitle>
-          </DialogHeader>
-          {renderItemForm(addForm, setAddForm, addError)}
-          <DialogFooter className="mt-2">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={addSaving}>Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleAddSave}
-              disabled={addSaving}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-            >
-              {addSaving ? "Saving..." : "Add item"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Edit Modal ─────────────────────────────────────────────── */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="w-5 h-5 text-blue-600" />
-              Edit item -- {editTarget?.name}
-            </DialogTitle>
-          </DialogHeader>
-          {renderItemForm(editForm, setEditForm, editError)}
-          <DialogFooter className="mt-2">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={editSaving}>Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleEditSave}
-              disabled={editSaving}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
-              {editSaving ? "Saving..." : "Save changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Adjust Stock Modal ─────────────────────────────────────── */}
-      <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ArrowUpDown className="w-5 h-5 text-green-600" />
-              Adjust stock -- {adjustTarget?.name}
-            </DialogTitle>
-          </DialogHeader>
-          {adjustTarget && (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm">
-                <span className="text-slate-500">Current stock:</span>{" "}
-                <span className="font-semibold text-slate-900">
-                  {adjustTarget.quantity} {adjustTarget.unit}
-                </span>
-              </div>
-              <div>
-                <Label htmlFor="adjust_delta">
-                  Quantity to add or remove
-                </Label>
-                <p className="text-xs text-slate-500 mb-1.5">
-                  Positive number to receive stock, negative to use or remove.
-                </p>
-                <Input
-                  id="adjust_delta"
-                  type="number"
-                  value={adjustDelta}
-                  onChange={(e) => setAdjustDelta(e.target.value)}
-                  placeholder="e.g. 10 or -3"
-                  className="mt-1"
-                  autoFocus
-                />
-                {adjustDelta !== "" && !isNaN(Number(adjustDelta)) && (
-                  <p className="text-xs mt-1.5 text-slate-600">
-                    New total:{" "}
-                    <span className={`font-semibold ${adjustTarget.quantity + Number(adjustDelta) < 0 ? "text-red-600" : "text-slate-900"}`}>
-                      {adjustTarget.quantity + Number(adjustDelta)} {adjustTarget.unit}
-                    </span>
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="adjust_note">Note (optional)</Label>
-                <Input
-                  id="adjust_note"
-                  value={adjustNote}
-                  onChange={(e) => setAdjustNote(e.target.value)}
-                  placeholder="e.g. Weekly delivery, used for event"
-                  className="mt-1"
-                />
-              </div>
-              {adjustError && <p className="text-sm text-red-600">{adjustError}</p>}
-            </div>
-          )}
-          <DialogFooter className="mt-2">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={adjustSaving}>Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleAdjustSave}
-              disabled={adjustSaving}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-            >
-              {adjustSaving ? "Saving..." : "Update stock"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Delete Confirm Modal ───────────────────────────────────── */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
-              <Trash2 className="w-5 h-5" />
-              Delete item
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-slate-700">
-            Remove <span className="font-semibold">{deleteTarget?.name}</span> from inventory? This cannot be undone.
-          </p>
-          <DialogFooter className="mt-2">
-            <DialogClose asChild>
-              <Button variant="outline" disabled={deleteLoading}>Cancel</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
 }
 
 export function ProtectedInventoryPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminInventory />
     </ProtectedRoute>
   );
