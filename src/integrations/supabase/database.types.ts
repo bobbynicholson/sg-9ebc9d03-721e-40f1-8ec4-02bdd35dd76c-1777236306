@@ -768,6 +768,7 @@ export type Database = {
           email: string
           embed_pricing_tiers: Json
           embed_token: string
+          dispatch_settings: Json
           headquarters_lat: number | null
           headquarters_lng: number | null
           id: string
@@ -811,6 +812,7 @@ export type Database = {
           email: string
           embed_pricing_tiers?: Json
           embed_token?: string
+          dispatch_settings?: Json
           headquarters_lat?: number | null
           headquarters_lng?: number | null
           id?: string
@@ -851,6 +853,7 @@ export type Database = {
           currency?: string | null
           custom_domain?: string | null
           deleted_at?: string | null
+          dispatch_settings?: Json
           email?: string
           embed_pricing_tiers?: Json
           embed_token?: string
@@ -4451,6 +4454,78 @@ export type Database = {
         }
         Relationships: []
       }
+      order_assignment_audit: {
+        Row: {
+          company_id: string
+          created_at: string
+          from_driver_id: string | null
+          id: string
+          order_id: string
+          performed_by: string | null
+          reason: string | null
+          score: number | null
+          to_driver_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          from_driver_id?: string | null
+          id?: string
+          order_id: string
+          performed_by?: string | null
+          reason?: string | null
+          score?: number | null
+          to_driver_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          from_driver_id?: string | null
+          id?: string
+          order_id?: string
+          performed_by?: string | null
+          reason?: string | null
+          score?: number | null
+          to_driver_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_assignment_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_assignment_audit_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_assignment_audit_from_driver_id_fkey"
+            columns: ["from_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_assignment_audit_to_driver_id_fkey"
+            columns: ["to_driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_assignment_audit_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_status_history: {
         Row: {
           changed_by: string | null
@@ -4496,8 +4571,10 @@ export type Database = {
       orders: {
         Row: {
           amount_paid: number | null
+          assigned_at: string | null
           assigned_chef_id: string | null
           assigned_driver_id: string | null
+          assignment_score: number | null
           balance_amount: number | null
           balance_due_date: string | null
           balance_paid: boolean | null
@@ -4575,8 +4652,10 @@ export type Database = {
         }
         Insert: {
           amount_paid?: number | null
+          assigned_at?: string | null
           assigned_chef_id?: string | null
           assigned_driver_id?: string | null
+          assignment_score?: number | null
           balance_amount?: number | null
           balance_due_date?: string | null
           balance_paid?: boolean | null
@@ -4654,8 +4733,10 @@ export type Database = {
         }
         Update: {
           amount_paid?: number | null
+          assigned_at?: string | null
           assigned_chef_id?: string | null
           assigned_driver_id?: string | null
+          assignment_score?: number | null
           balance_amount?: number | null
           balance_due_date?: string | null
           balance_paid?: boolean | null
@@ -5202,16 +5283,19 @@ export type Database = {
           email_verified: boolean | null
           employee_number: string | null
           full_name: string
+          home_postcode: string | null
           hourly_rate: number | null
           id: string
           id_number: string | null
           is_active: boolean | null
+          max_jobs_per_shift: number | null
           notification_preferences: Json | null
           phone: string | null
           phone_number: string | null
           phone_verified: boolean | null
           region: string | null
           region_id: string | null
+          regions_covered: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
           vehicle_registration: string | null
@@ -5234,16 +5318,19 @@ export type Database = {
           email_verified?: boolean | null
           employee_number?: string | null
           full_name: string
+          home_postcode?: string | null
           hourly_rate?: number | null
           id: string
           id_number?: string | null
           is_active?: boolean | null
+          max_jobs_per_shift?: number | null
           notification_preferences?: Json | null
           phone?: string | null
           phone_number?: string | null
           phone_verified?: boolean | null
           region?: string | null
           region_id?: string | null
+          regions_covered?: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           vehicle_registration?: string | null
@@ -5266,16 +5353,19 @@ export type Database = {
           email_verified?: boolean | null
           employee_number?: string | null
           full_name?: string
+          home_postcode?: string | null
           hourly_rate?: number | null
           id?: string
           id_number?: string | null
           is_active?: boolean | null
+          max_jobs_per_shift?: number | null
           notification_preferences?: Json | null
           phone?: string | null
           phone_number?: string | null
           phone_verified?: boolean | null
           region?: string | null
           region_id?: string | null
+          regions_covered?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
           vehicle_registration?: string | null

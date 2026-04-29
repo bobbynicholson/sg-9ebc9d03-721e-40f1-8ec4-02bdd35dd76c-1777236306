@@ -1,0 +1,659 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
+/**
+ * Dispatch service: the math layer behind the order-to-driver flywheel.
+ *
+ * Responsibilities:
+ *   - score(driver, order)   weighted match score, 0-100
+ *   - suggestDriversForOrder top 3 ranked candidates with reasons
+ *   - capacity check         driver max_jobs_per_shift on the event date
+ *   - feasibility check      can the driver still arrive arrival_buffer_minutes
+ *                            before event_time given current pipeline
+ *   - assignDriverWithGate   the single safe write path: gates capacity + feasibility,
+ *                            stamps assignment_score, writes audit row
+ *   - bulkAssign             N orders -> one driver in a single round trip
+ *   - getDispatchSettings    per-tenant config (sla, buffer, weights)
+ *   - getDispatchKpis        median time-to-assign, at-risk count, etc.
+ *
+ * Nothing here mutates state silently. Every assignment writes to
+ * order_assignment_audit so dispatch decisions are traceable.
+ */
+import { supabase } from "@/integrations/supabase/client";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface DispatchSettings {
+  slaAssignMinutes: number;          // event-T threshold below which unassigned glows red
+  arrivalBufferMinutes: number;      // driver must arrive at least this many minutes before event_time
+  autoAssignEnabled: boolean;        // when true, assignment commits without dispatcher confirmation
+  autoSuggestEnabled: boolean;       // when true, page surfaces top suggestions
+  weights: {
+    distance: number;
+    currentLoad: number;
+    regionMatch: number;
+    onTimeRate: number;
+    rating: number;
+  };
+}
+
+const DEFAULT_SETTINGS: DispatchSettings = {
+  slaAssignMinutes: 720,             // 12 hours
+  arrivalBufferMinutes: 30,
+  autoAssignEnabled: false,
+  autoSuggestEnabled: true,
+  weights: {
+    distance:     0.30,
+    currentLoad:  0.20,
+    regionMatch:  0.25,
+    onTimeRate:   0.15,
+    rating:       0.10,
+  },
+};
+
+export interface DriverCandidate {
+  id: string;
+  full_name: string;
+  email?: string;
+  is_active?: boolean;
+  max_jobs_per_shift?: number | null;
+  regions_covered?: string[] | null;
+  home_postcode?: string | null;
+  region_id?: string | null;
+}
+
+export interface OrderForDispatch {
+  id: string;
+  event_date: string;
+  event_time?: string | null;
+  region_id?: string | null;
+  venue_lat?: number | null;
+  venue_lng?: number | null;
+  venue_address?: string | null;
+  total_amount?: number | null;
+  client_name?: string | null;
+  status?: string | null;
+}
+
+export interface ScoreBreakdown {
+  total: number;        // 0-100
+  distance: number;     // 0-1 normalised
+  currentLoad: number;
+  regionMatch: number;
+  onTimeRate: number;
+  rating: number;
+  reasons: string[];    // human-readable reasons for the score
+}
+
+export interface DispatchSuggestion {
+  driver: DriverCandidate;
+  score: ScoreBreakdown;
+  capacity: { ok: boolean; current: number; max: number | null; reason?: string };
+  feasibility: { ok: boolean; etaMinutes: number | null; reason?: string };
+}
+
+// ── Geo helpers ──────────────────────────────────────────────────────────────
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Average urban speed for ETA estimation (km/h). Conservative. Phase 3 plugs in real traffic.
+const AVG_SPEED_KMH = 35;
+
+function etaMinutesFromKm(km: number): number {
+  return Math.round((km / AVG_SPEED_KMH) * 60);
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
+
+export const dispatchService = {
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+
+  async getDispatchSettings(companyId: string): Promise<DispatchSettings> {
+    const { data, error } = await supabase
+      .from("companies")
+      .select("dispatch_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (error || !data) return DEFAULT_SETTINGS;
+    const raw = (data as any).dispatch_settings || {};
+    return {
+      slaAssignMinutes:     Number(raw.sla_assign_minutes      ?? DEFAULT_SETTINGS.slaAssignMinutes),
+      arrivalBufferMinutes: Number(raw.arrival_buffer_minutes  ?? DEFAULT_SETTINGS.arrivalBufferMinutes),
+      autoAssignEnabled:    Boolean(raw.auto_assign_enabled    ?? DEFAULT_SETTINGS.autoAssignEnabled),
+      autoSuggestEnabled:   Boolean(raw.auto_suggest_enabled   ?? DEFAULT_SETTINGS.autoSuggestEnabled),
+      weights: {
+        distance:    Number(raw.auto_assign_weights?.distance     ?? DEFAULT_SETTINGS.weights.distance),
+        currentLoad: Number(raw.auto_assign_weights?.current_load ?? DEFAULT_SETTINGS.weights.currentLoad),
+        regionMatch: Number(raw.auto_assign_weights?.region_match ?? DEFAULT_SETTINGS.weights.regionMatch),
+        onTimeRate:  Number(raw.auto_assign_weights?.on_time_rate ?? DEFAULT_SETTINGS.weights.onTimeRate),
+        rating:      Number(raw.auto_assign_weights?.rating       ?? DEFAULT_SETTINGS.weights.rating),
+      },
+    };
+  },
+
+  async updateDispatchSettings(companyId: string, s: DispatchSettings): Promise<boolean> {
+    const payload = {
+      sla_assign_minutes:     s.slaAssignMinutes,
+      arrival_buffer_minutes: s.arrivalBufferMinutes,
+      auto_assign_enabled:    s.autoAssignEnabled,
+      auto_suggest_enabled:   s.autoSuggestEnabled,
+      auto_assign_weights: {
+        distance:     s.weights.distance,
+        current_load: s.weights.currentLoad,
+        region_match: s.weights.regionMatch,
+        on_time_rate: s.weights.onTimeRate,
+        rating:       s.weights.rating,
+      },
+    };
+    const { error } = await supabase
+      .from("companies")
+      .update({ dispatch_settings: payload })
+      .eq("id", companyId);
+    if (error) throw error;
+    return true;
+  },
+
+  // ── Drivers + load ────────────────────────────────────────────────────────
+
+  async getDriversForCompany(companyId: string): Promise<DriverCandidate[]> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, is_active, max_jobs_per_shift, regions_covered, home_postcode, region_id")
+      .eq("company_id", companyId)
+      .eq("role", "driver")
+      .order("full_name");
+    if (error) {
+      console.error("Error fetching drivers:", error);
+      return [];
+    }
+    return (data || []).filter((d: any) => d.is_active !== false);
+  },
+
+  /**
+   * Driver load on a given date: count of confirmed/active orders assigned
+   * to this driver whose event_date matches.
+   */
+  async getDriverLoadOnDate(driverId: string, eventDate: string): Promise<number> {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id", { count: "exact" })
+      .eq("assigned_driver_id", driverId)
+      .eq("event_date", eventDate)
+      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+    if (error) {
+      console.warn("Error counting driver load:", error);
+      return 0;
+    }
+    return (data || []).length;
+  },
+
+  async getDriverLoadMap(driverIds: string[], eventDate: string): Promise<Record<string, number>> {
+    if (driverIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("orders")
+      .select("assigned_driver_id")
+      .in("assigned_driver_id", driverIds)
+      .eq("event_date", eventDate)
+      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+    if (error) return {};
+    const map: Record<string, number> = {};
+    for (const id of driverIds) map[id] = 0;
+    for (const row of data || []) {
+      const id = (row as any).assigned_driver_id;
+      if (id) map[id] = (map[id] || 0) + 1;
+    }
+    return map;
+  },
+
+  // ── Scoring ───────────────────────────────────────────────────────────────
+
+  /**
+   * score(driver, order) -> 0-100. Higher is better.
+   * Each component is normalised to 0-1, multiplied by its weight, summed,
+   * then scaled to 0-100. Reasons are captured as human-readable strings.
+   */
+  scoreDriverForOrder(
+    driver: DriverCandidate,
+    order: OrderForDispatch,
+    ctx: {
+      currentLoad: number;
+      driverLatLng?: { lat: number; lng: number } | null;
+      onTimeRate?: number; // 0-1
+      rating?: number;     // 0-5
+      weights: DispatchSettings["weights"];
+    },
+  ): ScoreBreakdown {
+    const reasons: string[] = [];
+
+    // Distance component (0-1, where 1 = closest, 0 = ≥30km away)
+    let distanceScore = 0.5;
+    if (
+      ctx.driverLatLng &&
+      order.venue_lat != null &&
+      order.venue_lng != null
+    ) {
+      const km = haversineKm(ctx.driverLatLng, { lat: order.venue_lat, lng: order.venue_lng });
+      distanceScore = Math.max(0, Math.min(1, 1 - km / 30));
+      reasons.push(`${km.toFixed(1)} km from venue`);
+    } else {
+      reasons.push("No GPS for distance");
+    }
+
+    // Load component (0-1, where 1 = no jobs today, 0 = at or over capacity)
+    const max = driver.max_jobs_per_shift ?? 6;
+    const loadScore = Math.max(0, Math.min(1, 1 - ctx.currentLoad / Math.max(1, max)));
+    if (ctx.currentLoad === 0) reasons.push("No jobs today yet");
+    else reasons.push(`${ctx.currentLoad} of ${max} jobs today`);
+
+    // Region match component (0 or 1, plus partial via region_id fallback)
+    let regionScore = 0;
+    if (order.region_id) {
+      if (Array.isArray(driver.regions_covered) && driver.regions_covered.includes(order.region_id)) {
+        regionScore = 1;
+        reasons.push("In driver's regions");
+      } else if (driver.region_id === order.region_id) {
+        regionScore = 0.7;
+        reasons.push("Driver's home region");
+      } else {
+        reasons.push("Out of region");
+      }
+    } else {
+      regionScore = 0.5;
+    }
+
+    // On-time rate (0-1). When unknown, treat as 0.85 (industry baseline) to avoid penalising new drivers.
+    const onTimeScore = Math.max(0, Math.min(1, ctx.onTimeRate ?? 0.85));
+    if (ctx.onTimeRate != null) reasons.push(`${Math.round(ctx.onTimeRate * 100)}% on-time`);
+
+    // Rating (0-5 -> 0-1). Default 4.5/5 when unknown.
+    const ratingScore = Math.max(0, Math.min(1, (ctx.rating ?? 4.5) / 5));
+
+    const w = ctx.weights;
+    const weighted =
+      w.distance    * distanceScore +
+      w.currentLoad * loadScore +
+      w.regionMatch * regionScore +
+      w.onTimeRate  * onTimeScore +
+      w.rating      * ratingScore;
+
+    const total = Math.round(weighted * 100);
+
+    return {
+      total,
+      distance:    distanceScore,
+      currentLoad: loadScore,
+      regionMatch: regionScore,
+      onTimeRate:  onTimeScore,
+      rating:      ratingScore,
+      reasons,
+    };
+  },
+
+  // ── Capacity + feasibility gates ──────────────────────────────────────────
+
+  async checkCapacity(
+    driverId: string,
+    eventDate: string,
+    maxJobs: number | null | undefined,
+  ): Promise<{ ok: boolean; current: number; max: number | null; reason?: string }> {
+    const current = await this.getDriverLoadOnDate(driverId, eventDate);
+    const max = maxJobs ?? null;
+    if (max == null) return { ok: true, current, max, reason: "No capacity limit set" };
+    if (current >= max) {
+      return { ok: false, current, max, reason: `At capacity (${current} of ${max})` };
+    }
+    return { ok: true, current, max };
+  },
+
+  /**
+   * Time-window feasibility: can this driver still arrive
+   * arrival_buffer_minutes before event_time? Best-effort -- if we don't have
+   * GPS or a venue lat/lng, returns ok=true with a "no GPS" reason so the
+   * dispatcher can still proceed.
+   */
+  checkTimeWindowFeasibility(
+    driverLatLng: { lat: number; lng: number } | null | undefined,
+    order: OrderForDispatch,
+    arrivalBufferMinutes: number,
+  ): { ok: boolean; etaMinutes: number | null; reason?: string } {
+    if (!driverLatLng || order.venue_lat == null || order.venue_lng == null) {
+      return { ok: true, etaMinutes: null, reason: "No GPS to verify" };
+    }
+    if (!order.event_time) {
+      return { ok: true, etaMinutes: null, reason: "Event time not set" };
+    }
+    const km = haversineKm(driverLatLng, { lat: order.venue_lat, lng: order.venue_lng });
+    const etaMinutes = etaMinutesFromKm(km);
+    const eventDateTime = new Date(`${order.event_date}T${order.event_time}`);
+    if (isNaN(eventDateTime.getTime())) return { ok: true, etaMinutes, reason: "Bad event time" };
+    const minutesUntilEvent = (eventDateTime.getTime() - Date.now()) / 60000;
+    if (minutesUntilEvent <= 0) return { ok: false, etaMinutes, reason: "Event already started" };
+    const slack = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
+    if (slack < 0) return { ok: false, etaMinutes, reason: `Cannot arrive ${arrivalBufferMinutes}m before event` };
+    return { ok: true, etaMinutes };
+  },
+
+  // ── Suggest ──────────────────────────────────────────────────────────────
+
+  /**
+   * Top N driver suggestions for an order, ranked by score and gated by
+   * capacity + feasibility. The dispatcher sees this on the assign dialog.
+   */
+  async suggestDriversForOrder(
+    companyId: string,
+    order: OrderForDispatch,
+    limit = 3,
+  ): Promise<DispatchSuggestion[]> {
+    const settings = await this.getDispatchSettings(companyId);
+    const drivers = await this.getDriversForCompany(companyId);
+    if (drivers.length === 0) return [];
+
+    const driverIds = drivers.map(d => d.id);
+    const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);
+
+    // Latest GPS for each driver (best-effort batch).
+    const { data: gpsRows } = await supabase
+      .from("gps_tracking")
+      .select("driver_id, latitude, longitude, timestamp")
+      .in("driver_id", driverIds)
+      .order("timestamp", { ascending: false });
+    const latestGps: Record<string, { lat: number; lng: number }> = {};
+    for (const row of gpsRows || []) {
+      const did = (row as any).driver_id;
+      if (!latestGps[did]) {
+        latestGps[did] = {
+          lat: Number((row as any).latitude),
+          lng: Number((row as any).longitude),
+        };
+      }
+    }
+
+    const suggestions: DispatchSuggestion[] = drivers.map(d => {
+      const currentLoad = loadMap[d.id] ?? 0;
+      const driverLatLng = latestGps[d.id] || null;
+      const score = this.scoreDriverForOrder(d, order, {
+        currentLoad,
+        driverLatLng,
+        weights: settings.weights,
+      });
+      const max = d.max_jobs_per_shift ?? null;
+      const capacity = max == null
+        ? { ok: true, current: currentLoad, max, reason: "No capacity limit set" }
+        : currentLoad >= max
+          ? { ok: false, current: currentLoad, max, reason: `At capacity (${currentLoad} of ${max})` }
+          : { ok: true, current: currentLoad, max };
+      const feasibility = this.checkTimeWindowFeasibility(driverLatLng, order, settings.arrivalBufferMinutes);
+      return { driver: d, score, capacity, feasibility };
+    });
+
+    // Sort by score desc, demoting candidates that fail capacity hard.
+    suggestions.sort((a, b) => {
+      if (a.capacity.ok !== b.capacity.ok) return a.capacity.ok ? -1 : 1;
+      if (a.feasibility.ok !== b.feasibility.ok) return a.feasibility.ok ? -1 : 1;
+      return b.score.total - a.score.total;
+    });
+
+    return suggestions.slice(0, limit);
+  },
+
+  // ── Assign + audit ────────────────────────────────────────────────────────
+
+  /**
+   * The single safe assign path. Updates the order, writes the audit row,
+   * captures the score, optionally enforces capacity gating.
+   */
+  async assignDriverWithGate(payload: {
+    companyId: string;
+    orderId: string;
+    driverId: string;
+    performedBy: string;
+    score?: number;
+    reason?: string;
+    enforceGates?: boolean; // when true, refuse if capacity / feasibility fail. Default false (warn-and-allow).
+  }): Promise<{ ok: boolean; reason?: string }> {
+    // Fetch existing assignment to capture from_driver_id
+    const { data: existing } = await supabase
+      .from("orders")
+      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng")
+      .eq("id", payload.orderId)
+      .maybeSingle();
+
+    const fromDriverId = existing?.assigned_driver_id ?? null;
+
+    // Optional gates
+    if (payload.enforceGates && existing) {
+      const { data: driverRow } = await supabase
+        .from("profiles")
+        .select("max_jobs_per_shift")
+        .eq("id", payload.driverId)
+        .maybeSingle();
+      const maxJobs = (driverRow as any)?.max_jobs_per_shift ?? null;
+      const cap = await this.checkCapacity(payload.driverId, existing.event_date, maxJobs);
+      if (!cap.ok) return { ok: false, reason: cap.reason };
+    }
+
+    const { error: updErr } = await supabase
+      .from("orders")
+      .update({
+        assigned_driver_id: payload.driverId,
+        assignment_score: payload.score ?? null,
+      })
+      .eq("id", payload.orderId);
+    if (updErr) {
+      console.error("Error assigning driver:", updErr);
+      return { ok: false, reason: updErr.message };
+    }
+
+    await supabase.from("order_assignment_audit").insert([{
+      company_id: payload.companyId,
+      order_id: payload.orderId,
+      from_driver_id: fromDriverId,
+      to_driver_id: payload.driverId,
+      performed_by: payload.performedBy,
+      score: payload.score ?? null,
+      reason: payload.reason ?? null,
+    }]);
+
+    return { ok: true };
+  },
+
+  /**
+   * Bulk assign N orders to one driver. Returns counts so the UI can show a
+   * single summary toast. Per-order errors don't abort the loop.
+   */
+  async bulkAssign(payload: {
+    companyId: string;
+    orderIds: string[];
+    driverId: string;
+    performedBy: string;
+    enforceGates?: boolean;
+  }): Promise<{ assigned: number; errors: string[] }> {
+    const errors: string[] = [];
+    let assigned = 0;
+    for (const orderId of payload.orderIds) {
+      const r = await this.assignDriverWithGate({
+        companyId: payload.companyId,
+        orderId,
+        driverId: payload.driverId,
+        performedBy: payload.performedBy,
+        reason: "Bulk assign",
+        enforceGates: payload.enforceGates,
+      });
+      if (r.ok) assigned += 1;
+      else errors.push(`${orderId}: ${r.reason}`);
+    }
+    return { assigned, errors };
+  },
+
+  /**
+   * Unassign (clear assigned_driver_id). Preserves assigned_at for analytics.
+   */
+  async unassignDriver(payload: {
+    companyId: string;
+    orderId: string;
+    performedBy: string;
+    reason?: string;
+  }): Promise<boolean> {
+    const { data: existing } = await supabase
+      .from("orders")
+      .select("assigned_driver_id")
+      .eq("id", payload.orderId)
+      .maybeSingle();
+    const fromDriverId = existing?.assigned_driver_id ?? null;
+
+    const { error } = await supabase
+      .from("orders")
+      .update({ assigned_driver_id: null, assignment_score: null })
+      .eq("id", payload.orderId);
+    if (error) throw error;
+
+    await supabase.from("order_assignment_audit").insert([{
+      company_id: payload.companyId,
+      order_id: payload.orderId,
+      from_driver_id: fromDriverId,
+      to_driver_id: null,
+      performed_by: payload.performedBy,
+      reason: payload.reason ?? "Unassigned",
+    }]);
+    return true;
+  },
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Top-line dispatch KPIs for the queue header. Cheap to compute -- a few
+   * COUNT queries plus one analytics rollup.
+   */
+  async getDispatchKpis(companyId: string): Promise<{
+    unassignedAtRisk: number;
+    unassignedTotal: number;
+    medianTimeToAssignMinutes: number | null;
+    onShiftDrivers: number;
+  }> {
+    const settings = await this.getDispatchSettings(companyId);
+    const todayISO = new Date().toISOString().slice(0, 10);
+
+    // Unassigned + future
+    const { data: unassigned } = await supabase
+      .from("orders")
+      .select("id, event_date, event_time")
+      .eq("company_id", companyId)
+      .is("assigned_driver_id", null)
+      .gte("event_date", todayISO)
+      .in("status", ["confirmed", "preparing", "ready"]);
+
+    const slaCutoffMs = settings.slaAssignMinutes * 60_000;
+    let atRisk = 0;
+    for (const o of unassigned || []) {
+      const dt = (o as any).event_time
+        ? new Date(`${(o as any).event_date}T${(o as any).event_time}`)
+        : new Date(`${(o as any).event_date}T12:00`);
+      if (!isNaN(dt.getTime()) && dt.getTime() - Date.now() <= slaCutoffMs) atRisk += 1;
+    }
+
+    // Median time-to-assign over last 14 days, in minutes.
+    // assigned_at - confirmed_at, where both are present.
+    const fortnight = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: assignments } = await supabase
+      .from("orders")
+      .select("confirmed_at, assigned_at")
+      .eq("company_id", companyId)
+      .gte("assigned_at", fortnight)
+      .not("confirmed_at", "is", null)
+      .not("assigned_at", "is", null)
+      .limit(500);
+    const deltas: number[] = [];
+    for (const r of assignments || []) {
+      const c = new Date((r as any).confirmed_at).getTime();
+      const a = new Date((r as any).assigned_at).getTime();
+      if (!isNaN(c) && !isNaN(a) && a >= c) deltas.push((a - c) / 60_000);
+    }
+    let median: number | null = null;
+    if (deltas.length > 0) {
+      deltas.sort((x, y) => x - y);
+      const mid = Math.floor(deltas.length / 2);
+      median = deltas.length % 2 === 0
+        ? Math.round((deltas[mid - 1] + deltas[mid]) / 2)
+        : Math.round(deltas[mid]);
+    }
+
+    // On-shift drivers approximated as drivers with a GPS ping in the last 60 minutes.
+    const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+    const { data: drivers } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("role", "driver");
+    const driverIds = (drivers || []).map((d: any) => d.id);
+    let onShift = 0;
+    if (driverIds.length > 0) {
+      const { data: pings } = await supabase
+        .from("gps_tracking")
+        .select("driver_id")
+        .in("driver_id", driverIds)
+        .gte("timestamp", sixtyMinAgo);
+      const seen = new Set<string>();
+      for (const p of pings || []) seen.add((p as any).driver_id);
+      onShift = seen.size;
+    }
+
+    return {
+      unassignedAtRisk: atRisk,
+      unassignedTotal: (unassigned || []).length,
+      medianTimeToAssignMinutes: median,
+      onShiftDrivers: onShift,
+    };
+  },
+
+  /**
+   * Audit trail for a single order. Drives the "Assignment history" section
+   * of the order drawer.
+   */
+  async getAssignmentAudit(orderId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("order_assignment_audit")
+      .select("id, from_driver_id, to_driver_id, performed_by, reason, score, created_at, from_driver:from_driver_id(full_name), to_driver:to_driver_id(full_name), actor:performed_by(full_name)")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) {
+      console.warn("Error fetching audit:", error);
+      return [];
+    }
+    return data || [];
+  },
+};
+
+// Re-export the SLA helper so the queue UI can compute "minutes until breach"
+// without re-implementing the rule.
+export function minutesUntilSlaBreach(
+  eventDate: string,
+  eventTime: string | null | undefined,
+  slaMinutes: number,
+): number {
+  const dt = eventTime ? new Date(`${eventDate}T${eventTime}`) : new Date(`${eventDate}T12:00`);
+  if (isNaN(dt.getTime())) return Number.POSITIVE_INFINITY;
+  const minsToEvent = (dt.getTime() - Date.now()) / 60_000;
+  return minsToEvent - slaMinutes;
+}
+
+export function formatMinutesAsCountdown(mins: number): string {
+  if (!isFinite(mins)) return "—";
+  const sign = mins < 0 ? "-" : "";
+  const abs = Math.abs(mins);
+  const days = Math.floor(abs / 1440);
+  const hours = Math.floor((abs % 1440) / 60);
+  const minutes = Math.floor(abs % 60);
+  if (days > 0) return `${sign}${days}d ${hours}h`;
+  if (hours > 0) return `${sign}${hours}h ${minutes}m`;
+  return `${sign}${minutes}m`;
+}

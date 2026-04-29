@@ -244,22 +244,22 @@ export function AdminNav({ className }: AdminNavProps) {
       defaultOpen: true,
       items: [
         {
-          title: "Delivery Tracking",
-          href: "/admin/tracking",
-          icon: MapPin,
-          description: "Live delivery tracking"
-        },
-        {
-          title: "Route Planning",
-          href: "/admin/route-planning",
-          icon: Route,
-          description: "Optimize delivery routes"
-        },
-        {
-          title: "Order Assignments",
+          title: "Dispatch Queue",
           href: "/admin/order-assignments",
           icon: ClipboardList,
-          description: "Assign staff to orders"
+          description: "Get every order to a driver, fast"
+        },
+        {
+          title: "Live Operations",
+          href: "/admin/tracking",
+          icon: MapPin,
+          description: "Today's jobs in flight"
+        },
+        {
+          title: "Plan Routes",
+          href: "/admin/route-planning",
+          icon: Route,
+          description: "Auto-assign + optimise tomorrow"
         },
         {
           title: "Equipment Shortages",

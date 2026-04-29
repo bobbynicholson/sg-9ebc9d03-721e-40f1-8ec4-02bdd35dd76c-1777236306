@@ -289,8 +289,9 @@ export function CommandPalette() {
     { id: "go-regions", label: "Regions", icon: Globe, href: "/admin/regions", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-financial", label: "Financial Dashboard", icon: DollarSign, href: "/admin/financial-dashboard", group: "Navigate", roles: ["company_admin","owner","super_admin"] },
     { id: "go-invoices", label: "Invoices", icon: CreditCard, href: "/admin/invoices", group: "Navigate", roles: ["admin","company_admin","owner"] },
-    { id: "go-tracking", label: "Live Delivery Tracking", icon: Truck, href: "/admin/tracking", group: "Navigate", roles: ["admin","company_admin","owner"] },
-    { id: "go-route", label: "Route Planning", icon: Truck, href: "/admin/route-planning", group: "Navigate", roles: ["admin","company_admin","owner"] },
+    { id: "go-dispatch", label: "Dispatch Queue", icon: Truck, href: "/admin/order-assignments", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["assign","driver","queue","dispatch"] },
+    { id: "go-tracking", label: "Live Operations", icon: Truck, href: "/admin/tracking", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["track","map","live"] },
+    { id: "go-route", label: "Plan Routes", icon: Truck, href: "/admin/route-planning", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["optimise","optimize","route"] },
     { id: "go-settings", label: "System Settings", icon: Settings, href: "/admin/settings", group: "Navigate", roles: ["admin","company_admin","owner"] },
 
     // ---- Quick actions ----
