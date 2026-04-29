@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -20,6 +20,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { supabase } from "@/integrations/supabase/client";
+import { DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 interface Driver {
   id: string;
@@ -29,6 +31,22 @@ interface Driver {
   is_active: boolean;
   created_at: string;
   drive_time_to_kitchen_minutes: number | null;
+  max_jobs_per_shift: number | null;
+  home_postcode: string | null;
+  regions_covered: string[] | null;
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 45) return "just now";
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 90) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d ago`;
 }
 
 export default function ProtectedDriverManagementPage() {
@@ -55,6 +73,16 @@ function DriverManagementPage() {
   });
   const [error, setError] = useState("");
 
+  // Phase 1B: live signals per driver
+  const [loadByDriver, setLoadByDriver] = useState<Record<string, number>>({});
+  const [lastPingByDriver, setLastPingByDriver] = useState<Record<string, string>>({});
+
+  // Edit driver dialog
+  const [editTarget, setEditTarget] = useState<Driver | null>(null);
+  const [editMaxJobs, setEditMaxJobs] = useState("");
+  const [editHomePostcode, setEditHomePostcode] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   useEffect(() => {
     if (user) {
       loadDrivers();
@@ -69,8 +97,41 @@ function DriverManagementPage() {
     try {
       setLoading(true);
       const allUsers = await userManagementService.getAllUsers(user.company_id);
-      const driverUsers = allUsers.filter(u => u.role === "driver");
-      setDrivers(driverUsers as Driver[]);
+      const driverUsers = allUsers.filter(u => u.role === "driver") as Driver[];
+      setDrivers(driverUsers);
+
+      const driverIds = driverUsers.map(d => d.id);
+      if (driverIds.length === 0) return;
+
+      // Active jobs today
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: activeOrders } = await supabase
+        .from("orders")
+        .select("assigned_driver_id")
+        .eq("company_id", user.company_id)
+        .eq("event_date", today)
+        .in("assigned_driver_id", driverIds)
+        .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);
+      const loadMap: Record<string, number> = {};
+      driverIds.forEach(id => { loadMap[id] = 0; });
+      for (const o of activeOrders || []) {
+        const did = (o as any).assigned_driver_id;
+        if (did) loadMap[did] = (loadMap[did] || 0) + 1;
+      }
+      setLoadByDriver(loadMap);
+
+      // Last GPS ping per driver
+      const { data: pings } = await supabase
+        .from("gps_tracking")
+        .select("driver_id, timestamp")
+        .in("driver_id", driverIds)
+        .order("timestamp", { ascending: false });
+      const pingMap: Record<string, string> = {};
+      for (const p of pings || []) {
+        const did = (p as any).driver_id;
+        if (did && !pingMap[did]) pingMap[did] = (p as any).timestamp;
+      }
+      setLastPingByDriver(pingMap);
     } catch (err) {
       console.error("Error loading drivers:", err);
       toast({
@@ -80,6 +141,39 @@ function DriverManagementPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditDriver = (driver: Driver) => {
+    setEditTarget(driver);
+    setEditMaxJobs(driver.max_jobs_per_shift != null ? String(driver.max_jobs_per_shift) : "");
+    setEditHomePostcode(driver.home_postcode ?? "");
+  };
+
+  const handleEditDriverSave = async () => {
+    if (!editTarget) return;
+    setEditSaving(true);
+    try {
+      const max = editMaxJobs.trim() === "" ? null : Number(editMaxJobs);
+      if (max != null && (isNaN(max) || max < 0)) {
+        toast({ title: "Invalid capacity", description: "Max jobs per shift must be a positive number.", variant: "destructive" });
+        return;
+      }
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          max_jobs_per_shift: max,
+          home_postcode: editHomePostcode.trim() || null,
+        })
+        .eq("id", editTarget.id);
+      if (error) throw error;
+      toast({ title: "Driver updated", description: editTarget.full_name });
+      setEditTarget(null);
+      loadDrivers();
+    } catch (e: any) {
+      toast({ title: "Could not save", description: e?.message, variant: "destructive" });
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -295,50 +389,64 @@ function DriverManagementPage() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-blue-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-blue-700 mb-1 flex items-center gap-1.5">Total Drivers <InfoTooltip content={"Every driver account on your team, active or not."} /></p>
-                    <p className="text-3xl font-bold text-blue-900">{drivers.length}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center">
-                    <Truck className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Stats -- live operational signals */}
+          {(() => {
+            const onShift = Object.entries(lastPingByDriver).filter(([, ts]) => {
+              const ageMin = (Date.now() - new Date(ts).getTime()) / 60_000;
+              return ageMin <= 60;
+            }).length;
+            const totalLoad = Object.values(loadByDriver).reduce((s, n) => s + n, 0);
+            const avgLoad = drivers.length > 0 ? (totalLoad / drivers.length) : 0;
+            const stalePings = Object.entries(lastPingByDriver).filter(([, ts]) => {
+              const ageMin = (Date.now() - new Date(ts).getTime()) / 60_000;
+              return ageMin > 60 && ageMin < 24 * 60;
+            }).length;
 
-            <Card className="border-0 shadow-md bg-gradient-to-br from-green-50 to-emerald-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Active <InfoTooltip content={"Drivers currently enabled and able to log in."} /></p>
-                    <p className="text-3xl font-bold text-green-900">{activeDrivers}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-md bg-gradient-to-br from-slate-50 to-slate-100">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-700 mb-1 flex items-center gap-1.5">Inactive <InfoTooltip content={"Driver accounts that have been switched off and cannot log in."} /></p>
-                    <p className="text-3xl font-bold text-slate-900">{inactiveDrivers}</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-slate-500 flex items-center justify-center">
-                    <XCircle className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-emerald-100">
+                  <CardContent className="pt-5 pb-4">
+                    <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-1 flex items-center gap-1.5">
+                      On shift now
+                      <InfoTooltip content={"Drivers with a GPS ping in the last 60 minutes. Best signal for live availability."} />
+                    </p>
+                    <p className="text-3xl font-bold text-emerald-900">{onShift}</p>
+                    <p className="text-xs text-emerald-700 mt-0.5">of {activeDrivers} active</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md">
+                  <CardContent className="pt-5 pb-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
+                      Total drivers
+                      <InfoTooltip content={"Every driver account on your team."} />
+                    </p>
+                    <p className="text-3xl font-bold text-slate-900">{drivers.length}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{inactiveDrivers} inactive</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md">
+                  <CardContent className="pt-5 pb-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1.5">
+                      Jobs today
+                      <InfoTooltip content={"Active deliveries assigned across all drivers today. Avg per driver shows balance."} />
+                    </p>
+                    <p className="text-3xl font-bold text-slate-900">{totalLoad}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">avg {avgLoad.toFixed(1)} per driver</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-amber-100">
+                  <CardContent className="pt-5 pb-4">
+                    <p className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-1 flex items-center gap-1.5">
+                      Stale pings
+                      <InfoTooltip content={"Drivers whose last GPS update was over 60 minutes ago today. Might be off-shift, might need a check-in."} />
+                    </p>
+                    <p className="text-3xl font-bold text-amber-900">{stalePings}</p>
+                    <p className="text-xs text-amber-700 mt-0.5">last 24h, no recent ping</p>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Search */}
@@ -384,65 +492,107 @@ function DriverManagementPage() {
                 )}
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredDrivers.map((driver) => (
-                  <Card key={driver.id} className="border shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
-                            {driver.full_name.charAt(0).toUpperCase()}
-                          </div>
-                          
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900">{driver.full_name}</h3>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
-                              <div className="flex items-center gap-1">
-                                <Mail className="w-4 h-4" />
-                                <span>{driver.email}</span>
+              <div className="space-y-2">
+                {filteredDrivers.map((driver) => {
+                  const lastPing = lastPingByDriver[driver.id];
+                  const lastPingAgeMin = lastPing ? (Date.now() - new Date(lastPing).getTime()) / 60_000 : null;
+                  const onShift = lastPingAgeMin != null && lastPingAgeMin <= 60;
+                  const stale = lastPingAgeMin != null && lastPingAgeMin > 60 && lastPingAgeMin < 24 * 60;
+                  const currentLoad = loadByDriver[driver.id] ?? 0;
+                  const maxJobs = driver.max_jobs_per_shift ?? null;
+                  const capacityFull = maxJobs != null && currentLoad >= maxJobs;
+
+                  return (
+                    <Card key={driver.id} className={`border shadow-sm hover:shadow-md transition-shadow ${onShift ? "border-l-4 border-l-emerald-500" : ""}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${
+                              onShift ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-slate-400 to-slate-500"
+                            }`}>
+                              {driver.full_name.charAt(0).toUpperCase()}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                <h3 className="font-semibold text-slate-900 truncate">{driver.full_name}</h3>
+                                {onShift && (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[10px] font-medium gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    On shift
+                                  </Badge>
+                                )}
+                                {stale && (
+                                  <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px] font-medium">
+                                    Stale ping
+                                  </Badge>
+                                )}
+                                {!driver.is_active && (
+                                  <Badge variant="secondary" className="text-[10px]">Inactive</Badge>
+                                )}
                               </div>
-                              {driver.phone_number && (
-                                <div className="flex items-center gap-1">
-                                  <Phone className="w-4 h-4" />
-                                  <span>{driver.phone_number}</span>
-                                </div>
-                              )}
+                              <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap">
+                                <span className="inline-flex items-center gap-1">
+                                  <Mail className="w-3 h-3" />{driver.email}
+                                </span>
+                                {driver.phone_number && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Phone className="w-3 h-3" />{driver.phone_number}
+                                  </span>
+                                )}
+                                {driver.home_postcode && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />{driver.home_postcode}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-3">
-                          <Badge
-                            variant={driver.is_active ? "default" : "secondary"}
-                            className={driver.is_active ? "bg-green-100 text-green-700 border-green-200" : ""}
-                          >
-                            {driver.is_active ? "Active" : "Inactive"}
-                          </Badge>
+                          {/* Live signals */}
+                          <div className="hidden sm:flex items-center gap-4 text-xs shrink-0">
+                            <div className="text-center">
+                              <p className={`text-lg font-bold tabular-nums ${capacityFull ? "text-red-700" : "text-slate-900"}`}>
+                                {currentLoad}{maxJobs != null && <span className="text-sm text-slate-400">/{maxJobs}</span>}
+                              </p>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500">jobs today</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-slate-700">
+                                {lastPing ? relativeTime(lastPing) : "—"}
+                              </p>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500">last ping</p>
+                            </div>
+                          </div>
 
-                          <InfoTooltip
-                            content={driver.is_active ? "Switch this driver off so they can no longer log in or see jobs." : "Switch this driver on so they can log in and pick up jobs."}
-                            side="left"
-                          />
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleToggleDriverStatus(driver.id, driver.is_active)}
-                              >
-                                {driver.is_active ? "Deactivate" : "Activate"} Driver
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => openEditDriver(driver)}
+                              title="Edit capacity + regions"
+                            >
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleToggleDriverStatus(driver.id, driver.is_active)}>
+                                  {driver.is_active ? "Deactivate driver" : "Activate driver"}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -476,6 +626,56 @@ function DriverManagementPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit driver dialog -- capacity, home postcode, regions */}
+      <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-slate-600" />
+              Edit driver · {editTarget?.full_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="max_jobs">Max jobs per shift</Label>
+              <Input
+                id="max_jobs"
+                type="number"
+                min="0"
+                value={editMaxJobs}
+                onChange={e => setEditMaxJobs(e.target.value)}
+                placeholder="e.g. 6"
+                className="mt-1"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Capacity gate uses this. Leave blank for no limit.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="home_postcode">Home postcode</Label>
+              <Input
+                id="home_postcode"
+                value={editHomePostcode}
+                onChange={e => setEditHomePostcode(e.target.value)}
+                placeholder="e.g. 7700"
+                className="mt-1"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Used as start point for distance scoring when GPS is stale.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={editSaving}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleEditDriverSave} disabled={editSaving} className="bg-emerald-600 hover:bg-emerald-700">
+              {editSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

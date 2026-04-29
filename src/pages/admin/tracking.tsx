@@ -18,6 +18,20 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
+import { dispatchService } from "@/services/dispatchService";
+
+// Haversine + average speed for ETA. Phase 3 will plug real traffic.
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const AVG_SPEED_KMH = 35;
 
 // Dynamically import the map component with SSR disabled
 const AdminTrackingMap = dynamic(
@@ -47,6 +61,15 @@ export default function AdminTracking() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [arrivalBufferMinutes, setArrivalBufferMinutes] = useState(30);
+
+  // Load dispatch settings once for the arrival buffer (used in at-risk calc).
+  useEffect(() => {
+    if (!user?.company_id) return;
+    dispatchService.getDispatchSettings(user.company_id)
+      .then(s => setArrivalBufferMinutes(s.arrivalBufferMinutes))
+      .catch(() => {});
+  }, [user?.company_id]);
 
   const loadTrackingData = useCallback(async () => {
     if (!user?.company_id) {
@@ -83,6 +106,33 @@ export default function AdminTracking() {
       const enrichedOrders = activeOrders.map((order: any) => {
         const driverId = order.assigned_driver_id || order.driver_id;
         const driver = driverData.find((d: any) => d.id === driverId) as any;
+
+        // ETA calculation: driver pin -> venue.
+        let etaMinutes: number | null = null;
+        let distanceKm: number | null = null;
+        if (
+          driver?.current_lat != null && driver?.current_lng != null &&
+          order.venue_lat != null && order.venue_lng != null
+        ) {
+          distanceKm = haversineKm(
+            { lat: Number(driver.current_lat), lng: Number(driver.current_lng) },
+            { lat: Number(order.venue_lat),    lng: Number(order.venue_lng) },
+          );
+          etaMinutes = Math.round((distanceKm / AVG_SPEED_KMH) * 60);
+        }
+
+        // Margin to deadline: minutes between predicted arrival and event_time.
+        // Negative means we're going to be late.
+        let marginMinutes: number | null = null;
+        if (order.event_date && order.event_time && etaMinutes != null) {
+          const eventDt = new Date(`${order.event_date}T${order.event_time}`);
+          if (!isNaN(eventDt.getTime())) {
+            const minutesUntilEvent = (eventDt.getTime() - Date.now()) / 60_000;
+            marginMinutes = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
+          }
+        }
+        const isAtRisk = marginMinutes != null && marginMinutes < 0;
+
         return {
           ...order,
           driver_id: driverId,
@@ -91,7 +141,19 @@ export default function AdminTracking() {
           driver_lat: driver?.current_lat,
           driver_lng: driver?.current_lng,
           last_updated: driver?.location_updated_at,
+          eta_minutes: etaMinutes,
+          distance_km: distanceKm,
+          margin_minutes: marginMinutes,
+          is_at_risk: isAtRisk,
         };
+      });
+
+      // Sort by margin ascending (most urgent first); orders with no margin go last.
+      enrichedOrders.sort((a: any, b: any) => {
+        if (a.margin_minutes == null && b.margin_minutes == null) return 0;
+        if (a.margin_minutes == null) return 1;
+        if (b.margin_minutes == null) return -1;
+        return a.margin_minutes - b.margin_minutes;
       });
 
       setOrders(enrichedOrders);
@@ -202,6 +264,7 @@ export default function AdminTracking() {
   };
 
   const stats = {
+    atRisk: orders.filter((o) => o.is_at_risk).length,
     active: orders.filter((o) => o.status === "out_for_delivery" || o.status === "in_transit").length,
     preparing: orders.filter((o) => o.status === "preparing").length,
     ready: orders.filter((o) => o.status === "ready").length,
@@ -222,23 +285,35 @@ export default function AdminTracking() {
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
-              Real-Time Delivery Tracking
+              Live Operations
             </h1>
             <p className="text-slate-600">
-              Live operational view -- today's jobs in flight, with driver pins ticking through.
+              Today's jobs in flight, with driver pins ticking through. Sorted by urgency.
             </p>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Card className={stats.atRisk > 0 ? "border-red-300 bg-red-50/40" : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">At risk <InfoTooltip content={"Orders where the driver's predicted arrival is later than required (event time minus arrival buffer). Needs attention now."} /></p>
+                    <p className={`text-2xl font-bold ${stats.atRisk > 0 ? "text-red-700" : "text-slate-400"}`}>{stats.atRisk}</p>
+                  </div>
+                  <AlertCircle className={`w-7 h-7 ${stats.atRisk > 0 ? "text-red-600" : "text-slate-300"}`} />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Out for Delivery <InfoTooltip content={"Orders that are with a driver right now, on the way to the venue."} /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">In transit <InfoTooltip content={"Orders with a driver right now, on the way to the venue."} /></p>
                     <p className="text-2xl font-bold text-orange-600">{stats.active}</p>
                   </div>
-                  <Navigation className="w-8 h-8 text-orange-600" />
+                  <Navigation className="w-7 h-7 text-orange-600" />
                 </div>
               </CardContent>
             </Card>
@@ -250,7 +325,7 @@ export default function AdminTracking() {
                     <p className="text-sm text-slate-600 flex items-center gap-1">Preparing <InfoTooltip content={"Orders being prepped in the kitchen right now."} /></p>
                     <p className="text-2xl font-bold text-yellow-600">{stats.preparing}</p>
                   </div>
-                  <Package className="w-8 h-8 text-yellow-600" />
+                  <Package className="w-7 h-7 text-yellow-600" />
                 </div>
               </CardContent>
             </Card>
@@ -259,25 +334,14 @@ export default function AdminTracking() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content={"Orders that are prepped, packed, and waiting for a driver to collect."} /></p>
+                    <p className="text-sm text-slate-600 flex items-center gap-1">Ready <InfoTooltip content={"Prepped, packed, waiting for a driver to collect."} /></p>
                     <p className="text-2xl font-bold text-purple-600">{stats.ready}</p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-purple-600" />
+                  <TrendingUp className="w-7 h-7 text-purple-600" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-600 flex items-center gap-1">Total Active <InfoTooltip content={"Every order in motion right now, from confirmed through to out for delivery.\n\nDelivered today is included so an owner can confirm completed jobs without leaving the page."} /></p>
-                    <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
-                  </div>
-                  <MapPin className="w-8 h-8 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Filters */}
@@ -383,35 +447,70 @@ export default function AdminTracking() {
                         onClose={() => setSelectedOrder(null)}
                       />
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {filteredOrders.length === 0 ? (
                           <p className="text-sm text-slate-600 text-center py-8">
-                            No active orders to display
+                            All clear -- nothing in motion right now.
                           </p>
                         ) : (
-                          filteredOrders.map((order) => (
-                            <div
-                              key={order.id}
-                              className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                              onClick={() => setSelectedOrder(order)}
-                            >
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-sm truncate">{order.client_name}</p>
-                                  <p className="text-xs text-slate-600 truncate">{order.venue_address}</p>
+                          filteredOrders.map((order) => {
+                            const atRisk = order.is_at_risk;
+                            const margin = order.margin_minutes;
+                            const eta = order.eta_minutes;
+                            const isSelected = selectedOrder?.id === order.id;
+                            return (
+                              <div
+                                key={order.id}
+                                className={`p-3 border-l-4 rounded-md cursor-pointer transition-colors ${
+                                  atRisk     ? "border-l-red-500 bg-red-50/40 hover:bg-red-50" :
+                                  margin != null && margin < 30 ? "border-l-amber-500 hover:bg-amber-50/40" :
+                                                                  "border-l-transparent border border-slate-200 hover:bg-slate-50"
+                                } ${isSelected ? "ring-2 ring-blue-300" : ""}`}
+                                onClick={() => setSelectedOrder(order)}
+                              >
+                                <div className="flex items-start justify-between mb-1.5">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <p className="font-semibold text-sm truncate">{order.client_name}</p>
+                                      {atRisk && (
+                                        <Badge className="bg-red-100 text-red-800 border-0 text-[9px] font-bold tracking-wide">AT RISK</Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-slate-600 truncate">{order.venue_address || order.venue_name}</p>
+                                  </div>
+                                  <Badge className={`${getStatusColor(order.status || "")} text-[10px]`}>
+                                    {order.status}
+                                  </Badge>
                                 </div>
-                                <Badge className={getStatusColor(order.status || "")}>
-                                  {order.status}
-                                </Badge>
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 text-slate-600 min-w-0">
+                                    {order.driver_name ? (
+                                      <span className="inline-flex items-center gap-1 truncate">
+                                        <User className="w-3 h-3 shrink-0" />
+                                        {order.driver_name}
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-700 font-medium">No driver</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {eta != null && (
+                                      <span className="text-slate-600 tabular-nums">ETA {eta}m</span>
+                                    )}
+                                    {margin != null && (
+                                      <span className={`tabular-nums font-medium ${
+                                        margin < 0  ? "text-red-700"   :
+                                        margin < 30 ? "text-amber-700" :
+                                                      "text-emerald-700"
+                                      }`}>
+                                        {margin >= 0 ? `${Math.round(margin)}m slack` : `${Math.round(margin)}m late`}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              {order.driver_name && (
-                                <div className="flex items-center gap-2 text-xs text-slate-600">
-                                  <User className="w-3 h-3" />
-                                  <span>{order.driver_name}</span>
-                                </div>
-                              )}
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     )}

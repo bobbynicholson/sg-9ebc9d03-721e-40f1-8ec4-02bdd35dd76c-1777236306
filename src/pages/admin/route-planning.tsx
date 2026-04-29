@@ -28,6 +28,8 @@ import {
 import { routeOptimizationService, DeliveryStop, OptimizedRoute } from "@/services/routeOptimizationService";
 import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
+import { dispatchService, formatMinutesAsCountdown, minutesUntilSlaBreach } from "@/services/dispatchService";
+import { Sparkles } from "lucide-react";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -63,6 +65,16 @@ export default function RoutePlanning() {
   const [selectedRoute, setSelectedRoute] = useState<OptimizedRoute | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [driverFilter, setDriverFilter] = useState<string>("all");
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [slaMinutes, setSlaMinutes] = useState(720);
+
+  // Load dispatch settings once for the SLA threshold
+  useEffect(() => {
+    if (!user?.company_id) return;
+    dispatchService.getDispatchSettings(user.company_id)
+      .then(s => setSlaMinutes(s.slaAssignMinutes))
+      .catch(() => {});
+  }, [user?.company_id]);
 
   const loadDispatchData = useCallback(async () => {
     if (!user?.company_id) {
@@ -82,7 +94,13 @@ export default function RoutePlanning() {
         (d: any) => d.is_active === undefined || d.is_active === true
       );
 
-      setUnassignedOrders(orders);
+      // Sort by event_date ascending so the most urgent unassigned orders sit at the top.
+      const sortedOrders = [...orders].sort((a: any, b: any) => {
+        const da = a.event_date ? new Date(a.event_date).getTime() : Infinity;
+        const db = b.event_date ? new Date(b.event_date).getTime() : Infinity;
+        return da - db;
+      });
+      setUnassignedOrders(sortedOrders);
       setDrivers(activeDrivers);
     } catch (error) {
       console.error("Error loading dispatch data:", error);
@@ -99,6 +117,57 @@ export default function RoutePlanning() {
   useEffect(() => {
     loadDispatchData();
   }, [loadDispatchData]);
+
+  /**
+   * Auto-assign drivers to every unassigned order. For each order, runs the
+   * dispatch matcher to find the top-scored driver, then commits the
+   * assignment via the gated service. Returns counts so we can toast a
+   * single summary rather than one toast per assignment.
+   */
+  const autoAssignAll = async () => {
+    if (!user?.company_id) return;
+    if (drivers.length === 0) {
+      toast({ title: "No active drivers", variant: "destructive" });
+      return;
+    }
+    if (unassignedOrders.length === 0) {
+      toast({ title: "Nothing to assign" });
+      return;
+    }
+    setAutoAssigning(true);
+    let assigned = 0;
+    let skipped = 0;
+    try {
+      for (const order of unassignedOrders) {
+        const o: any = order;
+        const suggestions = await dispatchService.suggestDriversForOrder(user.company_id, {
+          id: o.order_id || o.id,
+          event_date: o.event_date,
+          event_time: o.event_time,
+          venue_lat: o.venue_lat ?? o.delivery_lat ?? null,
+          venue_lng: o.venue_lng ?? o.delivery_lng ?? null,
+        }, 1);
+        const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok);
+        if (!top) { skipped += 1; continue; }
+        const r = await dispatchService.assignDriverWithGate({
+          companyId: user.company_id,
+          orderId: o.order_id || o.id,
+          driverId: top.driver.id,
+          performedBy: user.id,
+          score: top.score.total,
+          reason: "Auto-assigned from route planning",
+        });
+        if (r.ok) assigned += 1; else skipped += 1;
+      }
+      toast({
+        title: `Auto-assigned ${assigned} order${assigned === 1 ? "" : "s"}`,
+        description: skipped > 0 ? `${skipped} skipped (no eligible driver).` : "All confirmed orders now have a driver.",
+      });
+      loadDispatchData();
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
 
   const optimizeAllRoutes = async () => {
     if (!user?.company_id) return;
@@ -229,6 +298,26 @@ export default function RoutePlanning() {
                   Refresh
                 </Button>
                 <Button
+                  onClick={autoAssignAll}
+                  disabled={autoAssigning || unassignedOrders.length === 0 || drivers.length === 0}
+                  size="lg"
+                  variant="outline"
+                  className="border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                  title="Score every unassigned order and assign the top-matched driver"
+                >
+                  {autoAssigning ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Matching...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Auto-assign drivers
+                    </>
+                  )}
+                </Button>
+                <Button
                   onClick={optimizeAllRoutes}
                   disabled={optimising || unassignedOrders.length === 0 || drivers.length === 0}
                   size="lg"
@@ -242,7 +331,7 @@ export default function RoutePlanning() {
                   ) : (
                     <>
                       <Navigation className="mr-2 h-4 w-4" />
-                      Optimise All Routes
+                      Optimise routes
                     </>
                   )}
                 </Button>
@@ -349,33 +438,55 @@ export default function RoutePlanning() {
                       Queue is empty. Confirmed orders without a driver appear here.
                     </p>
                   ) : (
-                    <div className="space-y-2 max-h-[280px] overflow-y-auto">
-                      {filteredOrders.map((order) => (
-                        <div
-                          key={order.id}
-                          className="p-3 border rounded-lg hover:bg-slate-50 text-sm"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="font-medium text-slate-900 truncate">{order.client_name}</p>
-                              <p className="text-xs text-slate-500 truncate">{order.venue_address}</p>
-                              <p className="text-xs text-slate-400 mt-1">
-                                {order.delivery_time
-                                  ? new Date(order.delivery_time).toLocaleString("en-ZA", {
-                                      day: "numeric",
-                                      month: "short",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })
-                                  : "No delivery time"}
-                              </p>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                      {filteredOrders.map((order) => {
+                        const o: any = order;
+                        const slack = o.event_date
+                          ? minutesUntilSlaBreach(o.event_date, o.event_time, slaMinutes)
+                          : Number.POSITIVE_INFINITY;
+                        const atRisk = slack <= 0;
+                        const eventDt = o.event_date && o.event_time
+                          ? new Date(`${o.event_date}T${o.event_time}`)
+                          : o.event_date ? new Date(`${o.event_date}T12:00`) : null;
+                        const minsToEvent = eventDt && !isNaN(eventDt.getTime())
+                          ? (eventDt.getTime() - Date.now()) / 60_000
+                          : null;
+                        return (
+                          <div
+                            key={order.id}
+                            className={`p-3 border-l-4 rounded-md text-sm ${
+                              atRisk             ? "border-l-red-500 bg-red-50/40" :
+                              minsToEvent && minsToEvent < 1440 ? "border-l-amber-500" :
+                                                                   "border-l-transparent border border-slate-200"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-slate-900 truncate">{order.client_name}</p>
+                                  {atRisk && (
+                                    <Badge className="bg-red-100 text-red-800 border-0 text-[9px] font-bold tracking-wide">URGENT</Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-500 truncate">{order.venue_address}</p>
+                                <p className={`text-xs mt-1 tabular-nums ${
+                                  atRisk             ? "text-red-700 font-semibold" :
+                                  minsToEvent && minsToEvent < 1440 ? "text-amber-700 font-medium" :
+                                                                       "text-slate-500"
+                                }`}>
+                                  {o.event_date} {o.event_time || ""}
+                                  {minsToEvent != null && (
+                                    <span> · {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}</span>
+                                  )}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs capitalize flex-shrink-0">
+                                {order.status}
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className="text-xs capitalize flex-shrink-0">
-                              {order.status}
-                            </Badge>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
