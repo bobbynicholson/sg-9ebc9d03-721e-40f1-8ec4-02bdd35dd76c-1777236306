@@ -113,6 +113,45 @@ export function DispatchSettingsTab({ companyId: companyIdProp }: Props = {}) {
         </div>
 
         <div className="border-t border-slate-200 pt-5">
+          <div className="mb-3">
+            <Label className="text-sm md:text-base font-medium">Auto-batching thresholds</Label>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Two unassigned orders close in distance and time can be sent on one trip. Plan Routes surfaces these as "Batch suggestions".
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                Max distance between orders (km)
+                <InfoTooltip content={"Two orders further apart than this won't be suggested as a batch."} />
+              </Label>
+              <Input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={settings.batchDistanceKm}
+                onChange={e => setSettings({ ...settings, batchDistanceKm: Number(e.target.value) })}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium flex items-center gap-1.5">
+                Max time gap (minutes)
+                <InfoTooltip content={"Two orders with event times further apart than this won't be batched."} />
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                step="15"
+                value={settings.batchTimeWindowMinutes}
+                onChange={e => setSettings({ ...settings, batchTimeWindowMinutes: Number(e.target.value) })}
+                className="tabular-nums"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 pt-5">
           <div className="flex items-center justify-between mb-3">
             <div>
               <Label className="text-sm md:text-base font-medium flex items-center gap-2">

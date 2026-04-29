@@ -67,6 +67,9 @@ export default function RoutePlanning() {
   const [driverFilter, setDriverFilter] = useState<string>("all");
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [slaMinutes, setSlaMinutes] = useState(720);
+  // Phase 3: batch suggestions
+  const [batchPairs, setBatchPairs] = useState<any[]>([]);
+  const [batchAssigning, setBatchAssigning] = useState<string | null>(null);
 
   // Load dispatch settings once for the SLA threshold
   useEffect(() => {
@@ -75,6 +78,61 @@ export default function RoutePlanning() {
       .then(s => setSlaMinutes(s.slaAssignMinutes))
       .catch(() => {});
   }, [user?.company_id]);
+
+  // Load batch suggestions whenever the queue refreshes
+  const loadBatchPairs = useCallback(async () => {
+    if (!user?.company_id) return;
+    const pairs = await dispatchService.findBatchableOrders(user.company_id);
+    setBatchPairs(pairs);
+  }, [user?.company_id]);
+
+  useEffect(() => { loadBatchPairs(); }, [loadBatchPairs]);
+
+  const handleBatchAssign = async (pair: any) => {
+    if (!user?.company_id) return;
+    // Pick the top-suggested driver for the primary order, then assign both.
+    setBatchAssigning(pair.primary.id);
+    try {
+      const suggestions = await dispatchService.suggestDriversForOrder(user.company_id, {
+        id: pair.primary.id,
+        event_date: pair.primary.event_date,
+        event_time: pair.primary.event_time,
+        venue_lat: pair.primary.venue_lat,
+        venue_lng: pair.primary.venue_lng,
+      }, 1);
+      const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
+      if (!top) {
+        toast({ title: "No eligible driver", description: "Try assigning manually.", variant: "destructive" });
+        return;
+      }
+      const r1 = await dispatchService.assignDriverWithGate({
+        companyId: user.company_id,
+        orderId: pair.primary.id,
+        driverId: top.driver.id,
+        performedBy: user.id,
+        score: top.score.total,
+        reason: `Batched with ${pair.secondary.client_name}`,
+      });
+      const r2 = await dispatchService.assignDriverWithGate({
+        companyId: user.company_id,
+        orderId: pair.secondary.id,
+        driverId: top.driver.id,
+        performedBy: user.id,
+        score: top.score.total,
+        reason: `Batched with ${pair.primary.client_name}`,
+      });
+      const ok = (r1.ok ? 1 : 0) + (r2.ok ? 1 : 0);
+      toast({
+        title: ok === 2 ? "Batch assigned" : ok === 1 ? "Partially assigned" : "Could not assign",
+        description: `${top.driver.full_name} on ${pair.primary.client_name} + ${pair.secondary.client_name}`,
+        variant: ok === 0 ? "destructive" : "default",
+      });
+      loadDispatchData();
+      loadBatchPairs();
+    } finally {
+      setBatchAssigning(null);
+    }
+  };
 
   const loadDispatchData = useCallback(async () => {
     if (!user?.company_id) {
@@ -408,6 +466,52 @@ export default function RoutePlanning() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Unassigned + Routes column */}
             <div className="lg:col-span-1 space-y-4">
+              {/* Phase 3: batch suggestions */}
+              {batchPairs.length > 0 && (
+                <Card className="border-emerald-200 bg-emerald-50/30">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      Batch suggestions
+                      <InfoTooltip content={"Two unassigned orders close in distance and time. Sending them to one driver saves a trip. Click Batch to auto-assign the top-scored driver to both."} />
+                    </CardTitle>
+                    <CardDescription>
+                      {batchPairs.length} pair{batchPairs.length === 1 ? "" : "s"} can ride together
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {batchPairs.slice(0, 5).map(pair => {
+                      const isAssigning = batchAssigning === pair.primary.id;
+                      return (
+                        <div key={`${pair.primary.id}-${pair.secondary.id}`} className="rounded-md border border-emerald-200 bg-white p-2.5">
+                          <div className="text-xs space-y-1">
+                            <p className="font-medium text-slate-900 truncate">{pair.primary.client_name}</p>
+                            <p className="font-medium text-slate-900 truncate">+ {pair.secondary.client_name}</p>
+                            <p className="text-slate-500 tabular-nums">
+                              {pair.distance_km}km apart · {pair.minutes_apart}m gap
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={isAssigning}
+                            onClick={() => handleBatchAssign(pair)}
+                            className="w-full mt-2 h-7 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            {isAssigning ? "Assigning..." : "Batch to one driver"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    {batchPairs.length > 5 && (
+                      <p className="text-xs text-slate-500 text-center pt-1">
+                        + {batchPairs.length - 5} more pair{batchPairs.length - 5 === 1 ? "" : "s"}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Unassigned orders queue */}
               <Card>
                 <CardHeader>

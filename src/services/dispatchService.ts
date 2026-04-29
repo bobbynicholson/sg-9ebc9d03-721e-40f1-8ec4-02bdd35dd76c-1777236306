@@ -28,6 +28,10 @@ export interface DispatchSettings {
   arrivalBufferMinutes: number;      // driver must arrive at least this many minutes before event_time
   autoAssignEnabled: boolean;        // when true, assignment commits without dispatcher confirmation
   autoSuggestEnabled: boolean;       // when true, page surfaces top suggestions
+  /** Phase 3: max distance in km between two orders to qualify as a batch candidate. */
+  batchDistanceKm: number;
+  /** Phase 3: max time in minutes between two orders' event times to qualify. */
+  batchTimeWindowMinutes: number;
   weights: {
     distance: number;
     currentLoad: number;
@@ -42,6 +46,8 @@ const DEFAULT_SETTINGS: DispatchSettings = {
   arrivalBufferMinutes: 30,
   autoAssignEnabled: false,
   autoSuggestEnabled: true,
+  batchDistanceKm: 2,
+  batchTimeWindowMinutes: 60,
   weights: {
     distance:     0.30,
     currentLoad:  0.20,
@@ -129,10 +135,12 @@ export const dispatchService = {
     if (error || !data) return DEFAULT_SETTINGS;
     const raw = (data as any).dispatch_settings || {};
     return {
-      slaAssignMinutes:     Number(raw.sla_assign_minutes      ?? DEFAULT_SETTINGS.slaAssignMinutes),
-      arrivalBufferMinutes: Number(raw.arrival_buffer_minutes  ?? DEFAULT_SETTINGS.arrivalBufferMinutes),
-      autoAssignEnabled:    Boolean(raw.auto_assign_enabled    ?? DEFAULT_SETTINGS.autoAssignEnabled),
-      autoSuggestEnabled:   Boolean(raw.auto_suggest_enabled   ?? DEFAULT_SETTINGS.autoSuggestEnabled),
+      slaAssignMinutes:       Number(raw.sla_assign_minutes        ?? DEFAULT_SETTINGS.slaAssignMinutes),
+      arrivalBufferMinutes:   Number(raw.arrival_buffer_minutes    ?? DEFAULT_SETTINGS.arrivalBufferMinutes),
+      autoAssignEnabled:      Boolean(raw.auto_assign_enabled      ?? DEFAULT_SETTINGS.autoAssignEnabled),
+      autoSuggestEnabled:     Boolean(raw.auto_suggest_enabled     ?? DEFAULT_SETTINGS.autoSuggestEnabled),
+      batchDistanceKm:        Number(raw.batch_distance_km         ?? DEFAULT_SETTINGS.batchDistanceKm),
+      batchTimeWindowMinutes: Number(raw.batch_time_window_minutes ?? DEFAULT_SETTINGS.batchTimeWindowMinutes),
       weights: {
         distance:    Number(raw.auto_assign_weights?.distance     ?? DEFAULT_SETTINGS.weights.distance),
         currentLoad: Number(raw.auto_assign_weights?.current_load ?? DEFAULT_SETTINGS.weights.currentLoad),
@@ -145,10 +153,12 @@ export const dispatchService = {
 
   async updateDispatchSettings(companyId: string, s: DispatchSettings): Promise<boolean> {
     const payload = {
-      sla_assign_minutes:     s.slaAssignMinutes,
-      arrival_buffer_minutes: s.arrivalBufferMinutes,
-      auto_assign_enabled:    s.autoAssignEnabled,
-      auto_suggest_enabled:   s.autoSuggestEnabled,
+      sla_assign_minutes:        s.slaAssignMinutes,
+      arrival_buffer_minutes:    s.arrivalBufferMinutes,
+      auto_assign_enabled:       s.autoAssignEnabled,
+      auto_suggest_enabled:      s.autoSuggestEnabled,
+      batch_distance_km:         s.batchDistanceKm,
+      batch_time_window_minutes: s.batchTimeWindowMinutes,
       auto_assign_weights: {
         distance:     s.weights.distance,
         current_load: s.weights.currentLoad,
@@ -656,6 +666,88 @@ export const dispatchService = {
       return [];
     }
     return data || [];
+  },
+
+  // ── Phase 3: auto-batching ────────────────────────────────────────────
+
+  /**
+   * Find batchable order pairs: two unassigned orders within batchDistanceKm
+   * of each other AND within batchTimeWindowMinutes of each other. Same
+   * driver can do both in one trip. Greedy pairing -- once an order is in a
+   * pair we don't try to add it to another. Phase 4 can upgrade to a
+   * graph-clustering approach when there are 3+ tightly grouped orders.
+   */
+  async findBatchableOrders(companyId: string): Promise<Array<{
+    primary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null };
+    secondary: { id: string; client_name: string; event_date: string; event_time: string | null; venue_lat: number; venue_lng: number; venue_name: string | null };
+    distance_km: number;
+    minutes_apart: number;
+  }>> {
+    const settings = await this.getDispatchSettings(companyId);
+    const todayISO = new Date().toISOString().slice(0, 10);
+
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("id, client_name, event_date, event_time, venue_lat, venue_lng, venue_name")
+      .eq("company_id", companyId)
+      .is("assigned_driver_id", null)
+      .gte("event_date", todayISO)
+      .in("status", ["confirmed", "preparing", "ready"])
+      .not("venue_lat", "is", null)
+      .not("venue_lng", "is", null)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true, nullsFirst: false });
+
+    const list = (orders || []) as any[];
+    const used = new Set<string>();
+    const pairs: any[] = [];
+
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (used.has(a.id)) continue;
+      let bestPair: any = null;
+      let bestScore = Infinity;
+
+      for (let j = i + 1; j < list.length; j++) {
+        const b = list[j];
+        if (used.has(b.id)) continue;
+
+        // Different days never batch.
+        if (a.event_date !== b.event_date) continue;
+
+        const km = haversineKm(
+          { lat: Number(a.venue_lat), lng: Number(a.venue_lng) },
+          { lat: Number(b.venue_lat), lng: Number(b.venue_lng) },
+        );
+        if (km > settings.batchDistanceKm) continue;
+
+        // Time gap (event_time pair). Treat null as noon for comparison.
+        const aT = a.event_time ? `${a.event_date}T${a.event_time}` : `${a.event_date}T12:00`;
+        const bT = b.event_time ? `${b.event_date}T${b.event_time}` : `${b.event_date}T12:00`;
+        const minutesApart = Math.abs(new Date(aT).getTime() - new Date(bT).getTime()) / 60_000;
+        if (minutesApart > settings.batchTimeWindowMinutes) continue;
+
+        // Score = distance + time penalty. Lower is better.
+        const score = km + minutesApart / 30;
+        if (score < bestScore) {
+          bestScore = score;
+          bestPair = { other: b, km, minutesApart };
+        }
+      }
+
+      if (bestPair) {
+        used.add(a.id);
+        used.add(bestPair.other.id);
+        pairs.push({
+          primary: a,
+          secondary: bestPair.other,
+          distance_km: Math.round(bestPair.km * 10) / 10,
+          minutes_apart: Math.round(bestPair.minutesApart),
+        });
+      }
+    }
+
+    return pairs;
   },
 
   // ── Per-driver performance analytics (Phase 2B) ──────────────────────────

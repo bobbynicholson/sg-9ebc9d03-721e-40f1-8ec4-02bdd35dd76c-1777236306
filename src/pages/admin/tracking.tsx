@@ -19,6 +19,7 @@ import { ChatBot } from "@/components/ChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
 import { dispatchService } from "@/services/dispatchService";
+import { supabase } from "@/integrations/supabase/client";
 
 // Haversine + average speed for ETA. Phase 3 will plug real traffic.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -174,6 +175,63 @@ export default function AdminTracking() {
   useEffect(() => {
     loadTrackingData();
   }, [loadTrackingData]);
+
+  // Phase 3: realtime driver locations. Replaces the 30s polling lag for
+  // pin movement -- when any driver in this company writes a new GPS row,
+  // we patch the affected order's driver_lat/lng and recompute ETA + margin.
+  // Falls back to the existing auto-refresh poll for status changes.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`tracking-realtime-${user.company_id}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "gps_tracking" },
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row?.driver_id) return;
+          setOrders(prev => prev.map((o: any) => {
+            if (o.driver_id !== row.driver_id && o.assigned_driver_id !== row.driver_id) return o;
+            const newLat = Number(row.latitude);
+            const newLng = Number(row.longitude);
+            if (isNaN(newLat) || isNaN(newLng)) return o;
+            // Recompute ETA + margin against the new pin.
+            let etaMinutes: number | null = null;
+            let distanceKm: number | null = null;
+            if (o.venue_lat != null && o.venue_lng != null) {
+              distanceKm = haversineKm(
+                { lat: newLat, lng: newLng },
+                { lat: Number(o.venue_lat), lng: Number(o.venue_lng) },
+              );
+              etaMinutes = Math.round((distanceKm / AVG_SPEED_KMH) * 60);
+            }
+            let marginMinutes: number | null = null;
+            if (o.event_date && o.event_time && etaMinutes != null) {
+              const eventDt = new Date(`${o.event_date}T${o.event_time}`);
+              if (!isNaN(eventDt.getTime())) {
+                const minutesUntilEvent = (eventDt.getTime() - Date.now()) / 60_000;
+                marginMinutes = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
+              }
+            }
+            return {
+              ...o,
+              driver_lat: newLat,
+              driver_lng: newLng,
+              last_updated: row.timestamp || new Date().toISOString(),
+              eta_minutes: etaMinutes,
+              distance_km: distanceKm,
+              margin_minutes: marginMinutes,
+              is_at_risk: marginMinutes != null && marginMinutes < 0,
+            };
+          }));
+        },
+      )
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders" },
+        () => loadTrackingData(),
+      )
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [user?.company_id, arrivalBufferMinutes, loadTrackingData]);
 
   // Auto-refresh: re-pull every 30s when toggled on. Verifies the toggle
   // actually does something -- previous build had the state but no timer.
