@@ -108,6 +108,8 @@ function SettingsPage() {
     let cancelled = false;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Load non-company settings from user_metadata or localStorage first.
       const stored = (user?.user_metadata as any)?.admin_settings;
       if (stored && !cancelled) {
         setSettings((prev) => ({ ...prev, ...stored }));
@@ -117,6 +119,37 @@ function SettingsPage() {
           try { setSettings((prev) => ({ ...prev, ...JSON.parse(local) })); } catch {}
         }
       }
+
+      // Load real company data from the companies table.
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", user.id)
+        .single();
+      if (!profile?.company_id || cancelled) return;
+
+      const { data: company } = await supabase
+        .from("companies")
+        .select("company_name, email, phone, address_line1, logo_url, headquarters_lat, headquarters_lng")
+        .eq("id", profile.company_id)
+        .single();
+      if (!company || cancelled) return;
+
+      setSettings((prev) => ({
+        ...prev,
+        company: {
+          ...prev.company,
+          name: company.company_name ?? prev.company.name,
+          email: company.email ?? prev.company.email,
+          phone: company.phone ?? prev.company.phone,
+          address: company.address_line1 ?? prev.company.address,
+          logo: company.logo_url ?? prev.company.logo,
+          kitchenAddress: company.address_line1 ?? prev.company.kitchenAddress,
+          kitchenLat: company.headquarters_lat ?? prev.company.kitchenLat,
+          kitchenLng: company.headquarters_lng ?? prev.company.kitchenLng,
+        },
+      }));
     })();
     return () => { cancelled = true; };
   }, []);
@@ -128,6 +161,35 @@ function SettingsPage() {
     } catch (e) {
       console.error("Failed to persist settings to auth metadata:", e);
     }
+
+    // Write company fields back to the companies table.
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("id", user.id)
+          .single();
+        if (profile?.company_id) {
+          await supabase
+            .from("companies")
+            .update({
+              company_name: settings.company.name,
+              email: settings.company.email,
+              phone: settings.company.phone || null,
+              address_line1: settings.company.address || null,
+              logo_url: settings.company.logo || null,
+              headquarters_lat: settings.company.kitchenLat || null,
+              headquarters_lng: settings.company.kitchenLng || null,
+            })
+            .eq("id", profile.company_id);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to persist company settings to DB:", e);
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
