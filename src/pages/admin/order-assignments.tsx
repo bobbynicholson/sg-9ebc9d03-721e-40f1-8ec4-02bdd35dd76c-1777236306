@@ -832,7 +832,7 @@ function DispatchQueuePage() {
           ) : (
             <div className="space-y-2">
               {suggestions.map((s, idx) => {
-                const blocked = !s.capacity.ok || !s.feasibility.ok;
+                const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok;
                 return (
                   <button
                     key={s.driver.id}
@@ -866,9 +866,19 @@ function DispatchQueuePage() {
                               {s.capacity.reason}
                             </span>
                           )}
+                          {!s.vehicle.ok && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
+                              {s.vehicle.reason}
+                            </span>
+                          )}
                           {!s.feasibility.ok && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">
                               {s.feasibility.reason}
+                            </span>
+                          )}
+                          {s.vehicle.refrigerated && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              Refrigerated
                             </span>
                           )}
                           {s.feasibility.etaMinutes != null && s.feasibility.ok && (

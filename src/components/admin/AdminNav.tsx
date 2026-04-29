@@ -262,6 +262,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Auto-assign + optimise tomorrow"
         },
         {
+          title: "Vehicles",
+          href: "/admin/vehicles",
+          icon: Truck,
+          description: "Fleet roster + cold-chain"
+        },
+        {
           title: "Equipment Shortages",
           href: "/admin/equipment-shortages",
           icon: Package,

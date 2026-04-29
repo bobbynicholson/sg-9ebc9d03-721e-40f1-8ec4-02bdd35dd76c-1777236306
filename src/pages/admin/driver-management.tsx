@@ -1,5 +1,5 @@
 ﻿import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -22,6 +22,8 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { ShiftScheduleDialog } from "@/components/admin/dispatch/ShiftScheduleDialog";
+import { vehicleService, type Vehicle } from "@/services/vehicleService";
 
 interface Driver {
   id: string;
@@ -34,6 +36,7 @@ interface Driver {
   max_jobs_per_shift: number | null;
   home_postcode: string | null;
   regions_covered: string[] | null;
+  vehicle_id: string | null;
 }
 
 function relativeTime(iso: string): string {
@@ -81,7 +84,19 @@ function DriverManagementPage() {
   const [editTarget, setEditTarget] = useState<Driver | null>(null);
   const [editMaxJobs, setEditMaxJobs] = useState("");
   const [editHomePostcode, setEditHomePostcode] = useState("");
+  const [editVehicleId, setEditVehicleId] = useState<string>("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // Vehicles list for the picker + per-driver vehicle map
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const vehicleById = useMemo(() => {
+    const m: Record<string, Vehicle> = {};
+    for (const v of vehicles) m[v.id] = v;
+    return m;
+  }, [vehicles]);
+
+  // Shift schedule dialog
+  const [scheduleTarget, setScheduleTarget] = useState<Driver | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -144,10 +159,17 @@ function DriverManagementPage() {
     }
   };
 
+  // Load vehicles when company is known
+  useEffect(() => {
+    if (!user?.company_id) return;
+    vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
+  }, [user?.company_id]);
+
   const openEditDriver = (driver: Driver) => {
     setEditTarget(driver);
     setEditMaxJobs(driver.max_jobs_per_shift != null ? String(driver.max_jobs_per_shift) : "");
     setEditHomePostcode(driver.home_postcode ?? "");
+    setEditVehicleId(driver.vehicle_id ?? "");
   };
 
   const handleEditDriverSave = async () => {
@@ -164,6 +186,7 @@ function DriverManagementPage() {
         .update({
           max_jobs_per_shift: max,
           home_postcode: editHomePostcode.trim() || null,
+          vehicle_id: editVehicleId || null,
         })
         .eq("id", editTarget.id);
       if (error) throw error;
@@ -545,6 +568,16 @@ function DriverManagementPage() {
                                     <MapPin className="w-3 h-3" />{driver.home_postcode}
                                   </span>
                                 )}
+                                {driver.vehicle_id && vehicleById[driver.vehicle_id] && (
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                                    vehicleById[driver.vehicle_id].refrigerated ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-700"
+                                  }`}>
+                                    {vehicleById[driver.vehicle_id].refrigerated
+                                      ? <Snowflake className="w-3 h-3" />
+                                      : <Truck className="w-3 h-3" />}
+                                    {vehicleById[driver.vehicle_id].plate}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -570,8 +603,17 @@ function DriverManagementPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
+                              onClick={() => setScheduleTarget(driver)}
+                              title="Edit shift schedule"
+                            >
+                              <Calendar className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
                               onClick={() => openEditDriver(driver)}
-                              title="Edit capacity + regions"
+                              title="Edit capacity + vehicle"
                             >
                               <Settings className="w-4 h-4" />
                             </Button>
@@ -627,6 +669,15 @@ function DriverManagementPage() {
         </Card>
       </div>
 
+      {/* Shift schedule dialog (Phase 2) */}
+      <ShiftScheduleDialog
+        open={!!scheduleTarget}
+        onOpenChange={open => !open && setScheduleTarget(null)}
+        driverId={scheduleTarget?.id ?? null}
+        driverName={scheduleTarget?.full_name ?? ""}
+        companyId={user?.company_id ?? null}
+      />
+
       {/* Edit driver dialog -- capacity, home postcode, regions */}
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
         <DialogContent className="max-w-md">
@@ -663,6 +714,25 @@ function DriverManagementPage() {
               />
               <p className="text-xs text-slate-500 mt-1">
                 Used as start point for distance scoring when GPS is stale.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="vehicle">Vehicle</Label>
+              <select
+                id="vehicle"
+                value={editVehicleId}
+                onChange={e => setEditVehicleId(e.target.value)}
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">No vehicle assigned</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.plate}{v.refrigerated ? " · refrigerated" : ""}{[v.make, v.model].filter(Boolean).length > 0 ? ` · ${[v.make, v.model].filter(Boolean).join(" ")}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Refrigerated vehicles unlock cold-chain orders for this driver.
               </p>
             </div>
           </div>

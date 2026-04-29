@@ -1590,6 +1590,69 @@ export type Database = {
           },
         ]
       }
+      driver_shifts: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          driver_id: string
+          id: string
+          notes: string | null
+          planned_end: string | null
+          planned_start: string | null
+          shift_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          driver_id: string
+          id?: string
+          notes?: string | null
+          planned_end?: string | null
+          planned_start?: string | null
+          shift_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          driver_id?: string
+          id?: string
+          notes?: string | null
+          planned_end?: string | null
+          planned_start?: string | null
+          shift_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_shifts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "driver_shifts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_confirmations: {
         Row: {
           confirmation_type: string | null
@@ -4623,9 +4686,14 @@ export type Database = {
           payment_status: Database["public"]["Enums"]["payment_status"] | null
           picked_up_at: string | null
           pickup_time: string | null
+          pod_captured_at: string | null
+          pod_photo_url: string | null
+          pod_recipient_name: string | null
+          pod_signature_url: string | null
           prep_started_at: string | null
           quote_id: string | null
           ready_at: string | null
+          requires_refrigeration: boolean
           requires_waiter: boolean | null
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
@@ -4704,9 +4772,14 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           picked_up_at?: string | null
           pickup_time?: string | null
+          pod_captured_at?: string | null
+          pod_photo_url?: string | null
+          pod_recipient_name?: string | null
+          pod_signature_url?: string | null
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
+          requires_refrigeration?: boolean
           requires_waiter?: boolean | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
@@ -4785,9 +4858,14 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           picked_up_at?: string | null
           pickup_time?: string | null
+          pod_captured_at?: string | null
+          pod_photo_url?: string | null
+          pod_recipient_name?: string | null
+          pod_signature_url?: string | null
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
+          requires_refrigeration?: boolean
           requires_waiter?: boolean | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
@@ -5298,6 +5376,7 @@ export type Database = {
           regions_covered: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
+          vehicle_id: string | null
           vehicle_registration: string | null
         }
         Insert: {
@@ -5333,6 +5412,7 @@ export type Database = {
           regions_covered?: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          vehicle_id?: string | null
           vehicle_registration?: string | null
         }
         Update: {
@@ -5368,6 +5448,7 @@ export type Database = {
           regions_covered?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          vehicle_id?: string | null
           vehicle_registration?: string | null
         }
         Relationships: [
@@ -6785,19 +6866,46 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          capacity_kg: number | null
           company_id: string | null
           created_at: string | null
+          deleted_at: string | null
           id: string
+          is_active: boolean
+          make: string | null
+          model: string | null
+          notes: string | null
+          plate: string | null
+          refrigerated: boolean
+          updated_at: string
         }
         Insert: {
+          capacity_kg?: number | null
           company_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
+          is_active?: boolean
+          make?: string | null
+          model?: string | null
+          notes?: string | null
+          plate?: string | null
+          refrigerated?: boolean
+          updated_at?: string
         }
         Update: {
+          capacity_kg?: number | null
           company_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
+          is_active?: boolean
+          make?: string | null
+          model?: string | null
+          notes?: string | null
+          plate?: string | null
+          refrigerated?: boolean
+          updated_at?: string
         }
         Relationships: []
       }

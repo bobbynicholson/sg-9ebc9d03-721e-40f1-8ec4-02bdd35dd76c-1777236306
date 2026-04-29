@@ -147,7 +147,7 @@ export default function RoutePlanning() {
           venue_lat: o.venue_lat ?? o.delivery_lat ?? null,
           venue_lng: o.venue_lng ?? o.delivery_lng ?? null,
         }, 1);
-        const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok);
+        const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
         if (!top) { skipped += 1; continue; }
         const r = await dispatchService.assignDriverWithGate({
           companyId: user.company_id,

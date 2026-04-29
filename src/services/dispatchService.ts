@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
+import { shiftService } from "./shiftService";
 /**
  * Dispatch service: the math layer behind the order-to-driver flywheel.
  *
@@ -69,6 +70,7 @@ export interface OrderForDispatch {
   venue_lat?: number | null;
   venue_lng?: number | null;
   venue_address?: string | null;
+  requires_refrigeration?: boolean;
   total_amount?: number | null;
   client_name?: string | null;
   status?: string | null;
@@ -89,6 +91,7 @@ export interface DispatchSuggestion {
   score: ScoreBreakdown;
   capacity: { ok: boolean; current: number; max: number | null; reason?: string };
   feasibility: { ok: boolean; etaMinutes: number | null; reason?: string };
+  vehicle: { ok: boolean; reason?: string; refrigerated?: boolean };
 }
 
 // ── Geo helpers ──────────────────────────────────────────────────────────────
@@ -167,7 +170,7 @@ export const dispatchService = {
   async getDriversForCompany(companyId: string): Promise<DriverCandidate[]> {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, is_active, max_jobs_per_shift, regions_covered, home_postcode, region_id")
+      .select("id, full_name, email, is_active, max_jobs_per_shift, regions_covered, home_postcode, region_id, vehicle_id, vehicles:vehicle_id(id, plate, refrigerated, capacity_kg)")
       .eq("company_id", companyId)
       .eq("role", "driver")
       .order("full_name");
@@ -392,12 +395,27 @@ export const dispatchService = {
           ? { ok: false, current: currentLoad, max, reason: `At capacity (${currentLoad} of ${max})` }
           : { ok: true, current: currentLoad, max };
       const feasibility = this.checkTimeWindowFeasibility(driverLatLng, order, settings.arrivalBufferMinutes);
-      return { driver: d, score, capacity, feasibility };
+
+      // Vehicle / cold-chain feasibility: when the order requires refrigeration,
+      // the driver must have a vehicle and that vehicle must be refrigerated.
+      // Otherwise the vehicle gate passes regardless of whether one is attached.
+      const driverVehicle: any = (d as any).vehicles ?? null;
+      const needsRefrigeration = !!order.requires_refrigeration;
+      const vehicle = needsRefrigeration
+        ? !driverVehicle
+          ? { ok: false, reason: "No vehicle assigned" }
+          : !driverVehicle.refrigerated
+            ? { ok: false, reason: "Vehicle not refrigerated", refrigerated: false }
+            : { ok: true, refrigerated: true }
+        : { ok: true, refrigerated: !!driverVehicle?.refrigerated };
+
+      return { driver: d, score, capacity, feasibility, vehicle };
     });
 
-    // Sort by score desc, demoting candidates that fail capacity hard.
+    // Sort by score desc, demoting candidates that fail any hard gate.
     suggestions.sort((a, b) => {
-      if (a.capacity.ok !== b.capacity.ok) return a.capacity.ok ? -1 : 1;
+      if (a.capacity.ok    !== b.capacity.ok)    return a.capacity.ok    ? -1 : 1;
+      if (a.vehicle.ok     !== b.vehicle.ok)     return a.vehicle.ok     ? -1 : 1;
       if (a.feasibility.ok !== b.feasibility.ok) return a.feasibility.ok ? -1 : 1;
       return b.score.total - a.score.total;
     });
@@ -586,24 +604,32 @@ export const dispatchService = {
         : Math.round(deltas[mid]);
     }
 
-    // On-shift drivers approximated as drivers with a GPS ping in the last 60 minutes.
-    const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
-    const { data: drivers } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("role", "driver");
-    const driverIds = (drivers || []).map((d: any) => d.id);
+    // On-shift drivers: prefer the real shift table when entries exist for today.
+    // Falls back to the GPS-ping proxy (last 60 minutes) when no shifts are
+    // scheduled at all so the KPI never shows a confusing zero on a tenant
+    // that hasn't started using the schedule yet.
     let onShift = 0;
-    if (driverIds.length > 0) {
-      const { data: pings } = await supabase
-        .from("gps_tracking")
-        .select("driver_id")
-        .in("driver_id", driverIds)
-        .gte("timestamp", sixtyMinAgo);
-      const seen = new Set<string>();
-      for (const p of pings || []) seen.add((p as any).driver_id);
-      onShift = seen.size;
+    const activeFromShifts = await shiftService.getActiveDriverIdsForCompany(companyId);
+    if (activeFromShifts.length > 0) {
+      onShift = activeFromShifts.length;
+    } else {
+      const sixtyMinAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+      const { data: drivers } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("role", "driver");
+      const driverIds = (drivers || []).map((d: any) => d.id);
+      if (driverIds.length > 0) {
+        const { data: pings } = await supabase
+          .from("gps_tracking")
+          .select("driver_id")
+          .in("driver_id", driverIds)
+          .gte("timestamp", sixtyMinAgo);
+        const seen = new Set<string>();
+        for (const p of pings || []) seen.add((p as any).driver_id);
+        onShift = seen.size;
+      }
     }
 
     return {
