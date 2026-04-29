@@ -225,7 +225,7 @@ function DispatchQueuePage() {
   const toggleSelected = (id: string) => {
     setSelected(prev => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
   };
@@ -235,7 +235,7 @@ function DispatchQueuePage() {
     setSelected(prev => {
       const all = ids.every(id => prev.has(id));
       const n = new Set(prev);
-      ids.forEach(id => all ? n.delete(id) : n.add(id));
+      ids.forEach(id => { if (all) n.delete(id); else n.add(id); });
       return n;
     });
   };
