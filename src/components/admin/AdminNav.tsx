@@ -256,6 +256,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Optimize delivery routes"
         },
         {
+          title: "Order Assignments",
+          href: "/admin/order-assignments",
+          icon: ClipboardList,
+          description: "Assign staff to orders"
+        },
+        {
           title: "Equipment Shortages",
           href: "/admin/equipment-shortages",
           icon: Package,
