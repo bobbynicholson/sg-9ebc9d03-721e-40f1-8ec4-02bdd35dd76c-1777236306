@@ -25,6 +25,7 @@ import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -38,6 +39,9 @@ interface Region {
   province_state: string | null;
   city: string | null;
   address: string | null;
+  postal_code: string | null;
+  lat: number | null;
+  lng: number | null;
   manager_user_id: string | null;
   phone: string | null;
   email: string | null;
@@ -61,6 +65,9 @@ interface RegionFormState {
   province_state: string;
   city: string;
   address: string;
+  postal_code: string;
+  lat: number | null;
+  lng: number | null;
   manager_user_id: string;
   phone: string;
   email: string;
@@ -83,6 +90,9 @@ const emptyForm = (): RegionFormState => {
     province_state: "",
     city: "",
     address: "",
+    postal_code: "",
+    lat: null,
+    lng: null,
     manager_user_id: "",
     phone: "",
     email: "",
@@ -181,6 +191,9 @@ function RegionsPage() {
       province_state: region.province_state || "",
       city: region.city || "",
       address: region.address || "",
+      postal_code: region.postal_code || "",
+      lat: region.lat ?? null,
+      lng: region.lng ?? null,
       manager_user_id: region.manager_user_id || "",
       phone: region.phone || "",
       email: region.email || "",
@@ -227,6 +240,9 @@ function RegionsPage() {
       province_state: form.province_state || null,
       city: form.city || null,
       address: form.address || null,
+      postal_code: form.postal_code || null,
+      lat: form.lat,
+      lng: form.lng,
       manager_user_id: form.manager_user_id && form.manager_user_id !== "__none" ? form.manager_user_id : null,
       phone: form.phone || null,
       email: form.email || null,
@@ -458,14 +474,46 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="region-address">Branch / kitchen address</Label>
+              <AddressAutocomplete
+                value={form.address}
+                onChange={(pick) => {
+                  setForm((f) => ({
+                    ...f,
+                    address: pick.address,
+                    lat: pick.lat,
+                    lng: pick.lng,
+                    city: pick.components.city || f.city,
+                    postal_code: pick.components.postal_code || f.postal_code,
+                    province_state: pick.components.state || f.province_state,
+                  }));
+                }}
+                placeholder="Search this branch's kitchen address"
+                hint="Pick from the dropdown to lock the precise pin -- drivers in this region navigate from here."
+              />
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                <strong>Important:</strong> drivers assigned to this region see this address as their navigation start point.
+                Without precise coords, Google Maps may reverse-geocode to a nearby road and confuse the route.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="region-city">City</Label>
-                <Input id="region-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Sandton" />
+                <Input id="region-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="auto-filled" />
               </div>
               <div>
-                <Label htmlFor="region-address">Headquarters address</Label>
-                <Input id="region-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="123 Rivonia Rd" />
+                <Label htmlFor="region-postal">Postal code</Label>
+                <Input id="region-postal" value={form.postal_code} onChange={(e) => setForm({ ...form, postal_code: e.target.value })} placeholder="auto-filled" />
+              </div>
+              <div>
+                <Label className="flex items-center gap-1.5">Coords {form.lat != null && form.lng != null && <span className="text-[10px] text-emerald-700 font-medium">(set)</span>}</Label>
+                <p className="text-xs text-slate-500 mt-2 tabular-nums">
+                  {form.lat != null && form.lng != null
+                    ? `${Number(form.lat).toFixed(5)}, ${Number(form.lng).toFixed(5)}`
+                    : "auto-filled from address"}
+                </p>
               </div>
             </div>
 

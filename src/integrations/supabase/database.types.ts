@@ -5934,12 +5934,15 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean | null
+          lat: number | null
+          lng: number | null
           manager_user_id: string | null
           name: string | null
           notes: string | null
           operating_hours_end: string | null
           operating_hours_start: string | null
           phone: string | null
+          postal_code: string | null
           province_state: string | null
           timezone: string | null
           updated_at: string | null
@@ -5958,12 +5961,15 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean | null
+          lat?: number | null
+          lng?: number | null
           manager_user_id?: string | null
           name?: string | null
           notes?: string | null
           operating_hours_end?: string | null
           operating_hours_start?: string | null
           phone?: string | null
+          postal_code?: string | null
           province_state?: string | null
           timezone?: string | null
           updated_at?: string | null
@@ -5982,12 +5988,15 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean | null
+          lat?: number | null
+          lng?: number | null
           manager_user_id?: string | null
           name?: string | null
           notes?: string | null
           operating_hours_end?: string | null
           operating_hours_start?: string | null
           phone?: string | null
+          postal_code?: string | null
           province_state?: string | null
           timezone?: string | null
           updated_at?: string | null

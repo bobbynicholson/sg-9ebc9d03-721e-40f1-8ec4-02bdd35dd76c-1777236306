@@ -13,7 +13,8 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { openNavigation as openMapsNavigation, type NavOrigin } from "@/lib/driverNavigation";
+import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
+import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 
 interface ActiveDelivery {
   assignmentId: string;
@@ -45,28 +46,8 @@ export default function DriverTracking() {
   const [delivery, setDelivery] = useState<ActiveDelivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [kitchenOrigin, setKitchenOrigin] = useState<NavOrigin | null>(null);
-
-  // Load kitchen origin once for navigation start point
-  useEffect(() => {
-    if (!user?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("companies")
-        .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
-        .eq("id", user.company_id)
-        .maybeSingle();
-      if (cancelled || !data) return;
-      const parts = [data.address_line1, data.city, data.state_province, data.postal_code].filter(Boolean);
-      setKitchenOrigin({
-        lat: data.headquarters_lat ?? null,
-        lng: data.headquarters_lng ?? null,
-        address: parts.length > 0 ? parts.join(", ") : null,
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [user?.company_id]);
+  // Kitchen origin: driver's region kitchen if set, otherwise company HQ
+  const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
   const loadActiveDelivery = async () => {
     if (!user?.id) return;

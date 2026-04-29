@@ -20,7 +20,8 @@ import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDi
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
-import { openNavigation as openMapsNavigation, type NavOrigin } from "@/lib/driverNavigation";
+import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
+import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -69,30 +70,8 @@ export default function DriverDashboard() {
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
   // Phase 5B: chat dialog
   const [chatJob, setChatJob] = useState<Job | null>(null);
-  // Kitchen origin for navigation
-  const [kitchenOrigin, setKitchenOrigin] = useState<NavOrigin | null>(null);
-
-  // Load the kitchen address + coords once (used as the navigation origin
-  // so Google Maps shows the route from kitchen -> venue, not just venue).
-  useEffect(() => {
-    if (!user?.company_id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("companies")
-        .select("address_line1, city, state_province, postal_code, headquarters_lat, headquarters_lng")
-        .eq("id", user.company_id)
-        .maybeSingle();
-      if (cancelled || !data) return;
-      const parts = [data.address_line1, data.city, data.state_province, data.postal_code].filter(Boolean);
-      setKitchenOrigin({
-        lat: data.headquarters_lat ?? null,
-        lng: data.headquarters_lng ?? null,
-        address: parts.length > 0 ? parts.join(", ") : null,
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [user?.company_id]);
+  // Kitchen origin: driver's region kitchen if set, otherwise company HQ
+  const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
