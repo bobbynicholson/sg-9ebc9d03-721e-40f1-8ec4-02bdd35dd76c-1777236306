@@ -123,15 +123,15 @@ function OrderAssignmentsContent() {
     if (!user?.id) return;
 
     // Map UI department labels to the actual user_role enum values stored in profiles.
-    type ProfileRole = "kitchen_staff" | "driver" | "shopping_staff" | "cleaning_staff";
-    const roleMap: Record<string, ProfileRole> = {
+    const DEPT_ROLE_MAP = {
       kitchen:  "kitchen_staff",
       driver:   "driver",
       shopping: "shopping_staff",
       cleaning: "cleaning_staff",
-    };
-    const role: ProfileRole | undefined = roleMap[department];
-    if (!role) return;
+    } as const;
+    type DeptKey = keyof typeof DEPT_ROLE_MAP;
+    if (!(department in DEPT_ROLE_MAP)) return;
+    const role = DEPT_ROLE_MAP[department as DeptKey];
 
     try {
       const companyId = profile?.company_id;
