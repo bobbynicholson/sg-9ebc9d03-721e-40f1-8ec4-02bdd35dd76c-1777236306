@@ -18,8 +18,9 @@ import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import dynamic from "next/dynamic";
 import { OrderDetailsPanel } from "@/components/tracking/OrderDetailsPanel";
-import { dispatchService } from "@/services/dispatchService";
+import { dispatchService, computeRiskScore } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 // Haversine + average speed for ETA. Phase 3 will plug real traffic.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -51,6 +52,7 @@ const AdminTrackingMap = dynamic(
  */
 export default function AdminTracking() {
   const { user, profile } = useAuth() as any;
+  const { toast } = useToast();
   const [orders, setOrders] = useState<any[]>([]);
   const [driverLocations, setDriverLocations] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -134,6 +136,18 @@ export default function AdminTracking() {
         }
         const isAtRisk = marginMinutes != null && marginMinutes < 0;
 
+        // Phase 4: composite risk score
+        const lastPingAge = driver?.location_updated_at
+          ? (Date.now() - new Date(driver.location_updated_at).getTime()) / 60_000
+          : null;
+        const risk = computeRiskScore({
+          marginMinutes,
+          lastPingAgeMinutes: lastPingAge,
+          driverLoadToday: null, // populated below in a second pass
+          hasDriverPin: driver?.current_lat != null && driver?.current_lng != null,
+          status: order.status ?? null,
+        });
+
         return {
           ...order,
           driver_id: driverId,
@@ -146,6 +160,9 @@ export default function AdminTracking() {
           distance_km: distanceKm,
           margin_minutes: marginMinutes,
           is_at_risk: isAtRisk,
+          risk_score: risk.score,
+          risk_tier: risk.tier,
+          risk_reasons: risk.reasons,
         };
       });
 
@@ -212,6 +229,13 @@ export default function AdminTracking() {
                 marginMinutes = minutesUntilEvent - etaMinutes - arrivalBufferMinutes;
               }
             }
+            const risk = computeRiskScore({
+              marginMinutes,
+              lastPingAgeMinutes: 0, // ping just landed -- by definition fresh
+              driverLoadToday: null,
+              hasDriverPin: true,
+              status: o.status ?? null,
+            });
             return {
               ...o,
               driver_lat: newLat,
@@ -221,13 +245,31 @@ export default function AdminTracking() {
               distance_km: distanceKm,
               margin_minutes: marginMinutes,
               is_at_risk: marginMinutes != null && marginMinutes < 0,
+              risk_score: risk.score,
+              risk_tier: risk.tier,
+              risk_reasons: risk.reasons,
             };
           }));
         },
       )
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders" },
-        () => loadTrackingData(),
+        (payload: any) => {
+          const before = payload?.old;
+          const after = payload?.new;
+          // Detect geofence-fired arrival: delivery_status transitioned to "arrived"
+          if (before?.delivery_status !== "arrived" && after?.delivery_status === "arrived" && after?.id) {
+            // Find the order in current state to get the client name for the toast
+            const o = orders.find((x: any) => x.id === after.id);
+            toast({
+              title: "Driver arrived at venue",
+              description: o?.client_name
+                ? `${o.driver_name ? o.driver_name + " · " : ""}${o.client_name}`
+                : "An order was auto-marked as arrived (geofence).",
+            });
+          }
+          loadTrackingData();
+        },
       )
       .subscribe();
     return () => { channel.unsubscribe(); };
@@ -322,7 +364,10 @@ export default function AdminTracking() {
   };
 
   const stats = {
-    atRisk: orders.filter((o) => o.is_at_risk).length,
+    atRisk: orders.filter((o) =>
+      o.delivery_status !== "arrived" &&
+      (o.risk_tier === "high" || o.risk_tier === "critical")
+    ).length,
     active: orders.filter((o) => o.status === "out_for_delivery" || o.status === "in_transit").length,
     preparing: orders.filter((o) => o.status === "preparing").length,
     ready: orders.filter((o) => o.status === "ready").length,
@@ -516,22 +561,38 @@ export default function AdminTracking() {
                             const margin = order.margin_minutes;
                             const eta = order.eta_minutes;
                             const isSelected = selectedOrder?.id === order.id;
+                            const riskTier = order.risk_tier as ("ok" | "watch" | "high" | "critical" | undefined);
+                            const riskReasons: string[] = order.risk_reasons || [];
+                            const arrived = order.delivery_status === "arrived";
+                            const borderTone =
+                              arrived          ? "border-l-emerald-500 bg-emerald-50/40 hover:bg-emerald-50" :
+                              riskTier === "critical" ? "border-l-red-600 bg-red-50/40 hover:bg-red-50" :
+                              riskTier === "high"     ? "border-l-red-500 bg-red-50/40 hover:bg-red-50" :
+                              riskTier === "watch"    ? "border-l-amber-500 hover:bg-amber-50/40" :
+                                                        "border-l-transparent border border-slate-200 hover:bg-slate-50";
                             return (
                               <div
                                 key={order.id}
-                                className={`p-3 border-l-4 rounded-md cursor-pointer transition-colors ${
-                                  atRisk     ? "border-l-red-500 bg-red-50/40 hover:bg-red-50" :
-                                  margin != null && margin < 30 ? "border-l-amber-500 hover:bg-amber-50/40" :
-                                                                  "border-l-transparent border border-slate-200 hover:bg-slate-50"
-                                } ${isSelected ? "ring-2 ring-blue-300" : ""}`}
+                                className={`p-3 border-l-4 rounded-md cursor-pointer transition-colors ${borderTone} ${isSelected ? "ring-2 ring-blue-300" : ""}`}
                                 onClick={() => setSelectedOrder(order)}
+                                title={riskReasons.length > 0 ? `Risk reasons: ${riskReasons.join(" · ")}` : undefined}
                               >
                                 <div className="flex items-start justify-between mb-1.5">
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <p className="font-semibold text-sm truncate">{order.client_name}</p>
-                                      {atRisk && (
-                                        <Badge className="bg-red-100 text-red-800 border-0 text-[9px] font-bold tracking-wide">AT RISK</Badge>
+                                      {arrived && (
+                                        <Badge className="bg-emerald-100 text-emerald-800 border-0 text-[9px] font-bold tracking-wide">ARRIVED</Badge>
+                                      )}
+                                      {!arrived && (riskTier === "critical" || riskTier === "high") && (
+                                        <Badge className={`border-0 text-[9px] font-bold tracking-wide ${
+                                          riskTier === "critical" ? "bg-red-200 text-red-900" : "bg-red-100 text-red-800"
+                                        }`}>
+                                          {riskTier === "critical" ? "CRITICAL" : "AT RISK"}
+                                        </Badge>
+                                      )}
+                                      {!arrived && riskTier === "watch" && (
+                                        <Badge className="bg-amber-100 text-amber-800 border-0 text-[9px] font-bold tracking-wide">WATCH</Badge>
                                       )}
                                     </div>
                                     <p className="text-xs text-slate-600 truncate">{order.venue_address || order.venue_name}</p>

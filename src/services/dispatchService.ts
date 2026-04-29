@@ -831,6 +831,83 @@ export const dispatchService = {
   },
 };
 
+/**
+ * Phase 4 risk model. Combines several signals into a 0-100 risk score plus
+ * a tier label so the UI can render a single chip.
+ *
+ * Signals:
+ *   - margin_minutes (negative = late)        contributes 0-60 points
+ *   - last_ping_age_minutes (stale GPS)       contributes 0-25 points
+ *   - driver_load (driver has many active)    contributes 0-15 points
+ *   - has_no_pin (out for delivery, no GPS)   adds 25 points
+ *
+ * Tiers: <30 OK, 30-60 watch, 60-85 high, >=85 critical.
+ */
+export interface RiskInputs {
+  marginMinutes: number | null;
+  lastPingAgeMinutes: number | null;
+  driverLoadToday: number | null;
+  hasDriverPin: boolean;
+  status: string | null;
+}
+
+export interface RiskResult {
+  score: number;            // 0-100
+  tier: "ok" | "watch" | "high" | "critical";
+  reasons: string[];
+}
+
+export function computeRiskScore(input: RiskInputs): RiskResult {
+  const reasons: string[] = [];
+  let score = 0;
+
+  // Margin component: 0 when comfortable (>30m slack), up to 60 when 60m late.
+  if (input.marginMinutes != null) {
+    if (input.marginMinutes < 0) {
+      score += Math.min(60, 30 + Math.abs(input.marginMinutes));
+      reasons.push(`${Math.abs(Math.round(input.marginMinutes))}m late`);
+    } else if (input.marginMinutes < 15) {
+      score += 25;
+      reasons.push(`${Math.round(input.marginMinutes)}m slack only`);
+    } else if (input.marginMinutes < 30) {
+      score += 10;
+    }
+  }
+
+  // Stale ping: 0 if fresh, up to 25 when 30 minutes stale.
+  if (input.lastPingAgeMinutes != null) {
+    if (input.lastPingAgeMinutes >= 30) {
+      score += 25;
+      reasons.push(`No GPS for ${Math.round(input.lastPingAgeMinutes)}m`);
+    } else if (input.lastPingAgeMinutes >= 10) {
+      score += Math.round((input.lastPingAgeMinutes - 10) * (15 / 20));
+      reasons.push(`GPS ${Math.round(input.lastPingAgeMinutes)}m old`);
+    }
+  }
+
+  // Out-for-delivery with no driver pin at all = blind spot
+  const inMotion = input.status === "out_for_delivery" || input.status === "in_transit";
+  if (inMotion && !input.hasDriverPin) {
+    score += 25;
+    reasons.push("No driver location");
+  }
+
+  // Driver overloaded: 4+ active jobs today adds risk
+  if (input.driverLoadToday != null && input.driverLoadToday >= 4) {
+    score += Math.min(15, (input.driverLoadToday - 3) * 5);
+    reasons.push(`Driver has ${input.driverLoadToday} jobs today`);
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const tier: RiskResult["tier"] =
+    score >= 85 ? "critical" :
+    score >= 60 ? "high"     :
+    score >= 30 ? "watch"    :
+                  "ok";
+
+  return { score, tier, reasons };
+}
+
 // Re-export the SLA helper so the queue UI can compute "minutes until breach"
 // without re-implementing the rule.
 export function minutesUntilSlaBreach(
