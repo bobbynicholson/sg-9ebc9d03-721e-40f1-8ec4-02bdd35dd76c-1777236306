@@ -12,7 +12,11 @@ import {
   DollarSign,
   Sparkles,
   Bell,
+  Camera,
+  X,
 } from "lucide-react";
+import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -51,6 +55,12 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
+
+  // Phase 5: POD capture + decline dialogs
+  const [podJob, setPodJob] = useState<Job | null>(null);
+  const [declineCtx, setDeclineCtx] = useState<{ assignmentId: string; orderId: string; clientName?: string } | null>(null);
+  // Map order_id -> assignment_id so the decline dialog can target the right row
+  const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
 
   const driverName = user?.full_name || user?.email?.split("@")[0] || "Driver";
 
@@ -106,6 +116,13 @@ export default function DriverDashboard() {
         console.error("Error loading orders:", ordersError);
         return;
       }
+
+      // Build order_id -> assignment_id map so decline dialog can target the row
+      const assignmentMap: Record<string, string> = {};
+      for (const a of (assignments || []) as any[]) {
+        if (a.order_id && a.id) assignmentMap[a.order_id] = a.id;
+      }
+      setAssignmentByOrder(assignmentMap);
 
       // Combine and deduplicate
       const assignmentJobs: Job[] = (assignments || [])
@@ -550,7 +567,7 @@ export default function DriverDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -560,14 +577,33 @@ export default function DriverDashboard() {
                           <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                           <span className="hidden sm:inline">Navigate</span>
                         </Button>
-                        {job.status === "ready" && (
-                          <Button size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm bg-green-600 hover:bg-green-700">
-                            Start Pickup
+
+                        {/* Phase 5: Confirm delivery -- POD capture dialog */}
+                        {!["delivered", "completed", "cancelled", "rejected"].includes(job.status) && (
+                          <Button
+                            size="sm"
+                            className="flex-1 sm:flex-none text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 gap-1"
+                            onClick={() => setPodJob(job)}
+                          >
+                            <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Confirm delivery</span>
                           </Button>
                         )}
-                        {(job.status === "assigned" || job.status === "accepted") && (
-                          <Button size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
-                            View Details
+
+                        {/* Phase 5: Decline (only when still pending) */}
+                        {(job.status === "assigned" || job.status === "accepted") && assignmentByOrder[job.id] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 sm:flex-none text-xs sm:text-sm text-red-700 border-red-200 hover:bg-red-50"
+                            onClick={() => setDeclineCtx({
+                              assignmentId: assignmentByOrder[job.id],
+                              orderId: job.id,
+                              clientName: job.client_name,
+                            })}
+                          >
+                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Decline</span>
                           </Button>
                         )}
                       </div>
@@ -583,6 +619,30 @@ export default function DriverDashboard() {
       </div>
 
       {showGame && <CateringDashGame onClose={() => setShowGame(false)} />}
+
+      {/* Phase 5: POD capture */}
+      {podJob && (
+        <PodCaptureDialog
+          open={!!podJob}
+          onOpenChange={open => !open && setPodJob(null)}
+          orderId={podJob.id}
+          clientName={podJob.client_name}
+          onSaved={() => { setPodJob(null); loadDriverJobs(); }}
+        />
+      )}
+
+      {/* Phase 5: Decline assignment */}
+      {declineCtx && user?.id && (
+        <DeclineAssignmentDialog
+          open={!!declineCtx}
+          onOpenChange={open => !open && setDeclineCtx(null)}
+          assignmentId={declineCtx.assignmentId}
+          driverId={user.id}
+          orderId={declineCtx.orderId}
+          clientName={declineCtx.clientName}
+          onDeclined={() => { setDeclineCtx(null); loadDriverJobs(); }}
+        />
+      )}
 
       {/* AI Chatbot */}
       <ChatBot userRole="driver" companyId={user?.company_id} />
