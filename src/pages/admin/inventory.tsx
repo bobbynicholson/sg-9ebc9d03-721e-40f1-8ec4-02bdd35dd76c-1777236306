@@ -34,6 +34,8 @@ import {
   ChevronRight,
   Activity,
   CheckCircle2,
+  ClipboardCheck,
+  MoreHorizontal,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -42,6 +44,16 @@ import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { ReceiveStockDialog } from "@/components/admin/inventory/ReceiveStockDialog";
+import { CycleCountDialog } from "@/components/admin/inventory/CycleCountDialog";
+import { WriteOffDialog } from "@/components/admin/inventory/WriteOffDialog";
 
 interface InventoryItem {
   id: string;
@@ -194,6 +206,12 @@ export default function AdminInventory() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // ── Phase 2 workflows ─────────────────────────────────────────
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [countOpen, setCountOpen] = useState(false);
+  const [writeOffOpen, setWriteOffOpen] = useState(false);
+  const [writeOffPreSelectedId, setWriteOffPreSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -576,17 +594,61 @@ export default function AdminInventory() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-2" onClick={refreshAll}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 text-slate-500 hover:text-slate-900"
+                onClick={refreshAll}
+                title="Refresh"
+              >
                 <RefreshCw className="w-4 h-4" />
-                Refresh
               </Button>
+              <Button variant="outline" size="sm" className="gap-2" onClick={openAdd}>
+                <Plus className="w-4 h-4" />
+                New item
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <MoreHorizontal className="w-4 h-4" />
+                    More
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setCountOpen(true)} className="gap-2 cursor-pointer">
+                    <ClipboardCheck className="w-4 h-4 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Cycle count</p>
+                      <p className="text-xs text-slate-500">Count what's on the shelf, post variances</p>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => { setWriteOffPreSelectedId(null); setWriteOffOpen(true); }}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Write off</p>
+                      <p className="text-xs text-slate-500">Spoilage, breakage, expiry</p>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled className="gap-2">
+                    <span className="w-4 h-4" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-400">Import CSV</p>
+                      <p className="text-xs text-slate-400">Coming in Phase 3</p>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 size="sm"
                 className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-                onClick={openAdd}
+                onClick={() => setReceiveOpen(true)}
               >
-                <Plus className="w-4 h-4" />
-                New item
+                <Package className="w-4 h-4" />
+                Receive
               </Button>
             </div>
           </div>
@@ -1263,6 +1325,71 @@ export default function AdminInventory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Receive stock (Phase 2) ────────────────────────────────── */}
+      <ReceiveStockDialog
+        open={receiveOpen}
+        onOpenChange={setReceiveOpen}
+        companyId={companyId}
+        performedBy={userId}
+        inventoryOptions={inventory.map(i => ({
+          id: i.id,
+          name: i.name,
+          unit: i.unit,
+          costPerUnit: i.costPerUnit,
+        }))}
+        onSaved={(received, invoice) => {
+          toast({
+            title: "Delivery received",
+            description: `${received} line${received === 1 ? "" : "s"} posted${invoice ? ` against ${invoice}` : ""}.`,
+          });
+          refreshAll();
+        }}
+      />
+
+      {/* ── Cycle count (Phase 2) ──────────────────────────────────── */}
+      <CycleCountDialog
+        open={countOpen}
+        onOpenChange={setCountOpen}
+        companyId={companyId}
+        performedBy={userId}
+        items={inventory.map(i => ({
+          id: i.id,
+          name: i.name,
+          category: i.category,
+          unit: i.unit,
+          systemStock: i.quantity,
+        }))}
+        onSaved={(posted) => {
+          toast({
+            title: "Cycle count posted",
+            description: `${posted} adjustment${posted === 1 ? "" : "s"} written to the audit log.`,
+          });
+          refreshAll();
+        }}
+      />
+
+      {/* ── Write off (Phase 2) ────────────────────────────────────── */}
+      <WriteOffDialog
+        open={writeOffOpen}
+        onOpenChange={setWriteOffOpen}
+        performedBy={userId}
+        items={inventory.map(i => ({
+          id: i.id,
+          name: i.name,
+          unit: i.unit,
+          currentStock: i.quantity,
+          costPerUnit: i.costPerUnit,
+        }))}
+        preSelectedItemId={writeOffPreSelectedId}
+        onSaved={(itemName, qty, costImpact) => {
+          toast({
+            title: "Stock written off",
+            description: `${itemName}: ${qty} written off${costImpact > 0 ? ` · R${costImpact.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}`,
+          });
+          refreshAll();
+        }}
+      />
     </>
   );
 }
