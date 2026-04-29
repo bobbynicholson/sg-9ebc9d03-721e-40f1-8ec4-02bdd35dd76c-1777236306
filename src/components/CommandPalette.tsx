@@ -297,6 +297,9 @@ export function CommandPalette() {
     { id: "act-new-lead", label: "Create new lead", icon: Plus, href: "/admin/leads/new", group: "Quick actions", roles: ["admin","company_admin","owner"] },
     { id: "act-new-quote", label: "Create new quote", icon: Plus, href: "/admin/quotes/new", group: "Quick actions", roles: ["admin","company_admin","owner"] },
     { id: "act-low-stock", label: "Show low-stock items", icon: Package, href: "/admin/inventory?tab=low-stock", group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["restock","stock"] },
+    { id: "inv-receive", label: "Receive stock", icon: Package, href: "/admin/inventory?action=receive", group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["delivery","supplier","incoming","stock"] },
+    { id: "inv-count", label: "Cycle count inventory", icon: Package, href: "/admin/inventory?action=count", group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["count","stocktake","audit"] },
+    { id: "inv-writeoff", label: "Write off stock", icon: Package, href: "/admin/inventory?action=writeoff", group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["waste","spoilage","breakage","expiry"] },
 
     // ---- Super admin / platform ----
     { id: "p-platform", label: "Platform Dashboard", icon: Crown, href: "/admin/platform/dashboard", group: "Platform admin", roles: ["super_admin"] },

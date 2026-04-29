@@ -411,6 +411,54 @@ export const inventoryService = {
     return data;
   },
 
+  /**
+   * Bulk soft-delete. Returns counts so the UI can toast a single summary.
+   */
+  async bulkDelete(itemIds: string[]): Promise<{ deleted: number; errors: string[] }> {
+    if (itemIds.length === 0) return { deleted: 0, errors: [] };
+    const { error, count } = await supabase
+      .from("inventory_items")
+      .update({ deleted_at: new Date().toISOString() }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) {
+      console.error("Bulk delete error:", error);
+      return { deleted: 0, errors: [error.message] };
+    }
+    return { deleted: count ?? itemIds.length, errors: [] };
+  },
+
+  /**
+   * Bulk reassign preferred supplier across many items at once.
+   */
+  async bulkReassignSupplier(itemIds: string[], supplierId: string | null): Promise<{ updated: number; errors: string[] }> {
+    if (itemIds.length === 0) return { updated: 0, errors: [] };
+    const { error, count } = await supabase
+      .from("inventory_items")
+      .update({ preferred_supplier_id: supplierId, updated_at: new Date().toISOString() }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) {
+      console.error("Bulk reassign supplier error:", error);
+      return { updated: 0, errors: [error.message] };
+    }
+    return { updated: count ?? itemIds.length, errors: [] };
+  },
+
+  /**
+   * Bulk recategorise items.
+   */
+  async bulkReassignCategory(itemIds: string[], category: string): Promise<{ updated: number; errors: string[] }> {
+    if (itemIds.length === 0) return { updated: 0, errors: [] };
+    const { error, count } = await supabase
+      .from("inventory_items")
+      .update({ category, updated_at: new Date().toISOString() }, { count: "exact" })
+      .in("id", itemIds);
+    if (error) {
+      console.error("Bulk reassign category error:", error);
+      return { updated: 0, errors: [error.message] };
+    }
+    return { updated: count ?? itemIds.length, errors: [] };
+  },
+
   async getLowStockItems(companyId: string): Promise<Inventory[]> {
     const { data, error } = await supabase
       .from("inventory_items")

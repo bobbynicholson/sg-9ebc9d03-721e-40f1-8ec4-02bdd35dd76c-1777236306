@@ -1,6 +1,7 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +55,11 @@ import {
 import { ReceiveStockDialog } from "@/components/admin/inventory/ReceiveStockDialog";
 import { CycleCountDialog } from "@/components/admin/inventory/CycleCountDialog";
 import { WriteOffDialog } from "@/components/admin/inventory/WriteOffDialog";
+import { BulkActionsBar } from "@/components/admin/inventory/BulkActionsBar";
+import { BulkReassignDialog } from "@/components/admin/inventory/BulkReassignDialog";
+import { KeyboardShortcutsDialog } from "@/components/admin/inventory/KeyboardShortcutsDialog";
+import { useInventoryViews, type SavedView } from "@/hooks/useInventoryViews";
+import { Bookmark, BookmarkPlus, Keyboard } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -213,6 +219,19 @@ export default function AdminInventory() {
   const [writeOffOpen, setWriteOffOpen] = useState(false);
   const [writeOffPreSelectedId, setWriteOffPreSelectedId] = useState<string | null>(null);
 
+  // ── Phase 3: multi-select + bulk + saved views + shortcuts ────
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+  const [bulkReassignOpen, setBulkReassignOpen] = useState(false);
+  const [bulkReassignMode, setBulkReassignMode] = useState<"supplier" | "category">("supplier");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [saveViewOpen, setSaveViewOpen] = useState(false);
+  const [viewName, setViewName] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+  const { views: savedViews, addView, removeView } = useInventoryViews(companyId);
+
   useEffect(() => {
     if (!user?.id) return;
     loadInventory();
@@ -220,6 +239,93 @@ export default function AdminInventory() {
     loadLastActivity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.company_id]);
+
+  // ── URL action handler: command palette can deep-link to a flow ──
+  // /admin/inventory?action=receive | count | writeoff opens the dialog.
+  useEffect(() => {
+    const action = router.query.action;
+    if (!action || typeof action !== "string") return;
+    if (action === "receive") setReceiveOpen(true);
+    else if (action === "count") setCountOpen(true);
+    else if (action === "writeoff") {
+      setWriteOffPreSelectedId(null);
+      setWriteOffOpen(true);
+    }
+    // Strip the query so the action doesn't re-fire on next mount.
+    if (router.query.action) {
+      const { action: _omit, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.action]);
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isTyping = tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+
+      // Esc always works -- closes drawers, clears search
+      if (e.key === "Escape") {
+        if (expandedRowId) { setExpandedRowId(null); return; }
+        if (selected.size > 0) { setSelected(new Set()); return; }
+        if (searchTerm) { setSearchTerm(""); return; }
+        return;
+      }
+
+      // The rest only fire when the user isn't typing into a field
+      if (isTyping) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key) {
+        case "/":
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          break;
+        case "?":
+          e.preventDefault();
+          setShortcutsOpen(true);
+          break;
+        case "n": case "N":
+          e.preventDefault();
+          openAdd();
+          break;
+        case "r": case "R":
+          e.preventDefault();
+          setReceiveOpen(true);
+          break;
+        case "c": case "C":
+          e.preventDefault();
+          setCountOpen(true);
+          break;
+        case "w": case "W":
+          e.preventDefault();
+          setWriteOffPreSelectedId(null);
+          setWriteOffOpen(true);
+          break;
+        case "1":
+          e.preventDefault();
+          setActiveTab("all");
+          break;
+        case "2":
+          e.preventDefault();
+          setActiveTab("below_reorder");
+          break;
+        case "3":
+          e.preventDefault();
+          setActiveTab("out");
+          break;
+        case "4":
+          e.preventDefault();
+          setActiveTab("expiring");
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedRowId, selected, searchTerm]);
 
   const loadOutlook = async () => {
     if (!companyId) return;
@@ -516,6 +622,87 @@ export default function AdminInventory() {
     } finally {
       setDeleteLoading(false);
     }
+  };
+
+  // ── Phase 3 helpers ────────────────────────────────────────────
+  const toggleSelected = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = (visibleIds: string[]) => {
+    setSelected(prev => {
+      const allSelected = visibleIds.every(id => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.delete(id));
+        return next;
+      }
+      const next = new Set(prev);
+      visibleIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setBulkDeleteLoading(true);
+    try {
+      const result = await inventoryService.bulkDelete(ids);
+      setBulkDeleteOpen(false);
+      setSelected(new Set());
+      toast({
+        title: `${result.deleted} item${result.deleted === 1 ? "" : "s"} removed`,
+        description: result.errors.length > 0 ? `Errors: ${result.errors.join("; ")}` : "Stock history is kept.",
+      });
+      refreshAll();
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
+  const openBulkReassign = (mode: "supplier" | "category") => {
+    setBulkReassignMode(mode);
+    setBulkReassignOpen(true);
+  };
+
+  const handleSaveCurrentView = () => {
+    if (!viewName.trim()) return;
+    addView(viewName.trim(), { tab: activeTab, search: searchTerm });
+    setViewName("");
+    setSaveViewOpen(false);
+    toast({ title: "View saved", description: viewName.trim() });
+  };
+
+  const applySavedView = (v: SavedView) => {
+    setActiveTab(v.tab);
+    setSearchTerm(v.search);
+    setSelected(new Set());
+    toast({ title: "View applied", description: v.name });
+  };
+
+  const exportCSV = () => {
+    const headers = ["SKU", "Item name", "Category", "On hand", "Unit", "Reorder point", "Par level", "Cost per unit", "Supplier", "Storage location"];
+    const escape = (s: any) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const rows = filteredInventory.map(item => [
+      item.sku, item.name, item.category, item.quantity, item.unit,
+      item.minStock, item.maxStock, item.costPerUnit, item.supplierName, item.storageLocation,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(escape).join(",")).join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Exported", description: `${rows.length} item${rows.length === 1 ? "" : "s"} exported to CSV.` });
   };
 
   // ── Derived data ───────────────────────────────────────────────
@@ -818,26 +1005,87 @@ export default function AdminInventory() {
             )}
           </Card>
 
-          {/* Search + filter chips + decorative buttons (Phase 3 will wire) */}
+          {/* Search + filter chips + views + export */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search items, suppliers, SKU"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
+                <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                  /
+                </kbd>
               </div>
+
+              {/* Views dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Bookmark className="w-4 h-4" />
+                    Views
+                    {savedViews.length > 0 && (
+                      <span className="text-xs text-slate-500 ml-1">({savedViews.length})</span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem onClick={() => setSaveViewOpen(true)} className="gap-2 cursor-pointer">
+                    <BookmarkPlus className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm font-medium">Save current view</span>
+                  </DropdownMenuItem>
+                  {savedViews.length > 0 && <DropdownMenuSeparator />}
+                  {savedViews.length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-slate-500">
+                      Save a tab + search combination to jump back to it later.
+                    </p>
+                  ) : savedViews.map(v => (
+                    <div key={v.id} className="flex items-center justify-between hover:bg-slate-50 rounded">
+                      <DropdownMenuItem
+                        onClick={() => applySavedView(v)}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{v.name}</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {v.tab.replace("_", " ")}{v.search ? ` · "${v.search}"` : ""}
+                          </p>
+                        </div>
+                      </DropdownMenuItem>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeView(v.id); }}
+                        className="p-1.5 mr-1 text-slate-400 hover:text-red-600"
+                        title="Delete view"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
                 <Filter className="w-4 h-4" />
                 Filters
               </Button>
-              <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
+              <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV} title="Export current view to CSV">
                 <Download className="w-4 h-4" />
                 Export
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 text-slate-400 hover:text-slate-700"
+                onClick={() => setShortcutsOpen(true)}
+                title="Keyboard shortcuts (?)"
+              >
+                <Keyboard className="w-4 h-4" />
               </Button>
             </div>
 
@@ -889,10 +1137,35 @@ export default function AdminInventory() {
             </div>
           </div>
 
+          {/* Bulk actions bar (only when something is selected) */}
+          <BulkActionsBar
+            selectedCount={selected.size}
+            onClearSelection={() => setSelected(new Set())}
+            onBulkReassignSupplier={() => openBulkReassign("supplier")}
+            onBulkReassignCategory={() => openBulkReassign("category")}
+            onBulkDelete={() => setBulkDeleteOpen(true)}
+          />
+
           {/* Dense table */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
+              <div className="flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  className="accent-emerald-600 cursor-pointer"
+                  checked={filteredInventory.length > 0 && filteredInventory.every(i => selected.has(i.id))}
+                  ref={cb => {
+                    if (cb) {
+                      const allSelected = filteredInventory.length > 0 && filteredInventory.every(i => selected.has(i.id));
+                      const anySelected = filteredInventory.some(i => selected.has(i.id));
+                      cb.indeterminate = anySelected && !allSelected;
+                    }
+                  }}
+                  onChange={() => selectAllVisible(filteredInventory.map(i => i.id))}
+                  aria-label="Select all visible"
+                />
+              </div>
               <div></div>
               <div>Item</div>
               <div>Category</div>
@@ -948,9 +1221,20 @@ export default function AdminInventory() {
                   <div key={item.id} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
                     {/* Desktop dense row */}
                     <div
-                      className="hidden md:grid grid-cols-[28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center hover:bg-slate-50 transition-colors cursor-pointer"
+                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_minmax(0,1fr)_110px_minmax(0,1.4fr)_120px_110px_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer ${
+                        selected.has(item.id) ? "bg-emerald-50 hover:bg-emerald-100" : "hover:bg-slate-50"
+                      }`}
                       onClick={() => toggleRow(item)}
                     >
+                      <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="accent-emerald-600 cursor-pointer"
+                          checked={selected.has(item.id)}
+                          onChange={() => toggleSelected(item.id)}
+                          aria-label={`Select ${item.name}`}
+                        />
+                      </div>
                       <div className="flex items-center justify-center text-slate-400">
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </div>
@@ -1390,6 +1674,87 @@ export default function AdminInventory() {
           refreshAll();
         }}
       />
+
+      {/* ── Bulk reassign (Phase 3) ────────────────────────────────── */}
+      <BulkReassignDialog
+        open={bulkReassignOpen}
+        onOpenChange={setBulkReassignOpen}
+        mode={bulkReassignMode}
+        itemIds={Array.from(selected)}
+        itemNames={inventory.filter(i => selected.has(i.id)).map(i => i.name)}
+        companyId={companyId}
+        categories={CATEGORIES}
+        onSaved={(mode, count, label) => {
+          toast({
+            title: `${count} item${count === 1 ? "" : "s"} updated`,
+            description: mode === "supplier"
+              ? `Supplier set to ${label}.`
+              : `Category set to ${label}.`,
+          });
+          setSelected(new Set());
+          refreshAll();
+        }}
+      />
+
+      {/* ── Bulk delete confirm (Phase 3) ──────────────────────────── */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-700">Delete {selected.size} items?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-700">
+            Stock history is kept for each. The items disappear from lists. There is no bulk undo.
+          </p>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={bulkDeleteLoading}>Cancel</Button>
+            </DialogClose>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteLoading}>
+              {bulkDeleteLoading ? "Deleting..." : `Delete ${selected.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Save view (Phase 3) ────────────────────────────────────── */}
+      <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save current view</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-700">
+              <p className="font-medium mb-0.5">Captures:</p>
+              <p>
+                Tab: <span className="font-medium">{activeTab.replace("_", " ")}</span>
+                {searchTerm && <span> · Search: <span className="font-medium">"{searchTerm}"</span></span>}
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="view_name">View name</Label>
+              <Input
+                id="view_name"
+                value={viewName}
+                onChange={e => setViewName(e.target.value)}
+                placeholder="e.g. Restaurant items low"
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleSaveCurrentView} disabled={!viewName.trim()} className="bg-emerald-600 hover:bg-emerald-700">
+              Save view
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Keyboard shortcuts help (Phase 3) ──────────────────────── */}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </>
   );
 }
