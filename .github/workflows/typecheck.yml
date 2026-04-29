@@ -1,0 +1,31 @@
+name: TypeScript check
+
+# Runs on every push and PR to main. Fails fast (≈30 seconds) if there's a
+# type error, so we hear about it before Vercel runs the full build (~3 minutes).
+# GitHub will email the commit author on failure by default -- no setup needed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
