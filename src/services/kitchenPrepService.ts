@@ -718,4 +718,228 @@ export const kitchenPrepService = {
     }
     return data || [];
   },
+
+  // ── Phase 3: allergen cross-check ─────────────────────────────────────────
+  /**
+   * Cross-check the customer's stated dietary requirements against the
+   * allergen codes on every menu item in the order. Returns any matches plus
+   * a clean message for the confirm dialog. Zero-config: works the moment
+   * menu items have allergen_codes set; quietly returns no matches otherwise.
+   */
+  async checkOrderAllergens(orderId: string): Promise<{
+    hasConflicts: boolean;
+    conflicts: Array<{ menuItem: string; allergens: string[] }>;
+    dietaryRequirements: string;
+  }> {
+    const { data: order, error: oErr } = await supabase
+      .from("orders")
+      .select("id, dietary_requirements, special_instructions")
+      .eq("id", orderId)
+      .single();
+    if (oErr || !order) return { hasConflicts: false, conflicts: [], dietaryRequirements: "" };
+
+    const dietary = (order.dietary_requirements || "") + " " + (order.special_instructions || "");
+    const dietaryLower = dietary.toLowerCase().trim();
+    if (!dietaryLower) return { hasConflicts: false, conflicts: [], dietaryRequirements: "" };
+
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("item_name, menu_item_id, menu_items:menu_item_id ( allergen_codes, allergen_info )")
+      .eq("order_id", orderId);
+
+    const conflicts: Array<{ menuItem: string; allergens: string[] }> = [];
+    for (const it of (items as any[]) || []) {
+      const codes: string[] = (it.menu_items?.allergen_codes as string[] | null) || [];
+      const info: string = it.menu_items?.allergen_info || "";
+      const all = [...codes, ...(info ? info.split(/[,;\s]+/) : [])].filter(Boolean);
+      const hits = all.filter(code => {
+        const c = code.toLowerCase().trim();
+        return c.length > 2 && dietaryLower.includes(c);
+      });
+      if (hits.length > 0) {
+        conflicts.push({ menuItem: it.item_name, allergens: Array.from(new Set(hits)) });
+      }
+    }
+    return {
+      hasConflicts: conflicts.length > 0,
+      conflicts,
+      dietaryRequirements: order.dietary_requirements || "",
+    };
+  },
+
+  /**
+   * Mark the allergen check passed for an order -- stamps every prep task on
+   * that order so we have an audit trail of who confirmed it and when.
+   */
+  async recordAllergenCheck(orderId: string, userId: string, status: "passed" | "overridden"): Promise<void> {
+    const { error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update({
+        allergen_check_status: status,
+        allergen_check_at: new Date().toISOString(),
+        allergen_check_by: userId,
+      })
+      .eq("order_id", orderId);
+    if (error) console.error("Error recording allergen check:", error);
+  },
+
+  // ── Phase 3: shopping list from aggregated shortfall ─────────────────────
+  /**
+   * Turn an aggregated demand projection into a real shopping list row plus
+   * line items, one per shortfall. The user goes from "we are short 4kg
+   * lettuce + 12kg lamb" to "list created, hand to shopper" in one click.
+   */
+  async createShoppingListFromShortfall(
+    companyId: string,
+    userId: string,
+    demand: IngredientDemand[],
+    period: { from: string; to: string },
+    title?: string,
+  ): Promise<{ id: string; itemCount: number } | null> {
+    const shortfalls = demand.filter(d => d.shortfall > 0);
+    if (shortfalls.length === 0) return null;
+
+    const { data: list, error: lErr } = await supabase
+      .from("shopping_lists")
+      .insert([{
+        company_id: companyId,
+        user_id: userId,
+        list_date: new Date().toISOString().slice(0, 10),
+        status: "open",
+        source: "kitchen_shortfall",
+        source_period_start: period.from,
+        source_period_end: period.to,
+        title: title || `Kitchen shortfall ${period.from} -> ${period.to}`,
+        notes: `Auto-generated from aggregated kitchen demand on ${new Date().toLocaleString()}`,
+      }])
+      .select()
+      .single();
+    if (lErr || !list) {
+      console.error("Error creating shopping list:", lErr);
+      return null;
+    }
+
+    const rows = shortfalls.map(s => ({
+      shopping_list_id: list.id,
+      user_id: userId,
+      item_id: s.inventory_item_id ?? null,
+      name: s.name,
+      quantity: Math.ceil(s.shortfall * 100) / 100,
+      unit: s.unit,
+      purchased: false,
+      notes: `Need ${s.total_quantity} ${s.unit}, have ${s.on_hand}`,
+    }));
+
+    const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
+    if (iErr) console.error("Error creating shopping list items:", iErr);
+
+    return { id: list.id, itemCount: rows.length };
+  },
+
+  // ── Phase 3: yield variance ──────────────────────────────────────────────
+  /**
+   * Record actual yield when a task is marked done. The variance can be
+   * computed off (actual_yield - planned_yield) / planned_yield -- we keep
+   * the math out of the DB so it stays simple and readable.
+   */
+  async recordTaskYield(
+    taskId: string,
+    actualYield: number,
+    yieldUnit?: string,
+  ): Promise<void> {
+    const patch: Record<string, unknown> = { actual_yield: actualYield };
+    if (yieldUnit) patch.yield_unit = yieldUnit;
+    const { error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update(patch)
+      .eq("id", taskId);
+    if (error) console.error("Error recording yield:", error);
+  },
+
+  // ── Phase 3: per-chef performance ────────────────────────────────────────
+  /**
+   * Roll-up of completed-task stats per chef across a date window. Gives
+   * the duty page a "who's pulling weight" view without forcing a separate
+   * report screen. Three numbers per chef -- count, on-time %, avg yield
+   * variance -- all derived from kitchen_prep_tasks.
+   */
+  async getChefPerformance(
+    companyId: string,
+    fromISO: string,
+    toISO: string,
+  ): Promise<Array<{
+    chef_id: string;
+    chef_name: string;
+    tasks_completed: number;
+    on_time_rate: number;
+    avg_yield_variance_pct: number | null;
+  }>> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select(`
+        assigned_chef_id,
+        start_at,
+        duration_min,
+        completed_at,
+        planned_yield,
+        actual_yield,
+        chef:assigned_chef_id ( full_name )
+      `)
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .not("completed_at", "is", null)
+      .not("assigned_chef_id", "is", null)
+      .is("deleted_at", null);
+    if (error) {
+      console.error("Error fetching chef performance:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, {
+      chef_id: string;
+      chef_name: string;
+      total: number;
+      onTime: number;
+      varianceSum: number;
+      varianceCount: number;
+    }>();
+
+    for (const r of (data as any[]) || []) {
+      const chefId = r.assigned_chef_id as string;
+      const expected = new Date(r.start_at).getTime() + (r.duration_min || 0) * 60_000;
+      const actual = new Date(r.completed_at).getTime();
+      const onTime = actual <= expected + 5 * 60_000;
+      const hasYield = r.planned_yield && r.actual_yield && Number(r.planned_yield) > 0;
+      const variancePct = hasYield
+        ? ((Number(r.actual_yield) - Number(r.planned_yield)) / Number(r.planned_yield)) * 100
+        : null;
+
+      const b = buckets.get(chefId) || {
+        chef_id: chefId,
+        chef_name: r.chef?.full_name || "Unassigned",
+        total: 0,
+        onTime: 0,
+        varianceSum: 0,
+        varianceCount: 0,
+      };
+      b.total += 1;
+      if (onTime) b.onTime += 1;
+      if (variancePct !== null) {
+        b.varianceSum += variancePct;
+        b.varianceCount += 1;
+      }
+      buckets.set(chefId, b);
+    }
+
+    return Array.from(buckets.values()).map(b => ({
+      chef_id: b.chef_id,
+      chef_name: b.chef_name,
+      tasks_completed: b.total,
+      on_time_rate: b.total > 0 ? Math.round((b.onTime / b.total) * 100) : 0,
+      avg_yield_variance_pct: b.varianceCount > 0
+        ? Math.round((b.varianceSum / b.varianceCount) * 10) / 10
+        : null,
+    })).sort((a, b) => b.tasks_completed - a.tasks_completed);
+  },
 };

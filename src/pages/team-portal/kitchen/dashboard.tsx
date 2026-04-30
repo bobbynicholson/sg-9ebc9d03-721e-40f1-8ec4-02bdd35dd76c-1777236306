@@ -3,6 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ChefHat,
   Clock,
   CheckCircle,
@@ -54,6 +64,14 @@ export default function KitchenDashboard() {
   const [loading, setLoading] = useState(true);
   const [progressByOrder, setProgressByOrder] = useState<Record<string, { total: number; done: number }>>({});
   const [now, setNow] = useState(new Date());
+  // Allergen confirmation dialog state -- triggers when Mark Ready hits a
+  // dietary clash, blocks the action until the chef explicitly overrides.
+  const [allergenDialog, setAllergenDialog] = useState<{
+    orderId: string;
+    clientName?: string | null;
+    conflicts: Array<{ menuItem: string; allergens: string[] }>;
+    dietary: string;
+  } | null>(null);
 
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
@@ -123,9 +141,37 @@ export default function KitchenDashboard() {
     }
   };
 
-  // Mark an order ready -- one-click action straight from the kanban card
+  // Mark an order ready -- one-click action with an allergen safety gate.
+  // The order's dietary_requirements text is cross-checked against every
+  // menu item's allergen_codes; any hits force a confirm-or-cancel dialog
+  // before we let the driver be summoned.
   const handleMarkReady = async (orderId: string, clientName?: string | null) => {
     try {
+      const check = await kitchenPrepService.checkOrderAllergens(orderId);
+      if (check.hasConflicts) {
+        setAllergenDialog({
+          orderId,
+          clientName,
+          conflicts: check.conflicts,
+          dietary: check.dietaryRequirements,
+        });
+        return;
+      }
+      await finishMarkReady(orderId, clientName, "passed");
+    } catch (e: any) {
+      toast({ title: "Could not mark ready", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const finishMarkReady = async (
+    orderId: string,
+    clientName: string | null | undefined,
+    checkResult: "passed" | "overridden",
+  ) => {
+    try {
+      if (user?.id) {
+        await kitchenPrepService.recordAllergenCheck(orderId, user.id, checkResult);
+      }
       await markOrderReady(orderId);
       toast({
         title: "Order ready",
@@ -565,6 +611,57 @@ export default function KitchenDashboard() {
 
       {/* AI Chatbot */}
       <ChatBot userRole="kitchen" companyId={user?.company_id} />
+
+      {/* Allergen safety gate -- blocks Mark Ready if dietary requirements
+          collide with an item's allergen codes. Forces a deliberate override
+          that's audit-stamped on the prep tasks. */}
+      <AlertDialog open={!!allergenDialog} onOpenChange={(open) => { if (!open) setAllergenDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Allergen warning -- check before serving
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                  <div className="font-semibold text-red-900 mb-1">Customer dietary note</div>
+                  <div className="text-red-800 italic">"{allergenDialog?.dietary}"</div>
+                </div>
+                <div>
+                  <div className="font-semibold mb-2">Items that may conflict:</div>
+                  <ul className="space-y-2">
+                    {allergenDialog?.conflicts.map((c, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="font-medium">{c.menuItem}:</span>
+                        <span className="text-red-700">{c.allergens.join(", ")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="text-xs text-slate-600">
+                  Confirming will record an override against this order. Cancel to revisit the recipe or speak to the customer.
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel -- recheck</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (allergenDialog) {
+                  const { orderId, clientName } = allergenDialog;
+                  setAllergenDialog(null);
+                  finishMarkReady(orderId, clientName, "overridden");
+                }
+              }}
+            >
+              I have checked -- mark ready anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

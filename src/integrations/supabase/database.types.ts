@@ -3999,6 +3999,10 @@ export type Database = {
       }
       kitchen_prep_tasks: {
         Row: {
+          actual_yield: number | null
+          allergen_check_at: string | null
+          allergen_check_by: string | null
+          allergen_check_status: string | null
           assigned_chef_id: string | null
           company_id: string
           completed_at: string | null
@@ -4010,14 +4014,20 @@ export type Database = {
           menu_item_name: string
           notes: string | null
           order_id: string
+          planned_yield: number | null
           start_at: string
           started_at: string | null
           station_id: string | null
           status: string
           task_type: string
           updated_at: string
+          yield_unit: string | null
         }
         Insert: {
+          actual_yield?: number | null
+          allergen_check_at?: string | null
+          allergen_check_by?: string | null
+          allergen_check_status?: string | null
           assigned_chef_id?: string | null
           company_id: string
           completed_at?: string | null
@@ -4029,14 +4039,20 @@ export type Database = {
           menu_item_name: string
           notes?: string | null
           order_id: string
+          planned_yield?: number | null
           start_at: string
           started_at?: string | null
           station_id?: string | null
           status?: string
           task_type?: string
           updated_at?: string
+          yield_unit?: string | null
         }
         Update: {
+          actual_yield?: number | null
+          allergen_check_at?: string | null
+          allergen_check_by?: string | null
+          allergen_check_status?: string | null
           assigned_chef_id?: string | null
           company_id?: string
           completed_at?: string | null
@@ -4048,12 +4064,14 @@ export type Database = {
           menu_item_name?: string
           notes?: string | null
           order_id?: string
+          planned_yield?: number | null
           start_at?: string
           started_at?: string | null
           station_id?: string | null
           status?: string
           task_type?: string
           updated_at?: string
+          yield_unit?: string | null
         }
         Relationships: [
           {
@@ -6290,7 +6308,11 @@ export type Database = {
           notes: string | null
           receipt_url: string | null
           shopper_id: string | null
+          source: string | null
+          source_period_end: string | null
+          source_period_start: string | null
           status: string | null
+          title: string | null
           user_id: string | null
         }
         Insert: {
@@ -6303,7 +6325,11 @@ export type Database = {
           notes?: string | null
           receipt_url?: string | null
           shopper_id?: string | null
+          source?: string | null
+          source_period_end?: string | null
+          source_period_start?: string | null
           status?: string | null
+          title?: string | null
           user_id?: string | null
         }
         Update: {
@@ -6316,7 +6342,11 @@ export type Database = {
           notes?: string | null
           receipt_url?: string | null
           shopper_id?: string | null
+          source?: string | null
+          source_period_end?: string | null
+          source_period_start?: string | null
           status?: string | null
+          title?: string | null
           user_id?: string | null
         }
         Relationships: [

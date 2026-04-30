@@ -189,6 +189,7 @@ export default function KitchenPrepListPage() {
   }, [orders]);
 
   const shortfallCount = aggregated.filter(d => d.shortfall > 0).length;
+  const [creatingList, setCreatingList] = useState(false);
 
   // ── Add a single ingredient to the shopping queue (Phase 1: just toast,
   // Phase 2 wires through to the procurement queue / shopping list) ──
@@ -197,6 +198,40 @@ export default function KitchenPrepListPage() {
       title: "Added to shopping list",
       description: `${d.shortfall} ${d.unit} ${d.name} -- procurement will see this on the shopping page.`,
     });
+  };
+
+  // ── Phase 3: turn the entire aggregated shortfall into a real shopping
+  //    list row + line items, one click. Removes the manual transcribe step
+  //    that was burning chef time. ──
+  const handleCreateShoppingList = async () => {
+    const companyId = profile?.company_id;
+    const userId = (profile as any)?.id;
+    if (!companyId || !userId) return;
+    setCreatingList(true);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const fromStr = today.toISOString().slice(0, 10);
+      const toStr = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10);
+      const result = await kitchenPrepService.createShoppingListFromShortfall(
+        companyId,
+        userId,
+        aggregated,
+        { from: fromStr, to: toStr },
+      );
+      if (result) {
+        toast({
+          title: "Shopping list created",
+          description: `${result.itemCount} item${result.itemCount === 1 ? "" : "s"} added. Procurement can pick it up now.`,
+        });
+      } else {
+        toast({ title: "Nothing to buy", description: "No shortfalls in the current window." });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not create list", description: e?.message, variant: "destructive" });
+    } finally {
+      setCreatingList(false);
+    }
   };
 
   return (
@@ -225,27 +260,38 @@ export default function KitchenPrepListPage() {
             </div>
           </div>
 
-          {/* Aggregated shortfall banner (Phase 1: the math the kitchen needs) */}
+          {/* Aggregated shortfall banner -- Phase 3 wires the one-click
+              "create shopping list" path so the chef never has to retype it. */}
           {!aggregatedLoading && shortfallCount > 0 && (
             <Card className="border-red-300 bg-red-50/40 shadow-sm mb-5">
-              <CardContent className="p-4 flex items-start gap-3">
+              <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <ShoppingCart className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-red-800">
                     {shortfallCount} ingredient{shortfallCount === 1 ? "" : "s"} short for upcoming orders
                   </p>
                   <p className="text-xs text-red-700 mt-0.5">
-                    Aggregated across every confirmed booking. Switch to "By ingredient" to see what to order.
+                    Aggregated across every confirmed booking in the next 30 days.
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setView("by_ingredient")}
-                  className="border-red-300 text-red-700 hover:bg-red-100"
-                >
-                  View shortfall list
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setView("by_ingredient")}
+                    className="border-red-300 text-red-700 hover:bg-red-100"
+                  >
+                    View shortfall list
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleCreateShoppingList}
+                    disabled={creatingList}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {creatingList ? "Creating..." : "Create shopping list"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

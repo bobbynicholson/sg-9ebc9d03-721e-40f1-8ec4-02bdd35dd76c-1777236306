@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { kitchenPrepService } from "@/services/kitchenPrepService";
 
 interface Shift {
   id: string;
@@ -46,6 +47,16 @@ export default function KitchenDutyRosterPage() {
 
   const [endingShift, setEndingShift] = useState<Shift | null>(null);
   const [handoffNotes, setHandoffNotes] = useState("");
+
+  // Phase 3: rolling 7-day chef performance roll-up. Cheap query, info-only,
+  // no clicks needed -- shows up under the "On duty now" panel.
+  const [chefPerf, setChefPerf] = useState<Array<{
+    chef_id: string;
+    chef_name: string;
+    tasks_completed: number;
+    on_time_rate: number;
+    avg_yield_variance_pct: number | null;
+  }>>([]);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -89,6 +100,20 @@ export default function KitchenDutyRosterPage() {
         const map: Record<string, Profile> = {};
         (profiles || []).forEach((p) => { map[p.id] = p; });
         setStaff(map);
+      }
+
+      // Phase 3: chef performance for the last 7 days
+      try {
+        const to = new Date();
+        const from = new Date(to.getTime() - 7 * 86400000);
+        const perf = await kitchenPrepService.getChefPerformance(
+          user.company_id,
+          from.toISOString(),
+          to.toISOString(),
+        );
+        setChefPerf(perf);
+      } catch (perfErr) {
+        console.warn("Chef performance query failed:", perfErr);
       }
     } catch (e) {
       toast({ title: "Could not load duty roster", variant: "destructive" });
@@ -268,6 +293,62 @@ export default function KitchenDutyRosterPage() {
                       </li>
                     );
                   })}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Phase 3: per-chef performance roll-up, last 7 days. Three numbers
+              per chef -- tasks done, on-time %, avg yield variance. Shows
+              empty-state copy when no completed tasks yet. */}
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
+            Chef performance -- last 7 days
+            <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield -- only shows if your team logs actuals." />
+          </h2>
+          <Card className="mb-6">
+            <CardContent className="p-0">
+              {chefPerf.length === 0 ? (
+                <div className="text-center py-10 text-slate-500 text-sm">
+                  No completed prep tasks in the last 7 days
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {chefPerf.map((p) => (
+                    <li key={p.chef_id} className="p-4 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <ChefHat className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-slate-900 truncate">{p.chef_name}</div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {p.tasks_completed} task{p.tasks_completed === 1 ? "" : "s"} completed
+                        </div>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-3 text-xs">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50">
+                          <Target className="h-3.5 w-3.5 text-slate-500" />
+                          <span className={`font-semibold tabular-nums ${
+                            p.on_time_rate >= 90 ? "text-emerald-700" :
+                            p.on_time_rate >= 70 ? "text-amber-700"   :
+                                                   "text-red-700"
+                          }`}>{p.on_time_rate}%</span>
+                          <span className="text-slate-500">on-time</span>
+                        </div>
+                        {p.avg_yield_variance_pct !== null && (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50">
+                            <TrendingUp className="h-3.5 w-3.5 text-slate-500" />
+                            <span className="font-semibold text-slate-900 tabular-nums">
+                              {p.avg_yield_variance_pct > 0 ? "+" : ""}{p.avg_yield_variance_pct}%
+                            </span>
+                            <span className="text-slate-500">yield</span>
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 tabular-nums sm:hidden">
+                        {p.on_time_rate}%
+                      </Badge>
+                    </li>
+                  ))}
                 </ul>
               )}
             </CardContent>
