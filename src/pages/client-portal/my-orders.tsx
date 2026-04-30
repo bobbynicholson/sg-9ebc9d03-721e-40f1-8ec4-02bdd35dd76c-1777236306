@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,16 @@ interface Order {
 
 export default function MyOrders() {
   const { user } = useAuth();
+  const router = useRouter();
+  // Slug-aware "Back to Dashboard" link -- keep nav inside the tenant
+  // URL space when the page was reached via /[slug]/client-portal/my-orders.
+  const resolvedSlug =
+    (typeof router.query.company_slug === "string" && router.query.company_slug) ||
+    (user as any)?.user_metadata?.last_company_slug ||
+    "";
+  const dashboardHref = resolvedSlug
+    ? `/${resolvedSlug}/client-portal/dashboard`
+    : "/client-portal/dashboard";
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
@@ -97,7 +108,7 @@ export default function MyOrders() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-12">
           <div className="mb-6">
-            <Link href="/client-portal/dashboard">
+            <Link href={dashboardHref}>
               <Button variant="ghost" size="sm" className="mb-4">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard

@@ -280,8 +280,11 @@ export default function ClientTracking() {
             <Card>
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No Active Deliveries</h3>
-                <p className="text-slate-600">You don't have any orders out for delivery right now.</p>
+                <h3 className="text-xl font-semibold mb-2">No live deliveries right now</h3>
+                <p className="text-slate-600 max-w-md mx-auto">
+                  Live tracking opens up once your next event is being prepared.
+                  Until then you can see all your bookings under "My Orders".
+                </p>
               </CardContent>
             </Card>
           </div>

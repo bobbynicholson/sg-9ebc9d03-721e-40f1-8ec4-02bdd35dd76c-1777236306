@@ -26,6 +26,7 @@
 import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
@@ -190,7 +191,27 @@ function smartStatusCopy(order: Order): { headline: string; sub: string } {
 
 export default function ClientPortalDashboard() {
   const { user, profile, company } = useAuth() as any;
+  const router = useRouter();
   const { toast } = useToast();
+
+  // Slug-aware link prefix. The dashboard is mounted at both
+  // /client-portal/dashboard and /[slug]/client-portal/dashboard
+  // (next.config rewrite). When the user is on the slug variant,
+  // router.query.company_slug is populated and we keep all internal
+  // links inside that tenant prefix so navigation stays in the
+  // company-branded URL space.
+  const resolvedSlug =
+    (typeof router.query.company_slug === "string" && router.query.company_slug) ||
+    (user as any)?.user_metadata?.last_company_slug ||
+    company?.slug ||
+    "";
+
+  const withSlug = (href: string) => {
+    if (!resolvedSlug) return href;
+    if (href.startsWith(`/${resolvedSlug}/`)) return href;
+    if (href.startsWith("/client-portal")) return `/${resolvedSlug}${href}`;
+    return href;
+  };
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -536,19 +557,19 @@ export default function ClientPortalDashboard() {
               <ActionTile
                 label="Live tracking"
                 icon={MapPin}
-                href="/client-portal/tracking"
+                href={withSlug("/client-portal/tracking")}
                 tone={brandPrimary}
               />
               <ActionTile
                 label="Invoice"
                 icon={Receipt}
-                href="/client-portal/billing"
+                href={withSlug("/client-portal/billing")}
                 tone={brandPrimary}
               />
               <ActionTile
                 label="Note for chef"
                 icon={MessageSquare}
-                href={`/client-portal/my-orders?focus=${headline.id}`}
+                href={withSlug(`/client-portal/my-orders?focus=${headline.id}`)}
                 tone={brandPrimary}
               />
               <ActionTile
@@ -568,7 +589,7 @@ export default function ClientPortalDashboard() {
                 <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                   Past events
                 </h2>
-                <Link href="/client-portal/my-orders" className="text-sm font-medium" style={{ color: brandPrimary }}>
+                <Link href={withSlug("/client-portal/my-orders")} className="text-sm font-medium" style={{ color: brandPrimary }}>
                   See all
                 </Link>
               </div>
@@ -578,6 +599,7 @@ export default function ClientPortalDashboard() {
                     key={o.id}
                     order={o}
                     brandPrimary={brandPrimary}
+                    slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     onRebook={(target) => {
                       setRebookOrder(target);
                       setRebookNote("");
@@ -925,12 +947,15 @@ function PastEventTile({
   order,
   brandPrimary,
   onRebook,
+  slugPrefix,
 }: {
   order: Order;
   brandPrimary: string;
   onRebook: (o: Order) => void;
+  slugPrefix: string;
 }) {
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+  const myOrdersHref = `${slugPrefix}/client-portal/my-orders?focus=${order.id}`;
   return (
     <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition">
       {/*
@@ -939,7 +964,7 @@ function PastEventTile({
         navigate. This keeps "go look at the order" and "request a
         rebook" as two separate intents.
       */}
-      <Link href={`/client-portal/my-orders?focus=${order.id}`} className="block">
+      <Link href={myOrdersHref} className="block">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0">
             <p className="text-xs text-slate-500">{date}</p>

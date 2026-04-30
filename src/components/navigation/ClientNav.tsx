@@ -40,11 +40,40 @@ interface ClientNavSection {
 
 export function ClientNav() {
   const router = useRouter();
-  const { profile } = useAuth() as any;
+  const { profile, user } = useAuth() as any;
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
+
+  // Resolve the tenant slug for this client so every link in the
+  // sidebar lands on /{slug}/client-portal/... rather than the bare
+  // /client-portal/... URL. Order of preference:
+  //   1. router.query.company_slug -- set by the next.config rewrite
+  //      when the user is already on a /[slug]/client-portal page.
+  //   2. user_metadata.last_company_slug -- written by the callback on
+  //      every magic-link sign-in (see /[slug]/auth/callback).
+  //   3. profile.companies.slug -- the slug joined off the profiles row.
+  // Falls back to "" when none resolve, in which case links behave
+  // exactly as before (bare /client-portal/* URLs still work via the
+  // page files).
+  const resolvedSlug =
+    (typeof router.query.company_slug === "string" && router.query.company_slug) ||
+    user?.user_metadata?.last_company_slug ||
+    (Array.isArray(profile?.companies)
+      ? profile?.companies?.[0]?.slug
+      : profile?.companies?.slug) ||
+    "";
+
+  // Wraps a bare client-portal href with the slug prefix when we have
+  // one. Idempotent -- if the href is already slug-prefixed, returns it
+  // unchanged.
+  const withSlug = (href: string) => {
+    if (!resolvedSlug) return href;
+    if (href.startsWith(`/${resolvedSlug}/`)) return href;
+    if (href.startsWith("/client-portal")) return `/${resolvedSlug}${href}`;
+    return href;
+  };
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -80,7 +109,11 @@ export function ClientNav() {
     }
   ];
 
-  const isActive = (path: string) => router.pathname === path;
+  // Active-state check has to compare the slug-prefixed form too --
+  // router.pathname is the underlying file path (/client-portal/*) but
+  // router.asPath is the URL the user sees (/{slug}/client-portal/*).
+  const isActive = (path: string) =>
+    router.pathname === path || router.asPath.startsWith(withSlug(path));
 
   const handleSignOut = async () => {
     await signOutAndRedirect(profile);
@@ -95,7 +128,7 @@ export function ClientNav() {
             <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
               <Menu className="h-6 w-6" />
             </Button>
-            <Link href="/client-portal/dashboard" className="flex items-center gap-2">
+            <Link href={withSlug("/client-portal/dashboard")} className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
@@ -124,9 +157,9 @@ export function ClientNav() {
               <MobileQuickActions
                 onNavigate={() => setOpen(false)}
                 actions={[
-                  { href: "/client-portal/my-orders", label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
-                  { href: "/client-portal/tracking", label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-emerald-500 to-teal-500" },
-                  { href: "/client-portal/billing",  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-orange-500" },
+                  { href: withSlug("/client-portal/my-orders"), label: "My orders",  sub: "Active + history", icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+                  { href: withSlug("/client-portal/tracking"), label: "Track order", sub: "Live ETA",         icon: MapPin,       accent: "from-emerald-500 to-teal-500" },
+                  { href: withSlug("/client-portal/billing"),  label: "Billing",     sub: "Pay + invoices",   icon: Receipt,      accent: "from-amber-500 to-orange-500" },
                 ]}
               />
               <div className="pt-2 mt-2 border-t border-slate-100 space-y-4">
@@ -145,7 +178,7 @@ export function ClientNav() {
                       return (
                         <Link
                           key={item.name}
-                          href={item.href}
+                          href={withSlug(item.href)}
                           className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                             isActive(item.href)
                               ? "bg-blue-50 text-blue-600 font-medium"
@@ -183,7 +216,7 @@ export function ClientNav() {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href="/client-portal/dashboard" className="flex items-center gap-3">
+                <Link href={withSlug("/client-portal/dashboard")} className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
                     <User className="w-5 h-5 text-white" />
                   </div>
@@ -216,7 +249,7 @@ export function ClientNav() {
                 return (
                   <Link
                     key={item.name}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive(item.href)
                         ? "bg-blue-50 text-blue-600 font-medium shadow-sm"
