@@ -16,7 +16,8 @@
  */
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,18 @@ interface JobShape {
   summary: any | null;
 }
 
+interface RowShape {
+  id: string;
+  sheet: string;
+  source_row_index: number | null;
+  source_data: any;
+  mapped_data: any | null;
+  target_table: string | null;
+  status: string;
+  error_message: string | null;
+  preview_warnings: string[] | null;
+}
+
 export default function ProtectedImportPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
@@ -56,25 +69,54 @@ function ImportPage() {
   const { user } = useAuth() as any;
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
   const { toast } = useToast();
+  const router = useRouter();
 
   const [step, setStep] = useState<Step>("upload");
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<JobShape | null>(null);
+  const [rows, setRows] = useState<RowShape[]>([]);
   const [busy, setBusy] = useState<boolean>(false);
 
   // Local edits to the AI mapping before the team confirms it.
   const [editedMapping, setEditedMapping] = useState<any>(null);
 
+  // Drilldown filter for the preview step row table.
+  const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped">("all");
+
   const fileInput = useRef<HTMLInputElement | null>(null);
 
-  const refreshJob = async (id: string) => {
-    const res = await fetch(`/api/imports/${id}`);
+  // Resume support: /admin/onboarding/import?jobId=<id> hydrates from
+  // the existing row + jumps to the right step.
+  useEffect(() => {
+    const qid = (router.query.jobId as string | undefined) || null;
+    if (qid && qid !== jobId) {
+      setJobId(qid);
+      refreshJob(qid).then(() => {
+        // Step inference is in the refresh effect below.
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.jobId]);
+
+  // Step inference whenever the job updates.
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === "uploaded" || job.status === "mapped") setStep("mapping");
+    else if (job.status === "previewed") setStep("preview");
+    else if (job.status === "completed") setStep("done");
+    // 'committing' / 'failed' / 'rolled_back' stay where they are.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.status]);
+
+  const refreshJob = async (id: string, withRows = false) => {
+    const res = await fetch(`/api/imports/${id}${withRows ? "?rows=1" : ""}`);
     const json = await res.json();
     if (!res.ok) {
       toast({ title: "Could not load import", description: json?.error || "", variant: "destructive" });
       return;
     }
     setJob(json.job);
+    if (json.rows) setRows(json.rows as RowShape[]);
     if (json.job?.mapping && !editedMapping) setEditedMapping(json.job.mapping);
   };
 
@@ -134,7 +176,9 @@ function ImportPage() {
       const res = await fetch(`/api/imports/${jobId}/preview`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Preview failed");
-      await refreshJob(jobId);
+      // Pull rows alongside the job so the drilldown table can
+      // render without an extra round trip.
+      await refreshJob(jobId, true);
       setStep("preview");
     } catch (e: any) {
       toast({ title: "Preview failed", description: e?.message || "", variant: "destructive" });
@@ -373,7 +417,17 @@ function ImportPage() {
               <CardContent>
                 {(() => {
                   const p = job?.summary?.preview;
-                  if (!p) return <p className="text-sm text-slate-500">No preview yet -- click below.</p>;
+                  if (!p) return <p className="text-sm text-slate-500">No preview yet.</p>;
+
+                  // Filter rows for the drilldown table.
+                  const filtered = rows.filter((r) => {
+                    if (rowFilter === "all") return true;
+                    if (rowFilter === "errors") return r.status === "error";
+                    if (rowFilter === "skipped") return r.status === "skipped";
+                    if (rowFilter === "warnings") return Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0;
+                    return true;
+                  });
+
                   return (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -385,6 +439,106 @@ function ImportPage() {
                       <div className="text-xs text-slate-500">
                         Mapped to: {Object.entries(p.by_target_table || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                       </div>
+
+                      {/* Drilldown filter pills */}
+                      <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs w-fit">
+                        {(["all", "errors", "warnings", "skipped"] as const).map((k) => {
+                          const count =
+                            k === "all" ? rows.length :
+                            k === "errors" ? rows.filter((r) => r.status === "error").length :
+                            k === "skipped" ? rows.filter((r) => r.status === "skipped").length :
+                            rows.filter((r) => Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0).length;
+                          return (
+                            <button
+                              key={k}
+                              type="button"
+                              onClick={() => setRowFilter(k)}
+                              className={`px-2.5 py-1 rounded-md ${
+                                rowFilter === k
+                                  ? "bg-purple-100 text-purple-700 font-medium"
+                                  : "text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              {k.charAt(0).toUpperCase() + k.slice(1)} {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/*
+                        Per-row drilldown. Caps at 50 rows in the
+                        DOM -- if there's more, the team can navigate
+                        the full set on /admin/onboarding once
+                        committed. This view is for spot-checking,
+                        not bulk editing.
+                      */}
+                      {filtered.length === 0 ? (
+                        <p className="text-sm text-slate-500 italic py-3">
+                          {rowFilter === "all" ? "No rows -- something's off." : `No rows in this filter.`}
+                        </p>
+                      ) : (
+                        <div className="rounded-lg border border-slate-200 overflow-hidden">
+                          <div className="max-h-[420px] overflow-y-auto">
+                            <table className="w-full text-xs">
+                              <thead className="bg-slate-50 sticky top-0">
+                                <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500">
+                                  <th className="py-2 px-3">Row</th>
+                                  <th className="py-2 px-3">Sheet</th>
+                                  <th className="py-2 px-3">Status</th>
+                                  <th className="py-2 px-3">Maps to</th>
+                                  <th className="py-2 px-3">Notes</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filtered.slice(0, 50).map((r) => (
+                                  <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
+                                    <td className="py-1.5 px-3 text-slate-500 font-mono">
+                                      {r.source_row_index ?? "—"}
+                                    </td>
+                                    <td className="py-1.5 px-3 text-slate-700">{r.sheet}</td>
+                                    <td className="py-1.5 px-3">
+                                      <span
+                                        className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                          r.status === "error"   ? "bg-rose-100 text-rose-700 border border-rose-200" :
+                                          r.status === "skipped" ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                                          (r.preview_warnings?.length || 0) > 0
+                                            ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                            : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                        }`}
+                                      >
+                                        {r.status === "error" ? "error" :
+                                         r.status === "skipped" ? "skipped" :
+                                         (r.preview_warnings?.length || 0) > 0 ? "warn" : "ok"}
+                                      </span>
+                                    </td>
+                                    <td className="py-1.5 px-3 text-slate-600">{r.target_table || "—"}</td>
+                                    <td className="py-1.5 px-3 text-slate-600">
+                                      {r.error_message ? (
+                                        <span className="text-rose-600">{r.error_message}</span>
+                                      ) : (r.preview_warnings?.length || 0) > 0 ? (
+                                        <span className="text-amber-700">
+                                          {r.preview_warnings!.slice(0, 2).join(" · ")}
+                                          {r.preview_warnings!.length > 2 && ` +${r.preview_warnings!.length - 2}`}
+                                        </span>
+                                      ) : r.mapped_data ? (
+                                        <span className="text-slate-500">
+                                          {Object.entries(r.mapped_data).slice(0, 3).map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(" · ")}
+                                        </span>
+                                      ) : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {filtered.length > 50 && (
+                            <div className="px-3 py-2 text-[11px] text-slate-500 bg-slate-50 border-t border-slate-200">
+                              Showing 50 of {filtered.length}. Commit and use Imports History for the full audit.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 pt-2">
                         <Button onClick={runCommit} disabled={busy} className="bg-gradient-to-r from-emerald-600 to-green-600">
                           {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}

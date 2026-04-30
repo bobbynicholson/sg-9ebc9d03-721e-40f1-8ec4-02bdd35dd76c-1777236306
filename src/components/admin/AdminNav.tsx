@@ -239,6 +239,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Drop a spreadsheet, we'll load clients + orders"
         },
         {
+          title: "Imports history",
+          href: "/admin/onboarding",
+          icon: Clock,
+          description: "Past imports + 24h rollback"
+        },
+        {
           title: "Hire-in orders",
           href: "/admin/equipment/hire-orders",
           icon: Truck,

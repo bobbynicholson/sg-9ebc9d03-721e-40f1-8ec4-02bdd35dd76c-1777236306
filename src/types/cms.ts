@@ -32,6 +32,11 @@ export interface CMSPage {
   meta_title?: string | null;
   meta_description?: string | null;
   meta_keywords?: string | null;
+  /** Hero image URL displayed above the post title. */
+  header_image_url?: string | null;
+  /** Alt text for the hero image. Required for accessibility when
+   *  header_image_url is set. */
+  header_image_alt?: string | null;
   is_published: boolean;
   last_updated: string;
   created_at: string;

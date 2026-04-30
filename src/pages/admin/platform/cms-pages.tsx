@@ -28,7 +28,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import {
   Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle, Sparkles,
-  Loader2, Eye, FileText, Wand2, Globe,
+  Loader2, Eye, FileText, Wand2, Globe, ImageIcon, Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,8 @@ const EMPTY_FORM = {
   content: "",
   meta_description: "",
   meta_keywords: "",
+  header_image_url: "",
+  header_image_alt: "",
   is_published: true,
 };
 
@@ -73,6 +75,40 @@ export default function CMSPageManagement() {
 
   // Live preview side-panel toggle
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Header image upload state
+  const [imageBusy, setImageBusy] = useState(false);
+
+  const uploadHeaderImage = async (file: File) => {
+    setImageBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // Pass the slug so the storage path is human-readable.
+      fd.append("slug", formData.slug || "untitled");
+      const res = await fetch("/api/cms/upload-image", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Upload failed");
+      setFormData((prev) => ({
+        ...prev,
+        header_image_url: json.url,
+        // If the operator hasn't typed alt text yet, leave it empty
+        // so the save guard prompts them. Don't auto-fill from the
+        // filename -- that's almost always lazy SEO.
+      }));
+      toast({
+        title: "Image uploaded",
+        description: "Now add alt text describing what's in the image.",
+      });
+    } catch (e: any) {
+      toast({ title: "Image upload failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setImageBusy(false);
+    }
+  };
 
   // ── Load ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -101,6 +137,8 @@ export default function CMSPageManagement() {
       content: page.content,
       meta_description: page.meta_description || "",
       meta_keywords: page.meta_keywords || "",
+      header_image_url: page.header_image_url || "",
+      header_image_alt: page.header_image_alt || "",
       is_published: page.is_published,
     });
     setAiOpen(false);
@@ -120,14 +158,22 @@ export default function CMSPageManagement() {
       toast({ title: "Title and slug are required", variant: "destructive" });
       return;
     }
+    // Accessibility gate: a header image without alt text fails WCAG.
+    // Block save until the operator either removes the image or adds
+    // a description.
+    if (formData.header_image_url && !formData.header_image_alt.trim()) {
+      toast({
+        title: "Add alt text for the header image",
+        description: "Required for screen readers and search engines.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
-      // Strip meta_keywords -- the cmsService doesn't accept it.
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { meta_keywords, ...pageData } = formData;
       if (editingPage) {
-        await cmsService.updatePage(editingPage.id, pageData);
+        await cmsService.updatePage(editingPage.id, formData);
       } else {
-        await cmsService.createPage(pageData);
+        await cmsService.createPage(formData);
       }
       await loadPages();
       handleCancel();
@@ -373,6 +419,104 @@ export default function CMSPageManagement() {
               <div className={`grid grid-cols-1 ${previewOpen ? "lg:grid-cols-2" : ""} gap-5`}>
                 {/* Form column */}
                 <div className="space-y-4">
+                  {/*
+                    Header image card -- the post's hero. Sat above
+                    the title card because the operator scrolls top to
+                    bottom thinking like a reader: image first, then
+                    title, then body. Alt text is required at save
+                    time -- not optional.
+                  */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-blue-600" />
+                        Header image
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Hero image rendered above the title on the public post.
+                        Alt text is required for accessibility + SEO.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-5 pt-2 space-y-3">
+                      {formData.header_image_url ? (
+                        <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={formData.header_image_url}
+                            alt={formData.header_image_alt || ""}
+                            className="w-full max-h-64 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({
+                              ...prev,
+                              header_image_url: "",
+                              header_image_alt: "",
+                            }))}
+                            className="absolute top-2 right-2 rounded-md bg-white/95 hover:bg-white shadow text-xs font-medium px-2.5 py-1 text-slate-700 inline-flex items-center gap-1"
+                            title="Remove image"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="header-image-input"
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition"
+                        >
+                          {imageBusy ? (
+                            <Loader2 className="w-7 h-7 text-slate-400 animate-spin mb-2" />
+                          ) : (
+                            <Upload className="w-7 h-7 text-slate-400 mb-2" />
+                          )}
+                          <p className="text-sm font-medium text-slate-700">
+                            {imageBusy ? "Uploading..." : "Click to upload header image"}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            JPG, PNG, WebP, AVIF, GIF · 5 MB max
+                          </p>
+                        </label>
+                      )}
+                      <Input
+                        id="header-image-input"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                        className="hidden"
+                        disabled={imageBusy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) uploadHeaderImage(f);
+                          e.target.value = ""; // allow re-upload of same filename
+                        }}
+                      />
+                      {formData.header_image_url && (
+                        <div>
+                          <Label htmlFor="header_image_alt" className="text-xs">
+                            Alt text <span className="text-rose-600">*</span>
+                          </Label>
+                          <Input
+                            id="header_image_alt"
+                            value={formData.header_image_alt}
+                            onChange={(e) =>
+                              setFormData({ ...formData, header_image_alt: e.target.value })
+                            }
+                            placeholder='e.g. "A spit braai roasting over open coals at a Stellenbosch wedding"'
+                            className={
+                              !formData.header_image_alt.trim()
+                                ? "border-amber-300 focus-visible:ring-amber-300"
+                                : ""
+                            }
+                          />
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Describe what's IN the image, not the image itself ("dog playing fetch", not "image of dog").
+                            Required for screen readers + Google image search.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardContent className="p-5 space-y-4">
                       <div>
@@ -493,13 +637,23 @@ export default function CMSPageManagement() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-5 pt-0">
-                        <article className="prose prose-sm max-w-none border border-slate-200 rounded-lg p-4 bg-white min-h-[300px]">
-                          <h1 className="!mb-2">{formData.title || "(no title yet)"}</h1>
-                          {formData.meta_description && (
-                            <p className="text-slate-500 italic !mt-0">{formData.meta_description}</p>
+                        <article className="prose prose-sm max-w-none border border-slate-200 rounded-lg overflow-hidden bg-white min-h-[300px]">
+                          {formData.header_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={formData.header_image_url}
+                              alt={formData.header_image_alt || ""}
+                              className="!my-0 w-full max-h-72 object-cover"
+                            />
                           )}
-                          <hr />
-                          <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                          <div className="p-4">
+                            <h1 className="!mb-2">{formData.title || "(no title yet)"}</h1>
+                            {formData.meta_description && (
+                              <p className="text-slate-500 italic !mt-0">{formData.meta_description}</p>
+                            )}
+                            <hr />
+                            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                          </div>
                         </article>
                       </CardContent>
                     </Card>

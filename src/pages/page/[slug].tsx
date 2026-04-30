@@ -34,11 +34,27 @@ export default function DynamicPage({ page }: PageProps) {
         <title>{page.meta_title || `${page.title} - CateringMS`}</title>
         <meta name="description" content={page.meta_description || ""} />
         {page.meta_keywords && <meta name="keywords" content={page.meta_keywords} />}
+        {/* OpenGraph for share cards -- the header image doubles as
+            the og:image so social previews look right. */}
+        {(page as any).header_image_url && (
+          <meta property="og:image" content={(page as any).header_image_url} />
+        )}
+        {(page as any).header_image_alt && (
+          <meta property="og:image:alt" content={(page as any).header_image_alt} />
+        )}
       </Head>
       <div className="flex flex-col min-h-screen">
         <Header />
         <main className="flex-grow container mx-auto px-4 py-12">
           <article className="prose lg:prose-xl mx-auto">
+            {(page as any).header_image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={(page as any).header_image_url}
+                alt={(page as any).header_image_alt || ""}
+                className="!my-0 w-full max-h-[480px] object-cover rounded-xl"
+              />
+            )}
             <h1>{page.title}</h1>
             <div dangerouslySetInnerHTML={{ __html: page.content }} />
           </article>
