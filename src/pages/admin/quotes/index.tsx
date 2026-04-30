@@ -30,6 +30,16 @@ import { quoteService } from "@/services/quoteService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail, templateForQuote, type QuoteStatus } from "@/lib/composeEmail";
+import {
+  deriveQuoteIntelligence,
+  summariseAutoEmailsByQuote,
+  quoteSortKey,
+  countByBucket,
+  type QuoteBucket,
+  type QuoteRowState,
+} from "@/lib/quoteIntelligence";
+import { supabase } from "@/integrations/supabase/client";
+import { Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox } from "lucide-react";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -51,24 +61,53 @@ export default function AdminQuotes() {
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [autoEmailRows, setAutoEmailRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
+  const [bucket, setBucket] = useState<QuoteBucket>("all");
+
+  // Roll quotes + auto-email queue into a single per-row state object
+  // with derived intelligence (status bucket, suggested action, last
+  // touch, auto-email summary). Sort urgent + old to the top.
+  const rowStates = useMemo<QuoteRowState[]>(() => {
+    const autoMap = summariseAutoEmailsByQuote(autoEmailRows as any);
+    return quotes
+      .map((q) => {
+        const intelligence = deriveQuoteIntelligence(q);
+        const autoEmail =
+          autoMap.get(q.id) || { queued: 0, sent: 0, latest: null };
+        return {
+          quote: q,
+          intelligence,
+          autoEmail,
+          sortKey: quoteSortKey(intelligence),
+        };
+      })
+      .sort((a, b) => a.sortKey - b.sortKey);
+  }, [quotes, autoEmailRows]);
+
+  const counts = useMemo(() => countByBucket(rowStates), [rowStates]);
+  const bucketFilteredRows = useMemo(
+    () => (bucket === "all" ? rowStates : rowStates.filter((r) => r.intelligence.bucket === bucket)),
+    [rowStates, bucket],
+  );
 
   // Smart fuzzy search across client name, email, event name, venue, ref
-  // and the formatted total so a query like "12000" or "wedding" works.
-  const filteredQuotes = useFuzzyItems(
-    quotes,
+  // and the formatted total. Operates on the bucket-filtered rows so the
+  // pill selection narrows the search universe.
+  const filteredRows = useFuzzyItems(
+    bucketFilteredRows,
     search,
     [
-      { key: "client_name" as any, weight: 3 },
-      { key: "client_email" as any, weight: 2 },
-      { key: ((q: Quote) => (q as any).event_name) as any, weight: 2, label: "event_name" },
-      { key: ((q: Quote) => (q as any).venue || (q as any).venue_address) as any, weight: 1, label: "venue" },
-      { key: ((q: Quote) => (q as any).quote_number || q.id) as any, weight: 2, label: "quote_ref" },
-      { key: ((q: Quote) => q.total != null ? `R${q.total} ${q.total}` : "") as any, weight: 1, label: "total" },
+      { key: ((r: QuoteRowState) => r.quote.client_name) as any, weight: 3, label: "client_name" },
+      { key: ((r: QuoteRowState) => r.quote.client_email) as any, weight: 2, label: "client_email" },
+      { key: ((r: QuoteRowState) => (r.quote as any).event_name) as any, weight: 2, label: "event_name" },
+      { key: ((r: QuoteRowState) => (r.quote as any).venue || (r.quote as any).venue_address) as any, weight: 1, label: "venue" },
+      { key: ((r: QuoteRowState) => (r.quote as any).quote_number || r.quote.id) as any, weight: 2, label: "quote_ref" },
+      { key: ((r: QuoteRowState) => r.quote.total != null ? `R${r.quote.total} ${r.quote.total}` : "") as any, weight: 1, label: "total" },
     ],
     { limit: 0 },
   );
@@ -82,10 +121,30 @@ export default function AdminQuotes() {
     (async () => {
       setLoading(true);
       const fetched = await quoteService.getQuotes(user.company_id!);
-      if (!cancelled) {
-        setQuotes(fetched);
-        setLoading(false);
+      if (cancelled) return;
+      setQuotes(fetched);
+
+      // Pull every auto-email row associated with this company's
+      // quotes. trigger_event names start with 'quote.' for the
+      // quote-driven automations, but we keep this loose so any
+      // future trigger_event prefix tied to a quote_id still surfaces.
+      try {
+        const quoteIds = fetched.map((q) => q.id);
+        if (quoteIds.length > 0) {
+          const { data: queueRows } = await supabase
+            .from("outgoing_email_queue")
+            .select("trigger_ref_id, status, subject, sent_at, created_at, trigger_event")
+            .eq("company_id", user.company_id)
+            .in("trigger_ref_id", quoteIds);
+          if (!cancelled) setAutoEmailRows(queueRows || []);
+        }
+      } catch (err) {
+        // Non-fatal -- the page still works without auto-email
+        // visibility, just without the "Auto follow-up sent 2d ago"
+        // line on each row.
+        console.warn("[quotes] auto-email queue fetch failed", err);
       }
+      if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [user?.company_id]);
@@ -169,18 +228,14 @@ export default function AdminQuotes() {
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Sent <InfoTooltip content={"Quotes you have sent to a client and are waiting on a response for."} /></p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {quotes.filter(q => q.status === "sent").length}
-                </p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Action needed <InfoTooltip content={"Drafts to price and send (including new client portal requests), and quotes whose validity is running out."} /></p>
+                <p className="text-2xl font-bold text-rose-600">{counts.action_needed}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
               <CardContent className="p-4">
-                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Accepted <InfoTooltip content={"Quotes the client has approved. The next step is usually converting them into orders."} /></p>
-                <p className="text-2xl font-bold text-green-600">
-                  {quotes.filter(q => q.status === "accepted").length}
-                </p>
+                <p className="text-sm text-slate-600 mb-1 flex items-center gap-1.5">Won this period <InfoTooltip content={"Quotes the client has accepted. Convert these to orders if not already done."} /></p>
+                <p className="text-2xl font-bold text-emerald-600">{counts.won}</p>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-lg">
@@ -191,6 +246,43 @@ export default function AdminQuotes() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+
+          {/*
+            Smart filter pills -- mirrors the Clients CRM pattern. Each
+            pill shows a live count so the team sees at a glance how
+            many quotes need their attention. Click to narrow the list.
+          */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            {([
+              { id: "all",            label: "All",           icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
+              { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
+              { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-blue-100 text-blue-700 border-blue-200" },
+              { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
+              { id: "won",            label: "Won",           icon: Crown,          tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              { id: "expired",        label: "Expired",       icon: AlertTriangle,  tone: "bg-orange-100 text-orange-700 border-orange-200" },
+              { id: "lost",           label: "Lost",          icon: Snowflake,      tone: "bg-slate-100 text-slate-600 border-slate-200" },
+            ] as const).map((pill) => {
+              const Icon = pill.icon;
+              const active = bucket === pill.id;
+              const count = (counts as any)[pill.id] as number;
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setBucket(pill.id as QuoteBucket)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${
+                    active
+                      ? `${pill.tone} ring-2 ring-offset-1 ring-slate-300`
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="font-medium">{pill.label}</span>
+                  <span className="text-xs font-semibold opacity-80">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Quick-mail banner mirrors the Clients CRM pattern: explains why
@@ -218,9 +310,9 @@ export default function AdminQuotes() {
                   className="pl-9"
                 />
               </div>
-              {search.trim() && (
+              {(search.trim() || bucket !== "all") && (
                 <p className="text-xs text-slate-500 mt-1.5">
-                  Showing {filteredQuotes.length} of {quotes.length} quotes.
+                  Showing {filteredRows.length} of {rowStates.length} quotes.
                 </p>
               )}
             </div>
@@ -238,16 +330,19 @@ export default function AdminQuotes() {
                   </Link>
                 </CardContent>
               </Card>
-            ) : filteredQuotes.length === 0 ? (
+            ) : filteredRows.length === 0 ? (
               <Card className="border-2 border-dashed">
                 <CardContent className="p-12 text-center">
                   <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No quotes match your search</h3>
-                  <p className="text-slate-600">Try a different client name, event or quote reference.</p>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No quotes in this view</h3>
+                  <p className="text-slate-600">Try a different filter or clear the search.</p>
                 </CardContent>
               </Card>
             ) : (
-              filteredQuotes.map((quote) => {
+              filteredRows.map((rs) => {
+                const quote = rs.quote;
+                const intel = rs.intelligence;
+                const auto = rs.autoEmail;
                 const canCompose = !!quote.client_email && quote.status !== "draft";
                 const composeHint = !quote.client_email
                   ? "No email on this quote -- add one to enable compose"
@@ -258,12 +353,16 @@ export default function AdminQuotes() {
                   <Card
                     key={quote.id}
                     className={`border-0 shadow-lg hover:shadow-xl transition-all ${
-                      // Highlight quotes that came in from the client
-                      // portal so the catering team spots them
-                      // immediately when they open the page.
-                      (quote as any).external_source === "client_portal_rebook"
-                        ? "ring-2 ring-emerald-300"
-                        : ""
+                      // Visual urgency cues: red ring for urgent action
+                      // needed, emerald for client portal requests,
+                      // amber for stale follow-ups.
+                      intel.tone === "urgent"
+                        ? "ring-2 ring-rose-300"
+                        : intel.isClientRequest
+                          ? "ring-2 ring-emerald-300"
+                          : intel.bucket === "stale"
+                            ? "ring-2 ring-amber-300"
+                            : ""
                     }`}
                   >
                     <CardContent className="p-6">
@@ -280,10 +379,73 @@ export default function AdminQuotes() {
                               their portal. Pricing isn't set yet, the
                               team needs to open and price it.
                             */}
-                            {(quote as any).external_source === "client_portal_rebook" && (
+                            {intel.isClientRequest && (
                               <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border">
                                 New client request
                               </Badge>
+                            )}
+                            {/* Lead provenance / order conversion cues. */}
+                            {(quote as any).lead_id && !intel.isClientRequest && (
+                              <Badge variant="outline" className="text-[11px] text-slate-600 border-slate-200">
+                                from lead
+                              </Badge>
+                            )}
+                            {(quote as any).converted_to_order_id && (
+                              <Badge variant="outline" className="text-[11px] text-emerald-700 border-emerald-200 bg-emerald-50">
+                                booked
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/*
+                            Suggested-action strip -- the headline
+                            intelligence row. Tone colour matches the
+                            urgency of the action: red urgent, amber
+                            warm, slate neutral.
+                          */}
+                          <div className={`mb-3 flex items-center gap-2 text-sm font-semibold ${
+                            intel.tone === "urgent"
+                              ? "text-rose-600"
+                              : intel.tone === "warm"
+                                ? "text-amber-600"
+                                : "text-slate-600"
+                          }`}>
+                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                            <span>{intel.label}</span>
+                            <span className="font-normal text-xs text-slate-500">
+                              -- {intel.reason}
+                            </span>
+                          </div>
+
+                          {/*
+                            Last touch + auto-email status. The
+                            outgoing_email_queue is our source of
+                            truth for "did the auto follow-up fire?"
+                          */}
+                          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                            {intel.lastTouchAt && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                Last touch {intel.daysSinceTouch ?? 0}d ago
+                              </span>
+                            )}
+                            {auto.sent > 0 && (
+                              <span className="inline-flex items-center gap-1 text-emerald-600">
+                                <Send className="w-3.5 h-3.5" />
+                                {auto.sent} auto follow-up{auto.sent === 1 ? "" : "s"} sent
+                              </span>
+                            )}
+                            {auto.queued > 0 && (
+                              <span className="inline-flex items-center gap-1 text-blue-600">
+                                <Mail className="w-3.5 h-3.5" />
+                                {auto.queued} queued
+                              </span>
+                            )}
+                            {intel.daysUntilExpiry !== null && intel.daysUntilExpiry >= 0 && intel.daysUntilExpiry <= 7 && (
+                              <span className="inline-flex items-center gap-1 text-orange-600">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                Expires in {intel.daysUntilExpiry}d
+                              </span>
                             )}
                           </div>
 
