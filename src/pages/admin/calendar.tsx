@@ -8,7 +8,7 @@
  * to today, "[" / "]" flip months. Today's cell pulses subtly.
  */
 import { useState, useEffect, useMemo, useRef } from "react";
-import { DashboardShell } from "@/components/navigation/DashboardShell";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { orderService } from "@/services/orderService";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,8 +188,11 @@ function AdminCalendar() {
 
   return (
     <>
+      <NoIndexMeta />
       <Head><title>Event Calendar - CateringMS Admin</title></Head>
-      <DashboardShell role="admin" background="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900" contained={false}>
+      <AdminNav />
+
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-6 max-w-screen-2xl">
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
@@ -409,7 +413,7 @@ function AdminCalendar() {
             </div>
           </div>
         </div>
-      </DashboardShell>
+      </div>
 
       {/* Day detail sheet */}
       <Sheet open={!!selectedDate} onOpenChange={(o) => !o && setSelectedDate(null)}>
