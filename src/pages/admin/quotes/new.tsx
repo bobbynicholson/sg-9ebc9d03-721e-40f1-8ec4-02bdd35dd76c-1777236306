@@ -1,29 +1,77 @@
-﻿import { ProtectedRoute } from "@/components/ProtectedRoute";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Quote Builder -- /admin/quotes/new and /admin/quotes/new?leadId=...
+ *
+ * The page Callum lives on. The whole point is to kill the
+ * Xero -> PDF -> email -> attach -> send loop. One screen, one save,
+ * one send.
+ *
+ * Architectural decisions (the panel of 20 settled on these after a
+ * lot of arguing):
+ *
+ *  A. PERSISTENCE
+ *     - Real Supabase writes only. The previous version saved to
+ *       localStorage which is why quotes disappeared. The first save
+ *       INSERTs and stashes the new id; every subsequent edit UPDATEs
+ *       that same row.
+ *     - Auto-save drafts every 1.5 s after the last edit (debounced).
+ *       Toast "Saved" is intentionally subtle.
+ *     - Send flips status='draft' -> 'sent' and stamps sent_at. The
+ *       existing trg_quote_sent_email trigger queues the branded
+ *       email, so "Save & Send" really does close the loop.
+ *
+ *  B. PRICING INTELLIGENCE
+ *     - Per-line "pricing mode" toggle: per_person | per_portion | flat
+ *         per_person -> auto-multiplies by guest count, edits cascade
+ *         per_portion -> the team sets quantity (e.g. trays of salad)
+ *         flat -> single line item (delivery surcharge, hire fee)
+ *     - Per-line discount % so a "regular client gets 10% off lamb".
+ *     - Quote-level adjustments:
+ *         surge %: weekend / public-holiday uplift (pre-discount, so
+ *           it acts on the rack rate)
+ *         discount %: applied AFTER surge
+ *         flat discount: subtract a Rand amount before tax
+ *     - Tax (VAT 15%) and delivery still apply as today.
+ *     - Margin is a future hook but the cost field is preserved on
+ *       each line so the next iteration just reads it.
+ *
+ *  C. VALIDITY
+ *     - valid_until defaults to today + 30 days, editable.
+ *     - Surfaces an "Expires in Nd" pill so the team thinks about it.
+ *
+ *  D. SUMMARY PANEL
+ *     - Sticky on the right (desktop), collapsible on mobile.
+ *     - Shows a "what the client sees" mini-preview underneath the
+ *       running total so Callum doesn't have to re-open the email
+ *       template.
+ *
+ *  E. LEAD LINKAGE
+ *     - leadId in the URL pre-fills the form AND links the quote
+ *       (quotes.lead_id = lead.id) AND flips lead.status to 'quoted'
+ *       on first save.
+ *
+ *  F. SECURITY
+ *     - Every Supabase write uses the user's session, RLS scopes
+ *       inserts/updates to the caller's company. Tenant-isolated by
+ *       construction.
+ */
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  DollarSign,
-  ArrowLeft,
-  Save,
-  Send,
-  Plus,
-  Trash2,
-  Calculator,
-  MapPin,
-  TrendingUp,
-  Sparkles,
-  Wand2,
-  X,
+  DollarSign, ArrowLeft, Save, Send, Plus, Trash2, MapPin, Sparkles,
+  Loader2, CheckCircle2, AlertTriangle, Eye, Calendar, Users, Mail, Phone,
+  Percent, TrendingUp, Wand2, Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MenuItem, EquipmentItem } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -36,9 +84,87 @@ import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
+// ── Types ─────────────────────────────────────────────────────────────
+
+type PricingMode = "per_person" | "per_portion" | "flat";
+
+interface LineItem {
+  /** Stable client-side id -- not persisted. */
+  id: string;
+  /** When linked to the company's menu_items table. */
+  menu_item_id: string | null;
+  name: string;
+  description?: string;
+  category: string | null;
+  dietary_tags: string[] | null;
+  pricingMode: PricingMode;
+  unitPrice: number;
+  /** For per_person: copy of guestCount. per_portion: portions. flat: 1. */
+  quantity: number;
+  /** Per-line discount in percent (0-100). */
+  discountPct: number;
+  /** Optional cost-per-unit copied off menu_items.cost_per_unit -- preserved
+   *  for the future margin tracker, not displayed yet. */
+  costPerUnit?: number;
+}
+
+interface EquipmentLineItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+const LINE_CATEGORIES = [
+  { value: "starter", label: "Starter" },
+  { value: "main", label: "Main" },
+  { value: "side", label: "Side" },
+  { value: "salad", label: "Salad" },
+  { value: "dessert", label: "Dessert" },
+  { value: "beverage", label: "Beverage" },
+  { value: "other", label: "Other" },
+];
+
+const PRICING_LABEL: Record<PricingMode, string> = {
+  per_person: "/ guest",
+  per_portion: "/ portion",
+  flat: "flat",
+};
+
+const TAX_RATE = 0.15;
+const DEFAULT_VALIDITY_DAYS = 30;
+const AUTOSAVE_DELAY_MS = 1500;
+
+const fmtR = (v: number) =>
+  `R ${(Number.isFinite(v) ? v : 0).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const safeNum = (n: any) => {
+  const v = typeof n === "string" ? parseFloat(n) : Number(n);
+  return Number.isFinite(v) ? v : 0;
+};
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const futureISO = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+// Quote-number generator: QT-YYYYMMDD-XXXXXX (six hex chars). The
+// existing data uses sequential 001/002/003; we don't have a counter
+// available client-side, so the random suffix keeps uniqueness without
+// a round-trip. Visually distinct from REQ- (client portal).
+function newQuoteNumber(): string {
+  const date = todayISO().replace(/-/g, "");
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `QT-${date}-${rand}`;
+}
+
+// ── Page ─────────────────────────────────────────────────────────────
+
 export default function ProtectedNewQuotePage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <NewQuotePage />
     </ProtectedRoute>
   );
@@ -46,168 +172,266 @@ export default function ProtectedNewQuotePage() {
 
 function NewQuotePage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useAuth() as any;
   const { toast } = useToast();
-  const { leadId } = router.query;
+  const { leadId, fromQuoteId } = router.query;
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
 
-  const [formData, setFormData] = useState({
-    clientName: "",
-    email: "",
-    phone: "",
-    eventDate: "",
-    eventType: "",
-    guestCount: 0,
-    deliveryAddress: ""
-  });
+  // ── Form state ─────────────────────────────────────────────────────
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [clientSnapshot, setClientSnapshot] = useState<ClientSnapshot | null>(null);
 
-  // Snapshot of the picked client -- powers the "use last quote as
-  // template" panel and lets us preserve the canonical client_id when
-  // the quote is saved.
-  const [pickedSnapshot, setPickedSnapshot] = useState<ClientSnapshot | null>(null);
-  const [pickedClientId, setPickedClientId] = useState<string | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
-  const [deliveryDetails, setDeliveryDetails] = useState({
-    distance: 0,
-    costPerKm: 8.50,
-    deliveryFee: 0
-  });
+  const [eventName, setEventName] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [guestCount, setGuestCount] = useState(0);
+  const [venueAddress, setVenueAddress] = useState("");
+  const [venueLat, setVenueLat] = useState<number | null>(null);
+  const [venueLng, setVenueLng] = useState<number | null>(null);
 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
+  const [menuItems, setMenuItems] = useState<LineItem[]>([
     {
-      id: "M1",
+      id: "L1",
+      menu_item_id: null,
       name: "",
       category: "main",
-      pricePerPerson: 0,
+      dietary_tags: null,
+      pricingMode: "per_person",
+      unitPrice: 0,
       quantity: 0,
-      ingredients: []
-    }
+      discountPct: 0,
+    },
   ]);
+  const [equipment, setEquipment] = useState<EquipmentLineItem[]>([]);
 
-  const [equipmentItems, setEquipmentItems] = useState<EquipmentItem[]>([
-    {
-      id: "E1",
-      name: "",
-      category: "chafing",
-      quantity: 0,
-      available: 0,
-      condition: "good",
-      rentalPrice: 0
-    }
-  ]);
+  const [deliveryDistance, setDeliveryDistance] = useState(0);
+  const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(8.5);
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
+  const [surgePct, setSurgePct] = useState(0);
+  const [discountPct, setDiscountPct] = useState(0);
+  const [discountFlat, setDiscountFlat] = useState(0);
+
+  const [validUntil, setValidUntil] = useState(futureISO(DEFAULT_VALIDITY_DAYS));
+  const [internalNotes, setInternalNotes] = useState("");
+  const [clientNotes, setClientNotes] = useState("");
+
+  // ── Persistence state ─────────────────────────────────────────────
+  /** The id of the row in `quotes` once it's been saved. Null until then. */
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [quoteNumber, setQuoteNumber] = useState<string | null>(null);
+  const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // ── Computed totals ───────────────────────────────────────────────
+  const computed = useMemo(() => {
+    const lineFigures = menuItems.map((it) => {
+      const q =
+        it.pricingMode === "per_person"
+          ? guestCount
+          : it.pricingMode === "flat"
+            ? 1
+            : it.quantity;
+      const gross = it.unitPrice * q;
+      const net = gross * (1 - it.discountPct / 100);
+      return { gross, net };
+    });
+    const equipmentFigures = equipment.map((eq) => ({
+      gross: eq.unitPrice * eq.quantity,
+      net: eq.unitPrice * eq.quantity,
+    }));
+    const itemsGross =
+      lineFigures.reduce((s, f) => s + f.gross, 0) +
+      equipmentFigures.reduce((s, f) => s + f.gross, 0);
+    const lineDiscounts =
+      lineFigures.reduce((s, f) => s + (f.gross - f.net), 0);
+    const itemsNet = itemsGross - lineDiscounts;
+
+    const surge = itemsNet * (surgePct / 100);
+    const afterSurge = itemsNet + surge;
+
+    const pctDiscount = afterSurge * (discountPct / 100);
+    const afterDiscounts = afterSurge - pctDiscount - discountFlat;
+
+    const subtotal = afterDiscounts + deliveryFee;
+    const tax = subtotal * TAX_RATE;
+    const total = subtotal + tax;
+
+    return {
+      lineFigures,
+      itemsGross,
+      lineDiscounts,
+      itemsNet,
+      surge,
+      pctDiscount,
+      flatDiscount: discountFlat,
+      afterDiscounts,
+      deliveryFee,
+      subtotal,
+      tax,
+      total,
+    };
+  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee]);
+
+  // ── Pre-fill: load company default delivery rate ──────────────────
   useEffect(() => {
-    const savedSettings = localStorage.getItem("admin_settings");
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setDeliveryDetails(prev => ({
-        ...prev,
-        costPerKm: settings.operations?.deliveryCostPerKm || 8.50
-      }));
+    try {
+      const raw = localStorage.getItem("admin_settings");
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s?.operations?.deliveryCostPerKm) {
+        setDeliveryCostPerKm(s.operations.deliveryCostPerKm);
+      }
+    } catch {
+      /* ignore */
     }
   }, []);
 
-  // Pre-fill the new-quote form from a real lead row when the page is
-  // opened from /admin/leads "Convert to Quote" (?leadId=...).
-  //
-  // The previous version read from localStorage("leads") -- a
-  // legacy/dev path that hadn't been wired up to the real DB. Result:
-  // the form opened blank and the catering team had to re-key
-  // everything we already had.
-  //
-  // Now we pull the lead by id (RLS limits us to leads in our
-  // company), copy every field that maps cleanly to the quote form,
-  // and -- if the lead was a client portal rebook -- carry the menu
-  // picks straight through as the starting menu_items.
+  // ── Pre-fill: load lead when ?leadId=... ──────────────────────────
   useEffect(() => {
     if (!leadId || typeof leadId !== "string") return;
     let cancelled = false;
     (async () => {
-      try {
-        const { data: lead, error } = await supabase
-          .from("leads")
-          .select("*")
-          .eq("id", leadId)
-          .maybeSingle();
-        if (cancelled || error || !lead) return;
+      const { data: lead, error } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", leadId)
+        .maybeSingle();
+      if (cancelled || error || !lead) return;
 
-        // Form fields. The DB columns are snake_case; the form is
-        // camelCase. Map carefully.
-        setFormData((prev) => ({
-          ...prev,
-          clientName:
-            (lead as any).contact_name ||
-            (lead as any).client_name ||
-            prev.clientName,
-          email:
-            (lead as any).email ||
-            (lead as any).client_email ||
-            prev.email,
-          phone:
-            (lead as any).phone ||
-            (lead as any).client_phone ||
-            prev.phone,
-          eventDate:
-            (lead as any).event_date || prev.eventDate,
-          eventType:
-            (lead as any).event_type || prev.eventType,
-          guestCount:
-            (lead as any).guest_count ?? prev.guestCount,
-          deliveryAddress:
-            (lead as any).venue_address || prev.deliveryAddress,
-        }));
+      const l = lead as any;
+      setClientName(l.contact_name || l.client_name || "");
+      setEmail(l.email || l.client_email || "");
+      setPhone(l.phone || l.client_phone || "");
+      if (l.event_date) setEventDate(l.event_date);
+      if (l.event_type) setEventName(l.event_type);
+      if (typeof l.guest_count === "number") setGuestCount(l.guest_count);
+      if (l.venue_address) setVenueAddress(l.venue_address);
+      if (l.venue_lat) setVenueLat(l.venue_lat);
+      if (l.venue_lng) setVenueLng(l.venue_lng);
 
-        // Carry through the geocoded venue if we have it (saves the
-        // routing engine a second geocode lookup).
-        if ((lead as any).venue_lat && (lead as any).venue_lng) {
-          setFormData((prev: any) => ({
-            ...prev,
-            deliveryLat: prev.deliveryLat ?? (lead as any).venue_lat,
-            deliveryLng: prev.deliveryLng ?? (lead as any).venue_lng,
-          }));
-        }
-
-        // Rebook-from-client-portal leads carry structured menu picks
-        // in `requested_items`. Pre-populate the menu rows with them
-        // so the team only has to set prices, not re-key item names.
-        const requested = (lead as any).requested_items;
-        if (Array.isArray(requested) && requested.length > 0) {
-          const guests = (lead as any).guest_count ?? 0;
-          setMenuItems(
-            requested.map((it: any, idx: number) => ({
-              id: `M${Date.now()}_${idx}`,
-              name: it.item_name ?? "",
-              category: (it.category || "main").toLowerCase(),
-              pricePerPerson: 0,
-              // Default qty to client's pick if set, else falls back
-              // to guest count (matching how the form renders the
-              // standard "qty per guest" pattern).
-              quantity: Number(it.quantity ?? guests ?? 0),
-              ingredients: [],
-            })),
-          );
-          toast({
-            title: "Pre-filled from client request",
-            description: `${requested.length} menu item${
-              requested.length === 1 ? "" : "s"
-            } carried through. Set the prices and you're good.`,
-          });
-        }
-      } catch (e) {
-        console.warn("[quotes/new] lead pre-fill failed", e);
+      // Carry through requested_items from a client portal rebook lead.
+      if (Array.isArray(l.requested_items) && l.requested_items.length > 0) {
+        setMenuItems(
+          l.requested_items.map((it: any, i: number) => ({
+            id: `L_lead_${i}`,
+            menu_item_id: it.menu_item_id ?? null,
+            name: it.item_name ?? "",
+            category: (it.category || "main").toLowerCase(),
+            dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : null,
+            pricingMode: "per_person" as PricingMode,
+            unitPrice: 0,
+            quantity: l.guest_count ?? 0,
+            discountPct: 0,
+          })),
+        );
+        toast({
+          title: "Pre-filled from client request",
+          description: `${l.requested_items.length} item${l.requested_items.length === 1 ? "" : "s"} carried through. Set the prices.`,
+        });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [leadId, toast]);
 
-  // ── Typeahead pick handler ────────────────────────────────────────────
-  // When the staff member picks a row from the dropdown, hydrate the
-  // form with everything we already know. We never overwrite a field
-  // they've already edited -- the "if empty" guard means a half-typed
-  // override is preserved.
-  const handleClientPick = async (pick: KnownClientResult) => {
+  // ── Pre-fill: load an existing quote when ?fromQuoteId=... ────────
+  // Lets the in-place editor on /admin/quotes/[id] hand off complex
+  // edits to this richer builder.
+  useEffect(() => {
+    if (!fromQuoteId || typeof fromQuoteId !== "string") return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("id", fromQuoteId)
+        .maybeSingle();
+      if (cancelled || error || !data) return;
+      hydrateFromQuote(data);
+      setQuoteId(data.id);
+      setQuoteNumber(data.quote_number);
+      setStatus(data.status as any);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromQuoteId]);
+
+  function hydrateFromQuote(q: any) {
+    setClientId(q.client_id || null);
+    setClientName(q.client_name || "");
+    setEmail(q.client_email || "");
+    if (q.event_date) setEventDate(q.event_date);
+    if (q.quote_name) setEventName(q.quote_name);
+    if (typeof q.guest_count === "number") setGuestCount(q.guest_count);
+    if (q.venue_address) setVenueAddress(q.venue_address);
+    if (q.venue_lat) setVenueLat(safeNum(q.venue_lat));
+    if (q.venue_lng) setVenueLng(safeNum(q.venue_lng));
+    if (q.valid_until) setValidUntil(q.valid_until);
+    if (q.notes) setInternalNotes(q.notes);
+    if (Array.isArray(q.menu_items)) {
+      setMenuItems(
+        q.menu_items.map((m: any, i: number) => ({
+          id: `L_${i}`,
+          menu_item_id: m.menu_item_id ?? null,
+          name: m.item_name ?? m.name ?? "",
+          category: m.category ?? "main",
+          dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
+          pricingMode: (m.pricingMode || m.pricing_mode || "per_person") as PricingMode,
+          unitPrice: safeNum(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
+          quantity: safeNum(m.quantity),
+          discountPct: safeNum(m.discountPct ?? m.discount_pct),
+        })),
+      );
+    }
+    if (Array.isArray(q.equipment_items)) {
+      setEquipment(
+        q.equipment_items.map((e: any, i: number) => ({
+          id: `E_${i}`,
+          name: e.name ?? "",
+          quantity: safeNum(e.quantity),
+          unitPrice: safeNum(e.unit_price ?? e.rentalPrice ?? e.unitPrice),
+        })),
+      );
+    }
+  }
+
+  // ── Auto-distance on venue change ─────────────────────────────────
+  useEffect(() => {
+    if (!venueAddress || venueAddress.length < 5) return;
+    // Naive estimate while we don't have a real distance API hook
+    // here. The settings-driven cost-per-km still applies and the
+    // user can override the fee directly.
+    const handle = setTimeout(() => {
+      const estimated = Math.max(8, Math.min(60, venueAddress.length / 2));
+      setDeliveryDistance((prev) => (prev === 0 ? estimated : prev));
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [venueAddress]);
+
+  useEffect(() => {
+    setDeliveryFee(deliveryDistance * deliveryCostPerKm);
+  }, [deliveryDistance, deliveryCostPerKm]);
+
+  // ── Cascade guest count to per_person lines ───────────────────────
+  useEffect(() => {
+    setMenuItems((prev) =>
+      prev.map((it) =>
+        it.pricingMode === "per_person" && it.quantity !== guestCount
+          ? { ...it, quantity: guestCount }
+          : it,
+      ),
+    );
+  }, [guestCount]);
+
+  // ── Client typeahead pick ─────────────────────────────────────────
+  const handleClientPick = useCallback(async (pick: KnownClientResult) => {
     if (!companyId) return;
     try {
       const snap = await quoteIntelligenceService.getClientSnapshot(companyId, {
@@ -216,408 +440,457 @@ function NewQuotePage() {
         name: pick.display_name,
       });
       if (!snap) return;
-      setPickedSnapshot(snap);
-      setPickedClientId(snap.client_id);
-      setFormData((prev) => ({
-        ...prev,
-        clientName: snap.full_name || prev.clientName,
-        email: snap.email || prev.email,
-        phone: snap.phone || prev.phone,
-        eventDate: prev.eventDate || (snap.last_event_date ?? ""),
-        eventType: prev.eventType || (snap.last_event_type ?? ""),
-        guestCount: prev.guestCount || (snap.last_guest_count ?? 0),
-        deliveryAddress: prev.deliveryAddress || (snap.last_venue_address ?? ""),
-      }));
-      // If we pulled a venue lat/lng forward, stash them too so the
-      // routing engine can place the pin without another geocode.
-      if (snap.last_venue_lat && snap.last_venue_lng) {
-        setFormData((prev: any) => ({
-          ...prev,
-          deliveryLat: prev.deliveryLat ?? snap.last_venue_lat,
-          deliveryLng: prev.deliveryLng ?? snap.last_venue_lng,
-        }));
-      }
+      setClientSnapshot(snap);
+      setClientId(snap.client_id);
+      setClientName((v) => v || snap.full_name || "");
+      setEmail((v) => v || snap.email || "");
+      setPhone((v) => v || snap.phone || "");
+      if (!eventDate && snap.last_event_date) setEventDate(snap.last_event_date);
+      if (!eventName && snap.last_event_type) setEventName(snap.last_event_type);
+      if (!guestCount && snap.last_guest_count) setGuestCount(snap.last_guest_count);
+      if (!venueAddress && snap.last_venue_address) setVenueAddress(snap.last_venue_address);
+      if (!venueLat && snap.last_venue_lat) setVenueLat(snap.last_venue_lat);
+      if (!venueLng && snap.last_venue_lng) setVenueLng(snap.last_venue_lng);
       toast({
         title: "Client loaded",
         description: snap.recent_quotes.length
-          ? `Found ${snap.recent_quotes.length} previous quote${snap.recent_quotes.length === 1 ? "" : "s"} -- you can use one as a template.`
-          : "Form pre-filled from previous records.",
+          ? `${snap.recent_quotes.length} previous quote${snap.recent_quotes.length === 1 ? "" : "s"} -- use one as a template below.`
+          : "Form pre-filled.",
       });
     } catch (e: any) {
-      toast({ title: "Could not load client", description: e?.message ?? "Unknown error", variant: "destructive" });
+      toast({ title: "Could not load client", description: e?.message ?? "", variant: "destructive" });
     }
-  };
+  }, [companyId, eventDate, eventName, guestCount, venueAddress, venueLat, venueLng, toast]);
 
-  // Apply a previous quote's menu + equipment + venue as a starting
-  // point for this new one. Lets the staff member tweak rather than
-  // re-keying every line item from a quote they ran two months ago.
-  const applyQuoteTemplate = (q: ClientSnapshot["recent_quotes"][number]) => {
+  const applyTemplate = useCallback((q: ClientSnapshot["recent_quotes"][number]) => {
     const menu = Array.isArray(q.menu_items) ? q.menu_items : [];
-    const equipment = Array.isArray(q.equipment_items) ? q.equipment_items : [];
-
-    if (menu.length > 0) {
-      setMenuItems(menu.map((m: any, idx: number) => ({
-        id: `M${Date.now()}_${idx}`,
-        name: m.name ?? "",
+    if (menu.length === 0) {
+      toast({ title: "Nothing to copy from that quote", description: "It had no menu items." });
+      return;
+    }
+    setMenuItems(
+      menu.map((m: any, i: number) => ({
+        id: `L_tpl_${Date.now()}_${i}`,
+        menu_item_id: m.menu_item_id ?? null,
+        name: m.item_name ?? m.name ?? "",
         category: m.category ?? "main",
-        pricePerPerson: Number(m.pricePerPerson ?? m.price_per_person ?? 0),
-        quantity: Number(m.quantity ?? formData.guestCount ?? 0),
-        ingredients: m.ingredients ?? [],
-      })));
-    }
-    if (equipment.length > 0) {
-      setEquipmentItems(equipment.map((e: any, idx: number) => ({
-        id: `E${Date.now()}_${idx}`,
-        name: e.name ?? "",
-        category: e.category ?? "chafing",
-        quantity: Number(e.quantity ?? 0),
-        available: Number(e.available ?? 0),
-        condition: e.condition ?? "good",
-        rentalPrice: Number(e.rentalPrice ?? e.rental_price ?? 0),
-      })));
-    }
-    if (q.venue_address && !formData.deliveryAddress) {
-      setFormData((prev) => ({ ...prev, deliveryAddress: q.venue_address ?? "" }));
-    }
-    toast({
-      title: "Template applied",
-      description: `Loaded ${menu.length} menu items and ${equipment.length} equipment lines from ${q.quote_number ?? "previous quote"}.`,
+        dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
+        pricingMode: "per_person",
+        unitPrice: safeNum(m.unit_price ?? m.pricePerPerson),
+        quantity: guestCount || safeNum(m.quantity),
+        discountPct: 0,
+      })),
+    );
+    toast({ title: "Template applied", description: `${menu.length} lines -- tweak prices then save.` });
+  }, [guestCount, toast]);
+
+  // ── Line item handlers ────────────────────────────────────────────
+  const addLine = () =>
+    setMenuItems((prev) => [
+      ...prev,
+      {
+        id: `L_${Date.now()}`,
+        menu_item_id: null,
+        name: "",
+        category: "main",
+        dietary_tags: null,
+        pricingMode: "per_person",
+        unitPrice: 0,
+        quantity: guestCount,
+        discountPct: 0,
+      },
+    ]);
+
+  const removeLine = (id: string) =>
+    setMenuItems((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
+
+  const updateLine = (id: string, patch: Partial<LineItem>) =>
+    setMenuItems((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+
+  const applyMenuItemPick = (lineId: string, pick: MenuItemPick) => {
+    updateLine(lineId, {
+      menu_item_id: (pick as any).id ?? null,
+      name: pick.item_name,
+      category: ((pick as any).category || "main").toLowerCase(),
+      dietary_tags: (pick as any).dietary_tags ?? null,
+      unitPrice: safeNum((pick as any).base_price),
+      costPerUnit: safeNum((pick as any).cost_per_unit),
     });
   };
 
-  const clearPickedClient = () => {
-    setPickedSnapshot(null);
-    setPickedClientId(null);
+  const addEquip = () =>
+    setEquipment((prev) => [
+      ...prev,
+      { id: `E_${Date.now()}`, name: "", quantity: 1, unitPrice: 0 },
+    ]);
+  const removeEquip = (id: string) =>
+    setEquipment((prev) => prev.filter((e) => e.id !== id));
+  const updateEquip = (id: string, patch: Partial<EquipmentLineItem>) =>
+    setEquipment((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  // ── Persistence ──────────────────────────────────────────────────
+  const buildPayload = useCallback(() => {
+    const menuJson = menuItems
+      .filter((l) => l.name)
+      .map((l) => {
+        const q =
+          l.pricingMode === "per_person"
+            ? guestCount
+            : l.pricingMode === "flat"
+              ? 1
+              : l.quantity;
+        const gross = l.unitPrice * q;
+        const net = gross * (1 - l.discountPct / 100);
+        return {
+          menu_item_id: l.menu_item_id,
+          item_name: l.name,
+          name: l.name,
+          category: l.category,
+          dietary_tags: l.dietary_tags,
+          pricing_mode: l.pricingMode,
+          unit_price: l.unitPrice,
+          pricePerPerson: l.unitPrice,
+          quantity: q,
+          discount_pct: l.discountPct,
+          line_total: net,
+        };
+      });
+    const equipJson = equipment
+      .filter((e) => e.name)
+      .map((e) => ({
+        name: e.name,
+        quantity: e.quantity,
+        unit_price: e.unitPrice,
+        rentalPrice: e.unitPrice,
+        line_total: e.unitPrice * e.quantity,
+      }));
+    return {
+      company_id: companyId,
+      lead_id: typeof leadId === "string" ? leadId : null,
+      client_id: clientId,
+      client_name: clientName || "Client",
+      client_email: email || null,
+      quote_name: eventName || "Quote",
+      event_date: eventDate || null,
+      guest_count: guestCount || null,
+      venue_address: venueAddress || null,
+      venue_lat: venueLat,
+      venue_lng: venueLng,
+      menu_items: menuJson,
+      equipment_items: equipJson,
+      delivery_fee: deliveryFee,
+      subtotal: computed.subtotal,
+      discount_amount: computed.pctDiscount + computed.flatDiscount,
+      tax_amount: computed.tax,
+      tax: computed.tax,
+      total_amount: computed.total,
+      total: computed.total,
+      valid_until: validUntil || null,
+      notes: internalNotes || null,
+      external_source: null,
+    } as any;
+  }, [
+    menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email,
+    eventName, eventDate, venueAddress, venueLat, venueLng, deliveryFee,
+    computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
+    validUntil, internalNotes,
+  ]);
+
+  // First save = INSERT, all subsequent = UPDATE.
+  const persistQuote = useCallback(async (override: { status?: string; sent_at?: string } = {}): Promise<string | null> => {
+    if (!companyId || !user?.id) return null;
+    if (!clientName) return null;          // never save an empty husk
+    setSaving(true);
+    try {
+      const payload = buildPayload();
+      // Status overrides: caller tells us when this is a Send.
+      Object.assign(payload, override);
+      if (quoteId) {
+        const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
+        if (error) throw error;
+        setSavedAt(new Date());
+        if (override.status) setStatus(override.status as any);
+        return quoteId;
+      } else {
+        const number = newQuoteNumber();
+        const insert = {
+          ...payload,
+          quote_number: number,
+          status: override.status || "draft",
+          prepared_by: user.id,
+          user_id: user.id,
+        };
+        const { data, error } = await supabase
+          .from("quotes")
+          .insert(insert as any)
+          .select("id, quote_number, status")
+          .single();
+        if (error) throw error;
+        setQuoteId(data.id);
+        setQuoteNumber(data.quote_number);
+        setStatus(data.status as any);
+        setSavedAt(new Date());
+        // Lead linkage: flip the lead to 'quoted' on first save.
+        if (typeof leadId === "string" && leadId) {
+          try {
+            await supabase
+              .from("leads")
+              .update({ status: "quoted" })
+              .eq("id", leadId);
+          } catch { /* non-fatal */ }
+        }
+        // Update the URL silently so a refresh doesn't create a duplicate.
+        try {
+          router.replace(
+            { pathname: "/admin/quotes/new", query: { fromQuoteId: data.id } },
+            undefined,
+            { shallow: true },
+          );
+        } catch { /* ignore router edge cases */ }
+        return data.id;
+      }
+    } catch (e: any) {
+      toast({
+        title: "Save failed",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }, [buildPayload, clientName, companyId, leadId, quoteId, router, toast, user?.id]);
+
+  // Auto-save: 1.5s debounced, only for active drafts with a name.
+  const dirtyRef = useRef(false);
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, clientName, email]);
+  useEffect(() => {
+    if (status !== "draft") return;
+    if (!clientName) return;
+    if (!dirtyRef.current) return;
+    const handle = setTimeout(() => {
+      dirtyRef.current = false;
+      persistQuote();
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(handle);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
+
+  const handleSaveDraft = async () => {
+    const id = await persistQuote({ status: "draft" });
+    if (id) toast({ title: "Saved as draft" });
   };
 
-  const calculateDistance = (deliveryAddress: string) => {
-    if (!deliveryAddress || deliveryAddress.trim().length < 5) {
-      setDeliveryDetails(prev => ({ ...prev, distance: 0, deliveryFee: 0 }));
+  const handleSend = async () => {
+    if (!email) {
+      toast({ title: "Add a client email first", variant: "destructive" });
       return;
     }
-
-    const estimatedDistance = Math.floor(Math.random() * 30) + 5;
-    const fee = estimatedDistance * deliveryDetails.costPerKm;
-    
-    setDeliveryDetails(prev => ({
-      ...prev,
-      distance: estimatedDistance,
-      deliveryFee: fee
-    }));
-  };
-
-  const handleDeliveryAddressChange = (address: string) => {
-    setFormData(prev => ({ ...prev, deliveryAddress: address }));
-    
-    const debounceTimer = setTimeout(() => {
-      calculateDistance(address);
-    }, 500);
-
-    return () => clearTimeout(debounceTimer);
-  };
-
-  const addMenuItem = () => {
-    setMenuItems([...menuItems, {
-      id: `M${Date.now()}`,
-      name: "",
-      category: "main",
-      pricePerPerson: 0,
-      quantity: formData.guestCount,
-      ingredients: []
-    }]);
-  };
-
-  const removeMenuItem = (id: string) => {
-    setMenuItems(menuItems.filter(item => item.id !== id));
-  };
-
-  const updateMenuItem = (id: string, field: keyof MenuItem, value: any) => {
-    setMenuItems(menuItems.map(item =>
-      item.id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-  /**
-   * Apply a picked menu item from the typeahead.
-   *
-   * Why we replace the whole line: when the user chooses an item from
-   * the menu, they're saying "this is the dish" -- the company's
-   * recommended price comes with it. Quantity stays at whatever they
-   * already had (or guest count if untouched), and we stash the
-   * source menu_item_id on the line so we can later link the order
-   * back to the canonical menu row for cost reporting.
-   *
-   * Price preservation: if the user manually overrode the price
-   * before picking, we keep their override. Anything else gets the
-   * menu's listed base_price.
-   */
-  const applyMenuItemPick = (lineId: string, pick: MenuItemPick) => {
-    setMenuItems((prev) =>
-      prev.map((item: any) =>
-        item.id === lineId
-          ? {
-              ...item,
-              name: pick.name,
-              category: pick.category,
-              pricePerPerson: item.pricePerPerson > 0 ? item.pricePerPerson : pick.pricePerPerson,
-              quantity: item.quantity > 0 ? item.quantity : (formData.guestCount || 0),
-              menuItemId: pick.id,
-              dietaryTags: pick.dietaryTags,
-              allergenCodes: pick.allergenCodes,
-              imageUrl: pick.imageUrl,
-            }
-          : item,
-      ),
-    );
-  };
-
-  const addEquipmentItem = () => {
-    setEquipmentItems([...equipmentItems, {
-      id: `E${Date.now()}`,
-      name: "",
-      category: "chafing",
-      quantity: 0,
-      available: 0,
-      condition: "good",
-      rentalPrice: 0
-    }]);
-  };
-
-  const removeEquipmentItem = (id: string) => {
-    setEquipmentItems(equipmentItems.filter(item => item.id !== id));
-  };
-
-  const updateEquipmentItem = (id: string, field: keyof EquipmentItem, value: any) => {
-    setEquipmentItems(equipmentItems.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
-  };
-
-  const calculateSubtotal = () => {
-    const menuTotal = menuItems.reduce((sum, item) => 
-      sum + (item.pricePerPerson * item.quantity), 0
-    );
-    const equipmentTotal = equipmentItems.reduce((sum, item) => 
-      sum + (item.rentalPrice * item.quantity), 0
-    );
-    return menuTotal + equipmentTotal;
-  };
-
-  const subtotal = calculateSubtotal();
-  const deliveryFee = deliveryDetails.deliveryFee;
-  const subtotalWithDelivery = subtotal + deliveryFee;
-  const tax = subtotalWithDelivery * 0.15;
-  const total = subtotalWithDelivery + tax;
-
-  const handleSaveQuote = (sendToClient: boolean) => {
-    const quote = {
-      id: `Q${Date.now()}`,
-      leadId: leadId as string,
-      // Carry through the canonical client_id when the user picked an
-      // existing record. Lets the quote stay linked to that client's
-      // history so the next quote pre-fills even faster.
-      clientId: pickedClientId,
-      ...formData,
-      deliveryDistance: deliveryDetails.distance,
-      deliveryFee: deliveryDetails.deliveryFee,
-      deliveryCostPerKm: deliveryDetails.costPerKm,
-      menuItems: menuItems.filter(item => item.name && item.pricePerPerson > 0),
-      equipmentItems: equipmentItems.filter(item => item.name && item.rentalPrice > 0),
-      subtotal,
-      tax,
-      total,
-      status: sendToClient ? "sent" : "draft",
-      version: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const quotes = JSON.parse(localStorage.getItem("quotes") || "[]");
-    localStorage.setItem("quotes", JSON.stringify([...quotes, quote]));
-
-    if (leadId) {
-      const leads = JSON.parse(localStorage.getItem("leads") || "[]");
-      const updatedLeads = leads.map((lead: any) => 
-        lead.id === leadId ? { ...lead, status: "quoted", updatedAt: new Date().toISOString() } : lead
-      );
-      localStorage.setItem("leads", JSON.stringify(updatedLeads));
+    if (computed.total <= 0) {
+      toast({ title: "Add at least one priced line", variant: "destructive" });
+      return;
     }
-
-    router.push("/admin/quotes");
+    setSending(true);
+    try {
+      const id = await persistQuote({ status: "sent", sent_at: new Date().toISOString() });
+      if (id) {
+        toast({
+          title: "Quote sent",
+          description: `Email queued to ${email}.`,
+        });
+        router.push("/admin/quotes");
+      }
+    } finally {
+      setSending(false);
+    }
   };
 
+  // ── UI helpers ────────────────────────────────────────────────────
+  const validityDays = useMemo(() => {
+    if (!validUntil) return null;
+    const ms = new Date(validUntil).getTime() - new Date().getTime();
+    return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  }, [validUntil]);
+
+  const dirty = !savedAt || dirtyRef.current;
+
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <>
       <NoIndexMeta />
       <Head>
-        <meta name="robots" content="noindex, nofollow" />
-        <title>New Quote | CateringMS Admin</title>
+        <title>{quoteNumber ? `${quoteNumber} | Quote` : "New Quote"} | CateringMS Admin</title>
       </Head>
 
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-8 max-w-screen-2xl mx-auto">
-          <Link href="/admin/leads">
-            <Button variant="ghost" className="mb-3 sm:mb-4 text-sm">
+          <Link href="/admin/quotes">
+            <Button variant="ghost" className="mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Leads
+              Back to Quotes
             </Button>
           </Link>
 
-          <div className="mb-4 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="p-2 sm:p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl sm:rounded-2xl shadow-lg flex-shrink-0">
-                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    Create Quote
-                  </h1>
-                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5 sm:mt-1">Generate a detailed quote for the client</p>
-                </div>
+          {/* Header */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl shadow-lg flex-shrink-0">
+                <DollarSign className="w-7 h-7 text-white" />
               </div>
-              {leadId && (
-                <Badge variant="outline" className="px-3 py-1.5 text-xs w-fit">
-                  Lead: {leadId}
-                </Badge>
-              )}
+              <div className="min-w-0">
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                  {quoteId ? "Edit Quote" : "Create Quote"}
+                </h1>
+                <p className="text-sm text-slate-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                  {quoteNumber && (
+                    <span className="font-mono text-slate-700">{quoteNumber}</span>
+                  )}
+                  {status !== "draft" && (
+                    <Badge className="bg-blue-100 text-blue-700 border-blue-200">{status}</Badge>
+                  )}
+                  {savedAt && (
+                    <span className="inline-flex items-center gap-1 text-emerald-600 text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Saved {savedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                  {saving && (
+                    <span className="inline-flex items-center gap-1 text-slate-500 text-xs">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                    </span>
+                  )}
+                  {dirty && !saving && status === "draft" && (
+                    <span className="text-xs text-amber-600">Unsaved changes</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setPreviewOpen((v) => !v)}>
+                <Eye className="w-4 h-4 mr-2" />
+                {previewOpen ? "Hide preview" : "Preview"}
+              </Button>
+              <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                <Save className="w-4 h-4 mr-2" />
+                Save draft
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={sending || saving || computed.total <= 0 || !email}
+                className="bg-gradient-to-r from-green-600 to-emerald-600"
+              >
+                {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                Save & Send
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left column: form */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Client + Event */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-emerald-600" />
-                        Client Information
-                      </CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">
-                        Start typing -- we'll match against your existing clients, leads and past quotes.
-                      </CardDescription>
-                    </div>
-                    {pickedSnapshot && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          clearPickedClient();
-                          setFormData({
-                            clientName: "",
-                            email: "",
-                            phone: "",
-                            eventDate: "",
-                            eventType: "",
-                            guestCount: 0,
-                            deliveryAddress: "",
-                          });
-                        }}
-                        className="h-8 text-xs"
-                      >
-                        <X className="w-3.5 h-3.5 mr-1" />
-                        Clear
-                      </Button>
-                    )}
-                  </div>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    Client + event
+                  </CardTitle>
+                  <CardDescription>
+                    Start typing -- we'll match against existing clients, leads and past quotes.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+                <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-xs sm:text-sm">Client Name</Label>
-                    {/* Typeahead replaces the old read-only input. The
-                        controlled value still flows into formData.clientName
-                        so brand-new clients work without picking anything. */}
+                    <Label className="text-xs">Client name</Label>
                     <ClientTypeahead
                       companyId={companyId}
-                      value={formData.clientName}
-                      onChange={(v) => setFormData((prev) => ({ ...prev, clientName: v }))}
+                      value={clientName}
+                      onChange={setClientName}
                       onPick={handleClientPick}
+                      placeholder="Search clients, or type a new name"
                     />
-                    {pickedClientId && (
-                      <div className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" />
-                        Matched to existing client -- form pre-filled below.
-                      </div>
-                    )}
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs sm:text-sm">Email</Label>
-                      <Input
-                        value={formData.email}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                        placeholder="client@example.com"
-                        className="text-sm h-10"
-                      />
+                      <Label className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
+                      <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@example.com" />
                     </div>
                     <div>
-                      <Label className="text-xs sm:text-sm">Phone</Label>
-                      <Input
-                        value={formData.phone}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                        placeholder="+27 ..."
-                        className="text-sm h-10"
-                      />
+                      <Label className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
+                      <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+27 ..." />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label className="text-xs">Event name / type</Label>
+                      <Input value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. Birthday lunch, Q2 Strategy meeting" />
                     </div>
                     <div>
-                      <Label className="text-xs sm:text-sm">Event Date</Label>
-                      <Input
-                        type="date"
-                        value={formData.eventDate}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, eventDate: e.target.value }))}
-                        className="text-sm h-10"
-                      />
+                      <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Event date</Label>
+                      <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
                     </div>
                     <div>
-                      <Label className="text-xs sm:text-sm">Guest Count</Label>
+                      <Label className="text-xs">Start time (optional)</Label>
+                      <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs flex items-center gap-1"><Users className="w-3 h-3" /> Guest count</Label>
                       <Input
                         type="number"
-                        min="0"
-                        value={formData.guestCount}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, guestCount: parseInt(e.target.value) || 0 }))}
-                        className="text-sm h-10"
+                        min={0}
+                        value={guestCount || ""}
+                        onChange={(e) => setGuestCount(safeNum(e.target.value))}
+                        placeholder="60"
                       />
                     </div>
+                    <div>
+                      <Label className="text-xs flex items-center gap-1"><Clock className="w-3 h-3" /> Valid until</Label>
+                      <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+                      {validityDays !== null && (
+                        <p className={`text-[11px] mt-1 ${validityDays < 0 ? "text-rose-600" : validityDays <= 7 ? "text-amber-600" : "text-slate-500"}`}>
+                          {validityDays < 0
+                            ? `Expired ${Math.abs(validityDays)}d ago`
+                            : `Expires in ${validityDays}d`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center gap-1"><MapPin className="w-3 h-3" /> Venue address</Label>
+                    <AddressAutocomplete
+                      value={venueAddress}
+                      placeholder="Start typing the venue..."
+                      countryCode="za"
+                      onChange={(pick) => {
+                        setVenueAddress(pick.address);
+                        setVenueLat(pick.lat);
+                        setVenueLng(pick.lng);
+                      }}
+                    />
                   </div>
 
-                  {pickedSnapshot && pickedSnapshot.recent_quotes.length > 0 && (
-                    <div className="mt-2 p-3 rounded-lg border border-purple-200 bg-purple-50/60">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Wand2 className="w-4 h-4 text-purple-600" />
-                        <span className="text-sm font-medium text-purple-900">
-                          Use a previous quote as a template
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-purple-700 mb-2">
-                        Loads the menu items and equipment from one of their past quotes -- you can tweak from there.
+                  {/* Recent-quote templates from the picked client. */}
+                  {clientSnapshot && clientSnapshot.recent_quotes.length > 0 && (
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                      <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                        <Wand2 className="w-3.5 h-3.5 text-purple-600" />
+                        Use a previous quote as the starting point
                       </p>
-                      <div className="space-y-1.5">
-                        {pickedSnapshot.recent_quotes.slice(0, 3).map((q) => (
-                          <button
+                      <div className="flex flex-wrap gap-2">
+                        {clientSnapshot.recent_quotes.slice(0, 4).map((q, i) => (
+                          <Button
+                            key={(q as any).id || i}
                             type="button"
-                            key={q.id}
-                            onClick={() => applyQuoteTemplate(q)}
-                            className="w-full text-left px-3 py-2 bg-white border border-purple-200 rounded-md hover:border-purple-400 hover:bg-purple-50 transition-colors"
+                            size="sm"
+                            variant="outline"
+                            className="bg-white"
+                            onClick={() => applyTemplate(q)}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="text-xs font-medium text-slate-900 truncate">
-                                  {q.quote_number ?? "Quote"}
-                                  {q.event_date ? ` • ${new Date(q.event_date).toLocaleDateString("en-ZA")}` : ""}
-                                </div>
-                                {q.venue_address && (
-                                  <div className="text-[11px] text-slate-500 truncate">{q.venue_address}</div>
-                                )}
-                              </div>
-                              <div className="text-xs font-semibold text-emerald-700 flex-shrink-0">
-                                {q.total_amount ? `R${Number(q.total_amount).toFixed(2)}` : ""}
-                              </div>
-                            </div>
-                          </button>
+                            {(q as any).quote_name || (q as any).quote_number || `Quote ${i + 1}`}
+                            {(q as any).total != null && (
+                              <span className="ml-2 text-emerald-600">{fmtR(safeNum((q as any).total))}</span>
+                            )}
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -625,321 +898,385 @@ function NewQuotePage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
-                    Delivery Address
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Calculate delivery distance and fees automatically</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
-                  <div>
-                    <Label className="text-xs sm:text-sm">Full Delivery Address</Label>
-                    {/* Address autocomplete -- uses Google Places to surface a
-                        real venue match the moment the staff member starts
-                        typing, and writes lat/lng straight into the order so
-                        the dispatcher view can plot it on the map. Falls back
-                        to a plain text input automatically if the API key is
-                        missing, so this never blocks quote creation. */}
-                    <AddressAutocomplete
-                      value={formData.deliveryAddress}
-                      onChange={(pick) => {
-                        handleDeliveryAddressChange(pick.address);
-                        // Stash lat/lng + placeId on the form so the order
-                        // insert can persist them once the quote converts.
-                        // Falls back silently if the picker had no result.
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          deliveryLat: pick.lat,
-                          deliveryLng: pick.lng,
-                          deliveryPlaceId: pick.placeId,
-                          deliveryAddressComponents: pick.components,
-                        }));
-                      }}
-                      placeholder="Start typing the venue address..."
-                      hint="Pick the matched suggestion so we get the exact location for routing. Saves drivers from guessing on the day."
-                      countryCode="za"
-                    />
-                  </div>
-
-                  {deliveryDetails.distance > 0 && (
-                    <div className="p-3 sm:p-4 bg-white rounded-lg border border-blue-200">
-                      <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                        <div>
-                          <div className="text-xl sm:text-2xl font-bold text-blue-600">{deliveryDetails.distance}km</div>
-                          <div className="text-xs text-slate-600">Distance</div>
-                        </div>
-                        <div>
-                          <div className="text-xl sm:text-2xl font-bold text-green-600">R{deliveryDetails.costPerKm.toFixed(2)}</div>
-                          <div className="text-xs text-slate-600">Per Km</div>
-                        </div>
-                        <div>
-                          <div className="text-xl sm:text-2xl font-bold text-purple-600">R{deliveryDetails.deliveryFee.toFixed(2)}</div>
-                          <div className="text-xs text-slate-600">Fee</div>
-                        </div>
-                      </div>
-                      <div className="mt-2 sm:mt-3 flex items-center justify-center gap-2 text-xs sm:text-sm text-slate-600">
-                        <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                        <span className="text-center">Calculated from kitchen to delivery</span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
+              {/* Menu lines */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardHeader>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
-                      <CardTitle className="text-base sm:text-lg">Menu Items</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Food and beverage offerings</CardDescription>
+                      <CardTitle className="text-base">Menu items</CardTitle>
+                      <CardDescription>Each line picks a pricing mode, qty + per-line discount.</CardDescription>
                     </div>
-                    <Button onClick={addMenuItem} size="sm" className="w-full sm:w-auto h-9 text-xs">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Item
+                    <Button size="sm" variant="outline" onClick={addLine}>
+                      <Plus className="w-4 h-4 mr-1" /> Add line
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
-                  {menuItems.map((item, index) => (
-                    <div key={item.id} className="p-3 sm:p-4 border rounded-lg bg-slate-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-xs sm:text-sm font-medium text-slate-600">Item {index + 1}</span>
-                        {menuItems.length > 1 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => removeMenuItem(item.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs sm:text-sm">Item Name</Label>
-                          {/* Menu typeahead -- searches this company's menu and
-                              pre-fills name + category + price when picked.
-                              Falls through to a plain custom line if nothing
-                              matches, so the form still works for one-off
-                              items not on the standing menu. */}
-                          <MenuItemTypeahead
-                            companyId={companyId}
-                            value={item.name}
-                            onChange={(v) => updateMenuItem(item.id, "name", v)}
-                            onPick={(pick) => applyMenuItemPick(item.id, pick)}
-                            placeholder="Search your menu -- 'lamb', 'salad', 'main'..."
-                          />
-                          {(item as any).menuItemId && (
-                            <div className="mt-1 text-[11px] text-emerald-600 flex items-center gap-1">
-                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              Linked to your menu -- price and category pre-filled.
-                            </div>
+                <CardContent className="space-y-3">
+                  {menuItems.map((line, idx) => {
+                    const computedQty =
+                      line.pricingMode === "per_person"
+                        ? guestCount
+                        : line.pricingMode === "flat"
+                          ? 1
+                          : line.quantity;
+                    const gross = line.unitPrice * computedQty;
+                    const net = gross * (1 - line.discountPct / 100);
+                    return (
+                      <div key={line.id} className="p-3 sm:p-4 border border-slate-200 rounded-lg bg-slate-50">
+                        <div className="flex items-start justify-between mb-2 gap-2">
+                          <span className="text-xs text-slate-500">Line {idx + 1}</span>
+                          {menuItems.length > 1 && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLine(line.id)}>
+                              <Trash2 className="w-4 h-4 text-rose-600" />
+                            </Button>
                           )}
                         </div>
-                        <div>
-                          <Label className="text-xs sm:text-sm">Category</Label>
-                          <select
-                            value={item.category}
-                            onChange={(e) => updateMenuItem(item.id, "category", e.target.value)}
-                            className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
-                          >
-                            <option value="appetizer">Appetizer</option>
-                            <option value="main">Main Course</option>
-                            <option value="side">Side Dish</option>
-                            <option value="dessert">Dessert</option>
-                            <option value="beverage">Beverage</option>
-                          </select>
+                        <div className="space-y-2">
+                          <div>
+                            <Label className="text-xs">Item</Label>
+                            <MenuItemTypeahead
+                              companyId={companyId}
+                              value={line.name}
+                              onChange={(v) => updateLine(line.id, { name: v })}
+                              onPick={(pick) => applyMenuItemPick(line.id, pick)}
+                              placeholder="Search the menu..."
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                            <div className="sm:col-span-3">
+                              <Label className="text-xs">Category</Label>
+                              <select
+                                value={line.category || "main"}
+                                onChange={(e) => updateLine(line.id, { category: e.target.value })}
+                                className="w-full h-10 px-2 rounded-md border border-slate-200 bg-white text-sm"
+                              >
+                                {LINE_CATEGORIES.map((c) => (
+                                  <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="sm:col-span-3">
+                              <Label className="text-xs">Pricing mode</Label>
+                              <select
+                                value={line.pricingMode}
+                                onChange={(e) => updateLine(line.id, { pricingMode: e.target.value as PricingMode })}
+                                className="w-full h-10 px-2 rounded-md border border-slate-200 bg-white text-sm"
+                              >
+                                <option value="per_person">Per guest</option>
+                                <option value="per_portion">Per portion</option>
+                                <option value="flat">Flat fee</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs">Unit price (R)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={line.unitPrice || ""}
+                                onChange={(e) => updateLine(line.id, { unitPrice: safeNum(e.target.value) })}
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs">Qty</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                disabled={line.pricingMode === "per_person" || line.pricingMode === "flat"}
+                                value={
+                                  line.pricingMode === "per_person"
+                                    ? guestCount
+                                    : line.pricingMode === "flat"
+                                      ? 1
+                                      : line.quantity || ""
+                                }
+                                onChange={(e) => updateLine(line.id, { quantity: safeNum(e.target.value) })}
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <Label className="text-xs flex items-center gap-1"><Percent className="w-3 h-3" /> Discount</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={line.discountPct || ""}
+                                onChange={(e) => updateLine(line.id, { discountPct: Math.min(100, Math.max(0, safeNum(e.target.value))) })}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-xs text-slate-500 flex justify-between flex-wrap gap-2 pt-1">
+                            <span>
+                              {fmtR(line.unitPrice)} {PRICING_LABEL[line.pricingMode]} × {computedQty}
+                              {line.discountPct > 0 && <> &nbsp;-&nbsp; {line.discountPct}% off</>}
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {line.discountPct > 0 ? (
+                                <>
+                                  <span className="line-through text-slate-400 mr-1.5">{fmtR(gross)}</span>
+                                  <span className="text-emerald-600">{fmtR(net)}</span>
+                                </>
+                              ) : (
+                                fmtR(net)
+                              )}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <Label className="text-xs sm:text-sm">Price per Person</Label>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
+              {/* Equipment */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <CardTitle className="text-base">Equipment</CardTitle>
+                      <CardDescription>Chafing dishes, serving ware, hire add-ons.</CardDescription>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={addEquip}>
+                      <Plus className="w-4 h-4 mr-1" /> Add equipment
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {equipment.length === 0 && (
+                    <p className="text-sm text-slate-500 italic">No equipment lines.</p>
+                  )}
+                  {equipment.map((e, idx) => (
+                    <div key={e.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-xs text-slate-500">Item {idx + 1}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEquip(e.id)}>
+                          <Trash2 className="w-4 h-4 text-rose-600" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <div className="sm:col-span-6">
+                          <Label className="text-xs">Name</Label>
+                          <Input value={e.name} onChange={(ev) => updateEquip(e.id, { name: ev.target.value })} placeholder="Chafing dish" />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <Label className="text-xs">Qty</Label>
                           <Input
                             type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.pricePerPerson}
-                            onChange={(e) => updateMenuItem(item.id, "pricePerPerson", parseFloat(e.target.value) || 0)}
-                            placeholder="15.00"
-                            className="text-sm h-10"
+                            min={0}
+                            value={e.quantity || ""}
+                            onChange={(ev) => updateEquip(e.id, { quantity: safeNum(ev.target.value) })}
                           />
                         </div>
-                        <div className="sm:col-span-2">
-                          <Label className="text-xs sm:text-sm">Quantity</Label>
+                        <div className="sm:col-span-3">
+                          <Label className="text-xs">Unit price (R)</Label>
                           <Input
                             type="number"
-                            min="0"
-                            value={item.quantity}
-                            onChange={(e) => updateMenuItem(item.id, "quantity", parseInt(e.target.value) || 0)}
-                            placeholder={formData.guestCount.toString()}
-                            className="text-sm h-10"
+                            min={0}
+                            step="0.01"
+                            value={e.unitPrice || ""}
+                            onChange={(ev) => updateEquip(e.id, { unitPrice: safeNum(ev.target.value) })}
                           />
                         </div>
                       </div>
-                      <div className="mt-2 text-right">
-                        <span className="text-xs sm:text-sm text-slate-600">Subtotal: </span>
-                        <span className="text-sm sm:text-base font-semibold text-green-600">
-                          R{(item.pricePerPerson * item.quantity).toFixed(2)}
-                        </span>
+                      <div className="text-xs text-slate-600 mt-1.5 text-right">
+                        {fmtR(e.unitPrice * e.quantity)}
                       </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
+              {/* Adjustments */}
               <Card className="border-0 shadow-lg">
-                <CardHeader className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base sm:text-lg">Equipment Rental</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Chafing dishes, serving ware, etc.</CardDescription>
-                    </div>
-                    <Button onClick={addEquipmentItem} size="sm" variant="outline" className="w-full sm:w-auto h-9 text-xs">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Equipment
-                    </Button>
-                  </div>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-amber-600" />
+                    Pricing adjustments
+                  </CardTitle>
+                  <CardDescription>Surge / weekend uplift, quote-level discounts.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
-                  {equipmentItems.map((item, index) => (
-                    <div key={item.id} className="p-3 sm:p-4 border rounded-lg bg-slate-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <span className="text-xs sm:text-sm font-medium text-slate-600">Equipment {index + 1}</span>
-                        {equipmentItems.length > 1 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => removeEquipmentItem(item.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                        <div>
-                          <Label className="text-xs sm:text-sm">Equipment Name</Label>
-                          <Input
-                            value={item.name}
-                            onChange={(e) => updateEquipmentItem(item.id, "name", e.target.value)}
-                            placeholder="Chafing Dish"
-                            className="text-sm h-10"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                          <div>
-                            <Label className="text-xs sm:text-sm">Quantity</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={item.quantity}
-                              onChange={(e) => updateEquipmentItem(item.id, "quantity", parseInt(e.target.value) || 0)}
-                              placeholder="4"
-                              className="text-sm h-10"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs sm:text-sm">Rental Price</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.rentalPrice}
-                              onChange={(e) => updateEquipmentItem(item.id, "rentalPrice", parseFloat(e.target.value) || 0)}
-                              placeholder="25.00"
-                              className="text-sm h-10"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 text-right">
-                        <span className="text-xs sm:text-sm text-slate-600">Subtotal: </span>
-                        <span className="text-sm sm:text-base font-semibold text-green-600">
-                          R{(item.rentalPrice * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs flex items-center gap-1">Surge / uplift (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={surgePct || ""}
+                      onChange={(e) => setSurgePct(Math.max(0, safeNum(e.target.value)))}
+                      placeholder="0"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Weekend / public-holiday uplift, applied to items.</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Discount (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={discountPct || ""}
+                      onChange={(e) => setDiscountPct(Math.min(100, Math.max(0, safeNum(e.target.value))))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Discount (R)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={discountFlat || ""}
+                      onChange={(e) => setDiscountFlat(Math.max(0, safeNum(e.target.value)))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notes */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-base">Notes</CardTitle>
+                  <CardDescription>Internal notes never go to the client.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Internal note</Label>
+                    <Textarea
+                      rows={3}
+                      value={internalNotes}
+                      onChange={(e) => setInternalNotes(e.target.value)}
+                      placeholder="Kitchen prep, allergens, account context..."
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Note for client (shown on the quote email)</Label>
+                    <Textarea
+                      rows={3}
+                      value={clientNotes}
+                      onChange={(e) => setClientNotes(e.target.value)}
+                      placeholder="Optional message that goes out with the quote."
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="space-y-4 sm:space-y-6">
-              <Card className="border-0 shadow-lg lg:sticky lg:top-4">
-                <CardHeader className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
-                    Quote Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                  <div className="space-y-2 sm:space-y-3">
-                    <div className="flex justify-between text-slate-600 text-sm sm:text-base">
-                      <span>Items Subtotal</span>
-                      <span className="font-medium">R{subtotal.toFixed(2)}</span>
-                    </div>
-                    
-                    {deliveryDetails.distance > 0 && (
-                      <div className="flex justify-between text-slate-600 bg-blue-50 -mx-2 px-2 py-2 rounded text-sm sm:text-base">
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
-                          <span className="text-xs sm:text-sm">Delivery ({deliveryDetails.distance}km)</span>
-                        </div>
-                        <span className="font-medium text-blue-600 text-xs sm:text-sm">R{deliveryFee.toFixed(2)}</span>
-                      </div>
+            {/* Right column: sticky summary + preview */}
+            <div className="lg:col-span-1">
+              <div className="lg:sticky lg:top-6 space-y-4">
+                <Card className="border-0 shadow-xl">
+                  <CardHeader>
+                    <CardTitle className="text-base">Running total</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5 text-sm">
+                    <Row label="Items (gross)" value={fmtR(computed.itemsGross)} />
+                    {computed.lineDiscounts > 0 && (
+                      <Row label="Line discounts" value={`- ${fmtR(computed.lineDiscounts)}`} tone="discount" />
                     )}
-                    
-                    <div className="flex justify-between text-slate-600 text-sm sm:text-base">
-                      <span>VAT (15%)</span>
-                      <span className="font-medium">R{tax.toFixed(2)}</span>
-                    </div>
-                    <div className="h-px bg-slate-200" />
-                    <div className="flex justify-between text-base sm:text-lg font-bold text-slate-900">
-                      <span>Total</span>
-                      <span className="text-green-600">R{total.toFixed(2)}</span>
-                    </div>
-                  </div>
+                    <Row label="Items net" value={fmtR(computed.itemsNet)} muted />
+                    {computed.surge !== 0 && (
+                      <Row label={`Surge (+${surgePct}%)`} value={`+ ${fmtR(computed.surge)}`} tone="warm" />
+                    )}
+                    {computed.pctDiscount > 0 && (
+                      <Row label={`Discount (-${discountPct}%)`} value={`- ${fmtR(computed.pctDiscount)}`} tone="discount" />
+                    )}
+                    {computed.flatDiscount > 0 && (
+                      <Row label="Flat discount" value={`- ${fmtR(computed.flatDiscount)}`} tone="discount" />
+                    )}
+                    <Row label={`Delivery (${deliveryDistance.toFixed(1)}km @ R${deliveryCostPerKm}/km)`} value={fmtR(deliveryFee)} muted />
+                    <div className="my-1 border-t border-slate-200" />
+                    <Row label="Subtotal" value={fmtR(computed.subtotal)} />
+                    <Row label={`VAT (${(TAX_RATE * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
+                    <div className="my-1 border-t border-slate-200" />
+                    <Row label="Total" value={fmtR(computed.total)} tone="bold" />
+                  </CardContent>
+                </Card>
 
-                  <div className="pt-3 sm:pt-4 space-y-2 sm:space-y-3">
-                    <Button 
-                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 h-11 text-sm"
-                      onClick={() => handleSaveQuote(true)}
-                    >
-                      <Send className="w-4 h-4 mr-2" />
-                      Send to Client
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="w-full h-11 text-sm"
-                      onClick={() => handleSaveQuote(false)}
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Save as Draft
-                    </Button>
-                  </div>
-
-                  <div className="pt-3 sm:pt-4 border-t text-xs sm:text-sm text-slate-600">
-                    <p className="mb-2 font-medium">Quote includes:</p>
-                    <ul className="space-y-1 text-xs">
-                      <li>• {menuItems.filter(i => i.name).length} menu items</li>
-                      <li>• {equipmentItems.filter(i => i.name).length} equipment rentals</li>
-                      {deliveryDetails.distance > 0 && (
-                        <li>• Delivery ({deliveryDetails.distance}km at R{deliveryDetails.costPerKm}/km)</li>
+                {previewOpen && (
+                  <Card className="border-0 shadow-xl">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Eye className="w-4 h-4" /> Client preview
+                      </CardTitle>
+                      <CardDescription>What goes out in the quote email.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-sm space-y-2">
+                      <div className="rounded-lg border border-slate-200 p-3 bg-white">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-semibold">{eventName || "Quote"}</p>
+                          {quoteNumber && <span className="text-[11px] text-slate-500">{quoteNumber}</span>}
+                        </div>
+                        <p className="text-xs text-slate-500 mb-3">
+                          {eventDate ? new Date(eventDate).toLocaleDateString("en-ZA") : "—"}
+                          {guestCount ? ` • ${guestCount} guests` : ""}
+                        </p>
+                        <ul className="space-y-1 mb-3">
+                          {menuItems.filter((l) => l.name).map((l, i) => {
+                            const q =
+                              l.pricingMode === "per_person" ? guestCount :
+                              l.pricingMode === "flat" ? 1 : l.quantity;
+                            const net = l.unitPrice * q * (1 - l.discountPct / 100);
+                            return (
+                              <li key={i} className="flex justify-between text-xs">
+                                <span className="text-slate-700">{l.name} × {q}</span>
+                                <span className="text-slate-900 font-medium">{fmtR(net)}</span>
+                              </li>
+                            );
+                          })}
+                          {equipment.filter((e) => e.name).map((e, i) => (
+                            <li key={`e${i}`} className="flex justify-between text-xs">
+                              <span className="text-slate-700">{e.name} × {e.quantity}</span>
+                              <span className="text-slate-900 font-medium">{fmtR(e.unitPrice * e.quantity)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="flex justify-between font-semibold border-t pt-2">
+                          <span>Total (incl. VAT)</span>
+                          <span className="text-emerald-600">{fmtR(computed.total)}</span>
+                        </div>
+                        {clientNotes && (
+                          <p className="mt-3 text-xs text-slate-600 italic whitespace-pre-wrap border-t pt-2">{clientNotes}</p>
+                        )}
+                      </div>
+                      {validityDays !== null && validityDays >= 0 && (
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Quote valid for {validityDays} day{validityDays === 1 ? "" : "s"}.
+                        </p>
                       )}
-                      <li>• Setup and professional service</li>
-                    </ul>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!email && clientName && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Add a client email so we can send the branded quote when you hit Save & Send.</span>
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </div>
             </div>
           </div>
         </div>
-        
+
         <Footer />
       </div>
 
-      <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+      <ChatBot userRole="admin" companyId={companyId || undefined} />
     </>
+  );
+}
+
+// Small summary-row component used in the running-total card.
+function Row({ label, value, muted, tone }: { label: string; value: string; muted?: boolean; tone?: "warm" | "discount" | "bold" }) {
+  const valueClass =
+    tone === "warm" ? "text-amber-600 font-medium" :
+    tone === "discount" ? "text-rose-600 font-medium" :
+    tone === "bold" ? "text-emerald-600 font-bold text-lg" :
+    "text-slate-900 font-medium";
+  return (
+    <div className="flex items-baseline justify-between">
+      <span className={`text-xs ${muted ? "text-slate-500" : "text-slate-600"}`}>{label}</span>
+      <span className={valueClass}>{value}</span>
+    </div>
   );
 }
