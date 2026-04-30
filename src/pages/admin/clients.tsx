@@ -39,6 +39,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
@@ -342,7 +344,7 @@ function ClientsCRM() {
 
   // Smart fuzzy search across name, email, phone with name weighted highest.
   // The hook debounces and scores -- gives us prefix > substring > fuzzy.
-  const visible = useFuzzyItems(
+  const fuzzyVisible = useFuzzyItems(
     statusFiltered,
     search,
     [
@@ -352,6 +354,21 @@ function ClientsCRM() {
     ],
     { limit: 0 },
   );
+
+  // Column-sort wrapping. Default to "Suggested action urgency" via the
+  // Status column ranking, but the user can click any header to flip
+  // the order. Search ranking still applies first (we sort the fuzzy
+  // result, not the source list).
+  const sortColumns: ColumnDef<Contact>[] = useMemo(() => [
+    { key: "name",      accessor: (r) => r.name,                                       type: "string" },
+    { key: "status",    accessor: (r) => STATUS_META[r.status]?.label || r.status,     type: "string" },
+    { key: "action",    accessor: (r) => STATUS_META[r.status]?.label || r.status,     type: "string" },
+    { key: "orders",    accessor: (r) => r.orderCount,                                 type: "number" },
+    { key: "spent",     accessor: (r) => r.totalSpent,                                 type: "number" },
+    { key: "lastTouch", accessor: (r) => r.daysSinceLastTouch ?? Number.POSITIVE_INFINITY, type: "number" },
+  ], []);
+  const sortedView = useSortable<Contact>(fuzzyVisible as Contact[], sortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const visible = sortedView.rows;
 
   const markContacted = (key: string) => {
     setContactedKeys((prev) => ({ ...prev, [key]: new Date().toISOString() }));
@@ -450,13 +467,60 @@ function ClientsCRM() {
                   <table className="w-full text-sm">
                     <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
                       <tr>
-                        <th className="text-left py-3 pl-4 pr-2"><span className="inline-flex items-center gap-1.5">Contact <InfoTooltip content={"Name, email and phone, pulled together from your clients, leads and orders."} /></span></th>
-                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Status <InfoTooltip content={"Where this contact sits in their journey with you, from hot lead through to VIP or lost.\n\nWorked out from how often they have ordered, how much they have spent and how recently they have been active."} /></span></th>
-                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Suggested action <InfoTooltip content={"A suggested next step based on the contact's status and how long it has been since you last spoke."} /></span></th>
-                        <th className="text-right py-3 px-2"><span className="inline-flex items-center gap-1.5">Orders <InfoTooltip content={"How many orders this contact has placed, matched on their email or name. Cancelled orders are not counted."} /></span></th>
-                        <th className="text-right py-3 px-2"><span className="inline-flex items-center gap-1.5">Total spent <InfoTooltip content={"Total spent by this contact across all their orders.\n\nCancelled orders are not counted."} /></span></th>
-                        <th className="text-left py-3 px-2"><span className="inline-flex items-center gap-1.5">Last touch <InfoTooltip content={"Days since their last event, or since you last marked them as contacted."} /></span></th>
-                        <th className="text-right py-3 pr-4"><span className="inline-flex items-center gap-1.5">Quick mail <InfoTooltip content={"Opens a draft in Gmail, Outlook or your default mail app so the email comes from your address. One contact at a time, no bulk send."} /></span></th>
+                        <th className="text-left py-3 pl-4 pr-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <SortHeader sortKey="name" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                              Contact
+                            </SortHeader>
+                            <InfoTooltip content={"Name, email and phone, pulled together from your clients, leads and orders."} />
+                          </span>
+                        </th>
+                        <th className="text-left py-3 px-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <SortHeader sortKey="status" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                              Status
+                            </SortHeader>
+                            <InfoTooltip content={"Where this contact sits in their journey with you, from hot lead through to VIP or lost.\n\nWorked out from how often they have ordered, how much they have spent and how recently they have been active."} />
+                          </span>
+                        </th>
+                        <th className="text-left py-3 px-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <SortHeader sortKey="action" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                              Suggested action
+                            </SortHeader>
+                            <InfoTooltip content={"A suggested next step based on the contact's status and how long it has been since you last spoke."} />
+                          </span>
+                        </th>
+                        <th className="text-right py-3 px-2">
+                          <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                            <SortHeader sortKey="orders" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle} align="right">
+                              Orders
+                            </SortHeader>
+                            <InfoTooltip content={"How many orders this contact has placed, matched on their email or name. Cancelled orders are not counted."} />
+                          </span>
+                        </th>
+                        <th className="text-right py-3 px-2">
+                          <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                            <SortHeader sortKey="spent" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle} align="right">
+                              Total spent
+                            </SortHeader>
+                            <InfoTooltip content={"Total spent by this contact across all their orders.\n\nCancelled orders are not counted."} />
+                          </span>
+                        </th>
+                        <th className="text-left py-3 px-2">
+                          <span className="inline-flex items-center gap-1.5">
+                            <SortHeader sortKey="lastTouch" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                              Last touch
+                            </SortHeader>
+                            <InfoTooltip content={"Days since their last event, or since you last marked them as contacted."} />
+                          </span>
+                        </th>
+                        <th className="text-right py-3 pr-4">
+                          <span className="inline-flex items-center gap-1.5 justify-end w-full">
+                            Quick mail
+                            <InfoTooltip content={"Opens a draft in Gmail, Outlook or your default mail app so the email comes from your address. One contact at a time, no bulk send."} />
+                          </span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
