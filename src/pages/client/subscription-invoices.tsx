@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
-import { ClientNav } from "@/components/navigation/ClientNav";
+import { ClientNav } from "@/components/client/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import type { Tables } from "@/integrations/supabase/types";
