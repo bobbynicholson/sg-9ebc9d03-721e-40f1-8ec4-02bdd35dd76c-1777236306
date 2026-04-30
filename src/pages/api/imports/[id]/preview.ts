@@ -61,7 +61,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Import has no rows to preview" });
     }
 
-    const supabase = getServiceSupabase();
+    // Cast: import_rows isn't in the auto-generated Database types yet.
+    const supabase = getServiceSupabase() as any;
     const summary: PreviewSummary = {
       total: rows.length, ok: 0, warnings: 0, errors: 0, by_target_table: {},
     };

@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (Object.keys(patch).length === 0) {
         return res.status(400).json({ error: "Nothing to update" });
       }
-      const sb = (await import("@/lib/supabase/service")).getServiceSupabase();
+      const sb = (await import("@/lib/supabase/service")).getServiceSupabase() as any;
       const { error } = await sb
         .from("import_jobs")
         .update(patch)

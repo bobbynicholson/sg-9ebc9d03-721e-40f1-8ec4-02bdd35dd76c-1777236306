@@ -53,7 +53,7 @@ async function findExistingClient(
       .from("clients")
       .select("id")
       .eq("company_id", companyId)
-      .ilike("full_name", String(mapped.client_name).trim())
+      .ilike("client_name", String(mapped.client_name).trim())
       .limit(1)
       .maybeSingle();
     if (data) return (data as any).id;
@@ -111,7 +111,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await setJobStatus(jobId, "committing");
 
-    const supabase = getServiceSupabase();
+    // Cast: import_rows isn't in the auto-generated Database types
+    // yet -- without it TS chases the union forever ("Type
+    // instantiation is excessively deep").
+    const supabase = getServiceSupabase() as any;
     const rows = await listImportRows(jobId, { limit: 5000 });
 
     const summary: CommitSummary = {
@@ -142,21 +145,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
+        // clients schema: client_name, email, phone, notes, is_active.
+        // No `company_name` or `status` columns -- the AI mapper's
+        // schema includes them but they're collapsed into client_name
+        // and is_active here.
         const insertPayload: any = {
           company_id: companyId,
-          full_name: mapped.client_name || mapped.company_name || "Imported client",
+          client_name: mapped.client_name || mapped.company_name || "Imported client",
           email: mapped.email || null,
           phone: mapped.phone || null,
-          company_name: mapped.company_name || null,
           notes: mapped.notes || null,
-          status: mapped.status || "active",
+          is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
         };
 
         const { data: inserted, error } = await supabase
           .from("clients")
           .insert(insertPayload)
-          .select("id, email, full_name")
+          .select("id, email, client_name")
           .single();
         if (error) throw new Error(error.message);
 
@@ -207,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               .from("clients")
               .select("id")
               .eq("company_id", companyId)
-              .ilike("full_name", k)
+              .ilike("client_name", k)
               .limit(1)
               .maybeSingle();
             clientId = data ? (data as any).id : null;
@@ -225,6 +231,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           continue;
         }
 
+        // orders schema doesn't have notes / external_ref columns
+        // (verified via information_schema). The AI mapper's order
+        // target list still includes them so the operator can mark
+        // a column as such; we just drop those values at insert
+        // time. status defaults to 'pending' to match the existing
+        // enum.
         const orderPayload: any = {
           company_id: companyId,
           client_id: clientId,
@@ -237,9 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           guest_count: mapped.guest_count ?? null,
           venue_address: mapped.venue_address || null,
           total_amount: mapped.total_amount ?? null,
-          notes: mapped.notes || null,
-          external_ref: mapped.external_ref || null,
-          status: mapped.status || "imported",
+          status: mapped.status || "pending",
           import_job_id: jobId,
         };
 

@@ -18,6 +18,15 @@
  */
 import { getServiceSupabase } from "@/lib/supabase/service";
 
+// Cast helper: the auto-generated Database types don't yet include
+// import_jobs / import_rows / import_events (just landed in
+// migrations). Without the cast TS chases the union forever ->
+// "Type instantiation is excessively deep". Regenerate types via
+// `supabase gen types` to drop this.
+function sb() {
+  return getServiceSupabase() as any;
+}
+
 export type ImportStatus =
   | "uploaded"
   | "mapped"
@@ -79,7 +88,7 @@ interface CreateJobInput {
  * mapping step.
  */
 export async function createImportJob(input: CreateJobInput): Promise<string> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
 
   const { data: job, error: jobErr } = await supabase
     .from("import_jobs")
@@ -132,7 +141,7 @@ export async function createImportJob(input: CreateJobInput): Promise<string> {
 }
 
 export async function getImportJob(jobId: string, companyId: string): Promise<ImportJob | null> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
   const { data, error } = await supabase
     .from("import_jobs")
     .select("*")
@@ -147,7 +156,7 @@ export async function getImportJob(jobId: string, companyId: string): Promise<Im
 }
 
 export async function listImportJobs(companyId: string, limit = 25): Promise<ImportJob[]> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
   const { data, error } = await supabase
     .from("import_jobs")
     .select("*")
@@ -165,7 +174,7 @@ export async function listImportRows(
   jobId: string,
   opts: { sheet?: string; status?: string; limit?: number } = {},
 ): Promise<ImportRow[]> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
   let q = supabase
     .from("import_rows")
     .select("*")
@@ -193,7 +202,7 @@ export async function setJobStatus(
     failed_at: string | null;
   }> = {},
 ): Promise<void> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
   const update: any = { status, ...patch };
   if (status === "completed" && !patch.completed_at) update.completed_at = new Date().toISOString();
   if (status === "failed" && !patch.failed_at) update.failed_at = new Date().toISOString();
@@ -203,7 +212,7 @@ export async function setJobStatus(
 }
 
 export async function logEvent(jobId: string, eventType: string, payload: any): Promise<void> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
   await supabase.from("import_events").insert({
     job_id: jobId,
     event_type: eventType,
@@ -227,7 +236,7 @@ export async function rollbackImportJob(
   jobId: string,
   companyId: string,
 ): Promise<RollbackResult> {
-  const supabase = getServiceSupabase();
+  const supabase = sb();
 
   // Verify ownership before mutating anything.
   const job = await getImportJob(jobId, companyId);
