@@ -69,8 +69,11 @@ const isPublicRoute = (pathname: string) => {
   // Exact match for homepage
   if (pathname === "/") return true;
 
-  // Tenant-scoped login pages: /[slug]/login
+  // Tenant-scoped staff login: /[slug]/login
   if (/^\/[^\/]+\/login$/.test(pathname)) return true;
+
+  // Tenant-scoped client magic-link login: /[slug]/client/login
+  if (/^\/[^\/]+\/client\/login$/.test(pathname)) return true;
 
   // Tenant-scoped magic-link auth callback: /[slug]/auth/callback.
   // The callback handles its own session creation via Supabase, so it
