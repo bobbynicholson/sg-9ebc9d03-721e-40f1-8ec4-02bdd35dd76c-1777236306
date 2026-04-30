@@ -261,6 +261,7 @@ function DriverManagementPage() {
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           email: newDriver.email,
           password: newDriver.password,
@@ -271,9 +272,19 @@ function DriverManagementPage() {
         }),
       });
 
-      const payload = await res.json().catch(() => ({}));
+      // Read the body once as text first, then try parsing as JSON. This
+      // way we surface the actual server message even if the response is
+      // an HTML error page (e.g. middleware redirect, framework crash).
+      const rawText = await res.text();
+      let payload: any = {};
+      try { payload = JSON.parse(rawText); } catch { /* keep raw */ }
+
       if (!res.ok) {
-        setError(payload?.error || "Failed to add driver. Please try again.");
+        const serverMsg = payload?.error
+          || (rawText && rawText.length < 200 ? rawText : null)
+          || `Server returned ${res.status}`;
+        setError(`Could not add driver: ${serverMsg}`);
+        console.error("Add driver failed:", { status: res.status, payload, rawText });
         setAddDriverLoading(false);
         return;
       }
@@ -291,7 +302,7 @@ function DriverManagementPage() {
       loadDrivers();
     } catch (err: any) {
       console.error("Error adding driver:", err);
-      setError(err?.message || "Failed to add driver. Please try again.");
+      setError(err?.message || "Network or browser error -- check the console for details.");
     } finally {
       setAddDriverLoading(false);
     }
