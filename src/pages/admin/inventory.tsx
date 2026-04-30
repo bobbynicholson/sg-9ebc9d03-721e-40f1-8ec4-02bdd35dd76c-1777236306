@@ -2108,11 +2108,13 @@ function InventoryEquipmentStrip() {
     let cancelled = false;
     (async () => {
       try {
+        // Cast both queries to any -- equipment_hire_orders isn't yet
+        // in the auto-generated Database types so the union inference
+        // bails with TS2589 ("Type instantiation is excessively deep").
+        const sb = supabase as any;
         const [eqRes, hireRes] = await Promise.all([
-          // @ts-expect-error supabase typing is happy at runtime
-          supabase.from("equipment").select("id, quantity, is_available").eq("company_id", companyId),
-          // @ts-expect-error supabase typing is happy at runtime
-          supabase.from("equipment_hire_orders").select("status, total_cost").eq("company_id", companyId),
+          sb.from("equipment").select("id, quantity, is_available").eq("company_id", companyId),
+          sb.from("equipment_hire_orders").select("status, total_cost").eq("company_id", companyId),
         ]);
         if (cancelled) return;
         const eqRows = (eqRes.data || []) as any[];

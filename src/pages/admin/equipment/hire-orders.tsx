@@ -111,7 +111,12 @@ function HireOrdersPage() {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Cast supabase to any -- the auto-generated Database types
+      // haven't been regenerated since equipment_hire_orders was
+      // added via migration. Without the cast, TS chases the union
+      // forever and bails with "Type instantiation is excessively deep".
+      // Regenerate via `supabase gen types` to drop these casts.
+      const { data, error } = await (supabase as any)
         .from("equipment_hire_orders")
         .select("*")
         .eq("company_id", companyId)
@@ -155,7 +160,7 @@ function HireOrdersPage() {
     if (!editing) return;
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("equipment_hire_orders")
         .update({
           supplier_name: editing.supplier_name?.trim() || null,
@@ -187,7 +192,7 @@ function HireOrdersPage() {
       const patch: any = { status: next };
       if (next === "picked_up" && !r.actual_pickup_date) patch.actual_pickup_date = new Date().toISOString().slice(0, 10);
       if (next === "returned" && !r.actual_return_date) patch.actual_return_date = new Date().toISOString().slice(0, 10);
-      const { error } = await supabase.from("equipment_hire_orders").update(patch).eq("id", r.id);
+      const { error } = await (supabase as any).from("equipment_hire_orders").update(patch).eq("id", r.id);
       if (error) throw error;
       toast({ title: `Marked ${STATUS_META[next].label.toLowerCase()}` });
       load();
