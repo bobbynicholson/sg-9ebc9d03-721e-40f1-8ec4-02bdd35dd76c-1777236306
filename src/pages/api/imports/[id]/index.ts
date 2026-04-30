@@ -13,7 +13,7 @@ const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (req.method !== "GET" && req.method !== "PATCH") {
+    if (req.method !== "GET" && req.method !== "PATCH" && req.method !== "DELETE") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
@@ -38,6 +38,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
+
+    if (req.method === "DELETE") {
+      // Discard an import job. Used for test runs the operator never
+      // finished mapping. We refuse to delete a completed job because
+      // the rows it inserted are live data; the user should run rollback
+      // (which cleans the data and marks the job as rolled_back) and
+      // can then delete the rolled_back row from history.
+      const status = String((job as any).status || "").toLowerCase();
+      if (status === "completed") {
+        return res.status(409).json({
+          error: "This import is completed and has live data. Run rollback first, then delete.",
+        });
+      }
+      const sb = (await import("@/lib/supabase/service")).getServiceSupabase() as any;
+      // import_rows has ON DELETE CASCADE on job_id, so deleting the
+      // parent job removes every preview row. Belt and braces: also
+      // delete the rows directly in case the FK was ever altered.
+      await sb.from("import_rows").delete().eq("job_id", jobId);
+      const { error } = await sb
+        .from("import_jobs")
+        .delete()
+        .eq("id", jobId)
+        .eq("company_id", companyId);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true, deleted: true });
+    }
 
     if (req.method === "PATCH") {
       // Allow the wizard to save the (operator-edited) mapping back

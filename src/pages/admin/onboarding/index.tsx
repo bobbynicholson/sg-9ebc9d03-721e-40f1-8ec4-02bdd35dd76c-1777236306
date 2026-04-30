@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wand2, Upload, RotateCcw, ArrowRight, Clock, CheckCircle2,
-  AlertTriangle, FileSpreadsheet, Loader2,
+  AlertTriangle, FileSpreadsheet, Loader2, Trash2,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -109,6 +109,40 @@ function ImportsHistoryPage() {
       load();
     } catch (e: any) {
       toast({ title: "Rollback failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const discard = async (job: ImportJobRow) => {
+    // Used for test runs the operator never finished mapping. Refuses
+    // for completed jobs (those need rollback first to remove the live
+    // data they inserted).
+    const isCompleted = job.status === "completed";
+    const msg = isCompleted
+      ? "This import is completed and has live data. Run rollback first, then delete."
+      : `Delete this import job? This removes the upload and every preview row associated with it. Existing clients / orders are untouched.`;
+    if (isCompleted) {
+      toast({
+        title: "Cannot delete a completed import",
+        description: "Run rollback first, then delete the rolled-back row.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!confirm(msg)) return;
+    setBusyId(job.id);
+    try {
+      const res = await fetch(`/api/imports/${job.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Delete failed");
+      toast({
+        title: "Import deleted",
+        description: `Removed "${job.source_filename || "(unnamed file)"}" from history.`,
+      });
+      load();
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e?.message || "", variant: "destructive" });
     } finally {
       setBusyId(null);
     }
@@ -354,6 +388,26 @@ function ImportsHistoryPage() {
                               ? `Rollback ${(ROLLBACK_HOURS - ageHours).toFixed(1)}h left`
                               : "Locked in"}
                           </span>
+                        )}
+                        {/* Delete is offered on every job that doesn't have
+                            live data (i.e. anything except 'completed').
+                            Useful for test uploads the operator abandoned
+                            half-way through mapping. */}
+                        {j.status !== "completed" && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Delete this import job"
+                            onClick={() => discard(j)}
+                            disabled={busyId === j.id}
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          >
+                            {busyId === j.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
                         )}
                       </div>
                     </CardContent>
