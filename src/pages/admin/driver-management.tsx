@@ -907,7 +907,6 @@ function DriverManagementPage() {
       </AlertDialog>
 
         <Footer />
-        </div>
       </div>
     </div>
   );
