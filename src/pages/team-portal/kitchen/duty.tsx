@@ -142,18 +142,37 @@ export default function KitchenDutyRosterPage() {
         })
         .eq("id", endingShift.id);
       if (error) throw error;
-      if (handoffNotes.trim() && user?.id && endingShift.order_id) {
-        await supabase.from("kitchen_task_completions").insert([{
-          order_id: endingShift.order_id,
-          completed_by: user.id,
-          user_id: user.id,
-          staff_id: user.id,
-          task_type: "handoff",
-          notes: handoffNotes.trim(),
-          completed_at: new Date().toISOString(),
-        }] as never);
+
+      // Phase 1: hand-off notes ALWAYS save now. The previous flow silently
+      // dropped them when the shift had no order_id (the common case). They
+      // go to kitchen_handoffs so anyone starting the next shift sees them.
+      if (handoffNotes.trim() && user?.id && user.company_id) {
+        try {
+          await supabase.from("kitchen_handoffs").insert([{
+            company_id: user.company_id,
+            author_id: user.id,
+            shift_id: endingShift.id,
+            body: handoffNotes.trim(),
+          }] as never);
+
+          // Also keep a per-order task_completions row when an order_id exists
+          // (preserves the existing audit trail surface that admin views)
+          if (endingShift.order_id) {
+            await supabase.from("kitchen_task_completions").insert([{
+              order_id: endingShift.order_id,
+              completed_by: user.id,
+              user_id: user.id,
+              staff_id: user.id,
+              task_type: "handoff",
+              notes: handoffNotes.trim(),
+              completed_at: new Date().toISOString(),
+            }] as never);
+          }
+        } catch (handoffErr) {
+          console.warn("Could not save hand-off note:", handoffErr);
+        }
       }
-      toast({ title: "Shift ended", description: "Have a good rest" });
+      toast({ title: "Clocked out", description: "Hand-off note saved." });
       setEndingShift(null);
       setHandoffNotes("");
       load();

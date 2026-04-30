@@ -100,7 +100,24 @@ export async function assignChef(orderId: string, chefId: string) {
 }
 
 export async function confirmOrder(orderId: string) {
-  return updateOrderStatus(orderId, "confirmed");
+  const result = await updateOrderStatus(orderId, "confirmed");
+  // Phase 1 kitchen flywheel: auto-generate backwards-planned prep tasks the
+  // moment an order is confirmed. The service is idempotent and silently
+  // skips when auto_generate_prep_tasks is disabled per tenant. Failure here
+  // never blocks the confirm -- the kitchen page will surface "no plan yet"
+  // and an admin can regenerate if needed.
+  try {
+    const { data } = await supabase
+      .from("orders").select("company_id").eq("id", orderId).maybeSingle();
+    const companyId = (data as any)?.company_id;
+    if (companyId) {
+      const { kitchenPrepService } = await import("../kitchenPrepService");
+      await kitchenPrepService.ensurePrepTasksForOrder(companyId, orderId);
+    }
+  } catch (e) {
+    console.warn("Could not auto-generate prep tasks at confirm:", e);
+  }
+  return result;
 }
 
 export async function startPreparation(orderId: string) {

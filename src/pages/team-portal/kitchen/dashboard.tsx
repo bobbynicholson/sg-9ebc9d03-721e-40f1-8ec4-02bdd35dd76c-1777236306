@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   Package,
   TrendingUp,
   AlertTriangle,
+  Truck,
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -26,15 +27,39 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { markOrderReady } from "@/services/order/orderWorkflow";
+import { useToast } from "@/hooks/use-toast";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
 
+function formatCountdown(mins: number): string {
+  if (!isFinite(mins)) return "—";
+  const sign = mins < 0 ? "-" : "";
+  const abs = Math.abs(mins);
+  const days = Math.floor(abs / 1440);
+  const hours = Math.floor((abs % 1440) / 60);
+  const minutes = Math.floor(abs % 60);
+  if (days > 0) return `${sign}${days}d ${hours}h`;
+  if (hours > 0) return `${sign}${hours}h ${minutes}m`;
+  return `${sign}${minutes}m`;
+}
+
 export default function KitchenDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [progressByOrder, setProgressByOrder] = useState<Record<string, { total: number; done: number }>>({});
+  const [now, setNow] = useState(new Date());
+
+  // Tick the clock every minute so countdowns stay live without polling the DB
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (user?.company_id) {
@@ -82,12 +107,59 @@ export default function KitchenDashboard() {
       } else {
         setLowStockItems(inventoryData || []);
       }
+
+      // Phase 1: load prep task progress per order in one shot
+      const orderIds = (ordersData || []).map((o: any) => o.id);
+      if (orderIds.length > 0) {
+        const prog = await kitchenPrepService.getProgressByOrder(orderIds);
+        setProgressByOrder(prog);
+      } else {
+        setProgressByOrder({});
+      }
     } catch (error) {
       console.error("Dashboard load error:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Mark an order ready -- one-click action straight from the kanban card
+  const handleMarkReady = async (orderId: string, clientName?: string | null) => {
+    try {
+      await markOrderReady(orderId);
+      toast({
+        title: "Order ready",
+        description: clientName ? `${clientName} marked ready. Driver notified.` : "Driver notified.",
+      });
+      loadDashboardData();
+    } catch (e: any) {
+      toast({ title: "Could not mark ready", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // Compute T-minus to the next pickup across today's orders. Drives the
+  // headline "next pickup" stat without N+1 queries.
+  const nextPickup = useMemo(() => {
+    const live = orders.filter(o => o.status === "confirmed" || o.status === "preparing");
+    if (live.length === 0) return null;
+    let earliest: { id: string; client: string; minutesAway: number; eventTime: string | null } | null = null;
+    for (const o of live as any[]) {
+      const dt = o.event_time
+        ? new Date(`${o.event_date}T${o.event_time}`)
+        : new Date(`${o.event_date}T12:00`);
+      if (isNaN(dt.getTime())) continue;
+      const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
+      if (!earliest || minutesAway < earliest.minutesAway) {
+        earliest = {
+          id: o.id,
+          client: o.client_name || o.event_name || "Order",
+          minutesAway,
+          eventTime: o.event_time,
+        };
+      }
+    }
+    return earliest;
+  }, [orders, now]);
 
   const todayOrders = orders.filter(
     (o) => o.event_date === new Date().toISOString().split("T")[0]
@@ -290,69 +362,200 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
-          {/* Active Orders */}
+          {/* Phase 1: Next pickup countdown -- the headline number for the kitchen */}
+          {nextPickup && (
+            <Card className={`border-0 shadow-lg mb-4 sm:mb-6 ${
+              nextPickup.minutesAway < 0    ? "bg-red-50 border-l-4 border-l-red-500" :
+              nextPickup.minutesAway < 120  ? "bg-amber-50 border-l-4 border-l-amber-500" :
+                                              "bg-emerald-50 border-l-4 border-l-emerald-500"
+            }`}>
+              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold mb-1">Next pickup</p>
+                  <p className="text-3xl sm:text-4xl font-bold tabular-nums text-slate-900">
+                    {nextPickup.minutesAway < 0
+                      ? `LATE -- ${formatCountdown(nextPickup.minutesAway).replace("-", "")} past`
+                      : `T-${formatCountdown(nextPickup.minutesAway)}`}
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1 truncate">
+                    {nextPickup.client}
+                    {nextPickup.eventTime && <span className="text-slate-500"> · {nextPickup.eventTime}</span>}
+                  </p>
+                </div>
+                <Clock className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${
+                  nextPickup.minutesAway < 0    ? "text-red-500" :
+                  nextPickup.minutesAway < 120  ? "text-amber-500" :
+                                                  "text-emerald-500"
+                }`} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Active orders -- kanban (Confirmed / In prep / Ready) */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="px-3 sm:px-4 md:px-6">
-              <CardTitle className="text-base sm:text-lg md:text-xl">Active Orders</CardTitle>
+              <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
+                Active orders
+                <InfoTooltip content="Three columns: Confirmed (waiting to start) → In prep (cooking now) → Ready (waiting for driver). Move cards by completing tasks. Tap Mark ready to notify the driver." />
+              </CardTitle>
             </CardHeader>
             <CardContent className="px-3 sm:px-4 md:px-6">
               {loading ? (
-                <div className="text-center py-8 text-sm sm:text-base text-slate-600 dark:text-slate-400">Loading orders...</div>
+                <div className="text-center py-8 text-sm text-slate-600">Loading orders...</div>
               ) : orders.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                  <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400">No active orders - all caught up!</p>
+                  <p className="text-sm text-slate-600">No live orders. Use the breather to deep-clean or restock.</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div key={order.id} className="border-2 border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                      <div className="p-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white">
-                              {order.event_name}
-                            </h4>
-                            <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
-                          </div>
-                          <span className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
-                            {order.order_number}
-                          </span>
+              ) : (() => {
+                const byStatus: Record<string, Order[]> = {
+                  confirmed: orders.filter(o => o.status === "confirmed"),
+                  preparing: orders.filter(o => o.status === "preparing"),
+                  ready:     orders.filter(o => o.status === "ready"),
+                };
+                const COLUMNS: Array<{
+                  key: keyof typeof byStatus;
+                  label: string;
+                  empty: string;
+                  tone: string;
+                }> = [
+                  { key: "confirmed", label: "Confirmed",  empty: "Nothing confirmed yet",     tone: "border-l-blue-400 bg-blue-50/50" },
+                  { key: "preparing", label: "In prep",    empty: "No prep in flight",         tone: "border-l-amber-400 bg-amber-50/50" },
+                  { key: "ready",     label: "Ready",      empty: "Nothing ready yet",         tone: "border-l-emerald-400 bg-emerald-50/50" },
+                ];
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {COLUMNS.map(col => (
+                      <div key={col.key} className="flex flex-col">
+                        <div className="flex items-center justify-between mb-2 px-1">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {col.label}
+                          </p>
+                          <Badge variant="outline" className="text-[10px] tabular-nums">
+                            {byStatus[col.key].length}
+                          </Badge>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                          <div className="flex items-center gap-1">
-                            <Users className="w-4 h-4" />
-                            {order.guest_count} guests
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {new Date(order.event_date).toLocaleDateString()}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {order.event_time || "Time TBC"}
-                          </div>
+                        <div className="space-y-2 min-h-[100px]">
+                          {byStatus[col.key].length === 0 ? (
+                            <div className="text-xs text-slate-400 italic px-2 py-3 border border-dashed border-slate-200 rounded-md text-center">
+                              {col.empty}
+                            </div>
+                          ) : byStatus[col.key].map((order: any) => {
+                            const eventDt = order.event_time
+                              ? new Date(`${order.event_date}T${order.event_time}`)
+                              : new Date(`${order.event_date}T12:00`);
+                            const minsToEvent = isNaN(eventDt.getTime())
+                              ? null
+                              : (eventDt.getTime() - now.getTime()) / 60_000;
+                            const tone =
+                              minsToEvent != null && minsToEvent < 0     ? "border-l-red-500 bg-red-50/50" :
+                              minsToEvent != null && minsToEvent < 120   ? "border-l-amber-500 bg-amber-50/50" :
+                                                                            col.tone;
+
+                            const prog = progressByOrder[order.id] || { total: 0, done: 0 };
+                            const pct = prog.total > 0 ? Math.round((prog.done / prog.total) * 100) : 0;
+
+                            return (
+                              <div
+                                key={order.id}
+                                className={`p-3 rounded-md border-l-4 border border-slate-200 bg-white hover:shadow transition-all ${tone}`}
+                              >
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <p className="text-sm font-semibold text-slate-900 truncate flex-1">
+                                    {order.event_name || order.client_name || "Order"}
+                                  </p>
+                                  <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
+                                    {order.order_number}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-slate-600 flex items-center gap-2 flex-wrap">
+                                  <span className="inline-flex items-center gap-1">
+                                    <Users className="w-3 h-3" />{order.guest_count} pax
+                                  </span>
+                                  {minsToEvent != null && (
+                                    <span className={`inline-flex items-center gap-1 tabular-nums font-medium ${
+                                      minsToEvent < 0    ? "text-red-700"   :
+                                      minsToEvent < 120  ? "text-amber-700" :
+                                                            "text-slate-600"
+                                    }`}>
+                                      <Clock className="w-3 h-3" />
+                                      {minsToEvent < 0
+                                        ? `${formatCountdown(minsToEvent).replace("-", "")} late`
+                                        : `T-${formatCountdown(minsToEvent)}`}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Task progress bar */}
+                                {prog.total > 0 && (
+                                  <div className="mt-2">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                                      <span>Prep tasks</span>
+                                      <span className="tabular-nums">{prog.done} of {prog.total}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                                      <div
+                                        className={`h-full ${
+                                          pct >= 100 ? "bg-emerald-500" :
+                                          pct >= 50  ? "bg-blue-500"    :
+                                                       "bg-slate-400"
+                                        }`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Kitchen instructions inline (compact) */}
+                                {order.kitchen_instructions && (
+                                  <p className="mt-2 text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-2 py-1 line-clamp-2">
+                                    {order.kitchen_instructions}
+                                  </p>
+                                )}
+
+                                {/* Mark ready -- one click, only when In prep */}
+                                {col.key === "preparing" && (
+                                  <Button
+                                    size="sm"
+                                    className="w-full mt-2 h-7 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700"
+                                    onClick={() => handleMarkReady(order.id, order.client_name || order.event_name)}
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                    Mark ready (notify driver)
+                                  </Button>
+                                )}
+                                {col.key === "ready" && (
+                                  <p className="mt-2 text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                                    <Truck className="w-3 h-3" />
+                                    Waiting for pickup
+                                  </p>
+                                )}
+
+                                {/* Per-task tick UI lives inside TaskCompletionButtons (existing component) */}
+                                {col.key === "preparing" && (
+                                  <details className="mt-2 group">
+                                    <summary className="text-[11px] text-slate-500 cursor-pointer hover:text-slate-900 select-none">
+                                      Tasks ▾
+                                    </summary>
+                                    <div className="mt-1 pt-1 border-t border-slate-200">
+                                      <TaskCompletionButtons
+                                        orderId={order.id}
+                                        orderNumber={order.order_number}
+                                        clientName={order.client_name || order.event_name}
+                                      />
+                                    </div>
+                                  </details>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                        {order.kitchen_instructions && (
-                          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded text-xs">
-                            <p className="font-medium text-blue-900 dark:text-blue-300 mb-1">Kitchen Instructions:</p>
-                            <p className="text-blue-800 dark:text-blue-400">{order.kitchen_instructions}</p>
-                          </div>
-                        )}
                       </div>
-                      
-                      {/* Task Completion Buttons */}
-                      <div className="p-4">
-                        <TaskCompletionButtons 
-                          orderId={order.id}
-                          orderNumber={order.order_number}
-                          clientName={order.client_name || order.event_name}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>

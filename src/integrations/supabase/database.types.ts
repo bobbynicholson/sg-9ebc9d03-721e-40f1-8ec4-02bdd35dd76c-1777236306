@@ -774,6 +774,7 @@ export type Database = {
           id: string
           inventory_settings: Json
           is_active: boolean | null
+          kitchen_settings: Json
           legal_name: string | null
           logo_url: string | null
           owner_id: string | null
@@ -818,6 +819,7 @@ export type Database = {
           id?: string
           inventory_settings?: Json
           is_active?: boolean | null
+          kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
           owner_id?: string | null
@@ -862,6 +864,7 @@ export type Database = {
           id?: string
           inventory_settings?: Json
           is_active?: boolean | null
+          kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
           owner_id?: string | null
@@ -3961,6 +3964,104 @@ export type Database = {
           },
         ]
       }
+      kitchen_handoffs: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          author_id: string
+          body: string
+          company_id: string
+          created_at: string
+          id: string
+          shift_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          author_id: string
+          body: string
+          company_id: string
+          created_at?: string
+          id?: string
+          shift_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          author_id?: string
+          body?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          shift_id?: string | null
+        }
+        Relationships: []
+      }
+      kitchen_prep_tasks: {
+        Row: {
+          assigned_chef_id: string | null
+          company_id: string
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          deleted_at: string | null
+          duration_min: number
+          id: string
+          menu_item_name: string
+          notes: string | null
+          order_id: string
+          start_at: string
+          started_at: string | null
+          status: string
+          task_type: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_chef_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          duration_min?: number
+          id?: string
+          menu_item_name: string
+          notes?: string | null
+          order_id: string
+          start_at: string
+          started_at?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_chef_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          duration_min?: number
+          id?: string
+          menu_item_name?: string
+          notes?: string | null
+          order_id?: string
+          start_at?: string
+          started_at?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_prep_tasks_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kitchen_task_completions: {
         Row: {
           completed_at: string
@@ -4218,6 +4319,7 @@ export type Database = {
       menu_items: {
         Row: {
           active: boolean | null
+          allergen_codes: string[] | null
           allergen_info: string | null
           base_price: number
           base_servings: number | null
@@ -4241,6 +4343,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          allergen_codes?: string[] | null
           allergen_info?: string | null
           base_price: number
           base_servings?: number | null
@@ -4264,6 +4367,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          allergen_codes?: string[] | null
           allergen_info?: string | null
           base_price?: number
           base_servings?: number | null
