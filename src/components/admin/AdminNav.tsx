@@ -231,6 +231,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Manage delivery drivers"
         },
         {
+          title: "Kitchen Staff",
+          href: "/admin/kitchen-staff",
+          icon: ChefHat,
+          description: "Add staff, set rates and standard hours"
+        },
+        {
           title: "Staff Hours",
           href: "/admin/staff-hours",
           icon: Clock,
