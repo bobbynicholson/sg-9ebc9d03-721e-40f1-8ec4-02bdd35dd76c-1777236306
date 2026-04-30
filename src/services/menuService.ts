@@ -72,6 +72,27 @@ export interface RecipeIngredientRow {
 export interface MenuItemWithRecipeSummary extends MenuItem {
   recipe_id: string | null;
   recipe_ingredient_count: number;
+  /** Owner-only cost rollup -- null when no recipe or no priced ingredients */
+  cost: RecipeCostBreakdown | null;
+}
+
+/**
+ * Owner-only -- the per-recipe cost picture. Surfaces explicit gaps so
+ * the owner knows which numbers are partial.
+ */
+export interface RecipeCostBreakdown {
+  /** Total cost to cook the whole recipe at base_servings */
+  total_cost: number;
+  /** Cost per serving = total_cost / base_servings */
+  cost_per_serving: number;
+  /** How many ingredient rows the recipe has */
+  total_ingredients: number;
+  /** How many of those contributed to the cost (linked + costed) */
+  contributing: number;
+  /** Linked to inventory but the inventory item has no cost_per_unit set */
+  missing_cost: number;
+  /** Free-text rows -- not linked to inventory, can't compute */
+  free_text: number;
 }
 
 /** Detail view used by the edit dialog */
@@ -112,19 +133,93 @@ export const ALLERGEN_CODES = [
 
 export const DEFAULT_UNITS = ["g", "kg", "ml", "L", "tsp", "tbsp", "cup", "piece", "ea", "bunch", "slice"];
 
+// ── Pure cost helper ─────────────────────────────────────────────────────
+
+/**
+ * Compute the per-recipe cost picture from raw ingredient + inventory data.
+ *
+ * Math: total_cost = sum(quantity * cost_per_unit) for every ingredient
+ * that's both linked to inventory AND has a cost_per_unit set. Anything
+ * else gets counted as a gap (free_text or missing_cost) so the owner
+ * sees how complete the number is.
+ *
+ * Returns null when there's nothing meaningful to report -- no recipe,
+ * no ingredients, or zero base_servings.
+ */
+export function computeRecipeCost(
+  baseServings: number | null | undefined,
+  ingredients: Array<Pick<RecipeIngredientRow, "quantity" | "inventory_item_id">>,
+  inventoryCostById: Map<string, number | null>,
+): RecipeCostBreakdown | null {
+  const total_ingredients = ingredients.length;
+  if (total_ingredients === 0) return null;
+  const servings = Number(baseServings || 0);
+  if (servings <= 0) return null;
+
+  let total_cost = 0;
+  let contributing = 0;
+  let missing_cost = 0;
+  let free_text = 0;
+
+  for (const ing of ingredients) {
+    if (!ing.inventory_item_id) {
+      free_text += 1;
+      continue;
+    }
+    const cost = inventoryCostById.get(ing.inventory_item_id);
+    if (cost == null || isNaN(Number(cost))) {
+      missing_cost += 1;
+      continue;
+    }
+    const line = Number(ing.quantity || 0) * Number(cost);
+    if (!isFinite(line)) continue;
+    total_cost += line;
+    contributing += 1;
+  }
+
+  if (contributing === 0) return {
+    total_cost: 0,
+    cost_per_serving: 0,
+    total_ingredients,
+    contributing: 0,
+    missing_cost,
+    free_text,
+  };
+
+  return {
+    total_cost: Math.round(total_cost * 100) / 100,
+    cost_per_serving: Math.round((total_cost / servings) * 100) / 100,
+    total_ingredients,
+    contributing,
+    missing_cost,
+    free_text,
+  };
+}
+
 // ── Service ──────────────────────────────────────────────────────────────
 
 export const menuService = {
   /**
-   * List view -- one row per menu item with a tiny recipe summary so the
-   * page can render the "recipe attached" badge without N+1 queries.
+   * List view -- one row per menu item with the recipe summary AND the
+   * cost rollup so the owner page can render per-serving cost + margin
+   * without N+1 queries. Pulls ingredient quantities + inventory cost in
+   * the same select so the math runs client-side.
    */
   async list(companyId: string, includeArchived = false): Promise<MenuItemWithRecipeSummary[]> {
     let q = supabase
       .from("menu_items")
       .select(`
         *,
-        recipes!recipes_menu_item_id_fkey ( id, recipe_ingredients ( id ) )
+        recipes!recipes_menu_item_id_fkey (
+          id,
+          base_servings,
+          recipe_ingredients (
+            id,
+            quantity,
+            inventory_item_id,
+            inventory_items:inventory_item_id ( cost_per_unit )
+          )
+        )
       `)
       .eq("company_id", companyId)
       .order("category", { ascending: true })
@@ -138,10 +233,27 @@ export const menuService = {
     return (data || []).map((row: any) => {
       const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
       const { recipes: _r, ...item } = row;
+      const ingredients: any[] = recipe?.recipe_ingredients ?? [];
+      // Build the cost lookup map from the embed -- avoids a second query
+      const costLookup = new Map<string, number | null>();
+      for (const ing of ingredients) {
+        if (ing.inventory_item_id) {
+          const inv = Array.isArray(ing.inventory_items) ? ing.inventory_items[0] : ing.inventory_items;
+          costLookup.set(ing.inventory_item_id, inv?.cost_per_unit ?? null);
+        }
+      }
+      const cost = recipe
+        ? computeRecipeCost(
+            recipe.base_servings,
+            ingredients.map((i: any) => ({ quantity: Number(i.quantity || 0), inventory_item_id: i.inventory_item_id })),
+            costLookup,
+          )
+        : null;
       return {
         ...(item as MenuItem),
         recipe_id: recipe?.id ?? null,
-        recipe_ingredient_count: recipe?.recipe_ingredients?.length ?? 0,
+        recipe_ingredient_count: ingredients.length,
+        cost,
       };
     });
   },

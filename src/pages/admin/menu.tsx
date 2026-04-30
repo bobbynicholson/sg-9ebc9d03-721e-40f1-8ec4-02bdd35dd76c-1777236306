@@ -30,6 +30,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   menuService,
+  computeRecipeCost,
   MENU_CATEGORIES,
   DIETARY_TAGS,
   ALLERGEN_CODES,
@@ -155,15 +156,39 @@ function MenuPage() {
     return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [visible]);
 
-  // Stat strip
+  // Stat strip + cost rollup across the menu. Active items only -- archived
+  // items don't count towards the average margin.
   const stats = useMemo(() => {
     const active = items.filter(i => !i.deleted_at);
+    const withCost = active.filter(i => i.cost && i.cost.contributing > 0);
+    const withMargin = withCost.filter(i => Number(i.base_price || 0) > 0);
+    const incompleteCost = active.filter(i => i.cost && (i.cost.free_text > 0 || i.cost.missing_cost > 0));
+    const avgMarginPct = withMargin.length === 0 ? null : (() => {
+      let total = 0;
+      for (const i of withMargin) {
+        const price = Number(i.base_price || 0);
+        const cost = i.cost!.cost_per_serving;
+        total += ((price - cost) / price) * 100;
+      }
+      return total / withMargin.length;
+    })();
     return {
       total: active.length,
       withRecipe: active.filter(i => i.recipe_id !== null).length,
       missingRecipe: active.filter(i => i.recipe_id === null).length,
+      withCost: withCost.length,
+      incompleteCost: incompleteCost.length,
+      avgMarginPct,
     };
   }, [items]);
+
+  // Lookup map of inventory cost per id -- shared by the live cost preview
+  // in the recipe builder dialog.
+  const inventoryCostById = useMemo(() => {
+    const m = new Map<string, number | null>();
+    for (const inv of inventoryPool) m.set(inv.id, inv.cost_per_unit);
+    return m;
+  }, [inventoryPool]);
 
   // Categories present in real data, plus the canonical list -- so legacy
   // "main" / "Mains" both appear in the filter without losing rows.
@@ -448,7 +473,7 @@ function MenuPage() {
           </div>
 
           {/* Stat strip */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
             <Card className="border-0 shadow-sm">
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active items</p>
@@ -459,6 +484,37 @@ function MenuPage() {
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">With recipe</p>
                 <p className="text-2xl font-bold text-emerald-700 tabular-nums">{stats.withRecipe}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                  Avg margin
+                  <InfoTooltip content="Average gross margin across menu items that have BOTH a costed recipe and a base price.\n\nMargin = (base_price - cost_per_serving) / base_price.\n\nOwner-only -- the kitchen surface never sees these numbers." />
+                </p>
+                <p className={`text-2xl font-bold tabular-nums ${
+                  stats.avgMarginPct == null ? "text-slate-400" :
+                  stats.avgMarginPct < 30 ? "text-red-700" :
+                  stats.avgMarginPct < 50 ? "text-amber-700" :
+                                            "text-emerald-700"
+                }`}>
+                  {stats.avgMarginPct == null ? "--" : `${stats.avgMarginPct.toFixed(0)}%`}
+                </p>
+                {stats.avgMarginPct == null && <p className="text-[11px] text-slate-500 mt-1">Need recipes + costs</p>}
+              </CardContent>
+            </Card>
+            <Card className={`border-0 shadow-sm ${stats.incompleteCost > 0 ? "bg-amber-50" : ""}`}>
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                  Cost incomplete
+                  {stats.incompleteCost > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
+                </p>
+                <p className={`text-2xl font-bold tabular-nums ${stats.incompleteCost > 0 ? "text-amber-700" : "text-slate-900"}`}>
+                  {stats.incompleteCost}
+                </p>
+                {stats.incompleteCost > 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1">Free-text or rate-less ingredients</p>
+                )}
               </CardContent>
             </Card>
             <Card className={`border-0 shadow-sm ${stats.missingRecipe > 0 ? "bg-amber-50" : ""}`}>
@@ -558,9 +614,41 @@ function MenuPage() {
                                   <p className="text-xs text-slate-500 truncate mt-0.5">{it.description}</p>
                                 )}
                               </div>
+                              {/* Cost + margin column. Owner-only because the
+                                  whole page is admin-gated, but explicit here
+                                  so we never accidentally render it on a
+                                  shared component. */}
+                              <div className="text-right hidden md:block">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Cost / serv</div>
+                                {it.cost && it.cost.contributing > 0 ? (
+                                  <>
+                                    <div className="font-semibold text-slate-900 tabular-nums">R {it.cost.cost_per_serving.toFixed(2)}</div>
+                                    {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
+                                      <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
+                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                        partial
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="text-xs text-slate-400">--</div>
+                                )}
+                              </div>
                               <div className="text-right hidden sm:block">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Price</div>
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Price / margin</div>
                                 <div className="font-semibold text-slate-900 tabular-nums">R {Number(it.base_price || 0).toFixed(2)}</div>
+                                {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
+                                  const price = Number(it.base_price || 0);
+                                  const cost = it.cost.cost_per_serving;
+                                  const margin = price - cost;
+                                  const pct = (margin / price) * 100;
+                                  const tone = pct < 30 ? "text-red-700" : pct < 50 ? "text-amber-700" : "text-emerald-700";
+                                  return (
+                                    <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
+                                      {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
+                                    </div>
+                                  );
+                                })() : null}
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <Button variant="outline" size="sm" onClick={() => openEdit(it)}>
@@ -818,6 +906,59 @@ function MenuPage() {
                       <Plus className="w-3 h-3 mr-1" />Add ingredient
                     </Button>
                   </div>
+
+                  {/* Live cost preview -- recomputes every render off the
+                      draft + the inventory cost map. Fast since both are
+                      already in memory. */}
+                  {(() => {
+                    const liveCost = computeRecipeCost(
+                      Number(recipeDraft.base_servings) || 0,
+                      recipeDraft.ingredients,
+                      inventoryCostById,
+                    );
+                    if (!liveCost || liveCost.contributing === 0) {
+                      return recipeDraft.ingredients.length > 0 ? (
+                        <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500">
+                          Link ingredients to inventory items with a cost set to see a per-serving cost preview.
+                        </div>
+                      ) : null;
+                    }
+                    const price = Number(itemDraft.base_price) || 0;
+                    const margin = price > 0 ? price - liveCost.cost_per_serving : null;
+                    const pct = price > 0 ? (margin! / price) * 100 : null;
+                    const tone = pct == null ? "text-slate-700"
+                      : pct < 30 ? "text-red-700"
+                      : pct < 50 ? "text-amber-700"
+                      : "text-emerald-700";
+                    return (
+                      <div className="rounded-md bg-emerald-50/60 border border-emerald-200 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span className="text-slate-700">
+                          Per-serving cost:{" "}
+                          <span className="font-bold tabular-nums text-slate-900">R {liveCost.cost_per_serving.toFixed(2)}</span>
+                        </span>
+                        <span className="text-slate-700">
+                          Recipe total:{" "}
+                          <span className="font-bold tabular-nums text-slate-900">R {liveCost.total_cost.toFixed(2)}</span>
+                        </span>
+                        {margin != null && pct != null && (
+                          <span className={tone}>
+                            Margin{" "}
+                            <span className="font-bold tabular-nums">
+                              {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
+                            </span>
+                          </span>
+                        )}
+                        {(liveCost.free_text > 0 || liveCost.missing_cost > 0) && (
+                          <span className="text-amber-700 inline-flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {liveCost.free_text > 0 && `${liveCost.free_text} free-text`}
+                            {liveCost.free_text > 0 && liveCost.missing_cost > 0 && ", "}
+                            {liveCost.missing_cost > 0 && `${liveCost.missing_cost} missing cost`}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {recipeDraft.ingredients.length === 0 ? (
                     <div className="text-center py-6 text-xs text-slate-500 bg-slate-50 rounded-md border border-dashed border-slate-200">
