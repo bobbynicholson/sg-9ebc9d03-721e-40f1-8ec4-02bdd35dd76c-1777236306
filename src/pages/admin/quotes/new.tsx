@@ -34,6 +34,7 @@ import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/s
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ProtectedNewQuotePage() {
   return (
@@ -106,23 +107,100 @@ function NewQuotePage() {
     }
   }, []);
 
+  // Pre-fill the new-quote form from a real lead row when the page is
+  // opened from /admin/leads "Convert to Quote" (?leadId=...).
+  //
+  // The previous version read from localStorage("leads") -- a
+  // legacy/dev path that hadn't been wired up to the real DB. Result:
+  // the form opened blank and the catering team had to re-key
+  // everything we already had.
+  //
+  // Now we pull the lead by id (RLS limits us to leads in our
+  // company), copy every field that maps cleanly to the quote form,
+  // and -- if the lead was a client portal rebook -- carry the menu
+  // picks straight through as the starting menu_items.
   useEffect(() => {
-    if (leadId) {
-      const leads = JSON.parse(localStorage.getItem("leads") || "[]");
-      const lead = leads.find((l: any) => l.id === leadId);
-      if (lead) {
-        setFormData({
-          clientName: lead.clientName ?? "",
-          email: lead.email ?? "",
-          phone: lead.phone ?? "",
-          eventDate: lead.eventDate ?? "",
-          eventType: lead.eventType ?? "",
-          guestCount: lead.guestCount ?? 0,
-          deliveryAddress: "",
-        });
+    if (!leadId || typeof leadId !== "string") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: lead, error } = await supabase
+          .from("leads")
+          .select("*")
+          .eq("id", leadId)
+          .maybeSingle();
+        if (cancelled || error || !lead) return;
+
+        // Form fields. The DB columns are snake_case; the form is
+        // camelCase. Map carefully.
+        setFormData((prev) => ({
+          ...prev,
+          clientName:
+            (lead as any).contact_name ||
+            (lead as any).client_name ||
+            prev.clientName,
+          email:
+            (lead as any).email ||
+            (lead as any).client_email ||
+            prev.email,
+          phone:
+            (lead as any).phone ||
+            (lead as any).client_phone ||
+            prev.phone,
+          eventDate:
+            (lead as any).event_date || prev.eventDate,
+          eventType:
+            (lead as any).event_type || prev.eventType,
+          guestCount:
+            (lead as any).guest_count ?? prev.guestCount,
+          deliveryAddress:
+            (lead as any).venue_address || prev.deliveryAddress,
+        }));
+
+        // Carry through the geocoded venue if we have it (saves the
+        // routing engine a second geocode lookup).
+        if ((lead as any).venue_lat && (lead as any).venue_lng) {
+          setFormData((prev: any) => ({
+            ...prev,
+            deliveryLat: prev.deliveryLat ?? (lead as any).venue_lat,
+            deliveryLng: prev.deliveryLng ?? (lead as any).venue_lng,
+          }));
+        }
+
+        // Rebook-from-client-portal leads carry structured menu picks
+        // in `requested_items`. Pre-populate the menu rows with them
+        // so the team only has to set prices, not re-key item names.
+        const requested = (lead as any).requested_items;
+        if (Array.isArray(requested) && requested.length > 0) {
+          const guests = (lead as any).guest_count ?? 0;
+          setMenuItems(
+            requested.map((it: any, idx: number) => ({
+              id: `M${Date.now()}_${idx}`,
+              name: it.item_name ?? "",
+              category: (it.category || "main").toLowerCase(),
+              pricePerPerson: 0,
+              // Default qty to client's pick if set, else falls back
+              // to guest count (matching how the form renders the
+              // standard "qty per guest" pattern).
+              quantity: Number(it.quantity ?? guests ?? 0),
+              ingredients: [],
+            })),
+          );
+          toast({
+            title: "Pre-filled from client request",
+            description: `${requested.length} menu item${
+              requested.length === 1 ? "" : "s"
+            } carried through. Set the prices and you're good.`,
+          });
+        }
+      } catch (e) {
+        console.warn("[quotes/new] lead pre-fill failed", e);
       }
-    }
-  }, [leadId]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId, toast]);
 
   // ── Typeahead pick handler ────────────────────────────────────────────
   // When the staff member picks a row from the dropdown, hydrate the
