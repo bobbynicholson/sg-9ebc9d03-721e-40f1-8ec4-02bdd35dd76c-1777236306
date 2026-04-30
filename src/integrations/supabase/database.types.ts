@@ -4012,6 +4012,7 @@ export type Database = {
           order_id: string
           start_at: string
           started_at: string | null
+          station_id: string | null
           status: string
           task_type: string
           updated_at: string
@@ -4030,6 +4031,7 @@ export type Database = {
           order_id: string
           start_at: string
           started_at?: string | null
+          station_id?: string | null
           status?: string
           task_type?: string
           updated_at?: string
@@ -4048,6 +4050,7 @@ export type Database = {
           order_id?: string
           start_at?: string
           started_at?: string | null
+          station_id?: string | null
           status?: string
           task_type?: string
           updated_at?: string
@@ -4060,7 +4063,56 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "kitchen_prep_tasks_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_stations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      kitchen_stations: {
+        Row: {
+          capacity_minutes_per_shift: number | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          station_type: string
+          updated_at: string
+        }
+        Insert: {
+          capacity_minutes_per_shift?: number | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          station_type?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity_minutes_per_shift?: number | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          station_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       kitchen_task_completions: {
         Row: {

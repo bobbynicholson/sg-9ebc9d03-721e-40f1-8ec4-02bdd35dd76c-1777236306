@@ -83,6 +83,17 @@ export interface IngredientDemand {
   used_by: Array<{ order_id: string; client_name?: string; event_date: string; qty: number }>;
 }
 
+export interface KitchenStation {
+  id: string;
+  company_id: string;
+  name: string;
+  station_type: "prep" | "cook" | "cold" | "pastry" | "pack" | "hot" | "general";
+  display_order: number;
+  capacity_minutes_per_shift: number | null;
+  is_active: boolean;
+  notes: string | null;
+}
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const kitchenPrepService = {
@@ -340,6 +351,11 @@ export const kitchenPrepService = {
       .in("status", ["pending", "in_progress"])
       .is("deleted_at", null);
 
+    // Phase 2: load stations once and auto-assign each task to the right one.
+    // Defaults from the migration mean every tenant has Prep / Cook / Cold /
+    // Pack out of the box, so this works without admin setup.
+    const stations = await this.getStationsForCompany(companyId);
+
     const rows = planned.map(t => ({
       company_id: companyId,
       order_id: orderId,
@@ -348,6 +364,7 @@ export const kitchenPrepService = {
       start_at: t.start_at,
       duration_min: t.duration_min,
       status: "pending",
+      station_id: this.pickStationForTask(stations, t.task_type),
     }));
 
     const { error } = await supabase.from("kitchen_prep_tasks").insert(rows);
@@ -596,5 +613,109 @@ export const kitchenPrepService = {
       .eq("id", id);
     if (error) throw error;
     return true;
+  },
+
+  // ── Phase 2: stations ─────────────────────────────────────────────────────
+
+  /**
+   * Active stations for a company, ordered by display_order. The migration
+   * seeds defaults (Prep / Cook / Cold prep / Pack) for every existing
+   * tenant -- this method is also defensive: if a tenant somehow has no
+   * stations yet, returns an empty array and the production page handles
+   * "no stations configured" gracefully.
+   */
+  async getStationsForCompany(companyId: string): Promise<KitchenStation[]> {
+    const { data, error } = await supabase
+      .from("kitchen_stations")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    if (error) {
+      console.error("Error fetching stations:", error);
+      return [];
+    }
+    return (data || []) as KitchenStation[];
+  },
+
+  /**
+   * Find the right station for a task. Maps task_type to a station_type
+   * preference: prep -> prep, cook -> cook (or hot), pack -> pack, plate
+   * -> pack, cool -> general. Falls back to the first active station so
+   * tasks always get assigned somewhere visible.
+   */
+  pickStationForTask(stations: KitchenStation[], taskType: string): string | null {
+    if (stations.length === 0) return null;
+    const preferences: Record<string, string[]> = {
+      prep:  ["prep", "cold", "general"],
+      cook:  ["cook", "hot", "general"],
+      cool:  ["cold", "general", "prep"],
+      pack:  ["pack", "general"],
+      plate: ["pack", "general"],
+    };
+    const wantTypes = preferences[taskType] || ["general", "prep"];
+    for (const want of wantTypes) {
+      const match = stations.find(s => s.station_type === want);
+      if (match) return match.id;
+    }
+    return stations[0].id;
+  },
+
+  async upsertStation(station: Partial<KitchenStation> & { company_id: string; name: string }): Promise<KitchenStation | null> {
+    const payload: any = {
+      company_id: station.company_id,
+      name: station.name.trim(),
+      station_type: station.station_type ?? "general",
+      display_order: station.display_order ?? 99,
+      capacity_minutes_per_shift: station.capacity_minutes_per_shift ?? null,
+      is_active: station.is_active ?? true,
+      notes: station.notes ?? null,
+    };
+    if (station.id) {
+      const { data, error } = await supabase
+        .from("kitchen_stations").update(payload).eq("id", station.id).select().single();
+      if (error) throw error;
+      return data as KitchenStation;
+    }
+    const { data, error } = await supabase
+      .from("kitchen_stations").insert([payload]).select().single();
+    if (error) throw error;
+    return data as KitchenStation;
+  },
+
+  async deleteStation(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("kitchen_stations")
+      .update({ deleted_at: new Date().toISOString(), is_active: false })
+      .eq("id", id);
+    if (error) throw error;
+    return true;
+  },
+
+  /**
+   * Tasks for the company in a date range, joined with station info. This
+   * is what the production timeline reads -- one query, all the data the
+   * day view needs.
+   */
+  async getTasksForDateRange(companyId: string, fromISO: string, toISO: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select(`
+        *,
+        order:order_id ( id, event_name, client_name, event_date, event_time, guest_count, status ),
+        station:station_id ( id, name, station_type, display_order ),
+        chef:assigned_chef_id ( full_name )
+      `)
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .is("deleted_at", null)
+      .order("start_at", { ascending: true });
+    if (error) {
+      console.error("Error fetching tasks for range:", error);
+      return [];
+    }
+    return data || [];
   },
 };
