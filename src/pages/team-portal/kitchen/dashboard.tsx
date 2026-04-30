@@ -212,12 +212,20 @@ export default function KitchenDashboard() {
     }
   };
 
-  // Compute T-minus to the next pickup across today's orders. Drives the
-  // headline "next pickup" stat without N+1 queries.
+  // Find the next pickup across active orders. Drives the headline card --
+  // we keep the original event Date alongside the minutes-away so the UI can
+  // format it as a real human day + time instead of a T-minus code.
   const nextPickup = useMemo(() => {
     const live = orders.filter(o => o.status === "confirmed" || o.status === "preparing");
     if (live.length === 0) return null;
-    let earliest: { id: string; client: string; minutesAway: number; eventTime: string | null } | null = null;
+    let earliest: {
+      id: string;
+      eventName: string;
+      client: string;
+      minutesAway: number;
+      eventDate: Date;
+      hasExplicitTime: boolean;
+    } | null = null;
     for (const o of live as any[]) {
       const dt = o.event_time
         ? new Date(`${o.event_date}T${o.event_time}`)
@@ -227,14 +235,56 @@ export default function KitchenDashboard() {
       if (!earliest || minutesAway < earliest.minutesAway) {
         earliest = {
           id: o.id,
-          client: o.client_name || o.event_name || "Order",
+          eventName: o.event_name || "Event",
+          client: o.client_name || "",
           minutesAway,
-          eventTime: o.event_time,
+          eventDate: dt,
+          hasExplicitTime: !!o.event_time,
         };
       }
     }
     return earliest;
   }, [orders, now]);
+
+  // Human-friendly day label: Today / Tomorrow / weekday name / dated for
+  // anything more than a week out. Plain English, no T-minus codes.
+  const formatPickupWhen = (date: Date, hasTime: boolean): { dayLabel: string; timeLabel: string } => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(date); target.setHours(0, 0, 0, 0);
+    const dayDiff = Math.round((target.getTime() - today.getTime()) / 86400000);
+    let dayLabel: string;
+    if (dayDiff === 0) dayLabel = "Today";
+    else if (dayDiff === 1) dayLabel = "Tomorrow";
+    else if (dayDiff > 1 && dayDiff < 7) dayLabel = date.toLocaleDateString("en-ZA", { weekday: "long" });
+    else dayLabel = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
+    const timeLabel = hasTime
+      ? date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })
+      : "time TBC";
+    return { dayLabel, timeLabel };
+  };
+
+  // Plain-English distance-away phrase. "in 2 days", "in 4 hours", "in 25 min",
+  // "starting now", "30 min late". No T-minus.
+  const formatPickupAway = (mins: number): string => {
+    if (mins < -1) {
+      const m = Math.abs(Math.floor(mins));
+      if (m < 60) return `${m} min late`;
+      const h = Math.floor(m / 60);
+      const mm = m % 60;
+      if (h < 24) return mm > 0 ? `${h}h ${mm}m late` : `${h}h late`;
+      const d = Math.floor(h / 24);
+      return `${d} day${d === 1 ? "" : "s"} late`;
+    }
+    if (mins < 1) return "starting now";
+    const m = Math.floor(mins);
+    if (m < 60) return `in ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `in ${h} hour${h === 1 ? "" : "s"}`;
+    const d = Math.floor(h / 24);
+    const remH = h % 24;
+    if (d < 7) return remH > 0 ? `in ${d}d ${remH}h` : `in ${d} day${d === 1 ? "" : "s"}`;
+    return `in ${d} days`;
+  };
 
   const todayOrders = orders.filter(
     (o) => o.event_date === new Date().toISOString().split("T")[0]
@@ -437,34 +487,55 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
-          {/* Phase 1: Next pickup countdown -- the headline number for the kitchen */}
-          {nextPickup && (
-            <Card className={`border-0 shadow-lg mb-4 sm:mb-6 ${
-              nextPickup.minutesAway < 0    ? "bg-red-50 border-l-4 border-l-red-500" :
-              nextPickup.minutesAway < 120  ? "bg-amber-50 border-l-4 border-l-amber-500" :
-                                              "bg-emerald-50 border-l-4 border-l-emerald-500"
-            }`}>
-              <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold mb-1">Next pickup</p>
-                  <p className="text-3xl sm:text-4xl font-bold tabular-nums text-slate-900">
-                    {nextPickup.minutesAway < 0
-                      ? `LATE -- ${formatCountdown(nextPickup.minutesAway).replace("-", "")} past`
-                      : `T-${formatCountdown(nextPickup.minutesAway)}`}
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1 truncate">
-                    {nextPickup.client}
-                    {nextPickup.eventTime && <span className="text-slate-500"> · {nextPickup.eventTime}</span>}
-                  </p>
-                </div>
-                <Clock className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${
-                  nextPickup.minutesAway < 0    ? "text-red-500" :
-                  nextPickup.minutesAway < 120  ? "text-amber-500" :
-                                                  "text-emerald-500"
-                }`} />
-              </CardContent>
-            </Card>
-          )}
+          {/* Next pickup -- plain English, no T-minus codes. Tells the chef:
+              when (day + 24h time), how far away in normal language, what
+              event, who for, and a one-word status word so urgency is read
+              at a glance instead of decoded. */}
+          {nextPickup && (() => {
+            const when = formatPickupWhen(nextPickup.eventDate, nextPickup.hasExplicitTime);
+            const away = formatPickupAway(nextPickup.minutesAway);
+            const isLate = nextPickup.minutesAway < 0;
+            const isSoon = nextPickup.minutesAway >= 0 && nextPickup.minutesAway < 120;
+            const statusWord =
+              isLate ? "Late" :
+              isSoon ? "Starts soon" :
+                       "Plenty of time";
+            const tone =
+              isLate ? "bg-red-50 border-l-red-500" :
+              isSoon ? "bg-amber-50 border-l-amber-500" :
+                       "bg-emerald-50 border-l-emerald-500";
+            const statusTone =
+              isLate ? "bg-red-600 text-white" :
+              isSoon ? "bg-amber-500 text-white" :
+                       "bg-emerald-600 text-white";
+            const iconTone =
+              isLate ? "text-red-500" :
+              isSoon ? "text-amber-500" :
+                       "text-emerald-500";
+            return (
+              <Card className={`border-0 shadow-lg mb-4 sm:mb-6 border-l-4 ${tone}`}>
+                <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold">Next pickup</p>
+                      <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full ${statusTone}`}>
+                        {statusWord}
+                      </span>
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
+                      {when.dayLabel} <span className="tabular-nums">{when.timeLabel}</span>
+                    </p>
+                    <p className="text-sm text-slate-600 mt-1 truncate">
+                      <span className="font-medium text-slate-700">{nextPickup.eventName}</span>
+                      {nextPickup.client && <span className="text-slate-500"> -- {nextPickup.client}</span>}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">{away}</p>
+                  </div>
+                  <Clock className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 ${iconTone}`} />
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Phase 4: tomorrow + day-after preview. Quiet glance card so the
               kitchen sees what's brewing before it lands as "Active orders".
