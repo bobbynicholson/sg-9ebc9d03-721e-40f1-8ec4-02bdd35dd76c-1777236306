@@ -636,8 +636,38 @@ function OrderProcessDashboard() {
       const fetchHistory = async () => {
         setLoading(true);
         const result = await orderService.getOrderStatusHistory(orderId);
-        if (result.success && result.data) {
+        if (result.success && Array.isArray(result.data) && result.data.length > 0) {
           setHistory(result.data);
+        } else {
+          // Fallback timeline: build a synthetic history from the order's
+          // own lifecycle timestamps. The order_status_history table is
+          // empty for tenants who haven't wired up the trigger yet, but
+          // we still have a perfectly good timeline on the order row.
+          const o = orders.find((x) => x.id === orderId) as any;
+          if (!o) {
+            setHistory([]);
+          } else {
+            const events = [
+              { ts: o.created_at,       status: "pending",    note: "Order created" },
+              { ts: o.confirmed_at,     status: "confirmed",  note: "Client confirmed" },
+              { ts: o.prep_started_at,  status: "preparing",  note: "Kitchen started prep" },
+              { ts: o.ready_at,         status: "ready",      note: "Ready for collection" },
+              { ts: o.picked_up_at,     status: "in_transit", note: "Picked up by driver" },
+              { ts: o.delivered_at,     status: "delivered",  note: "Delivered to venue" },
+              { ts: o.completed_at,     status: "completed",  note: "Order closed out" },
+              { ts: o.cancelled_at,     status: "cancelled",  note: o.cancellation_reason || "Order cancelled" },
+            ]
+              .filter((e) => !!e.ts)
+              .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+              .map((e, i) => ({
+                id: `synthetic-${orderId}-${i}`,
+                status: e.status,
+                created_at: e.ts,
+                notes: e.note,
+                changed_by_profile: null,
+              }));
+            setHistory(events);
+          }
         }
         setLoading(false);
       };
@@ -744,6 +774,17 @@ function OrderProcessDashboard() {
   const OrderDetailsModal = () => {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
+    // Joined data the dashboard's getAllOrders fetch returns alongside
+    // the order row but the type doesn't expose. Read from `(order as any)`.
+    const orderItemsRaw: any[] = useMemo(() => {
+      if (!selectedOrder) return [];
+      const a = (selectedOrder as any).order_items;
+      return Array.isArray(a) ? a : [];
+    }, [selectedOrder]);
+    // Equipment bookings + status history aren't joined in getAllOrders --
+    // fetch them on demand when the modal opens.
+    const [equipmentBookings, setEquipmentBookings] = useState<any[]>([]);
+    const [equipmentLoading, setEquipmentLoading] = useState(false);
 
     useEffect(() => {
       if (selectedOrder) {
@@ -751,27 +792,48 @@ function OrderProcessDashboard() {
       }
     }, [selectedOrder]);
 
+    useEffect(() => {
+      if (!selectedOrder?.id) return;
+      let cancelled = false;
+      (async () => {
+        setEquipmentLoading(true);
+        try {
+          const { data } = await supabase
+            .from("equipment_bookings")
+            .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, daily_rate)")
+            .eq("order_id", selectedOrder.id);
+          if (!cancelled) setEquipmentBookings(data || []);
+        } catch (err) {
+          console.warn("[orders] equipment bookings fetch failed", err);
+        } finally {
+          if (!cancelled) setEquipmentLoading(false);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [selectedOrder?.id]);
+
     if (!selectedOrder || !editedOrder) return null;
 
     const handleSave = async () => {
       setSaving(true);
       try {
+        // Save only fields that exist on the orders table. Notes maps
+        // to internal_notes (the customer-facing field is
+        // special_instructions; we keep that read-only here).
         await orderService.updateOrder(editedOrder.id, {
           client_name: editedOrder.client_name,
           venue_address: editedOrder.venue_address,
           guest_count: editedOrder.guest_count,
           event_date: editedOrder.event_date,
           status: editedOrder.status,
-          menu_items: editedOrder.menu_items,
-          equipment_items: editedOrder.equipment_items,
-          notes: editedOrder.notes,
+          internal_notes: (editedOrder as any).internal_notes,
         });
-        
+
         toast({
           title: "Order Updated",
           description: "Changes have been saved successfully.",
         });
-        
+
         setEditMode(false);
         loadOrders(); // Refresh orders list
       } catch (error) {
@@ -783,33 +845,6 @@ function OrderProcessDashboard() {
       } finally {
         setSaving(false);
       }
-    };
-
-    const addMenuItem = () => {
-      const newItem: MenuItem = {
-        id: `new-${Date.now()}`,
-        name: "",
-        category: "main",
-        pricePerPerson: 0,
-        quantity: editedOrder.guest_count || 0,
-        ingredients: [],
-      };
-      setEditedOrder({
-        ...editedOrder,
-        menu_items: [...(editedOrder.menu_items || []), newItem],
-      });
-    };
-
-    const removeMenuItem = (index: number) => {
-      const updated = [...(editedOrder.menu_items || [])];
-      updated.splice(index, 1);
-      setEditedOrder({ ...editedOrder, menu_items: updated });
-    };
-
-    const updateMenuItem = (index: number, field: keyof MenuItem, value: any) => {
-      const updated = [...(editedOrder.menu_items || [])];
-      updated[index] = { ...updated[index], [field]: value };
-      setEditedOrder({ ...editedOrder, menu_items: updated });
     };
 
     return (
@@ -930,123 +965,144 @@ function OrderProcessDashboard() {
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <Label>Notes</Label>
+                  <Label>Internal notes (admin only)</Label>
                   <Textarea
-                    value={editedOrder.notes || ""}
-                    onChange={(e) => setEditedOrder({ ...editedOrder, notes: e.target.value })}
+                    value={(editedOrder as any).internal_notes || ""}
+                    onChange={(e) => setEditedOrder({ ...editedOrder, internal_notes: e.target.value } as any)}
                     disabled={!editMode}
                     rows={3}
+                    placeholder="Internal notes for the team. Not shown to the client."
                   />
+                </div>
+
+                {(selectedOrder as any).special_instructions && (
+                  <div className="space-y-2 col-span-2">
+                    <Label>Client special instructions</Label>
+                    <p className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 whitespace-pre-wrap">
+                      {(selectedOrder as any).special_instructions}
+                    </p>
+                  </div>
+                )}
+
+                {/* Money summary -- read-only at-a-glance for the team. */}
+                <div className="col-span-2 grid grid-cols-3 gap-3 mt-2 pt-3 border-t border-slate-200">
+                  <div>
+                    <Label className="text-xs">Subtotal</Label>
+                    <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
+                      R{Number((selectedOrder as any).subtotal || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Tax</Label>
+                    <p className="text-sm font-semibold text-slate-900 mt-1 tabular-nums">
+                      R{Number((selectedOrder as any).tax_amount || (selectedOrder as any).tax || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Total</Label>
+                    <p className="text-base font-bold text-emerald-600 mt-1 tabular-nums">
+                      R{Number((selectedOrder as any).total_amount || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="menu" className="space-y-4 mt-4">
-              {editMode && (
-                <Button onClick={addMenuItem} variant="outline" size="sm" className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Menu Item
-                </Button>
-              )}
-
+              {/* Menu lines come from the order_items joined table. Read-only
+                  here -- editing line items lives on the parent quote so we
+                  don't drift the totals out of sync with the booking. */}
               <div className="space-y-3">
-                {(editedOrder.menu_items || []).map((item, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-4">
-                      <div className="grid grid-cols-12 gap-3">
-                        <div className="col-span-5 space-y-2">
-                          <Label className="text-xs">Item Name</Label>
-                          <Input
-                            value={item.name}
-                            onChange={(e) => updateMenuItem(index, "name", e.target.value)}
-                            disabled={!editMode}
-                            placeholder="e.g., Grilled Chicken"
-                          />
-                        </div>
-
-                        <div className="col-span-3 space-y-2">
-                          <Label className="text-xs">Category</Label>
-                          <Select
-                            value={item.category}
-                            onValueChange={(value) => updateMenuItem(index, "category", value)}
-                            disabled={!editMode}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="appetizer">Appetizer</SelectItem>
-                              <SelectItem value="main">Main</SelectItem>
-                              <SelectItem value="side">Side</SelectItem>
-                              <SelectItem value="dessert">Dessert</SelectItem>
-                              <SelectItem value="beverage">Beverage</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="col-span-2 space-y-2">
-                          <Label className="text-xs">Price/Person</Label>
-                          <Input
-                            type="number"
-                            value={item.pricePerPerson}
-                            onChange={(e) => updateMenuItem(index, "pricePerPerson", parseFloat(e.target.value) || 0)}
-                            disabled={!editMode}
-                          />
-                        </div>
-
-                        {editMode && (
-                          <div className="col-span-2 flex items-end">
-                            <Button
-                              onClick={() => removeMenuItem(index)}
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {(!editedOrder.menu_items || editedOrder.menu_items.length === 0) && (
+                {orderItemsRaw.length === 0 ? (
                   <div className="text-center py-8 text-slate-400">
                     <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No menu items added yet</p>
+                    <p className="text-sm">No menu items on this order yet.</p>
+                    <p className="text-xs mt-1">Add them from the source quote and they'll appear here.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="text-left px-3 py-2">Item</th>
+                          <th className="text-right px-3 py-2 w-16">Qty</th>
+                          <th className="text-right px-3 py-2 w-28">Unit price</th>
+                          <th className="text-right px-3 py-2 w-28">Line total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orderItemsRaw.map((it: any) => (
+                          <tr key={it.id} className="border-t border-slate-100">
+                            <td className="px-3 py-2">
+                              <div className="font-medium text-slate-900">{it.item_name || "(unnamed)"}</div>
+                              {it.description && (
+                                <div className="text-xs text-slate-500 mt-0.5">{it.description}</div>
+                              )}
+                              {it.special_instructions && (
+                                <div className="text-xs text-amber-700 mt-0.5">Note: {it.special_instructions}</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">{it.quantity ?? "—"}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              R{Number(it.unit_price || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums font-medium">
+                              R{Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
             </TabsContent>
 
             <TabsContent value="equipment" className="space-y-4 mt-4">
+              {/* Equipment is tracked as bookings against the order_id, not
+                  as JSON on the order row. We fetch on modal open. */}
               <div className="space-y-3">
-                {(editedOrder.equipment_items || []).map((item, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Equipment Name</Label>
-                          <p className="text-sm font-medium mt-1">{item.name}</p>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Quantity</Label>
-                          <p className="text-sm font-medium mt-1">{item.quantity}</p>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Rental Price</Label>
-                          <p className="text-sm font-medium mt-1">R{item.rentalPrice}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {(!editedOrder.equipment_items || editedOrder.equipment_items.length === 0) && (
+                {equipmentLoading ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2" />
+                    <p className="text-sm">Loading equipment...</p>
+                  </div>
+                ) : equipmentBookings.length === 0 ? (
                   <div className="text-center py-8 text-slate-400">
                     <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No equipment items added yet</p>
+                    <p className="text-sm">No equipment booked for this order.</p>
+                    <p className="text-xs mt-1">Add items from the Equipment page or the source quote.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="text-left px-3 py-2">Equipment</th>
+                          <th className="text-right px-3 py-2 w-16">Qty</th>
+                          <th className="text-left px-3 py-2 w-32">Status</th>
+                          <th className="text-left px-3 py-2 w-44">Booked window</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {equipmentBookings.map((b: any) => {
+                          const eqName = (b.equipment && (Array.isArray(b.equipment) ? b.equipment[0]?.name : b.equipment.name)) || "(equipment)";
+                          const window = b.booked_from && b.booked_until
+                            ? `${new Date(b.booked_from).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} → ${new Date(b.booked_until).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`
+                            : "—";
+                          return (
+                            <tr key={b.id} className="border-t border-slate-100">
+                              <td className="px-3 py-2 font-medium text-slate-900">{eqName}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{b.quantity ?? "—"}</td>
+                              <td className="px-3 py-2">
+                                <Badge variant="outline" className="capitalize">{b.status || "booked"}</Badge>
+                              </td>
+                              <td className="px-3 py-2 text-xs text-slate-600">{window}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
