@@ -33,7 +33,11 @@ export const config = {
 const MAX_FILES = 20;
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_MIMES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
+// Shopping staff also need to scan supplier slips as part of their
+// daily workflow, not just admins onboarding for the first time.
+const ALLOWED_CALLER_ROLES = new Set([
+  "super_admin", "company_admin", "admin", "owner", "shopping_staff", "shopping",
+]);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {

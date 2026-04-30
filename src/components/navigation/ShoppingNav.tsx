@@ -19,6 +19,7 @@ import {
   Warehouse,
   ChevronLeft,
   ChefHat,
+  Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -138,6 +139,12 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
           href: "/team-portal/shopping/invoices",
           icon: FileText,
           description: "Purchase invoices"
+        },
+        {
+          title: "Receipt scanner",
+          href: "/team-portal/shopping/receipts",
+          icon: Camera,
+          description: "Photograph supplier slips, AI pulls line items"
         }
       ]
     },
