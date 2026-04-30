@@ -61,33 +61,89 @@ export default function ClientAuthCallbackPage() {
 
     (async () => {
       try {
-        // Detect Supabase error in URL params first (e.g. expired link).
-        // Supabase puts errors in the hash on the magic-link redirect.
+        // The magic-link redirect can land here in three different shapes
+        // depending on Supabase project config:
+        //
+        //   1. Hash tokens:      #access_token=...&refresh_token=...&type=magiclink
+        //                        (the default for our project right now)
+        //   2. Query code:       ?code=...
+        //   3. Hash error:       #error=...&error_description=...
+        //
+        // The @supabase/ssr browser client auto-detects (1) on load --
+        // BUT that's async and races with our getSession() below, which
+        // is exactly why the callback was reporting "no active session"
+        // even when a valid JWT sat in the URL hash. We parse and call
+        // setSession() ourselves so we never race the detector.
         if (typeof window !== "undefined") {
           const hash = window.location.hash || "";
+
+          // Case 3 -- error in the hash (e.g. expired / already-used link)
           if (hash.includes("error=")) {
             const params = new URLSearchParams(hash.slice(1));
-            const desc = params.get("error_description") || params.get("error") || "Sign-in link could not be used.";
+            const desc =
+              params.get("error_description") ||
+              params.get("error") ||
+              "Sign-in link could not be used.";
             return finish("error", decodeURIComponent(desc.replace(/\+/g, " ")));
           }
 
-          // Some Supabase configs use ?code=... query param instead of
-          // hash tokens. If we see one, we have to manually exchange it.
+          // Case 1 -- hash tokens. Parse and seed the session manually.
+          if (hash.includes("access_token=")) {
+            const params = new URLSearchParams(hash.slice(1));
+            const access_token = params.get("access_token") || "";
+            const refresh_token = params.get("refresh_token") || "";
+            if (access_token && refresh_token) {
+              const { error } = await supabase.auth.setSession({
+                access_token,
+                refresh_token,
+              });
+              if (error) {
+                return finish(
+                  "error",
+                  error.message || "Sign-in link could not be used.",
+                );
+              }
+              // Wipe the hash so a refresh doesn't try to re-seed the
+              // (now consumed) tokens. replaceState avoids a navigation.
+              try {
+                window.history.replaceState(
+                  null,
+                  "",
+                  window.location.pathname + window.location.search,
+                );
+              } catch {
+                /* non-fatal */
+              }
+            }
+          }
+
+          // Case 2 -- ?code=... in the query (PKCE flow). Exchange manually.
           const url = new URL(window.location.href);
           const code = url.searchParams.get("code");
           if (code) {
             const { error } = await supabase.auth.exchangeCodeForSession(code);
             if (error) {
-              return finish("error", error.message || "Sign-in link could not be used.");
+              return finish(
+                "error",
+                error.message || "Sign-in link could not be used.",
+              );
             }
           }
         }
 
-        // By now Supabase should have a session. Wait a tick for the
-        // client to settle if we just exchanged a code.
-        const { data: { session } } = await supabase.auth.getSession();
+        // We've explicitly seeded a session above (either via setSession
+        // for hash tokens or exchangeCodeForSession for the PKCE code) so
+        // getSession() should now return a real session. If it still
+        // doesn't, the link was malformed or the user opened the URL
+        // without any tokens at all.
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (!session?.user) {
-          return finish("error", "No active session was created. The link may have expired -- request a fresh one.");
+          return finish(
+            "error",
+            "No active session was created. The link may have expired -- request a fresh one.",
+          );
         }
 
         const user = session.user;
