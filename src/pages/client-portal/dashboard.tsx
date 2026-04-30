@@ -373,21 +373,34 @@ export default function ClientPortalDashboard() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const { data } = await supabase
+        // gps_tracking schema: latitude, longitude, timestamp (not
+        // lat/lng/last_updated). One row per ping; we want the freshest
+        // for this driver.
+        const { data: pin } = await supabase
           .from("gps_tracking")
-          .select("lat, lng, last_updated, drivers:driver_id(full_name, phone)")
+          .select("latitude, longitude, timestamp")
           .eq("driver_id", headline.driver_id)
-          .order("last_updated", { ascending: false })
+          .order("timestamp", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!cancelled && data) {
-          const driver = Array.isArray((data as any).drivers) ? (data as any).drivers[0] : (data as any).drivers;
+
+        // Driver name + phone live on the profiles row -- there's no
+        // separate drivers table. Fetched in parallel so a missing
+        // profile (e.g. a deleted driver) doesn't hide the location.
+        const { data: driverProfile } = await supabase
+          .from("profiles")
+          .select("full_name, phone, phone_number")
+          .eq("id", headline.driver_id)
+          .maybeSingle();
+
+        if (!cancelled && pin) {
+          const driver = (driverProfile || {}) as any;
           setDriverPin({
-            lat: Number((data as any).lat),
-            lng: Number((data as any).lng),
-            driver_name: driver?.full_name || "Your driver",
-            driver_phone: driver?.phone,
-            last_updated: (data as any).last_updated,
+            lat: Number((pin as any).latitude),
+            lng: Number((pin as any).longitude),
+            driver_name: driver.full_name || "Your driver",
+            driver_phone: driver.phone || driver.phone_number || undefined,
+            last_updated: (pin as any).timestamp,
           });
         }
       } catch {
