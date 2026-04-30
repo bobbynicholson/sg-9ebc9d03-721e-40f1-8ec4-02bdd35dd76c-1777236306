@@ -40,6 +40,7 @@ import {
   Headphones,
   Layers,
   Shield,
+  BookOpen,
 } from "lucide-react";
 
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
@@ -893,12 +894,38 @@ const productNotesCards: SprintCard[] = [
     icon: Lightbulb,
     accent: "from-yellow-500 to-orange-500",
     items: [
-      { title: "Admin inventory list page at /admin/inventory", detail: "Full inventory catalogue with search, category filter, and status filter. Shows: name, category, current stock, unit, unit cost, par level (minimum stock trigger), last updated. Paginated for large catalogues.", status: "todo" },
-      { title: "Inline quantity + cost editing with save confirmation", detail: "Click a row to edit available_quantity, unit_cost, and par_level inline. Save triggers an inventory_transaction record for audit trail. No modal needed -- inline is faster.", status: "todo" },
-      { title: "Par level alert indicator -- items below par flagged in amber/red", detail: "At-a-glance: which items are below the minimum stock threshold and need reordering. Sortable by urgency. Feeds into the shopping portal's 'low stock' alert list.", status: "todo" },
+      { title: "Admin inventory list page at /admin/inventory", detail: "Full inventory catalogue with search, category filter, and status filter. Shows: name, category, current stock, unit, unit cost, par level (minimum stock trigger), last updated.", status: "shipped" },
+      { title: "Add / edit / archive items via dialog with reason-coded stock movements", detail: "ItemForm shared by Add + Edit. Move stock dialog supports received / adjustment / waste / transfer / return reasons -- writes inventory_transactions for audit.", status: "shipped" },
+      { title: "Par level alert indicator -- items below par flagged in amber/red", detail: "At-a-glance: which items are below the minimum stock threshold and need reordering. Sortable by urgency. Feeds into the shopping portal's 'low stock' alert list.", status: "shipped" },
+      { title: "Preferred supplier picker on item dialog (Phase 6C)", detail: "Dropdown populated from the suppliers table. Sets inventory_items.preferred_supplier_id. Empty option for items without a regular supplier. Helper line points operators to Shopping > Suppliers when the list is empty.", status: "shipped" },
       { title: "Bulk CSV import / export for seeded inventory", detail: "Export the full inventory as CSV for offline editing. Re-import updates quantities and costs in bulk. Critical for initial setup and periodic stock-takes.", status: "todo" },
       { title: "Inventory cost summary -- total stock value by category", detail: "Dashboard card at the top: total stock value (qty x unit_cost), broken down by category. Helps the owner see where their money is tied up in stock.", status: "todo" },
-      { title: "Add to PlatformNav (super_admin) and AdminNav (company_admin + owner)", detail: "Link from the admin sidebar under 'Operations'. Super_admin sees all tenants' inventories (with company_id filter). Company admin / owner sees their own.", status: "todo" },
+      { title: "Add to PlatformNav (super_admin) and AdminNav (company_admin + owner)", detail: "Linked from AdminNav under Menu & Inventory section. Super_admin cross-tenant view still pending.", status: "in_progress" },
+    ],
+  },
+  {
+    id: "menu-recipe-foundation",
+    title: "Menu builder + recipe foundation (Phase 6)",
+    why: "Owner needs full CRUD on menu items with recipes attached so the kitchen flywheel (prep tasks, demand projection, shortfall detection) actually works for every dish, not just the ~160 hardcoded in inventoryDeductionService. Phase 6 wired the missing chain end-to-end: menu item -> recipe -> recipe ingredient -> inventory item -> preferred supplier, all editable from the UI, with cross-role visibility honest about which surface sees costs.",
+    estimate: "2 weeks (Phase 6 shipped); next-phase library = 4-6 weeks",
+    risk: "Low",
+    icon: BookOpen,
+    accent: "from-orange-500 to-red-500",
+    defaultOpen: true,
+    items: [
+      { title: "Schema hardening -- recipes UNIQUE on menu_item_id (Phase 6A)", detail: "1:1 was de facto in data and assumed by code. Locked it in so the upcoming recipe builder can't create dups. Dropped duplicate touch_updated_at triggers. Types file marks the FK isOneToOne for correct supabase-js embed shape.", status: "shipped" },
+      { title: "Owner /admin/menu CRUD page with embedded recipe builder (Phase 6B)", detail: "List by category with thumbnail and recipe x N badge. Add / Edit dialog covers name, category, description, base price, image URL, dietary tags, allergen codes, advance notice. Recipe block collapsed by default -- open it for base servings, prep mins, cook mins, cooking notes, and an ingredient grid with autocomplete from the company's inventory pool. Exact-match picks link the row via inventory_item_id; free-text rows save but show a 'won't auto-deduct' hint. Save flow: upsert item -> upsert recipe -> wipe-and-reinsert ingredients.", status: "shipped" },
+      { title: "Inventory item supplier picker (Phase 6C)", detail: "Wired preferred_supplier_id into the inventory item dialog so the recipe-ingredient -> inventory-item -> supplier chain is fully editable. Loaded once on mount, surfaces empty-state copy when no suppliers exist yet.", status: "shipped" },
+      { title: "Cross-role visibility -- cost-stripped kitchen stock + 'in recipes' filter (Phase 6D)", detail: "Kitchen stock page now uses inventoryService.getInventoryPublic which omits cost_per_unit at the SQL level (visibility seal matches the listStaffPublic pattern from Phase 5). New 'In recipes' toggle narrows to inventory items at least one recipe ingredient links to; per-row badge marks flywheel-wired vs warehouse-only items.", status: "shipped" },
+      { title: "Shopping kitchen-demand bridge (Phase 6E)", detail: "New /team-portal/shopping/kitchen-demand page exposing kitchenPrepService.getAggregatedDemand to the shopping role. Horizon picker (7/14/30 days), shortfall-only toggle, per-ingredient row showing the events feeding the demand, one-click 'Create shopping list' that writes a real shopping_lists row tagged source: kitchen_shortfall.", status: "shipped" },
+      // The expansion items below are the next phase Bobby wants tracked.
+      { title: "Owner-built recipe library -- bulk import + templates", detail: "Today the owner builds recipes one at a time. Next phase: paste a recipe URL or upload a recipe doc, AI extracts ingredients + quantities + units and pre-fills the recipe builder. Plus a 'recipe templates' catalogue (SA spit braai, corporate buffet, kosher Shabbat) -- one-click load into the tenant's menu so day-one tenants aren't building from a blank canvas.", status: "todo" },
+      { title: "Recipe versioning -- track changes over time", detail: "When a chef tweaks a recipe (more lamb, less garlic) we want a history. Audit trail of who changed what when, plus a 'compare to previous version' diff. Means yield variance reports (Phase 4) become trustworthy because they reference the version that was actually cooked.", status: "todo" },
+      { title: "Photo upload per ingredient + recipe step (Supabase Storage)", detail: "Owner adds a photo of the finished dish at the top, plus a photo per prep step ('crush garlic like this', 'lamb should look like this when ready'). Kitchen sees the photos inline on the production page during cook. Reuses the avatars bucket pattern from the profile fix.", status: "todo" },
+      { title: "Recipe cost rollup -- automatic per-serving cost", detail: "Sum (ingredient quantity x inventory cost_per_unit) across all linked ingredients. Show the cost per serving and per dish on /admin/menu. Margin = base_price minus cost_per_serving. Owner-only -- never leaks to kitchen or shopping. Drives a real 'profitable dishes' report.", status: "todo" },
+      { title: "Auto-suggest recipes from menu item name (AI)", detail: "Owner types 'Malva Pudding' -> AI proposes a starter recipe with typical SA ingredients and quantities. Owner edits or accepts. Same idea as the menu builder's inventory autocomplete but for the whole recipe in one tap. Shortens the time-to-first-recipe by 90%.", status: "todo" },
+      { title: "Recipe sharing across tenants (network effect, opt-in)", detail: "Tenants can publish a recipe to a shared library. Other tenants see and clone. Anonymised by default (no tenant name). Builds the moat -- CateringMS becomes the place where SA caterers share menu IP. Pairs with the Verified-Caterer marketplace from the wow-factors group.", status: "todo" },
+      { title: "Image upload bucket for menu items (Supabase Storage)", detail: "Today /admin/menu uses a paste-a-URL field for image_url. Add a real upload bucket like the avatars one with a 5MB cap and JPG/PNG/WebP, plus an 'upload from camera' option on mobile so phone shots go straight in.", status: "todo" },
     ],
   },
 ];
