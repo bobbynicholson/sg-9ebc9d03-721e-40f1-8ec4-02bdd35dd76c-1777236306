@@ -184,6 +184,93 @@ export function getAllPricingOptions(region: MarketRegion) {
 }
 
 /**
+ * Live pricing payload returned by /api/platform/pricing-plans.
+ * Used by the public /pricing page to override the hard-coded
+ * defaults so admin edits go live immediately.
+ */
+export interface LivePlan {
+  slug: string;            // 'starter' | 'pro' | 'enterprise'
+  name: string;
+  zar_price: number;
+  usd_price: number;
+  gbp_price: number;
+  eur_price: number;
+  features?: string[];
+  active_clients_limit?: number | null;
+  orders_per_quarter_limit?: number | null;
+  is_recommended?: boolean;
+}
+
+/**
+ * Map a live plan's slug from the DB to the in-code keys used by
+ * BASE_PRICING_ZAR. The DB seeded slug for the middle tier is "pro";
+ * older code paths sometimes used "professional". Treat them the same.
+ */
+function matchSlug(slug: string): string | null {
+  const s = (slug || "").toLowerCase();
+  if (s === "starter") return "starter";
+  if (s === "pro" || s === "professional") return "pro";
+  if (s === "enterprise") return "enterprise";
+  return null;
+}
+
+/**
+ * Replace prices, features and limits in the in-code pricing options
+ * with values from platform_pricing_plans when available. Falls back
+ * silently to the in-code defaults if the API has no row for a slug.
+ */
+export function applyLivePlans(
+  options: ReturnType<typeof getAllPricingOptions>,
+  livePlans: LivePlan[] | null | undefined,
+  region: MarketRegion,
+): ReturnType<typeof getAllPricingOptions> {
+  if (!livePlans || livePlans.length === 0) return options;
+
+  const byKey = new Map<string, LivePlan>();
+  for (const lp of livePlans) {
+    const key = matchSlug(lp.slug);
+    if (key) byKey.set(key, lp);
+  }
+
+  const currency: "ZAR" | "USD" | "GBP" | "EUR" =
+    region === "us" ? "USD" : region === "uk" ? "GBP" : "ZAR";
+
+  return options.map((opt) => {
+    const live = byKey.get(opt.id);
+    if (!live) return opt;
+
+    const livePriceForRegion =
+      currency === "USD" ? Number(live.usd_price)
+      : currency === "GBP" ? Number(live.gbp_price)
+      : Number(live.zar_price);
+
+    return {
+      ...opt,
+      basePrice: livePriceForRegion,
+      displayPrice: formatPrice(livePriceForRegion, currency),
+      name: live.name || opt.name,
+      features: live.features?.length ? live.features : opt.features,
+      // null in the DB = unlimited; map to the 999999 sentinel the UI
+      // already understands for the "Unlimited" label.
+      limits: {
+        activeClients: live.active_clients_limit === null
+          ? 999999
+          : (live.active_clients_limit ?? opt.limits.activeClients),
+        ordersPerQuarter: live.orders_per_quarter_limit === null
+          ? 999999
+          : (live.orders_per_quarter_limit ?? opt.limits.ordersPerQuarter),
+      },
+      referencePricing: {
+        ZAR: formatPrice(Number(live.zar_price), "ZAR"),
+        USD: formatPrice(Number(live.usd_price), "USD"),
+        GBP: formatPrice(Number(live.gbp_price), "GBP"),
+        EUR: formatPrice(Number(live.eur_price), "EUR"),
+      },
+    };
+  });
+}
+
+/**
  * Calculate savings with annual billing
  */
 export function calculateAnnualSavings(monthlyPrice: number): {

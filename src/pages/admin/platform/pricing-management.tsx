@@ -22,6 +22,7 @@ import { Footer } from "@/components/Footer";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface PricingTier {
+  slug: string;
   name: string;
   zarPrice: number;
   usdPrice: number;
@@ -37,16 +38,55 @@ const EXCHANGE_RATES = {
 
 const PRICING_FORMULA = "Foreign Currency = (ZAR Price × 3) ÷ Exchange Rate";
 
-export default function PricingManagementPage() {
-  const [pricing, setPricing] = useState<PricingTier[]>([
-    { name: "Starter", zarPrice: 399, usdPrice: 65, gbpPrice: 51, eurPrice: 60 },
-    { name: "Pro", zarPrice: 699, usdPrice: 113, gbpPrice: 89, eurPrice: 105 },
-    { name: "Enterprise", zarPrice: 1299, usdPrice: 211, gbpPrice: 166, eurPrice: 195 }
-  ]);
+const FALLBACK_TIERS: PricingTier[] = [
+  { slug: "starter", name: "Starter", zarPrice: 999, usdPrice: 162, gbpPrice: 128, eurPrice: 150 },
+  { slug: "pro", name: "Pro", zarPrice: 1799, usdPrice: 292, gbpPrice: 230, eurPrice: 270 },
+  { slug: "enterprise", name: "Enterprise", zarPrice: 2999, usdPrice: 486, gbpPrice: 383, eurPrice: 450 },
+];
 
-  const [editedPricing, setEditedPricing] = useState<PricingTier[]>(pricing);
+export default function PricingManagementPage() {
+  const [pricing, setPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
+  const [editedPricing, setEditedPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Fetch live plans on mount. Falls back to seeded defaults if the
+  // API misbehaves so the UI is never blank.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/platform/pricing-plans");
+        const j = await r.json();
+        if (!r.ok) throw new Error(j?.error || "Could not load pricing");
+        const plans = (j.plans || []) as Array<{
+          slug: string; name: string; zar_price: number; usd_price: number;
+          gbp_price: number; eur_price: number;
+        }>;
+        if (cancelled) return;
+        if (plans.length) {
+          const mapped: PricingTier[] = plans.map((p) => ({
+            slug: p.slug,
+            name: p.name,
+            zarPrice: Number(p.zar_price),
+            usdPrice: Number(p.usd_price),
+            gbpPrice: Number(p.gbp_price),
+            eurPrice: Number(p.eur_price),
+          }));
+          setPricing(mapped);
+          setEditedPricing(mapped);
+        }
+      } catch (e: any) {
+        setErrorMsg(e?.message || "Could not load pricing");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const isDifferent = JSON.stringify(pricing) !== JSON.stringify(editedPricing);
@@ -81,13 +121,34 @@ export default function PricingManagementPage() {
   };
 
   const handleSave = async () => {
-    setPricing(editedPricing);
-    setSaveSuccess(true);
-    setHasChanges(false);
-    
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      const r = await fetch("/api/platform/pricing-plans", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          plans: editedPricing.map((t) => ({
+            slug: t.slug,
+            name: t.name,
+            zar_price: t.zarPrice,
+            usd_price: t.usdPrice,
+            gbp_price: t.gbpPrice,
+            eur_price: t.eurPrice,
+          })),
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || "Save failed");
+      setPricing(editedPricing);
+      setSaveSuccess(true);
+      setHasChanges(false);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e: any) {
+      setErrorMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -159,7 +220,7 @@ export default function PricingManagementPage() {
               <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 Pricing Conversion Formula
-                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nHeads up: rates and tier prices live in code right now. Saves only update local state and aren't stored yet." />
+                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table -- saves here update /pricing for every visitor immediately." />
               </CardTitle>
             </div>
             <CardDescription className="text-xs sm:text-sm">
@@ -205,6 +266,24 @@ export default function PricingManagementPage() {
           </Alert>
         )}
 
+        {errorMsg && (
+          <Alert className="mb-4 sm:mb-6 border-rose-200 bg-rose-50">
+            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600 flex-shrink-0" />
+            <AlertDescription className="text-rose-800 font-medium text-xs sm:text-sm">
+              {errorMsg}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {loading && (
+          <Alert className="mb-4 sm:mb-6 border-slate-200 bg-slate-50">
+            <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 flex-shrink-0 animate-spin" />
+            <AlertDescription className="text-slate-700 text-xs sm:text-sm">
+              Loading current live pricing...
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Mobile-Optimized Pricing Cards */}
         <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8">
           {editedPricing.map((tier, index) => (
@@ -214,7 +293,7 @@ export default function PricingManagementPage() {
                   <div>
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
                       {tier.name} Plan
-                      <InfoTooltip content="The monthly subscription price for this tier across every market.\n\nZAR is the primary price. USD, GBP and EUR auto-calculate from the formula but you can override them. Saves are local only for now and don't persist." />
+                      <InfoTooltip content="The monthly subscription price for this tier across every market.\n\nZAR is the primary price. USD, GBP and EUR auto-calculate from the formula but you can override them. Saves are persisted to platform_pricing_plans and reflected on the public /pricing page." />
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">
                       Monthly subscription pricing across all markets
@@ -374,11 +453,11 @@ export default function PricingManagementPage() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!hasChanges}
+              disabled={!hasChanges || saving || loading}
               className="gap-2 w-full sm:w-auto h-12 text-sm sm:text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90"
             >
-              <Save className="w-4 h-4" />
-              Save & Update Live Pricing
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {saving ? "Saving..." : "Save & Update Live Pricing"}
             </Button>
           </div>
         </div>

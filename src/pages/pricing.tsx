@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { detectUserRegion, getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
-import { getAllPricingOptions, calculateAnnualSavings, formatPrice } from "@/lib/pricingCalculator";
+import { getAllPricingOptions, calculateAnnualSavings, formatPrice, applyLivePlans, type LivePlan } from "@/lib/pricingCalculator";
 import Link from "next/link";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -117,18 +117,31 @@ export default function PricingPage() {
   const [region, setRegion] = useState<MarketRegion>("za");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annually">("monthly");
   const [isLoading, setIsLoading] = useState(true);
+  const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
 
   useEffect(() => {
     const initRegion = async () => {
       const pathRegion = getRegionFromPath(window.location.pathname);
       setRegion(pathRegion);
+      // Fetch live prices from the platform_pricing_plans table.
+      // If the API is down we fall back to the hard-coded defaults
+      // baked into pricingCalculator -- the page never blanks.
+      try {
+        const r = await fetch("/api/platform/pricing-plans");
+        if (r.ok) {
+          const j = await r.json();
+          if (Array.isArray(j?.plans) && j.plans.length) setLivePlans(j.plans);
+        }
+      } catch {
+        // ignore -- fallback to baked-in pricing
+      }
       setIsLoading(false);
     };
-    
+
     initRegion();
   }, []);
 
-  const pricingOptions = getAllPricingOptions(region);
+  const pricingOptions = applyLivePlans(getAllPricingOptions(region), livePlans, region);
   const currency = getRegionCurrency(region);
   const currencyNote = region === "za" 
     ? "All prices in South African Rand (ZAR)" 
