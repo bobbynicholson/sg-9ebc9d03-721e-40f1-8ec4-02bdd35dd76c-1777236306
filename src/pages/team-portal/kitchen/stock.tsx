@@ -12,7 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Search, AlertTriangle, Minus, Loader2 } from "lucide-react";
+import { Package, Search, AlertTriangle, Minus, Loader2, ChefHat } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -25,10 +25,14 @@ export default function KitchenStockPage() {
   const { toast } = useToast();
 
   const [items, setItems] = useState<Inventory[]>([]);
+  const [recipeLinkedIds, setRecipeLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [belowParOnly, setBelowParOnly] = useState(false);
+  // Phase 6D: filter to "things our recipes actually use" -- skips
+  // generic warehouse items the kitchen doesn't touch.
+  const [recipeLinkedOnly, setRecipeLinkedOnly] = useState(false);
 
   const [usingItem, setUsingItem] = useState<Inventory | null>(null);
   const [usedQty, setUsedQty] = useState<string>("");
@@ -44,8 +48,14 @@ export default function KitchenStockPage() {
     if (!user?.company_id) return;
     setLoading(true);
     try {
-      const data = await inventoryService.getInventory(user.company_id);
+      // Cost-stripped getter so the chef's network response never carries
+      // rand values. Recipe-linked id set runs in parallel for the filter.
+      const [data, linked] = await Promise.all([
+        inventoryService.getInventoryPublic(user.company_id),
+        inventoryService.getInventoryIdsUsedInRecipes(user.company_id),
+      ]);
       setItems(data);
+      setRecipeLinkedIds(linked);
     } catch (e) {
       toast({ title: "Could not load stock", variant: "destructive" });
     } finally {
@@ -62,6 +72,7 @@ export default function KitchenStockPage() {
   const preFiltered = useMemo(() => {
     return items.filter((i) => {
       if (category !== "all" && i.category !== category) return false;
+      if (recipeLinkedOnly && !recipeLinkedIds.has(i.id)) return false;
       if (belowParOnly) {
         const stock = Number(i.current_stock || 0);
         const min = Number(i.minimum_stock || 0);
@@ -69,7 +80,7 @@ export default function KitchenStockPage() {
       }
       return true;
     });
-  }, [items, category, belowParOnly]);
+  }, [items, category, belowParOnly, recipeLinkedOnly, recipeLinkedIds]);
 
   const filtered = useFuzzyItems(
     preFiltered,
@@ -87,8 +98,9 @@ export default function KitchenStockPage() {
     const total = items.length;
     const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
     const out = items.filter((i) => Number(i.current_stock || 0) <= 0).length;
-    return { total, below, out };
-  }, [items]);
+    const inRecipes = items.filter((i) => recipeLinkedIds.has(i.id)).length;
+    return { total, below, out, inRecipes };
+  }, [items, recipeLinkedIds]);
 
   const openUse = (item: Inventory) => { setUsingItem(item); setUsedQty(""); setUsedNotes(""); };
   const closeUse = () => { setUsingItem(null); setUsedQty(""); setUsedNotes(""); };
@@ -148,8 +160,9 @@ export default function KitchenStockPage() {
             <p className="text-sm text-slate-600 mt-1">What you have on hand right now -- click any item to log what you used</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></p><p className="text-2xl font-bold tabular-nums text-orange-600">{stats.inRecipes}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
           </div>
@@ -164,6 +177,9 @@ export default function KitchenStockPage() {
                 <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Category" /></SelectTrigger>
                 <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
               </Select>
+              <Button variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={recipeLinkedOnly ? "bg-orange-500 hover:bg-orange-600" : ""}>
+                <ChefHat className="h-4 w-4 mr-2" />In recipes
+              </Button>
               <Button variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={belowParOnly ? "bg-amber-500 hover:bg-amber-600" : ""}>
                 <AlertTriangle className="h-4 w-4 mr-2" />Below par
               </Button>
@@ -184,7 +200,14 @@ export default function KitchenStockPage() {
                   {filtered.map((i) => (
                     <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-slate-900 truncate">{i.item_name}</span>
+                          {recipeLinkedIds.has(i.id) && (
+                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 inline-flex items-center gap-1">
+                              <ChefHat className="w-2.5 h-2.5" />in recipes
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500 mt-0.5">
                           {i.category ?? "--"}
                           {i.storage_location ? ` -- ${i.storage_location}` : ""}

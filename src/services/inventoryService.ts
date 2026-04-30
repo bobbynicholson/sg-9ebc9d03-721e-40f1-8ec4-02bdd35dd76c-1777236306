@@ -22,6 +22,49 @@ export const inventoryService = {
     return data || [];
   },
 
+  /**
+   * Cost-stripped getter for surfaces that should never see rand values
+   * (kitchen tablet today, possibly other operator surfaces in future).
+   * Mirrors the listStaffPublic / listStaffWithRates split from Phase 5
+   * so the visibility seal is consistent across the app.
+   */
+  async getInventoryPublic(companyId: string): Promise<Inventory[]> {
+    const { data, error } = await supabase
+      .from("inventory_items")
+      .select("id, company_id, item_name, category, sku, unit_of_measure, current_stock, minimum_stock, maximum_stock, reorder_quantity, storage_location, storage_instructions, is_perishable, shelf_life_days, region_id, created_at, updated_at, deleted_at, preferred_supplier_id, description")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("item_name");
+
+    if (error) {
+      console.error("Error fetching public inventory:", error);
+      return [];
+    }
+    return (data || []) as Inventory[];
+  },
+
+  /**
+   * Returns the set of inventory_item_ids that are referenced by at least
+   * one recipe ingredient for this company. Used by the kitchen stock
+   * filter "Used in recipes" so chefs see only what their dishes need.
+   */
+  async getInventoryIdsUsedInRecipes(companyId: string): Promise<Set<string>> {
+    const { data, error } = await supabase
+      .from("recipe_ingredients")
+      .select("inventory_item_id, recipes!inner ( company_id )")
+      .eq("recipes.company_id", companyId)
+      .not("inventory_item_id", "is", null);
+    if (error) {
+      console.warn("getInventoryIdsUsedInRecipes failed:", error);
+      return new Set();
+    }
+    const s = new Set<string>();
+    for (const r of (data || []) as any[]) {
+      if (r.inventory_item_id) s.add(r.inventory_item_id);
+    }
+    return s;
+  },
+
   async getInventoryItem(itemId: string): Promise<Inventory | null> {
     const { data, error } = await supabase
       .from("inventory_items")
