@@ -578,7 +578,12 @@ export function PlatformNav({ className }: PlatformNavProps) {
       {/* ------------------------------------------------------------------ */}
       <div
         className={cn(
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:border-r lg:border-slate-200 lg:bg-white transition-all duration-300 z-40 shadow-sm",
+          // lg:left-0 is required: without it, position:fixed falls back
+          // to the element's static x-position, which on this page is
+          // pushed right by the parent's lg:pl-72 padding -- making the
+          // sidebar overlap the dashboard cards instead of pinning to
+          // the left edge.
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 lg:bg-white transition-all duration-300 z-40 shadow-sm",
           isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72",
           className,
         )}

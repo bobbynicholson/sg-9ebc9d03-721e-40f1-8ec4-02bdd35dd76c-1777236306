@@ -247,7 +247,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
 
       {/* Desktop Sidebar */}
       <div
-        className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
+        className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300 ${
           isCollapsed ? "lg:w-20" : "lg:w-64 xl:w-72"
         }`}
       >
