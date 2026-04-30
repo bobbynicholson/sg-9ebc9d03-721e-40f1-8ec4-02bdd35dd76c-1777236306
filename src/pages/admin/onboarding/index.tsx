@@ -163,6 +163,54 @@ function ImportsHistoryPage() {
             <Stat label="Failed" value={stats.failed} tone="rose" />
           </div>
 
+          {/* Quick lanes -- the simple paths most new tenants reach for
+              first, kept above the history list so they don't have to
+              hunt for them. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+            <Link
+              href={`${slugPrefix}/admin/onboarding/clients`}
+              className="group rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                  <Upload className="w-4 h-4" />
+                </span>
+                <span className="font-semibold text-slate-900">Easy client list</span>
+              </div>
+              <p className="text-xs text-slate-600">
+                Just Name, Surname, Email and Phone. Drop a CSV or paste from Sheets.
+              </p>
+            </Link>
+            <Link
+              href={`${slugPrefix}/admin/onboarding/import`}
+              className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <Wand2 className="w-4 h-4" />
+                </span>
+                <span className="font-semibold text-slate-900">AI importer</span>
+              </div>
+              <p className="text-xs text-slate-600">
+                Bigger spreadsheets with mixed columns. Claude maps headers to our schema.
+              </p>
+            </Link>
+            <Link
+              href={`${slugPrefix}/admin/onboarding/receipts`}
+              className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </span>
+                <span className="font-semibold text-slate-900">Receipt scanner</span>
+              </div>
+              <p className="text-xs text-slate-600">
+                Photograph supplier slips -- AI pulls suppliers, line items and totals.
+              </p>
+            </Link>
+          </div>
+
           {/* List */}
           {loading ? (
             <Card><CardContent className="py-12 text-center text-slate-500">

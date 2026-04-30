@@ -60,7 +60,10 @@ interface OrderStats {
   total: number;
   byStatus: Record<string, number>;
   revenue: {
-    total: number;
+    /** Firm bookings: confirmed onwards. Excludes pending + cancelled. */
+    booked: number;
+    /** Already-delivered slice of the above -- "money in the till". */
+    realised: number;
     pending: number;
     paid: number;
   };
@@ -178,7 +181,7 @@ function OrderProcessDashboard() {
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
-    revenue: { total: 0, pending: 0, paid: 0 },
+    revenue: { booked: 0, realised: 0, pending: 0, paid: 0 },
     upcoming: 0,
     inProgress: 0,
   });
@@ -231,7 +234,8 @@ function OrderProcessDashboard() {
 
   const calculateStats = () => {
     const byStatus: Record<string, number> = {};
-    let totalRevenue = 0;
+    let bookedRevenue = 0;
+    let realisedRevenue = 0;
     let pendingRevenue = 0;
     let paidRevenue = 0;
     let upcoming = 0;
@@ -240,20 +244,31 @@ function OrderProcessDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Stats reflect what the user is filtering for -- if they pick
-    // "This Month", revenue is this month's events, not lifetime.
+    // The revenue card used to sum every non-cancelled order, which made
+    // soft-pending and draft rows inflate the headline number ("R624k!?").
+    // The catering team thinks of revenue as orders the client has
+    // committed to -- i.e. confirmed onwards. Pending / draft are the
+    // pipeline before that, and we surface them separately.
+    const BOOKED_STATUSES = new Set([
+      "confirmed", "preparing", "ready", "in_transit", "delivered", "completed",
+    ]);
+    const REALISED_STATUSES = new Set(["delivered", "completed"]);
+
     const visible = getFilteredOrders();
 
     visible.forEach((order) => {
       byStatus[order.status] = (byStatus[order.status] || 0) + 1;
 
       const orderTotal = Number(order.total_amount) || 0;
-      // Cancelled orders don't count toward revenue
-      if (order.status === "cancelled") return;
-      totalRevenue += orderTotal;
 
-      if (order.payment_status === "paid") paidRevenue += orderTotal;
-      else pendingRevenue += orderTotal;
+      if (BOOKED_STATUSES.has(order.status)) {
+        bookedRevenue += orderTotal;
+        if (REALISED_STATUSES.has(order.status)) {
+          realisedRevenue += orderTotal;
+        }
+        if (order.payment_status === "paid") paidRevenue += orderTotal;
+        else pendingRevenue += orderTotal;
+      }
 
       const eventDate = new Date(order.event_date);
       if (eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
@@ -267,7 +282,12 @@ function OrderProcessDashboard() {
     setStats({
       total: visible.length,
       byStatus,
-      revenue: { total: totalRevenue, pending: pendingRevenue, paid: paidRevenue },
+      revenue: {
+        booked: bookedRevenue,
+        realised: realisedRevenue,
+        pending: pendingRevenue,
+        paid: paidRevenue,
+      },
       upcoming,
       inProgress,
     });
@@ -364,12 +384,17 @@ function OrderProcessDashboard() {
         <CardContent className="p-4">
           <div className="space-y-3">
             {/* Header */}
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h4 className="font-semibold text-slate-900 mb-1">{order.client_name}</h4>
-                <p className="text-sm text-slate-600 truncate">{order.venue_address}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-slate-900 mb-1 truncate">{order.client_name}</h4>
+                <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
+                  {order.venue_address}
+                </p>
               </div>
-              <Badge variant="outline" className={`${config.color} border`}>
+              <Badge
+                variant="outline"
+                className={`${config.color} border flex-shrink-0 whitespace-nowrap`}
+              >
                 {config.label}
               </Badge>
             </div>
@@ -1116,11 +1141,19 @@ function OrderProcessDashboard() {
               <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-100">
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">Revenue <InfoTooltip content={"Total value of the orders shown above.\n\nCancelled orders are not counted."} /></p>
-                      <p className="text-2xl font-bold text-green-900">R{(stats.revenue.total / 1000).toFixed(0)}k</p>
+                    <div className="min-w-0">
+                      <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">
+                        Booked revenue
+                        <InfoTooltip content={"Sum of orders the client has committed to -- confirmed, in-prep, ready, in-transit, delivered or completed.\n\nPending and draft orders aren't counted, since they haven't been confirmed by the client yet. Cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed -- 'money in the till'."} />
+                      </p>
+                      <p className="text-2xl font-bold text-green-900">
+                        R{(stats.revenue.booked / 1000).toFixed(0)}k
+                      </p>
+                      <p className="text-[11px] text-green-700/80 mt-0.5">
+                        Realised: R{(stats.revenue.realised / 1000).toFixed(0)}k
+                      </p>
                     </div>
-                    <DollarSign className="w-8 h-8 text-green-600 opacity-30" />
+                    <DollarSign className="w-8 h-8 text-green-600 opacity-30 flex-shrink-0" />
                   </div>
                 </CardContent>
               </Card>
