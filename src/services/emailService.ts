@@ -42,8 +42,18 @@ export interface EmailLog {
 }
 
 export const emailService = {
-  async getEmailConfig(companyId: string): Promise<EmailSettings | null> {
-    const { data, error } = await supabase
+  /**
+   * Fetch the email_settings row for a company.
+   *
+   * Optional `client` argument lets server-side callers pass a
+   * service-role supabase instance. Without it, this method uses the
+   * browser/anon client which is gated by RLS to authenticated users
+   * of the same company. The magic-link sign-in flow runs BEFORE the
+   * user is authenticated, so it must pass a service-role client.
+   */
+  async getEmailConfig(companyId: string, client?: any): Promise<EmailSettings | null> {
+    const sb = client || supabase;
+    const { data, error } = await sb
       .from("email_settings")
       .select("*")
       .eq("user_id", companyId)
@@ -85,9 +95,14 @@ export const emailService = {
     recipientName: string,
     subject: string,
     orderId?: string,
-    quoteId?: string
+    quoteId?: string,
+    client?: any,
   ): Promise<EmailLog | null> {
-    const { data, error } = await supabase
+    // Mirrors getEmailConfig: server-side callers pass a service-role
+    // client so the insert isn't blocked by RLS for unauthenticated
+    // flows (magic-link sign-in).
+    const sb = client || supabase;
+    const { data, error } = await sb
       .from("email_automation_log")
       .insert([
         {
@@ -112,8 +127,11 @@ export const emailService = {
     return data;
   },
 
-  async sendEmail(payload: SendEmailPayload): Promise<boolean> {
-    const config = await this.getEmailConfig(payload.companyId);
+  async sendEmail(payload: SendEmailPayload & { _client?: any }): Promise<boolean> {
+    // Server-side callers (e.g. unauthenticated magic-link sign-in)
+    // pass a service-role client via _client so the email_settings
+    // lookup isn't blocked by RLS.
+    const config = await this.getEmailConfig(payload.companyId, payload._client);
 
     if (!config || !config.enabled) {
       console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
@@ -173,7 +191,8 @@ export const emailService = {
           payload.variables?.clientName || "N/A",
           finalSubject,
           payload.orderId,
-          payload.quoteId
+          payload.quoteId,
+          (payload as any)._client,
         );
         
         return true;
@@ -187,7 +206,8 @@ export const emailService = {
           payload.variables?.clientName || "N/A",
           finalSubject,
           payload.orderId,
-          payload.quoteId
+          payload.quoteId,
+          (payload as any)._client,
         );
         return true;
       }

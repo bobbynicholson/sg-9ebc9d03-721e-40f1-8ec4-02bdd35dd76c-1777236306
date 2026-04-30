@@ -270,15 +270,17 @@ export default function ClientPortalDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        // Try to find the canonical clients row (linked by user_id) and
-        // fall back to email-based match. Catering companies often
-        // create the order before the user has signed up, so the order
-        // tracks the client by email; we link both paths here.
-        const { data: clientRow } = await supabase
+        // Find every clients row this user owns. Catering companies
+        // often create order rows before the user signs up (linked by
+        // email only), and a single user might also have multiple
+        // client rows under the same company through historical data
+        // entry. We collect every candidate id and email so the orders
+        // query catches all of them.
+        const { data: clientRowsRaw } = await supabase
           .from("clients")
           .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+          .eq("user_id", user.id);
+        const clientIds = ((clientRowsRaw as any[]) || []).map((r) => r.id);
 
         let q = supabase
           .from("orders")
@@ -287,10 +289,18 @@ export default function ClientPortalDashboard() {
           )
           .order("event_date", { ascending: false });
 
-        if ((clientRow as any)?.id) {
-          q = q.eq("client_id", (clientRow as any).id);
+        if (clientIds.length > 0 && user.email) {
+          // Match on either client_id (canonical link) OR client_email
+          // (orders booked before sign-up). Email match is case-
+          // insensitive to handle "Sue.Smith@Gmail.com" vs the lowercase
+          // form Supabase auth normalises to.
+          q = q.or(
+            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+          );
+        } else if (clientIds.length > 0) {
+          q = q.in("client_id", clientIds);
         } else if (user.email) {
-          q = q.eq("client_email", user.email);
+          q = q.ilike("client_email", user.email);
         } else {
           if (!cancelled) {
             setOrders([]);

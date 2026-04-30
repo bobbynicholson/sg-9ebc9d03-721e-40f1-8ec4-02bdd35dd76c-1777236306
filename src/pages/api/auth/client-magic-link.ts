@@ -262,25 +262,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // 4. Send via the catering company's existing emailService.
-    //    sendEmail returns boolean -- on failure we still return ok:true
-    //    so the user sees "check your inbox" rather than leaking that
-    //    the company hasn't configured email yet.
+    //
+    //    Critical: we pass `_client: admin` so the email_settings row
+    //    is read with the SERVICE-ROLE supabase instance. Without it,
+    //    the default anon client is blocked by RLS (the magic-link
+    //    caller is unauthenticated by definition -- they're trying to
+    //    sign in for the first time) and the email never sends.
+    //
+    //    sendEmail returns boolean -- on failure we still return
+    //    ok:true so the user sees "check your inbox" rather than
+    //    leaking whether the company has email configured.
     try {
       await emailService.sendEmail({
         companyId: company.id,
         to: cleanEmail,
         subject,
         body: html,
-        // emailService doesn't support a plain-text alternative in its
-        // current shape; the HTML is well-formed and most clients handle
-        // it. text is included here for future use when emailService
-        // supports it.
-        variables: { _text: text } as any,
-      });
+        _client: admin,
+      } as any);
     } catch (e: any) {
       console.warn("Magic-link: emailService failed", e?.message);
       // fall through -- still return ok:true
     }
+    // Plain-text alt is unused for now -- emailService doesn't carry
+    // it through. Most modern email clients render the HTML cleanly.
+    void text;
 
     return res.status(200).json({ ok: true });
   } catch (outer: any) {
