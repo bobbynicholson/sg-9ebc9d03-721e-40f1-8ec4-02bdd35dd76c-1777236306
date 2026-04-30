@@ -92,14 +92,16 @@ export default function ClientAuthCallbackPage() {
 
         const user = session.user;
 
-        // Look up the company by the slug in the URL. We cross-check
-        // here rather than trust the URL blindly -- if the slug doesn't
-        // exist, we abort and show an error.
-        const { data: company } = await supabase
-          .from("companies")
-          .select("id, slug, company_name")
-          .eq("slug", company_slug)
-          .maybeSingle();
+        // Look up the company via the SECURITY DEFINER RPC. We can't
+        // SELECT companies directly here -- the table no longer permits
+        // anon access, and on first sign-in the user has a session but
+        // no profile yet so the authenticated company-member policy
+        // doesn't yet apply. The RPC returns only the safe branding
+        // fields by slug, which is exactly what we need.
+        const { data: companyData } = await supabase.rpc("get_company_branding", {
+          p_slug: company_slug,
+        });
+        const company = Array.isArray(companyData) ? companyData[0] : companyData;
 
         if (!company) {
           return finish("error", "We couldn't match this sign-in to a company. Please use the link from your latest email.");

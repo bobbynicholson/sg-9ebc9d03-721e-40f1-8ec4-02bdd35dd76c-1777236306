@@ -70,21 +70,24 @@ export default function CompanyLoginPage() {
 
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("companies")
-        .select("company_name, logo_url, primary_color, secondary_color")
-        .eq("slug", company_slug)
-        .maybeSingle();
+      // We call the SECURITY DEFINER RPC `get_company_branding(slug)`
+      // rather than SELECTing from companies directly. The companies
+      // table no longer permits anonymous access -- it used to via a
+      // USING(true) policy that also exposed embed tokens, billing
+      // info, and tax IDs to anyone. The RPC returns ONLY the fields
+      // the login UI needs (name, logo, colours).
+      const { data } = await supabase.rpc("get_company_branding", { p_slug: company_slug });
       if (cancelled) return;
-      if (!data) {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) {
         setCompanyLookupFailed(true);
         return;
       }
       setCompanyBrand({
-        name: (data as any).company_name || "Your portal",
-        logo: (data as any).logo_url || null,
-        primary: (data as any).primary_color || DEFAULT_PRIMARY,
-        secondary: (data as any).secondary_color || DEFAULT_SECONDARY,
+        name: (row as any).company_name || "Your portal",
+        logo: (row as any).logo_url || null,
+        primary: (row as any).primary_color || DEFAULT_PRIMARY,
+        secondary: (row as any).secondary_color || DEFAULT_SECONDARY,
       });
     })();
     return () => {
