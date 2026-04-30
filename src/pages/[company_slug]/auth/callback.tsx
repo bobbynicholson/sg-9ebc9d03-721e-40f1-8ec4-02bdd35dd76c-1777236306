@@ -140,13 +140,28 @@ export default function ClientAuthCallbackPage() {
           /* non-fatal */
         }
 
-        // Off to the portal. Default destination is the client dashboard
-        // at the global /client-portal/* path -- in Phase 2 we'll move
-        // this under /{slug}/client-portal/* for a fully white-label URL.
-        const safeNext =
-          typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
-            ? next
-            : "/client-portal/dashboard";
+        // Off to the portal. We redirect to the slug-scoped URL so the
+        // browser's URL bar reads /spit-braai-delivery/client-portal/...
+        // -- a white-label feel without duplicating page files (the
+        // rewrite in next.config.mjs maps /[slug]/client-portal/* back
+        // to /client-portal/* internally).
+        //
+        // If the link came in with a `next=/foo` param we honour it,
+        // but we transparently lift it under the slug if it points
+        // into the global /client-portal tree.
+        const slugPrefix = `/${company.slug}`;
+        let safeNext: string;
+        if (typeof next === "string" && next.startsWith("/") && !next.startsWith("//")) {
+          if (next.startsWith("/client-portal")) {
+            safeNext = `${slugPrefix}${next}`;
+          } else if (next.startsWith(slugPrefix)) {
+            safeNext = next;
+          } else {
+            safeNext = `${slugPrefix}/client-portal/dashboard`;
+          }
+        } else {
+          safeNext = `${slugPrefix}/client-portal/dashboard`;
+        }
 
         finish("ok");
         // Tiny pause so the success state is visible -- avoids a jarring

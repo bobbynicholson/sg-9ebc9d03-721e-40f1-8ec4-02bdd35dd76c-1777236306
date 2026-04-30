@@ -22,7 +22,9 @@ import { Button } from "@/components/ui/button";
 import {
   Calendar, Clock, MapPin, Users, Truck, CheckCircle2, AlertTriangle,
   Mail, Phone, Globe, Loader2, ShieldCheck, Sparkles, ChefHat, Receipt,
+  Radar, ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Footer } from "@/components/Footer";
 
@@ -190,6 +192,52 @@ export default function ClientOrderPage() {
         </div>
 
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+          {/*
+            Sign-in nudge -- bridges the read-only token view into the
+            full /client-portal experience (live driver tracking, real-
+            time status, billing). The catering company's brand colours
+            stay -- this card uses a soft tinted version, not the full
+            gradient, so the headline event card below stays the focal
+            point.
+
+            The link pre-fills the email so the user sees one tap on
+            the login page (`Email me a sign-in link` button).
+          */}
+          {company.slug && (
+            <Card
+              className="border-0 shadow-lg overflow-hidden"
+              style={{
+                background: `linear-gradient(135deg, ${primary}10 0%, ${secondary}10 100%)`,
+                borderLeft: `4px solid ${primary}`,
+              }}
+            >
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                >
+                  <Radar className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                    Want live tracking on the day?
+                  </p>
+                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-0.5">
+                    Sign in for free -- we'll email a magic link. Then watch your driver on the map, see ETA, and tap to call.
+                  </p>
+                </div>
+                <Link
+                  href={`/${company.slug}/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-90 flex-shrink-0 w-full sm:w-auto justify-center"
+                  style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                >
+                  Sign in
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Event headline */}
           <Card className="border-0 shadow-lg">
