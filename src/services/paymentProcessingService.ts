@@ -653,10 +653,12 @@ Your Catering Company`;
         ? schedule.depositAmount 
         : schedule.balanceAmount;
 
-      // Get order details
+      // Get order details. Pull the company slug along with the
+      // owner profile so the PayFast return/cancel URLs land on the
+      // catering company's slug-prefixed subscription pages.
       const { data: order, error: orderError } = await supabase
         .from("orders")
-        .select("*, profiles!inner(*)")
+        .select("*, profiles!inner(*, companies:company_id(slug))")
         .eq("id", orderId)
         .single();
 
@@ -690,13 +692,21 @@ Your Catering Company`;
       const [firstName, ...lastNameParts] = (profile.full_name || "").split(" ");
       const lastName = lastNameParts.join(" ") || "Customer";
 
-      // Generate PayFast payment form
+      // Resolve the catering company's slug for slug-prefixed return URLs.
+      const companySlug = (profile?.companies?.slug as string | undefined)
+        || (Array.isArray(profile?.companies) ? profile.companies?.[0]?.slug : undefined)
+        || "";
+      const slugPrefix = companySlug ? `/${companySlug}` : "";
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
+
+      // Generate PayFast payment form. Webhook URL is global (/api/...)
+      // and intentionally not slug-prefixed.
       const paymentParams = {
         merchant_id: merchantId,
         merchant_key: merchantKey,
-        return_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/subscription/success?orderId=${orderId}&type=${paymentType}`,
-        cancel_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/subscription/cancelled?orderId=${orderId}&type=${paymentType}`,
-        notify_url: `${typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/payment-confirmation`,
+        return_url: `${baseUrl}${slugPrefix}/subscription/success?orderId=${orderId}&type=${paymentType}`,
+        cancel_url: `${baseUrl}${slugPrefix}/subscription/cancelled?orderId=${orderId}&type=${paymentType}`,
+        notify_url: `${baseUrl}/api/webhooks/payment-confirmation`,
         name_first: firstName || "Customer",
         name_last: lastName,
         email_address: profile.email,

@@ -2,6 +2,30 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "./emailService";
+import { buildTenantHref } from "@/lib/tenantUrl";
+
+// Helper for building absolute URLs that the billing email links use.
+// Slug is the catering company's URL slug (e.g. "spit-braai-delivery").
+// All admin and subscription URLs in billing emails go to that
+// company's slug-prefixed page so the recipient lands on their own
+// branded URL space.
+function buildBillingUrl(slug: string | null | undefined, path: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
+  return `${base}${buildTenantHref(slug, path)}`;
+}
+
+// Pull the company slug for a given profile in a single query so the
+// billing email methods don't each have to repeat the join.
+async function fetchCompanySlugForUser(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("companies:company_id ( slug )")
+    .eq("id", userId)
+    .single();
+  const company = (data as any)?.companies;
+  const slug = Array.isArray(company) ? company?.[0]?.slug : company?.slug;
+  return slug ?? null;
+}
 
 interface EmailTemplate {
   subject: string;
@@ -360,6 +384,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "subscription_started",
@@ -369,7 +394,7 @@ export class BillingEmailService {
         amount: `R${subscription.amount}`,
         billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
         nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
@@ -384,6 +409,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "payment_succeeded",
@@ -395,7 +421,7 @@ export class BillingEmailService {
         billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),
         billingPeriodEnd: new Date(payment.billing_period_end).toLocaleDateString(),
         nextBillingDate: payment.next_billing_date ? new Date(payment.next_billing_date).toLocaleDateString() : 'N/A',
-        invoiceUrl: payment.invoice_pdf_url || `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        invoiceUrl: payment.invoice_pdf_url || buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
@@ -410,6 +436,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "payment_failed",
@@ -418,7 +445,7 @@ export class BillingEmailService {
         amount: `R${payment.amount}`,
         attemptedDate: new Date(payment.created_at).toLocaleDateString(),
         failureReason: payment.failed_reason || "Payment method declined",
-        updatePaymentUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        updatePaymentUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
@@ -458,6 +485,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "subscription_expiring",
@@ -468,7 +496,7 @@ export class BillingEmailService {
         amount: `R${subscription.amount}`,
         renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
         paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
-        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
@@ -483,6 +511,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "price_change_notification",
@@ -493,7 +522,7 @@ export class BillingEmailService {
         effectiveDate: new Date(priceChange.effective_date).toLocaleDateString(),
         changeReason: priceChange.change_reason,
         explanation: priceChange.exchange_rate_info || "To maintain service quality and continue development of new features.",
-        subscriptionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
@@ -508,6 +537,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "subscription_cancelled",
@@ -517,8 +547,8 @@ export class BillingEmailService {
         cancelledDate: new Date(subscription.cancelled_at).toLocaleDateString(),
         accessUntilDate: new Date(subscription.current_period_end).toLocaleDateString(),
         cancelType,
-        reactivateUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`,
-        feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/feedback`
+        reactivateUrl: buildBillingUrl(slug, "/admin/subscription"),
+        feedbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/feedback`
       },
       profile.company_id
     );
@@ -533,6 +563,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "subscription_reactivated",
@@ -541,7 +572,7 @@ export class BillingEmailService {
         planName: subscription.plan_name,
         amount: `R${subscription.amount}`,
         nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-        dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/dashboard`
+        dashboardUrl: buildBillingUrl(slug, "/admin/dashboard")
       },
       profile.company_id
     );
@@ -556,6 +587,7 @@ export class BillingEmailService {
 
     if (!profile?.email || !profile.company_id) return;
 
+    const slug = await fetchCompanySlugForUser(userId);
     await this.sendBillingEmail(
       profile.email,
       "account_deletion_scheduled",
@@ -563,7 +595,7 @@ export class BillingEmailService {
         userName: profile.full_name || "there",
         deletionDate: new Date(deletionRequest.scheduled_deletion_date).toLocaleDateString(),
         exportRequested: deletionRequest.data_export_requested,
-        cancelDeletionUrl: `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
+        cancelDeletionUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id
     );
