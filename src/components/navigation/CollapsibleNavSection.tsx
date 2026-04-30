@@ -5,31 +5,27 @@
  * than ~6 items so the user can hide groups they don't need today.
  *
  * Behaviour:
- * - Per-section open state, persisted to localStorage under
- *   `nav-section-open:{storageKey}` so the nav remembers the user's
- *   choice across sessions and across devices using the same browser.
- * - `defaultOpen` is the *initial* state if no preference is stored yet.
- *   The smart defaults are set at the call site (e.g. "Core Management"
- *   defaults open; "Branding & Settings" defaults closed).
+ * - Open state is in-memory only. We deliberately do NOT persist user
+ *   toggles to localStorage. Bobby called this out as "the menu shouldn't
+ *   stick" -- once a user opens a section, navigating away should reset
+ *   it back to the section's smart default on the next page load. The
+ *   storageKey prop is kept for backwards compatibility but unused.
+ * - `defaultOpen` controls the section's open state on every mount.
  * - When a section contains the active route, the section auto-expands
- *   so the highlighted item is always visible. The user's explicit choice
- *   is still remembered for any non-active section.
+ *   so the highlighted item is always visible.
  * - Sidebar-collapsed state (the icon-only mode) hides section headers
  *   entirely and renders items flat -- no accordion, just tooltips.
- *
- * The "open everything" / "close everything" UX lives in the parent nav,
- * not here -- this component just renders one section.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CollapsibleNavSectionProps {
   title: string;
-  /** Stable id used as the localStorage key. Use role-prefixed ids
-   *  (e.g. "admin:core") so two navs never collide on the same key. */
-  storageKey: string;
-  /** Whether the section is open the first time the user sees it. */
+  /** Kept for backwards compatibility with existing callers. No longer
+   *  used now that section state is in-memory only. */
+  storageKey?: string;
+  /** Whether the section is open on every fresh page load. */
   defaultOpen?: boolean;
   /** When true, render flat with no header / no accordion control. Used
    *  when the parent sidebar is in icon-only collapsed mode. */
@@ -42,34 +38,22 @@ interface CollapsibleNavSectionProps {
 
 export function CollapsibleNavSection({
   title,
-  storageKey,
+  storageKey: _storageKey,
   defaultOpen = true,
   flatMode = false,
   containsActiveRoute = false,
   children,
 }: CollapsibleNavSectionProps) {
-  const lsKey = `nav-section-open:${storageKey}`;
+  void _storageKey;
 
-  // Hydrate from localStorage on mount. We use a lazy initialiser so the
-  // very first render uses the correct value and we don't get an open ->
-  // close flicker.
-  const [userOpen, setUserOpen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return defaultOpen;
-    const saved = window.localStorage.getItem(lsKey);
-    if (saved === "true") return true;
-    if (saved === "false") return false;
-    return defaultOpen;
-  });
+  // In-memory only. Each mount starts at the section's defaultOpen state;
+  // we don't persist the user's manual toggles. This is intentional so
+  // navigating between pages always resets the menu to its smart defaults.
+  const [userOpen, setUserOpen] = useState<boolean>(defaultOpen);
 
   // If the active route lives inside this section, force-expand it so the
-  // user can always see where they are. We don't write this to storage --
-  // their explicit preference is preserved for when they navigate away.
+  // user can always see where they are.
   const open = containsActiveRoute ? true : userOpen;
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(lsKey, String(userOpen));
-  }, [lsKey, userOpen]);
 
   if (flatMode) {
     return <div className="space-y-1">{children}</div>;
