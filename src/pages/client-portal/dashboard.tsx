@@ -317,7 +317,7 @@ export default function ClientPortalDashboard() {
         // RLS on delivery_feedback already gates this to the client's
         // own orders. We merge by id rather than embedding so we don't
         // get tripped up if the column shape changes upstream.
-        let ratingByOrderId = new Map<string, number>();
+        const ratingByOrderId = new Map<string, number>();
         if (rows.length > 0) {
           const orderIds = rows.map((r) => r.id);
           const { data: feedback } = await supabase
