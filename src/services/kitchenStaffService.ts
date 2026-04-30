@@ -427,7 +427,7 @@ export const kitchenStaffService = {
       this.listStaffWithRates(companyId, /* includeArchived */ true),
       this.listShiftsInRange(companyId, fromISO, toISO),
     ]);
-    const staffMap = new Map(staff.map(s => [s.id, s]));
+    const staffMap = new Map<string, KitchenStaffMember>(staff.map(s => [s.id, s] as const));
 
     const buckets = new Map<string, StaffWageSummary>();
     const seedFor = (id: string): StaffWageSummary => {
