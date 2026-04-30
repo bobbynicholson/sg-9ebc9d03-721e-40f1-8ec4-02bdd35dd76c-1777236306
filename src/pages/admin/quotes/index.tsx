@@ -156,6 +156,40 @@ export default function AdminQuotes() {
     return () => { cancelled = true; };
   }, [user?.company_id]);
 
+  // Realtime subscription -- when a client submits a quote request via
+  // their portal (or any other process inserts a quote for our
+  // company), refetch so the new row appears at the top of the
+  // "Action needed" pill without the team having to refresh manually.
+  // Filtered to this company_id so we never receive other tenants'
+  // events even though Supabase realtime broadcasts at the table
+  // level by default.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    const channel = supabase
+      .channel(`quotes:${user.company_id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "quotes",
+          filter: `company_id=eq.${user.company_id}`,
+        },
+        async () => {
+          try {
+            const fresh = await quoteService.getQuotes(user.company_id!);
+            setQuotes(fresh);
+          } catch (err) {
+            console.warn("[quotes] realtime refresh failed", err);
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.company_id]);
+
   // Pull the catering company's display name once so the email signature
   // reads as "Best, Spit Braai Delivery" rather than "Best, the team".
   useEffect(() => {
@@ -291,6 +325,71 @@ export default function AdminQuotes() {
               );
             })}
           </div>
+
+          {/*
+            Bulk nudge bar. Only shown when a follow-up-eligible bucket
+            is active AND there are quotes with client emails to nudge.
+            Hard-capped at 10 to avoid the browser blocking pop-ups
+            and to keep the "personal mail, not bulk" feel intact --
+            10 individually-tailored Gmail drafts beats one generic
+            blast every time.
+          */}
+          {(bucket === "action_needed" || bucket === "in_play" || bucket === "stale") && (() => {
+            const eligible = bucketFilteredRows.filter(
+              (r) => !!r.quote.client_email && r.quote.status !== "draft",
+            );
+            if (eligible.length === 0) return null;
+            const cap = Math.min(eligible.length, 10);
+            const handleBulkNudge = () => {
+              const targets = eligible.slice(0, cap);
+              const ok = window.confirm(
+                `Open ${cap} Gmail drafts to nudge these clients?\nEach draft is tailored from the quote's status -- you review every one before sending. The remaining ${Math.max(eligible.length - cap, 0)} will need a second pass.`,
+              );
+              if (!ok) return;
+              targets.forEach((rs, i) => {
+                const tpl = templateForQuote(rs.quote.status as QuoteStatus, {
+                  contactName: rs.quote.client_name || "there",
+                  companyName: companyName,
+                  fromName: profile?.full_name || companyName,
+                  eventDate: rs.quote.event_date
+                    ? new Date(rs.quote.event_date).toLocaleDateString("en-ZA")
+                    : undefined,
+                  total: rs.quote.total ?? rs.quote.subtotal ?? 0,
+                  quoteRef: (rs.quote as any).quote_number || rs.quote.id?.slice(0, 8),
+                });
+                const url = composeEmail.gmailUrl({
+                  to: rs.quote.client_email!,
+                  subject: tpl.subject,
+                  body: tpl.body,
+                });
+                // Stagger the window.open calls so the browser
+                // doesn't classify them as a single popup burst.
+                setTimeout(() => window.open(url, `_blank`), i * 250);
+              });
+              toast({
+                title: `Opening ${cap} Gmail drafts...`,
+                description:
+                  "If your browser blocks new tabs, allow pop-ups for cateringms.com and try again.",
+              });
+            };
+            return (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+                <div className="text-sm text-amber-900">
+                  <span className="font-medium">{eligible.length}</span> {bucket === "stale" ? "stale " : bucket === "action_needed" ? "action " : "in-play "}
+                  quote{eligible.length === 1 ? "" : "s"} with a client email -- send personal nudges?
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-white border-amber-300 text-amber-900 hover:bg-amber-100"
+                  onClick={handleBulkNudge}
+                >
+                  <Mail className="w-3.5 h-3.5 mr-1.5" />
+                  Open {cap} Gmail draft{cap === 1 ? "" : "s"}
+                </Button>
+              </div>
+            );
+          })()}
 
           {/* Quick-mail banner mirrors the Clients CRM pattern: explains why
               the "Compose" buttons open Gmail / Outlook / default mail rather

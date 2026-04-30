@@ -43,6 +43,12 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  deriveOrderIntelligence,
+  summariseAutoEmailsByOrder,
+  type OrderAutoEmailSummary,
+} from "@/lib/orderIntelligence";
 import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
@@ -156,6 +162,11 @@ function OrderProcessDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [orders, setOrders] = useState<AppOrder[]>([]);
+  // Per-order summary of email_automation_log entries: count of sent
+  // automations, latest event, and a "post-event review automation
+  // already fired" flag. Surfaced on each OrderCard so the team sees
+  // which automations have / haven't gone out.
+  const [autoEmailMap, setAutoEmailMap] = useState<Map<string, OrderAutoEmailSummary>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -191,6 +202,26 @@ function OrderProcessDashboard() {
     try {
       const allOrders = await orderService.getAllOrders(user.company_id);
       setOrders(allOrders as unknown as AppOrder[]);
+
+      // Pull email_automation_log rows for these orders so the cards
+      // can surface "post-event review sent / queued / not yet"
+      // without a per-card extra round trip.
+      try {
+        const orderIds = allOrders.map((o: any) => o.id);
+        if (orderIds.length > 0) {
+          const { data: logs } = await supabase
+            .from("email_automation_log")
+            .select("order_id, template_type, status, sent_at")
+            .in("order_id", orderIds);
+          setAutoEmailMap(summariseAutoEmailsByOrder(logs || []));
+        } else {
+          setAutoEmailMap(new Map());
+        }
+      } catch (err) {
+        // Non-fatal -- the cards still render without automation
+        // status, just without the extra chips.
+        console.warn("[orders] email_automation_log fetch failed", err);
+      }
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
@@ -314,8 +345,22 @@ function OrderProcessDashboard() {
     const isToday = eventDate.toDateString() === new Date().toDateString();
     const isPast = eventDate < new Date();
 
+    // Derived intelligence + automation summary -- the card surfaces
+    // both so the catering team sees, at a glance, what's at risk.
+    const intel = deriveOrderIntelligence(order);
+    const auto = autoEmailMap.get((order as any).id) || { sent: 0, latest: null, postEventSent: false } as OrderAutoEmailSummary;
+    const ringClass =
+      intel.tone === "urgent"
+        ? "ring-2 ring-rose-300"
+        : intel.bucket === "today"
+          ? "ring-2 ring-blue-200"
+          : "";
+
     return (
-      <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4" style={{ borderLeftColor: config.dotColor.replace('bg-', '#') }}>
+      <Card
+        className={`hover:shadow-md transition-shadow cursor-pointer border-l-4 ${ringClass}`}
+        style={{ borderLeftColor: config.dotColor.replace('bg-', '#') }}
+      >
         <CardContent className="p-4">
           <div className="space-y-3">
             {/* Header */}
@@ -327,6 +372,21 @@ function OrderProcessDashboard() {
               <Badge variant="outline" className={`${config.color} border`}>
                 {config.label}
               </Badge>
+            </div>
+
+            {/* Suggested action -- the headline intelligence row */}
+            <div
+              className={`flex items-center gap-1.5 text-xs font-semibold ${
+                intel.tone === "urgent"
+                  ? "text-rose-600"
+                  : intel.tone === "warm"
+                    ? "text-amber-600"
+                    : "text-slate-500"
+              }`}
+              title={intel.reason}
+            >
+              <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{intel.label}</span>
             </div>
 
             {/* Event Details */}
@@ -342,6 +402,28 @@ function OrderProcessDashboard() {
                 <span>{order.guest_count} guests</span>
               </div>
             </div>
+
+            {/* Automation status strip -- only renders when there is
+                something to say. */}
+            {(auto.sent > 0 || (intel.bucket === "done" && !auto.postEventSent)) && (
+              <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                {auto.sent > 0 && (
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                    {auto.sent} auto email{auto.sent === 1 ? "" : "s"} sent
+                  </span>
+                )}
+                {auto.postEventSent && (
+                  <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5">
+                    Review email sent
+                  </span>
+                )}
+                {intel.bucket === "done" && !auto.postEventSent && (
+                  <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                    Review email pending
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
