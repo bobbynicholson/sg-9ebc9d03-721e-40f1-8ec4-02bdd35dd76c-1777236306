@@ -16,7 +16,8 @@ import {
   Menu,
   ChevronRight,
   Warehouse,
-  ChevronLeft
+  ChevronLeft,
+  ChefHat,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -91,6 +92,12 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
           href: "/team-portal/shopping/alerts",
           icon: TrendingUp,
           description: "Low stock items"
+        },
+        {
+          title: "Kitchen Demand",
+          href: "/team-portal/shopping/kitchen-demand",
+          icon: ChefHat,
+          description: "What the kitchen needs from upcoming orders"
         }
       ]
     },
