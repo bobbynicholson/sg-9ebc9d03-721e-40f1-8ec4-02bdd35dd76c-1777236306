@@ -27,6 +27,10 @@ interface DriverOrder {
   delivery_status?: string | null;
   total_amount: number | null;
   client_name?: string | null;
+  /** From orders.equipment_items jsonb -- the load list. */
+  equipment_items?: any[] | null;
+  /** From orders.menu_items jsonb -- so the driver knows the headline. */
+  menu_items?: any[] | null;
 }
 
 const statusBadge = (status: string) => {
@@ -67,7 +71,9 @@ export default function DriverDeliveriesPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, total_amount, client_name")
+        // Pull the load list (equipment_items) + menu headline so the
+        // driver sees what's on the truck, not just where they're going.
+        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, total_amount, client_name, equipment_items, menu_items")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -191,31 +197,91 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
   }
   return (
     <div className="space-y-3">
-      {orders.map((o) => (
-        <div key={o.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-lg border bg-white hover:shadow-md transition-shadow">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <Badge className={`border ${statusBadge(o.status)}`}>{o.status}</Badge>
-              <span className="text-sm text-slate-500">
-                <Calendar className="inline w-3.5 h-3.5 mr-1" />
-                {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
-                {o.event_time ? ` · ${o.event_time}` : ""}
-              </span>
+      {orders.map((o) => {
+        const equipment = Array.isArray(o.equipment_items) ? o.equipment_items : [];
+        const menu = Array.isArray(o.menu_items) ? o.menu_items : [];
+        return (
+          <div key={o.id} className="flex flex-col gap-3 p-4 rounded-lg border bg-white hover:shadow-md transition-shadow">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <Badge className={`border ${statusBadge(o.status)}`}>{o.status}</Badge>
+                  <span className="text-sm text-slate-500">
+                    <Calendar className="inline w-3.5 h-3.5 mr-1" />
+                    {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                    {o.event_time ? ` · ${o.event_time}` : ""}
+                  </span>
+                </div>
+                <p className="font-semibold text-slate-900 truncate">{o.client_name || "Order"}</p>
+                <p className="text-sm text-slate-600 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="truncate">{o.venue_address}</span>
+                </p>
+              </div>
+              <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
+                <span className="text-sm text-slate-500">{o.guest_count} pax</span>
+                <span className="font-semibold text-slate-900">
+                  R{Number(o.total_amount || 0).toLocaleString()}
+                </span>
+              </div>
             </div>
-            <p className="font-semibold text-slate-900 truncate">{o.client_name || "Order"}</p>
-            <p className="text-sm text-slate-600 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              <span className="truncate">{o.venue_address}</span>
-            </p>
+
+            {/* What to load -- pulled from orders.equipment_items + menu_items.
+                Sales captured this in the quote, it persisted through the
+                quote -> order conversion, the kitchen sees it on prep-list,
+                the driver sees it here. */}
+            {(equipment.length > 0 || menu.length > 0) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+                {menu.length > 0 && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
+                      Food on board ({menu.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {menu.slice(0, 8).map((m: any, i: number) => (
+                        <Badge key={`m_${i}`} variant="secondary" className="text-xs">
+                          {m.item_name || m.name}
+                          {m.quantity ? ` × ${m.quantity}` : ""}
+                        </Badge>
+                      ))}
+                      {menu.length > 8 && (
+                        <span className="text-[11px] text-slate-500 self-center">
+                          +{menu.length - 8} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {equipment.length > 0 && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
+                      Equipment to load ({equipment.length})
+                    </p>
+                    <ul className="space-y-1">
+                      {equipment.map((eq: any, i: number) => (
+                        <li
+                          key={`eq_${i}`}
+                          className="flex items-center justify-between gap-2 text-sm bg-blue-50 border border-blue-100 rounded px-2 py-1"
+                        >
+                          <span className="text-slate-800 truncate">
+                            {eq.name || "(unnamed)"}
+                            {eq.category && (
+                              <span className="ml-1.5 text-[11px] text-slate-500">{eq.category}</span>
+                            )}
+                          </span>
+                          <span className="text-xs font-bold text-blue-700 flex-shrink-0">
+                            × {Number(eq.quantity) || 0}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
-            <span className="text-sm text-slate-500">{o.guest_count} pax</span>
-            <span className="font-semibold text-slate-900">
-              R{Number(o.total_amount || 0).toLocaleString()}
-            </span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

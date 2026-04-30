@@ -78,6 +78,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
+import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/services/quoteIntelligenceService";
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
@@ -110,9 +111,14 @@ interface LineItem {
 
 interface EquipmentLineItem {
   id: string;
+  /** When linked to the company's equipment catalog. */
+  equipment_id: string | null;
   name: string;
+  category: string | null;
   quantity: number;
   unitPrice: number;
+  /** Carried through so the kitchen + driver views can spot stockouts. */
+  availableQuantity?: number | null;
 }
 
 const LINE_CATEGORIES = [
@@ -394,7 +400,9 @@ function NewQuotePage() {
       setEquipment(
         q.equipment_items.map((e: any, i: number) => ({
           id: `E_${i}`,
+          equipment_id: e.equipment_id ?? null,
           name: e.name ?? "",
+          category: e.category ?? null,
           quantity: safeNum(e.quantity),
           unitPrice: safeNum(e.unit_price ?? e.rentalPrice ?? e.unitPrice),
         })),
@@ -527,12 +535,29 @@ function NewQuotePage() {
   const addEquip = () =>
     setEquipment((prev) => [
       ...prev,
-      { id: `E_${Date.now()}`, name: "", quantity: 1, unitPrice: 0 },
+      {
+        id: `E_${Date.now()}`,
+        equipment_id: null,
+        name: "",
+        category: null,
+        quantity: 1,
+        unitPrice: 0,
+      },
     ]);
   const removeEquip = (id: string) =>
     setEquipment((prev) => prev.filter((e) => e.id !== id));
   const updateEquip = (id: string, patch: Partial<EquipmentLineItem>) =>
     setEquipment((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  const applyEquipmentPick = (lineId: string, pick: EquipmentPick) => {
+    updateEquip(lineId, {
+      equipment_id: pick.id,
+      name: pick.name,
+      category: pick.category,
+      unitPrice: pick.rentalPrice,
+      availableQuantity: pick.availableQuantity,
+    });
+  };
 
   // ── Persistence ──────────────────────────────────────────────────
   const buildPayload = useCallback(() => {
@@ -564,7 +589,9 @@ function NewQuotePage() {
     const equipJson = equipment
       .filter((e) => e.name)
       .map((e) => ({
+        equipment_id: e.equipment_id,
         name: e.name,
+        category: e.category,
         quantity: e.quantity,
         unit_price: e.unitPrice,
         rentalPrice: e.unitPrice,
@@ -1050,44 +1077,75 @@ function NewQuotePage() {
                   {equipment.length === 0 && (
                     <p className="text-sm text-slate-500 italic">No equipment lines.</p>
                   )}
-                  {equipment.map((e, idx) => (
-                    <div key={e.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="text-xs text-slate-500">Item {idx + 1}</span>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEquip(e.id)}>
-                          <Trash2 className="w-4 h-4 text-rose-600" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                        <div className="sm:col-span-6">
-                          <Label className="text-xs">Name</Label>
-                          <Input value={e.name} onChange={(ev) => updateEquip(e.id, { name: ev.target.value })} placeholder="Chafing dish" />
+                  {equipment.map((e, idx) => {
+                    const overstocked =
+                      e.availableQuantity != null && e.quantity > e.availableQuantity;
+                    return (
+                      <div key={e.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-xs text-slate-500">Item {idx + 1}</span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeEquip(e.id)}>
+                            <Trash2 className="w-4 h-4 text-rose-600" />
+                          </Button>
                         </div>
-                        <div className="sm:col-span-3">
-                          <Label className="text-xs">Qty</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            value={e.quantity || ""}
-                            onChange={(ev) => updateEquip(e.id, { quantity: safeNum(ev.target.value) })}
-                          />
+                        <div className="space-y-2">
+                          <div>
+                            <Label className="text-xs">Equipment</Label>
+                            <EquipmentTypeahead
+                              companyId={companyId}
+                              value={e.name}
+                              onChange={(v) => updateEquip(e.id, { name: v })}
+                              onPick={(pick) => applyEquipmentPick(e.id, pick)}
+                              placeholder="Search your catalog -- chafing dish, table, chair..."
+                            />
+                            {e.equipment_id && (
+                              <div className="mt-1 text-[11px] text-blue-600 flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Linked to your catalog -- price + stock pre-filled.
+                              </div>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <div className="sm:col-span-4">
+                              <Label className="text-xs">Category</Label>
+                              <Input
+                                value={e.category || ""}
+                                onChange={(ev) => updateEquip(e.id, { category: ev.target.value })}
+                                placeholder="e.g. chafing, tables, lighting"
+                              />
+                            </div>
+                            <div className="sm:col-span-4">
+                              <Label className="text-xs">Qty</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={e.quantity || ""}
+                                onChange={(ev) => updateEquip(e.id, { quantity: safeNum(ev.target.value) })}
+                              />
+                              {overstocked && (
+                                <p className="text-[11px] text-amber-700 mt-1">
+                                  Only {e.availableQuantity} free in stock -- you may need to hire-in.
+                                </p>
+                              )}
+                            </div>
+                            <div className="sm:col-span-4">
+                              <Label className="text-xs">Unit price (R)</Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={e.unitPrice || ""}
+                                onChange={(ev) => updateEquip(e.id, { unitPrice: safeNum(ev.target.value) })}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div className="sm:col-span-3">
-                          <Label className="text-xs">Unit price (R)</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={e.unitPrice || ""}
-                            onChange={(ev) => updateEquip(e.id, { unitPrice: safeNum(ev.target.value) })}
-                          />
+                        <div className="text-xs text-slate-600 mt-1.5 text-right">
+                          {fmtR(e.unitPrice * e.quantity)}
                         </div>
                       </div>
-                      <div className="text-xs text-slate-600 mt-1.5 text-right">
-                        {fmtR(e.unitPrice * e.quantity)}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
 

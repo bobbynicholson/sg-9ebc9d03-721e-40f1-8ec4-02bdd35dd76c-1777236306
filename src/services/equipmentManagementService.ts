@@ -183,4 +183,49 @@ export const equipmentManagementService = {
     if (error) throw error;
     return data as Equipment[];
   },
+
+  /**
+   * Quote-builder typeahead lookup. Mirrors menuService.searchForQuote:
+   * filtered to a single company's catalog (RLS belt-and-braces),
+   * skips items the owner has flipped out of the catalog
+   * (`is_available = false`), returns the slim field set the picker
+   * needs to hydrate a quote line.
+   */
+  async searchForQuote(
+    companyId: string,
+    term: string,
+    limit: number = 10,
+  ): Promise<Array<{
+    id: string;
+    name: string;
+    category: string | null;
+    rental_price: number;
+    description: string | null;
+    image_url: string | null;
+    quantity: number | null;
+    available_quantity: number | null;
+    condition: string | null;
+  }>> {
+    if (!companyId) return [];
+    const t = (term || "").trim();
+    let q = supabase
+      .from("equipment")
+      .select(
+        "id, name, category, rental_price, description, image_url, quantity, available_quantity, condition, is_available",
+      )
+      .eq("company_id", companyId)
+      .or("is_available.is.null,is_available.eq.true");
+    if (t.length >= 1) {
+      const like = `%${t}%`;
+      q = q.or(`name.ilike.${like},description.ilike.${like},category.ilike.${like}`);
+    }
+    const { data, error } = await q
+      .order("name", { ascending: true })
+      .limit(limit);
+    if (error) {
+      console.error("equipmentManagementService.searchForQuote failed:", error);
+      return [];
+    }
+    return (data || []) as any[];
+  },
 };

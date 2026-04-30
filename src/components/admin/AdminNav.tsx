@@ -224,6 +224,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/menu",
           icon: BookOpen,
           description: "Build menu items + recipes"
+        },
+        {
+          title: "Equipment",
+          href: "/admin/equipment",
+          icon: Package,
+          description: "Chafing, tables, chairs, hire add-ons"
         }
       ]
     },

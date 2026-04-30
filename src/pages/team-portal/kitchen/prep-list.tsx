@@ -44,6 +44,9 @@ interface OrderRow {
   venue_address: string | null;
   event_time: string | null;
   client_name: string | null;
+  /** From orders.equipment_items jsonb -- shape:
+   *  [{ equipment_id, name, category, quantity, unit_price, ... }] */
+  equipment_items?: any[] | null;
 }
 
 const dayBucket = (d: string, today: Date) => {
@@ -109,9 +112,13 @@ export default function KitchenPrepListPage() {
 
       const orderIds = Array.from(new Set(demandRows.map((d) => d.order_id)));
       if (orderIds.length) {
+        // Pull equipment_items alongside the venue / time meta so the
+        // kitchen knows what to pack for each order, not just what to
+        // cook. The quote builder writes equipment_items as a JSONB
+        // array of { equipment_id, name, category, quantity, ... }.
         const { data: orders } = await supabase
           .from("orders")
-          .select("id, venue_address, event_time, client_name")
+          .select("id, venue_address, event_time, client_name, equipment_items")
           .in("id", orderIds);
         const map: Record<string, OrderRow> = {};
         (orders || []).forEach((o: any) => { map[o.id] = o; });
@@ -497,6 +504,36 @@ export default function KitchenPrepListPage() {
                                 ))}
                               </div>
                             </div>
+                            {/*
+                              Equipment to pack -- pulled from
+                              orders.equipment_items jsonb. Sales
+                              writes this on the quote, it persists
+                              through the quote->order conversion, the
+                              kitchen sees it here, the driver sees it
+                              on their delivery card. End-to-end visibility.
+                            */}
+                            {Array.isArray(meta?.equipment_items) && meta.equipment_items.length > 0 && (
+                              <div>
+                                <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
+                                  Equipment to pack ({meta.equipment_items.length})
+                                </p>
+                                <ul className="text-sm divide-y divide-slate-100">
+                                  {meta.equipment_items.map((eq: any, i: number) => (
+                                    <li key={`${eq.equipment_id ?? "x"}_${i}`} className="py-1.5 flex items-center justify-between gap-2">
+                                      <span className="text-slate-700 truncate">
+                                        {eq.name || "(unnamed)"}
+                                        {eq.category && (
+                                          <span className="ml-1.5 text-[11px] text-slate-400">{eq.category}</span>
+                                        )}
+                                      </span>
+                                      <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
+                                        × {Number(eq.quantity) || 0}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
                                 Ingredients to pull
