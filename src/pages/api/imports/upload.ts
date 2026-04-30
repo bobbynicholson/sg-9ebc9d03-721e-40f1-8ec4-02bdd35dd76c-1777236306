@@ -145,12 +145,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ── Parse multipart ────────────────────────────────────────────
+    // Cast to any: formidable's v3 generic Files<string> typing
+    // makes file?.[0] a fight with strict mode, and the runtime
+    // shape is well-known.
     const form = formidable({
       maxFiles: 1,
       maxFileSize: MAX_BYTES,
     });
-    const [, files] = await form.parse(req);
-    const fileEntry = files.file?.[0];
+    const parsed: any = await form.parse(req);
+    const files: any = Array.isArray(parsed) ? parsed[1] : parsed?.files;
+    const fileEntry: any = files?.file?.[0] ?? files?.file;
     if (!fileEntry) {
       return res.status(400).json({ error: "No file provided -- expected field 'file'" });
     }

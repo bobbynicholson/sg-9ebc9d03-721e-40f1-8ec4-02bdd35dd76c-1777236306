@@ -66,7 +66,6 @@ function ImportPage() {
   const [editedMapping, setEditedMapping] = useState<any>(null);
 
   const fileInput = useRef<HTMLInputElement | null>(null);
-  void companyId;
 
   const refreshJob = async (id: string) => {
     const res = await fetch(`/api/imports/${id}`);
