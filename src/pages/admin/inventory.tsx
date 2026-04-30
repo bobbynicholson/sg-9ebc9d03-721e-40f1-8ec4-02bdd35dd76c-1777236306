@@ -947,6 +947,17 @@ export default function AdminInventory() {
             </div>
           </div>
 
+          {/*
+            Equipment integration strip. Inventory is food-side; the
+            equipment catalog (chafing dishes, tables, chairs) is
+            managed separately on /admin/equipment but the team
+            thinks of both as "stuff we have". This strip surfaces
+            the catalog headline + deep-links so the operator never
+            forgets it exists, and flags any open hire-in orders so
+            procurement doesn't drift.
+          */}
+          <InventoryEquipmentStrip />
+
           {/* At risk this week (the most valuable block, now first) */}
           <Card id="at-risk-panel" className="border-0 shadow-sm mb-6">
             <CardHeader className="pb-3">
@@ -2061,5 +2072,124 @@ export function ProtectedInventoryPage() {
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <AdminInventory />
     </ProtectedRoute>
+  );
+}
+
+/**
+ * Equipment-catalog summary strip rendered on the Inventory page.
+ * Self-contained: fetches equipment + open hire-orders for the
+ * current company, renders headline numbers + deep-links to
+ * /admin/equipment and /admin/equipment/hire-orders.
+ *
+ * Slug-aware -- the inventory page itself can be loaded via
+ * /spit-braai-delivery/admin/inventory and the deep links keep the
+ * tenant prefix.
+ */
+function InventoryEquipmentStrip() {
+  const { user } = useAuth() as any;
+  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  const [stats, setStats] = useState<{
+    items: number;
+    units: number;
+    hidden: number;
+    hireOpen: number;
+    hireSpend: number;
+  } | null>(null);
+
+  // Slug-aware deep-link prefix.
+  const slugPrefix = (() => {
+    if (typeof window === "undefined") return "";
+    const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
+    return m ? `/${m[1]}` : "";
+  })();
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [eqRes, hireRes] = await Promise.all([
+          // @ts-expect-error supabase typing is happy at runtime
+          supabase.from("equipment").select("id, quantity, is_available").eq("company_id", companyId),
+          // @ts-expect-error supabase typing is happy at runtime
+          supabase.from("equipment_hire_orders").select("status, total_cost").eq("company_id", companyId),
+        ]);
+        if (cancelled) return;
+        const eqRows = (eqRes.data || []) as any[];
+        const hires = (hireRes.data || []) as any[];
+        const items = eqRows.length;
+        const units = eqRows.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+        const hidden = eqRows.filter((r) => r.is_available === false).length;
+        const open = hires.filter((h) => h.status !== "returned" && h.status !== "cancelled");
+        const hireOpen = open.length;
+        const hireSpend = open.reduce((s, h) => s + (Number(h.total_cost) || 0), 0);
+        setStats({ items, units, hidden, hireOpen, hireSpend });
+      } catch {
+        if (!cancelled) setStats({ items: 0, units: 0, hidden: 0, hireOpen: 0, hireSpend: 0 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  if (!stats) return null;
+
+  return (
+    <Card className="border-0 shadow-sm mb-6">
+      <CardContent className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Package className="w-4.5 h-4.5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Equipment catalog</p>
+              <p className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span><strong className="text-slate-900">{stats.items}</strong> items</span>
+                <span>·</span>
+                <span><strong className="text-slate-900">{stats.units}</strong> units owned</span>
+                {stats.hidden > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-700">{stats.hidden} hidden from quotes</span>
+                  </>
+                )}
+                {stats.hireOpen > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="text-rose-700 font-medium">
+                      {stats.hireOpen} open hire-in order{stats.hireOpen === 1 ? "" : "s"}
+                      {stats.hireSpend > 0 && (
+                        <> ({`R ${stats.hireSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`} committed)</>
+                      )}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link href={`${slugPrefix}/admin/equipment`}>
+              <Button variant="outline" size="sm">
+                Manage catalog
+              </Button>
+            </Link>
+            <Link href={`${slugPrefix}/admin/equipment/hire-orders`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={stats.hireOpen > 0 ? "border-rose-300 text-rose-700" : ""}
+              >
+                Hire-in orders
+                {stats.hireOpen > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center text-[10px] bg-rose-600 text-white rounded-full w-5 h-5">
+                    {stats.hireOpen}
+                  </span>
+                )}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

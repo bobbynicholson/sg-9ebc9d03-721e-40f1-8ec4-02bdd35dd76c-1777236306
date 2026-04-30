@@ -230,6 +230,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/equipment",
           icon: Package,
           description: "Chafing, tables, chairs, hire add-ons"
+        },
+        {
+          title: "Hire-in orders",
+          href: "/admin/equipment/hire-orders",
+          icon: Truck,
+          description: "Procurement when you overcommit stock"
         }
       ]
     },
