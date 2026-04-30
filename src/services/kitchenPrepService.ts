@@ -961,7 +961,7 @@ export const kitchenPrepService = {
     breakStartedAt?: string | null;
     totalBreakMin?: number;
     hourlyRate?: number | null;
-    settings: KitchenSettings;
+    settings: Pick<KitchenSettings, "overtimeAfterHours" | "mealBreakAfterHours">;
     now?: Date;
   }): {
     workedMin: number;
