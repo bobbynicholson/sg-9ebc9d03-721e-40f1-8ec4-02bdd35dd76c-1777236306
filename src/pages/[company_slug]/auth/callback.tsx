@@ -216,7 +216,7 @@ export default function ClientAuthCallbackPage() {
                   <Button
                     onClick={() =>
                       router.replace(
-                        `/${typeof company_slug === "string" ? company_slug : ""}/login`,
+                        `/${typeof company_slug === "string" ? company_slug : ""}/client/login`,
                       )
                     }
                     className="w-full"

@@ -207,7 +207,14 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
 
     if (companySlug && companySlug !== "auth" && companySlug !== "admin" && companySlug !== "api") {
-      url.pathname = `/${companySlug}/login`;
+      // Client-portal routes go to the client magic-link login. Staff
+      // routes (admin, team-portal) go to the staff password login. The
+      // captured group at companySlugMatch[2] tells us which.
+      const portalKind = companySlugMatch?.[2];
+      url.pathname =
+        portalKind === "client-portal"
+          ? `/${companySlug}/client/login`
+          : `/${companySlug}/login`;
     } else {
       url.pathname = "/auth/login";
     }

@@ -228,7 +228,7 @@ export default function ClientOrderPage() {
                   </p>
                 </div>
                 <Link
-                  href={`/${company.slug}/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
+                  href={`/${company.slug}/client/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md transition-opacity hover:opacity-90 flex-shrink-0 w-full sm:w-auto justify-center"
                   style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
                 >
