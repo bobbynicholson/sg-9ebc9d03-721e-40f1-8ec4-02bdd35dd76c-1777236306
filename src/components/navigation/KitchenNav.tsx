@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,6 +55,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
   const baseUrl = companySlug ? `/company/${companySlug}` : "";
+  // Slug-aware href wrapper -- prefixes /team-portal/* hrefs with the
+  // tenant slug so URLs stay inside /spit-braai-delivery/team-portal/...
+  const { withSlug } = useTenantHref();
 
   // Load collapsed state from localStorage on mount
   useEffect(() => {
@@ -148,7 +152,10 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
+    if (router.pathname === href) return true;
+    if (router.asPath === href) return true;
+    if (router.asPath === withSlug(href)) return true;
+    return false;
   };
 
   const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
@@ -160,9 +167,9 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: "/team-portal/kitchen/prep-list",  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: "from-orange-500 to-red-500" },
-                { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
-                { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: "from-emerald-500 to-teal-500" },
+                { href: withSlug("/team-portal/kitchen/prep-list"),  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: "from-orange-500 to-red-500" },
+                { href: withSlug("/team-portal/kitchen/production"), label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: "from-amber-500 to-orange-500" },
+                { href: withSlug("/team-portal/kitchen/stock"),      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: "from-emerald-500 to-teal-500" },
               ]}
             />
           </div>
@@ -183,7 +190,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-orange-50 hover:text-orange-700",
@@ -290,7 +297,7 @@ export function KitchenNav({ className, companySlug }: KitchenNavProps) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={withSlug(item.href)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-orange-50 hover:text-orange-700",
                         active

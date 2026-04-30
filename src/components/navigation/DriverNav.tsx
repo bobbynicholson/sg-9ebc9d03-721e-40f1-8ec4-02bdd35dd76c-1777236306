@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,6 +59,7 @@ const navItems = [
 
 export function DriverNav({ className, companySlug }: DriverNavProps) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -160,7 +162,10 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
+    if (router.pathname === href) return true;
+    if (router.asPath === href) return true;
+    if (router.asPath === withSlug(href)) return true;
+    return false;
   };
 
   const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
@@ -172,9 +177,9 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: "/team-portal/driver/routes",      label: "Today's routes",   sub: "What you're driving",  icon: Navigation, accent: "from-blue-500 to-indigo-500" },
-                { href: "/team-portal/driver/tracking",   label: "Live tracking",    sub: "Update status",        icon: MapPin,     accent: "from-emerald-500 to-teal-500" },
-                { href: "/team-portal/driver/earnings",   label: "My earnings",      sub: "Hours + pay",          icon: DollarSign, accent: "from-amber-500 to-orange-500" },
+                { href: withSlug("/team-portal/driver/routes"),      label: "Today's routes",   sub: "What you're driving",  icon: Navigation, accent: "from-blue-500 to-indigo-500" },
+                { href: withSlug("/team-portal/driver/tracking"),   label: "Live tracking",    sub: "Update status",        icon: MapPin,     accent: "from-emerald-500 to-teal-500" },
+                { href: withSlug("/team-portal/driver/earnings"),   label: "My earnings",      sub: "Hours + pay",          icon: DollarSign, accent: "from-amber-500 to-orange-500" },
               ]}
             />
           </div>
@@ -195,7 +200,7 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-blue-50 hover:text-blue-700",
@@ -300,7 +305,7 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={withSlug(item.href)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-blue-50 hover:text-blue-700",
                         active

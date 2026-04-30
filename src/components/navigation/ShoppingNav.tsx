@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,6 +51,7 @@ interface ShoppingNavProps {
 
 export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -155,7 +157,10 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
+    if (router.pathname === href) return true;
+    if (router.asPath === href) return true;
+    if (router.asPath === withSlug(href)) return true;
+    return false;
   };
 
   const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
@@ -167,9 +172,9 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: "/team-portal/shopping/alerts",    label: "Stock alerts",   sub: "Shortfalls vs orders", icon: TrendingUp, accent: "from-red-500 to-orange-500" },
-                { href: "/team-portal/shopping/orders",    label: "Open POs",       sub: "Track deliveries",     icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
-                { href: "/team-portal/shopping/suppliers", label: "Suppliers",      sub: "Contacts + prices",    icon: Users,        accent: "from-purple-500 to-pink-500" },
+                { href: withSlug("/team-portal/shopping/alerts"),    label: "Stock alerts",   sub: "Shortfalls vs orders", icon: TrendingUp, accent: "from-red-500 to-orange-500" },
+                { href: withSlug("/team-portal/shopping/orders"),    label: "Open POs",       sub: "Track deliveries",     icon: ShoppingCart, accent: "from-blue-500 to-indigo-500" },
+                { href: withSlug("/team-portal/shopping/suppliers"), label: "Suppliers",      sub: "Contacts + prices",    icon: Users,        accent: "from-purple-500 to-pink-500" },
               ]}
             />
           </div>
@@ -190,7 +195,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-green-50 hover:text-green-700",
@@ -297,7 +302,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={withSlug(item.href)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-green-50 hover:text-green-700",
                         active

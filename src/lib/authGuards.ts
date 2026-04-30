@@ -107,18 +107,21 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 };
 
 // Default landing pages for each role
-// Slug-prefixed landings only for roles that have /[company_slug]/ wrapper pages.
-// Staff team-portal and client-portal pages currently live under non-slug paths only,
-// so prefixing them would 404. Revisit when wrappers exist.
+// Every tenant role lands on a slug-prefixed URL when we know the
+// slug. Super-admin is the only role that stays on a bare path
+// (/admin/platform/...). When the slug isn't known yet (e.g. during
+// the first-render of a sign-in flow), fall back to the bare path --
+// the middleware will redirect to the slug-prefixed form on the next
+// request.
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/admin/platform/dashboard",
   [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  [UserRole.KITCHEN_STAFF]: () => "/team-portal/kitchen/dashboard",
-  [UserRole.SHOPPING_STAFF]: () => "/team-portal/shopping/dashboard",
-  [UserRole.DRIVER]: () => "/team-portal/driver/dashboard",
-  [UserRole.CLEANING_STAFF]: () => "/team-portal/cleaning/dashboard",
-  [UserRole.CLIENT]: () => "/client-portal/dashboard",
+  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
 
 // String-keyed landing-page map covering DB role strings + legacy aliases.
@@ -129,14 +132,14 @@ export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => str
   company_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   owner: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
-  kitchen_staff: () => "/team-portal/kitchen/dashboard",
-  kitchen: () => "/team-portal/kitchen/dashboard",
-  shopping_staff: () => "/team-portal/shopping/dashboard",
-  shopping: () => "/team-portal/shopping/dashboard",
-  driver: () => "/team-portal/driver/dashboard",
-  cleaning_staff: () => "/team-portal/cleaning/dashboard",
-  cleaning: () => "/team-portal/cleaning/dashboard",
-  client: () => "/client-portal/dashboard",
+  kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  kitchen: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
+  shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  client: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
 };
 
 export const DEFAULT_LANDING_PAGE = "/admin/dashboard";

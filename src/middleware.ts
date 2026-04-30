@@ -198,9 +198,13 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const isPublic = isPublicRoute(pathname);
 
-  // Extract company slug if present for dynamic tenant routing (/[slug]/admin/...)
+  // Extract company slug if present for dynamic tenant routing.
+  // Matches /[slug]/admin/..., /[slug]/team-portal/..., /[slug]/client-portal/...,
+  // /[slug]/account/..., /[slug]/subscription/...
   let companySlug: string | null = null;
-  const companySlugMatch = pathname.match(/^\/([^\/]+)\/(admin|team-portal|client-portal)/);
+  const companySlugMatch = pathname.match(
+    /^\/([^\/]+)\/(admin|team-portal|client-portal|account|subscription)/,
+  );
   if (companySlugMatch && companySlugMatch[1]) {
     companySlug = companySlugMatch[1];
   }
@@ -284,6 +288,42 @@ export async function middleware(request: NextRequest) {
     url.pathname = roleLandingPage;
     console.log(`[Middleware] Redirecting ${profileRole} from ${pathname} to ${roleLandingPage}`);
     return NextResponse.redirect(url);
+  }
+
+  // ✅ Slug-prefix enforcement.
+  //
+  // Bobby's rule: every page a tenant user touches has their company
+  // slug in the URL. If an authenticated tenant user lands on a bare
+  // /admin/..., /team-portal/..., /account/... or /subscription/...
+  // URL (e.g. via an old bookmark or a nav we missed), redirect to the
+  // slug-prefixed form so their address bar reads
+  // /spit-braai-delivery/admin/... end-to-end.
+  //
+  // super_admin bypasses -- they navigate across tenants and don't have
+  // a single "their" slug.
+  //
+  // Skip when the path already starts with the user's slug, when we
+  // can't resolve the slug, and when the pathname is /admin/platform/*
+  // (super-admin internal pages live at the bare path even for them).
+  if (
+    profileRole &&
+    profileRole !== "super_admin" &&
+    userCompanySlug &&
+    !pathname.startsWith("/admin/platform")
+  ) {
+    const tenantPrefixes = ["/admin", "/team-portal", "/client-portal", "/account", "/subscription"];
+    const isBareTenantPath = tenantPrefixes.some(
+      (p) => pathname === p || pathname.startsWith(p + "/"),
+    );
+    if (isBareTenantPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${userCompanySlug}${pathname}`;
+      // Preserve query string so deep links keep working.
+      console.log(
+        `[Middleware] Slug-prefixing ${pathname} -> ${url.pathname} for ${profileRole}`,
+      );
+      return NextResponse.redirect(url);
+    }
   }
 
   // ✅ Tenant slug validation: /[slug]/admin|team-portal|client-portal/...

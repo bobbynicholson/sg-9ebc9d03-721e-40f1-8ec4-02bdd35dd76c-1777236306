@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +50,7 @@ interface CleaningNavProps {
 
 export function CleaningNav({ className, companySlug }: CleaningNavProps) {
   const router = useRouter();
+  const { withSlug } = useTenantHref();
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -154,7 +156,10 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
+    if (router.pathname === href) return true;
+    if (router.asPath === href) return true;
+    if (router.asPath === withSlug(href)) return true;
+    return false;
   };
 
   const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
@@ -166,9 +171,9 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: "/team-portal/cleaning/jobs",      label: "Today's jobs",   sub: "Active cleans",        icon: ClipboardCheck, accent: "from-cyan-500 to-blue-500" },
-                { href: "/team-portal/cleaning/schedule",  label: "Schedule",       sub: "Upcoming events",      icon: Calendar,       accent: "from-purple-500 to-pink-500" },
-                { href: "/team-portal/cleaning/equipment", label: "Equipment",      sub: "Check + return",       icon: Wrench,         accent: "from-amber-500 to-orange-500" },
+                { href: withSlug("/team-portal/cleaning/jobs"),      label: "Today's jobs",   sub: "Active cleans",        icon: ClipboardCheck, accent: "from-cyan-500 to-blue-500" },
+                { href: withSlug("/team-portal/cleaning/schedule"),  label: "Schedule",       sub: "Upcoming events",      icon: Calendar,       accent: "from-purple-500 to-pink-500" },
+                { href: withSlug("/team-portal/cleaning/equipment"), label: "Equipment",      sub: "Check + return",       icon: Wrench,         accent: "from-amber-500 to-orange-500" },
               ]}
             />
           </div>
@@ -189,7 +194,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-cyan-50 hover:text-cyan-700",
@@ -294,7 +299,7 @@ export function CleaningNav({ className, companySlug }: CleaningNavProps) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={withSlug(item.href)}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all hover:bg-cyan-50 hover:text-cyan-700",
                         active

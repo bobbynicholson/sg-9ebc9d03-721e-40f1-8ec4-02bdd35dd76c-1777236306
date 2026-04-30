@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,12 @@ export function AdminNav({ className }: AdminNavProps) {
   useSyncSidebarCollapsed(isCollapsed);
   const [signingOut, setSigningOut] = useState(false);
   const { profile, company } = useAuth() as any;
+  // Slug-aware href wrapper. Every internal link rendered by AdminNav
+  // gets prefixed with the company slug so URLs read
+  // /spit-braai-delivery/admin/<page> end-to-end. Bare /admin/<page>
+  // hrefs in NAV_ITEMS keep the source readable; withSlug applies the
+  // prefix at render time.
+  const { withSlug } = useTenantHref();
   const companyName  = company?.company_name || "Admin Portal";
   const primaryColor   = company?.primary_color   || "#9333ea";
   const secondaryColor = company?.secondary_color || "#ec4899";
@@ -475,7 +482,13 @@ export function AdminNav({ className }: AdminNavProps) {
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.asPath === href;
+    // Compare against both the bare path (router.pathname is the file
+    // path, always /admin/<page>) and the slug-prefixed asPath the user
+    // sees in their URL bar.
+    if (router.pathname === href) return true;
+    if (router.asPath === href) return true;
+    if (router.asPath === withSlug(href)) return true;
+    return false;
   };
 
   const SignOutBlock = ({ collapsed = false }: { collapsed?: boolean }) => (
@@ -503,9 +516,9 @@ export function AdminNav({ className }: AdminNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: "/admin/calendar",  label: "Today's events", sub: "Calendar",       icon: Calendar,     accent: "from-purple-500 to-pink-500" },
-                { href: "/admin/leads",     label: "New leads",      sub: "Quotes inbox",   icon: UserPlus,     accent: "from-blue-500 to-indigo-500" },
-                { href: "/admin/inventory", label: "Stock outlook",  sub: "Demand vs hand", icon: Package,      accent: "from-emerald-500 to-teal-500" },
+                { href: withSlug("/admin/calendar"),  label: "Today's events", sub: "Calendar",       icon: Calendar,     accent: "from-purple-500 to-pink-500" },
+                { href: withSlug("/admin/leads"),     label: "New leads",      sub: "Quotes inbox",   icon: UserPlus,     accent: "from-blue-500 to-indigo-500" },
+                { href: withSlug("/admin/inventory"), label: "Stock outlook",  sub: "Demand vs hand", icon: Package,      accent: "from-emerald-500 to-teal-500" },
               ]}
             />
           </div>
@@ -528,7 +541,7 @@ export function AdminNav({ className }: AdminNavProps) {
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
@@ -578,7 +591,7 @@ export function AdminNav({ className }: AdminNavProps) {
                 <NavContent mobile />
               </SheetContent>
             </Sheet>
-            <Link href="/admin/dashboard" className="flex items-center gap-2 min-w-0">
+            <Link href={withSlug("/admin/dashboard")} className="flex items-center gap-2 min-w-0">
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
@@ -609,7 +622,7 @@ export function AdminNav({ className }: AdminNavProps) {
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
             {!isCollapsed ? (
               <>
-                <Link href="/admin/dashboard" className="flex items-center gap-3 min-w-0">
+                <Link href={withSlug("/admin/dashboard")} className="flex items-center gap-3 min-w-0">
                   <div
                     className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
                     style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)` }}
@@ -681,7 +694,7 @@ export function AdminNav({ className }: AdminNavProps) {
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={withSlug(item.href)}
                       className={cn(
                         "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                         active

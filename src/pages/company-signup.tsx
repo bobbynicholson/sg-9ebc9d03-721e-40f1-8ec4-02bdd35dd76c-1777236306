@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2 } from "lucide-react";
+import { Building2, CheckCircle, DollarSign, AlertCircle, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { companyService } from "@/services/companyService";
 import { roleService } from "@/services/roleService";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
+
+// Slug availability states surfaced to the UI.
+type SlugAvailability =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available" }
+  | { state: "invalid_format" }
+  | { state: "reserved" }
+  | { state: "taken" }
+  | { state: "empty" };
 
 /**
  * BUG FIX: Retry profile operations with exponential backoff
@@ -70,11 +80,87 @@ export default function CompanySignupPage() {
     password: "",
     confirmPassword: "",
     currency: "ZAR",
-    customSlug: "" // Allow custom slug selection
+    customSlug: "" // Required, locked permanently after submit
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [slugAvailability, setSlugAvailability] =
+    useState<SlugAvailability>({ state: "idle" });
+
+  // Live availability check via the SECURITY DEFINER RPC. Debounced so
+  // we aren't pinging on every keystroke. The RPC returns only a
+  // boolean + reason code -- it never reveals which company holds a
+  // taken slug.
+  useEffect(() => {
+    if (!formData.customSlug) {
+      setSlugAvailability({ state: "idle" });
+      return;
+    }
+    setSlugAvailability({ state: "checking" });
+    const handle = setTimeout(async () => {
+      try {
+        // Cast to any: the auto-generated Supabase types don't yet
+        // include the new is_company_slug_available RPC.
+        const { data, error: rpcError } = await (supabase.rpc as any)(
+          "is_company_slug_available",
+          { p_slug: formData.customSlug },
+        );
+        if (rpcError) {
+          // Don't block submission on a transient RPC failure --
+          // server-side validation is the source of truth.
+          setSlugAvailability({ state: "idle" });
+          return;
+        }
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) {
+          setSlugAvailability({ state: "idle" });
+          return;
+        }
+        if (row.available) {
+          setSlugAvailability({ state: "available" });
+        } else {
+          const reason = (row.reason as string) || "invalid_format";
+          if (
+            reason === "taken" ||
+            reason === "reserved" ||
+            reason === "invalid_format" ||
+            reason === "empty"
+          ) {
+            setSlugAvailability({ state: reason as any });
+          } else {
+            setSlugAvailability({ state: "invalid_format" });
+          }
+        }
+      } catch {
+        setSlugAvailability({ state: "idle" });
+      }
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [formData.customSlug]);
+
+  const slugMessage = (() => {
+    switch (slugAvailability.state) {
+      case "checking":
+        return { tone: "neutral" as const, text: "Checking availability..." };
+      case "available":
+        return { tone: "good" as const, text: "Available -- this will be your permanent URL." };
+      case "taken":
+        return { tone: "bad" as const, text: "Already taken. Pick a different one." };
+      case "reserved":
+        return { tone: "bad" as const, text: "Reserved word. Pick something unique to your business." };
+      case "invalid_format":
+        return {
+          tone: "bad" as const,
+          text: "Use lowercase letters, numbers and hyphens only. 1-80 chars, no leading or trailing hyphen.",
+        };
+      case "empty":
+        return { tone: "bad" as const, text: "Slug is required." };
+      default:
+        return null;
+    }
+  })();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +170,18 @@ export default function CompanySignupPage() {
     // Validation
     if (!formData.companyName || !formData.ownerName || !formData.email || !formData.phone || !formData.password || !formData.currency) {
       setError("Please fill in all required fields");
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.customSlug) {
+      setError("A custom URL is required. This is your permanent company URL.");
+      setLoading(false);
+      return;
+    }
+
+    if (slugAvailability.state !== "available") {
+      setError("Your custom URL isn't available yet. Pick one that shows the green tick before submitting.");
       setLoading(false);
       return;
     }
@@ -172,9 +270,13 @@ export default function CompanySignupPage() {
         return;
       }
 
-      // Step 3: Create company record
+      // Step 3: Create company record.
+      // The slug here is permanent -- the trigger
+      // trg_companies_slug_immutable rejects any later UPDATE that
+      // tries to change it, and the slug becomes part of every URL the
+      // tenant will ever see.
       console.log("🏢 Step 3: Creating company record...");
-      const companySlug = formData.customSlug || formData.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const companySlug = formData.customSlug;
       
       const companyResult = await companyService.createCompany({
         name: formData.companyName,
@@ -335,7 +437,7 @@ export default function CompanySignupPage() {
               <Button
                 size="lg"
                 className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
-                onClick={() => router.push("/admin/onboarding")}
+                onClick={() => router.push(`/${formData.customSlug}/admin/onboarding`)}
               >
                 Start Onboarding
               </Button>
@@ -343,7 +445,7 @@ export default function CompanySignupPage() {
                 size="lg"
                 variant="outline"
                 className="flex-1 h-12"
-                onClick={() => router.push("/admin/dashboard")}
+                onClick={() => router.push(`/${formData.customSlug}/admin/dashboard`)}
               >
                 Go to Dashboard
               </Button>
@@ -407,11 +509,23 @@ export default function CompanySignupPage() {
                   placeholder="Spit Braai Delivery"
                   value={formData.companyName}
                   onChange={(e) => {
-                    setFormData({ ...formData, companyName: e.target.value });
-                    // Auto-generate slug from company name if custom slug is empty
-                    if (!formData.customSlug) {
-                      const autoSlug = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                      setFormData({ ...formData, companyName: e.target.value, customSlug: autoSlug });
+                    const newName = e.target.value;
+                    // Auto-suggest a slug from the company name only while
+                    // the user hasn't manually edited the slug field. The
+                    // slug-touched flag stops us clobbering their choice.
+                    if (!slugTouched) {
+                      const autoSlug = newName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/-+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                      setFormData((prev) => ({
+                        ...prev,
+                        companyName: newName,
+                        customSlug: autoSlug,
+                      }));
+                    } else {
+                      setFormData((prev) => ({ ...prev, companyName: newName }));
                     }
                   }}
                   className="h-12"
@@ -421,25 +535,76 @@ export default function CompanySignupPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="customSlug" className="text-slate-700 font-medium">
-                  Custom URL Slug (Optional)
+                  Your Permanent Company URL *
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-3 text-sm text-slate-500">yourcompany.com/</span>
+                  <span className="absolute left-3 top-3 text-sm text-slate-500 select-none">
+                    cateringms.com/
+                  </span>
                   <Input
                     id="customSlug"
                     type="text"
                     placeholder="spit-braai-delivery"
                     value={formData.customSlug}
                     onChange={(e) => {
-                      const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                      // Lowercase, allow only a-z 0-9 and single hyphens.
+                      // Strip leading hyphens; collapse runs of hyphens.
+                      const slug = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]/g, "")
+                        .replace(/-+/g, "-")
+                        .replace(/^-+/, "");
                       setFormData({ ...formData, customSlug: slug });
+                      setSlugTouched(true);
                     }}
-                    className="h-12 pl-40"
+                    onBlur={() => {
+                      // Strip trailing hyphen on blur for cleanliness.
+                      setFormData((prev) => ({
+                        ...prev,
+                        customSlug: prev.customSlug.replace(/-+$/, ""),
+                      }));
+                    }}
+                    className="h-12 pl-[8.25rem] pr-10"
+                    required
                   />
+                  {/* Status indicator */}
+                  {slugTouched && (
+                    <div className="absolute right-3 top-3">
+                      {slugAvailability.state === "checking" && (
+                        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                      )}
+                      {slugAvailability.state === "available" && (
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      )}
+                      {(slugAvailability.state === "taken" ||
+                        slugAvailability.state === "reserved" ||
+                        slugAvailability.state === "invalid_format" ||
+                        slugAvailability.state === "empty") && (
+                        <X className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500">
-                  This will be your company's login URL: /{formData.customSlug || 'your-company'}/login
-                </p>
+                {slugTouched && slugMessage && (
+                  <p
+                    className={`text-xs ${
+                      slugMessage.tone === "good"
+                        ? "text-emerald-600"
+                        : slugMessage.tone === "bad"
+                        ? "text-red-600"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {slugMessage.text}
+                  </p>
+                )}
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 leading-relaxed">
+                  <strong>Permanent.</strong> This URL is locked once your
+                  account is created -- it appears in every link you'll
+                  ever send to clients (booking confirmations, invoices,
+                  the customer portal). Pick something short, on-brand,
+                  and easy to type.
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -552,7 +717,14 @@ export default function CompanySignupPage() {
             <Button
               type="submit"
               className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 transition-opacity text-white font-semibold"
-              disabled={loading}
+              // Block submit until the chosen slug is available.
+              // Server-side trigger is the source of truth, but the
+              // disabled state stops a wasted round-trip.
+              disabled={
+                loading ||
+                slugAvailability.state === "checking" ||
+                (formData.customSlug.length > 0 && slugAvailability.state !== "available")
+              }
             >
               {loading ? (
                 <>

@@ -11,27 +11,65 @@ const nextConfig = {
   },
   allowedDevOrigins: ["*.daytona.work", "*.softgen.dev"],
 
-  // Tenant-scoped client portal URLs.
+  // Tenant-scoped URLs.
   //
-  // Why: clients see /spit-braai-delivery/client-portal/dashboard in
-  // their browser URL while the page itself is the same component as
-  // /client-portal/dashboard. White-label feel without duplicating
-  // page files. The slug is passed through as a query param so any
-  // page that cares (branding, logo) can read router.query.company_slug.
+  // Why: every catering company gets their own slug -- e.g. Spit Braai
+  // Delivery sees /spit-braai-delivery/admin/dashboard,
+  // /spit-braai-delivery/team-portal/kitchen, etc. The page files
+  // themselves live at the bare paths (/admin/dashboard etc.) and the
+  // rewrite passes the slug through as a query param so each page can
+  // read router.query.company_slug for branding and tenant context.
   //
-  // Middleware already validates the user owns the slug they're hitting
-  // (super_admin bypass; everyone else must match), so this is safe.
+  // White-label feel without duplicating page files.
+  //
+  // Middleware enforces that the authenticated user owns the slug they
+  // are hitting (super_admin bypass; everyone else must match their
+  // own company's slug), so this is safe.
+  //
+  // Reserved first-segments that must NEVER be used as a slug:
+  //   admin, api, auth, blog, c, client-portal, contact, demo,
+  //   features, pay, page, pricing, privacy, security, super-admin,
+  //   support, team-portal, terms, uk, us, _next, account,
+  //   subscription, company-signup
+  // The slug picker on sign-up rejects these.
   async rewrites() {
     return [
+      // ── Client portal (clients) ────────────────────────────────
       {
-        // /[slug]/client-portal/<rest>  ->  /client-portal/<rest>?company_slug=<slug>
         source: "/:company_slug/client-portal/:path*",
         destination: "/client-portal/:path*?company_slug=:company_slug",
       },
       {
-        // Bare /[slug]/client-portal -> dashboard
         source: "/:company_slug/client-portal",
         destination: "/client-portal/dashboard?company_slug=:company_slug",
+      },
+      // ── Admin (owner / company_admin) ──────────────────────────
+      {
+        source: "/:company_slug/admin/:path*",
+        destination: "/admin/:path*?company_slug=:company_slug",
+      },
+      {
+        source: "/:company_slug/admin",
+        destination: "/admin/dashboard?company_slug=:company_slug",
+      },
+      // ── Team portal (kitchen / driver / shopping / cleaning) ───
+      {
+        source: "/:company_slug/team-portal/:path*",
+        destination: "/team-portal/:path*?company_slug=:company_slug",
+      },
+      {
+        source: "/:company_slug/team-portal",
+        destination: "/team-portal/general?company_slug=:company_slug",
+      },
+      // ── Account settings ───────────────────────────────────────
+      {
+        source: "/:company_slug/account/:path*",
+        destination: "/account/:path*?company_slug=:company_slug",
+      },
+      // ── Subscription (billing) ────────────────────────────────
+      {
+        source: "/:company_slug/subscription/:path*",
+        destination: "/subscription/:path*?company_slug=:company_slug",
       },
     ];
   },
