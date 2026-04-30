@@ -29,7 +29,7 @@ import Link from "next/link";
 import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
-  Sparkles, ArrowRight, Receipt, Phone, MessageSquare, Star,
+  Sparkles, ArrowRight, Receipt, Phone, MessageSquare,
   Loader2, PartyPopper, RotateCcw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,7 +65,8 @@ interface Order {
   payment_status: string | null;
   total_amount: number | null;
   driver_id: string | null;
-  rating: number | null;
+  // Note: rating lives on the `feedback` table, not `orders`. Phase 4
+  // will surface client ratings via a separate query.
 }
 
 interface DriverPin {
@@ -220,7 +221,7 @@ export default function ClientPortalDashboard() {
         let q = supabase
           .from("orders")
           .select(
-            "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id, rating",
+            "id, order_number, event_name, event_date, event_time, guest_count, venue_name, venue_address, venue_lat, venue_lng, status, payment_status, total_amount, driver_id",
           )
           .order("event_date", { ascending: false });
 
@@ -367,11 +368,8 @@ export default function ClientPortalDashboard() {
                   {orders.length} event{orders.length === 1 ? "" : "s"} on file
                 </Badge>
               )}
-              {pastOrders.filter((o) => o.rating == null).length > 0 && (
-                <Badge variant="outline" className="bg-white/15 border-white/30 text-white text-xs">
-                  Rate a recent event
-                </Badge>
-              )}
+              {/* Phase 4 will surface "rate a recent event" once the feedback
+                  table is wired into this page. Hidden for now. */}
             </div>
           </div>
         </header>
@@ -728,18 +726,8 @@ function PastEventTile({ order, brandPrimary }: { order: Order; brandPrimary: st
         </span>
       </div>
       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        {order.rating ? (
-          <div className="flex items-center gap-0.5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Star
-                key={n}
-                className={`w-3.5 h-3.5 ${n <= (order.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <span className="text-xs text-slate-400">Not rated</span>
-        )}
+        {/* Star rating reinstated in Phase 4 once feedback table is joined. */}
+        <span className="text-xs text-slate-400">Past event</span>
         <span className="text-xs font-semibold flex items-center gap-1" style={{ color: brandPrimary }}>
           <RotateCcw className="w-3 h-3" />
           Rebook
