@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -141,6 +142,13 @@ export function RebookDialog({
   const [eventName, setEventName] = useState<string>("");
   const [guestCount, setGuestCount] = useState<string>("");
   const [venueAddress, setVenueAddress] = useState<string>("");
+  // Captured from Google Places when the user picks a suggestion. We
+  // pass these through to the lead so the catering company has a
+  // routing-ready coordinate without re-geocoding. Optional -- if the
+  // user types an address without picking a suggestion, both stay null
+  // and the catering team can geocode later.
+  const [venueLat, setVenueLat] = useState<number | null>(null);
+  const [venueLng, setVenueLng] = useState<number | null>(null);
   const [dietary, setDietary] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
@@ -163,6 +171,8 @@ export function RebookDialog({
     setEventName(sourceOrder?.event_name || "Repeat event");
     setGuestCount(sourceOrder?.guest_count ? String(sourceOrder.guest_count) : "");
     setVenueAddress(sourceOrder?.venue_address || "");
+    setVenueLat(null);
+    setVenueLng(null);
     setDietary("");
     setNotes("");
     setSearch("");
@@ -296,6 +306,8 @@ export function RebookDialog({
         event_date: eventDate,
         guest_count: guestCount ? parseInt(guestCount, 10) || null : null,
         venue_address: venueAddress.trim() || null,
+        venue_lat: venueLat,
+        venue_lng: venueLng,
         source: "client_portal_rebook",
         status: "new",
         notes: noteParts.join(" "),
@@ -401,12 +413,16 @@ export function RebookDialog({
                 <Label htmlFor="rb-venue" className="text-xs text-slate-600 flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Venue
                 </Label>
-                <Input
+                <AddressAutocomplete
                   id="rb-venue"
-                  type="text"
-                  placeholder="Address"
                   value={venueAddress}
-                  onChange={(e) => setVenueAddress(e.target.value)}
+                  placeholder="Start typing the address..."
+                  countryCode="za"
+                  onChange={(pick) => {
+                    setVenueAddress(pick.address);
+                    setVenueLat(pick.lat);
+                    setVenueLng(pick.lng);
+                  }}
                 />
               </div>
             </div>
