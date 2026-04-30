@@ -305,7 +305,7 @@ export const kitchenStaffService = {
     const workedMin = Math.max(0, grossMin - totalBreakMin);
     const { standard_min, overtime_min } = splitStandardOvertime(workedMin, stdHours);
 
-    const patch: Record<string, unknown> = {
+    const patch: any = {
       shift_end: endIso,
       total_break_min: totalBreakMin,
       break_started_at: null,
@@ -383,7 +383,7 @@ export const kitchenStaffService = {
     const newEnd = args.shift_end !== undefined ? args.shift_end : shift.shift_end;
     const newBreakMin = args.total_break_min !== undefined ? args.total_break_min : shift.total_break_min;
 
-    const patch: Record<string, unknown> = {
+    const patch: any = {
       shift_start: newStart,
       shift_end: newEnd,
       total_break_min: newBreakMin,
