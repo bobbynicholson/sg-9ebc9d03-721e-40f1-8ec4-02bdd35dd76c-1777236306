@@ -174,6 +174,10 @@ function OrderProcessDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+  // Custom-range pickers -- only used when dateFilter === "custom".
+  // Stored as YYYY-MM-DD so they round-trip through <input type="date" />.
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [viewMode, setViewMode] = useState<"kanban" | "timeline">("kanban");
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -197,7 +201,7 @@ function OrderProcessDashboard() {
   useEffect(() => {
     calculateStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, dateFilter, statusFilter, searchTerm]);
+  }, [orders, dateFilter, dateFrom, dateTo, statusFilter, searchTerm]);
 
   const loadOrders = async () => {
     if (!user?.company_id) return;
@@ -330,12 +334,29 @@ function OrderProcessDashboard() {
           matchesDate = eventDate >= today && eventDate <= thirty;
         } else if (dateFilter === "past") {
           matchesDate = eventDate < today;
+        } else if (dateFilter === "custom") {
+          // Custom range picker. Either bound is optional -- pick a
+          // single date by setting just one. event_date is a date col
+          // so we compare in local-day terms (no UTC drift).
+          let withinFrom = true;
+          let withinTo = true;
+          if (dateFrom) {
+            const from = new Date(dateFrom);
+            from.setHours(0, 0, 0, 0);
+            withinFrom = eventDate >= from;
+          }
+          if (dateTo) {
+            const to = new Date(dateTo);
+            to.setHours(23, 59, 59, 999);
+            withinTo = eventDate <= to;
+          }
+          matchesDate = withinFrom && withinTo;
         }
       }
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -1246,8 +1267,39 @@ function OrderProcessDashboard() {
                       <SelectItem value="month">This Month</SelectItem>
                       <SelectItem value="next30">Next 30 days</SelectItem>
                       <SelectItem value="past">Past events</SelectItem>
+                      <SelectItem value="custom">Custom range...</SelectItem>
                     </SelectContent>
                   </Select>
+                  {dateFilter === "custom" && (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-[150px]"
+                        title="From"
+                      />
+                      <span className="text-slate-400 text-xs">to</span>
+                      <Input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-[150px]"
+                        title="To"
+                      />
+                      {(dateFrom || dateTo) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 px-2"
+                          onClick={() => { setDateFrom(""); setDateTo(""); }}
+                          title="Clear range"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   <Button variant="outline" className="gap-2">
                     <Download className="w-4 h-4" />
                     Export

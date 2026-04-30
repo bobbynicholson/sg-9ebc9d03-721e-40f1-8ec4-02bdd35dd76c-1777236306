@@ -5,9 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus, Search, Phone, Mail, Calendar, DollarSign, TrendingUp,
-  ArrowRight, FileText, ShoppingCart, UserCheck, Clock,
+  ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2,
+  Send, MailQuestion, RefreshCw,
 } from "lucide-react";
+import { composeEmail } from "@/lib/composeEmail";
+import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -34,10 +47,29 @@ interface LeadLinks {
   clientId: string | null;
 }
 
+/**
+ * Suggestion "kinds" map directly onto the call-to-action button on
+ * each row. The labels above used to be decorative -- now each kind
+ * carries an explicit action so the team can act on the suggestion in
+ * one click.
+ */
+type LeadActionKind =
+  | "reply_email"      // Reply ASAP -- new lead waiting
+  | "touch_base"       // 2-7 days quiet, send a warm check-in
+  | "follow_up"        // 7+ days quiet, urgent follow-up
+  | "chase_quote"      // Quote sent, no reply
+  | "send_quote"       // Lead qualified, no quote yet
+  | "open_quote_draft" // Draft quote in flight, finish + send
+  | "convert_to_order" // Quote accepted, no order yet
+  | "winback"          // Rejected quote -- soft win-back
+  | "reopen"           // Lead marked lost, friendly door-open
+  | "view_order";      // Already booked, just open the order
+
 function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   tone: "urgent" | "warm" | "neutral";
   label: string;
   reason: string;
+  kind: LeadActionKind;
 } {
   const created = lead.created_at ? new Date(lead.created_at) : null;
   const ageDays = created
@@ -46,37 +78,138 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
   const status = (lead.status || "new") as string;
 
   if (links.orderId) {
-    return { tone: "neutral", label: "Booked", reason: "Order on file" };
+    return { tone: "neutral", label: "Open order", reason: "Already booked", kind: "view_order" };
   }
   if (links.quoteCount > 0) {
     if (links.latestQuoteStatus === "accepted") {
-      return { tone: "urgent", label: "Convert quote to order", reason: "Quote accepted, no order yet" };
+      return { tone: "urgent", label: "Convert quote to order", reason: "Quote accepted, no order yet", kind: "convert_to_order" };
     }
     if (links.latestQuoteStatus === "rejected") {
-      return { tone: "warm", label: "Win-back nudge", reason: "Quote was rejected" };
+      return { tone: "warm", label: "Win-back nudge", reason: "Quote was rejected", kind: "winback" };
     }
     if (links.latestQuoteStatus === "sent" || links.latestQuoteStatus === "viewed") {
-      return { tone: "warm", label: "Chase the quote", reason: `${ageDays}d since lead came in` };
+      return { tone: "warm", label: "Chase the quote", reason: `${ageDays}d since lead came in`, kind: "chase_quote" };
     }
-    return { tone: "warm", label: "Finish + send the quote", reason: "Draft quote in flight" };
+    return { tone: "warm", label: "Finish + send the quote", reason: "Draft quote in flight", kind: "open_quote_draft" };
   }
   if (status === "lost") {
-    return { tone: "neutral", label: "Door open", reason: "Marked lost -- circle back later" };
+    return { tone: "neutral", label: "Re-open with a soft note", reason: "Marked lost -- circle back later", kind: "reopen" };
   }
   if (status === "qualified") {
-    return { tone: "urgent", label: "Send a quote", reason: "Lead qualified, no quote yet" };
+    return { tone: "urgent", label: "Send a quote", reason: "Lead qualified, no quote yet", kind: "send_quote" };
   }
   if (ageDays >= 7) {
-    return { tone: "urgent", label: `Follow up -- ${ageDays}d quiet`, reason: "Lead is going cold" };
+    return { tone: "urgent", label: `Follow up -- ${ageDays}d quiet`, reason: "Lead is going cold", kind: "follow_up" };
   }
   if (ageDays >= 2) {
-    return { tone: "warm", label: "Touch base", reason: `${ageDays}d since enquiry` };
+    return { tone: "warm", label: "Touch base", reason: `${ageDays}d since enquiry`, kind: "touch_base" };
   }
-  return { tone: "urgent", label: "Reply ASAP", reason: "New enquiry waiting" };
+  return { tone: "urgent", label: "Reply ASAP", reason: "New enquiry waiting", kind: "reply_email" };
+}
+
+/** Short label and icon for the primary CTA button. Mirrors the
+ *  text of the suggestion strip so the button is unambiguous. */
+function suggestionCtaText(kind: LeadActionKind): string {
+  switch (kind) {
+    case "reply_email":      return "Reply ASAP";
+    case "touch_base":       return "Send touch-base";
+    case "follow_up":        return "Send follow-up";
+    case "chase_quote":      return "Chase the quote";
+    case "send_quote":       return "Send a quote";
+    case "open_quote_draft": return "Finish quote";
+    case "convert_to_order": return "Convert to order";
+    case "winback":          return "Send win-back";
+    case "reopen":           return "Re-open lead";
+    case "view_order":       return "Open order";
+  }
+}
+
+/** Inline icon for the CTA. JSX returned so we can use it directly. */
+function suggestionCtaIcon(kind: LeadActionKind) {
+  const cls = "w-4 h-4 mr-2";
+  switch (kind) {
+    case "reply_email":
+    case "touch_base":
+    case "winback":
+    case "reopen":
+      return <Mail className={cls} />;
+    case "follow_up":
+    case "chase_quote":
+      return <MailQuestion className={cls} />;
+    case "send_quote":
+    case "open_quote_draft":
+      return <FileText className={cls} />;
+    case "convert_to_order":
+      return <RefreshCw className={cls} />;
+    case "view_order":
+      return <ShoppingCart className={cls} />;
+    default:
+      return <Send className={cls} />;
+  }
+}
+
+/**
+ * Per-suggestion-kind email templates. Plain text, signed off with
+ * the catering team's name. Lifts the same shape as the quote
+ * compose templates so the body reads natural in Gmail / Outlook.
+ */
+function templateForLeadAction(
+  kind: LeadActionKind,
+  lead: any,
+  fromName: string,
+): { subject: string; body: string } {
+  const first = String(lead.client_name || "there").split(" ")[0];
+  const eventLine = lead.event_type
+    ? lead.event_date
+      ? `your ${lead.event_type} on ${new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}`
+      : `your ${lead.event_type}`
+    : lead.event_date
+      ? `your event on ${new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}`
+      : `your enquiry`;
+  const sig = `\n\nBest,\n${fromName || "the team"}`;
+
+  switch (kind) {
+    case "reply_email":
+      return {
+        subject: `Thanks for reaching out about ${eventLine}`,
+        body: `Hi ${first},\n\nThanks for getting in touch about ${eventLine}. I have everything I need on this side to put a draft quote together for you -- could you confirm guest numbers and venue when you have a sec?\n\nHappy to walk through menu options if it would help.${sig}`,
+      };
+    case "touch_base":
+      return {
+        subject: `Quick check-in on ${eventLine}`,
+        body: `Hi ${first},\n\nJust circling back on ${eventLine}. Did anything come up that I can help with on the catering side? Happy to share menu ideas before you commit to anything.${sig}`,
+      };
+    case "follow_up":
+      return {
+        subject: `Following up`,
+        body: `Hi ${first},\n\nIt has been a few days since we last touched on ${eventLine}. Wanted to make sure your enquiry has not slipped through. Reply here and I can have a quote across to you the same day.${sig}`,
+      };
+    case "chase_quote":
+      return {
+        subject: `Following up on your quote`,
+        body: `Hi ${first},\n\nJust circling back on the quote we sent for ${eventLine}. Anything you would like changed, or shall we lock the date in?${sig}`,
+      };
+    case "winback":
+      return {
+        subject: `Door is still open`,
+        body: `Hi ${first},\n\nUnderstand the last quote did not land for ${eventLine}. No hard feelings -- happy to be considered for the next one. If anything comes up, drop me a line and I will put a fresh quote across quickly.${sig}`,
+      };
+    case "reopen":
+      return {
+        subject: `Hello again`,
+        body: `Hi ${first},\n\nNo agenda here -- just keeping the door open. If anything comes up where we can help on the catering side, I am happy to put together a quick quote.${sig}`,
+      };
+    default:
+      return {
+        subject: `Quick note about ${eventLine}`,
+        body: `Hi ${first},\n\nJust touching base on ${eventLine}. Let me know if anything has changed your end and I will fold it in.${sig}`,
+      };
+  }
 }
 
 export default function AdminLeads() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth() as any;
+  const { toast } = useToast();
   const router = useRouter();
   const [leads, setLeads] = useState<any[]>([]);
   const [linksByLeadId, setLinksByLeadId] = useState<Map<string, LeadLinks>>(new Map());
@@ -84,6 +217,71 @@ export default function AdminLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const fromName = profile?.full_name || profile?.company_name || "the team";
+
+  const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
+    if (kind === "view_order" && links.orderId) {
+      router.push(`/admin/orders?orderId=${links.orderId}`);
+      return;
+    }
+    if (kind === "convert_to_order" && links.latestQuoteId) {
+      router.push(`/admin/quotes/${links.latestQuoteId}`);
+      return;
+    }
+    if (kind === "open_quote_draft" && links.latestQuoteId) {
+      router.push(`/admin/quotes/${links.latestQuoteId}`);
+      return;
+    }
+    if (kind === "send_quote") {
+      router.push(`/admin/quotes/new?leadId=${lead.id}`);
+      return;
+    }
+    // Email-driven kinds: open Gmail compose pre-filled with the
+    // template that matches the suggestion.
+    if (!lead.client_email) {
+      toast({
+        title: "No email on this lead",
+        description: "Add an email address to send a follow-up.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const tpl = templateForLeadAction(kind, lead, fromName);
+    const url = composeEmail.gmailUrl({
+      to: lead.client_email,
+      subject: tpl.subject,
+      body: tpl.body,
+      fromName,
+    });
+    window.open(url, "_blank", "noopener");
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleting(true);
+    try {
+      await leadService.deleteLead(id);
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+      toast({
+        title: "Lead deleted",
+        description: `Removed ${deleteTarget.client_name || "lead"}.`,
+      });
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error("Delete lead failed:", err);
+      toast({
+        title: "Delete failed",
+        description: err?.message || "Could not delete this lead.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -364,18 +562,27 @@ export default function AdminLeads() {
                               </span>
                             )}
                           </div>
-                          {/* Suggested action strip */}
-                          <div className={`flex items-center gap-1.5 text-sm font-semibold mb-2 ${
-                            suggestion.tone === "urgent"
-                              ? "text-rose-600"
-                              : suggestion.tone === "warm"
-                                ? "text-amber-600"
-                                : "text-slate-600"
-                          }`}>
+                          {/* Suggested action strip -- now clickable. Opens
+                              the right next step (compose email, send a
+                              quote, open the order, etc.) for this lead. */}
+                          <button
+                            type="button"
+                            onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
+                            className={`group flex items-center gap-1.5 text-sm font-semibold mb-2 hover:underline focus:outline-none ${
+                              suggestion.tone === "urgent"
+                                ? "text-rose-600"
+                                : suggestion.tone === "warm"
+                                  ? "text-amber-600"
+                                  : "text-slate-700"
+                            }`}
+                            title="Click to take this next step"
+                          >
                             <ArrowRight className="w-4 h-4 flex-shrink-0" />
                             <span>{suggestion.label}</span>
-                            <span className="font-normal text-xs text-slate-500">-- {suggestion.reason}</span>
-                          </div>
+                            <span className="font-normal text-xs text-slate-500 group-hover:text-slate-700">
+                              -- {suggestion.reason}
+                            </span>
+                          </button>
                           <div className="flex items-center gap-4 text-sm text-slate-600 flex-wrap">
                             {lead.company_name && (
                               <span className="flex items-center gap-1">
@@ -396,28 +603,57 @@ export default function AdminLeads() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex flex-col items-stretch gap-2 flex-shrink-0 min-w-[180px]">
+                          {/* Primary CTA -- always the suggested next step. */}
                           <Button
-                            variant="outline"
                             size="sm"
-                            onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                            onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
+                            className={
+                              suggestion.tone === "urgent"
+                                ? "bg-rose-600 hover:bg-rose-700"
+                                : suggestion.tone === "warm"
+                                  ? "bg-amber-600 hover:bg-amber-700"
+                                  : ""
+                            }
                           >
-                            {expandedLeadId === lead.id ? "Hide Details" : "View Details"}
+                            {suggestionCtaIcon(suggestion.kind)}
+                            {suggestionCtaText(suggestion.kind)}
                           </Button>
-                          {links.quoteCount > 0 && links.latestQuoteId ? (
-                            <Link href={`/admin/quotes/${links.latestQuoteId}`}>
-                              <Button size="sm" variant="outline">
-                                Open quote
+                          <div className="flex items-center gap-1.5 justify-end flex-wrap">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
+                            >
+                              {expandedLeadId === lead.id ? "Hide" : "Details"}
+                            </Button>
+                            {/* Always-available secondary -- start a fresh
+                                quote even when the primary CTA was an email. */}
+                            {!links.orderId && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  if (links.latestQuoteId) {
+                                    router.push(`/admin/quotes/${links.latestQuoteId}`);
+                                  } else {
+                                    router.push(`/admin/quotes/new?leadId=${lead.id}`);
+                                  }
+                                }}
+                              >
+                                {links.latestQuoteId ? "Open quote" : "New quote"}
                               </Button>
-                            </Link>
-                          ) : (
+                            )}
                             <Button
                               size="sm"
-                              onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                              variant="ghost"
+                              title="Delete lead"
+                              onClick={() => setDeleteTarget(lead)}
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                             >
-                              Convert to Quote
+                              <Trash2 className="w-4 h-4" />
                             </Button>
-                          )}
+                          </div>
                         </div>
                       </div>
                       {expandedLeadId === lead.id && (
@@ -526,6 +762,45 @@ export default function AdminLeads() {
 
         <Footer />
       </div>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <span className="block mb-2">
+                    This permanently removes <span className="font-medium text-slate-900">{deleteTarget.client_name || "(unnamed)"}</span>
+                    {deleteTarget.client_email && (
+                      <> -- {deleteTarget.client_email}</>
+                    )}
+                    {deleteTarget.event_date && (
+                      <> -- event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
+                    )}.
+                  </span>
+                  <span className="block text-rose-600">
+                    This cannot be undone. Linked quotes are unaffected.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+            >
+              {deleting ? "Deleting..." : "Delete lead"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
     </>
