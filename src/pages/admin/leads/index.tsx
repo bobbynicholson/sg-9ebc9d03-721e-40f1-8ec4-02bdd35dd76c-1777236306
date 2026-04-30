@@ -286,6 +286,71 @@ export default function AdminLeads() {
                               <p className="text-slate-700">{lead.notes}</p>
                             </div>
                           )}
+                          {/*
+                            Menu picks from the client portal's rebook
+                            form (requested_items JSONB). Displays as a
+                            checklist the catering team can use as the
+                            spine of the formal quote.
+                          */}
+                          {Array.isArray(lead.requested_items) && lead.requested_items.length > 0 && (
+                            <div className="col-span-2 md:col-span-4">
+                              <p className="text-slate-500 text-xs mb-1.5 flex items-center gap-1.5">
+                                Items requested by client
+                                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                                  client portal
+                                </span>
+                              </p>
+                              <ul className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                                {lead.requested_items.map((it: any, i: number) => (
+                                  <li
+                                    key={`${it.menu_item_id || i}-${i}`}
+                                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-medium text-slate-900 truncate">
+                                        {it.item_name}
+                                      </span>
+                                      {it.category && (
+                                        <span className="ml-2 text-xs text-slate-400">
+                                          {it.category}
+                                        </span>
+                                      )}
+                                      {Array.isArray(it.dietary_tags) && it.dietary_tags.length > 0 && (
+                                        <span className="ml-2 text-[11px] text-slate-500 capitalize">
+                                          {it.dietary_tags.slice(0, 3).join(", ")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-sm font-semibold text-slate-700 flex-shrink-0">
+                                      x{it.quantity}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-[11px] text-slate-400 mt-1.5">
+                                Pricing not set yet -- use these as the starting line items when you build the quote.
+                              </p>
+                            </div>
+                          )}
+                          {/*
+                            Provenance: link back to the past order this
+                            rebook came from, if any. Helps the team
+                            replay context: who they are, what they
+                            ordered last time.
+                          */}
+                          {lead.source_order_id && (
+                            <div className="col-span-2 md:col-span-4">
+                              <p className="text-[11px] text-slate-500">
+                                Rebooked from past order
+                                <Link
+                                  href={`/admin/orders?orderId=${lead.source_order_id}`}
+                                  className="ml-1.5 text-purple-600 hover:underline font-medium"
+                                >
+                                  view original
+                                </Link>
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -31,12 +31,8 @@ import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
   Sparkles, ArrowRight, Receipt, Phone, MessageSquare,
-  Loader2, PartyPopper, RotateCcw, Star, Send, X,
+  Loader2, PartyPopper, RotateCcw, Star,
 } from "lucide-react";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +41,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
+import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
@@ -218,58 +215,15 @@ export default function ClientPortalDashboard() {
   const [driverPin, setDriverPin] = useState<DriverPin | null>(null);
 
   // Rebook dialog state -- when the client taps "Rebook" on a past
-  // event we open a modal that lets them confirm + add a quick note,
-  // then write a row to leads so the catering company sees the request
-  // in their pipeline.
+  // event we open the RebookDialog component, which presents:
+  //   - new event details (date defaulting to ~4 weeks out, guests, venue)
+  //   - the catering company's actual menu items, by category, with
+  //     quantity steppers (no pricing)
+  //   - dietary requirements + free-form notes
+  // On submit it writes a row to `leads` with structured
+  // `requested_items` JSONB and a source_order_id pointing back to the
+  // past event for context.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
-  const [rebookNote, setRebookNote] = useState("");
-  const [rebookSending, setRebookSending] = useState(false);
-
-  const submitRebookRequest = async () => {
-    if (!rebookOrder || !user || !company?.id) return;
-    setRebookSending(true);
-    try {
-      const noteParts: string[] = [];
-      noteParts.push(`Rebook request via client portal.`);
-      if (rebookOrder.event_name) noteParts.push(`Original event: ${rebookOrder.event_name}.`);
-      if (rebookOrder.event_date) noteParts.push(`Original date: ${rebookOrder.event_date}.`);
-      if (rebookOrder.guest_count) noteParts.push(`Guests: ${rebookOrder.guest_count}.`);
-      if (rebookOrder.venue_address) noteParts.push(`Venue: ${rebookOrder.venue_address}.`);
-      if (rebookNote.trim()) noteParts.push(`Client note: ${rebookNote.trim()}`);
-
-      // RLS on leads requires company_id = caller's company_id, which is
-      // already true for an authenticated client of this tenant.
-      const { error } = await supabase.from("leads").insert({
-        company_id: company.id,
-        contact_name: profile?.full_name || user.full_name || user.email,
-        email: user.email,
-        phone: (profile as any)?.phone_number || null,
-        event_type: rebookOrder.event_name || "Repeat booking",
-        guest_count: rebookOrder.guest_count,
-        venue_address: rebookOrder.venue_address,
-        source: "client_portal_rebook",
-        status: "new",
-        notes: noteParts.join(" "),
-      } as any);
-
-      if (error) throw error;
-
-      toast({
-        title: "Request sent",
-        description: `${company.company_name || "The team"} will be in touch shortly to plan your next event.`,
-      });
-      setRebookOrder(null);
-      setRebookNote("");
-    } catch (e: any) {
-      toast({
-        title: "Could not send rebook request",
-        description: e?.message || "Try again in a moment, or call the catering company directly.",
-        variant: "destructive",
-      });
-    } finally {
-      setRebookSending(false);
-    }
-  };
 
   // Branding tones -- fall back to a calm emerald so unbranded companies
   // still look polished.
@@ -613,93 +567,37 @@ export default function ClientPortalDashboard() {
       </div>
 
       {/*
-        Rebook confirm dialog. Opens when the client taps Rebook on a
-        past event tile. Submits a row to `leads` with the past order
-        as context so the catering company sees the request in their
-        sales pipeline (source = client_portal_rebook).
+        Rebook dialog. Lets the client build a quote request inline:
+        new event date, guest count, venue, plus picks from the
+        catering company's actual menu (no pricing). Submits a lead
+        with structured `requested_items` JSONB the catering team
+        converts into a formal quote on the admin side.
       */}
-      <Dialog
+      <RebookDialog
         open={!!rebookOrder}
         onOpenChange={(o) => {
-          if (!o) {
-            setRebookOrder(null);
-            setRebookNote("");
-          }
+          if (!o) setRebookOrder(null);
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5" style={{ color: brandPrimary }} />
-              Plan another event like this
-            </DialogTitle>
-            <DialogDescription>
-              We'll send your details to {company?.company_name || "the team"} and they'll get back to you with a fresh quote.
-            </DialogDescription>
-          </DialogHeader>
-          {rebookOrder && (
-            <div className="space-y-3">
-              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm space-y-1">
-                <p className="font-semibold text-slate-900 dark:text-white">
-                  {rebookOrder.event_name || "Your past event"}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {new Date(rebookOrder.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
-                  {rebookOrder.guest_count ? ` • ${rebookOrder.guest_count} guests` : ""}
-                </p>
-                {rebookOrder.venue_address && (
-                  <p className="text-xs text-slate-500 truncate">{rebookOrder.venue_address}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
-                  Anything different this time? <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                <Textarea
-                  value={rebookNote}
-                  onChange={(e) => setRebookNote(e.target.value)}
-                  placeholder="e.g. larger guest list, different venue, dietary changes..."
-                  className="min-h-[88px] text-sm"
-                  maxLength={1000}
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setRebookOrder(null);
-                setRebookNote("");
-              }}
-              disabled={rebookSending}
-            >
-              <X className="w-4 h-4 mr-1" />
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={submitRebookRequest}
-              disabled={rebookSending}
-              className="text-white"
-              style={{ background: brandGradient }}
-            >
-              {rebookSending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-1.5" />
-                  Send request
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        sourceOrder={
+          rebookOrder
+            ? {
+                id: rebookOrder.id,
+                event_name: rebookOrder.event_name,
+                event_date: rebookOrder.event_date,
+                guest_count: rebookOrder.guest_count,
+                venue_name: rebookOrder.venue_name,
+                venue_address: rebookOrder.venue_address,
+              }
+            : null
+        }
+        companyId={company?.id}
+        companyName={companyName}
+        brandPrimary={brandPrimary}
+        brandSecondary={brandSecondary}
+        user={user ? { id: user.id, email: user.email } : null}
+        profileFullName={profile?.full_name || (user as any)?.full_name || null}
+        profilePhone={(profile as any)?.phone_number || null}
+      />
 
       <ChatBot userRole="client" companyId={company?.id} />
     </>
