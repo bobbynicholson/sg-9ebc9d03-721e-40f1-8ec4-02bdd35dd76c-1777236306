@@ -64,13 +64,13 @@ export function CollapsibleNavSection({
       <button
         type="button"
         onClick={() => setUserOpen((v) => !v)}
-        className="w-full flex items-center justify-between mb-2 px-4 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
+        className="w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
         aria-expanded={open}
       >
-        <span>{title}</span>
+        <span className="truncate">{title}</span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 flex-shrink-0 text-slate-400 transition-transform duration-200",
+            "h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-200",
             open ? "rotate-0" : "-rotate-90",
           )}
         />

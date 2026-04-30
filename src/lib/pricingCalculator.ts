@@ -104,23 +104,25 @@ const CURRENCY_CONFIG = {
  */
 export function getRegionalPricing(region: MarketRegion): Record<string, PricingTier> {
   const regionalPricing: Record<string, PricingTier> = {};
-  
+
   for (const [key, tier] of Object.entries(BASE_PRICING_ZAR)) {
     let regionalPrice = tier.basePrice;
-    
+
     // Apply pricing formula for non-ZA regions
     if (region === "us") {
       regionalPrice = Math.round((tier.basePrice * 3) / EXCHANGE_RATES.ZAR_TO_USD);
     } else if (region === "uk") {
       regionalPrice = Math.round((tier.basePrice * 3) / EXCHANGE_RATES.ZAR_TO_GBP);
+    } else if (region === "eu") {
+      regionalPrice = Math.round((tier.basePrice * 3) / EXCHANGE_RATES.ZAR_TO_EUR);
     }
-    
+
     regionalPricing[key] = {
       ...tier,
       basePrice: regionalPrice,
     };
   }
-  
+
   return regionalPricing;
 }
 
@@ -165,7 +167,11 @@ export function convertCurrency(
  */
 export function getAllPricingOptions(region: MarketRegion) {
   const regionalPricing = getRegionalPricing(region);
-  const currency = region === "us" ? "USD" : region === "uk" ? "GBP" : "ZAR";
+  const currency: "ZAR" | "USD" | "GBP" | "EUR" =
+    region === "us" ? "USD"
+    : region === "uk" ? "GBP"
+    : region === "eu" ? "EUR"
+    : "ZAR";
   
   return Object.entries(regionalPricing).map(([key, tier]) => ({
     id: key,
@@ -233,7 +239,10 @@ export function applyLivePlans(
   }
 
   const currency: "ZAR" | "USD" | "GBP" | "EUR" =
-    region === "us" ? "USD" : region === "uk" ? "GBP" : "ZAR";
+    region === "us" ? "USD"
+    : region === "uk" ? "GBP"
+    : region === "eu" ? "EUR"
+    : "ZAR";
 
   return options.map((opt) => {
     const live = byKey.get(opt.id);
@@ -242,6 +251,7 @@ export function applyLivePlans(
     const livePriceForRegion =
       currency === "USD" ? Number(live.usd_price)
       : currency === "GBP" ? Number(live.gbp_price)
+      : currency === "EUR" ? Number(live.eur_price)
       : Number(live.zar_price);
 
     return {

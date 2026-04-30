@@ -217,7 +217,7 @@ function NavLink({ item, active, collapsed, onClick }: NavLinkProps) {
       <Link
         href={item.href}
         onClick={onClick}
-        title={item.title}
+        title={item.sub ? `${item.title} -- ${item.sub}` : item.title}
         className={cn(
           "flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-all",
           active
@@ -230,46 +230,39 @@ function NavLink({ item, active, collapsed, onClick }: NavLinkProps) {
     );
   }
 
+  // Single-line, single-column rows. The longer descriptions used to
+  // wrap or get clipped on lg:w-64 sidebars, so we hoist them into the
+  // hover title and keep the row tidy.
   return (
     <Link
       href={item.href}
       onClick={onClick}
+      title={item.sub ? `${item.title} -- ${item.sub}` : item.title}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
+        "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
         active
           ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm"
-          : "text-slate-700 hover:bg-slate-50 hover:text-slate-900",
+          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
       )}
     >
-      <div
+      <Icon
         className={cn(
-          "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all",
-          active
-            ? "bg-white/20"
-            : "bg-slate-100 group-hover:bg-slate-200",
+          "h-4 w-4 flex-shrink-0",
+          active ? "text-white" : "text-slate-500 group-hover:text-slate-700",
+        )}
+      />
+      <span
+        className={cn(
+          "flex-1 min-w-0 truncate text-sm font-medium leading-none",
+          active ? "text-white" : "text-slate-800",
         )}
       >
-        <Icon
-          className={cn(
-            "h-4 w-4",
-            active ? "text-white" : "text-slate-500 group-hover:text-slate-700",
-          )}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className={cn("text-sm font-medium leading-tight", active ? "text-white" : "text-slate-800")}>
-          {item.title}
-        </div>
-        {item.sub && (
-          <div className={cn("text-xs mt-0.5 truncate leading-tight", active ? "text-orange-100" : "text-slate-400")}>
-            {item.sub}
-          </div>
-        )}
-      </div>
+        {item.title}
+      </span>
       {item.tag && !active && (
         <Badge
           variant="secondary"
-          className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-0"
+          className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-0 flex-shrink-0"
         >
           {item.tag}
         </Badge>
@@ -302,22 +295,26 @@ function UserStrip({ collapsed, profile }: { collapsed: boolean; profile: any })
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
-      <div className="w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-amber-700">{initials}</span>
+    <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-100">
+      <div className="w-8 h-8 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center flex-shrink-0">
+        <span className="text-[11px] font-bold text-amber-700">{initials}</span>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-slate-900 truncate">
-          {profile?.full_name || "Platform admin"}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-slate-900 truncate">
+            {profile?.full_name || "Platform admin"}
+          </span>
+          <Badge
+            variant="outline"
+            className="text-[9px] px-1 h-4 bg-amber-50 border-amber-200 text-amber-700 flex-shrink-0"
+          >
+            Owner
+          </Badge>
         </div>
-        <div className="text-xs text-slate-400 truncate">{profile?.email || ""}</div>
+        <div className="text-[11px] text-slate-400 truncate leading-tight">
+          {profile?.email || ""}
+        </div>
       </div>
-      <Badge
-        variant="outline"
-        className="text-[10px] px-1.5 h-4 bg-amber-50 border-amber-200 text-amber-700 flex-shrink-0"
-      >
-        Owner
-      </Badge>
     </div>
   );
 }
@@ -395,29 +392,25 @@ export function PlatformNav({ className }: PlatformNavProps) {
     return (
       <Link
         href="/admin/dashboard"
+        title="Switch to Tenant View -- Browse as company admin"
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
+          "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
           active
             ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm"
-            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-700",
         )}
       >
-        <div
+        <MonitorCheck
+          className={cn("h-4 w-4 flex-shrink-0", active ? "text-white" : "text-slate-400")}
+        />
+        <span
           className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-            active ? "bg-white/20" : "bg-slate-100 group-hover:bg-slate-200",
+            "flex-1 min-w-0 truncate text-sm font-medium leading-none",
+            active ? "text-white" : "text-slate-600",
           )}
         >
-          <MonitorCheck className={cn("h-4 w-4", active ? "text-white" : "text-slate-400")} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className={cn("text-sm font-medium", active ? "text-white" : "text-slate-600")}>
-            Switch to Tenant View
-          </div>
-          <div className={cn("text-xs mt-0.5", active ? "text-orange-100" : "text-slate-400")}>
-            Browse as company admin
-          </div>
-        </div>
+          Switch to tenant view
+        </span>
       </Link>
     );
   };
@@ -434,7 +427,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
     mobile?: boolean;
   }) => (
     <ScrollArea className="flex-1">
-      <div className={cn("space-y-1", collapsed ? "px-3 py-4" : "px-4 py-4")}>
+      <div className={cn(collapsed ? "px-3 py-4 space-y-1" : "px-2 py-3")}>
         {/* User strip (desktop only -- mobile has it in header) */}
         {!mobile && !collapsed && (
           <div className="-mx-4 mb-3">

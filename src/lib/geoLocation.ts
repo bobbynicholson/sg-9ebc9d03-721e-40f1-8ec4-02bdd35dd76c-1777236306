@@ -1,12 +1,18 @@
 
-export type MarketRegion = "za" | "us" | "uk" | "other";
+export type MarketRegion = "za" | "us" | "uk" | "eu" | "other";
 
 export interface GeoLocation {
   country: string;
   countryCode: string;
   region: MarketRegion;
-  currency: "ZAR" | "USD" | "GBP";
+  currency: "ZAR" | "USD" | "GBP" | "EUR";
 }
+
+// Eurozone countries -- visitors from these get EUR pricing.
+const EU_COUNTRIES = new Set([
+  "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE",
+  "IT", "LT", "LU", "LV", "MT", "NL", "PT", "SI", "SK",
+]);
 
 /**
  * Detect user's market region based on various signals
@@ -28,7 +34,8 @@ export async function detectUserRegion(): Promise<MarketRegion> {
     if (countryCode === "ZA") return "za";
     if (countryCode === "US") return "us";
     if (countryCode === "GB" || countryCode === "UK") return "uk";
-    
+    if (EU_COUNTRIES.has(countryCode)) return "eu";
+
     return "other";
   } catch (error) {
     console.error("Geo-detection failed:", error);
@@ -43,7 +50,7 @@ export function getStoredRegion(): MarketRegion | null {
   if (typeof window === "undefined") return null;
   
   const stored = localStorage.getItem("market_region");
-  if (stored && ["za", "us", "uk", "other"].includes(stored)) {
+  if (stored && ["za", "us", "uk", "eu", "other"].includes(stored)) {
     return stored as MarketRegion;
   }
   
@@ -64,6 +71,7 @@ export function setStoredRegion(region: MarketRegion): void {
 export function getRegionFromPath(pathname: string): MarketRegion {
   if (pathname.startsWith("/us/") || pathname === "/us") return "us";
   if (pathname.startsWith("/uk/") || pathname === "/uk") return "uk";
+  if (pathname.startsWith("/eu/") || pathname === "/eu") return "eu";
   return "za";
 }
 
@@ -103,9 +111,22 @@ export function getRegionRedirectUrl(
     if (currentPath.startsWith("/us/")) {
       return currentPath.replace("/us/", "/uk/");
     }
+    if (currentPath.startsWith("/eu/")) {
+      return currentPath.replace("/eu/", "/uk/");
+    }
     return currentPath === "/" ? "/uk" : `/uk${currentPath}`;
   }
-  
+
+  if (detectedRegion === "eu") {
+    if (currentPath.startsWith("/us/")) {
+      return currentPath.replace("/us/", "/eu/");
+    }
+    if (currentPath.startsWith("/uk/")) {
+      return currentPath.replace("/uk/", "/eu/");
+    }
+    return currentPath === "/" ? "/eu" : `/eu${currentPath}`;
+  }
+
   // Redirect to main site (ZA) if on regional variant but detected elsewhere
   if (detectedRegion === "za" || detectedRegion === "other") {
     if (currentPath.startsWith("/us/")) {
@@ -114,20 +135,25 @@ export function getRegionRedirectUrl(
     if (currentPath.startsWith("/uk/")) {
       return currentPath.replace("/uk/", "/");
     }
+    if (currentPath.startsWith("/eu/")) {
+      return currentPath.replace("/eu/", "/");
+    }
   }
-  
+
   return null;
 }
 
 /**
  * Get currency for market region
  */
-export function getRegionCurrency(region: MarketRegion): "ZAR" | "USD" | "GBP" {
+export function getRegionCurrency(region: MarketRegion): "ZAR" | "USD" | "GBP" | "EUR" {
   switch (region) {
     case "us":
       return "USD";
     case "uk":
       return "GBP";
+    case "eu":
+      return "EUR";
     case "za":
     case "other":
     default:
@@ -144,6 +170,8 @@ export function getRegionCountry(region: MarketRegion): string {
       return "United States";
     case "uk":
       return "United Kingdom";
+    case "eu":
+      return "Europe";
     case "za":
       return "South Africa";
     case "other":

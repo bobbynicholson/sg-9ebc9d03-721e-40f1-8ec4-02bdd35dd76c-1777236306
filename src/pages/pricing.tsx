@@ -143,11 +143,12 @@ export default function PricingPage() {
 
   const pricingOptions = applyLivePlans(getAllPricingOptions(region), livePlans, region);
   const currency = getRegionCurrency(region);
-  const currencyNote = region === "za" 
-    ? "All prices in South African Rand (ZAR)" 
-    : region === "us"
-    ? "All prices in US Dollars (USD)"
-    : "All prices in British Pounds (GBP)";
+  const currencyNote =
+    region === "za" ? "All prices in South African Rand (ZAR)"
+    : region === "us" ? "All prices in US Dollars (USD)"
+    : region === "uk" ? "All prices in British Pounds (GBP)"
+    : region === "eu" ? "All prices in Euros (EUR)"
+    : "All prices in South African Rand (ZAR)";
 
   if (isLoading) {
     return (
@@ -168,6 +169,7 @@ export default function PricingPage() {
             {region === "za" && "🇿🇦 South African Pricing"}
             {region === "us" && "🇺🇸 United States Pricing"}
             {region === "uk" && "🇬🇧 United Kingdom Pricing"}
+            {region === "eu" && "🇪🇺 European Pricing"}
           </Badge>
           <p className="text-sm text-gray-600">{currencyNote}</p>
           <p className="text-xs text-gray-500 mt-1">

@@ -15,6 +15,7 @@ const regions = [
   { code: "za", name: "South Africa", flag: "🇿🇦" },
   { code: "us", name: "United States", flag: "🇺🇸" },
   { code: "uk", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "eu", name: "Europe", flag: "🇪🇺" },
 ];
 
 export function RegionSwitcher() {
@@ -27,14 +28,16 @@ export function RegionSwitcher() {
     setCurrentRegion(regionData);
   }, [router.pathname]);
 
-  const handleRegionChange = (regionCode: "za" | "us" | "uk") => {
+  const handleRegionChange = (regionCode: "za" | "us" | "uk" | "eu") => {
     let newPath = router.pathname;
-    
+
     // Remove existing region prefix
     if (newPath.startsWith("/us")) {
       newPath = newPath.replace("/us", "");
     } else if (newPath.startsWith("/uk")) {
       newPath = newPath.replace("/uk", "");
+    } else if (newPath.startsWith("/eu")) {
+      newPath = newPath.replace("/eu", "");
     }
 
     if (newPath === "") newPath = "/";
@@ -44,8 +47,10 @@ export function RegionSwitcher() {
       newPath = `/us${newPath === "/" ? "" : newPath}`;
     } else if (regionCode === "uk") {
       newPath = `/uk${newPath === "/" ? "" : newPath}`;
+    } else if (regionCode === "eu") {
+      newPath = `/eu${newPath === "/" ? "" : newPath}`;
     }
-    
+
     router.push(newPath);
   };
 
@@ -64,7 +69,7 @@ export function RegionSwitcher() {
         {regions.map((region) => (
           <DropdownMenuItem
             key={region.code}
-            onSelect={() => handleRegionChange(region.code as "za" | "us" | "uk")}
+            onSelect={() => handleRegionChange(region.code as "za" | "us" | "uk" | "eu")}
             className="cursor-pointer"
           >
             <span className="text-xl mr-3">{region.flag}</span>
