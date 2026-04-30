@@ -53,7 +53,11 @@ interface PrivacySettings {
 }
 
 function ProfileSettingsPage() {
-  const { user, profile, updateProfile } = useAuth();
+  // Pull `company` alongside `profile` so we can show the canonical
+  // company name even when profiles.company_name (a denormalised cache)
+  // is out of date or never populated. Without this fallback, every
+  // tenant whose cache is stale sees a blank Company Name field.
+  const { user, profile, company, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -110,14 +114,17 @@ function ProfileSettingsPage() {
         full_name: profile.full_name || "",
         email: profile.email || "",
         phone_number: profile.phone_number || "",
-        company_name: profile.company_name || "",
+        // Canonical companies.company_name wins -- profiles.company_name
+        // is just a denormalised cache and historically wasn't populated
+        // on every tenant.
+        company_name: company?.company_name || profile.company_name || "",
         avatar_url: profile.avatar_url || "",
       });
-      
+
       // Load preferences from profile metadata or localStorage
       loadUserPreferences();
     }
-  }, [profile]);
+  }, [profile, company]);
 
   const loadUserPreferences = () => {
     // Load from localStorage or profile metadata
@@ -251,14 +258,15 @@ function ProfileSettingsPage() {
       await updateProfile(formData);
 
       // Owners + super_admins are allowed to rename the company itself.
-      // The Company Name input on this page used to look editable for them
-      // but only ever wrote to profiles.company_name (a denormalised cache),
-      // so the change never showed anywhere else. Now we also push it
-      // through to the companies row that drives every other surface.
+      // We update the canonical companies row (which every other surface
+      // reads from), then refresh the denormalised profiles.company_name
+      // cache for everyone in the company so legacy code paths that
+      // still read the cache stay in sync.
       const role = (profile as any)?.role as string | undefined;
       const canRenameCompany = role === "owner" || role === "super_admin" || role === "admin";
       const companyId = (profile as any)?.company_id as string | undefined;
-      if (canRenameCompany && companyId && formData.company_name && formData.company_name !== profile?.company_name) {
+      const canonicalName = company?.company_name || profile?.company_name || "";
+      if (canRenameCompany && companyId && formData.company_name && formData.company_name !== canonicalName) {
         const { error: companyErr } = await supabase
           .from("companies")
           .update({ company_name: formData.company_name })
@@ -270,6 +278,18 @@ function ProfileSettingsPage() {
             description: companyErr.message,
             variant: "destructive",
           });
+        } else {
+          // Mirror the new name onto every profile in the company so
+          // any UI still pulling from the cache shows the rename
+          // immediately. Failure here is non-fatal -- the canonical
+          // row already changed.
+          const { error: cacheErr } = await supabase
+            .from("profiles")
+            .update({ company_name: formData.company_name })
+            .eq("company_id", companyId);
+          if (cacheErr) {
+            console.warn("Profile company_name cache refresh failed:", cacheErr.message);
+          }
         }
       }
 
@@ -534,12 +554,12 @@ function ProfileSettingsPage() {
                         </p>
                       </div>
 
-                      {profile.company_name && (
+                      {(company?.company_name || profile.company_name) && (
                         <div>
                           <Label className="text-sm text-slate-600 dark:text-slate-400">Company</Label>
                           <p className="text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             <Building2 className="w-4 h-4" />
-                            {profile.company_name}
+                            {company?.company_name || profile.company_name}
                           </p>
                         </div>
                       )}
