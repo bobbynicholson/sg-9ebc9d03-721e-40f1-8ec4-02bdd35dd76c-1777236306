@@ -1,0 +1,70 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * GET /api/imports/[id]
+ *
+ * Wizard polls this between steps to read job status, mapping, and
+ * the per-row preview.
+ */
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createPagesServerClient } from "@/lib/supabase/server";
+import { getImportJob, listImportRows } from "@/services/importService";
+
+const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    if (req.method !== "GET" && req.method !== "PATCH") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const ssr = createPagesServerClient({ req, res });
+    const { data: { user } } = await ssr.auth.getUser();
+    if (!user) return res.status(401).json({ error: "Not signed in" });
+
+    const { data: profile } = await ssr
+      .from("profiles")
+      .select("role, active_role, company_id")
+      .eq("id", user.id)
+      .single();
+    const role = (profile?.active_role || profile?.role || "") as string;
+    if (!ALLOWED_CALLER_ROLES.has(role)) {
+      return res.status(403).json({ error: "Only owners / admins can view imports" });
+    }
+    const companyId = profile?.company_id as string | null;
+    if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
+
+    const jobId = String(req.query.id || "");
+    if (!jobId) return res.status(400).json({ error: "Missing job id" });
+
+    const job = await getImportJob(jobId, companyId);
+    if (!job) return res.status(404).json({ error: "Import job not found" });
+
+    if (req.method === "PATCH") {
+      // Allow the wizard to save the (operator-edited) mapping back
+      // before running the preview step. Only a small allowlist of
+      // fields can be patched -- never status, never company_id.
+      const body = (req.body || {}) as any;
+      const patch: any = {};
+      if (body.mapping !== undefined) patch.mapping = body.mapping;
+      if (Object.keys(patch).length === 0) {
+        return res.status(400).json({ error: "Nothing to update" });
+      }
+      const sb = (await import("@/lib/supabase/service")).getServiceSupabase();
+      const { error } = await sb
+        .from("import_jobs")
+        .update(patch)
+        .eq("id", jobId)
+        .eq("company_id", companyId);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
+    const includeRows = req.query.rows === "1";
+    const rows = includeRows ? await listImportRows(jobId, { limit: 1000 }) : [];
+
+    return res.status(200).json({ ok: true, job, rows });
+  } catch (outer: any) {
+    console.error("imports/[id] GET crashed:", outer);
+    return res.status(500).json({ error: outer?.message || "Failed to load job" });
+  }
+}

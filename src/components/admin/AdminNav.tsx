@@ -49,6 +49,7 @@ import {
   Target,
   ChefHat,
   BookOpen,
+  Wand2,
   ChevronLeft,
   Palette,
   Code2
@@ -230,6 +231,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/equipment",
           icon: Package,
           description: "Chafing, tables, chairs, hire add-ons"
+        },
+        {
+          title: "AI Import",
+          href: "/admin/onboarding/import",
+          icon: Wand2,
+          description: "Drop a spreadsheet, we'll load clients + orders"
         },
         {
           title: "Hire-in orders",
