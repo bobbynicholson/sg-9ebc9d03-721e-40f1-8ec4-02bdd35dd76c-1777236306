@@ -1,0 +1,932 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { UserRole } from "@/types/app";
+import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
+  ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
+} from "lucide-react";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import {
+  menuService,
+  MENU_CATEGORIES,
+  DIETARY_TAGS,
+  ALLERGEN_CODES,
+  DEFAULT_UNITS,
+  type MenuItemWithRecipeSummary,
+  type RecipeIngredientRow,
+} from "@/services/menuService";
+
+// ── Local form types ────────────────────────────────────────────────────
+
+interface ItemDraft {
+  item_name: string;
+  category: string;
+  description: string;
+  base_price: string;
+  image_url: string;
+  dietary_tags: string[];
+  allergen_codes: string[];
+  requires_advance_notice_hours: string;
+  is_available: boolean;
+}
+
+interface RecipeDraft {
+  enabled: boolean;
+  base_servings: string;
+  prep_time_minutes: string;
+  cook_time_minutes: string;
+  instructions: string;
+  ingredients: Array<RecipeIngredientRow & { _key: string }>;
+}
+
+const EMPTY_ITEM: ItemDraft = {
+  item_name: "",
+  category: "Mains",
+  description: "",
+  base_price: "",
+  image_url: "",
+  dietary_tags: [],
+  allergen_codes: [],
+  requires_advance_notice_hours: "0",
+  is_available: true,
+};
+
+const EMPTY_RECIPE: RecipeDraft = {
+  enabled: false,
+  base_servings: "10",
+  prep_time_minutes: "",
+  cook_time_minutes: "",
+  instructions: "",
+  ingredients: [],
+};
+
+let _ingKeyCounter = 0;
+const newKey = () => `ing-${++_ingKeyCounter}`;
+
+function MenuPage() {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const companyId = (profile as any)?.company_id as string | undefined;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState<MenuItemWithRecipeSummary[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
+  const [itemDraft, setItemDraft] = useState<ItemDraft>(EMPTY_ITEM);
+  const [recipeDraft, setRecipeDraft] = useState<RecipeDraft>(EMPTY_RECIPE);
+  const [error, setError] = useState("");
+  const [archiveTarget, setArchiveTarget] = useState<MenuItemWithRecipeSummary | null>(null);
+
+  // Inventory pool for the recipe-builder picker -- fetched once when the
+  // page mounts so the autocomplete doesn't lag on each new ingredient row.
+  const [inventoryPool, setInventoryPool] = useState<Array<{
+    id: string; item_name: string; unit_of_measure: string;
+    category: string | null; cost_per_unit: number | null; current_stock: number | null;
+  }>>([]);
+
+  const load = async () => {
+    if (!companyId) return;
+    setLoading(true);
+    try {
+      const [list, inv] = await Promise.all([
+        menuService.list(companyId, /* includeArchived */ true),
+        menuService.listInventoryItemsForPicker(companyId),
+      ]);
+      setItems(list);
+      setInventoryPool(inv);
+    } catch (e: any) {
+      toast({ title: "Could not load menu", description: e?.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
+
+  // ── Filtering ────────────────────────────────────────────────────────
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return items
+      .filter(i => showArchived ? true : !i.deleted_at)
+      .filter(i => filterCategory === "all" || (i.category || "").toLowerCase() === filterCategory.toLowerCase())
+      .filter(i => !term
+        || i.item_name.toLowerCase().includes(term)
+        || (i.category || "").toLowerCase().includes(term)
+        || (i.description || "").toLowerCase().includes(term)
+      );
+  }, [items, showArchived, search, filterCategory]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, MenuItemWithRecipeSummary[]>();
+    for (const it of visible) {
+      const key = it.category || "Other";
+      const arr = m.get(key) || [];
+      arr.push(it);
+      m.set(key, arr);
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visible]);
+
+  // Stat strip
+  const stats = useMemo(() => {
+    const active = items.filter(i => !i.deleted_at);
+    return {
+      total: active.length,
+      withRecipe: active.filter(i => i.recipe_id !== null).length,
+      missingRecipe: active.filter(i => i.recipe_id === null).length,
+    };
+  }, [items]);
+
+  // Categories present in real data, plus the canonical list -- so legacy
+  // "main" / "Mains" both appear in the filter without losing rows.
+  const categoryOptions = useMemo(() => {
+    const realCats = new Set<string>();
+    for (const i of items) if (i.category) realCats.add(i.category);
+    const all = new Set<string>([...MENU_CATEGORIES, ...Array.from(realCats)]);
+    return Array.from(all).sort((a, b) => a.localeCompare(b));
+  }, [items]);
+
+  // ── Dialog open / close ─────────────────────────────────────────────
+
+  const openAdd = () => {
+    setEditTargetId(null);
+    setItemDraft(EMPTY_ITEM);
+    setRecipeDraft({ ...EMPTY_RECIPE, ingredients: [] });
+    setError("");
+    setDialogOpen(true);
+  };
+
+  const openEdit = async (it: MenuItemWithRecipeSummary) => {
+    setEditTargetId(it.id);
+    setError("");
+    setDialogOpen(true);
+    // Pre-fill with the row we have, then load the recipe + ingredients.
+    setItemDraft({
+      item_name: it.item_name || "",
+      category: it.category || "Mains",
+      description: it.description || "",
+      base_price: it.base_price != null ? String(it.base_price) : "",
+      image_url: it.image_url || "",
+      dietary_tags: it.dietary_tags || [],
+      allergen_codes: it.allergen_codes || [],
+      requires_advance_notice_hours: it.requires_advance_notice_hours != null
+        ? String(it.requires_advance_notice_hours) : "0",
+      is_available: it.is_available !== false,
+    });
+    setRecipeDraft({ ...EMPTY_RECIPE, ingredients: [] });
+    const full = await menuService.getFull(it.id);
+    if (full?.recipe) {
+      setRecipeDraft({
+        enabled: true,
+        base_servings: String(full.recipe.base_servings),
+        prep_time_minutes: full.recipe.prep_time_minutes != null ? String(full.recipe.prep_time_minutes) : "",
+        cook_time_minutes: full.recipe.cook_time_minutes != null ? String(full.recipe.cook_time_minutes) : "",
+        instructions: full.recipe.instructions || "",
+        ingredients: full.ingredients.map(r => ({ ...r, _key: newKey() })),
+      });
+    }
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditTargetId(null);
+    setItemDraft(EMPTY_ITEM);
+    setRecipeDraft(EMPTY_RECIPE);
+    setError("");
+  };
+
+  // ── Save ─────────────────────────────────────────────────────────────
+
+  const handleSave = async () => {
+    if (!companyId) return;
+    setError("");
+
+    if (!itemDraft.item_name.trim()) {
+      setError("Item name is required");
+      return;
+    }
+    const price = Number(itemDraft.base_price);
+    if (isNaN(price) || price < 0) {
+      setError("Base price must be a positive number");
+      return;
+    }
+    const noticeH = Number(itemDraft.requires_advance_notice_hours || 0);
+    if (isNaN(noticeH) || noticeH < 0) {
+      setError("Advance notice hours must be 0 or more");
+      return;
+    }
+
+    if (recipeDraft.enabled) {
+      const baseS = Number(recipeDraft.base_servings);
+      if (isNaN(baseS) || baseS < 1) {
+        setError("Recipe needs a base serving count of at least 1");
+        return;
+      }
+      for (const ing of recipeDraft.ingredients) {
+        if (!ing.ingredient_name.trim()) {
+          setError("Every ingredient row needs a name");
+          return;
+        }
+        if (isNaN(ing.quantity) || ing.quantity <= 0) {
+          setError(`Quantity for "${ing.ingredient_name}" must be greater than zero`);
+          return;
+        }
+        if (!ing.unit.trim()) {
+          setError(`Unit for "${ing.ingredient_name}" is required`);
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      // 1. Upsert the menu item
+      const itemPayload: any = {
+        company_id: companyId,
+        item_name: itemDraft.item_name.trim(),
+        category: itemDraft.category || null,
+        description: itemDraft.description.trim() || null,
+        base_price: price,
+        image_url: itemDraft.image_url.trim() || null,
+        dietary_tags: itemDraft.dietary_tags.length ? itemDraft.dietary_tags : null,
+        allergen_codes: itemDraft.allergen_codes.length ? itemDraft.allergen_codes : null,
+        requires_advance_notice_hours: noticeH,
+        is_available: itemDraft.is_available,
+        active: itemDraft.is_available,
+      };
+      if (editTargetId) itemPayload.id = editTargetId;
+      // Mirror useful recipe fields onto menu_items so the kitchen menu
+      // page (which reads menu_items only for prep/cook times) keeps
+      // working without a join.
+      if (recipeDraft.enabled) {
+        itemPayload.base_servings = Number(recipeDraft.base_servings);
+        if (recipeDraft.prep_time_minutes) itemPayload.prep_time_minutes = Number(recipeDraft.prep_time_minutes);
+        if (recipeDraft.cook_time_minutes) itemPayload.cook_time_minutes = Number(recipeDraft.cook_time_minutes);
+        if (recipeDraft.instructions) itemPayload.instructions = recipeDraft.instructions.trim();
+      }
+      const saved = await menuService.upsertMenuItem(itemPayload);
+
+      // 2. Save the recipe + ingredients (or wipe if disabled)
+      if (recipeDraft.enabled) {
+        await menuService.saveRecipe({
+          companyId,
+          menuItemId: saved.id,
+          menuItemName: saved.item_name,
+          recipe: {
+            base_servings: Number(recipeDraft.base_servings),
+            prep_time_minutes: recipeDraft.prep_time_minutes ? Number(recipeDraft.prep_time_minutes) : null,
+            cook_time_minutes: recipeDraft.cook_time_minutes ? Number(recipeDraft.cook_time_minutes) : null,
+            instructions: recipeDraft.instructions.trim() || null,
+          },
+          ingredients: recipeDraft.ingredients.map(({ _key, ...rest }) => rest),
+        });
+      } else {
+        await menuService.saveRecipe({
+          companyId,
+          menuItemId: saved.id,
+          menuItemName: saved.item_name,
+          recipe: null,
+          ingredients: [],
+        });
+      }
+
+      toast({
+        title: editTargetId ? "Menu item updated" : "Menu item added",
+        description: saved.item_name,
+      });
+      closeDialog();
+      load();
+    } catch (e: any) {
+      setError(e?.message || "Could not save -- check your inputs.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget) return;
+    setSaving(true);
+    try {
+      await menuService.archiveMenuItem(archiveTarget.id);
+      toast({ title: "Menu item archived", description: archiveTarget.item_name });
+      setArchiveTarget(null);
+      load();
+    } catch (e: any) {
+      toast({ title: "Could not archive", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRestore = async (it: MenuItemWithRecipeSummary) => {
+    setSaving(true);
+    try {
+      await menuService.restoreMenuItem(it.id);
+      toast({ title: "Restored", description: it.item_name });
+      load();
+    } catch (e: any) {
+      toast({ title: "Could not restore", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Recipe builder helpers ──────────────────────────────────────────
+
+  const addIngredientRow = (fromInventoryId?: string) => {
+    const fromInv = fromInventoryId ? inventoryPool.find(i => i.id === fromInventoryId) : null;
+    setRecipeDraft(d => ({
+      ...d,
+      ingredients: [
+        ...d.ingredients,
+        {
+          _key: newKey(),
+          ingredient_name: fromInv ? fromInv.item_name : "",
+          quantity: 0,
+          unit: fromInv ? fromInv.unit_of_measure : "g",
+          inventory_item_id: fromInv ? fromInv.id : null,
+          notes: null,
+        },
+      ],
+    }));
+  };
+
+  const updateIngredient = (key: string, patch: Partial<RecipeIngredientRow>) => {
+    setRecipeDraft(d => ({
+      ...d,
+      ingredients: d.ingredients.map(ing => ing._key === key ? { ...ing, ...patch } : ing),
+    }));
+  };
+
+  const removeIngredient = (key: string) => {
+    setRecipeDraft(d => ({
+      ...d,
+      ingredients: d.ingredients.filter(ing => ing._key !== key),
+    }));
+  };
+
+  const handleIngredientNamePicker = (key: string, value: string) => {
+    // If value matches an inventory item exactly (case-insensitive), link
+    // it. Otherwise leave as a free-text ingredient.
+    const lower = value.toLowerCase();
+    const match = inventoryPool.find(i => i.item_name.toLowerCase() === lower);
+    if (match) {
+      updateIngredient(key, {
+        ingredient_name: match.item_name,
+        unit: match.unit_of_measure,
+        inventory_item_id: match.id,
+      });
+    } else {
+      updateIngredient(key, {
+        ingredient_name: value,
+        inventory_item_id: null,
+      });
+    }
+  };
+
+  // Multi-select toggles
+  const toggleArrayValue = (arr: string[], value: string): string[] =>
+    arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value];
+
+  // ── Render ───────────────────────────────────────────────────────────
+
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+      <Head><title>Menu -- CateringMS</title></Head>
+      <NoIndexMeta />
+      <AdminNav />
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto">
+
+          {/* Header */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg flex-shrink-0">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+                  Menu
+                  <InfoTooltip content="Build the dishes your kitchen cooks. Each menu item can have a recipe attached -- the recipe lists ingredients and links each one to the inventory item it consumes.\n\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit." />
+                </h1>
+                <p className="text-sm text-slate-600 mt-1">
+                  Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list.
+                </p>
+              </div>
+            </div>
+            <Button onClick={openAdd} className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600">
+              <Plus className="w-4 h-4 mr-2" />Add menu item
+            </Button>
+          </div>
+
+          {/* Stat strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Active items</p>
+                <p className="text-2xl font-bold text-slate-900 tabular-nums">{stats.total}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">With recipe</p>
+                <p className="text-2xl font-bold text-emerald-700 tabular-nums">{stats.withRecipe}</p>
+              </CardContent>
+            </Card>
+            <Card className={`border-0 shadow-sm ${stats.missingRecipe > 0 ? "bg-amber-50" : ""}`}>
+              <CardContent className="p-4">
+                <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
+                  Missing recipe
+                  {stats.missingRecipe > 0 && <AlertTriangle className="w-3 h-3 text-amber-600" />}
+                </p>
+                <p className={`text-2xl font-bold tabular-nums ${stats.missingRecipe > 0 ? "text-amber-700" : "text-slate-900"}`}>
+                  {stats.missingRecipe}
+                </p>
+                {stats.missingRecipe > 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1">No ingredient list -- prep flywheel can't project demand</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filter bar */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, category or description..."
+                className="pl-9"
+              />
+            </div>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value="all">All categories</option>
+              {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div className="flex items-center gap-2 px-3 rounded-md border border-slate-200 bg-white">
+              <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
+              <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">Show archived</Label>
+            </div>
+          </div>
+
+          {/* List */}
+          {loading ? (
+            <div className="text-center py-12 text-slate-500 text-sm flex items-center justify-center">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading menu...
+            </div>
+          ) : grouped.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-12 text-center">
+                <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-700 font-medium">{items.length === 0 ? "No menu items yet" : "No matches"}</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  {items.length === 0
+                    ? "Add your first menu item to start building your kitchen's catalogue."
+                    : "Try a different search or category filter."}
+                </p>
+                {items.length === 0 && (
+                  <Button onClick={openAdd} className="mt-4">
+                    <Plus className="w-4 h-4 mr-2" />Add your first menu item
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-5">
+              {grouped.map(([cat, list]) => (
+                <div key={cat}>
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat} -- {list.length}</h2>
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-0">
+                      <ul className="divide-y divide-slate-100">
+                        {list.map(it => {
+                          const archived = !!it.deleted_at;
+                          return (
+                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""}`}>
+                              <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                {it.image_url
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  ? <img src={it.image_url} alt={it.item_name} className="w-full h-full object-cover" />
+                                  : <ImageIcon className="w-5 h-5 text-slate-400" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-slate-900 truncate">{it.item_name}</span>
+                                  {archived && <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-500">Archived</Badge>}
+                                  {it.recipe_id ? (
+                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                      <ChefHat className="w-2.5 h-2.5 mr-0.5" />Recipe x{it.recipe_ingredient_count}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">No recipe</Badge>
+                                  )}
+                                </div>
+                                {it.description && (
+                                  <p className="text-xs text-slate-500 truncate mt-0.5">{it.description}</p>
+                                )}
+                              </div>
+                              <div className="text-right hidden sm:block">
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Price</div>
+                                <div className="font-semibold text-slate-900 tabular-nums">R {Number(it.base_price || 0).toFixed(2)}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button variant="outline" size="sm" onClick={() => openEdit(it)}>
+                                  <Pencil className="w-3 h-3 mr-1" />Edit
+                                </Button>
+                                {archived ? (
+                                  <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving}>
+                                    <ArchiveRestore className="w-3 h-3 mr-1" />Restore
+                                  </Button>
+                                ) : (
+                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="text-red-700 border-red-200 hover:bg-red-50">
+                                    <Archive className="w-3 h-3 mr-1" />Archive
+                                  </Button>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <Footer />
+      </main>
+
+      {/* ── Add / Edit dialog ─────────────────────────────────────────── */}
+      <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); else setDialogOpen(true); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editTargetId ? "Edit menu item" : "Add menu item"}</DialogTitle>
+            <DialogDescription>
+              Save the basics first. The recipe block at the bottom is optional -- add it when you know the ingredients,
+              and the kitchen flywheel will start projecting demand and shortfalls automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Item details */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Item details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Name *</Label>
+                <Input
+                  value={itemDraft.item_name}
+                  onChange={(e) => setItemDraft({ ...itemDraft, item_name: e.target.value })}
+                  placeholder="e.g. Lamb Spit (200g)"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Category</Label>
+                <select
+                  value={itemDraft.category}
+                  onChange={(e) => setItemDraft({ ...itemDraft, category: e.target.value })}
+                  className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                >
+                  {MENU_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Base price (R) *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={itemDraft.base_price}
+                  onChange={(e) => setItemDraft({ ...itemDraft, base_price: e.target.value })}
+                  placeholder="180.00"
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Description</Label>
+                <Textarea
+                  rows={2}
+                  value={itemDraft.description}
+                  onChange={(e) => setItemDraft({ ...itemDraft, description: e.target.value })}
+                  placeholder="Short description for the menu and quotes"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>
+                  Image URL
+                  <InfoTooltip content="Paste a public image URL. Hosted upload is on the backlog -- for now use a public link from your storage or website." />
+                </Label>
+                <Input
+                  value={itemDraft.image_url}
+                  onChange={(e) => setItemDraft({ ...itemDraft, image_url: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Advance notice (hours)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={itemDraft.requires_advance_notice_hours}
+                  onChange={(e) => setItemDraft({ ...itemDraft, requires_advance_notice_hours: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Dietary tags */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Dietary tags</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DIETARY_TAGS.map(t => {
+                    const on = itemDraft.dietary_tags.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setItemDraft({ ...itemDraft, dietary_tags: toggleArrayValue(itemDraft.dietary_tags, t) })}
+                        className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                          on
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >{t.replace(/_/g, " ")}</button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Allergen codes */}
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="flex items-center gap-1">
+                  Allergen codes
+                  <InfoTooltip content="The kitchen Mark Ready dialog cross-checks these codes against the customer's stated dietary requirements and warns before the order leaves." />
+                </Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALLERGEN_CODES.map(a => {
+                    const on = itemDraft.allergen_codes.includes(a);
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setItemDraft({ ...itemDraft, allergen_codes: toggleArrayValue(itemDraft.allergen_codes, a) })}
+                        className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                          on
+                            ? "bg-red-100 text-red-700 border-red-300"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >{a.replace(/_/g, " ")}</button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:col-span-2 pt-1">
+                <Switch
+                  id="is_available"
+                  checked={itemDraft.is_available}
+                  onCheckedChange={(v) => setItemDraft({ ...itemDraft, is_available: v })}
+                />
+                <Label htmlFor="is_available" className="cursor-pointer select-none">Available for new orders</Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Recipe block -- collapsed by default */}
+          <div className="space-y-3 border-t pt-4">
+            <button
+              type="button"
+              onClick={() => setRecipeDraft(d => ({ ...d, enabled: !d.enabled }))}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Recipe + ingredients</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {recipeDraft.enabled
+                    ? "Recipe attached -- the kitchen flywheel will use this for prep tasks and demand projection"
+                    : "Optional. Add later if you don't have the ingredients in front of you yet"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={recipeDraft.enabled}
+                  onCheckedChange={(v) => setRecipeDraft(d => ({ ...d, enabled: v }))}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {recipeDraft.enabled
+                  ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                  : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </div>
+            </button>
+
+            {recipeDraft.enabled && (
+              <div className="space-y-3 pl-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Base servings *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={recipeDraft.base_servings}
+                      onChange={(e) => setRecipeDraft({ ...recipeDraft, base_servings: e.target.value })}
+                      placeholder="10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Prep time (min)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={recipeDraft.prep_time_minutes}
+                      onChange={(e) => setRecipeDraft({ ...recipeDraft, prep_time_minutes: e.target.value })}
+                      placeholder="30"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Cook time (min)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={recipeDraft.cook_time_minutes}
+                      onChange={(e) => setRecipeDraft({ ...recipeDraft, cook_time_minutes: e.target.value })}
+                      placeholder="120"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Cooking notes</Label>
+                  <Textarea
+                    rows={2}
+                    value={recipeDraft.instructions}
+                    onChange={(e) => setRecipeDraft({ ...recipeDraft, instructions: e.target.value })}
+                    placeholder="Steps the kitchen should follow"
+                  />
+                </div>
+
+                {/* Ingredient rows */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-1">
+                      Ingredients
+                      <InfoTooltip content="Type to search your inventory -- exact matches link the ingredient to the inventory item, so the kitchen flywheel can deduct stock and project demand. Free-text ingredients are still saved but won't auto-deduct." />
+                    </Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addIngredientRow()}>
+                      <Plus className="w-3 h-3 mr-1" />Add ingredient
+                    </Button>
+                  </div>
+
+                  {recipeDraft.ingredients.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-500 bg-slate-50 rounded-md border border-dashed border-slate-200">
+                      No ingredients yet. Add a row above.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {recipeDraft.ingredients.map((ing) => (
+                        <div key={ing._key} className="grid grid-cols-12 gap-1.5 items-start">
+                          <div className="col-span-12 sm:col-span-5 space-y-0.5">
+                            <Input
+                              value={ing.ingredient_name}
+                              onChange={(e) => handleIngredientNamePicker(ing._key, e.target.value)}
+                              list={`inv-list-${ing._key}`}
+                              placeholder="Ingredient name (type to search inventory)"
+                              className="text-sm"
+                            />
+                            <datalist id={`inv-list-${ing._key}`}>
+                              {inventoryPool.map(p => (
+                                <option key={p.id} value={p.item_name}>{p.item_name} ({p.unit_of_measure})</option>
+                              ))}
+                            </datalist>
+                            {ing.inventory_item_id ? (
+                              <span className="text-[10px] text-emerald-700 inline-flex items-center gap-1">
+                                <Package className="w-2.5 h-2.5" />Linked to inventory
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">Free-text -- won't auto-deduct stock</span>
+                            )}
+                          </div>
+                          <div className="col-span-5 sm:col-span-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={ing.quantity || ""}
+                              onChange={(e) => updateIngredient(ing._key, { quantity: Number(e.target.value) || 0 })}
+                              placeholder="Qty per serving"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="col-span-4 sm:col-span-2">
+                            <Input
+                              value={ing.unit}
+                              onChange={(e) => updateIngredient(ing._key, { unit: e.target.value })}
+                              list="unit-list"
+                              placeholder="unit"
+                              className="text-sm"
+                            />
+                            <datalist id="unit-list">
+                              {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </datalist>
+                          </div>
+                          <div className="col-span-2 sm:col-span-2">
+                            <Input
+                              value={ing.notes ?? ""}
+                              onChange={(e) => updateIngredient(ing._key, { notes: e.target.value })}
+                              placeholder="Notes"
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeIngredient(ing._key)}
+                              className="text-red-600 hover:bg-red-50"
+                              aria-label="Remove ingredient"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialog} disabled={saving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+              {saving ? <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Saving</> : (editTargetId ? "Save changes" : "Add menu item")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive confirm */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {archiveTarget?.item_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The dish disappears from the live menu and won't be addable to new quotes. Existing orders aren't affected.
+              You can restore it anytime by toggling "Show archived".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive} className="bg-red-600 hover:bg-red-700">Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </ProtectedRoute>
+  );
+}
+
+export default MenuPage;

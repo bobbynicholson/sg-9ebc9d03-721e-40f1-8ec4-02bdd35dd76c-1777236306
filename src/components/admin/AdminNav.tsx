@@ -47,6 +47,7 @@ import {
   ChevronDown,
   Target,
   ChefHat,
+  BookOpen,
   ChevronLeft,
   Palette,
   Code2
@@ -210,6 +211,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/inventory",
           icon: Package,
           description: "Stock management"
+        },
+        {
+          title: "Menu",
+          href: "/admin/menu",
+          icon: BookOpen,
+          description: "Build menu items + recipes"
         }
       ]
     },
