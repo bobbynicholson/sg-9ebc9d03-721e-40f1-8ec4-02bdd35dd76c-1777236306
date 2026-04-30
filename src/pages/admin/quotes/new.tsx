@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DollarSign, 
+import {
+  DollarSign,
   ArrowLeft,
   Save,
   Send,
@@ -17,15 +17,19 @@ import {
   Trash2,
   Calculator,
   MapPin,
-  TrendingUp
+  TrendingUp,
+  Sparkles,
+  Wand2,
+  X,
 } from "lucide-react";
-import { inventoryService } from "@/services/inventoryService";
 import { useToast } from "@/hooks/use-toast";
 import { MenuItem, EquipmentItem } from "@/types/app";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
+import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/services/quoteIntelligenceService";
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,16 +45,25 @@ export default function ProtectedNewQuotePage() {
 function NewQuotePage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useToast();
   const { leadId } = router.query;
-  
+  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+
   const [formData, setFormData] = useState({
     clientName: "",
     email: "",
+    phone: "",
     eventDate: "",
     eventType: "",
     guestCount: 0,
     deliveryAddress: ""
   });
+
+  // Snapshot of the picked client -- powers the "use last quote as
+  // template" panel and lets us preserve the canonical client_id when
+  // the quote is saved.
+  const [pickedSnapshot, setPickedSnapshot] = useState<ClientSnapshot | null>(null);
+  const [pickedClientId, setPickedClientId] = useState<string | null>(null);
 
   const [deliveryDetails, setDeliveryDetails] = useState({
     distance: 0,
@@ -98,16 +111,105 @@ function NewQuotePage() {
       const lead = leads.find((l: any) => l.id === leadId);
       if (lead) {
         setFormData({
-          clientName: lead.clientName,
-          email: lead.email,
-          eventDate: lead.eventDate,
-          eventType: lead.eventType,
-          guestCount: lead.guestCount,
-          deliveryAddress: ""
+          clientName: lead.clientName ?? "",
+          email: lead.email ?? "",
+          phone: lead.phone ?? "",
+          eventDate: lead.eventDate ?? "",
+          eventType: lead.eventType ?? "",
+          guestCount: lead.guestCount ?? 0,
+          deliveryAddress: "",
         });
       }
     }
   }, [leadId]);
+
+  // ── Typeahead pick handler ────────────────────────────────────────────
+  // When the staff member picks a row from the dropdown, hydrate the
+  // form with everything we already know. We never overwrite a field
+  // they've already edited -- the "if empty" guard means a half-typed
+  // override is preserved.
+  const handleClientPick = async (pick: KnownClientResult) => {
+    if (!companyId) return;
+    try {
+      const snap = await quoteIntelligenceService.getClientSnapshot(companyId, {
+        client_id: pick.client_id,
+        email: pick.email,
+        name: pick.display_name,
+      });
+      if (!snap) return;
+      setPickedSnapshot(snap);
+      setPickedClientId(snap.client_id);
+      setFormData((prev) => ({
+        ...prev,
+        clientName: snap.full_name || prev.clientName,
+        email: snap.email || prev.email,
+        phone: snap.phone || prev.phone,
+        eventDate: prev.eventDate || (snap.last_event_date ?? ""),
+        eventType: prev.eventType || (snap.last_event_type ?? ""),
+        guestCount: prev.guestCount || (snap.last_guest_count ?? 0),
+        deliveryAddress: prev.deliveryAddress || (snap.last_venue_address ?? ""),
+      }));
+      // If we pulled a venue lat/lng forward, stash them too so the
+      // routing engine can place the pin without another geocode.
+      if (snap.last_venue_lat && snap.last_venue_lng) {
+        setFormData((prev: any) => ({
+          ...prev,
+          deliveryLat: prev.deliveryLat ?? snap.last_venue_lat,
+          deliveryLng: prev.deliveryLng ?? snap.last_venue_lng,
+        }));
+      }
+      toast({
+        title: "Client loaded",
+        description: snap.recent_quotes.length
+          ? `Found ${snap.recent_quotes.length} previous quote${snap.recent_quotes.length === 1 ? "" : "s"} -- you can use one as a template.`
+          : "Form pre-filled from previous records.",
+      });
+    } catch (e: any) {
+      toast({ title: "Could not load client", description: e?.message ?? "Unknown error", variant: "destructive" });
+    }
+  };
+
+  // Apply a previous quote's menu + equipment + venue as a starting
+  // point for this new one. Lets the staff member tweak rather than
+  // re-keying every line item from a quote they ran two months ago.
+  const applyQuoteTemplate = (q: ClientSnapshot["recent_quotes"][number]) => {
+    const menu = Array.isArray(q.menu_items) ? q.menu_items : [];
+    const equipment = Array.isArray(q.equipment_items) ? q.equipment_items : [];
+
+    if (menu.length > 0) {
+      setMenuItems(menu.map((m: any, idx: number) => ({
+        id: `M${Date.now()}_${idx}`,
+        name: m.name ?? "",
+        category: m.category ?? "main",
+        pricePerPerson: Number(m.pricePerPerson ?? m.price_per_person ?? 0),
+        quantity: Number(m.quantity ?? formData.guestCount ?? 0),
+        ingredients: m.ingredients ?? [],
+      })));
+    }
+    if (equipment.length > 0) {
+      setEquipmentItems(equipment.map((e: any, idx: number) => ({
+        id: `E${Date.now()}_${idx}`,
+        name: e.name ?? "",
+        category: e.category ?? "chafing",
+        quantity: Number(e.quantity ?? 0),
+        available: Number(e.available ?? 0),
+        condition: e.condition ?? "good",
+        rentalPrice: Number(e.rentalPrice ?? e.rental_price ?? 0),
+      })));
+    }
+    if (q.venue_address && !formData.deliveryAddress) {
+      setFormData((prev) => ({ ...prev, deliveryAddress: q.venue_address ?? "" }));
+    }
+    toast({
+      title: "Template applied",
+      description: `Loaded ${menu.length} menu items and ${equipment.length} equipment lines from ${q.quote_number ?? "previous quote"}.`,
+    });
+  };
+
+  const clearPickedClient = () => {
+    setPickedSnapshot(null);
+    setPickedClientId(null);
+  };
 
   const calculateDistance = (deliveryAddress: string) => {
     if (!deliveryAddress || deliveryAddress.trim().length < 5) {
@@ -198,6 +300,10 @@ function NewQuotePage() {
     const quote = {
       id: `Q${Date.now()}`,
       leadId: leadId as string,
+      // Carry through the canonical client_id when the user picked an
+      // existing record. Lets the quote stay linked to that client's
+      // history so the next quote pre-fills even faster.
+      clientId: pickedClientId,
       ...formData,
       deliveryDistance: deliveryDetails.distance,
       deliveryFee: deliveryDetails.deliveryFee,
@@ -238,7 +344,7 @@ function NewQuotePage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-full">
+        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
           <Link href="/admin/leads">
             <Button variant="ghost" className="mb-3 sm:mb-4 text-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -271,28 +377,138 @@ function NewQuotePage() {
             <div className="lg:col-span-2 space-y-4 sm:space-y-6">
               <Card className="border-0 shadow-lg">
                 <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="text-base sm:text-lg">Client Information</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Event and contact details</CardDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        Client Information
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
+                        Start typing -- we'll match against your existing clients, leads and past quotes.
+                      </CardDescription>
+                    </div>
+                    {pickedSnapshot && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          clearPickedClient();
+                          setFormData({
+                            clientName: "",
+                            email: "",
+                            phone: "",
+                            eventDate: "",
+                            eventType: "",
+                            guestCount: 0,
+                            deliveryAddress: "",
+                          });
+                        }}
+                        className="h-8 text-xs"
+                      >
+                        <X className="w-3.5 h-3.5 mr-1" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6 pt-0">
+                  <div>
+                    <Label className="text-xs sm:text-sm">Client Name</Label>
+                    {/* Typeahead replaces the old read-only input. The
+                        controlled value still flows into formData.clientName
+                        so brand-new clients work without picking anything. */}
+                    <ClientTypeahead
+                      companyId={companyId}
+                      value={formData.clientName}
+                      onChange={(v) => setFormData((prev) => ({ ...prev, clientName: v }))}
+                      onPick={handleClientPick}
+                    />
+                    {pickedClientId && (
+                      <div className="mt-1.5 text-[11px] text-emerald-600 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        Matched to existing client -- form pre-filled below.
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <Label className="text-xs sm:text-sm">Client Name</Label>
-                      <Input value={formData.clientName} readOnly className="bg-slate-50 text-sm h-10" />
+                      <Label className="text-xs sm:text-sm">Email</Label>
+                      <Input
+                        value={formData.email}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                        placeholder="client@example.com"
+                        className="text-sm h-10"
+                      />
                     </div>
                     <div>
-                      <Label className="text-xs sm:text-sm">Email</Label>
-                      <Input value={formData.email} readOnly className="bg-slate-50 text-sm h-10" />
+                      <Label className="text-xs sm:text-sm">Phone</Label>
+                      <Input
+                        value={formData.phone}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                        placeholder="+27 ..."
+                        className="text-sm h-10"
+                      />
                     </div>
                     <div>
                       <Label className="text-xs sm:text-sm">Event Date</Label>
-                      <Input value={formData.eventDate} readOnly className="bg-slate-50 text-sm h-10" />
+                      <Input
+                        type="date"
+                        value={formData.eventDate}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, eventDate: e.target.value }))}
+                        className="text-sm h-10"
+                      />
                     </div>
                     <div>
                       <Label className="text-xs sm:text-sm">Guest Count</Label>
-                      <Input value={formData.guestCount} readOnly className="bg-slate-50 text-sm h-10" />
+                      <Input
+                        type="number"
+                        min="0"
+                        value={formData.guestCount}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, guestCount: parseInt(e.target.value) || 0 }))}
+                        className="text-sm h-10"
+                      />
                     </div>
                   </div>
+
+                  {pickedSnapshot && pickedSnapshot.recent_quotes.length > 0 && (
+                    <div className="mt-2 p-3 rounded-lg border border-purple-200 bg-purple-50/60">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wand2 className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm font-medium text-purple-900">
+                          Use a previous quote as a template
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-purple-700 mb-2">
+                        Loads the menu items and equipment from one of their past quotes -- you can tweak from there.
+                      </p>
+                      <div className="space-y-1.5">
+                        {pickedSnapshot.recent_quotes.slice(0, 3).map((q) => (
+                          <button
+                            type="button"
+                            key={q.id}
+                            onClick={() => applyQuoteTemplate(q)}
+                            className="w-full text-left px-3 py-2 bg-white border border-purple-200 rounded-md hover:border-purple-400 hover:bg-purple-50 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium text-slate-900 truncate">
+                                  {q.quote_number ?? "Quote"}
+                                  {q.event_date ? ` • ${new Date(q.event_date).toLocaleDateString("en-ZA")}` : ""}
+                                </div>
+                                {q.venue_address && (
+                                  <div className="text-[11px] text-slate-500 truncate">{q.venue_address}</div>
+                                )}
+                              </div>
+                              <div className="text-xs font-semibold text-emerald-700 flex-shrink-0">
+                                {q.total_amount ? `R${Number(q.total_amount).toFixed(2)}` : ""}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
