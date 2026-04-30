@@ -107,7 +107,7 @@ function EquipmentPage() {
     }
     setLoading(true);
     try {
-      const data = await equipmentManagementService.getEquipmentByCompany(companyId);
+      const data = await equipmentManagementService.getAllEquipment(companyId);
       setRows((data as any) || []);
     } catch (e: any) {
       toast({ title: "Could not load equipment", description: e?.message ?? "", variant: "destructive" });
