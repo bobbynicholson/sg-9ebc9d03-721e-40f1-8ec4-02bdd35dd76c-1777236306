@@ -30,8 +30,13 @@ import Head from "next/head";
 import {
   Calendar, Clock, MapPin, Users, ChefHat, Truck, CheckCircle2,
   Sparkles, ArrowRight, Receipt, Phone, MessageSquare,
-  Loader2, PartyPopper, RotateCcw,
+  Loader2, PartyPopper, RotateCcw, Star, Send, X,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,8 +70,10 @@ interface Order {
   payment_status: string | null;
   total_amount: number | null;
   driver_id: string | null;
-  // Note: rating lives on the `feedback` table, not `orders`. Phase 4
-  // will surface client ratings via a separate query.
+  // Star rating from delivery_feedback (1-5). null = the client hasn't
+  // rated this event yet. Populated client-side from a separate query
+  // because the orders table doesn't carry it.
+  rating: number | null;
 }
 
 interface DriverPin {
@@ -183,10 +190,65 @@ function smartStatusCopy(order: Order): { headline: string; sub: string } {
 
 export default function ClientPortalDashboard() {
   const { user, profile, company } = useAuth() as any;
+  const { toast } = useToast();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [driverPin, setDriverPin] = useState<DriverPin | null>(null);
+
+  // Rebook dialog state -- when the client taps "Rebook" on a past
+  // event we open a modal that lets them confirm + add a quick note,
+  // then write a row to leads so the catering company sees the request
+  // in their pipeline.
+  const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
+  const [rebookNote, setRebookNote] = useState("");
+  const [rebookSending, setRebookSending] = useState(false);
+
+  const submitRebookRequest = async () => {
+    if (!rebookOrder || !user || !company?.id) return;
+    setRebookSending(true);
+    try {
+      const noteParts: string[] = [];
+      noteParts.push(`Rebook request via client portal.`);
+      if (rebookOrder.event_name) noteParts.push(`Original event: ${rebookOrder.event_name}.`);
+      if (rebookOrder.event_date) noteParts.push(`Original date: ${rebookOrder.event_date}.`);
+      if (rebookOrder.guest_count) noteParts.push(`Guests: ${rebookOrder.guest_count}.`);
+      if (rebookOrder.venue_address) noteParts.push(`Venue: ${rebookOrder.venue_address}.`);
+      if (rebookNote.trim()) noteParts.push(`Client note: ${rebookNote.trim()}`);
+
+      // RLS on leads requires company_id = caller's company_id, which is
+      // already true for an authenticated client of this tenant.
+      const { error } = await supabase.from("leads").insert({
+        company_id: company.id,
+        contact_name: profile?.full_name || user.full_name || user.email,
+        email: user.email,
+        phone: (profile as any)?.phone_number || null,
+        event_type: rebookOrder.event_name || "Repeat booking",
+        guest_count: rebookOrder.guest_count,
+        venue_address: rebookOrder.venue_address,
+        source: "client_portal_rebook",
+        status: "new",
+        notes: noteParts.join(" "),
+      } as any);
+
+      if (error) throw error;
+
+      toast({
+        title: "Request sent",
+        description: `${company.company_name || "The team"} will be in touch shortly to plan your next event.`,
+      });
+      setRebookOrder(null);
+      setRebookNote("");
+    } catch (e: any) {
+      toast({
+        title: "Could not send rebook request",
+        description: e?.message || "Try again in a moment, or call the catering company directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setRebookSending(false);
+    }
+  };
 
   // Branding tones -- fall back to a calm emerald so unbranded companies
   // still look polished.
@@ -239,7 +301,31 @@ export default function ClientPortalDashboard() {
 
         const { data, error } = await q;
         if (error) console.error("Client dashboard load failed:", error);
-        if (!cancelled) setOrders((data as Order[]) || []);
+        const rows = (data as Omit<Order, "rating">[]) || [];
+
+        // Pull star ratings in a single second query keyed on order_id.
+        // RLS on delivery_feedback already gates this to the client's
+        // own orders. We merge by id rather than embedding so we don't
+        // get tripped up if the column shape changes upstream.
+        let ratingByOrderId = new Map<string, number>();
+        if (rows.length > 0) {
+          const orderIds = rows.map((r) => r.id);
+          const { data: feedback } = await supabase
+            .from("delivery_feedback")
+            .select("order_id, overall_rating")
+            .in("order_id", orderIds);
+          for (const f of (feedback as any[]) || []) {
+            if (f.order_id && f.overall_rating != null) {
+              ratingByOrderId.set(f.order_id, f.overall_rating);
+            }
+          }
+        }
+
+        const merged: Order[] = rows.map((r) => ({
+          ...(r as any),
+          rating: ratingByOrderId.get(r.id) ?? null,
+        }));
+        if (!cancelled) setOrders(merged);
       } catch (e) {
         console.error("Client dashboard load failed:", e);
         if (!cancelled) setOrders([]);
@@ -368,8 +454,11 @@ export default function ClientPortalDashboard() {
                   {orders.length} event{orders.length === 1 ? "" : "s"} on file
                 </Badge>
               )}
-              {/* Phase 4 will surface "rate a recent event" once the feedback
-                  table is wired into this page. Hidden for now. */}
+              {pastOrders.filter((o) => o.rating == null).length > 0 && (
+                <Badge variant="outline" className="bg-white/15 border-white/30 text-white text-xs">
+                  Rate a recent event
+                </Badge>
+              )}
             </div>
           </div>
         </header>
@@ -451,13 +540,110 @@ export default function ClientPortalDashboard() {
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
                 {pastOrders.map((o) => (
-                  <PastEventTile key={o.id} order={o} brandPrimary={brandPrimary} />
+                  <PastEventTile
+                    key={o.id}
+                    order={o}
+                    brandPrimary={brandPrimary}
+                    onRebook={(target) => {
+                      setRebookOrder(target);
+                      setRebookNote("");
+                    }}
+                  />
                 ))}
               </div>
             </section>
           )}
         </main>
       </div>
+
+      {/*
+        Rebook confirm dialog. Opens when the client taps Rebook on a
+        past event tile. Submits a row to `leads` with the past order
+        as context so the catering company sees the request in their
+        sales pipeline (source = client_portal_rebook).
+      */}
+      <Dialog
+        open={!!rebookOrder}
+        onOpenChange={(o) => {
+          if (!o) {
+            setRebookOrder(null);
+            setRebookNote("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5" style={{ color: brandPrimary }} />
+              Plan another event like this
+            </DialogTitle>
+            <DialogDescription>
+              We'll send your details to {company?.company_name || "the team"} and they'll get back to you with a fresh quote.
+            </DialogDescription>
+          </DialogHeader>
+          {rebookOrder && (
+            <div className="space-y-3">
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm space-y-1">
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {rebookOrder.event_name || "Your past event"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {new Date(rebookOrder.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
+                  {rebookOrder.guest_count ? ` • ${rebookOrder.guest_count} guests` : ""}
+                </p>
+                {rebookOrder.venue_address && (
+                  <p className="text-xs text-slate-500 truncate">{rebookOrder.venue_address}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
+                  Anything different this time? <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <Textarea
+                  value={rebookNote}
+                  onChange={(e) => setRebookNote(e.target.value)}
+                  placeholder="e.g. larger guest list, different venue, dietary changes..."
+                  className="min-h-[88px] text-sm"
+                  maxLength={1000}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setRebookOrder(null);
+                setRebookNote("");
+              }}
+              disabled={rebookSending}
+            >
+              <X className="w-4 h-4 mr-1" />
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={submitRebookRequest}
+              disabled={rebookSending}
+              className="text-white"
+              style={{ background: brandGradient }}
+            >
+              {rebookSending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-1.5" />
+                  Send request
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ChatBot userRole="client" companyId={company?.id} />
     </>
@@ -701,38 +887,70 @@ function ActionTile({
   );
 }
 
-function PastEventTile({ order, brandPrimary }: { order: Order; brandPrimary: string }) {
+function PastEventTile({
+  order,
+  brandPrimary,
+  onRebook,
+}: {
+  order: Order;
+  brandPrimary: string;
+  onRebook: (o: Order) => void;
+}) {
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
   return (
-    <Link
-      href={`/client-portal/my-orders?focus=${order.id}`}
-      className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition"
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0">
-          <p className="text-xs text-slate-500">{date}</p>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-            {order.event_name || "Event"}
-          </p>
+    <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition">
+      {/*
+        The whole card is browseable -- the inner Link wraps just the
+        summary so a click on the Rebook button at the bottom doesn't
+        navigate. This keeps "go look at the order" and "request a
+        rebook" as two separate intents.
+      */}
+      <Link href={`/client-portal/my-orders?focus=${order.id}`} className="block">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-500">{date}</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+              {order.event_name || "Event"}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[10px] capitalize flex-shrink-0">
+            {order.status.replace(/_/g, " ")}
+          </Badge>
         </div>
-        <Badge variant="outline" className="text-[10px] capitalize flex-shrink-0">
-          {order.status.replace(/_/g, " ")}
-        </Badge>
-      </div>
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>{order.guest_count || 0} guests</span>
-        <span className="font-semibold text-slate-700 dark:text-slate-200">
-          {fmtMoney.format(Number(order.total_amount || 0))}
-        </span>
-      </div>
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>{order.guest_count || 0} guests</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-200">
+            {fmtMoney.format(Number(order.total_amount || 0))}
+          </span>
+        </div>
+      </Link>
       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        {/* Star rating reinstated in Phase 4 once feedback table is joined. */}
-        <span className="text-xs text-slate-400">Past event</span>
-        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: brandPrimary }}>
+        {order.rating ? (
+          <div className="flex items-center gap-0.5" title={`You rated ${order.rating} out of 5`}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                className={`w-3.5 h-3.5 ${n <= (order.rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400">Not yet rated</span>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRebook(order);
+          }}
+          className="text-xs font-semibold flex items-center gap-1 hover:underline"
+          style={{ color: brandPrimary }}
+        >
           <RotateCcw className="w-3 h-3" />
           Rebook
-        </span>
+        </button>
       </div>
-    </Link>
+    </div>
   );
 }
