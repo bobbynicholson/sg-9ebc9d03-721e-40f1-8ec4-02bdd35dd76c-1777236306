@@ -29,8 +29,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DynamicNav } from "@/components/DynamicNav";
 import { ChatBot } from "@/components/ChatBot";
-import { DutyToggleWidget } from "@/components/kitchen/DutyToggleWidget";
-import { OnDutyBoard } from "@/components/kitchen/OnDutyBoard";
+import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
 import { UserRole } from "@/types/app";
 import Head from "next/head";
@@ -337,10 +336,10 @@ export default function KitchenDashboard() {
             </div>
           </div>
 
-          {/* Duty Management */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            <DutyToggleWidget />
-            <OnDutyBoard />
+          {/* Phase 5C: tile board replaces the per-user Start/End Duty
+              widget. One login on the tablet, one tap per staff member. */}
+          <div className="mb-6 sm:mb-8">
+            <KitchenStaffTileBoard />
           </div>
 
           {/* Today's Production Priority */}
