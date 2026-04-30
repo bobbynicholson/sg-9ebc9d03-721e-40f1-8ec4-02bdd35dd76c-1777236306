@@ -258,22 +258,40 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       Equipment to load ({equipment.length})
                     </p>
                     <ul className="space-y-1">
-                      {equipment.map((eq: any, i: number) => (
-                        <li
-                          key={`eq_${i}`}
-                          className="flex items-center justify-between gap-2 text-sm bg-blue-50 border border-blue-100 rounded px-2 py-1"
-                        >
-                          <span className="text-slate-800 truncate">
-                            {eq.name || "(unnamed)"}
-                            {eq.category && (
-                              <span className="ml-1.5 text-[11px] text-slate-500">{eq.category}</span>
-                            )}
-                          </span>
-                          <span className="text-xs font-bold text-blue-700 flex-shrink-0">
-                            × {Number(eq.quantity) || 0}
-                          </span>
-                        </li>
-                      ))}
+                      {equipment.map((eq: any, i: number) => {
+                        const fromStock = Number(eq.from_stock_qty);
+                        const fromHire = Number(eq.from_hire_qty);
+                        const hasSplit =
+                          Number.isFinite(fromStock) &&
+                          Number.isFinite(fromHire) &&
+                          (fromStock > 0 || fromHire > 0);
+                        return (
+                          <li
+                            key={`eq_${i}`}
+                            className="flex flex-wrap items-center justify-between gap-2 text-sm bg-blue-50 border border-blue-100 rounded px-2 py-1.5"
+                          >
+                            <span className="text-slate-800 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                              <span className="truncate">{eq.name || "(unnamed)"}</span>
+                              {eq.category && (
+                                <span className="text-[11px] text-slate-500">{eq.category}</span>
+                              )}
+                              {hasSplit && fromStock > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  {fromStock} OWNED
+                                </span>
+                              )}
+                              {hasSplit && fromHire > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                  {fromHire} HIRE-IN
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-xs font-bold text-blue-700 flex-shrink-0">
+                              × {Number(eq.quantity) || 0}
+                            </span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

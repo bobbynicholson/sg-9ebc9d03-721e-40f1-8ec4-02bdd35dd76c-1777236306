@@ -50,6 +50,9 @@ interface EquipmentRow {
   category: string | null;
   description?: string | null;
   rental_price?: number | null;
+  /** Cost the company themselves pay per unit when they hire-in
+   *  extra to fulfil an order. */
+  hire_in_cost?: number | null;
   quantity?: number | null;
   available_quantity?: number | null;
   condition?: string | null;
@@ -157,6 +160,7 @@ function EquipmentPage() {
         category: editing.category?.trim() || null,
         description: editing.description?.trim() || null,
         rental_price: safeNum(editing.rental_price),
+        hire_in_cost: safeNum(editing.hire_in_cost),
         quantity: safeNum(editing.quantity),
         available_quantity: safeNum(editing.available_quantity ?? editing.quantity),
         condition: editing.condition || "good",
@@ -370,6 +374,11 @@ function EquipmentPage() {
                             <div className="text-right text-xs text-slate-500">
                               <div>{safeNum(r.available_quantity)} / {safeNum(r.quantity)} free</div>
                               <div className="text-base font-semibold text-blue-700 mt-0.5">{fmtR(safeNum(r.rental_price))}</div>
+                              {safeNum(r.hire_in_cost) > 0 && (
+                                <div className="text-[10px] text-amber-700 mt-0.5">
+                                  hire-in {fmtR(safeNum(r.hire_in_cost))}
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <Button variant="ghost" size="icon" className="h-8 w-8" title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
@@ -429,7 +438,7 @@ function EquipmentPage() {
                   </datalist>
                 </div>
                 <div>
-                  <Label className="text-xs">Rental price (R)</Label>
+                  <Label className="text-xs">Rental price client pays (R)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -437,7 +446,23 @@ function EquipmentPage() {
                     value={editing.rental_price ?? 0}
                     onChange={(e) => setEditing({ ...editing, rental_price: safeNum(e.target.value) })}
                   />
+                  <p className="text-[11px] text-slate-500 mt-1">What you charge per booking.</p>
                 </div>
+              </div>
+              <div>
+                <Label className="text-xs">Hire-in cost to you (R, per unit)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={editing.hire_in_cost ?? 0}
+                  onChange={(e) => setEditing({ ...editing, hire_in_cost: safeNum(e.target.value) })}
+                  placeholder="What you pay if you have to hire-in extras"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  When the quote builder sees you've committed more units than you own on a given date,
+                  it surfaces (shortfall × this cost) as a margin signal so you don't quote at a loss.
+                </p>
               </div>
               <div>
                 <Label className="text-xs">Description</Label>

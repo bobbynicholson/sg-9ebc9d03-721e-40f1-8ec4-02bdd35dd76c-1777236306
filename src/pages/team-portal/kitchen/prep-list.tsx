@@ -518,19 +518,34 @@ export default function KitchenPrepListPage() {
                                   Equipment to pack ({meta.equipment_items.length})
                                 </p>
                                 <ul className="text-sm divide-y divide-slate-100">
-                                  {meta.equipment_items.map((eq: any, i: number) => (
-                                    <li key={`${eq.equipment_id ?? "x"}_${i}`} className="py-1.5 flex items-center justify-between gap-2">
-                                      <span className="text-slate-700 truncate">
-                                        {eq.name || "(unnamed)"}
-                                        {eq.category && (
-                                          <span className="ml-1.5 text-[11px] text-slate-400">{eq.category}</span>
-                                        )}
-                                      </span>
-                                      <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
-                                        × {Number(eq.quantity) || 0}
-                                      </span>
-                                    </li>
-                                  ))}
+                                  {meta.equipment_items.map((eq: any, i: number) => {
+                                    const fromStock = Number(eq.from_stock_qty);
+                                    const fromHire = Number(eq.from_hire_qty);
+                                    const hasSplit = Number.isFinite(fromStock) && Number.isFinite(fromHire) && (fromStock > 0 || fromHire > 0);
+                                    return (
+                                      <li key={`${eq.equipment_id ?? "x"}_${i}`} className="py-1.5 flex flex-wrap items-center justify-between gap-2">
+                                        <span className="text-slate-700 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                                          <span className="truncate">{eq.name || "(unnamed)"}</span>
+                                          {eq.category && (
+                                            <span className="text-[11px] text-slate-400">{eq.category}</span>
+                                          )}
+                                          {hasSplit && fromStock > 0 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                              {fromStock} from stock
+                                            </span>
+                                          )}
+                                          {hasSplit && fromHire > 0 && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-300">
+                                              {fromHire} hire-in
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
+                                          × {Number(eq.quantity) || 0}
+                                        </span>
+                                      </li>
+                                    );
+                                  })}
                                 </ul>
                               </div>
                             )}

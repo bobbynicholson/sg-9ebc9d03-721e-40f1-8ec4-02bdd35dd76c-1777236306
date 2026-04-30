@@ -79,6 +79,11 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
+import {
+  getEquipmentAvailability,
+  splitQuantity,
+  type EquipmentAvailability,
+} from "@/services/equipmentAvailabilityService";
 import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/services/quoteIntelligenceService";
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
@@ -119,7 +124,16 @@ interface EquipmentLineItem {
   unitPrice: number;
   /** Carried through so the kitchen + driver views can spot stockouts. */
   availableQuantity?: number | null;
+  /** What the company pays per unit when they hire-in extra to fulfil
+   *  this booking (loaded from equipment.hire_in_cost when picked). */
+  hireInCost?: number;
 }
+
+// Per-line live availability snapshot, keyed by line id. Loaded
+// asynchronously when the line is linked to a catalog row AND we have
+// an event date. Surfaces "owned / reserved on this date / free" and
+// drives the from-stock vs hire-in split display.
+type AvailabilityMap = Record<string, EquipmentAvailability | "loading" | undefined>;
 
 const LINE_CATEGORIES = [
   { value: "starter", label: "Starter" },
@@ -213,6 +227,10 @@ function NewQuotePage() {
     },
   ]);
   const [equipment, setEquipment] = useState<EquipmentLineItem[]>([]);
+  // Live availability per equipment line. Refetches when the event
+  // date or the picked equipment_id changes. Used to compute the
+  // from-stock vs hire-in split on the fly.
+  const [availability, setAvailability] = useState<AvailabilityMap>({});
 
   const [deliveryDistance, setDeliveryDistance] = useState(0);
   const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(8.5);
@@ -405,6 +423,7 @@ function NewQuotePage() {
           category: e.category ?? null,
           quantity: safeNum(e.quantity),
           unitPrice: safeNum(e.unit_price ?? e.rentalPrice ?? e.unitPrice),
+          hireInCost: safeNum(e.hire_in_cost_per_unit),
         })),
       );
     }
@@ -556,8 +575,50 @@ function NewQuotePage() {
       category: pick.category,
       unitPrice: pick.rentalPrice,
       availableQuantity: pick.availableQuantity,
+      hireInCost: (pick as any).hireInCost,
     });
   };
+
+  // Fetch live availability whenever an equipment line gets linked to
+  // the catalog AND we have an event date. Stays cheap because we only
+  // hit Supabase on (equipment_id, eventDate, quoteId) changes.
+  useEffect(() => {
+    if (!companyId || !eventDate) return;
+    let cancelled = false;
+    (async () => {
+      for (const line of equipment) {
+        if (!line.equipment_id) continue;
+        const cached = availability[line.id];
+        // Skip if we already have a snapshot for this line at this
+        // date (event date is part of the dependency, so a date
+        // change forces re-fetch).
+        if (cached && cached !== "loading") continue;
+        setAvailability((prev) => ({ ...prev, [line.id]: "loading" }));
+        try {
+          const av = await getEquipmentAvailability(
+            companyId,
+            line.equipment_id,
+            eventDate,
+            { excludeOrderId: quoteId },
+          );
+          if (cancelled) return;
+          setAvailability((prev) => ({ ...prev, [line.id]: av }));
+        } catch {
+          if (!cancelled) {
+            setAvailability((prev) => ({ ...prev, [line.id]: undefined }));
+          }
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, eventDate, equipment.map((e) => e.equipment_id).join("|"), quoteId]);
+
+  // When the event date changes, blow the cache so the next render
+  // re-fetches every line against the new date.
+  useEffect(() => {
+    setAvailability({});
+  }, [eventDate]);
 
   // ── Persistence ──────────────────────────────────────────────────
   const buildPayload = useCallback(() => {
@@ -588,15 +649,33 @@ function NewQuotePage() {
       });
     const equipJson = equipment
       .filter((e) => e.name)
-      .map((e) => ({
-        equipment_id: e.equipment_id,
-        name: e.name,
-        category: e.category,
-        quantity: e.quantity,
-        unit_price: e.unitPrice,
-        rentalPrice: e.unitPrice,
-        line_total: e.unitPrice * e.quantity,
-      }));
+      .map((e) => {
+        // Compute the from-stock vs hire-in split at save time, using
+        // the live availability snapshot if we have one. Persisting
+        // the split means kitchen + driver views can render the
+        // OWNED / HIRE-IN badges without recomputing availability.
+        const av = e.equipment_id ? availability[e.id] : undefined;
+        const liveAv = av && av !== "loading" ? av : null;
+        const split = liveAv
+          ? splitQuantity(e.quantity, liveAv.available)
+          : { fromStock: e.quantity, fromHire: 0 };
+        const hireCost = split.fromHire * (e.hireInCost ?? 0);
+        return {
+          equipment_id: e.equipment_id,
+          name: e.name,
+          category: e.category,
+          quantity: e.quantity,
+          unit_price: e.unitPrice,
+          rentalPrice: e.unitPrice,
+          line_total: e.unitPrice * e.quantity,
+          // Split metadata -- read by the kitchen prep-list and the
+          // driver deliveries view to render OWNED / HIRE-IN badges.
+          from_stock_qty: split.fromStock,
+          from_hire_qty: split.fromHire,
+          hire_in_cost_per_unit: e.hireInCost ?? 0,
+          hire_in_cost_total: hireCost,
+        };
+      });
     return {
       company_id: companyId,
       lead_id: typeof leadId === "string" ? leadId : null,
@@ -1078,8 +1157,17 @@ function NewQuotePage() {
                     <p className="text-sm text-slate-500 italic">No equipment lines.</p>
                   )}
                   {equipment.map((e, idx) => {
-                    const overstocked =
-                      e.availableQuantity != null && e.quantity > e.availableQuantity;
+                    // Live availability for this line at the current
+                    // event date. "loading" while we're fetching;
+                    // undefined if the line isn't linked to the catalog
+                    // OR there's no event date yet.
+                    const liveAvail = e.equipment_id ? availability[e.id] : undefined;
+                    const av =
+                      liveAvail && liveAvail !== "loading" ? liveAvail : null;
+                    const split = av
+                      ? splitQuantity(e.quantity, av.available)
+                      : { fromStock: e.quantity, fromHire: 0 };
+                    const hireCost = split.fromHire * (e.hireInCost ?? 0);
                     return (
                       <div key={e.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
                         <div className="flex items-start justify-between mb-2">
@@ -1101,7 +1189,7 @@ function NewQuotePage() {
                             {e.equipment_id && (
                               <div className="mt-1 text-[11px] text-blue-600 flex items-center gap-1">
                                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                                Linked to your catalog -- price + stock pre-filled.
+                                Linked to your catalog.
                               </div>
                             )}
                           </div>
@@ -1122,14 +1210,9 @@ function NewQuotePage() {
                                 value={e.quantity || ""}
                                 onChange={(ev) => updateEquip(e.id, { quantity: safeNum(ev.target.value) })}
                               />
-                              {overstocked && (
-                                <p className="text-[11px] text-amber-700 mt-1">
-                                  Only {e.availableQuantity} free in stock -- you may need to hire-in.
-                                </p>
-                              )}
                             </div>
                             <div className="sm:col-span-4">
-                              <Label className="text-xs">Unit price (R)</Label>
+                              <Label className="text-xs">Unit price client pays (R)</Label>
                               <Input
                                 type="number"
                                 min={0}
@@ -1139,6 +1222,73 @@ function NewQuotePage() {
                               />
                             </div>
                           </div>
+
+                          {/*
+                            Live availability + split. Only renders when
+                            the line is linked to the catalog AND we have
+                            an event date. Otherwise the team is in custom-
+                            line territory and we don't pretend to know
+                            what's in stock.
+                          */}
+                          {e.equipment_id && eventDate && (
+                            <div className="rounded-md bg-white border border-slate-200 px-3 py-2 text-xs">
+                              {liveAvail === "loading" ? (
+                                <span className="text-slate-500 inline-flex items-center gap-1">
+                                  <Loader2 className="w-3 h-3 animate-spin" /> Checking stock for {new Date(eventDate).toLocaleDateString("en-ZA")}...
+                                </span>
+                              ) : !av ? (
+                                <span className="text-slate-500">Stock check unavailable.</span>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span className="text-slate-700">
+                                      <span className="font-semibold text-slate-900">{av.owned}</span> owned
+                                    </span>
+                                    <span className="text-slate-500">·</span>
+                                    <span className="text-slate-700">
+                                      <span className="font-semibold text-amber-700">{av.reserved}</span> reserved on this date
+                                    </span>
+                                    <span className="text-slate-500">·</span>
+                                    <span className="text-emerald-700">
+                                      <span className="font-semibold">{av.available}</span> free
+                                    </span>
+                                  </div>
+                                  {/* Split display when we have a quantity */}
+                                  {e.quantity > 0 && (
+                                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+                                      {split.fromStock > 0 && (
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
+                                          {split.fromStock} from stock
+                                        </Badge>
+                                      )}
+                                      {split.fromHire > 0 && (
+                                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300">
+                                          {split.fromHire} hire-in
+                                        </Badge>
+                                      )}
+                                      {split.fromHire > 0 && (e.hireInCost ?? 0) > 0 && (
+                                        <span className="text-[11px] text-amber-700">
+                                          Extra cost to you: {fmtR(hireCost)}
+                                          <span className="text-slate-400 ml-1">(R{(e.hireInCost ?? 0).toFixed(2)} × {split.fromHire})</span>
+                                        </span>
+                                      )}
+                                      {split.fromHire > 0 && (e.hireInCost ?? 0) === 0 && (
+                                        <span className="text-[11px] text-amber-700">
+                                          Set hire-in cost on this catalog item to track the margin hit.
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {av.conflicts.length > 0 && (
+                                    <div className="text-[11px] text-slate-500 pt-1">
+                                      Reserved by: {av.conflicts.slice(0, 3).map((c) => c.client_name || "Order").join(", ")}
+                                      {av.conflicts.length > 3 && ` +${av.conflicts.length - 3} more`}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="text-xs text-slate-600 mt-1.5 text-right">
                           {fmtR(e.unitPrice * e.quantity)}
