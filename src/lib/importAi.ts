@@ -195,6 +195,130 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
   return { mapping, tokens_in: tokensIn, tokens_out: tokensOut };
 }
 
+// ── Orphan-row fixer ────────────────────────────────────────────────────
+
+export interface RepairRowResult {
+  /** Repaired field values keyed by target field name. Operator
+   *  reviews these and accepts / rejects. */
+  fixes: Record<string, string | number | null>;
+  /** Plain-English explanation of what was changed and why. */
+  rationale: string;
+  /** Issues the model couldn't auto-resolve. The operator still has to
+   *  fix these by hand. */
+  unresolved: string[];
+}
+
+const ROW_REPAIR_MODEL = process.env.ANTHROPIC_REPAIR_MODEL || DEFAULT_MODEL;
+
+const REPAIR_SYSTEM = `You repair single rows from a customer-supplied spreadsheet that the deterministic importer flagged as broken. Your job is to suggest cleaned values for the named target fields, given the raw cells and the warning messages.
+
+Rules:
+- Only return fields you are confident about. Skip the rest.
+- Dates: ISO yyyy-mm-dd. Strip times unless the field is event_time.
+- Numbers: plain numbers, no R/$ symbols, no thousands separators.
+- Phone numbers: keep international prefix when present, otherwise return what the operator typed.
+- Names and emails: trim whitespace, normalise case for emails (lowercase).
+- If a warning says "doesn't look like an email" and you genuinely can't reconstruct one, leave email out of the fix and add the issue to unresolved.
+- Output via the return_repair tool. No prose.`;
+
+/**
+ * Ask Claude to repair a single import row. Used when the deterministic
+ * normaliser produced warnings the operator wants help resolving --
+ * e.g. weird date formats, garbled emails, free-text totals.
+ *
+ * Cost-conscious: one round-trip per row, Haiku by default, token
+ * caps tight. The wizard only triggers this when the operator clicks
+ * 'AI repair' on a row, so volume stays bounded.
+ */
+export async function repairRowViaAI(args: {
+  rawRow: Record<string, any>;
+  mappedRow: Record<string, any>;
+  warnings: string[];
+  errorMessage: string | null;
+  targetTable: "clients" | "orders";
+}): Promise<{ result: RepairRowResult; tokens_in: number; tokens_out: number }> {
+  const targetFields = args.targetTable === "orders"
+    ? ORDER_TARGET_FIELDS
+    : CLIENT_TARGET_FIELDS;
+
+  const fieldList = targetFields
+    .filter((f) => f.key !== "skip")
+    .map((f) => `- ${f.key}: ${f.description}`)
+    .join("\n");
+
+  const userMessage = `Target table: ${args.targetTable}
+
+Available fields you may return values for:
+${fieldList}
+
+Raw cells from the spreadsheet (header -> value):
+${JSON.stringify(args.rawRow, null, 2)}
+
+Current best-effort mapping after the deterministic pass:
+${JSON.stringify(args.mappedRow, null, 2)}
+
+Issues to resolve:
+${args.errorMessage ? `- ERROR: ${args.errorMessage}\n` : ""}${args.warnings.map((w) => `- ${w}`).join("\n") || "(no warnings, just clean up the row)"}
+
+Return only the fields where you can improve on the current mapping. Use the return_repair tool.`;
+
+  const response: any = await (client().messages.create as any)({
+    model: ROW_REPAIR_MODEL,
+    max_tokens: 1024,
+    system: REPAIR_SYSTEM,
+    tools: [
+      {
+        name: "return_repair",
+        description: "Return repaired field values plus a short explanation.",
+        input_schema: {
+          type: "object",
+          properties: {
+            fixes: {
+              type: "object",
+              description: "Map of target_field -> repaired value. Omit fields you can't improve.",
+              additionalProperties: { type: ["string", "number", "null"] },
+            },
+            rationale: {
+              type: "string",
+              description: "One sentence explaining what was changed and why.",
+            },
+            unresolved: {
+              type: "array",
+              items: { type: "string" },
+              description: "Issues you couldn't fix automatically. Operator follow-up needed.",
+            },
+          },
+          required: ["fixes", "rationale", "unresolved"],
+          additionalProperties: false,
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "return_repair" },
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const tokensIn = response?.usage?.input_tokens || 0;
+  const tokensOut = response?.usage?.output_tokens || 0;
+
+  let result: RepairRowResult = { fixes: {}, rationale: "", unresolved: [] };
+  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+  for (const block of blocks) {
+    if (block?.type === "tool_use" && block?.name === "return_repair") {
+      const input = block.input as any;
+      result = {
+        fixes: (input?.fixes && typeof input.fixes === "object") ? input.fixes : {},
+        rationale: String(input?.rationale ?? ""),
+        unresolved: Array.isArray(input?.unresolved)
+          ? input.unresolved.map((s: any) => String(s))
+          : [],
+      };
+      break;
+    }
+  }
+
+  return { result, tokens_in: tokensIn, tokens_out: tokensOut };
+}
+
 // ── Receipt vision extractor ─────────────────────────────────────────────
 
 export interface ReceiptLineItem {

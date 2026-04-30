@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Upload, Sparkles, Eye, CheckCircle2, RotateCcw, Loader2,
-  AlertTriangle, FileSpreadsheet, Wand2,
+  AlertTriangle, FileSpreadsheet, Wand2, Bot,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -85,6 +85,41 @@ function ImportPage() {
   const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped">("all");
 
   const fileInput = useRef<HTMLInputElement | null>(null);
+
+  // Track which rows are currently being repaired by Claude so the UI
+  // can disable the button + show a spinner without blocking the rest
+  // of the table.
+  const [repairingRowIds, setRepairingRowIds] = useState<Set<string>>(new Set());
+
+  const repairRow = async (rowId: string) => {
+    if (!jobId) return;
+    setRepairingRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(rowId);
+      return next;
+    });
+    try {
+      const res = await fetch(`/api/imports/${jobId}/rows/${rowId}/repair`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Repair failed");
+      toast({
+        title: "AI repair applied",
+        description: json.result?.rationale || "Row updated, review the new mapping below.",
+      });
+      // Re-pull the rows so the table reflects the fix.
+      await refreshJob(jobId, true);
+    } catch (e: any) {
+      toast({ title: "AI repair failed", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setRepairingRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+    }
+  };
 
   // Resume support: /admin/onboarding/import?jobId=<id> hydrates from
   // the existing row + jumps to the right step.
@@ -498,10 +533,18 @@ function ImportPage() {
                                   <th className="py-2 px-3">Status</th>
                                   <th className="py-2 px-3">Maps to</th>
                                   <th className="py-2 px-3">Notes</th>
+                                  <th className="py-2 px-3 w-32">Action</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {filtered.slice(0, 50).map((r) => (
+                                {filtered.slice(0, 50).map((r) => {
+                                  const hasIssue =
+                                    r.status === "error" ||
+                                    r.status === "skipped" ||
+                                    (r.preview_warnings?.length || 0) > 0;
+                                  const aiRepairNote = (r.source_data as any)?.__ai_repair?.rationale as string | undefined;
+                                  const repairing = repairingRowIds.has(r.id);
+                                  return (
                                   <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">
                                     <td className="py-1.5 px-3 text-slate-500 font-mono">
                                       {r.source_row_index ?? "—"}
@@ -536,9 +579,37 @@ function ImportPage() {
                                           {Object.entries(r.mapped_data).slice(0, 3).map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(" · ")}
                                         </span>
                                       ) : "—"}
+                                      {aiRepairNote && (
+                                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                                          <Bot className="w-3 h-3" />
+                                          AI: {aiRepairNote.slice(0, 90)}{aiRepairNote.length > 90 ? "..." : ""}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="py-1.5 px-3">
+                                      {hasIssue ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={repairing}
+                                          onClick={() => repairRow(r.id)}
+                                          className="h-7 text-[11px] gap-1.5"
+                                          title="Ask Claude to repair this row's broken cells"
+                                        >
+                                          {repairing ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <Bot className="w-3 h-3" />
+                                          )}
+                                          {repairing ? "Repairing" : "AI repair"}
+                                        </Button>
+                                      ) : (
+                                        <span className="text-[11px] text-slate-400">—</span>
+                                      )}
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
