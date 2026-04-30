@@ -131,6 +131,16 @@ export default function CompanyLoginPage() {
         setError("Could not send sign-in link. Please try again.");
         return;
       }
+      const json = await res.json().catch(() => ({} as any));
+      // Dev / no-email-yet fallback. When the server is configured with
+      // DEV_RETURN_MAGIC_LINK=true the API hands back the magic link
+      // directly rather than emailing it. We send the user straight
+      // through it so they sign in with one click. This must NEVER be
+      // active in production -- the server flag controls it.
+      if (json?.dev_link && typeof json.dev_link === "string") {
+        window.location.href = json.dev_link;
+        return;
+      }
       setSent(true);
     } catch {
       setError("Network issue -- please try again in a moment.");

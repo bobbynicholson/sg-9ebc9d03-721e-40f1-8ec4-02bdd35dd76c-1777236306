@@ -243,6 +243,30 @@ const auditCards: SprintCard[] = [
     ],
   },
   {
+    id: "client-portal-isolation",
+    title: "Client portal -- data isolation + auth (in progress)",
+    why: "Bobby's hard rule: client data CAN NOT leak across accounts, ever. The client-portal rebuild brought magic-link auth, real-data dashboard, ratings + rebook flow. Hardening now ensures each Spit Braai (or any tenant) client only ever sees their own orders.",
+    estimate: "Mostly shipped. SMTP wiring still pending per tenant.",
+    risk: "High",
+    icon: ShieldAlert,
+    accent: "from-rose-500 to-pink-500",
+    defaultOpen: true,
+    items: [
+      // Shipped: data isolation
+      { title: "RLS leak fix on orders / clients / gps_tracking / delivery_feedback", detail: "Old policies used `company_id = get_user_company_id(auth.uid())` which let any client of the company query every other client's orders. Migration `tighten_client_rls_no_cross_client_leak` splits the policy: staff (role <> 'client') see all in their company, clients see only rows where they're the data subject (client_id linked or client_email match for pre-signup orders).", status: "shipped" },
+      { title: "Magic-link auth for /[slug]/login", detail: "Email-only sign-in for clients. Generates Supabase magic link via service role, dispatches via the catering company's existing emailService.sendEmail (per-tenant SMTP / Resend).", status: "shipped" },
+      { title: "Auto-provision client profile on first sign-in", detail: "Server-side endpoint /api/auth/client-provision-profile creates the profiles row with role hard-coded to 'client'. Backfills clients.user_id link by email match so historical orders surface immediately.", status: "shipped" },
+      { title: "Tenant-scoped /[slug]/client-portal/* URLs", detail: "Next.js rewrite maps the slug-prefixed URL onto the existing /client-portal/* page tree. Slug stays in the browser URL bar (white-label).", status: "shipped" },
+      { title: "Client dashboard rebuild -- branded hero + countdown + live tracking + past events + rebook", detail: "Phases 3 + 4 of the rebuild. Real-time orders subscription, embedded ClientTrackingMap when out_for_delivery, star ratings via delivery_feedback join, one-tap rebook submits a leads row to the catering company.", status: "shipped" },
+      { title: "Email-config RLS bug fix", detail: "emailService.getEmailConfig used the browser anon supabase client which RLS-blocked unauthenticated magic-link callers from reading email_settings -- so emails never sent. Now accepts an optional service-role client.", status: "shipped" },
+      // Pending
+      { title: "Configure email_settings per tenant so magic-link emails actually deliver", detail: "Per-company SMTP or Resend credentials need to be saved on /admin/email-settings for each catering company. Until done, no magic-link email arrives in production. Each tenant owns their sender so the email feels white-label.", status: "todo" },
+      { title: "Remove DEV_RETURN_MAGIC_LINK once SMTP is wired", detail: "Temporary server flag set on staging only. When true, /api/auth/client-magic-link returns the magic link in the response body so the frontend redirects directly. NEVER set in production -- anyone could log in as anyone with one click. Revoke as soon as per-tenant email is configured.", status: "in_progress" },
+      { title: "Tighten order_reviews RLS", detail: "order_reviews has no SELECT policy at all today. Only used internally but should mirror delivery_feedback's per-client gating before any client-facing surface reads it.", status: "todo" },
+      { title: "Rotate the SUPABASE_SERVICE_ROLE_KEY", detail: "The key was pasted into a chat session during config. Roll it via Supabase Dashboard -> Project Settings -> API once magic-link delivery is verified.", status: "todo" },
+    ],
+  },
+  {
     id: "2B",
     title: "Phase 2B -- Schema canonical + indexes + RLS",
     why: "Repo and live DB have drifted -- no SQL file matches live. 67 tables have company_id with no index. Three tables ship USING(true) policies.",

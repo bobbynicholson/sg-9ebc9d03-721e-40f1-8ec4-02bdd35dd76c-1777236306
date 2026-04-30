@@ -252,6 +252,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true });
     }
 
+    // ── DEV / NO-EMAIL FALLBACK ──────────────────────────────────────────
+    // Set DEV_RETURN_MAGIC_LINK=true on the server to receive the magic
+    // link back in the response body instead of (or in addition to) by
+    // email. The frontend will then redirect the user directly to the
+    // link, skipping the "check your inbox" step.
+    //
+    // ⚠️  CRITICAL SECURITY: this flag MUST NEVER be set in production.
+    //     If set, anyone who knows a customer's email can sign in as
+    //     that customer with one click. Only enable on dev/staging
+    //     environments where every visitor is trusted.
+    //
+    // Why this exists at all: until each tenant's email_settings is
+    // configured, no magic-link emails actually deliver. Bobby still
+    // needs to test the client portal end-to-end. This bypass lets him
+    // log in as any client while we wire SMTP per tenant.
+    const devReturnLink =
+      process.env.DEV_RETURN_MAGIC_LINK === "true" ||
+      process.env.DEV_RETURN_MAGIC_LINK === "1";
+    if (devReturnLink) {
+      console.warn(
+        "[client-magic-link] DEV_RETURN_MAGIC_LINK is on -- returning the magic link in the API response. UNSAFE for production.",
+        { email: cleanEmail, slug: company.slug },
+      );
+      return res.status(200).json({
+        ok: true,
+        dev_link: actionLink,
+      });
+    }
+
     // 3. Build the branded email
     const { subject, html, text } = buildEmailHtml({
       magicLink: actionLink,
