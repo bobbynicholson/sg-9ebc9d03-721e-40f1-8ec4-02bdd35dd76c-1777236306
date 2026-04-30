@@ -119,7 +119,11 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
     sample_rows: samples,
   });
 
-  const response = await client().messages.create({
+  // Cast the SDK call to any: the @anthropic-ai/sdk types tighten
+  // tool_choice + content block shapes between minor versions and
+  // we don't want a future SDK upgrade to break compile. Runtime
+  // shape is stable.
+  const response: any = await (client().messages.create as any)({
     model: DEFAULT_MODEL,
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
@@ -155,14 +159,15 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
     messages: [{ role: "user", content: userMessage }],
   });
 
-  const tokensIn = response.usage?.input_tokens ?? 0;
-  const tokensOut = response.usage?.output_tokens ?? 0;
+  const tokensIn: number = response?.usage?.input_tokens ?? 0;
+  const tokensOut: number = response?.usage?.output_tokens ?? 0;
 
   // Pull the tool_use block. With tool_choice forced, this is the
   // only content we expect.
   let mapping: ColumnMappingResult[] = [];
-  for (const block of response.content) {
-    if (block.type === "tool_use" && block.name === "return_mapping") {
+  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+  for (const block of blocks) {
+    if (block?.type === "tool_use" && block?.name === "return_mapping") {
       const input = block.input as any;
       if (Array.isArray(input?.mappings)) {
         mapping = input.mappings.map((m: any) => ({

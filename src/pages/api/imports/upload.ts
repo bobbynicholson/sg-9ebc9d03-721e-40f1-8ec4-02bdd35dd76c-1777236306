@@ -21,6 +21,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
 import { promises as fs } from "fs";
+import { randomUUID } from "node:crypto";
 import * as XLSX from "xlsx";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
@@ -194,7 +195,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // a placeholder, upload, then create the job with the path. If
     // the job insert fails we delete the storage file before
     // returning. Keeps the bucket clean.
-    const jobIdPlaceholder = crypto.randomUUID();
+    const jobIdPlaceholder = randomUUID();
     const filename = fileEntry.originalFilename || "upload.xlsx";
     const filePath = await uploadToStorage({
       companyId,

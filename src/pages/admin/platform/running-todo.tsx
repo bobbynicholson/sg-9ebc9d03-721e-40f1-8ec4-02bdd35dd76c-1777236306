@@ -271,6 +271,7 @@ const auditCards: SprintCard[] = [
       { title: "Tighten order_reviews RLS", detail: "order_reviews has no SELECT policy at all today. Only used internally but should mirror delivery_feedback's per-client gating before any client-facing surface reads it.", status: "todo" },
       { title: "Rotate the SUPABASE_SERVICE_ROLE_KEY", detail: "The key was pasted into a chat session during config. Roll it via Supabase Dashboard -> Project Settings -> API once magic-link delivery is verified.", status: "todo" },
       { title: "Re-audit tables added by future migrations against the same template", detail: "Every new table needs: RLS enabled, no USING(true), tenant-scoped SELECT (staff via company_id + role check, clients via narrow link). Every new SECURITY DEFINER function needs to enforce its own tenant scoping. Every new view needs security_invoker=on. Every new public API endpoint needs to derive company_id from a verified key/token, never from request body.", status: "todo" },
+      { title: "Set ANTHROPIC_API_KEY env var on Vercel (Production scope)", detail: "Required for the AI Onboarding Importer (/admin/onboarding/import) to actually call Haiku for column mapping. Without it, the upload + preview + commit steps still work (everything's deterministic) but the mapping step 500s with a clear error. Optional companion: ANTHROPIC_IMPORT_MODEL (defaults to claude-haiku-4-5).", status: "todo" },
     ],
   },
   {
