@@ -509,12 +509,18 @@ function NewQuotePage() {
 
   const applyMenuItemPick = (lineId: string, pick: MenuItemPick) => {
     updateLine(lineId, {
-      menu_item_id: (pick as any).id ?? null,
-      name: pick.item_name,
-      category: ((pick as any).category || "main").toLowerCase(),
-      dietary_tags: (pick as any).dietary_tags ?? null,
-      unitPrice: safeNum((pick as any).base_price),
-      costPerUnit: safeNum((pick as any).cost_per_unit),
+      menu_item_id: pick.id,
+      name: pick.name,
+      // pick.category is already the lowercase form-enum value.
+      // Our form's LINE_CATEGORIES include extra options (starter,
+      // salad, other) that the typeahead doesn't emit, but every
+      // value the typeahead returns IS in the form's set.
+      category: pick.category || "main",
+      dietary_tags: pick.dietaryTags ?? null,
+      unitPrice: safeNum(pick.pricePerPerson),
+      // Cost-per-unit isn't in the typeahead payload; the menu picker
+      // doesn't currently surface it. Leaving costPerUnit unset so
+      // the future margin tracker reads from menu_items directly.
     });
   };
 
