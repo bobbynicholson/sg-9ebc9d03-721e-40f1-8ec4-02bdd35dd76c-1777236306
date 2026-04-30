@@ -245,14 +245,23 @@ export default function ClientTracking() {
     return `${hours}h ${minutes}m`;
   };
 
+  // Layout shell shared by all three render branches below. Keeps the
+  // sidebar offset and responsive padding consistent so cards always
+  // sit flush against the menu, and adds the mobile-header gap.
+  const layoutShell = "min-h-screen bg-slate-50 pb-20 lg:pl-64 xl:pl-72 pt-16 lg:pt-0 overflow-x-hidden";
+  const innerPadding = "px-4 sm:px-6 md:px-8 lg:px-10";
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading your deliveries...</p>
+      <>
+        <DynamicNav userRole={UserRole.CLIENT} />
+        <div className={`${layoutShell} flex items-center justify-center`}>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading your deliveries...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -263,9 +272,11 @@ export default function ClientTracking() {
           <title>Track Your Order - CateringMS</title>
         </Head>
         <NoIndexMeta />
-        
-        <div className="min-h-screen bg-slate-50 pb-20">
-          <div className="px-4 py-8">
+
+        <DynamicNav userRole={UserRole.CLIENT} />
+
+        <div className={layoutShell}>
+          <div className={`${innerPadding} py-8`}>
             <Card>
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -275,7 +286,7 @@ export default function ClientTracking() {
             </Card>
           </div>
         </div>
-        
+
         <Footer />
         <ChatBot userRole="client" />
       </>
@@ -291,10 +302,10 @@ export default function ClientTracking() {
 
       <DynamicNav userRole={UserRole.CLIENT} />
 
-      <div className="min-h-screen bg-slate-50 pb-20">
+      <div className={layoutShell}>
         {/* Header */}
         <div className="bg-white border-b">
-          <div className="px-4 py-6">
+          <div className={`${innerPadding} py-6`}>
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Track Your Order</h1>
@@ -312,7 +323,7 @@ export default function ClientTracking() {
           </div>
         </div>
 
-        <div className="px-4 py-8">
+        <div className={`${innerPadding} py-8`}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Live Map */}
             <div className="lg:col-span-2">

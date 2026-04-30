@@ -445,17 +445,28 @@ export default function ClientPortalDashboard() {
       </Head>
       <ClientNav />
 
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+      {/*
+        Layout wrapper:
+          lg:pl-64 / xl:pl-72   match the ClientNav sidebar widths
+                                exactly so cards sit flush against the
+                                menu, no gap (Bobby: "aligned left next
+                                to the menu, take up full width").
+          pt-16 lg:pt-0         leave room for the mobile sticky header.
+          overflow-x-hidden     guards against any rogue child overflow
+                                on small screens.
+      */}
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
         {/*
           Branded greeting strip. Uses inline styles for the gradient so
           each tenant's brand colours apply without a Tailwind safelist
-          gymnastic.
+          gymnastic. Content stretches the full width of the available
+          area -- no inner max-w cap.
         */}
         <header
-          className="px-4 sm:px-6 md:px-8 py-6 sm:py-8 text-white shadow-md"
+          className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 text-white shadow-md"
           style={{ background: brandGradient }}
         >
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center shadow-lg flex-shrink-0">
                 {companyLogo ? (
@@ -486,7 +497,7 @@ export default function ClientPortalDashboard() {
           </div>
         </header>
 
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8 space-y-6">
+        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
           {/* ── Hero: next event ─────────────────────────────────────── */}
           {loading ? (
             <Card className="border-0 shadow-lg">

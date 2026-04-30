@@ -94,8 +94,8 @@ export default function MyOrders() {
 
       <DynamicNav userRole={UserRole.CLIENT} />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-12">
           <div className="mb-6">
             <Link href="/client-portal/dashboard">
               <Button variant="ghost" size="sm" className="mb-4">
