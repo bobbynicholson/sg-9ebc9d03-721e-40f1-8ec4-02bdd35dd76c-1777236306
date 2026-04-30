@@ -242,7 +242,7 @@ function WageDashboardPage() {
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-6xl mx-auto">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
 
           {/* Header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

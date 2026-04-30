@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -95,6 +99,10 @@ function DriverManagementPage() {
   const [editHomePostcode, setEditHomePostcode] = useState("");
   const [editVehicleId, setEditVehicleId] = useState<string>("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // Remove driver confirm dialog
+  const [removeTarget, setRemoveTarget] = useState<Driver | null>(null);
+  const [removeSaving, setRemoveSaving] = useState(false);
 
   // Vehicles list for the picker + per-driver vehicle map
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -329,6 +337,51 @@ function DriverManagementPage() {
     }
   };
 
+  /**
+   * Remove a driver. Server-side soft-delete via /api/admin/delete-user --
+   * stamps profiles.deleted_at + bans the auth user so the row stops
+   * appearing in queries and the user can no longer log in. Order history
+   * stays intact (we never hard-delete because that would cascade through
+   * orders / shifts / assignments).
+   */
+  const handleRemoveDriver = async () => {
+    if (!removeTarget) return;
+    setRemoveSaving(true);
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ userId: removeTarget.id }),
+      });
+      const rawText = await res.text();
+      let payload: any = {};
+      try { payload = JSON.parse(rawText); } catch { /* keep raw */ }
+      if (!res.ok) {
+        const msg = payload?.error
+          || (rawText && rawText.length < 200 ? rawText : null)
+          || `Server returned ${res.status}`;
+        toast({ title: "Could not remove driver", description: msg, variant: "destructive" });
+        console.error("Remove driver failed:", { status: res.status, payload, rawText });
+        return;
+      }
+      toast({
+        title: "Driver removed",
+        description: `${removeTarget.full_name || removeTarget.email} can no longer access the portal.`,
+      });
+      setRemoveTarget(null);
+      loadDrivers();
+    } catch (err: any) {
+      toast({
+        title: "Network error",
+        description: err?.message || "Could not reach the server.",
+        variant: "destructive",
+      });
+    } finally {
+      setRemoveSaving(false);
+    }
+  };
+
   const filteredDrivers = useFuzzyItems(
     drivers,
     searchQuery,
@@ -347,8 +400,14 @@ function DriverManagementPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <NoIndexMeta />
       <AdminNav />
-      
-      <div className="px-4 py-8 max-w-screen-2xl lg:pl-72 xl:pl-80">
+
+      {/* Two-level layout matches admin/dashboard + admin/inventory: outer
+          handles the sidebar offset, inner caps the content width. The
+          earlier single-div version put pl-72 INSIDE the max-w box, which
+          ate ~288px from inside the cap -- that's why the content looked
+          centred / narrow on wide viewports. */}
+      <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80">
+        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -697,6 +756,12 @@ function DriverManagementPage() {
                                 <DropdownMenuItem onClick={() => handleToggleDriverStatus(driver.id, driver.is_active)}>
                                   {driver.is_active ? "Deactivate driver" : "Activate driver"}
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setRemoveTarget(driver)}
+                                  className="text-red-700 focus:text-red-700 focus:bg-red-50"
+                                >
+                                  Remove driver
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -817,7 +882,33 @@ function DriverManagementPage() {
         </DialogContent>
       </Dialog>
 
-      <Footer />
+      {/* Remove driver confirm */}
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => { if (!open && !removeSaving) setRemoveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {removeTarget?.full_name || removeTarget?.email}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll disappear from the driver list and won't be able to log in to the driver portal.
+              Their order history and shift records stay intact for reporting. You can restore them
+              later by un-archiving the profile in Users.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRemoveDriver(); }}
+              disabled={removeSaving}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {removeSaving ? "Removing..." : "Remove driver"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+        <Footer />
+        </div>
+      </div>
     </div>
   );
 }
