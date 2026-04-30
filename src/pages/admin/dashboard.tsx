@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useState, useEffect, useMemo } from "react";
-import { AdminNav } from "@/components/admin/AdminNav";
+import { DashboardShell } from "@/components/navigation/DashboardShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock,
@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
@@ -206,11 +205,12 @@ function AdminDashboardPage() {
 
   return (
     <>
-      <NoIndexMeta />
       <Head><title>Admin Dashboard - CateringMS</title></Head>
-      <AdminNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+      <DashboardShell
+        role="admin"
+        background="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900"
+        contained={false}
+      >
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
 
           {/* Header + date range -- date controls every metric below */}
@@ -436,7 +436,7 @@ function AdminDashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </DashboardShell>
 
       <ChatBot userRole="admin" companyId={companyId} />
     </>
