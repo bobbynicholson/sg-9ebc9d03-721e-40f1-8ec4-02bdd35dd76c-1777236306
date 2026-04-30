@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DollarSign,
   Plus,
   Calendar,
@@ -25,6 +35,8 @@ import {
   Clock,
   Inbox,
   ArrowRight,
+  Trash2,
+  GripVertical,
 } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
@@ -47,6 +59,7 @@ import {
   type QuoteRowState,
 } from "@/lib/quoteIntelligence";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -72,6 +85,8 @@ export default function AdminQuotes() {
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<QuoteBucket>("all");
@@ -195,6 +210,30 @@ export default function AdminQuotes() {
   useEffect(() => {
     setCompanyName(profile?.company_name || (user as any)?.company_name);
   }, [profile, user]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleting(true);
+    try {
+      await quoteService.deleteQuote(id);
+      setQuotes((prev) => prev.filter((q) => q.id !== id));
+      toast({
+        title: "Quote deleted",
+        description: `Removed ${deleteTarget.client_name}'s quote.`,
+      });
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.error("Delete quote failed:", err);
+      toast({
+        title: "Delete failed",
+        description: err?.message || "Could not delete this quote.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSend = async (quoteId: string) => {
     setSendingId(quoteId);
@@ -629,6 +668,16 @@ export default function AdminQuotes() {
                               View
                             </Button>
                           </Link>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Delete quote"
+                            onClick={() => setDeleteTarget(quote)}
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -642,23 +691,160 @@ export default function AdminQuotes() {
         <Footer />
       </div>
 
-      {/* Compose drawer -- mirrors the Clients CRM pattern. Status-aware
-          template, four send channels, no server-side mail sending. */}
-      <Sheet open={!!composeQuote} onOpenChange={(o) => !o && setComposeQuote(null)}>
-        <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-          {composeQuote && (
-            <QuoteComposeDrawer
-              quote={composeQuote}
-              fromName={profile?.full_name || companyName}
-              companyName={companyName}
-              onClose={() => setComposeQuote(null)}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Compose drawer -- bigger default footprint and a drag handle on
+          the left edge so the team can pull it wider and use the proper
+          screen real estate while drafting. The body textarea gets the
+          extra space first via flex-grow. */}
+      <ComposeDrawerHost
+        open={!!composeQuote}
+        onClose={() => setComposeQuote(null)}
+      >
+        {composeQuote && (
+          <QuoteComposeDrawer
+            quote={composeQuote}
+            fromName={profile?.full_name || companyName}
+            companyName={companyName}
+            onClose={() => setComposeQuote(null)}
+          />
+        )}
+      </ComposeDrawerHost>
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this quote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <span className="block mb-2">
+                    This permanently removes <span className="font-medium text-slate-900">{deleteTarget.client_name}</span>
+                    {deleteTarget.event_date && (
+                      <> -- event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
+                    )}
+                    {deleteTarget.total != null && (
+                      <> -- {fmtMoney.format(deleteTarget.total)}</>
+                    )}.
+                  </span>
+                  <span className="block text-rose-600">
+                    This cannot be undone. Any linked order is unaffected.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 focus:ring-rose-600"
+            >
+              {deleting ? "Deleting..." : "Delete quote"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
     </>
+  );
+}
+
+/**
+ * Sheet wrapper that's bigger out of the gate (60% of viewport, clamped
+ * 640..1280) and resizable -- the team can drag the left edge to pull it
+ * wider while drafting a long email. Width persists for the session in
+ * sessionStorage so it doesn't snap back between opens.
+ */
+function ComposeDrawerHost({
+  open, onClose, children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const MIN_W = 480;
+  const MAX_W = 1280;
+  const DEFAULT_FRAC = 0.6;
+
+  const initialWidth = () => {
+    if (typeof window === "undefined") return 800;
+    const stored = Number(window.sessionStorage.getItem("compose_drawer_w") || "0");
+    if (stored >= MIN_W && stored <= MAX_W) return stored;
+    return Math.min(MAX_W, Math.max(MIN_W, Math.round(window.innerWidth * DEFAULT_FRAC)));
+  };
+
+  const [width, setWidth] = useState<number>(800);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    if (open) setWidth(initialWidth());
+  }, [open]);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      // Drag handle is on the left edge of the drawer; the drawer itself
+      // sits on the right edge of the viewport. New width = distance from
+      // mouse to the right edge.
+      const next = Math.min(MAX_W, Math.max(MIN_W, window.innerWidth - e.clientX));
+      setWidth(next);
+    };
+    const onUp = () => {
+      setDragging(false);
+      try {
+        window.sessionStorage.setItem("compose_drawer_w", String(width));
+      } catch { /* ignore */ }
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "ew-resize";
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [dragging, width]);
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent
+        side="right"
+        className="p-0 sm:max-w-none flex flex-col"
+        style={{ width: `${width}px`, maxWidth: "100vw" }}
+      >
+        {/* Drag handle on the left edge */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize compose drawer"
+          onMouseDown={(e) => { e.preventDefault(); setDragging(true); }}
+          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group hover:bg-emerald-100/40"
+          style={{ zIndex: 60 }}
+        >
+          <div
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 left-0 w-1.5 h-16 rounded-r-lg transition-colors",
+              dragging ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-emerald-400",
+            )}
+          />
+          <GripVertical
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 left-0 w-3 h-3",
+              dragging ? "text-emerald-700" : "text-slate-400 opacity-0 group-hover:opacity-100",
+            )}
+          />
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pl-8 py-6">
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -709,13 +895,43 @@ function QuoteComposeDrawer({
         </SheetDescription>
       </SheetHeader>
 
-      <div className="space-y-4 mt-4">
-        {/* Quote summary */}
-        <Card className="border-0 shadow-sm bg-slate-50">
-          <CardContent className="py-3 px-4 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Email</span>
-              <span className="font-medium text-slate-900">{quote.client_email || "(none)"}</span>
+      {/* Two-column layout when the drawer is wide enough: quote
+          context lives on the right rail, the email composer takes the
+          full main column. Falls back to one column under 880px. */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,300px)] gap-6 mt-4">
+        <div className="space-y-4 min-w-0">
+          {/* Editable template */}
+          <div>
+            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 h-11 text-base" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={20}
+              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-3 text-sm leading-6 min-h-[420px]"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Edit freely -- the template's just a starting point based on this quote's status.
+              Drag the left edge of this drawer to give yourself more room.
+            </p>
+          </div>
+        </div>
+
+        {/* Quote summary -- right rail at xl+, stacked above the form
+            on narrower drawers so it never gets squeezed. */}
+        <Card className="border-0 shadow-sm bg-slate-50 xl:order-last order-first xl:sticky xl:top-2 xl:self-start">
+          <CardContent className="py-4 px-4 text-xs space-y-2">
+            <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+              This quote
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-500 flex-shrink-0">Email</span>
+              <span className="font-medium text-slate-900 truncate" title={quote.client_email || "(none)"}>
+                {quote.client_email || "(none)"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Status</span>
@@ -735,33 +951,18 @@ function QuoteComposeDrawer({
                 <span className="font-medium text-slate-900">{quote.guest_count}</span>
               </div>
             )}
-            <div className="flex justify-between">
+            <div className="flex justify-between border-t border-slate-200 pt-2">
               <span className="text-slate-500">Total</span>
-              <span className="font-medium text-slate-900">{fmtMoney.format(quote.total ?? 0)}</span>
+              <span className="font-semibold text-slate-900">{fmtMoney.format(quote.total ?? 0)}</span>
             </div>
           </CardContent>
         </Card>
+      </div>
 
-        {/* Editable template */}
-        <div>
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={12}
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono"
-          />
-          <p className="text-[11px] text-slate-500 mt-1">
-            Edit freely -- the template's just a starting point based on this quote's status.
-          </p>
-        </div>
+      <div className="space-y-4 mt-6">
 
-        {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+        {/* Action buttons -- four side by side at xl+, two at smaller. */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
           <Button
             variant="default"
             disabled={!quote.client_email}
