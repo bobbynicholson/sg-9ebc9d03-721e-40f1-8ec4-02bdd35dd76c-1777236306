@@ -29,6 +29,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
+import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { quoteIntelligenceService, KnownClientResult, ClientSnapshot } from "@/services/quoteIntelligenceService";
 import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
@@ -253,9 +254,43 @@ function NewQuotePage() {
   };
 
   const updateMenuItem = (id: string, field: keyof MenuItem, value: any) => {
-    setMenuItems(menuItems.map(item => 
+    setMenuItems(menuItems.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ));
+  };
+
+  /**
+   * Apply a picked menu item from the typeahead.
+   *
+   * Why we replace the whole line: when the user chooses an item from
+   * the menu, they're saying "this is the dish" -- the company's
+   * recommended price comes with it. Quantity stays at whatever they
+   * already had (or guest count if untouched), and we stash the
+   * source menu_item_id on the line so we can later link the order
+   * back to the canonical menu row for cost reporting.
+   *
+   * Price preservation: if the user manually overrode the price
+   * before picking, we keep their override. Anything else gets the
+   * menu's listed base_price.
+   */
+  const applyMenuItemPick = (lineId: string, pick: MenuItemPick) => {
+    setMenuItems((prev) =>
+      prev.map((item: any) =>
+        item.id === lineId
+          ? {
+              ...item,
+              name: pick.name,
+              category: pick.category,
+              pricePerPerson: item.pricePerPerson > 0 ? item.pricePerPerson : pick.pricePerPerson,
+              quantity: item.quantity > 0 ? item.quantity : (formData.guestCount || 0),
+              menuItemId: pick.id,
+              dietaryTags: pick.dietaryTags,
+              allergenCodes: pick.allergenCodes,
+              imageUrl: pick.imageUrl,
+            }
+          : item,
+      ),
+    );
   };
 
   const addEquipmentItem = () => {
@@ -607,12 +642,24 @@ function NewQuotePage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                         <div className="sm:col-span-2">
                           <Label className="text-xs sm:text-sm">Item Name</Label>
-                          <Input
+                          {/* Menu typeahead -- searches this company's menu and
+                              pre-fills name + category + price when picked.
+                              Falls through to a plain custom line if nothing
+                              matches, so the form still works for one-off
+                              items not on the standing menu. */}
+                          <MenuItemTypeahead
+                            companyId={companyId}
                             value={item.name}
-                            onChange={(e) => updateMenuItem(item.id, "name", e.target.value)}
-                            placeholder="Grilled Chicken"
-                            className="text-sm h-10"
+                            onChange={(v) => updateMenuItem(item.id, "name", v)}
+                            onPick={(pick) => applyMenuItemPick(item.id, pick)}
+                            placeholder="Search your menu -- 'lamb', 'salad', 'main'..."
                           />
+                          {(item as any).menuItemId && (
+                            <div className="mt-1 text-[11px] text-emerald-600 flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Linked to your menu -- price and category pre-filled.
+                            </div>
+                          )}
                         </div>
                         <div>
                           <Label className="text-xs sm:text-sm">Category</Label>

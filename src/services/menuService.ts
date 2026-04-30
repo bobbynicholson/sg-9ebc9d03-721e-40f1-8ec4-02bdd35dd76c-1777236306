@@ -443,4 +443,61 @@ export const menuService = {
     }
     return (data || []) as any[];
   },
+
+  /**
+   * Lightweight typeahead search used by the New Quote page.
+   *
+   * Why a dedicated method:
+   *   - We want quick name/description/category fuzzy hits without
+   *     dragging the recipe / cost embed through. The full list() call
+   *     pulls every item plus its joins -- overkill for a dropdown.
+   *   - Cost data is intentionally NOT returned. Quote authors are
+   *     admins who already see costs elsewhere, but the same shape
+   *     could later be reused on a public menu surface and we don't
+   *     want a stray future caller leaking margins by mistake.
+   *
+   * Multi-tenancy: eq("company_id", companyId) is the seal -- if the
+   * caller doesn't pass the right company id, nothing comes back even
+   * though RLS would also block it on the server side.
+   */
+  async searchForQuote(
+    companyId: string,
+    term: string,
+    limit: number = 10,
+  ): Promise<Array<{
+    id: string;
+    item_name: string;
+    category: string | null;
+    base_price: number;
+    description: string | null;
+    image_url: string | null;
+    dietary_tags: string[] | null;
+    allergen_codes: string[] | null;
+    base_servings: number | null;
+    is_available: boolean | null;
+  }>> {
+    if (!companyId) return [];
+    const t = (term || "").trim();
+    let q = supabase
+      .from("menu_items")
+      .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, is_available")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      // Hide archived/disabled items from quote pickers -- the owner
+      // can still see them on /admin/menu, but they shouldn't surface
+      // when building a new quote.
+      .or("is_available.is.null,is_available.eq.true");
+    if (t.length >= 2) {
+      const like = `%${t}%`;
+      q = q.or(`item_name.ilike.${like},description.ilike.${like},category.ilike.${like}`);
+    }
+    const { data, error } = await q
+      .order("item_name", { ascending: true })
+      .limit(limit);
+    if (error) {
+      console.error("menuService.searchForQuote failed:", error);
+      return [];
+    }
+    return (data || []) as any[];
+  },
 };
