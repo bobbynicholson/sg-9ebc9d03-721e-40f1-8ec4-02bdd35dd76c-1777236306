@@ -225,7 +225,7 @@ function KitchenStaffPage() {
   };
 
   return (
-    <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
       <Head><title>Kitchen Staff -- CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
