@@ -37,6 +37,8 @@ import {
   ArrowRight,
   Trash2,
   GripVertical,
+  CalendarDays,
+  Gift,
 } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
@@ -49,7 +51,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { composeEmail, templateForQuote, type QuoteStatus } from "@/lib/composeEmail";
+import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import {
   deriveQuoteIntelligence,
   summariseAutoEmailsByQuote,
@@ -58,6 +60,14 @@ import {
   type QuoteBucket,
   type QuoteRowState,
 } from "@/lib/quoteIntelligence";
+import {
+  buildDiaryIndex,
+  computeDiarySignal,
+  toDateKey,
+  DIARY_TONE,
+  type DiaryEntry,
+  type DiarySignal,
+} from "@/lib/quoteDiarySignal";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -85,11 +95,18 @@ export default function AdminQuotes() {
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
+  const [composeMode, setComposeMode] = useState<"status" | "sweetener">("status");
   const [deleteTarget, setDeleteTarget] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<QuoteBucket>("all");
+
+  // Diary index: every confirmed order + accepted quote pivoted by
+  // event_date so each open quote's row can show "wide open day" or
+  // "stacked" without a per-row roundtrip.
+  const diaryIndex = useMemo(() => buildDiaryIndex(diaryEntries), [diaryEntries]);
 
   // Roll quotes + auto-email queue into a single per-row state object
   // with derived intelligence (status bucket, suggested action, last
@@ -166,6 +183,63 @@ export default function AdminQuotes() {
         // line on each row.
         console.warn("[quotes] auto-email queue fetch failed", err);
       }
+
+      // Diary lookup -- every confirmed order + accepted quote in the
+      // company's calendar. Used to decide whether an open quote sits
+      // on a wide-open day worth offering a sweetener for.
+      try {
+        const today = new Date();
+        const horizon = new Date(today.getTime() + 365 * 24 * 60 * 60 * 1000);
+        const startKey = toDateKey(today)!;
+        const endKey = toDateKey(horizon)!;
+
+        const [{ data: orderRows }, { data: acceptedQuoteRows }] = await Promise.all([
+          supabase
+            .from("orders")
+            .select("id, event_date, client_name, guest_count, status")
+            .eq("company_id", user.company_id)
+            .gte("event_date", startKey)
+            .lte("event_date", endKey),
+          supabase
+            .from("quotes")
+            .select("id, event_date, client_name, guest_count, status")
+            .eq("company_id", user.company_id)
+            .eq("status", "accepted")
+            .gte("event_date", startKey)
+            .lte("event_date", endKey),
+        ]);
+
+        const entries: DiaryEntry[] = [];
+        for (const o of (orderRows || [])) {
+          const dk = toDateKey((o as any).event_date);
+          if (!dk) continue;
+          // Skip cancelled / draft orders -- they're not real commitments.
+          const status = ((o as any).status || "").toLowerCase();
+          if (status === "cancelled" || status === "canceled" || status === "draft") continue;
+          entries.push({
+            date: dk,
+            kind: "order",
+            label: (o as any).client_name || "Order",
+            guests: (o as any).guest_count ?? null,
+            sourceId: (o as any).id || null,
+          });
+        }
+        for (const q of (acceptedQuoteRows || [])) {
+          const dk = toDateKey((q as any).event_date);
+          if (!dk) continue;
+          entries.push({
+            date: dk,
+            kind: "accepted_quote",
+            label: (q as any).client_name || "Accepted quote",
+            guests: (q as any).guest_count ?? null,
+            sourceId: (q as any).id || null,
+          });
+        }
+        if (!cancelled) setDiaryEntries(entries);
+      } catch (err) {
+        console.warn("[quotes] diary fetch failed", err);
+      }
+
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -494,6 +568,17 @@ export default function AdminQuotes() {
                   : quote.status === "draft"
                     ? "Send the quote first, then you can follow up"
                     : "Open a follow-up draft in Gmail / Outlook / mail app";
+                const diary = computeDiarySignal(quote.event_date, diaryIndex, quote.id);
+                const diaryTone = DIARY_TONE[diary.status];
+                // We only nudge the team to send a sweetener on quotes that
+                // are still in play. There's no point offering a discount
+                // on a won, lost or expired quote.
+                const sweetenerEligible =
+                  diary.sweetenerWorthwhile &&
+                  canCompose &&
+                  ["sent", "revised", "viewed", "pending"].includes((quote.status || "").toLowerCase()) &&
+                  intel.bucket !== "won" &&
+                  intel.bucket !== "lost";
                 return (
                   <Card
                     key={quote.id}
@@ -615,6 +700,48 @@ export default function AdminQuotes() {
                             </div>
                           </div>
 
+                          {/*
+                            Diary signal -- "do we have a gap that day?"
+                            Pulled from confirmed orders + accepted
+                            quotes for this company. The "Wide open"
+                            and "Quiet" states surface a one-click
+                            "Offer a sweetener" CTA so the team can
+                            push hard with a discount or treat instead
+                            of leaving the kitchen idle.
+                          */}
+                          {quote.event_date && (
+                            <div
+                              className={cn(
+                                "mb-4 flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2",
+                                diaryTone.chip,
+                              )}
+                              title={diary.detail}
+                            >
+                              <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                                <CalendarDays className="w-4 h-4" />
+                                {diary.headline}
+                              </span>
+                              <span className="text-xs opacity-80 flex-1 min-w-0 truncate">
+                                {diary.detail}
+                              </span>
+                              {sweetenerEligible && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2.5 text-xs gap-1.5 bg-white/80 hover:bg-white border-current"
+                                  onClick={() => {
+                                    setComposeMode("sweetener");
+                                    setComposeQuote(quote);
+                                  }}
+                                  title="Send a thank-you / discount to lock this booking in"
+                                >
+                                  <Gift className="w-3.5 h-3.5" />
+                                  Offer a sweetener
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-4 text-sm">
                             <span className="text-slate-600">
                               {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items
@@ -657,7 +784,10 @@ export default function AdminQuotes() {
                             variant="outline"
                             disabled={!canCompose}
                             title={composeHint}
-                            onClick={() => setComposeQuote(quote)}
+                            onClick={() => {
+                              setComposeMode("status");
+                              setComposeQuote(quote);
+                            }}
                           >
                             <Mail className="w-4 h-4 mr-2" />
                             Compose
@@ -704,6 +834,8 @@ export default function AdminQuotes() {
             quote={composeQuote}
             fromName={profile?.full_name || companyName}
             companyName={companyName}
+            mode={composeMode}
+            diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
             onClose={() => setComposeQuote(null)}
           />
         )}
@@ -849,37 +981,87 @@ function ComposeDrawerHost({
 }
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, onClose,
+  quote, fromName, companyName, mode, diary, onClose,
 }: {
   quote: Quote;
   fromName?: string;
   companyName?: string;
+  mode: "status" | "sweetener";
+  diary: DiarySignal;
   onClose: () => void;
 }) {
   const derivedStatus = useMemo(() => deriveQuoteStatus(quote), [quote]);
-  const initial = useMemo(() => templateForQuote(derivedStatus, {
+  const eventDateLabel = quote.event_date
+    ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : undefined;
+  const quoteRef = (quote as any).quote_number || quote.id?.slice(0, 8).toUpperCase();
+
+  const baseCtx = {
     contactName: quote.client_name,
     eventName: (quote as any).event_name || undefined,
-    eventDate: quote.event_date
-      ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
-      : undefined,
+    eventDate: eventDateLabel,
     guestCount: quote.guest_count,
     total: quote.total ?? undefined,
-    quoteRef: (quote as any).quote_number || quote.id?.slice(0, 8).toUpperCase(),
+    quoteRef,
     fromName,
     companyName,
-  }), [quote, derivedStatus, fromName, companyName]);
+  };
+
+  // Sweetener controls. Default to a 10% nudge with a 7-day expiry --
+  // most catering teams will tune from there.
+  const [discountKind, setDiscountKind] = useState<"percent" | "amount" | "perk">("percent");
+  const [discountPercent, setDiscountPercent] = useState<number>(10);
+  const [discountAmount, setDiscountAmount] = useState<number>(500);
+  const [perk, setPerk] = useState<string>("a complimentary dessert station");
+  const [validUntil, setValidUntil] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const validUntilLabel = validUntil
+    ? new Date(validUntil).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : undefined;
+
+  // Pick the right template based on mode + the live sweetener controls.
+  const initial = useMemo(() => {
+    if (mode === "sweetener") {
+      return templateSweetener({
+        ...baseCtx,
+        discountPercent: discountKind === "percent" ? discountPercent : undefined,
+        discountAmount: discountKind === "amount" ? discountAmount : undefined,
+        perk: discountKind === "perk" ? perk : undefined,
+        validUntil: validUntilLabel,
+      });
+    }
+    return templateForQuote(derivedStatus, baseCtx);
+  // baseCtx is rebuilt every render but its members are stable refs of
+  // the quote -- the deps below cover everything that actually changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, derivedStatus, quote, fromName, companyName, discountKind, discountPercent, discountAmount, perk, validUntilLabel]);
 
   const [subject, setSubject] = useState(initial.subject);
   const [body, setBody] = useState(initial.body);
   const [copied, setCopied] = useState(false);
+  // When the user has manually edited the body we stop re-rendering it
+  // from the template -- otherwise typing a discount tweak would wipe
+  // their wording. Reset on quote/mode change.
+  const [autoTemplate, setAutoTemplate] = useState(true);
 
-  // If the quote in the drawer changes, reset the composer to the new
-  // template instead of leaving stale text from a previous client.
   useEffect(() => {
+    setAutoTemplate(true);
     setSubject(initial.subject);
     setBody(initial.body);
-  }, [initial.subject, initial.body]);
+    // intentionally only on quote.id + mode swaps; sweetener tweaks
+    // below handle their own re-fill via the autoTemplate guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote.id, mode]);
+
+  useEffect(() => {
+    if (!autoTemplate) return;
+    setSubject(initial.subject);
+    setBody(initial.body);
+  }, [autoTemplate, initial.subject, initial.body]);
 
   const payload = { to: quote.client_email || "", subject, body, fromName };
 
@@ -887,13 +1069,137 @@ function QuoteComposeDrawer({
     <>
       <SheetHeader>
         <SheetTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5 text-emerald-600" />
-          Compose to {quote.client_name}
+          {mode === "sweetener" ? (
+            <Gift className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <Send className="w-5 h-5 text-emerald-600" />
+          )}
+          {mode === "sweetener"
+            ? `Offer ${quote.client_name} a sweetener`
+            : `Compose to ${quote.client_name}`}
         </SheetTitle>
         <SheetDescription>
-          Personal follow-up. Sent through your own inbox so it looks like it came from you.
+          {mode === "sweetener"
+            ? "Lock in a wide-open day with a thank-you discount or treat. Tweak the offer and the body updates."
+            : "Personal follow-up. Sent through your own inbox so it looks like it came from you."}
         </SheetDescription>
       </SheetHeader>
+
+      {/* Diary callout -- shown in both modes so the team knows why
+          they're sending this email. Picks up the same tone classes
+          as the inline chip on the row. */}
+      {quote.event_date && (
+        <div
+          className={cn(
+            "mt-3 rounded-lg border px-3 py-2 text-sm flex flex-wrap items-center gap-2",
+            DIARY_TONE[diary.status].chip,
+          )}
+        >
+          <CalendarDays className="w-4 h-4" />
+          <span className="font-semibold">{diary.headline}</span>
+          <span className="text-xs opacity-80">{diary.detail}</span>
+        </div>
+      )}
+
+      {mode === "sweetener" && (
+        <Card className="mt-3 border-emerald-200 bg-emerald-50/50">
+          <CardContent className="py-4 px-4 space-y-3">
+            <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
+              Pick the offer
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: "percent", label: "% off" },
+                { id: "amount",  label: "R off" },
+                { id: "perk",    label: "Free perk" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => { setAutoTemplate(true); setDiscountKind(opt.id); }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                    discountKind === opt.id
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {discountKind === "percent" && (
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Discount %</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={discountPercent}
+                  onChange={(e) => { setAutoTemplate(true); setDiscountPercent(Number(e.target.value) || 0); }}
+                  className="mt-1 max-w-[120px]"
+                />
+                {quote.total != null && discountPercent > 0 && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total * (1 - discountPercent / 100))}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {discountKind === "amount" && (
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Rand off</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={discountAmount}
+                  onChange={(e) => { setAutoTemplate(true); setDiscountAmount(Number(e.target.value) || 0); }}
+                  className="mt-1 max-w-[160px]"
+                />
+                {quote.total != null && discountAmount > 0 && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total - discountAmount)}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {discountKind === "perk" && (
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Free perk</label>
+                <Input
+                  value={perk}
+                  onChange={(e) => { setAutoTemplate(true); setPerk(e.target.value); }}
+                  placeholder="a complimentary dessert station"
+                  className="mt-1"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs font-semibold text-slate-700">Offer holds until</label>
+              <Input
+                type="date"
+                value={validUntil}
+                onChange={(e) => { setAutoTemplate(true); setValidUntil(e.target.value); }}
+                className="mt-1 max-w-[200px]"
+              />
+            </div>
+
+            {!autoTemplate && (
+              <button
+                type="button"
+                onClick={() => setAutoTemplate(true)}
+                className="text-xs text-emerald-700 underline hover:no-underline"
+              >
+                Reset wording from current offer
+              </button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Two-column layout when the drawer is wide enough: quote
           context lives on the right rail, the email composer takes the
@@ -903,19 +1209,24 @@ function QuoteComposeDrawer({
           {/* Editable template */}
           <div>
             <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 h-11 text-base" />
+            <Input
+              value={subject}
+              onChange={(e) => { setAutoTemplate(false); setSubject(e.target.value); }}
+              className="mt-1 h-11 text-base"
+            />
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
             <textarea
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => { setAutoTemplate(false); setBody(e.target.value); }}
               rows={20}
               className="mt-1 w-full rounded-md border border-slate-200 px-3 py-3 text-sm leading-6 min-h-[420px]"
             />
             <p className="text-[11px] text-slate-500 mt-1">
-              Edit freely -- the template's just a starting point based on this quote's status.
-              Drag the left edge of this drawer to give yourself more room.
+              {mode === "sweetener"
+                ? "Tweak the offer above and the body refreshes -- once you start typing here we keep your wording."
+                : "Edit freely -- the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
             </p>
           </div>
         </div>

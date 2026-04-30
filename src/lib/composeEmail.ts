@@ -214,3 +214,62 @@ export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext)
       };
   }
 }
+
+/**
+ * Sweetener template -- used when the diary signal flags a wide-open or
+ * quiet day. The catering team would rather take this booking at a small
+ * discount than leave the kitchen idle, so the email leans warm + soft
+ * scarcity ("we have a window for you, here's a thank-you on top").
+ */
+export interface SweetenerContext extends QuoteTemplateContext {
+  /** Optional. e.g. 10 for 10% off. */
+  discountPercent?: number;
+  /** Optional fixed-rand discount, used when percent isn't set. */
+  discountAmount?: number;
+  /** Optional. ISO date when the offer should lapse. */
+  validUntil?: string;
+  /** Optional alternative perk if no money-off, e.g. "complimentary dessert station". */
+  perk?: string;
+}
+
+export function templateSweetener(ctx: SweetenerContext): { subject: string; body: string } {
+  const first = (ctx.contactName || "there").split(" ")[0];
+  const sig = `\n\nBest,\n${ctx.fromName || ctx.companyName || "the team"}`;
+  const eventLine = ctx.eventName
+    ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
+    : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your upcoming event`;
+  const ref = ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "";
+
+  // Pick the strongest offer line we have. Discount % wins, then fixed
+  // rand, then a non-monetary perk, then a generic flexibility line.
+  let offerLine = "";
+  if (ctx.discountPercent && ctx.discountPercent > 0) {
+    const newTotal = ctx.total ? ctx.total * (1 - ctx.discountPercent / 100) : null;
+    offerLine = newTotal
+      ? `we'd like to take ${ctx.discountPercent}% off the original quote -- ${fmtRand(ctx.total)} drops to ${fmtRand(Math.round(newTotal))}.`
+      : `we'd like to take ${ctx.discountPercent}% off the original quote.`;
+  } else if (ctx.discountAmount && ctx.discountAmount > 0) {
+    const newTotal = ctx.total ? ctx.total - ctx.discountAmount : null;
+    offerLine = newTotal
+      ? `we'd like to take ${fmtRand(ctx.discountAmount)} off the original quote -- bringing it from ${fmtRand(ctx.total)} to ${fmtRand(newTotal)}.`
+      : `we'd like to take ${fmtRand(ctx.discountAmount)} off the original quote.`;
+  } else if (ctx.perk) {
+    offerLine = `we'd like to throw in ${ctx.perk} on the house if you confirm with us.`;
+  } else {
+    offerLine = `we can be flexible on a few line items if it helps you get this over the line.`;
+  }
+
+  const expiryLine = ctx.validUntil
+    ? `\n\nThis offer holds until ${ctx.validUntil} -- after that we'll likely be locked in elsewhere.`
+    : "";
+
+  return {
+    subject: `A small thank-you to lock in ${eventLine.replace(/^your /, "")}${ref}`,
+    body:
+      `Hi ${first},\n\n` +
+      `Quick one -- I had a look at our diary for ${eventLine} and we have a clear window to give your event our full attention.\n\n` +
+      `Because of that, ${offerLine}` +
+      `${expiryLine}\n\n` +
+      `Reply here and I'll send through the updated paperwork the same day.${sig}`,
+  };
+}
