@@ -18,7 +18,10 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
-const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "in_transit", "delivered"];
+// Cast to any so .in("status", ACTIVE_STATUSES) doesn't fight with
+// the orders.status enum union type Supabase generates -- the values
+// here are all real members, but TS expects a tuple of literals.
+const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "in_transit", "delivered"] as any;
 
 export interface EquipmentAvailability {
   /** Total units the company owns. */
@@ -153,4 +156,82 @@ export function splitQuantity(
   const a = Math.max(0, Number(available) || 0);
   const fromStock = Math.min(r, a);
   return { fromStock, fromHire: r - fromStock };
+}
+
+export interface EquipmentReservationRow {
+  order_id: string;
+  client_name: string | null;
+  event_date: string;
+  status: string;
+  quantity: number;
+  from_stock_qty: number;
+  from_hire_qty: number;
+  /** True when this row puts the equipment over its owned capacity --
+   *  the drawer can flag it red. */
+  isShortfall: boolean;
+}
+
+/**
+ * List every active reservation against ONE equipment row across a
+ * forward-looking window. Used by the /admin/equipment "View
+ * bookings" drawer so the team can see the calendar at a glance:
+ * what's committed, on which day, by which client, owned vs hire-in.
+ *
+ * Tenant-scoped + RLS-enforced. Active statuses only -- cancelled
+ * and completed orders drop out.
+ */
+export async function listUpcomingReservations(
+  companyId: string,
+  equipmentId: string,
+  opts: { fromDate?: string; days?: number } = {},
+): Promise<EquipmentReservationRow[]> {
+  if (!companyId || !equipmentId) return [];
+  const days = opts.days ?? 90;
+  const fromDate = opts.fromDate || new Date().toISOString().slice(0, 10);
+  const to = new Date(fromDate);
+  to.setDate(to.getDate() + days);
+  const toISO = to.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, client_name, event_date, status, equipment_items")
+    .eq("company_id", companyId)
+    .gte("event_date", fromDate)
+    .lte("event_date", toISO)
+    .in("status", ACTIVE_STATUSES)
+    .order("event_date", { ascending: true });
+  if (error) {
+    console.warn("listUpcomingReservations failed", error);
+    return [];
+  }
+
+  // Pull owned count once so we can flag rows that pushed past it.
+  const { data: eq } = await supabase
+    .from("equipment")
+    .select("quantity")
+    .eq("id", equipmentId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  const owned = Number((eq as any)?.quantity ?? 0);
+
+  const out: EquipmentReservationRow[] = [];
+  for (const o of (data || []) as any[]) {
+    const items = Array.isArray(o.equipment_items) ? o.equipment_items : [];
+    for (const it of items) {
+      if (!it || it.equipment_id !== equipmentId) continue;
+      const qty = Number(it.quantity) || 0;
+      if (qty <= 0) continue;
+      out.push({
+        order_id: o.id,
+        client_name: o.client_name,
+        event_date: o.event_date,
+        status: o.status,
+        quantity: qty,
+        from_stock_qty: Number(it.from_stock_qty) || 0,
+        from_hire_qty: Number(it.from_hire_qty) || 0,
+        isShortfall: qty > owned,
+      });
+    }
+  }
+  return out;
 }
