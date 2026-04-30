@@ -233,16 +233,13 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Chafing, tables, chairs, hire add-ons"
         },
         {
-          title: "AI Import",
-          href: "/admin/onboarding/import",
-          icon: Wand2,
-          description: "Drop a spreadsheet, we'll load clients + orders"
-        },
-        {
-          title: "Imports history",
+          title: "Onboarding",
           href: "/admin/onboarding",
-          icon: Clock,
-          description: "Past imports + 24h rollback"
+          icon: Wand2,
+          // Single entry-point for every onboarding tool (easy client list,
+          // AI importer, receipt scanner) plus the imports history below.
+          // Was two separate menu items which confused new tenants.
+          description: "Bring your clients, orders and supplier slips on board"
         },
         {
           title: "Hire-in orders",

@@ -32,6 +32,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 
 type Step = "upload" | "mapping" | "preview" | "commit" | "done";
@@ -252,24 +253,32 @@ function ImportPage() {
               <Wand2 className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                 AI Import
+                <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then Claude maps your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
-                Drop a spreadsheet of your existing clients + outstanding orders. We'll match the columns, normalise the data, show you a preview, then load it.
+                Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it.
               </p>
             </div>
           </div>
 
-          {/* Stepper */}
+          {/* Stepper. Each pill has its own info tooltip so a brand-new
+              tenant can hover and understand what each step does. */}
           <div className="mb-6 flex items-center gap-2 text-xs">
             {(["upload", "mapping", "preview", "commit", "done"] as Step[]).map((s, i) => {
               const active = stepIndex(step) === i;
               const done = stepIndex(step) > i;
+              const tip =
+                s === "upload"  ? "Step 1. Drop your spreadsheet. CSV or XLSX, up to 5 MB and 5,000 rows. Two tabs (one for clients, one for orders) is the cleanest shape, but a single sheet works too."
+                : s === "mapping" ? "Step 2. Claude reads your column headings and proposes a mapping to our fields (Name, Email, Phone, Event date, Total, etc.). You can override any guess before moving on."
+                : s === "preview" ? "Step 3. We run every row through the validation pipeline and show you what will happen: insert, skip (already exists), or error. Fix anything you don't like before committing."
+                : s === "commit"  ? "Step 4. Apply the import. Each new row gets stamped with this job's id so we can roll the whole thing back inside 24 hours if anything looks off afterwards."
+                : "Step 5. Summary of what landed. From here you can roll back, view the rows, or jump straight to Clients / Orders to start working with the new data.";
               return (
                 <div key={s} className="flex items-center gap-2">
                   <div
-                    className={`px-3 py-1.5 rounded-full border ${
+                    className={`px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${
                       active
                         ? "bg-purple-100 text-purple-700 border-purple-200 font-semibold"
                         : done
@@ -277,7 +286,8 @@ function ImportPage() {
                           : "bg-white text-slate-500 border-slate-200"
                     }`}
                   >
-                    {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
+                    <span>{i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                    <InfoTooltip content={tip} />
                   </div>
                   {i < 4 && <span className="text-slate-300">›</span>}
                 </div>
@@ -292,9 +302,10 @@ function ImportPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5 text-purple-600" />
                   Upload your spreadsheet
+                  <InfoTooltip content={"Drop a CSV or XLSX with the data you want to bring across.\n\nIdeal shape: two sheets named 'clients' and 'orders'. We accept any column headings; Claude maps them in the next step.\n\nIf it's just a contact list, the simpler 'Easy client list' tool may be a faster fit."} />
                 </CardTitle>
                 <CardDescription>
-                  CSV, XLS or XLSX. Two tabs work best -- one for clients, one for orders. Single-tab files are fine too.
+                  CSV, XLS or XLSX. Two tabs work best, one for clients and one for orders. Single-tab files are fine too.
                 </CardDescription>
               </CardHeader>
               <CardContent>

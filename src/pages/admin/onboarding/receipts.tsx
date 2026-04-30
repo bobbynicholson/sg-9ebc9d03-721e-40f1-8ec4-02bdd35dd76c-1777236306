@@ -29,6 +29,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface RowShape {
   id: string;
@@ -175,11 +176,12 @@ function ReceiptsImportPage() {
               <Camera className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                 Receipt scanner
+                <InfoTooltip content={"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\n\nClaude vision reads each receipt and pulls the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required."} />
               </h1>
               <p className="text-sm text-slate-600 mt-0.5">
-                Photograph up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items + cost prices so your inventory loads itself.
+                Photograph up to {MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices so your inventory loads itself.
               </p>
             </div>
           </div>
@@ -190,9 +192,10 @@ function ReceiptsImportPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Upload className="w-4 h-4 text-purple-600" />
                 Upload receipts
+                <InfoTooltip content={"Pick up to 20 receipt photos at once. The clearer the photo (whole slip in frame, decent light), the cleaner the extraction.\n\nWe also handle phone screenshots of supplier emails and PDF receipts you've saved as JPG."} />
               </CardTitle>
               <CardDescription>
-                JPG, PNG or WebP. 8 MB per image, {MAX_FILES} max per batch. Crisp lighting + the whole slip in frame work best.
+                JPG, PNG or WebP. 8 MB per image, {MAX_FILES} max per batch. Crisp lighting and the whole slip in frame work best.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

@@ -28,6 +28,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface ImportJobRow {
   id: string;
@@ -140,11 +141,12 @@ function ImportsHistoryPage() {
                 <Wand2 className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Imports history
+                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+                  Onboarding
+                  <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">
-                  Every spreadsheet you've imported, with rollback for the last 24 hours.
+                  Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window.
                 </p>
               </div>
             </div>
@@ -157,15 +159,34 @@ function ImportsHistoryPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Stat label="Total imports" value={stats.total} />
-            <Stat label="Completed" value={stats.completed} tone="emerald" />
-            <Stat label="In flight" value={stats.inFlight} tone="amber" />
-            <Stat label="Failed" value={stats.failed} tone="rose" />
+            <Stat
+              label="Total imports"
+              value={stats.total}
+              tip={"Every import job ever started for this company, regardless of whether it finished."}
+            />
+            <Stat
+              label="Completed"
+              value={stats.completed}
+              tone="emerald"
+              tip={"Imports that finished cleanly. The data is now live in your clients / orders pages."}
+            />
+            <Stat
+              label="In flight"
+              value={stats.inFlight}
+              tone="amber"
+              tip={"Jobs you started but didn't finish. Click 'Resume' on a row below to pick up where you left off."}
+            />
+            <Stat
+              label="Failed"
+              value={stats.failed}
+              tone="rose"
+              tip={"Imports that hit an error. The summary on each row tells you what went wrong; you can re-run after fixing the file."}
+            />
           </div>
 
-          {/* Quick lanes -- the simple paths most new tenants reach for
-              first, kept above the history list so they don't have to
-              hunt for them. */}
+          {/* Quick lanes. Each tile has its own info tooltip so a brand
+              new tenant can hover and see exactly what each tool does
+              before clicking. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <Link
               href={`${slugPrefix}/admin/onboarding/clients`}
@@ -175,7 +196,10 @@ function ImportsHistoryPage() {
                 <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
                   <Upload className="w-4 h-4" />
                 </span>
-                <span className="font-semibold text-slate-900">Easy client list</span>
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                  Easy client list
+                  <InfoTooltip content={"The fastest way in. Drop a CSV / XLSX (or paste from Sheets) with four columns: Name, Surname, Email, Phone.\n\nWe auto-detect the headers, dedupe by email and skip rows already on file. Best for the contact list you have in Excel or Gmail today."} />
+                </span>
               </div>
               <p className="text-xs text-slate-600">
                 Just Name, Surname, Email and Phone. Drop a CSV or paste from Sheets.
@@ -189,7 +213,10 @@ function ImportsHistoryPage() {
                 <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
                   <Wand2 className="w-4 h-4" />
                 </span>
-                <span className="font-semibold text-slate-900">AI importer</span>
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                  AI importer
+                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients + outstanding orders even if the column headings are weird. Claude maps the columns to our schema, you preview every row, then commit when it looks right.\n\nSupports up to 5,000 rows per upload and gives you a 24-hour rollback if anything looks off after the fact."} />
+                </span>
               </div>
               <p className="text-xs text-slate-600">
                 Bigger spreadsheets with mixed columns. Claude maps headers to our schema.
@@ -203,10 +230,13 @@ function ImportsHistoryPage() {
                 <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
                   <FileSpreadsheet className="w-4 h-4" />
                 </span>
-                <span className="font-semibold text-slate-900">Receipt scanner</span>
+                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                  Receipt scanner
+                  <InfoTooltip content={"Photograph supplier slips with your phone (up to 20 in one go). Claude vision reads each receipt and pulls the supplier, date, line items and totals so we can pre-populate your inventory cost prices.\n\nUseful on day one to seed real costs from your last few weeks of supplier purchases without typing them out."} />
+                </span>
               </div>
               <p className="text-xs text-slate-600">
-                Photograph supplier slips -- AI pulls suppliers, line items and totals.
+                Photograph supplier slips. AI pulls suppliers, line items and totals.
               </p>
             </Link>
           </div>
@@ -342,7 +372,9 @@ function ImportsHistoryPage() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone?: "emerald" | "amber" | "rose" }) {
+function Stat({
+  label, value, tone, tip,
+}: { label: string; value: number; tone?: "emerald" | "amber" | "rose"; tip?: string }) {
   const valueClass =
     tone === "emerald" ? "text-emerald-600" :
     tone === "amber"   ? "text-amber-600"   :
@@ -350,7 +382,10 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "em
   return (
     <Card className="border-0 shadow-md">
       <CardContent className="p-4">
-        <p className="text-xs text-slate-600 mb-1">{label}</p>
+        <p className="text-xs text-slate-600 mb-1 flex items-center gap-1.5">
+          {label}
+          {tip && <InfoTooltip content={tip} />}
+        </p>
         <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
       </CardContent>
     </Card>

@@ -633,8 +633,16 @@ function DispatchQueuePage() {
                       </div>
                       <div>
                         <p className="text-xs text-slate-700 tabular-nums">{order.event_date}</p>
-                        <p className={`text-xs tabular-nums ${countdownTone}`}>
-                          {isAtRisk ? "SLA breached · " : ""}
+                        <p className={`text-xs tabular-nums flex items-center gap-1 ${countdownTone}`}>
+                          {isAtRisk ? (
+                            <>
+                              <span className="font-semibold">SLA breached</span>
+                              <InfoTooltip
+                                content={`Service Level Agreement: every confirmed order must have a driver assigned at least ${settings ? Math.round(settings.slaAssignMinutes / 60) : 24}h before the event. We're past that cutoff and this row still has no driver, so dispatch should jump on it now.\n\nChange the cutoff in Dispatch settings (top right of this page).`}
+                              />
+                              <span>·</span>
+                            </>
+                          ) : null}
                           {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}
                         </p>
                       </div>
