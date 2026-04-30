@@ -194,3 +194,162 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
 
   return { mapping, tokens_in: tokensIn, tokens_out: tokensOut };
 }
+
+// ── Receipt vision extractor ─────────────────────────────────────────────
+
+export interface ReceiptLineItem {
+  description: string;
+  quantity: number | null;
+  unit: string | null;
+  /** Per-unit price if discernible, else null. */
+  unit_price: number | null;
+  /** Line total -- usually printed on the slip. */
+  line_total: number | null;
+}
+
+export interface ReceiptExtraction {
+  supplier_name: string | null;
+  supplier_vat_number: string | null;
+  receipt_date: string | null;
+  receipt_number: string | null;
+  currency: string | null;
+  subtotal: number | null;
+  vat: number | null;
+  total: number | null;
+  payment_method: string | null;
+  line_items: ReceiptLineItem[];
+  /** Plain-English notes the operator should look at -- e.g.
+   *  "Bottom right corner is blurred -- total may be wrong". */
+  warnings: string[];
+}
+
+const RECEIPT_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-sonnet-4-5";
+
+const RECEIPT_SYSTEM = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
+
+Rules:
+- Currency is almost always ZAR. Strip "R" symbols + spaces. Numbers come back as plain numbers, never strings.
+- South African dates are usually dd/mm/yyyy. Output ISO yyyy-mm-dd.
+- Line items: only food / consumables / equipment that go INTO the catering business. Skip "thank you", footer text, store address.
+- If a line price is hidden (folded slip, cropped), set it to null and add a warning, never guess.
+- If you can't read the supplier name or date, return null and warn.
+- Output via the return_receipt tool. No free-form prose.`;
+
+/**
+ * Run a single receipt photo through Claude's vision model and pull
+ * out the structured fields. Caller hands us the image as base64
+ * (PNG / JPEG / WebP) along with its MIME type.
+ */
+export async function extractReceiptViaAI(args: {
+  imageBase64: string;
+  imageMime: string;
+}): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number }> {
+  const response: any = await (client().messages.create as any)({
+    model: RECEIPT_MODEL,
+    max_tokens: 2048,
+    system: RECEIPT_SYSTEM,
+    tools: [
+      {
+        name: "return_receipt",
+        description: "Return the structured contents of the receipt.",
+        input_schema: {
+          type: "object",
+          properties: {
+            supplier_name:        { type: ["string", "null"] },
+            supplier_vat_number:  { type: ["string", "null"] },
+            receipt_date:         { type: ["string", "null"], description: "ISO yyyy-mm-dd" },
+            receipt_number:       { type: ["string", "null"] },
+            currency:             { type: ["string", "null"], description: "ISO currency code, usually ZAR" },
+            subtotal:             { type: ["number", "null"] },
+            vat:                  { type: ["number", "null"] },
+            total:                { type: ["number", "null"] },
+            payment_method:       { type: ["string", "null"], description: "card / cash / eft / unknown" },
+            line_items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  description: { type: "string" },
+                  quantity:    { type: ["number", "null"] },
+                  unit:        { type: ["string", "null"], description: "e.g. kg, ea, L" },
+                  unit_price:  { type: ["number", "null"] },
+                  line_total:  { type: ["number", "null"] },
+                },
+                required: ["description", "quantity", "unit", "unit_price", "line_total"],
+                additionalProperties: false,
+              },
+            },
+            warnings: {
+              type: "array",
+              items: { type: "string" },
+              description: "Plain-English notes about anything that was hard to read.",
+            },
+          },
+          required: [
+            "supplier_name", "supplier_vat_number", "receipt_date", "receipt_number",
+            "currency", "subtotal", "vat", "total", "payment_method",
+            "line_items", "warnings",
+          ],
+          additionalProperties: false,
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "return_receipt" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: args.imageMime,
+              data: args.imageBase64,
+            },
+          },
+          {
+            type: "text",
+            text: "Extract every line item, totals, supplier and date from this receipt. Use the return_receipt tool.",
+          },
+        ],
+      },
+    ],
+  });
+
+  const tokensIn = response?.usage?.input_tokens ?? 0;
+  const tokensOut = response?.usage?.output_tokens ?? 0;
+  let extraction: ReceiptExtraction = {
+    supplier_name: null, supplier_vat_number: null, receipt_date: null,
+    receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
+    payment_method: null, line_items: [], warnings: ["No structured response from model"],
+  };
+
+  const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+  for (const block of blocks) {
+    if (block?.type === "tool_use" && block?.name === "return_receipt") {
+      const input = block.input as any;
+      extraction = {
+        supplier_name: input.supplier_name ?? null,
+        supplier_vat_number: input.supplier_vat_number ?? null,
+        receipt_date: input.receipt_date ?? null,
+        receipt_number: input.receipt_number ?? null,
+        currency: input.currency ?? null,
+        subtotal: typeof input.subtotal === "number" ? input.subtotal : null,
+        vat: typeof input.vat === "number" ? input.vat : null,
+        total: typeof input.total === "number" ? input.total : null,
+        payment_method: input.payment_method ?? null,
+        line_items: Array.isArray(input.line_items) ? input.line_items.map((li: any) => ({
+          description: String(li.description ?? "").trim(),
+          quantity: typeof li.quantity === "number" ? li.quantity : null,
+          unit: li.unit ?? null,
+          unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
+          line_total: typeof li.line_total === "number" ? li.line_total : null,
+        })) : [],
+        warnings: Array.isArray(input.warnings) ? input.warnings.map((w: any) => String(w)) : [],
+      };
+      break;
+    }
+  }
+
+  return { extraction, tokens_in: tokensIn, tokens_out: tokensOut };
+}

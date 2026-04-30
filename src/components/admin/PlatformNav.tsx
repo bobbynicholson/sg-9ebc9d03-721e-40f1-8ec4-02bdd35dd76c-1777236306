@@ -128,9 +128,14 @@ const NAV: NavSection[] = [
     items: [
       {
         title: "Financial Dashboard",
-        href: "/admin/financial-dashboard",
+        // Platform-level (CateringMS revenue across every tenant).
+        // The bare /admin/financial-dashboard route is the per-tenant
+        // view -- linking to it from PlatformNav was sending the
+        // super-admin into a tenant's books, which leaked metrics
+        // across companies.
+        href: "/admin/platform/financial-dashboard",
         icon: BarChart3,
-        sub: "Revenue, ARR, cohort analysis",
+        sub: "Platform MRR, ARR, cohort analysis",
       },
       {
         title: "Pricing",
