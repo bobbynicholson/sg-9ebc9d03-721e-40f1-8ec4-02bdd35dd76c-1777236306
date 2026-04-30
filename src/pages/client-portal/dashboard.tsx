@@ -555,8 +555,9 @@ export default function ClientPortalDashboard() {
                     brandPrimary={brandPrimary}
                     slugPrefix={resolvedSlug ? `/${resolvedSlug}` : ""}
                     onRebook={(target) => {
+                      // Open the RebookDialog -- it manages its own
+                      // form state internally now (date, items, notes).
                       setRebookOrder(target);
-                      setRebookNote("");
                     }}
                   />
                 ))}
