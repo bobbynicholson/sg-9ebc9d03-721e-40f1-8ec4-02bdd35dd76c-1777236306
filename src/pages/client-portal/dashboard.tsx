@@ -203,7 +203,6 @@ export default function ClientPortalDashboard() {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    let channel: any;
 
     const load = async () => {
       setLoading(true);
@@ -253,7 +252,7 @@ export default function ClientPortalDashboard() {
     // Realtime subscription: refresh when any of the client's orders
     // changes. We re-run the full load so the headline event gets
     // recomputed correctly when statuses transition.
-    channel = supabase
+    const channel = supabase
       .channel(`client-orders-${user.id}`)
       .on(
         "postgres_changes",
@@ -266,7 +265,7 @@ export default function ClientPortalDashboard() {
 
     return () => {
       cancelled = true;
-      if (channel) supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
   }, [user?.id, user?.email]);
 
