@@ -150,82 +150,73 @@ export const analyticsService = {
   },
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
+    // Single source of truth: the companies table. Every tenant lives
+    // here whether they're paying, trialing, or cancelled. Joining
+    // platform_pricing_plans gives us a live price per plan slug, so
+    // MRR / ARR follow whatever Bobby sets in /admin/platform/pricing-management.
     try {
-      // Always pull live company counts directly — subscriptions table is
-      // optional and the RPC may not be configured in every environment.
-      const { count: totalCompanies } = await supabase
-        .from("companies")
-        .select("id", { count: "exact", head: true });
-      const { count: activeCompanies } = await supabase
-        .from("companies")
-        .select("id", { count: "exact", head: true })
-        .eq("is_active", true);
+      const [{ data: companies }, { data: plans }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("id, subscription_status, subscription_plan, subscription_tier, trial_ends_at, created_at, is_active"),
+        supabase
+          .from("platform_pricing_plans")
+          .select("slug, zar_price, is_active"),
+      ]);
 
-      const { data: subscriptions, error } = await supabase
-        .rpc("get_all_subscriptions_admin");
-
-      if (error) {
-        console.warn("[platform] subscriptions RPC failed, falling back to companies-only metrics:", error.message);
-        return {
-          totalRevenue: 0,
-          monthlyRecurringRevenue: 0,
-          annualRecurringRevenue: 0,
-          totalCustomers: totalCompanies ?? 0,
-          activeSubscriptions: activeCompanies ?? 0,
-          trialSubscriptions: 0,
-          cancelledSubscriptions: 0,
-          churnRate: 0,
-          averageRevenuePerUser: 0,
-          lifetimeValue: 0,
-          conversionRate: 0,
-          totalCompanies: totalCompanies ?? 0,
-          activeCompanies: activeCompanies ?? 0,
-        };
+      const planByKey = new Map<string, number>();
+      for (const p of (plans || [])) {
+        if (p.is_active === false) continue;
+        planByKey.set(String(p.slug).toLowerCase(), Number(p.zar_price) || 0);
       }
 
-      const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
-      const trialSubscriptions = subscriptions?.filter(s => s.status === "trial") || [];
-      const cancelledSubscriptions = subscriptions?.filter(s => s.status === "cancelled") || [];
+      const norm = (v: any) => String(v || "").toLowerCase();
+      const list = companies || [];
+      const total = list.length;
+      const active   = list.filter((c: any) => norm(c.subscription_status) === "active").length;
+      const trialing = list.filter((c: any) => norm(c.subscription_status) === "trial").length;
+      const cancelled = list.filter((c: any) =>
+        ["cancelled", "canceled", "churned"].includes(norm(c.subscription_status))).length;
 
-      const monthlyRevenue = activeSubscriptions
-        .filter(s => s.billing_cycle === "monthly")
-        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
-
-      const annualRevenue = activeSubscriptions
-        .filter(s => s.billing_cycle === "annual")
-        .reduce((sum, s) => sum + Number(s.amount || 0), 0);
-
+      // Revenue: only paying tenants count. Plan price comes from
+      // platform_pricing_plans (slug match). Tenants without a slug are
+      // treated as 0 -- they likely haven't picked yet.
+      const monthlyRevenue = list
+        .filter((c: any) => norm(c.subscription_status) === "active")
+        .reduce((sum: number, c: any) => {
+          const slug = norm(c.subscription_plan || c.subscription_tier);
+          return sum + (planByKey.get(slug) || 0);
+        }, 0);
+      const annualRevenue = 0; // Annual flag not currently stored on companies
       const totalRevenue = monthlyRevenue + annualRevenue;
-      const totalCustomers = subscriptions?.length || 0;
-      const averageRevenuePerUser = totalCustomers > 0 ? totalRevenue / totalCustomers : 0;
 
-      const now = new Date();
-      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthCancelled = cancelledSubscriptions.filter(
-        s => s.cancelled_at && new Date(s.cancelled_at) >= lastMonth
-      ).length;
-      const churnRate = activeSubscriptions.length > 0 
-        ? (lastMonthCancelled / activeSubscriptions.length) * 100 
-        : 0;
+      const arpu = total > 0 ? totalRevenue / total : 0;
+      const conversionRate = total > 0 ? (active / total) * 100 : 0;
 
-      const conversionRate = totalCustomers > 0
-        ? (activeSubscriptions.length / totalCustomers) * 100
-        : 0;
+      // 30-day churn: cancelled rows that updated_at within the last
+      // 30 days, divided by current active. We don't have a
+      // cancelled_at column on companies, so we use updated_at as a
+      // proxy (it ticks on subscription_status changes).
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const recentlyCancelled = list.filter((c: any) =>
+        ["cancelled", "canceled", "churned"].includes(norm(c.subscription_status))
+        && c.updated_at && new Date(c.updated_at).getTime() >= thirtyDaysAgo).length;
+      const churnRate = active > 0 ? (recentlyCancelled / active) * 100 : 0;
 
       return {
         totalRevenue,
         monthlyRecurringRevenue: monthlyRevenue,
         annualRecurringRevenue: annualRevenue,
-        totalCustomers,
-        activeSubscriptions: activeSubscriptions.length,
-        trialSubscriptions: trialSubscriptions.length,
-        cancelledSubscriptions: cancelledSubscriptions.length,
+        totalCustomers: total,
+        activeSubscriptions: active,
+        trialSubscriptions: trialing,
+        cancelledSubscriptions: cancelled,
         churnRate,
-        averageRevenuePerUser,
-        lifetimeValue: averageRevenuePerUser * 24,
+        averageRevenuePerUser: arpu,
+        lifetimeValue: arpu * 24,
         conversionRate,
-        totalCompanies: totalCompanies ?? 0,
-        activeCompanies: activeCompanies ?? 0,
+        totalCompanies: total,
+        activeCompanies: active,
       };
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
@@ -247,42 +238,52 @@ export const analyticsService = {
 
   async getCustomerGrowth(): Promise<CustomerGrowth[]> {
     try {
-      const { data: subscriptions, error } = await supabase
-        .rpc("get_all_subscriptions_admin");
+      const [{ data: companies }, { data: plans }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("id, subscription_status, subscription_plan, subscription_tier, created_at"),
+        supabase
+          .from("platform_pricing_plans")
+          .select("slug, zar_price"),
+      ]);
 
-      if (error) {
-        console.error("Error fetching subscriptions for growth:", error);
-        return [];
+      const planByKey = new Map<string, number>();
+      for (const p of (plans || [])) {
+        planByKey.set(String(p.slug).toLowerCase(), Number(p.zar_price) || 0);
       }
 
-      const monthlyData: Record<string, { newCustomers: number; totalCustomers: number; revenue: number }> = {};
-      let cumulativeCustomers = 0;
+      const monthlyData: Record<string, { newCustomers: number; revenue: number }> = {};
 
-      subscriptions?.forEach((sub) => {
-        const date = new Date(sub.created_at);
+      // First pass: bucket by month, count new tenants, accumulate
+      // monthly revenue from active subs only.
+      (companies || []).forEach((c: any) => {
+        if (!c.created_at) return;
+        const date = new Date(c.created_at);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-
         if (!monthlyData[monthKey]) {
-          monthlyData[monthKey] = { newCustomers: 0, totalCustomers: 0, revenue: 0 };
+          monthlyData[monthKey] = { newCustomers: 0, revenue: 0 };
         }
-
-        monthlyData[monthKey].newCustomers++;
-        cumulativeCustomers++;
-        monthlyData[monthKey].totalCustomers = cumulativeCustomers;
-        
-        if (sub.status === "active") {
-          monthlyData[monthKey].revenue += Number(sub.amount || 0);
+        monthlyData[monthKey].newCustomers += 1;
+        if (String(c.subscription_status || "").toLowerCase() === "active") {
+          const slug = String(c.subscription_plan || c.subscription_tier || "").toLowerCase();
+          monthlyData[monthKey].revenue += planByKey.get(slug) || 0;
         }
       });
 
-      return Object.entries(monthlyData)
-        .map(([month, data]) => ({
+      // Second pass: compute running cumulative across sorted months
+      // so the chart shows the platform's growth trajectory, not just
+      // raw signups per month.
+      const sortedKeys = Object.keys(monthlyData).sort((a, b) => a.localeCompare(b));
+      let running = 0;
+      return sortedKeys.map((month) => {
+        running += monthlyData[month].newCustomers;
+        return {
           month,
-          newCustomers: data.newCustomers,
-          totalCustomers: data.totalCustomers,
-          revenue: data.revenue
-        }))
-        .sort((a, b) => a.month.localeCompare(b.month));
+          newCustomers: monthlyData[month].newCustomers,
+          totalCustomers: running,
+          revenue: monthlyData[month].revenue,
+        };
+      });
     } catch (error) {
       console.error("Error fetching customer growth:", error);
       return [];
@@ -291,27 +292,47 @@ export const analyticsService = {
 
   async getPlanDistribution(): Promise<PlanDistribution[]> {
     try {
-      const { data: subscriptions, error } = await supabase
-        .rpc("get_all_subscriptions_admin");
+      const [{ data: companies }, { data: plans }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("subscription_status, subscription_plan, subscription_tier"),
+        supabase
+          .from("platform_pricing_plans")
+          .select("slug, name, zar_price"),
+      ]);
 
-      if (error) {
-        console.error("Error fetching plan distribution:", error);
-        return [];
+      const planMeta = new Map<string, { displayName: string; price: number }>();
+      for (const p of (plans || [])) {
+        planMeta.set(String(p.slug).toLowerCase(), {
+          displayName: p.name || String(p.slug),
+          price: Number(p.zar_price) || 0,
+        });
       }
 
-      const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
       const planData: Record<string, { count: number; revenue: number }> = {};
       let totalRevenue = 0;
 
-      activeSubscriptions.forEach((sub) => {
-        const planName = sub.plan_name || "Unknown";
-        if (!planData[planName]) {
-          planData[planName] = { count: 0, revenue: 0 };
+      (companies || []).forEach((c: any) => {
+        const status = String(c.subscription_status || "").toLowerCase();
+        // Plan distribution covers active + trialing tenants -- both
+        // sit on a tier the SaaS owner needs visibility on. Cancelled
+        // accounts drop out so the mix reflects the current book.
+        if (status !== "active" && status !== "trial") return;
+
+        const slugRaw = String(c.subscription_plan || c.subscription_tier || "trial").toLowerCase();
+        const meta = planMeta.get(slugRaw);
+        const displayName = meta?.displayName || (slugRaw === "trial" ? "Trial (no plan picked)" : slugRaw);
+
+        if (!planData[displayName]) {
+          planData[displayName] = { count: 0, revenue: 0 };
         }
-        planData[planName].count++;
-        const amount = Number(sub.amount || 0);
-        planData[planName].revenue += amount;
-        totalRevenue += amount;
+        planData[displayName].count += 1;
+        // Trials and unpicked plans contribute zero revenue -- they
+        // still appear in the distribution so churn risk is visible.
+        if (status === "active" && meta) {
+          planData[displayName].revenue += meta.price;
+          totalRevenue += meta.price;
+        }
       });
 
       return Object.entries(planData)
@@ -319,9 +340,9 @@ export const analyticsService = {
           planName,
           count: data.count,
           revenue: data.revenue,
-          percentage: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0
+          percentage: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
         }))
-        .sort((a, b) => b.revenue - a.revenue);
+        .sort((a, b) => b.count - a.count);
     } catch (error) {
       console.error("Error fetching plan distribution:", error);
       return [];
@@ -330,47 +351,56 @@ export const analyticsService = {
 
   async getGeographicDistribution(): Promise<GeographicDistribution[]> {
     try {
-      const { data: subscriptions, error: subError } = await supabase
-        .rpc("get_all_subscriptions_admin");
+      const [{ data: companies }, { data: plans }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("subscription_status, subscription_plan, subscription_tier, country, state_province, city"),
+        supabase
+          .from("platform_pricing_plans")
+          .select("slug, zar_price"),
+      ]);
 
-      if (subError) {
-        console.error("Error fetching subscriptions for geo:", subError);
-        return [];
+      const planByKey = new Map<string, number>();
+      for (const p of (plans || [])) {
+        planByKey.set(String(p.slug).toLowerCase(), Number(p.zar_price) || 0);
       }
 
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, company_name");
-
-      if (profileError) {
-        console.error("Error fetching profiles for geo:", profileError);
-        return [];
-      }
-
-      const geoData: Record<string, { customerCount: number; revenue: number }> = {};
-
-      subscriptions?.forEach((sub) => {
-        const country = "South Africa";
-        
-        if (!geoData[country]) {
-          geoData[country] = { customerCount: 0, revenue: 0 };
-        }
-        
-        geoData[country].customerCount++;
-        
-        if (sub.status === "active") {
-          geoData[country].revenue += Number(sub.amount || 0);
+      // Pivot tenants by country, then by region (state_province) so
+      // the panel can show 'South Africa: Western Cape' style detail.
+      // Tenants without a country drop into 'Unknown' so they're still
+      // visible to the SaaS owner.
+      const buckets: Record<string, Record<string, { count: number; revenue: number; cities: Set<string> }>> = {};
+      (companies || []).forEach((c: any) => {
+        const country = String(c.country || "").trim() || "Unknown";
+        const region = String(c.state_province || "").trim() || "All regions";
+        if (!buckets[country]) buckets[country] = {};
+        if (!buckets[country][region]) buckets[country][region] = { count: 0, revenue: 0, cities: new Set() };
+        const b = buckets[country][region];
+        b.count += 1;
+        if (c.city) b.cities.add(String(c.city).trim());
+        if (String(c.subscription_status || "").toLowerCase() === "active") {
+          const slug = String(c.subscription_plan || c.subscription_tier || "").toLowerCase();
+          b.revenue += planByKey.get(slug) || 0;
         }
       });
 
-      return Object.entries(geoData)
-        .map(([country, data]) => ({
-          country,
-          region: "Primary Market",
-          customerCount: data.customerCount,
-          revenue: data.revenue
-        }))
-        .sort((a, b) => b.customerCount - a.customerCount);
+      // Flatten one row per (country, region). The dashboard renders
+      // them sorted by tenant count so the biggest market sits on top.
+      const rows: GeographicDistribution[] = [];
+      for (const [country, regions] of Object.entries(buckets)) {
+        for (const [region, data] of Object.entries(regions)) {
+          const cityNote = data.cities.size > 0
+            ? ` (${Array.from(data.cities).slice(0, 3).join(", ")}${data.cities.size > 3 ? `, +${data.cities.size - 3}` : ""})`
+            : "";
+          rows.push({
+            country,
+            region: region + cityNote,
+            customerCount: data.count,
+            revenue: data.revenue,
+          });
+        }
+      }
+      return rows.sort((a, b) => b.customerCount - a.customerCount);
     } catch (error) {
       console.error("Error fetching geographic distribution:", error);
       return [];
@@ -443,61 +473,48 @@ export const analyticsService = {
     planName: string;
     signupDate: string;
   }>> {
+    // Now keyed off companies + platform_pricing_plans. "Total spent"
+    // becomes monthly recurring revenue x months since signup, which
+    // is the right shape for the SaaS owner's "who matters" view --
+    // older paying tenants beat younger ones at the same plan.
     try {
-      const { data: subscriptions, error: subError } = await supabase
-        .rpc("get_all_subscriptions_admin");
+      const [{ data: companies }, { data: plans }] = await Promise.all([
+        supabase
+          .from("companies")
+          .select("id, company_name, email, subscription_status, subscription_plan, subscription_tier, created_at"),
+        supabase
+          .from("platform_pricing_plans")
+          .select("slug, name, zar_price"),
+      ]);
 
-      if (subError) {
-        console.error("Error fetching subscriptions for top customers:", subError);
-        return [];
+      const planMeta = new Map<string, { displayName: string; price: number }>();
+      for (const p of (plans || [])) {
+        planMeta.set(String(p.slug).toLowerCase(), {
+          displayName: p.name || String(p.slug),
+          price: Number(p.zar_price) || 0,
+        });
       }
 
-      const activeSubscriptions = subscriptions?.filter(s => s.status === "active") || [];
-
-      const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name, company_name, email, created_at");
-
-      if (profileError) {
-        console.error("Error fetching profiles for top customers:", profileError);
-        return [];
-      }
-
-      const customerMap = new Map<string, {
-        customerName: string;
-        email: string;
-        totalSpent: number;
-        planName: string;
-        signupDate: string;
-      }>();
-
-      activeSubscriptions.forEach((sub) => {
-        const profile = profiles?.find(p => p.id === sub.user_id);
-        if (!profile) return;
-
-        const customerId = sub.user_id;
-        const amount = Number(sub.amount || 0);
-
-        if (!customerMap.has(customerId)) {
-          customerMap.set(customerId, {
-            customerName: profile.company_name || profile.full_name || "Unknown",
-            email: profile.email || "",
-            totalSpent: 0,
-            planName: sub.plan_name || "Unknown",
-            signupDate: profile.created_at
-          });
-        }
-
-        const customer = customerMap.get(customerId)!;
-        customer.totalSpent += amount;
-      });
-
-      return Array.from(customerMap.entries())
-        .map(([customerId, data]) => ({
-          customerId,
-          ...data
-        }))
-        .sort((a, b) => b.totalSpent - a.totalSpent)
+      const now = Date.now();
+      return (companies || [])
+        .filter((c: any) => String(c.subscription_status || "").toLowerCase() === "active")
+        .map((c: any) => {
+          const slug = String(c.subscription_plan || c.subscription_tier || "").toLowerCase();
+          const meta = planMeta.get(slug);
+          const monthly = meta?.price || 0;
+          const monthsSinceSignup = c.created_at
+            ? Math.max(1, Math.floor((now - new Date(c.created_at).getTime()) / (30 * 24 * 60 * 60 * 1000)))
+            : 1;
+          return {
+            customerId: c.id,
+            customerName: c.company_name || "(unnamed)",
+            email: c.email || "",
+            totalSpent: monthly * monthsSinceSignup,
+            planName: meta?.displayName || "(no plan picked)",
+            signupDate: c.created_at,
+          };
+        })
+        .sort((a: any, b: any) => b.totalSpent - a.totalSpent)
         .slice(0, limit);
     } catch (error) {
       console.error("Error fetching top customers:", error);
