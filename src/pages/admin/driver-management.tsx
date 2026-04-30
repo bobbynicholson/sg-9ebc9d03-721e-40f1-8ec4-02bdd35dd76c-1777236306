@@ -248,53 +248,50 @@ function DriverManagementPage() {
       return;
     }
 
+    if (!user?.company_id) {
+      setError("Your account is not linked to a company yet -- contact support");
+      setAddDriverLoading(false);
+      return;
+    }
+
     try {
-      const { user: newUser, error: signUpError } = await authService.signUp(
-        newDriver.email,
-        newDriver.password,
-        {
+      // Use the server-side create-user endpoint. It runs as service-role,
+      // confirms the email automatically and rolls back the auth user if the
+      // profile insert fails -- no more "user already exists" on retry.
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newDriver.email,
+          password: newDriver.password,
           full_name: newDriver.name,
+          phone: newDriver.phone,
           role: "driver",
-          currency: user?.currency || "ZAR",
-          phone_number: newDriver.phone,
-          company_name: user?.company_name || undefined,
-        }
-      );
-
-      if (signUpError) {
-        setError(signUpError.message);
-        setAddDriverLoading(false);
-        return;
-      }
-
-      if (!newUser) {
-        setError("Failed to create driver account");
-        setAddDriverLoading(false);
-        return;
-      }
-
-      await profileService.createProfile({
-        id: newUser.id,
-        email: newDriver.email,
-        full_name: newDriver.name,
-        role: "driver",
-        currency: user?.currency || "ZAR",
-        phone_number: newDriver.phone,
-        is_active: true,
+          company_id: user.company_id,
+        }),
       });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(payload?.error || "Failed to add driver. Please try again.");
+        setAddDriverLoading(false);
+        return;
+      }
 
       toast({
         title: "Success!",
-        description: `Driver ${newDriver.name} has been added successfully`,
+        description: payload?.recovered
+          ? `Driver ${newDriver.name} restored from a previous failed attempt.`
+          : `Driver ${newDriver.name} has been added successfully`,
         duration: 3000,
       });
 
       setIsAddDialogOpen(false);
       setNewDriver({ name: "", email: "", phone: "", password: "" });
       loadDrivers();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding driver:", err);
-      setError("Failed to add driver. Please try again.");
+      setError(err?.message || "Failed to add driver. Please try again.");
     } finally {
       setAddDriverLoading(false);
     }

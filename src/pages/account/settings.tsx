@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,8 @@ function ProfileSettingsPage() {
   const { user, profile, updateProfile } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
@@ -248,6 +250,29 @@ function ProfileSettingsPage() {
     try {
       await updateProfile(formData);
 
+      // Owners + super_admins are allowed to rename the company itself.
+      // The Company Name input on this page used to look editable for them
+      // but only ever wrote to profiles.company_name (a denormalised cache),
+      // so the change never showed anywhere else. Now we also push it
+      // through to the companies row that drives every other surface.
+      const role = (profile as any)?.role as string | undefined;
+      const canRenameCompany = role === "owner" || role === "super_admin" || role === "admin";
+      const companyId = (profile as any)?.company_id as string | undefined;
+      if (canRenameCompany && companyId && formData.company_name && formData.company_name !== profile?.company_name) {
+        const { error: companyErr } = await supabase
+          .from("companies")
+          .update({ company_name: formData.company_name })
+          .eq("id", companyId);
+        if (companyErr) {
+          console.error("Company rename failed:", companyErr);
+          toast({
+            title: "Profile saved, but company rename failed",
+            description: companyErr.message,
+            variant: "destructive",
+          });
+        }
+      }
+
       setSaved(true);
       toast({
         title: "Profile Updated",
@@ -264,6 +289,53 @@ function ProfileSettingsPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Avatar upload: pick a file, push it into the avatars bucket under the
+  // user's own folder, then save the public URL on the profile so it shows
+  // up everywhere we render the Avatar component.
+  const handleAvatarPick = () => fileInputRef.current?.click();
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Photos must be under 5 MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = pub.publicUrl;
+
+      setFormData((prev) => ({ ...prev, avatar_url: url }));
+      await updateProfile({ avatar_url: url });
+
+      toast({ title: "Photo updated", description: "Your profile photo has been saved." });
+    } catch (err: any) {
+      console.error("Avatar upload failed:", err);
+      toast({
+        title: "Could not upload photo",
+        description: err?.message || "Try a smaller image or a different file.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      // Reset the input so re-picking the same file fires onChange again
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -420,10 +492,24 @@ function ProfileSettingsPage() {
                           {getInitials(formData.full_name || "User")}
                         </AvatarFallback>
                       </Avatar>
-                      <Button variant="outline" size="sm" className="w-full">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={handleAvatarPick}
+                        disabled={uploadingAvatar}
+                      >
                         <Camera className="w-4 h-4 mr-2" />
-                        Change Photo
+                        {uploadingAvatar ? "Uploading..." : "Change Photo"}
                       </Button>
+                      <p className="text-[10px] text-slate-500 text-center">JPG, PNG or WebP. Max 5 MB.</p>
                     </div>
 
                     <div className="flex-1 space-y-4">
@@ -522,9 +608,18 @@ function ProfileSettingsPage() {
                           value={formData.company_name}
                           onChange={(e) => handleInputChange("company_name", e.target.value)}
                           placeholder="Your Company Ltd"
-                          disabled={(profile.role as string) !== "owner" && (profile.role as string) !== "super_admin"}
+                          disabled={
+                            (profile.role as string) !== "owner"
+                            && (profile.role as string) !== "admin"
+                            && (profile.role as string) !== "super_admin"
+                          }
                         />
                       </div>
+                      {((profile.role as string) === "owner"
+                        || (profile.role as string) === "admin"
+                        || (profile.role as string) === "super_admin") && (
+                        <p className="text-[11px] text-slate-500">Renames your company everywhere -- invoices, emails, dashboard.</p>
+                      )}
                     </div>
                   </div>
 
