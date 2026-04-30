@@ -17,6 +17,8 @@ import { UserRole } from "@/types/app";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   TrendingUp, DollarSign, Users, AlertTriangle, RefreshCw, Crown, Activity,
 } from "lucide-react";
@@ -169,19 +171,54 @@ function PlatformFinancialDashboard() {
                   No tenants yet. Once a company signs up, they'll show here.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-[10px] uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="text-left py-2 pr-3">Company</th>
-                        <th className="text-left py-2 px-3">Status</th>
-                        <th className="text-left py-2 px-3">Trial ends</th>
-                        <th className="text-left py-2 px-3">Currency</th>
-                        <th className="text-left py-2 px-3">Joined</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {companies.map((c) => {
+                <CompaniesSortableTable companies={companies} />
+              )}
+            </CardContent>
+          </Card>
+
+          <p className="text-[11px] text-slate-400 mt-4">
+            Pricing tiers + invoice-level MRR breakdown live behind the Pricing and Subscriptions pages in the sidebar.
+            Voiding a leaky shortcut here meant rebuilding this view from scratch, {fmtR(0)} of cross-tenant data leaked while it was wrong.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
+  const sortColumns: ColumnDef<CompanyRow>[] = [
+    { key: "name",     accessor: (c) => c.company_name || "",                            type: "string" },
+    { key: "status",   accessor: (c) => (c.subscription_status || "").toLowerCase(),     type: "string" },
+    { key: "trial",    accessor: (c) => c.trial_ends_at,                                 type: "date" },
+    { key: "currency", accessor: (c) => c.currency || "",                                type: "string" },
+    { key: "joined",   accessor: (c) => c.created_at,                                    type: "date" },
+  ];
+  const { rows, sortKey, sortDir, toggle } = useSortable<CompanyRow>(companies, sortColumns, { defaultKey: "joined", defaultDir: "desc" });
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-[10px] uppercase tracking-wide text-slate-500">
+          <tr>
+            <th className="text-left py-2 pr-3">
+              <SortHeader sortKey="name" activeKey={sortKey} activeDir={sortDir} onToggle={toggle}>Company</SortHeader>
+            </th>
+            <th className="text-left py-2 px-3">
+              <SortHeader sortKey="status" activeKey={sortKey} activeDir={sortDir} onToggle={toggle}>Status</SortHeader>
+            </th>
+            <th className="text-left py-2 px-3">
+              <SortHeader sortKey="trial" activeKey={sortKey} activeDir={sortDir} onToggle={toggle}>Trial ends</SortHeader>
+            </th>
+            <th className="text-left py-2 px-3">
+              <SortHeader sortKey="currency" activeKey={sortKey} activeDir={sortDir} onToggle={toggle}>Currency</SortHeader>
+            </th>
+            <th className="text-left py-2 px-3">
+              <SortHeader sortKey="joined" activeKey={sortKey} activeDir={sortDir} onToggle={toggle}>Joined</SortHeader>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+                      {rows.map((c) => {
                         const status = (c.subscription_status || "").toLowerCase();
                         const tone =
                           status === "active"   ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
@@ -211,20 +248,9 @@ function PlatformFinancialDashboard() {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <p className="text-[11px] text-slate-400 mt-4">
-            Pricing tiers + invoice-level MRR breakdown live behind the Pricing and Subscriptions pages in the sidebar.
-            Voiding a leaky shortcut here meant rebuilding this view from scratch, {fmtR(0)} of cross-tenant data leaked while it was wrong.
-          </p>
-        </div>
-      </div>
-    </>
+        </tbody>
+      </table>
+    </div>
   );
 }
 

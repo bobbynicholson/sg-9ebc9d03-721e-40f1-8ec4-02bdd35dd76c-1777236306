@@ -3,6 +3,8 @@ import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -989,57 +991,7 @@ export default function AdminInventory() {
             </CardHeader>
             {atRiskItems.length > 0 && (
               <CardContent className="pt-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                      <tr>
-                        <th className="text-left py-2 pr-3 font-medium">Item</th>
-                        <th className="text-right py-2 px-3 font-medium">On hand</th>
-                        <th className="text-right py-2 px-3 font-medium">Needed (7 days)</th>
-                        <th className="text-right py-2 px-3 font-medium">Projected on hand</th>
-                        <th className="text-left py-2 pl-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {atRiskItems.slice(0, 12).map((r: any) => {
-                        const tone =
-                          r.status === "shortfall" ? "bg-red-50 text-red-800 border-red-200" :
-                          r.status === "below_minimum" ? "bg-amber-50 text-amber-800 border-amber-200" :
-                          "bg-yellow-50 text-yellow-800 border-yellow-200";
-                        const projected = Number(r.projected_stock_after_7_days);
-                        const projectedTone = projected < 0
-                          ? "text-red-600 font-medium"
-                          : projected < Number(r.minimum_stock)
-                            ? "text-amber-600 font-medium"
-                            : "text-slate-900";
-                        const statusLabel =
-                          r.status === "shortfall"      ? "Will run out" :
-                          r.status === "below_minimum"  ? "Below reorder" :
-                          r.status === "low"            ? "Low" :
-                                                          r.status;
-                        return (
-                          <tr key={r.inventory_item_id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="py-2 pr-3 font-medium text-slate-900">{r.item_name}</td>
-                            <td className="py-2 px-3 text-right tabular-nums">
-                              {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
-                            </td>
-                            <td className="py-2 px-3 text-right tabular-nums text-slate-700">
-                              {Number(r.demand_next_7_days).toLocaleString()}
-                            </td>
-                            <td className={`py-2 px-3 text-right tabular-nums ${projectedTone}`}>
-                              {projected.toLocaleString()}
-                            </td>
-                            <td className="py-2 pl-3">
-                              <Badge variant="outline" className={`${tone} border`}>
-                                {statusLabel}
-                              </Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <AtRiskTable rows={atRiskItems.slice(0, 12)} />
                 <p className="text-xs text-slate-500 mt-3">
                   Pulled from confirmed lines over the next 7 days. Updates the moment recipes or stock change.
                 </p>
@@ -2193,5 +2145,82 @@ function InventoryEquipmentStrip() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/** At-risk inventory mini-table with sortable columns. Reads the same
+ *  rows as the parent page and lets dispatch flick between sort by
+ *  shortfall, demand or projected on-hand. */
+function AtRiskTable({ rows }: { rows: any[] }) {
+  const sortColumns: ColumnDef<any>[] = [
+    { key: "item",      accessor: (r) => r.item_name,                          type: "string" },
+    { key: "onhand",    accessor: (r) => Number(r.current_stock),              type: "number" },
+    { key: "needed",    accessor: (r) => Number(r.demand_next_7_days),         type: "number" },
+    { key: "projected", accessor: (r) => Number(r.projected_stock_after_7_days), type: "number" },
+    { key: "status",    accessor: (r) => r.status,                             type: "string" },
+  ];
+  const sorted = useSortable<any>(rows, sortColumns, { defaultKey: "projected", defaultDir: "asc" });
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+          <tr>
+            <th className="text-left py-2 pr-3 font-medium">
+              <SortHeader sortKey="item" activeKey={sorted.sortKey} activeDir={sorted.sortDir} onToggle={sorted.toggle}>Item</SortHeader>
+            </th>
+            <th className="text-right py-2 px-3 font-medium">
+              <SortHeader sortKey="onhand" activeKey={sorted.sortKey} activeDir={sorted.sortDir} onToggle={sorted.toggle} align="right">On hand</SortHeader>
+            </th>
+            <th className="text-right py-2 px-3 font-medium">
+              <SortHeader sortKey="needed" activeKey={sorted.sortKey} activeDir={sorted.sortDir} onToggle={sorted.toggle} align="right">Needed (7 days)</SortHeader>
+            </th>
+            <th className="text-right py-2 px-3 font-medium">
+              <SortHeader sortKey="projected" activeKey={sorted.sortKey} activeDir={sorted.sortDir} onToggle={sorted.toggle} align="right">Projected on hand</SortHeader>
+            </th>
+            <th className="text-left py-2 pl-3 font-medium">
+              <SortHeader sortKey="status" activeKey={sorted.sortKey} activeDir={sorted.sortDir} onToggle={sorted.toggle}>Status</SortHeader>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.rows.map((r: any) => {
+            const tone =
+              r.status === "shortfall" ? "bg-red-50 text-red-800 border-red-200" :
+              r.status === "below_minimum" ? "bg-amber-50 text-amber-800 border-amber-200" :
+              "bg-yellow-50 text-yellow-800 border-yellow-200";
+            const projected = Number(r.projected_stock_after_7_days);
+            const projectedTone = projected < 0
+              ? "text-red-600 font-medium"
+              : projected < Number(r.minimum_stock)
+                ? "text-amber-600 font-medium"
+                : "text-slate-900";
+            const statusLabel =
+              r.status === "shortfall"      ? "Will run out" :
+              r.status === "below_minimum"  ? "Below reorder" :
+              r.status === "low"            ? "Low" :
+                                              r.status;
+            return (
+              <tr key={r.inventory_item_id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="py-2 pr-3 font-medium text-slate-900">{r.item_name}</td>
+                <td className="py-2 px-3 text-right tabular-nums">
+                  {Number(r.current_stock).toLocaleString()} <span className="text-slate-400 text-xs">{r.unit_of_measure}</span>
+                </td>
+                <td className="py-2 px-3 text-right tabular-nums text-slate-700">
+                  {Number(r.demand_next_7_days).toLocaleString()}
+                </td>
+                <td className={`py-2 px-3 text-right tabular-nums ${projectedTone}`}>
+                  {projected.toLocaleString()}
+                </td>
+                <td className="py-2 pl-3">
+                  <Badge variant="outline" className={`${tone} border`}>
+                    {statusLabel}
+                  </Badge>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

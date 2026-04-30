@@ -35,6 +35,8 @@ import {
   formatMinutesAsCountdown,
 } from "@/services/dispatchService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 
 interface OrderRow {
   id: string;
@@ -198,7 +200,7 @@ function DispatchQueuePage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  const filtered = useMemo(() => {
+  const filteredRaw = useMemo(() => {
     let list = orders;
     if (statusFilter === "unassigned") list = list.filter(o => !o.assigned_driver_id);
     else if (statusFilter === "assigned") list = list.filter(o => o.assigned_driver_id);
@@ -219,6 +221,18 @@ function DispatchQueuePage() {
     }
     return list;
   }, [orders, statusFilter, searchTerm, settings]);
+
+  // Click-to-sort on every queue column. Default to event date so the
+  // soonest events bubble to the top when dispatch opens the page.
+  const sortColumns: ColumnDef<any>[] = useMemo(() => [
+    { key: "client", accessor: (o) => o.client_name,                 type: "string" },
+    { key: "event",  accessor: (o) => `${o.event_date} ${o.event_time || ""}`, type: "string" },
+    { key: "venue",  accessor: (o) => o.venue,                       type: "string" },
+    { key: "driver", accessor: (o) => o.assigned_driver_name || "",  type: "string" },
+    { key: "chef",   accessor: (o) => o.assigned_chef_name || "",    type: "string" },
+  ], []);
+  const sortedView = useSortable<any>(filteredRaw, sortColumns, { defaultKey: "event", defaultDir: "asc" });
+  const filtered = sortedView.rows;
 
   // ── Selection ─────────────────────────────────────────────────────────────
 
@@ -555,11 +569,31 @@ function DispatchQueuePage() {
                 />
               </div>
               <div></div>
-              <div>Order / Client</div>
-              <div>Event</div>
-              <div>Venue</div>
-              <div>Driver</div>
-              <div>Chef</div>
+              <div>
+                <SortHeader sortKey="client" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Order / Client
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="event" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Event
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="venue" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Venue
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="driver" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Driver
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="chef" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Chef
+                </SortHeader>
+              </div>
               <div className="text-right">Actions</div>
             </div>
 
