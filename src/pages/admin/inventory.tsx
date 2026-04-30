@@ -134,7 +134,13 @@ const emptyForm = {
   cost_per_unit: "",
   sku: "",
   storage_location: "",
+  preferred_supplier_id: "",
 };
+
+interface SupplierOption {
+  id: string;
+  supplier_name: string;
+}
 
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
@@ -186,6 +192,8 @@ export default function AdminInventory() {
     costHistory: Array<{ date: string; unit_cost: number }>;
   }>({ recipes: [], movements: [], batches: [], costHistory: [] });
   const [rowDetailLoading, setRowDetailLoading] = useState(false);
+  // Suppliers list for the item dialog dropdown -- loaded once on mount
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
 
   // ── Add ─────────────────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
@@ -378,10 +386,26 @@ export default function AdminInventory() {
     setLastActivity(result);
   };
 
+  const loadSuppliers = useCallback(async () => {
+    if (!companyId) return;
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("id, supplier_name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("supplier_name", { ascending: true });
+    if (error) {
+      console.warn("Could not load suppliers for picker:", error.message);
+      return;
+    }
+    setSupplierOptions((data || []) as SupplierOption[]);
+  }, [companyId]);
+
   const refreshAll = useCallback(() => {
     loadInventory();
     loadOutlook();
     loadLastActivity();
+    loadSuppliers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
@@ -433,7 +457,8 @@ export default function AdminInventory() {
         cost_per_unit: addForm.cost_per_unit !== "" ? Number(addForm.cost_per_unit) : 0,
         sku: addForm.sku.trim() || null,
         storage_location: addForm.storage_location.trim() || null,
-      });
+        preferred_supplier_id: addForm.preferred_supplier_id || null,
+      } as any);
       setAddOpen(false);
       toast({ title: "Item added", description: addForm.item_name.trim() });
       refreshAll();
@@ -457,6 +482,7 @@ export default function AdminInventory() {
       cost_per_unit: String(item.costPerUnit),
       sku: item.sku,
       storage_location: item.storageLocation,
+      preferred_supplier_id: item.supplierId || "",
     });
     setEditError("");
     setEditOpen(true);
@@ -478,7 +504,8 @@ export default function AdminInventory() {
         cost_per_unit: editForm.cost_per_unit !== "" ? Number(editForm.cost_per_unit) : 0,
         sku: editForm.sku.trim() || null,
         storage_location: editForm.storage_location.trim() || null,
-      });
+        preferred_supplier_id: editForm.preferred_supplier_id || null,
+      } as any);
       setEditOpen(false);
       toast({ title: "Saved", description: editForm.item_name.trim() });
       refreshAll();
@@ -1572,7 +1599,7 @@ export default function AdminInventory() {
           <DialogHeader>
             <DialogTitle>New item</DialogTitle>
           </DialogHeader>
-          <ItemForm form={addForm} setForm={setAddForm} error={addError} />
+          <ItemForm form={addForm} setForm={setAddForm} error={addError} suppliers={supplierOptions} />
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" disabled={addSaving}>Cancel</Button>
@@ -1590,7 +1617,7 @@ export default function AdminInventory() {
           <DialogHeader>
             <DialogTitle>Edit {editTarget?.name}</DialogTitle>
           </DialogHeader>
-          <ItemForm form={editForm} setForm={setEditForm} error={editError} />
+          <ItemForm form={editForm} setForm={setEditForm} error={editError} suppliers={supplierOptions} />
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" disabled={editSaving}>Cancel</Button>
@@ -1890,10 +1917,12 @@ function ItemForm({
   form,
   setForm,
   error,
+  suppliers,
 }: {
   form: typeof emptyForm;
   setForm: (f: typeof emptyForm) => void;
   error: string;
+  suppliers: SupplierOption[];
 }) {
   return (
     <div className="space-y-3">
@@ -2004,6 +2033,23 @@ function ItemForm({
             className="mt-1"
           />
         </div>
+      </div>
+      <div>
+        <Label htmlFor="preferred_supplier_id">Preferred supplier</Label>
+        <select
+          id="preferred_supplier_id"
+          value={form.preferred_supplier_id}
+          onChange={e => setForm({ ...form, preferred_supplier_id: e.target.value })}
+          className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+        >
+          <option value="">No preferred supplier</option>
+          {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}
+        </select>
+        {suppliers.length === 0 && (
+          <p className="text-[11px] text-slate-500 mt-1">
+            No suppliers yet -- add them in Shopping &gt; Suppliers, then come back here to link.
+          </p>
+        )}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
