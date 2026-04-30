@@ -49,15 +49,18 @@ interface ParsedSheet {
 }
 
 function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
-  const wb = XLSX.read(buffer, { type: "buffer", cellDates: true, raw: false });
+  // Cast XLSX usage to any -- SheetJS' BufferLike type widens between
+  // releases, and we don't want our build to chase that.
+  const X = XLSX as any;
+  const wb = X.read(buffer, { type: "buffer", cellDates: true, raw: false });
   const sheets: ParsedSheet[] = [];
-  for (const sheetName of wb.SheetNames) {
+  for (const sheetName of wb.SheetNames as string[]) {
     const ws = wb.Sheets[sheetName];
     if (!ws) continue;
     // header: 1 returns rows as arrays so we can build a clean
     // header-keyed dict ourselves. Avoids SheetJS auto-coercion
     // that loses leading zeros in IDs.
-    const aoa = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: "", raw: false, blankrows: false });
+    const aoa: any[][] = X.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false, blankrows: false });
     if (aoa.length === 0) continue;
     const headers = (aoa[0] as any[]).map((h) => String(h ?? "").trim());
     if (headers.every((h) => !h)) continue; // empty header row

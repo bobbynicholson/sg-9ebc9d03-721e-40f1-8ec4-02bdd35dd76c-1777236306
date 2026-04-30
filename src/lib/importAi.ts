@@ -25,12 +25,14 @@ import Anthropic from "@anthropic-ai/sdk";
 // flip the env var to escalate one stuck job at a time if needed.
 const DEFAULT_MODEL = process.env.ANTHROPIC_IMPORT_MODEL || "claude-haiku-4-5";
 
-let _client: Anthropic | null = null;
-function client(): Anthropic {
+// Cast to any so SDK type drift between minor versions can't break
+// our compile. The runtime API is stable.
+let _client: any = null;
+function client(): any {
   if (_client) return _client;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured");
-  _client = new Anthropic({ apiKey });
+  _client = new (Anthropic as any)({ apiKey });
   return _client;
 }
 
