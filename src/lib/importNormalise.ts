@@ -67,8 +67,8 @@ export function normaliseDate(raw: any): NormaliseResult<string> {
   // dd-mm-yyyy or dd/mm/yyyy
   const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
   if (m) {
-    let dd = parseInt(m[1], 10);
-    let mm = parseInt(m[2], 10);
+    const dd = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
     let yy = parseInt(m[3], 10);
     if (yy < 100) yy += yy < 50 ? 2000 : 1900;
     if (dd < 1 || dd > 31 || mm < 1 || mm > 12) {
