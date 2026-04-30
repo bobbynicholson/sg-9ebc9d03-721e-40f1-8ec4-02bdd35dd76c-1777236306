@@ -275,53 +275,95 @@ export function RebookDialog({
     setSending(true);
     try {
       // Compose a human-readable notes summary so the catering team
-      // sees the gist of the request even if they look at the lead in
-      // a tool that doesn't render JSON.
+      // sees the gist of the request even if they look at the quote
+      // in a tool that doesn't render JSON.
       const noteParts: string[] = [];
-      noteParts.push(`Rebook request via client portal.`);
+      noteParts.push(`Quote request via client portal.`);
       if (sourceOrder) {
         noteParts.push(
-          `Original event: ${sourceOrder.event_name || "Past event"} on ${new Date(
+          `Rebook from past event "${sourceOrder.event_name || "Past event"}" on ${new Date(
             sourceOrder.event_date,
           ).toLocaleDateString("en-ZA", ZA_DATE_OPTS)}.`,
         );
       }
       if (dietary.trim()) noteParts.push(`Dietary: ${dietary.trim()}.`);
       if (notes.trim()) noteParts.push(`Client note: ${notes.trim()}`);
-      if (picked.size > 0) {
-        const summary = Array.from(picked.values())
-          .map((p) => `${p.quantity}x ${p.item_name}`)
-          .join(", ");
-        noteParts.push(`Items requested: ${summary}.`);
+
+      // Map picked items into the shape that quotes.menu_items jsonb
+      // already uses (the admin /quotes/new page reads this same
+      // shape via Array.isArray(q.menu_items)). unit_price + line_total
+      // are zero -- the catering team prices each line in the quote
+      // editor before sending.
+      const menuItemsJson = Array.from(picked.values()).map((p) => ({
+        menu_item_id: p.menu_item_id,
+        item_name: p.item_name,
+        category: p.category,
+        dietary_tags: p.dietary_tags,
+        quantity: p.quantity,
+        unit_price: 0,
+        line_total: 0,
+      }));
+
+      // Quote number format mirrors the existing convention
+      // (QT-YYYYMMDD-NNN) but uses REQ- so the catering team can spot
+      // client-driven requests at a glance in the quotes list.
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const quoteNumber = `REQ-${today}-${rand}`;
+
+      // Try to attach to an existing clients row for this user (so the
+      // quote is properly linked to their record). Best-effort -- if
+      // there's no clients row yet, the quote still goes through with
+      // just the email.
+      let clientId: string | null = null;
+      try {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("company_id", companyId)
+          .maybeSingle();
+        clientId = (clientRow as any)?.id ?? null;
+      } catch {
+        // non-fatal -- proceed without a client_id link
       }
 
-      const requestedItemsArr: PickedItem[] = Array.from(picked.values());
-
+      // Direct insert into quotes. RLS allows it because the client's
+      // profile.company_id matches NEW.company_id (policy: "Users can
+      // insert quotes for their company"). Status stays 'draft', so
+      // none of the dispatch/email triggers fire -- the catering team
+      // reviews, prices, then changes status to 'sent'.
       const insertPayload: any = {
         company_id: companyId,
-        contact_name: profileFullName || user.email || "Client portal",
-        email: user.email,
-        phone: profilePhone || null,
-        event_type: eventName.trim() || "Repeat booking",
+        quote_number: quoteNumber,
+        quote_name: eventName.trim() || "Quote request",
+        status: "draft",
+        external_source: "client_portal_rebook",
+        client_id: clientId,
+        client_name: profileFullName || user.email || "Client portal",
+        client_email: user.email,
         event_date: eventDate,
         guest_count: guestCount ? parseInt(guestCount, 10) || null : null,
         venue_address: venueAddress.trim() || null,
         venue_lat: venueLat,
         venue_lng: venueLng,
-        source: "client_portal_rebook",
-        status: "new",
+        // Pricing intentionally zero -- catering team prices each
+        // line before sending. Marked NOT NULL on the table so we
+        // can't omit them.
+        subtotal: 0,
+        total_amount: 0,
+        tax_amount: 0,
+        total: 0,
+        menu_items: menuItemsJson.length > 0 ? menuItemsJson : null,
         notes: noteParts.join(" "),
-        requested_items: requestedItemsArr.length > 0 ? requestedItemsArr : null,
-        special_requests: dietary.trim() || null,
-        source_order_id: sourceOrder?.id ?? null,
       };
 
-      const { error } = await supabase.from("leads").insert(insertPayload);
+      const { error } = await supabase.from("quotes").insert(insertPayload);
       if (error) throw error;
 
       toast({
         title: "Request sent",
-        description: `${companyName || "The team"} will be in touch with a fresh quote.`,
+        description: `${companyName || "The team"} will price your request and send the quote shortly.`,
       });
       onOpenChange(false);
     } catch (e: any) {

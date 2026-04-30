@@ -255,15 +255,36 @@ export default function AdminQuotes() {
                     ? "Send the quote first, then you can follow up"
                     : "Open a follow-up draft in Gmail / Outlook / mail app";
                 return (
-                  <Card key={quote.id} className="border-0 shadow-lg hover:shadow-xl transition-all">
+                  <Card
+                    key={quote.id}
+                    className={`border-0 shadow-lg hover:shadow-xl transition-all ${
+                      // Highlight quotes that came in from the client
+                      // portal so the catering team spots them
+                      // immediately when they open the page.
+                      (quote as any).external_source === "client_portal_rebook"
+                        ? "ring-2 ring-emerald-300"
+                        : ""
+                    }`}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
+                          <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
                             <Badge className={`${getStatusColor(quote.status)} border`}>
                               {quote.status}
                             </Badge>
+                            {/*
+                              "New client request" pill -- shown when
+                              the quote was submitted by the client via
+                              their portal. Pricing isn't set yet, the
+                              team needs to open and price it.
+                            */}
+                            {(quote as any).external_source === "client_portal_rebook" && (
+                              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border">
+                                New client request
+                              </Badge>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
