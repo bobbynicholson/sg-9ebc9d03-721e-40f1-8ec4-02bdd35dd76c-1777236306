@@ -98,7 +98,10 @@ export default function ClientAuthCallbackPage() {
         // no profile yet so the authenticated company-member policy
         // doesn't yet apply. The RPC returns only the safe branding
         // fields by slug, which is exactly what we need.
-        const { data: companyData } = await supabase.rpc("get_company_branding", {
+        // Cast to any: the auto-generated Supabase types haven't been
+        // regenerated since `get_company_branding` was added via migration.
+        // Regenerate via `supabase gen types` to drop the cast.
+        const { data: companyData } = await (supabase.rpc as any)("get_company_branding", {
           p_slug: company_slug,
         });
         const company = Array.isArray(companyData) ? companyData[0] : companyData;

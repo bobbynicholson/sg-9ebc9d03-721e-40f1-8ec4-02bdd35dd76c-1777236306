@@ -76,7 +76,9 @@ export default function CompanyLoginPage() {
       // USING(true) policy that also exposed embed tokens, billing
       // info, and tax IDs to anyone. The RPC returns ONLY the fields
       // the login UI needs (name, logo, colours).
-      const { data } = await supabase.rpc("get_company_branding", { p_slug: company_slug });
+      // Cast to any: the auto-generated Supabase types haven't been
+      // regenerated since `get_company_branding` was added via migration.
+      const { data } = await (supabase.rpc as any)("get_company_branding", { p_slug: company_slug });
       if (cancelled) return;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) {
