@@ -4003,6 +4003,136 @@ export type Database = {
         }
         Relationships: []
       }
+      kitchen_staff_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          email: string | null
+          full_name: string
+          hourly_rate: number | null
+          id: string
+          is_active: boolean
+          linked_profile_id: string | null
+          notes: string | null
+          overtime_rate: number | null
+          phone: string | null
+          role_title: string | null
+          standard_hours_per_day: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          full_name: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          linked_profile_id?: string | null
+          notes?: string | null
+          overtime_rate?: number | null
+          phone?: string | null
+          role_title?: string | null
+          standard_hours_per_day?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          full_name?: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          linked_profile_id?: string | null
+          notes?: string | null
+          overtime_rate?: number | null
+          phone?: string | null
+          role_title?: string | null
+          standard_hours_per_day?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_staff_members_linked_profile_id_fkey"
+            columns: ["linked_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kitchen_staff_shifts: {
+        Row: {
+          break_started_at: string | null
+          clocked_in_by: string | null
+          clocked_out_by: string | null
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          manual_override: boolean
+          notes: string | null
+          override_reason: string | null
+          overtime_min: number | null
+          shift_end: string | null
+          shift_start: string
+          staff_member_id: string
+          standard_min: number | null
+          total_break_min: number
+          updated_at: string
+        }
+        Insert: {
+          break_started_at?: string | null
+          clocked_in_by?: string | null
+          clocked_out_by?: string | null
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          manual_override?: boolean
+          notes?: string | null
+          override_reason?: string | null
+          overtime_min?: number | null
+          shift_end?: string | null
+          shift_start: string
+          staff_member_id: string
+          standard_min?: number | null
+          total_break_min?: number
+          updated_at?: string
+        }
+        Update: {
+          break_started_at?: string | null
+          clocked_in_by?: string | null
+          clocked_out_by?: string | null
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          manual_override?: boolean
+          notes?: string | null
+          override_reason?: string | null
+          overtime_min?: number | null
+          shift_end?: string | null
+          shift_start?: string
+          staff_member_id?: string
+          standard_min?: number | null
+          total_break_min?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kitchen_staff_shifts_staff_member_id_fkey"
+            columns: ["staff_member_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_staff_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kitchen_prep_tasks: {
         Row: {
           actual_yield: number | null
