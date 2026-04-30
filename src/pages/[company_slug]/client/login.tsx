@@ -101,7 +101,7 @@ export default function CompanyClientLoginPage() {
   // Priority: URL ?email= > cached email > empty.
   useEffect(() => {
     if (typeof company_slug !== "string") return;
-    if (email) return; // already populated -- don't clobber
+    if (email) return; // already populated, don't clobber
     if (typeof emailFromQuery === "string" && emailFromQuery.includes("@")) {
       setEmail(emailFromQuery.trim().toLowerCase());
       return;
@@ -186,7 +186,7 @@ export default function CompanyClientLoginPage() {
       }
       setSent(true);
     } catch {
-      setError("Network issue -- please try again in a moment.");
+      setError("Network issue, please try again in a moment.");
     } finally {
       setLoading(false);
     }

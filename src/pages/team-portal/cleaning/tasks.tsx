@@ -138,7 +138,7 @@ export default function CleaningTasksPage() {
               <ClipboardCheck className="h-7 w-7 text-cyan-600" />
               Cleaning Tasks
             </h1>
-            <p className="text-sm text-slate-600 mt-1">What needs cleaning right now -- start, complete, log notes</p>
+            <p className="text-sm text-slate-600 mt-1">What needs cleaning right now, start, complete, log notes</p>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
@@ -216,13 +216,13 @@ export default function CleaningTasksPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Complete task</DialogTitle>
-            <DialogDescription>{completing?.area_name}{completing?.description ? ` -- ${completing.description}` : ""}</DialogDescription>
+            <DialogDescription>{completing?.area_name}{completing?.description ? `, ${completing.description}` : ""}</DialogDescription>
           </DialogHeader>
           <Textarea
             rows={4}
             value={completionNotes}
             onChange={(e) => setCompletionNotes(e.target.value)}
-            placeholder="Optional notes -- e.g. 'mopped twice, restocked detergent, no issues'"
+            placeholder="Optional notes, e.g. 'mopped twice, restocked detergent, no issues'"
           />
           <DialogFooter>
             <Button variant="outline" onClick={closeComplete} disabled={saving}>Cancel</Button>

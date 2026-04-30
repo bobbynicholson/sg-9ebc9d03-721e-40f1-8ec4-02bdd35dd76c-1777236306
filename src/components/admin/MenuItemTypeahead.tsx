@@ -69,7 +69,7 @@ export function MenuItemTypeahead({
   value,
   onChange,
   onPick,
-  placeholder = "Search your menu -- type 'lamb', 'salad', 'main'...",
+  placeholder = "Search your menu, type 'lamb', 'salad', 'main'...",
   className,
 }: MenuItemTypeaheadProps) {
   const [open, setOpen] = useState(false);
@@ -195,7 +195,7 @@ export function MenuItemTypeahead({
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500 flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5" />
-              No match on your menu yet -- this will save as a custom line.
+              No match on your menu yet, this will save as a custom line.
             </div>
           ) : (
             <>

@@ -142,7 +142,7 @@ export default function ClientAuthCallbackPage() {
         if (!session?.user) {
           return finish(
             "error",
-            "No active session was created. The link may have expired -- request a fresh one.",
+            "No active session was created. The link may have expired, request a fresh one.",
           );
         }
 

@@ -420,7 +420,7 @@ function OrderProcessDashboard() {
               </Badge>
             </div>
 
-            {/* Suggested action -- the headline intelligence row */}
+            {/* Suggested action, the headline intelligence row */}
             <div
               className={`flex items-center gap-1.5 text-xs font-semibold ${
                 intel.tone === "urgent"
@@ -449,7 +449,7 @@ function OrderProcessDashboard() {
               </div>
             </div>
 
-            {/* Automation status strip -- only renders when there is
+            {/* Automation status strip, only renders when there is
                 something to say. */}
             {(auto.sent > 0 || (intel.bucket === "done" && !auto.postEventSent)) && (
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -1165,7 +1165,7 @@ function OrderProcessDashboard() {
                     <div className="min-w-0">
                       <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">
                         Booked revenue
-                        <InfoTooltip content={"Sum of orders the client has committed to -- confirmed, in-prep, ready, in-transit, delivered or completed.\n\nPending and draft orders aren't counted, since they haven't been confirmed by the client yet. Cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed -- 'money in the till'."} />
+                        <InfoTooltip content={"Sum of orders the client has committed to, confirmed, in-prep, ready, in-transit, delivered or completed.\n\nPending and draft orders aren't counted, since they haven't been confirmed by the client yet. Cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed, 'money in the till'."} />
                       </p>
                       <p className="text-2xl font-bold text-green-900">
                         R{(stats.revenue.booked / 1000).toFixed(0)}k

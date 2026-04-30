@@ -352,7 +352,7 @@ export default function CMSPageManagement() {
                         rows={2}
                         value={draftReq.topic}
                         onChange={(e) => setDraftReq({ ...draftReq, topic: e.target.value })}
-                        placeholder="e.g. How catering teams can cut food waste using prep-list intelligence -- focus on real-world scenarios from spit braais and corporate lunches."
+                        placeholder="e.g. How catering teams can cut food waste using prep-list intelligence, focus on real-world scenarios from spit braais and corporate lunches."
                       />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -420,11 +420,11 @@ export default function CMSPageManagement() {
                 {/* Form column */}
                 <div className="space-y-4">
                   {/*
-                    Header image card -- the post's hero. Sat above
+                    Header image card, the post's hero. Sat above
                     the title card because the operator scrolls top to
                     bottom thinking like a reader: image first, then
                     title, then body. Alt text is required at save
-                    time -- not optional.
+                    time, not optional.
                   */}
                   <Card>
                     <CardHeader className="pb-2">

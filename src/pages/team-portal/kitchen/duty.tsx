@@ -298,7 +298,7 @@ export default function KitchenDutyRosterPage() {
           </div>
 
           {/* Phase 4: live earnings + overtime + break panel. Numbers tick
-              every 30s without any DB hit -- pure math off the shift row. */}
+              every 30s without any DB hit, pure math off the shift row. */}
           {(() => {
             const myProfile = user?.id ? staff[user.id] : null;
             const earnings = myActiveShift
@@ -332,8 +332,8 @@ export default function KitchenDutyRosterPage() {
                         <p className="text-base font-semibold text-slate-900">
                           {myActiveShift
                             ? onBreak
-                              ? `On break -- ${fmtDuration(myActiveShift.break_started_at)}`
-                              : `On shift -- ${fmtMinutes(earnings?.workedMin ?? 0)}`
+                              ? `On break, ${fmtDuration(myActiveShift.break_started_at)}`
+                              : `On shift, ${fmtMinutes(earnings?.workedMin ?? 0)}`
                             : "Not clocked in"}
                         </p>
                       </div>
@@ -362,7 +362,7 @@ export default function KitchenDutyRosterPage() {
                     </div>
                   </div>
 
-                  {/* Earnings strip -- only renders when on shift */}
+                  {/* Earnings strip, only renders when on shift */}
                   {myActiveShift && earnings && (
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-orange-200">
                       <div className="rounded-md bg-white/70 p-2 sm:p-3">
@@ -384,12 +384,12 @@ export default function KitchenDutyRosterPage() {
                     </div>
                   )}
 
-                  {/* Warnings -- overtime first, break second */}
+                  {/* Warnings, overtime first, break second */}
                   {earnings?.overtime && (
                     <div className="flex items-start gap-2 text-xs text-red-800 bg-red-100/70 rounded-md p-2.5 border border-red-200">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-semibold">Overtime -- </span>
+                        <span className="font-semibold">Overtime, </span>
                         you've worked over {settings.overtimeAfterHours}h. Confirm with your manager that the extra hours are approved.
                       </div>
                     </div>
@@ -398,7 +398,7 @@ export default function KitchenDutyRosterPage() {
                     <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-100/70 rounded-md p-2.5 border border-amber-200">
                       <Coffee className="h-4 w-4 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-semibold">Time for a break -- </span>
+                        <span className="font-semibold">Time for a break, </span>
                         you've been on shift over {settings.mealBreakAfterHours}h with no break logged.
                       </div>
                     </div>
@@ -409,7 +409,7 @@ export default function KitchenDutyRosterPage() {
           })()}
 
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
-            On duty now -- {active.length}
+            On duty now, {active.length}
             <InfoTooltip content="Everyone currently clocked in for a kitchen shift." />
           </h2>
           <Card className="mb-6">
@@ -429,7 +429,7 @@ export default function KitchenDutyRosterPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-slate-900 truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
-                          <div className="text-xs text-slate-500">{s.shift_type ?? "kitchen"} -- started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
+                          <div className="text-xs text-slate-500">{s.shift_type ?? "kitchen"}, started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
                         </div>
                         <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200 tabular-nums">
                           <Clock className="h-3 w-3 mr-1" />{fmtDuration(s.shift_start)}
@@ -443,11 +443,11 @@ export default function KitchenDutyRosterPage() {
           </Card>
 
           {/* Phase 3: per-chef performance roll-up, last 7 days. Three numbers
-              per chef -- tasks done, on-time %, avg yield variance. Shows
+              per chef, tasks done, on-time %, avg yield variance. Shows
               empty-state copy when no completed tasks yet. */}
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
-            Chef performance -- last 7 days
-            <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield -- only shows if your team logs actuals." />
+            Chef performance, last 7 days
+            <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals." />
           </h2>
           <Card className="mb-6">
             <CardContent className="p-0">
@@ -518,7 +518,7 @@ export default function KitchenDutyRosterPage() {
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-slate-900 truncate">{p?.full_name ?? p?.email ?? "Unknown staff"}</div>
                           <div className="text-xs text-slate-500">
-                            {s.shift_end ? `Ended ${formatDistanceToNow(new Date(s.shift_end), { addSuffix: true })}` : "--"} -- {fmtDuration(s.shift_start, s.shift_end)}
+                            {s.shift_end ? `Ended ${formatDistanceToNow(new Date(s.shift_end), { addSuffix: true })}` : "--"}, {fmtDuration(s.shift_start, s.shift_end)}
                           </div>
                         </div>
                       </li>
@@ -536,7 +536,7 @@ export default function KitchenDutyRosterPage() {
           <DialogHeader>
             <DialogTitle>End shift</DialogTitle>
             <DialogDescription>
-              Optional hand-off note for the next person on duty -- e.g. "starter prep done, mains in the walk-in, oven on 180 for 20 more min".
+              Optional hand-off note for the next person on duty, e.g. "starter prep done, mains in the walk-in, oven on 180 for 20 more min".
             </DialogDescription>
           </DialogHeader>
           <Textarea

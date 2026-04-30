@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "rows[] is required" });
     }
     if (rows.length > 5000) {
-      return res.status(413).json({ error: "Too many rows -- cap is 5000 per upload." });
+      return res.status(413).json({ error: "Too many rows, cap is 5000 per upload." });
     }
 
     const supabase: any = getServiceSupabase();
@@ -137,7 +137,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           email,
           ok: true,
           status: "skipped",
-          reason: "Already on file -- skipped",
+          reason: "Already on file, skipped",
         });
         return;
       }

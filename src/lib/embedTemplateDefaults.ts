@@ -163,8 +163,8 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       mapsTo: 'budget',
       options: [
         { value: 'under-500', label: 'Under R500' },
-        { value: '500-1000', label: 'R500 -- R1 000' },
-        { value: '1000-2000', label: 'R1 000 -- R2 000' },
+        { value: '500-1000', label: 'R500, R1 000' },
+        { value: '1000-2000', label: 'R1 000, R2 000' },
         { value: 'over-2000', label: 'Over R2 000' },
       ],
     },
@@ -262,9 +262,9 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       mapsTo: 'budget',
       options: [
         { value: 'under-10k', label: 'Under R10 000' },
-        { value: '10k-25k', label: 'R10 000 -- R25 000' },
-        { value: '25k-50k', label: 'R25 000 -- R50 000' },
-        { value: '50k-100k', label: 'R50 000 -- R100 000' },
+        { value: '10k-25k', label: 'R10 000, R25 000' },
+        { value: '25k-50k', label: 'R25 000, R50 000' },
+        { value: '50k-100k', label: 'R50 000, R100 000' },
         { value: 'over-100k', label: 'Over R100 000' },
       ],
     },

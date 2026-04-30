@@ -441,7 +441,7 @@ function EmailAutomationSettings() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-1">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">Automation Rules <InfoTooltip content={"One rule per trigger -- quote sent, follow-up, reminder, and so on.\n\nPick a rule on the left to edit its template."} /></CardTitle>
+                  <CardTitle className="flex items-center gap-2">Automation Rules <InfoTooltip content={"One rule per trigger, quote sent, follow-up, reminder, and so on.\n\nPick a rule on the left to edit its template."} /></CardTitle>
                   <CardDescription>
                     Select a rule to edit
                   </CardDescription>

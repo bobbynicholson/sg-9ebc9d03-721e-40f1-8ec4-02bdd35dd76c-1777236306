@@ -73,7 +73,7 @@ export function PortalPagePlaceholder({
             <CardHeader>
               <CardTitle>What's shipping in this view</CardTitle>
               <CardDescription>
-                The data layer is wired -- we're polishing the UI before it goes live.
+                The data layer is wired, we're polishing the UI before it goes live.
                 Expect this page in the next round of updates.
               </CardDescription>
             </CardHeader>

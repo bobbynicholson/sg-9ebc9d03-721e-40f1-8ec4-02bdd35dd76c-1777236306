@@ -299,7 +299,7 @@ function AdminCalendar() {
                             )}
                           </div>
 
-                          {/* Event pills -- show up to 2 by name, then "+N" */}
+                          {/* Event pills, show up to 2 by name, then "+N" */}
                           <div className="mt-1 space-y-1">
                             {events.slice(0, 2).map((e: any) => {
                               const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;

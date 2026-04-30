@@ -271,7 +271,7 @@ export default function AdminQuoteDetail() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {/* Header card -- client + status + provenance */}
+              {/* Header card, client + status + provenance */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-start justify-between flex-wrap gap-3">
@@ -345,7 +345,7 @@ export default function AdminQuoteDetail() {
                 </CardContent>
               </Card>
 
-              {/* Menu items -- editable when draft, read-only otherwise */}
+              {/* Menu items, editable when draft, read-only otherwise */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -535,7 +535,7 @@ export default function AdminQuoteDetail() {
                 </CardContent>
               </Card>
 
-              {/* Notes -- editable when draft */}
+              {/* Notes, editable when draft */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-lg">Internal notes</CardTitle>

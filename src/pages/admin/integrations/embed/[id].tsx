@@ -470,7 +470,7 @@ export default function EmbedFormCustomiser() {
                       <Calculator className="w-4 h-4 text-amber-500" /> Pricing tiers
                     </h3>
                     <p className="text-[11px] text-slate-500 -mt-1">
-                      Powers the live estimate on this template. Tiers are tenant-wide -- shared across all forms that use them.
+                      Powers the live estimate on this template. Tiers are tenant-wide, shared across all forms that use them.
                     </p>
                     {pricingTiers.length === 0 && (
                       <p className="text-xs text-slate-500 py-2">No tiers yet.</p>

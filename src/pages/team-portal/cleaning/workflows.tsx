@@ -26,7 +26,7 @@ const SOPS_BY_CATEGORY: Record<string, string[]> = {
     "Wash: hot water + degreaser, scrub all surfaces with soft brush",
     "Sanitise: food-safe sanitiser, contact time per label (typically 60-90 sec)",
     "Rinse: clean potable water, ensure no chemical residue remains",
-    "Dry: air-dry on rack, or microfibre cloth -- no shared towels",
+    "Dry: air-dry on rack, or microfibre cloth, no shared towels",
     "Inspect: check for chips/cracks/damage; flag broken items",
     "Store: rack or shelf for that category, lid up so water drains",
   ],
@@ -40,7 +40,7 @@ const SOPS_BY_CATEGORY: Record<string, string[]> = {
     "Reassemble and stack on chafing-dish shelf",
   ],
   glassware: [
-    "Pre-rinse: cold water only -- hot water cracks chilled glass",
+    "Pre-rinse: cold water only, hot water cracks chilled glass",
     "Wash: glass-detergent at 50C in dishwasher (not pot wash)",
     "Polish: lint-free microfibre, hold by base only, never push fingers in",
     "Inspect under light: chips on rim = bin",
@@ -72,7 +72,7 @@ const SOPS_BY_CATEGORY: Record<string, string[]> = {
     "Power down and empty (move stock to backup)",
     "Wipe shelves and walls with hot water + sanitiser, rinse",
     "Clean drip tray and door seals with detergent",
-    "Inspect seals for tears -- replace if compromised",
+    "Inspect seals for tears, replace if compromised",
     "Test temperature with calibrated probe at 4 corners (target 1-4C)",
     "Restock and label restart time",
   ],
@@ -156,7 +156,7 @@ export default function CleaningWorkflowsPage() {
               Cleaning Workflows
               <InfoTooltip content="Cleaning steps grouped by the type of equipment you have on file.\n\nEach card lists what to do before the item goes back into stock." />
             </h1>
-            <p className="text-sm text-slate-600 mt-1">Step-by-step SOPs per equipment category -- food-safety compliant</p>
+            <p className="text-sm text-slate-600 mt-1">Step-by-step SOPs per equipment category, food-safety compliant</p>
           </div>
 
           <Card className="mb-6">
@@ -194,7 +194,7 @@ export default function CleaningWorkflowsPage() {
                         <ShieldCheck className="h-5 w-5 text-cyan-600 flex-shrink-0" />
                         <div className="min-w-0 text-left">
                           <div className="font-semibold text-slate-900 capitalize">{cat}</div>
-                          <div className="text-xs text-slate-500">{list.length} items -- {sops.length} SOP step{sops.length === 1 ? "" : "s"}</div>
+                          <div className="text-xs text-slate-500">{list.length} items, {sops.length} SOP step{sops.length === 1 ? "" : "s"}</div>
                         </div>
                       </div>
                       {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRightIcon className="h-4 w-4 text-slate-400" />}

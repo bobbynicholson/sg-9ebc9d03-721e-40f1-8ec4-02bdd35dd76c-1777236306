@@ -121,7 +121,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
     return {
       bucket: "overdue",
       tone: "urgent",
-      label: `Close out -- ${Math.abs(daysToEvent ?? 0)}d past event`,
+      label: `Close out, ${Math.abs(daysToEvent ?? 0)}d past event`,
       reason: "Mark completed or update status",
       daysToEvent,
       isToday,
@@ -145,7 +145,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
     return {
       bucket: "live",
       tone: "warm",
-      label: "Delivered -- close out",
+      label: "Delivered, close out",
       reason: "Mark completed once event is over",
       daysToEvent,
       isToday,
@@ -159,7 +159,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: "Assign driver -- TODAY",
+        label: "Assign driver, TODAY",
         reason: "Event is today and no driver is assigned",
         daysToEvent,
         isToday,
@@ -194,7 +194,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: `Assign driver -- ${daysToEvent}d to event`,
+        label: `Assign driver, ${daysToEvent}d to event`,
         reason: "No driver assigned and event is imminent",
         daysToEvent,
         isToday,
@@ -205,7 +205,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: `Chase payment -- ${daysToEvent}d to event`,
+        label: `Chase payment, ${daysToEvent}d to event`,
         reason: "Balance not settled and event is imminent",
         daysToEvent,
         isToday,
@@ -215,7 +215,7 @@ export function deriveOrderIntelligence(o: any): OrderIntelligence {
     return {
       bucket: "today",
       tone: "warm",
-      label: `Final pre-event check -- ${daysToEvent}d`,
+      label: `Final pre-event check, ${daysToEvent}d`,
       reason: "Confirm equipment, route, contact",
       daysToEvent,
       isToday,

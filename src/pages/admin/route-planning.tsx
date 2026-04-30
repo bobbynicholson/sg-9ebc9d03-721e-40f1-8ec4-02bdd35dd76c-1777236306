@@ -602,7 +602,7 @@ export default function RoutePlanning() {
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
                     Driver Routes
-                    <InfoTooltip content={"One card per route. Click Apply to lock the route in -- the driver gets a notification and the orders move to their portal."} />
+                    <InfoTooltip content={"One card per route. Click Apply to lock the route in, the driver gets a notification and the orders move to their portal."} />
                   </CardTitle>
                   <CardDescription>
                     {filteredRoutes.length} optimised route{filteredRoutes.length === 1 ? "" : "s"}

@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({
-        error: "AI receipt scanning is not configured -- set ANTHROPIC_API_KEY on the server.",
+        error: "AI receipt scanning is not configured, set ANTHROPIC_API_KEY on the server.",
       });
     }
 
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (collected.length > MAX_FILES) {
       return res.status(413).json({
-        error: `Too many images -- ${collected.length}. Cap is ${MAX_FILES} per upload.`,
+        error: `Too many images, ${collected.length}. Cap is ${MAX_FILES} per upload.`,
       });
     }
 
@@ -99,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       if (f.size > MAX_BYTES) {
         return res.status(413).json({
-          error: `Image too large -- ${(f.size / 1024 / 1024).toFixed(1)} MB. Cap is ${MAX_BYTES / 1024 / 1024} MB per image.`,
+          error: `Image too large, ${(f.size / 1024 / 1024).toFixed(1)} MB. Cap is ${MAX_BYTES / 1024 / 1024} MB per image.`,
         });
       }
     }

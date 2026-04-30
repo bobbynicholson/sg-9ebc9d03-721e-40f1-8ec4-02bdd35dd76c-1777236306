@@ -117,7 +117,7 @@ function PlatformFinancialDashboard() {
                 </h1>
                 <p className="text-sm text-slate-600 mt-0.5">
                   CateringMS's own revenue across every catering company on the platform.
-                  This is NOT a tenant view -- per-tenant books live on /admin/financial-dashboard.
+                  This is NOT a tenant view, per-tenant books live on /admin/financial-dashboard.
                 </p>
               </div>
             </div>
@@ -220,7 +220,7 @@ function PlatformFinancialDashboard() {
 
           <p className="text-[11px] text-slate-400 mt-4">
             Pricing tiers + invoice-level MRR breakdown live behind the Pricing and Subscriptions pages in the sidebar.
-            Voiding a leaky shortcut here meant rebuilding this view from scratch -- {fmtR(0)} of cross-tenant data leaked while it was wrong.
+            Voiding a leaky shortcut here meant rebuilding this view from scratch, {fmtR(0)} of cross-tenant data leaked while it was wrong.
           </p>
         </div>
       </div>

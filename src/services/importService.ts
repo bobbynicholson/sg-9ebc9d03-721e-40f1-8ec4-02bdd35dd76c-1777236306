@@ -243,7 +243,7 @@ export async function rollbackImportJob(
   if (!job) throw new Error("Import job not found");
   if (job.status === "rolled_back") return { clientsDeleted: 0, ordersDeleted: 0 };
   if (job.status !== "completed") {
-    throw new Error(`Cannot roll back a job in status '${job.status}' -- only 'completed'`);
+    throw new Error(`Cannot roll back a job in status '${job.status}', only 'completed'`);
   }
 
   // Orders first (they FK clients); clients second.

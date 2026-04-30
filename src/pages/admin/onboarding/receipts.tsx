@@ -397,7 +397,7 @@ function ReceiptsImportPage() {
 
               {jobId && (
                 <p className="text-[11px] text-slate-500 text-center pt-2">
-                  Job ID <code className="font-mono">{jobId}</code> -- visible on{" "}
+                  Job ID <code className="font-mono">{jobId}</code>, visible on{" "}
                   <Link
                     href={`${slugPrefix}/admin/onboarding`}
                     className="underline hover:text-slate-700"

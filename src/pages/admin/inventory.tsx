@@ -2058,7 +2058,7 @@ function ItemForm({
         </select>
         {suppliers.length === 0 && (
           <p className="text-[11px] text-slate-500 mt-1">
-            No suppliers yet -- add them in Shopping &gt; Suppliers, then come back here to link.
+            No suppliers yet, add them in Shopping &gt; Suppliers, then come back here to link.
           </p>
         )}
       </div>

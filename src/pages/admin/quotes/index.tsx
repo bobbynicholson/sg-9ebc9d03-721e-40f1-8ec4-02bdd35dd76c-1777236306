@@ -403,7 +403,7 @@ export default function AdminQuotes() {
           </div>
 
           {/*
-            Smart filter pills -- mirrors the Clients CRM pattern. Each
+            Smart filter pills, mirrors the Clients CRM pattern. Each
             pill shows a live count so the team sees at a glance how
             many quotes need their attention. Click to narrow the list.
           */}
@@ -456,7 +456,7 @@ export default function AdminQuotes() {
             const handleBulkNudge = () => {
               const targets = eligible.slice(0, cap);
               const ok = window.confirm(
-                `Open ${cap} Gmail drafts to nudge these clients?\nEach draft is tailored from the quote's status -- you review every one before sending. The remaining ${Math.max(eligible.length - cap, 0)} will need a second pass.`,
+                `Open ${cap} Gmail drafts to nudge these clients?\nEach draft is tailored from the quote's status, you review every one before sending. The remaining ${Math.max(eligible.length - cap, 0)} will need a second pass.`,
               );
               if (!ok) return;
               targets.forEach((rs, i) => {
@@ -489,7 +489,7 @@ export default function AdminQuotes() {
               <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
                 <div className="text-sm text-amber-900">
                   <span className="font-medium">{eligible.length}</span> {bucket === "stale" ? "stale " : bucket === "action_needed" ? "action " : "in-play "}
-                  quote{eligible.length === 1 ? "" : "s"} with a client email -- send personal nudges?
+                  quote{eligible.length === 1 ? "" : "s"} with a client email, send personal nudges?
                 </div>
                 <Button
                   size="sm"
@@ -564,7 +564,7 @@ export default function AdminQuotes() {
                 const auto = rs.autoEmail;
                 const canCompose = !!quote.client_email && quote.status !== "draft";
                 const composeHint = !quote.client_email
-                  ? "No email on this quote -- add one to enable compose"
+                  ? "No email on this quote, add one to enable compose"
                   : quote.status === "draft"
                     ? "Send the quote first, then you can follow up"
                     : "Open a follow-up draft in Gmail / Outlook / mail app";
@@ -604,7 +604,7 @@ export default function AdminQuotes() {
                               {quote.status}
                             </Badge>
                             {/*
-                              "New client request" pill -- shown when
+                              "New client request" pill, shown when
                               the quote was submitted by the client via
                               their portal. Pricing isn't set yet, the
                               team needs to open and price it.
@@ -628,7 +628,7 @@ export default function AdminQuotes() {
                           </div>
 
                           {/*
-                            Suggested-action strip -- the headline
+                            Suggested-action strip, the headline
                             intelligence row. Tone colour matches the
                             urgency of the action: red urgent, amber
                             warm, slate neutral.
@@ -643,7 +643,7 @@ export default function AdminQuotes() {
                             <ArrowRight className="w-4 h-4 flex-shrink-0" />
                             <span>{intel.label}</span>
                             <span className="font-normal text-xs text-slate-500">
-                              -- {intel.reason}
+                             , {intel.reason}
                             </span>
                           </div>
 
@@ -701,7 +701,7 @@ export default function AdminQuotes() {
                           </div>
 
                           {/*
-                            Diary signal -- "do we have a gap that day?"
+                            Diary signal, "do we have a gap that day?"
                             Pulled from confirmed orders + accepted
                             quotes for this company. The "Wide open"
                             and "Quiet" states surface a one-click
@@ -821,7 +821,7 @@ export default function AdminQuotes() {
         <Footer />
       </div>
 
-      {/* Compose drawer -- bigger default footprint and a drag handle on
+      {/* Compose drawer, bigger default footprint and a drag handle on
           the left edge so the team can pull it wider and use the proper
           screen real estate while drafting. The body textarea gets the
           extra space first via flex-grow. */}
@@ -854,10 +854,10 @@ export default function AdminQuotes() {
                   <span className="block mb-2">
                     This permanently removes <span className="font-medium text-slate-900">{deleteTarget.client_name}</span>
                     {deleteTarget.event_date && (
-                      <> -- event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
+                      <>, event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
                     )}
                     {deleteTarget.total != null && (
-                      <> -- {fmtMoney.format(deleteTarget.total)}</>
+                      <>, {fmtMoney.format(deleteTarget.total)}</>
                     )}.
                   </span>
                   <span className="block text-rose-600">
@@ -1085,7 +1085,7 @@ function QuoteComposeDrawer({
         </SheetDescription>
       </SheetHeader>
 
-      {/* Diary callout -- shown in both modes so the team knows why
+      {/* Diary callout, shown in both modes so the team knows why
           they're sending this email. Picks up the same tone classes
           as the inline chip on the row. */}
       {quote.event_date && (
@@ -1225,13 +1225,13 @@ function QuoteComposeDrawer({
             />
             <p className="text-[11px] text-slate-500 mt-1">
               {mode === "sweetener"
-                ? "Tweak the offer above and the body refreshes -- once you start typing here we keep your wording."
-                : "Edit freely -- the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
+                ? "Tweak the offer above and the body refreshes, once you start typing here we keep your wording."
+                : "Edit freely, the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
             </p>
           </div>
         </div>
 
-        {/* Quote summary -- right rail at xl+, stacked above the form
+        {/* Quote summary, right rail at xl+, stacked above the form
             on narrower drawers so it never gets squeezed. */}
         <Card className="border-0 shadow-sm bg-slate-50 xl:order-last order-first xl:sticky xl:top-2 xl:self-start">
           <CardContent className="py-4 px-4 text-xs space-y-2">
@@ -1272,7 +1272,7 @@ function QuoteComposeDrawer({
 
       <div className="space-y-4 mt-6">
 
-        {/* Action buttons -- four side by side at xl+, two at smaller. */}
+        {/* Action buttons, four side by side at xl+, two at smaller. */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
           <Button
             variant="default"

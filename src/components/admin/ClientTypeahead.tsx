@@ -150,7 +150,7 @@ export function ClientTypeahead({
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500 flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5" />
-              No match in your records yet -- this will create a new client.
+              No match in your records yet, this will create a new client.
             </div>
           ) : (
             <>

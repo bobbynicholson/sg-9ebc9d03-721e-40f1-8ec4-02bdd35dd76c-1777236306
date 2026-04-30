@@ -93,7 +93,7 @@ export default function ShoppingSettingsPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-emerald-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created -- receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-emerald-600" />Purchase runs <InfoTooltip content="Defaults used when a new shopping list is created, receipts, auto-generation window, lead time.\n\nSaved on this device only." /></CardTitle>
                 <CardDescription>Defaults for shopping lists and procurement runs</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -170,7 +170,7 @@ export default function ShoppingSettingsPage() {
 
             <Card className="bg-slate-50 border-slate-200">
               <CardContent className="p-4 text-xs text-slate-600">
-                Settings stored locally per company until a per-tenant settings table lands. Toggles persist on this device but won't sync across the team yet -- on the running todo for Phase 2.
+                Settings stored locally per company until a per-tenant settings table lands. Toggles persist on this device but won't sync across the team yet, on the running todo for Phase 2.
               </CardContent>
             </Card>
           </div>

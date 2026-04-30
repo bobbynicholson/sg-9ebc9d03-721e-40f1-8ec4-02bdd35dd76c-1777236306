@@ -119,7 +119,7 @@ export default function ShoppingKitchenDemandPage() {
 
   return (
     <>
-      <Head><title>Kitchen Demand -- Shopping</title></Head>
+      <Head><title>Kitchen Demand, Shopping</title></Head>
       <NoIndexMeta />
       <ShoppingNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -134,7 +134,7 @@ export default function ShoppingKitchenDemandPage() {
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Kitchen demand
-                  <InfoTooltip content="What the kitchen needs to cook every confirmed order in your selected window, aggregated across all bookings.\n\nRecipes power the math -- if a menu item has no recipe attached, its ingredients won't appear here. Owner adds recipes in /admin/menu." />
+                  <InfoTooltip content="What the kitchen needs to cook every confirmed order in your selected window, aggregated across all bookings.\n\nRecipes power the math, if a menu item has no recipe attached, its ingredients won't appear here. Owner adds recipes in /admin/menu." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
                   Aggregated ingredient need from confirmed orders in the next {horizon} days.
@@ -229,7 +229,7 @@ export default function ShoppingKitchenDemandPage() {
                   {demand.length === 0
                     ? "No kitchen demand in this window"
                     : shortfallOnly
-                      ? "No shortfalls -- the kitchen is covered for this window"
+                      ? "No shortfalls, the kitchen is covered for this window"
                       : "No matches"}
                 </p>
                 <p className="text-sm text-slate-500 mt-1">
@@ -290,14 +290,14 @@ export default function ShoppingKitchenDemandPage() {
                                 </span>
                               )}
                             </div>
-                            {/* Top 3 events feeding this ingredient -- helps shopping understand
+                            {/* Top 3 events feeding this ingredient, helps shopping understand
                                 why we need it. */}
                             {d.used_by && d.used_by.length > 0 && (
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 {d.used_by.slice(0, 3).map((u, ui) => (
                                   <span key={`${u.order_id}-${ui}`} className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 inline-flex items-center gap-1">
                                     <Calendar className="w-2.5 h-2.5" />
-                                    {u.event_date} -- {u.client_name || "client"} ({u.qty} {d.unit})
+                                    {u.event_date}, {u.client_name || "client"} ({u.qty} {d.unit})
                                   </span>
                                 ))}
                                 {d.used_by.length > 3 && (
@@ -324,7 +324,7 @@ export default function ShoppingKitchenDemandPage() {
 
           {/* Helper line */}
           <p className="text-xs text-slate-500 mt-4 text-center">
-            Demand math comes from menu item recipes -- if something's missing, ask the owner to attach a recipe in
+            Demand math comes from menu item recipes, if something's missing, ask the owner to attach a recipe in
             <Link href="/admin/menu" className="text-emerald-700 hover:text-emerald-800 ml-1 underline">/admin/menu</Link>.
           </p>
         </div>

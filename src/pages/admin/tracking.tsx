@@ -231,7 +231,7 @@ export default function AdminTracking() {
             }
             const risk = computeRiskScore({
               marginMinutes,
-              lastPingAgeMinutes: 0, // ping just landed -- by definition fresh
+              lastPingAgeMinutes: 0, // ping just landed, by definition fresh
               driverLoadToday: null,
               hasDriverPin: true,
               status: o.status ?? null,
@@ -553,7 +553,7 @@ export default function AdminTracking() {
                       <div className="space-y-2">
                         {filteredOrders.length === 0 ? (
                           <p className="text-sm text-slate-600 text-center py-8">
-                            All clear -- nothing in motion right now.
+                            All clear, nothing in motion right now.
                           </p>
                         ) : (
                           filteredOrders.map((order) => {

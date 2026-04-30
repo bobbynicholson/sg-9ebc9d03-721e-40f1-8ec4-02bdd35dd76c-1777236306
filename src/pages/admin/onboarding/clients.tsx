@@ -274,7 +274,7 @@ function ClientImportPage() {
         title: `${j.imported} client${j.imported === 1 ? "" : "s"} imported`,
         description: j.skipped
           ? `${j.skipped} already on file, skipped.`
-          : "All clean -- straight in.",
+          : "All clean, straight in.",
       });
       setRows([]);
     } catch (e: any) {
@@ -288,7 +288,7 @@ function ClientImportPage() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Easy client list import -- CateringMS</title>
+        <title>Easy client list import, CateringMS</title>
       </Head>
 
       <AdminNav />
@@ -327,7 +327,7 @@ function ClientImportPage() {
                   <h2 className="font-semibold text-slate-900">Upload a file</h2>
                 </div>
                 <p className="text-xs text-slate-500 mb-3">
-                  CSV, TSV or XLSX. First row should be headers (Name, Surname, Email, Phone) -- or
+                  CSV, TSV or XLSX. First row should be headers (Name, Surname, Email, Phone), or
                   just paste data with no headers, we'll guess column order.
                 </p>
                 <Input

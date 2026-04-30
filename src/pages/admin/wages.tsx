@@ -238,7 +238,7 @@ function WageDashboardPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-      <Head><title>Wage Dashboard -- CateringMS</title></Head>
+      <Head><title>Wage Dashboard, CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -253,7 +253,7 @@ function WageDashboardPage() {
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Wage Dashboard
-                  <InfoTooltip content="Hours x rates roll-up for the kitchen team. Standard hours are anything within the staffer's daily threshold (default 9h, BCEA ordinary day). Anything over is overtime at 1.5x by default.\n\nThis page is the only place rand values are visible -- the kitchen tablet shows hours only." />
+                  <InfoTooltip content="Hours x rates roll-up for the kitchen team. Standard hours are anything within the staffer's daily threshold (default 9h, BCEA ordinary day). Anything over is overtime at 1.5x by default.\n\nThis page is the only place rand values are visible, the kitchen tablet shows hours only." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
                   Hours and wages, owner-only. The kitchen team never sees rates.

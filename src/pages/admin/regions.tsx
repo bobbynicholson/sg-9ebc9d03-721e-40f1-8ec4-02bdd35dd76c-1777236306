@@ -405,7 +405,7 @@ function RegionsPage() {
                         <div><span className="font-medium text-slate-700">Manager:</span> {region.manager.full_name} ({region.manager.email})</div>
                       )}
                       {(region.operating_hours_start || region.operating_hours_end) && (
-                        <div><span className="font-medium text-slate-700">Hours:</span> {region.operating_hours_start} -- {region.operating_hours_end}</div>
+                        <div><span className="font-medium text-slate-700">Hours:</span> {region.operating_hours_start}, {region.operating_hours_end}</div>
                       )}
                       <div><span className="font-medium text-slate-700">Currency:</span> {region.currency} &nbsp;<span className="font-medium text-slate-700">Timezone:</span> {region.timezone}</div>
                       <div><span className="font-medium text-slate-700">Delivery radius:</span> {region.delivery_radius_km} km</div>
@@ -490,7 +490,7 @@ function RegionsPage() {
                   }));
                 }}
                 placeholder="Search this branch's kitchen address"
-                hint="Pick from the dropdown to lock the precise pin -- drivers in this region navigate from here."
+                hint="Pick from the dropdown to lock the precise pin, drivers in this region navigate from here."
               />
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
                 <strong>Important:</strong> drivers assigned to this region see this address as their navigation start point.

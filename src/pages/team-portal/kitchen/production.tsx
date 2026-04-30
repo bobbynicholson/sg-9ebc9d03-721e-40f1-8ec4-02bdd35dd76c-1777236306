@@ -255,12 +255,12 @@ export default function KitchenProductionPage() {
               <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
                 <Calendar className="h-6 w-6 text-orange-600" />
                 Production timeline
-                <InfoTooltip content="Day view shows every prep task placed on a station-by-hour grid -- you can see at a glance what the kitchen is on at any moment. Week view groups orders by day." />
+                <InfoTooltip content="Day view shows every prep task placed on a station-by-hour grid, you can see at a glance what the kitchen is on at any moment. Week view groups orders by day." />
               </h1>
               <p className="text-sm text-slate-600 mt-1">
                 {view === "day"
                   ? fmtFullDay(anchor)
-                  : `Week of ${fmtFullDay(anchor)} -- ${fmtDay(addDays(anchor, 6))}`}
+                  : `Week of ${fmtFullDay(anchor)}, ${fmtDay(addDays(anchor, 6))}`}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -546,8 +546,8 @@ export default function KitchenProductionPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-orange-500" />
-                    <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recipe accuracy -- last 30 days</h2>
-                    <InfoTooltip content="Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on -- treat single-digit samples as early signal, not gospel." />
+                    <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recipe accuracy, last 30 days</h2>
+                    <InfoTooltip content="Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on, treat single-digit samples as early signal, not gospel." />
                   </div>
                   <span className="text-xs text-slate-500">{recipeAccuracy.length} recipe{recipeAccuracy.length === 1 ? "" : "s"}</span>
                 </div>

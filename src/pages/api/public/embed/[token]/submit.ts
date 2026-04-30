@@ -110,7 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!result.ok) {
       return res.status(200).json({
         ok: false,
-        message: "Challenge failed -- please refresh and try again",
+        message: "Challenge failed, please refresh and try again",
       });
     }
     if (typeof result.score === "number") {
@@ -118,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } else {
     console.warn(
-      "[embed/submit] TURNSTILE_SECRET_KEY not set -- skipping challenge verification"
+      "[embed/submit] TURNSTILE_SECRET_KEY not set, skipping challenge verification"
     );
   }
 
@@ -285,6 +285,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     leadId: leadRow.id,
     redirectUrl: form.redirect_url || null,
     message:
-      form.success_message || "Thanks -- we'll be in touch shortly.",
+      form.success_message || "Thanks, we'll be in touch shortly.",
   });
 }

@@ -486,7 +486,7 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
-          {/* Next pickup -- plain English, no T-minus codes. Tells the chef:
+          {/* Next pickup, plain English, no T-minus codes. Tells the chef:
               when (day + 24h time), how far away in normal language, what
               event, who for, and a one-word status word so urgency is read
               at a glance instead of decoded. */}
@@ -526,7 +526,7 @@ export default function KitchenDashboard() {
                     </p>
                     <p className="text-sm text-slate-600 mt-1 truncate">
                       <span className="font-medium text-slate-700">{nextPickup.eventName}</span>
-                      {nextPickup.client && <span className="text-slate-500"> -- {nextPickup.client}</span>}
+                      {nextPickup.client && <span className="text-slate-500">, {nextPickup.client}</span>}
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">{away}</p>
                   </div>
@@ -545,7 +545,7 @@ export default function KitchenDashboard() {
                 <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-700">
                   <Calendar className="w-4 h-4 text-orange-500" />
                   What's coming up
-                  <InfoTooltip content="Confirmed orders for the next two days. Not yet in the active board -- this is your prep-ahead heads-up." />
+                  <InfoTooltip content="Confirmed orders for the next two days. Not yet in the active board, this is your prep-ahead heads-up." />
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 sm:px-4 md:px-6 pb-4">
@@ -586,7 +586,7 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
-          {/* Active orders -- kanban (Confirmed / In prep / Ready) */}
+          {/* Active orders, kanban (Confirmed / In prep / Ready) */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="px-3 sm:px-4 md:px-6">
               <CardTitle className="text-base sm:text-lg md:text-xl flex items-center gap-2">
@@ -709,7 +709,7 @@ export default function KitchenDashboard() {
                                   </p>
                                 )}
 
-                                {/* Mark ready -- one click, only when In prep */}
+                                {/* Mark ready, one click, only when In prep */}
                                 {col.key === "preparing" && (
                                   <Button
                                     size="sm"
@@ -742,7 +742,7 @@ export default function KitchenDashboard() {
                                     return (
                                       <div className="mt-2 text-[11px] font-semibold text-red-800 bg-red-100 border border-red-300 rounded px-2 py-1 inline-flex items-center gap-1">
                                         <AlertTriangle className="w-3 h-3" />
-                                        Hot {hold.holdMin}m -- past {maxHotHoldMin}m hold
+                                        Hot {hold.holdMin}m, past {maxHotHoldMin}m hold
                                       </div>
                                     );
                                   }
@@ -750,7 +750,7 @@ export default function KitchenDashboard() {
                                     <p className={`mt-2 text-[11px] font-medium inline-flex items-center gap-1 ${
                                       hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700" : "text-emerald-700"
                                     }`}>
-                                      <Truck className="w-3 h-3" />Waiting {hold.holdMin}m -- pickup soon
+                                      <Truck className="w-3 h-3" />Waiting {hold.holdMin}m, pickup soon
                                     </p>
                                   );
                                 })()}
@@ -789,7 +789,7 @@ export default function KitchenDashboard() {
       {/* AI Chatbot */}
       <ChatBot userRole="kitchen" companyId={user?.company_id} />
 
-      {/* Allergen safety gate -- blocks Mark Ready if dietary requirements
+      {/* Allergen safety gate, blocks Mark Ready if dietary requirements
           collide with an item's allergen codes. Forces a deliberate override
           that's audit-stamped on the prep tasks. */}
       <AlertDialog open={!!allergenDialog} onOpenChange={(open) => { if (!open) setAllergenDialog(null); }}>
@@ -797,7 +797,7 @@ export default function KitchenDashboard() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-700">
               <AlertTriangle className="h-5 w-5" />
-              Allergen warning -- check before serving
+              Allergen warning, check before serving
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm">
@@ -823,7 +823,7 @@ export default function KitchenDashboard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel -- recheck</AlertDialogCancel>
+            <AlertDialogCancel>Cancel, recheck</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
               onClick={() => {
@@ -834,7 +834,7 @@ export default function KitchenDashboard() {
                 }
               }}
             >
-              I have checked -- mark ready anyway
+              I have checked, mark ready anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

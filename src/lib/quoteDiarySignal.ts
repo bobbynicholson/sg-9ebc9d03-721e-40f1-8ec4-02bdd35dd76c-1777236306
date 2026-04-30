@@ -123,7 +123,7 @@ export function computeDiarySignal(
 
   if (sameDay.length >= 2) {
     status = "stacked";
-    headline = `Stacked -- ${sameDay.length} bookings same day`;
+    headline = `Stacked, ${sameDay.length} bookings same day`;
     detail = sameDay.slice(0, 3).map((e) => e.label).join(", ");
   } else if (sameDay.length === 1) {
     status = "one_booking";
@@ -133,7 +133,7 @@ export function computeDiarySignal(
   } else if (nearby.length === 0) {
     status = "wide_open";
     headline = "Wide-open day";
-    detail = "Nothing booked within 2 days -- ideal candidate for a sweetener.";
+    detail = "Nothing booked within 2 days, ideal candidate for a sweetener.";
   } else if (nearby.length <= 2) {
     status = "quiet";
     headline = "Quiet day";

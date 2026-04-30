@@ -203,7 +203,7 @@ export default function KitchenPrepListPage() {
   const handleAddToShoppingList = (d: IngredientDemand) => {
     toast({
       title: "Added to shopping list",
-      description: `${d.shortfall} ${d.unit} ${d.name} -- procurement will see this on the shopping page.`,
+      description: `${d.shortfall} ${d.unit} ${d.name}, procurement will see this on the shopping page.`,
     });
   };
 
@@ -267,7 +267,7 @@ export default function KitchenPrepListPage() {
             </div>
           </div>
 
-          {/* Aggregated shortfall banner -- Phase 3 wires the one-click
+          {/* Aggregated shortfall banner, Phase 3 wires the one-click
               "create shopping list" path so the chef never has to retype it. */}
           {!aggregatedLoading && shortfallCount > 0 && (
             <Card className="border-red-300 bg-red-50/40 shadow-sm mb-5">
@@ -505,7 +505,7 @@ export default function KitchenPrepListPage() {
                               </div>
                             </div>
                             {/*
-                              Equipment to pack -- pulled from
+                              Equipment to pack, pulled from
                               orders.equipment_items jsonb. Sales
                               writes this on the quote, it persists
                               through the quote->order conversion, the
@@ -552,7 +552,7 @@ export default function KitchenPrepListPage() {
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5 flex items-center gap-1">
                                 Ingredients to pull
-                                <InfoTooltip content="Quantity for this order, scaled to the guest count.\n\nA red warning is a real shortfall once you account for every other order using the same ingredient -- not just this one." />
+                                <InfoTooltip content="Quantity for this order, scaled to the guest count.\n\nA red warning is a real shortfall once you account for every other order using the same ingredient, not just this one." />
                               </p>
                               <ul className="text-sm divide-y divide-slate-100">
                                 {ingredients.map((ing) => {

@@ -226,7 +226,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
               </div>
             </div>
 
-            {/* What to load -- pulled from orders.equipment_items + menu_items.
+            {/* What to load, pulled from orders.equipment_items + menu_items.
                 Sales captured this in the quote, it persisted through the
                 quote -> order conversion, the kitchen sees it on prep-list,
                 the driver sees it here. */}

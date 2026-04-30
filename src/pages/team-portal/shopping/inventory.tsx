@@ -166,7 +166,7 @@ export default function ShoppingInventoryPage() {
                 <Warehouse className="h-7 w-7 text-emerald-600" />
                 Current Stock
               </h1>
-              <p className="text-sm text-slate-600 mt-1">Live inventory levels -- click any row to adjust stock with an audit entry</p>
+              <p className="text-sm text-slate-600 mt-1">Live inventory levels, click any row to adjust stock with an audit entry</p>
             </div>
           </div>
 
@@ -299,7 +299,7 @@ export default function ShoppingInventoryPage() {
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
-                          <div className="text-xs text-slate-500 mt-0.5">{i.category ?? "--"}{i.sku ? ` -- SKU ${i.sku}` : ""}</div>
+                          <div className="text-xs text-slate-500 mt-0.5">{i.category ?? "--"}{i.sku ? `, SKU ${i.sku}` : ""}</div>
                           <div className="mt-2 flex items-center gap-2">
                             <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
                             <span className="text-sm tabular-nums">
@@ -325,7 +325,7 @@ export default function ShoppingInventoryPage() {
           <DialogHeader>
             <DialogTitle>Adjust stock</DialogTitle>
             <DialogDescription>
-              {editing && `${editing.item_name} -- currently ${Number(editing.current_stock ?? 0)} ${editing.unit_of_measure}`}
+              {editing && `${editing.item_name}, currently ${Number(editing.current_stock ?? 0)} ${editing.unit_of_measure}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

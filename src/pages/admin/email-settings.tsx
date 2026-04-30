@@ -241,7 +241,7 @@ function EmailSettingsPage() {
             <div>
               <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2 flex-wrap">
                 Email & Integrations
-                <InfoTooltip content={"How CateringMS sends mail on your behalf -- Gmail, Microsoft 365, or your own SMTP server -- plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
+                <InfoTooltip content={"How CateringMS sends mail on your behalf, Gmail, Microsoft 365, or your own SMTP server, plus the daily send cap on your plan.\n\nDirect-send through your inbox is still being wired up; compose-link send works today."} />
               </h1>
               <p className="text-sm sm:text-base text-slate-600 mt-1">
                 Send personal mail through your own inbox. Plug in Mailchimp for bulk.
@@ -356,7 +356,7 @@ function EmailSettingsPage() {
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                         <span className="text-sm text-amber-800">
-                          Not connected yet -- click below to authorise.
+                          Not connected yet, click below to authorise.
                         </span>
                       </div>
                       <Button
@@ -439,7 +439,7 @@ function EmailSettingsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-purple-600" />
                 Auto-attach client links
-                <InfoTooltip content={"Pick which moments automatically queue a client email with their secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here -- you can copy and send any draft from your own inbox in the meantime."} />
+                <InfoTooltip content={"Pick which moments automatically queue a client email with their secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here, you can copy and send any draft from your own inbox in the meantime."} />
               </CardTitle>
               <CardDescription>
                 Automatically include the client's tokenised order link when these things happen.
@@ -455,7 +455,7 @@ function EmailSettingsPage() {
                 <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <span>
-                    No provider connected yet. Toggles below queue drafts -- the catering admin can copy any
+                    No provider connected yet. Toggles below queue drafts, the catering admin can copy any
                     draft to send manually until SMTP/OAuth is connected, then the queue drains
                     automatically.
                   </span>

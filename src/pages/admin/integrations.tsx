@@ -320,7 +320,7 @@ function IntegrationsPage() {
                   <InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} />
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
-                  Connect CateringMS to Google Sheets, Slack, WhatsApp, Mailchimp -- anywhere Zapier reaches.
+                  Connect CateringMS to Google Sheets, Slack, WhatsApp, Mailchimp, anywhere Zapier reaches.
                 </p>
               </div>
             </div>
@@ -392,7 +392,7 @@ function IntegrationsPage() {
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
                   <p className="font-semibold text-slate-900 mb-1">Xero quote &rarr; CateringMS</p>
                   <p className="text-xs text-slate-600 mb-2">Zapier "New Xero Quote" &rarr; "Webhooks - POST" to <code className="bg-slate-100 px-1 rounded text-[11px] break-all">/api/integrations/quotes</code> with your API key.</p>
-                  <p className="text-[11px] text-slate-500">Idempotent on xero_quote_id -- safe to re-deliver.</p>
+                  <p className="text-[11px] text-slate-500">Idempotent on xero_quote_id, safe to re-deliver.</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
                   <p className="font-semibold text-slate-900 mb-1">Xero invoice paid &rarr; Order paid</p>
@@ -405,12 +405,12 @@ function IntegrationsPage() {
                   <li>Generate an API key below (scopes: leads:write, quotes:write, orders:read, invoices:write).</li>
                   <li>Open Zapier, sign in to both Xero and "Webhooks by Zapier".</li>
                   <li>Build the three Zaps using the recipe gallery cards below as templates.</li>
-                  <li>Fire test on each from your Zap editor and from the recipe card here -- both should turn green.</li>
+                  <li>Fire test on each from your Zap editor and from the recipe card here, both should turn green.</li>
                 </ol>
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-800">
                 <p className="font-semibold mb-1">One-click native Xero connect (coming soon)</p>
-                <p>We're building a "Sign in with Xero" OAuth flow that skips Zapier entirely. Until then the Zapier path above works end-to-end -- no Xero developer account needed on your side.</p>
+                <p>We're building a "Sign in with Xero" OAuth flow that skips Zapier entirely. Until then the Zapier path above works end-to-end, no Xero developer account needed on your side.</p>
               </div>
             </CardContent>
           </Card>
@@ -530,7 +530,7 @@ function IntegrationsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-emerald-600" />
                 Inbound API keys
-                <InfoTooltip content={"Use these to push data into CateringMS from anywhere -- Zapier, Make, your own scripts, Facebook Lead Ads.\n\nExample: a Lead Ads form fills, Zapier hits our leads endpoint with the API key, and a new lead drops into your pipeline."} />
+                <InfoTooltip content={"Use these to push data into CateringMS from anywhere, Zapier, Make, your own scripts, Facebook Lead Ads.\n\nExample: a Lead Ads form fills, Zapier hits our leads endpoint with the API key, and a new lead drops into your pipeline."} />
               </CardTitle>
               <CardDescription>
                 Push leads into CateringMS from Zapier, Make, your own scripts, or Facebook Lead Ads.
@@ -564,10 +564,10 @@ function IntegrationsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-emerald-900 mb-1 flex items-center gap-1.5">
-                        <Sparkles className="w-4 h-4" /> New API key -- copy it now
+                        <Sparkles className="w-4 h-4" /> New API key, copy it now
                       </p>
                       <p className="text-xs text-emerald-700 mb-2">
-                        We only show this once. Store it somewhere safe -- if you lose it, revoke and create a new one.
+                        We only show this once. Store it somewhere safe, if you lose it, revoke and create a new one.
                       </p>
                       <code className="block bg-white border border-emerald-200 rounded px-3 py-2 text-xs font-mono break-all">
                         {newKeyResult.rawKey}

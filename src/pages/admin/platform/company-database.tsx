@@ -729,7 +729,7 @@ export default function CompanyDatabasePage() {
                 <div>
                   <p className="text-sm text-slate-600 flex items-center gap-1.5">
                     Total Users
-                    <InfoTooltip content="Every user account across every tenant added together -- admins, kitchen, drivers and clients all included.\n\nA quick way to gauge overall platform usage." />
+                    <InfoTooltip content="Every user account across every tenant added together, admins, kitchen, drivers and clients all included.\n\nA quick way to gauge overall platform usage." />
                   </p>
                   <p className="text-3xl font-bold text-purple-600">
                     {companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}

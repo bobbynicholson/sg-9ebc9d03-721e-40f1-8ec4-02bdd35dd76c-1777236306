@@ -379,7 +379,7 @@ function SettingsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <InfoTooltip 
-                      content={"Connect a payment gateway so clients can pay online -- local and international options supported."}
+                      content={"Connect a payment gateway so clients can pay online, local and international options supported."}
                       side="left"
                       className="text-white hover:text-white/80"
                     />
@@ -417,7 +417,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Settings className="w-4 h-4 md:w-5 md:h-5" />
                     Company Information
-                    <InfoTooltip content={"Your display name, contact details, and kitchen location used in quotes and route planning.\n\nNote: there is a separate Company Profile page that holds the master record -- those values take priority."} />
+                    <InfoTooltip content={"Your display name, contact details, and kitchen location used in quotes and route planning.\n\nNote: there is a separate Company Profile page that holds the master record, those values take priority."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
@@ -470,7 +470,7 @@ function SettingsPage() {
                             if (pick.lng != null) updateSetting("company", "kitchenLng", pick.lng);
                           }}
                           placeholder="Search the kitchen / HQ address"
-                          hint="Pick from the list to lock the precise pin -- this is what Google Maps uses as the start point."
+                          hint="Pick from the list to lock the precise pin, this is what Google Maps uses as the start point."
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
@@ -510,7 +510,7 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Bell className="w-4 h-4 md:w-5 md:h-5" />
                     Notification Preferences
-                    <InfoTooltip content={"Toggle email and SMS alerts on a per-event basis -- new bookings, status changes, payments and so on."} />
+                    <InfoTooltip content={"Toggle email and SMS alerts on a per-event basis, new bookings, status changes, payments and so on."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6">

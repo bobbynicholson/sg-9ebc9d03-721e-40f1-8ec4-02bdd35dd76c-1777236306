@@ -72,7 +72,7 @@ const DEV_USERS = [
     email: "universalsportmags23@gmail.com",
     role: "client",
     label: "Client",
-    description: "Tollie Le Roux -- Tollies Marketing",
+    description: "Tollie Le Roux, Tollies Marketing",
     icon: Users,
     gradient: "from-blue-500 to-indigo-500",
   },
@@ -233,7 +233,7 @@ export default function LoginPage() {
                   Welcome Back
                 </CardTitle>
                 <CardDescription className="text-sm text-slate-600">
-                  Sign in -- we'll route you to your company portal
+                  Sign in, we'll route you to your company portal
                 </CardDescription>
               </div>
             </div>

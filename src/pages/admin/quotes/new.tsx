@@ -481,7 +481,7 @@ function NewQuotePage() {
       toast({
         title: "Client loaded",
         description: snap.recent_quotes.length
-          ? `${snap.recent_quotes.length} previous quote${snap.recent_quotes.length === 1 ? "" : "s"} -- use one as a template below.`
+          ? `${snap.recent_quotes.length} previous quote${snap.recent_quotes.length === 1 ? "" : "s"}, use one as a template below.`
           : "Form pre-filled.",
       });
     } catch (e: any) {
@@ -508,7 +508,7 @@ function NewQuotePage() {
         discountPct: 0,
       })),
     );
-    toast({ title: "Template applied", description: `${menu.length} lines -- tweak prices then save.` });
+    toast({ title: "Template applied", description: `${menu.length} lines, tweak prices then save.` });
   }, [guestCount, toast]);
 
   // ── Line item handlers ────────────────────────────────────────────
@@ -910,7 +910,7 @@ function NewQuotePage() {
                     Client + event
                   </CardTitle>
                   <CardDescription>
-                    Start typing -- we'll match against existing clients, leads and past quotes.
+                    Start typing, we'll match against existing clients, leads and past quotes.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1184,7 +1184,7 @@ function NewQuotePage() {
                               value={e.name}
                               onChange={(v) => updateEquip(e.id, { name: v })}
                               onPick={(pick) => applyEquipmentPick(e.id, pick)}
-                              placeholder="Search your catalog -- chafing dish, table, chair..."
+                              placeholder="Search your catalog, chafing dish, table, chair..."
                             />
                             {e.equipment_id && (
                               <div className="mt-1 text-[11px] text-blue-600 flex items-center gap-1">

@@ -146,7 +146,7 @@ export function ClientLinkButton({ orderId, companyId, compact, onGenerated }: P
             Share with the client
           </DialogTitle>
           <DialogDescription>
-            Generates a private link to this booking. No login needed -- the link is the access. Send it via WhatsApp, email, SMS, however you usually reach this client.
+            Generates a private link to this booking. No login needed, the link is the access. Send it via WhatsApp, email, SMS, however you usually reach this client.
           </DialogDescription>
         </DialogHeader>
 
@@ -227,7 +227,7 @@ export function ClientLinkButton({ orderId, companyId, compact, onGenerated }: P
         <div className="text-[11px] text-slate-500 bg-slate-50 rounded-md p-3 flex items-start gap-2">
           <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
           <span>
-            Tokens are stored hashed. The raw link is shown only at the moment of creation. Each link is scoped to <strong>this one order</strong> -- the client can't see anything else. Default expiry is 60 days.
+            Tokens are stored hashed. The raw link is shown only at the moment of creation. Each link is scoped to <strong>this one order</strong>, the client can't see anything else. Default expiry is 60 days.
           </span>
         </div>
       </DialogContent>

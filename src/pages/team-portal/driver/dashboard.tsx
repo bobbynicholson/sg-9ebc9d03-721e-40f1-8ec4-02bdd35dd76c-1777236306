@@ -612,7 +612,7 @@ export default function DriverDashboard() {
                           <span className="hidden sm:inline">Chat</span>
                         </Button>
 
-                        {/* Phase 5: Confirm delivery -- POD capture dialog */}
+                        {/* Phase 5: Confirm delivery, POD capture dialog */}
                         {!["delivered", "completed", "cancelled", "rejected"].includes(job.status) && (
                           <Button
                             size="sm"

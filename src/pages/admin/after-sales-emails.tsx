@@ -154,7 +154,7 @@ function AfterSalesEmailsPage() {
 
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3 px-4 pt-4">
-                <CardTitle className="text-sm md:text-base font-medium flex items-center gap-1">Active Templates <InfoTooltip content={"Templates currently switched on, toggled in the list below.\n\nChanges are not persisted yet -- they reset on refresh."} /></CardTitle>
+                <CardTitle className="text-sm md:text-base font-medium flex items-center gap-1">Active Templates <InfoTooltip content={"Templates currently switched on, toggled in the list below.\n\nChanges are not persisted yet, they reset on refresh."} /></CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <div className="text-2xl md:text-3xl font-bold text-green-600">{totalActiveEmails}</div>

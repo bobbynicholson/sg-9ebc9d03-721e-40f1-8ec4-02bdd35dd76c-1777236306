@@ -65,7 +65,7 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
     usesPricingTiers: false,
     defaultFields: [...baseContact, notes],
     defaultTheme: { primary_color: "#9333ea", layout: "single-column", button_radius: "medium" },
-    defaultSuccessMessage: "Thanks -- we'll be in touch within an hour.",
+    defaultSuccessMessage: "Thanks, we'll be in touch within an hour.",
   },
   {
     id: "modern-inline",
@@ -112,7 +112,7 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
       notes,
     ],
     defaultTheme: { primary_color: "#7c3aed", layout: "single-column", button_radius: "medium" },
-    defaultSuccessMessage: "Brilliant -- we have everything we need to put a tailored proposal together.",
+    defaultSuccessMessage: "Brilliant, we have everything we need to put a tailored proposal together.",
   },
   {
     id: "pricing-calculator",
@@ -174,7 +174,7 @@ export const EMBED_TEMPLATE_CATALOG: EmbedTemplateMeta[] = [
     id: "event-estimator",
     name: "Event Estimator",
     description: "Live total estimate as guest count + tier change",
-    blurb: "Like the calculator, but bigger -- great for landing pages.",
+    blurb: "Like the calculator, but bigger, great for landing pages.",
     usesPricingTiers: true,
     defaultFields: [
       ...baseContact,

@@ -42,7 +42,7 @@ interface DraftStaff {
   role_title: string;
   phone: string;
   email: string;
-  hourly_rate: string;          // text inputs -- parsed on submit
+  hourly_rate: string;          // text inputs, parsed on submit
   overtime_rate: string;
   standard_hours_per_day: string;
   notes: string;
@@ -184,7 +184,7 @@ function KitchenStaffPage() {
       setDialogOpen(false);
       load();
     } catch (e: any) {
-      setError(e?.message || "Could not save -- check your inputs.");
+      setError(e?.message || "Could not save, check your inputs.");
     } finally {
       setSaving(false);
     }
@@ -226,7 +226,7 @@ function KitchenStaffPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-      <Head><title>Kitchen Staff -- CateringMS</title></Head>
+      <Head><title>Kitchen Staff, CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -241,7 +241,7 @@ function KitchenStaffPage() {
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Kitchen Staff
-                  <InfoTooltip content="Add the people working in your kitchen, set their rates and standard daily hours.\n\nThe kitchen tablet board shows their tiles -- one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The kitchen surface never sees them." />
+                  <InfoTooltip content="Add the people working in your kitchen, set their rates and standard daily hours.\n\nThe kitchen tablet board shows their tiles, one tap to clock them in, one to clock out.\n\nRates and wages stay on this and the wage dashboard. The kitchen surface never sees them." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
                   Add staff, set hourly + overtime rates, choose the standard daily hours.

@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
     if (!job.mapping) {
-      return res.status(409).json({ error: "Mapping has not been generated yet -- run the map step first" });
+      return res.status(409).json({ error: "Mapping has not been generated yet, run the map step first" });
     }
 
     const rows = await listImportRows(jobId, { limit: 5000 });

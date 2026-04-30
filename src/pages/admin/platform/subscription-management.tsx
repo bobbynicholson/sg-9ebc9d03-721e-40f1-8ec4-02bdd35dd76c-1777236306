@@ -364,7 +364,7 @@ export default function PlatformSubscriptionManagement() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
                 In Trial
-                <InfoTooltip content="Companies still inside their free trial period.\n\nThey don't add to MRR yet -- conversion to paid is what matters here." />
+                <InfoTooltip content="Companies still inside their free trial period.\n\nThey don't add to MRR yet, conversion to paid is what matters here." />
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
@@ -533,7 +533,7 @@ export default function PlatformSubscriptionManagement() {
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-600" />
                 At Risk ({stats.pastDue})
-                <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly -- this is the window where churn usually happens." />
+                <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
               </CardTitle>
               <CardDescription>Subscriptions requiring attention</CardDescription>
             </CardHeader>

@@ -139,7 +139,7 @@ export default function CleaningSettingsPage() {
                 </div>
                 <div>
                   <Label htmlFor="cost-mult">Replacement cost multiplier</Label>
-                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Multiplier applied to base replacement_cost when billing -- e.g. 1.0 for cost, 1.5 to recover handling</p>
+                  <p className="text-xs text-slate-500 mt-0.5 mb-2">Multiplier applied to base replacement_cost when billing, e.g. 1.0 for cost, 1.5 to recover handling</p>
                   <Input id="cost-mult" type="number" step="0.01" min="0" value={settings.defaultReplacementCostMultiplier}
                     onChange={(e) => update("defaultReplacementCostMultiplier", Number(e.target.value))} className="w-32" />
                 </div>
@@ -182,7 +182,7 @@ export default function CleaningSettingsPage() {
 
             <Card className="bg-slate-50 border-slate-200">
               <CardContent className="p-4 text-xs text-slate-600">
-                Settings stored locally per company until a `companies.cleaning_settings` JSON column is added. Your toggles will persist on this device but won't sync to other staff devices yet -- this is on the running todo for Phase 2.
+                Settings stored locally per company until a `companies.cleaning_settings` JSON column is added. Your toggles will persist on this device but won't sync to other staff devices yet, this is on the running todo for Phase 2.
               </CardContent>
             </Card>
           </div>

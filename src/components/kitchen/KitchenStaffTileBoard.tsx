@@ -342,7 +342,7 @@ export function KitchenStaffTileBoard() {
             <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}>
               {onDutyCount} on duty
             </Badge>
-            <InfoTooltip content="Tap a person's tile to clock them in. Tap an on-shift tile to clock them out.\n\nLong-press (or tap the pencil) to back-date a clock-in or fix a missed clock-out -- a reason is required and gets stamped on the shift." />
+            <InfoTooltip content="Tap a person's tile to clock them in. Tap an on-shift tile to clock them out.\n\nLong-press (or tap the pencil) to back-date a clock-in or fix a missed clock-out, a reason is required and gets stamped on the shift." />
           </span>
           {staff.length > 0 && (
             <Link
@@ -395,7 +395,7 @@ export function KitchenStaffTileBoard() {
                   key={s.id}
                   className={`relative rounded-xl border-2 p-3 transition-all select-none ${tone}`}
                 >
-                  {/* Override pencil -- always visible top-right */}
+                  {/* Override pencil, always visible top-right */}
                   <button
                     type="button"
                     aria-label="Manual override"

@@ -94,7 +94,7 @@ export function normaliseAmount(raw: any): NormaliseResult<number> {
   if (!cleaned) return { value: null, warnings: [`"${s}" has no number`] };
   const n = parseFloat(cleaned);
   if (!Number.isFinite(n)) return { value: null, warnings: [`"${s}" is not a number`] };
-  if (n < 0) return { value: 0, warnings: [`"${s}" was negative -- clamped to 0`] };
+  if (n < 0) return { value: 0, warnings: [`"${s}" was negative, clamped to 0`] };
   return { value: n, warnings: [] };
 }
 
@@ -103,7 +103,7 @@ export function normaliseInt(raw: any): NormaliseResult<number> {
   if (raw == null || raw === "") return { value: null, warnings: [] };
   const n = parseInt(String(raw).replace(/[^\d-]/g, ""), 10);
   if (!Number.isFinite(n)) return { value: null, warnings: [`"${raw}" is not a number`] };
-  if (n < 0) return { value: 0, warnings: [`"${raw}" was negative -- clamped to 0`] };
+  if (n < 0) return { value: 0, warnings: [`"${raw}" was negative, clamped to 0`] };
   return { value: n, warnings: [] };
 }
 

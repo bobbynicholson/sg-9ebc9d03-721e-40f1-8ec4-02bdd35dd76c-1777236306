@@ -166,7 +166,7 @@ export default function KitchenMenuItemsPage() {
               <BookOpen className="h-7 w-7 text-orange-600" />
               Menu Items
             </h1>
-            <p className="text-sm text-slate-600 mt-1">Recipes the kitchen owns -- click any dish for ingredients and prep notes</p>
+            <p className="text-sm text-slate-600 mt-1">Recipes the kitchen owns, click any dish for ingredients and prep notes</p>
           </div>
 
           <Card className="mb-6">
@@ -195,7 +195,7 @@ export default function KitchenMenuItemsPage() {
             <div className="space-y-6">
               {Object.entries(grouped).map(([cat, list]) => (
                 <div key={cat}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat} -- {list.length}</h2>
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {list.map((i) => (
                       <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white rounded-lg border border-slate-200 hover:border-orange-300 hover:shadow-md transition overflow-hidden">
@@ -243,7 +243,7 @@ export default function KitchenMenuItemsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{selected?.item_name}</DialogTitle>
-            <DialogDescription>{selected?.category ?? ""}{selected?.base_price != null ? ` -- R ${Number(selected.base_price).toFixed(2)}` : ""}</DialogDescription>
+            <DialogDescription>{selected?.category ?? ""}{selected?.base_price != null ? `, R ${Number(selected.base_price).toFixed(2)}` : ""}</DialogDescription>
           </DialogHeader>
           {selected && (
             <div className="space-y-4 max-h-[70vh] overflow-y-auto">

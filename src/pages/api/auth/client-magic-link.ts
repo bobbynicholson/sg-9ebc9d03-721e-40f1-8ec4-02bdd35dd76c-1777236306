@@ -103,7 +103,7 @@ function buildEmailHtml(args: {
           <p style="margin:0 0 8px;font-size:13px;color:#94a3b8">If the button doesn't work, paste this URL in your browser:</p>
           <p style="margin:0 0 24px;font-size:12px;word-break:break-all;color:#475569">${args.magicLink}</p>
           <p style="margin:0;font-size:13px;line-height:1.6;color:#94a3b8">
-            If you didn't request this, you can ignore the email -- nothing was changed on your account.
+            If you didn't request this, you can ignore the email, nothing was changed on your account.
           </p>
         </td></tr>
         <tr><td style="padding:20px 28px;border-top:1px solid #e2e8f0;background:#f8fafc;font-size:12px;color:#94a3b8;line-height:1.5">
@@ -272,7 +272,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       process.env.DEV_RETURN_MAGIC_LINK === "1";
     if (devReturnLink) {
       console.warn(
-        "[client-magic-link] DEV_RETURN_MAGIC_LINK is on -- returning the magic link in the API response. UNSAFE for production.",
+        "[client-magic-link] DEV_RETURN_MAGIC_LINK is on, returning the magic link in the API response. UNSAFE for production.",
         { email: cleanEmail, slug: company.slug },
       );
       return res.status(200).json({

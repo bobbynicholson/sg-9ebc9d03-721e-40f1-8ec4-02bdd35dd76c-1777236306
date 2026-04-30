@@ -23,7 +23,7 @@ export function getServiceSupabase() {
 
   if (!url || !serviceKey) {
     throw new Error(
-      "Service-role Supabase credentials missing -- set SUPABASE_SERVICE_ROLE_KEY"
+      "Service-role Supabase credentials missing, set SUPABASE_SERVICE_ROLE_KEY"
     );
   }
 

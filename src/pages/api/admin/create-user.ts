@@ -63,7 +63,7 @@ export default async function handler(
       .single();
     if (callerProfileErr || !callerProfile) {
       return res.status(403).json({
-        error: "Caller profile not found -- contact support if this persists.",
+        error: "Caller profile not found, contact support if this persists.",
       });
     }
 
@@ -106,7 +106,7 @@ export default async function handler(
     } catch (e: any) {
       console.error("Service role client unavailable:", e);
       return res.status(500).json({
-        error: "Server is missing service-role credentials -- check SUPABASE_SERVICE_ROLE_KEY in env.",
+        error: "Server is missing service-role credentials, check SUPABASE_SERVICE_ROLE_KEY in env.",
       });
     }
 

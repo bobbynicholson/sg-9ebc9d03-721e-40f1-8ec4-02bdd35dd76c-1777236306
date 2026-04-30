@@ -139,7 +139,7 @@ export function Footer() {
                   <h4 className="text-lg font-semibold text-white">Booked an event?</h4>
                 </div>
                 <p className="text-sm text-slate-300 mb-4">
-                  Open the "Track your event" link in your booking confirmation email -- it takes you straight to your portal.
+                  Open the "Track your event" link in your booking confirmation email, it takes you straight to your portal.
                 </p>
                 <p className="text-xs text-slate-400">
                   Lost the email? Reply to your last quote and the catering team will resend it.

@@ -220,7 +220,7 @@ export default function PricingManagementPage() {
               <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 Pricing Conversion Formula
-                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table -- saves here update /pricing for every visitor immediately." />
+                <InfoTooltip content="The formula that converts ZAR pricing into the other supported currencies, using a fixed exchange rate per market.\n\nPrices are stored in the platform_pricing_plans table, saves here update /pricing for every visitor immediately." />
               </CardTitle>
             </div>
             <CardDescription className="text-xs sm:text-sm">

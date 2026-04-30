@@ -54,14 +54,14 @@ interface LeadLinks {
  * one click.
  */
 type LeadActionKind =
-  | "reply_email"      // Reply ASAP -- new lead waiting
+  | "reply_email"      // Reply ASAP, new lead waiting
   | "touch_base"       // 2-7 days quiet, send a warm check-in
   | "follow_up"        // 7+ days quiet, urgent follow-up
   | "chase_quote"      // Quote sent, no reply
   | "send_quote"       // Lead qualified, no quote yet
   | "open_quote_draft" // Draft quote in flight, finish + send
   | "convert_to_order" // Quote accepted, no order yet
-  | "winback"          // Rejected quote -- soft win-back
+  | "winback"          // Rejected quote, soft win-back
   | "reopen"           // Lead marked lost, friendly door-open
   | "view_order";      // Already booked, just open the order
 
@@ -93,13 +93,13 @@ function deriveLeadSuggestion(lead: any, links: LeadLinks): {
     return { tone: "warm", label: "Finish + send the quote", reason: "Draft quote in flight", kind: "open_quote_draft" };
   }
   if (status === "lost") {
-    return { tone: "neutral", label: "Re-open with a soft note", reason: "Marked lost -- circle back later", kind: "reopen" };
+    return { tone: "neutral", label: "Re-open with a soft note", reason: "Marked lost, circle back later", kind: "reopen" };
   }
   if (status === "qualified") {
     return { tone: "urgent", label: "Send a quote", reason: "Lead qualified, no quote yet", kind: "send_quote" };
   }
   if (ageDays >= 7) {
-    return { tone: "urgent", label: `Follow up -- ${ageDays}d quiet`, reason: "Lead is going cold", kind: "follow_up" };
+    return { tone: "urgent", label: `Follow up, ${ageDays}d quiet`, reason: "Lead is going cold", kind: "follow_up" };
   }
   if (ageDays >= 2) {
     return { tone: "warm", label: "Touch base", reason: `${ageDays}d since enquiry`, kind: "touch_base" };
@@ -172,7 +172,7 @@ function templateForLeadAction(
     case "reply_email":
       return {
         subject: `Thanks for reaching out about ${eventLine}`,
-        body: `Hi ${first},\n\nThanks for getting in touch about ${eventLine}. I have everything I need on this side to put a draft quote together for you -- could you confirm guest numbers and venue when you have a sec?\n\nHappy to walk through menu options if it would help.${sig}`,
+        body: `Hi ${first},\n\nThanks for getting in touch about ${eventLine}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\nHappy to walk through menu options if it would help.${sig}`,
       };
     case "touch_base":
       return {
@@ -192,12 +192,12 @@ function templateForLeadAction(
     case "winback":
       return {
         subject: `Door is still open`,
-        body: `Hi ${first},\n\nUnderstand the last quote did not land for ${eventLine}. No hard feelings -- happy to be considered for the next one. If anything comes up, drop me a line and I will put a fresh quote across quickly.${sig}`,
+        body: `Hi ${first},\n\nUnderstand the last quote did not land for ${eventLine}. No hard feelings. Happy to be considered for the next one. If anything comes up, drop me a line and I will put a fresh quote across quickly.${sig}`,
       };
     case "reopen":
       return {
         subject: `Hello again`,
-        body: `Hi ${first},\n\nNo agenda here -- just keeping the door open. If anything comes up where we can help on the catering side, I am happy to put together a quick quote.${sig}`,
+        body: `Hi ${first},\n\nNo agenda here, just keeping the door open. If anything comes up where we can help on the catering side, I am happy to put together a quick quote.${sig}`,
       };
     default:
       return {
@@ -562,7 +562,7 @@ export default function AdminLeads() {
                               </span>
                             )}
                           </div>
-                          {/* Suggested action strip -- now clickable. Opens
+                          {/* Suggested action strip, now clickable. Opens
                               the right next step (compose email, send a
                               quote, open the order, etc.) for this lead. */}
                           <button
@@ -580,7 +580,7 @@ export default function AdminLeads() {
                             <ArrowRight className="w-4 h-4 flex-shrink-0" />
                             <span>{suggestion.label}</span>
                             <span className="font-normal text-xs text-slate-500 group-hover:text-slate-700">
-                              -- {suggestion.reason}
+                              · {suggestion.reason}
                             </span>
                           </button>
                           <div className="flex items-center gap-4 text-sm text-slate-600 flex-wrap">
@@ -604,7 +604,7 @@ export default function AdminLeads() {
                           </div>
                         </div>
                         <div className="flex flex-col items-stretch gap-2 flex-shrink-0 min-w-[180px]">
-                          {/* Primary CTA -- always the suggested next step. */}
+                          {/* Primary CTA, always the suggested next step. */}
                           <Button
                             size="sm"
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
@@ -627,7 +627,7 @@ export default function AdminLeads() {
                             >
                               {expandedLeadId === lead.id ? "Hide" : "Details"}
                             </Button>
-                            {/* Always-available secondary -- start a fresh
+                            {/* Always-available secondary, start a fresh
                                 quote even when the primary CTA was an email. */}
                             {!links.orderId && (
                               <Button
@@ -726,7 +726,7 @@ export default function AdminLeads() {
                                 ))}
                               </ul>
                               <p className="text-[11px] text-slate-400 mt-1.5">
-                                Pricing not set yet -- use these as the starting line items when you build the quote.
+                                Pricing not set yet. Use these as the starting line items when you build the quote.
                               </p>
                             </div>
                           )}
@@ -776,10 +776,10 @@ export default function AdminLeads() {
                   <span className="block mb-2">
                     This permanently removes <span className="font-medium text-slate-900">{deleteTarget.client_name || "(unnamed)"}</span>
                     {deleteTarget.client_email && (
-                      <> -- {deleteTarget.client_email}</>
+                      <> · {deleteTarget.client_email}</>
                     )}
                     {deleteTarget.event_date && (
-                      <> -- event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
+                      <> · event {new Date(deleteTarget.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</>
                     )}.
                   </span>
                   <span className="block text-rose-600">

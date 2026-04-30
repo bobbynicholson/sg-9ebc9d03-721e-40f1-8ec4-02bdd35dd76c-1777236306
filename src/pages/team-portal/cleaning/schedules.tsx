@@ -141,7 +141,7 @@ export default function CleaningSchedulesPage() {
                 Cleaning Schedules
                 <InfoTooltip content="The full recurring cleaning plan, grouped by date and time." />
               </h1>
-              <p className="text-sm text-slate-600 mt-1">Recurring cleaning plan -- daily / weekly / monthly cadence per area</p>
+              <p className="text-sm text-slate-600 mt-1">Recurring cleaning plan, daily / weekly / monthly cadence per area</p>
             </div>
             <Button onClick={openCreate} className="bg-cyan-600 hover:bg-cyan-700">
               <Plus className="h-4 w-4 mr-2" />New schedule
@@ -162,7 +162,7 @@ export default function CleaningSchedulesPage() {
             <div className="space-y-4">
               {Object.entries(grouped).map(([date, list]) => (
                 <div key={date}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{date} -- {list.length}</h2>
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{date}, {list.length}</h2>
                   <Card>
                     <CardContent className="p-0">
                       <ul className="divide-y divide-slate-100">

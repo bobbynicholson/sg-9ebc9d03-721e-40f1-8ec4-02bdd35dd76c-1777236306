@@ -40,10 +40,10 @@ Audience: catering company owners, operations managers, head chefs running 5-50 
 
 Style:
 - South African English ("colour", "centre", "organise", "fulfil")
-- Short, plain sentences. No em dashes -- use double hyphens (--).
+- Short, plain sentences. No em dashes, use double hyphens (--).
 - Concrete and specific. Real-world catering examples (lamb spit, chafing dishes, deposit chasing, driver dispatch). No abstract platitudes.
 - One clear point per paragraph. 5-7 sentences max.
-- Markdown formatting -- ## H2 for sections, ** for bold, - for bullets.
+- Markdown formatting, ## H2 for sections, ** for bold, - for bullets.
 
 Banned phrases:
 - "leverage", "synergy", "moving forward", "circle back"

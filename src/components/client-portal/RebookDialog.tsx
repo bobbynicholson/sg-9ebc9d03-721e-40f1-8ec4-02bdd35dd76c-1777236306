@@ -394,7 +394,7 @@ export function RebookDialog({
             <DialogDescription className="text-white/85">
               Pick the items you'd like and we'll send your details to{" "}
               <strong className="text-white">{companyName}</strong> for a fresh quote.
-              No pricing yet -- the team will price it for you.
+              No pricing yet, the team will price it for you.
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -503,7 +503,7 @@ export function RebookDialog({
               </div>
             ) : menu.length === 0 ? (
               <div className="py-8 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-xl">
-                The team hasn't published a menu in the portal yet -- pop a note in the box below
+                The team hasn't published a menu in the portal yet, pop a note in the box below
                 and they'll come back with options.
               </div>
             ) : filteredGrouped.length === 0 ? (

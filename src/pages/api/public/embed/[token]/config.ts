@@ -123,7 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     fields: form.fields || [],
     theme: form.theme || {},
     successMessage:
-      form.success_message || "Thanks -- we'll be in touch shortly.",
+      form.success_message || "Thanks, we'll be in touch shortly.",
     redirectUrl: form.redirect_url || null,
     brand: {
       companyName: company.company_name,

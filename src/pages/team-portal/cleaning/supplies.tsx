@@ -145,11 +145,11 @@ export default function CleaningSuppliesPage() {
               <Wrench className="h-7 w-7 text-cyan-600" />
               Cleaning Supplies
             </h1>
-            <p className="text-sm text-slate-600 mt-1">Detergents, cloths, gloves -- low-stock items feed straight to the shopping team</p>
+            <p className="text-sm text-slate-600 mt-1">Detergents, cloths, gloves, low-stock items feed straight to the shopping team</p>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total supplies <InfoTooltip content="Cleaning consumables on file -- detergents, cloths, gloves and similar." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Total supplies <InfoTooltip content="Cleaning consumables on file, detergents, cloths, gloves and similar." /></p><p className="text-2xl font-bold tabular-nums">{stats.total}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Low stock <InfoTooltip content="Supplies that have hit or dropped below their minimum level.\n\nFlag these to the shopping team so they get topped up." /></p><p className="text-2xl font-bold tabular-nums text-amber-600">{stats.below}</p></CardContent></Card>
             <Card><CardContent className="p-4"><p className="text-xs text-slate-600 flex items-center gap-1">Out of stock <InfoTooltip content="Supplies that have run out completely.\n\nYou cannot use these until shopping replaces them." /></p><p className="text-2xl font-bold tabular-nums text-rose-600">{stats.out}</p></CardContent></Card>
           </div>
@@ -184,7 +184,7 @@ export default function CleaningSuppliesPage() {
                         <div className="font-medium text-slate-900 truncate">{i.item_name}</div>
                         <div className="text-xs text-slate-500 mt-0.5">
                           {i.category ?? "--"}
-                          {i.storage_location ? ` -- ${i.storage_location}` : ""}
+                          {i.storage_location ? `, ${i.storage_location}` : ""}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
@@ -209,7 +209,7 @@ export default function CleaningSuppliesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Log usage</DialogTitle>
-            <DialogDescription>{usingItem && `${usingItem.item_name} -- ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}</DialogDescription>
+            <DialogDescription>{usingItem && `${usingItem.item_name}, ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>

@@ -350,7 +350,7 @@ function MenuPage() {
       closeDialog();
       load();
     } catch (e: any) {
-      setError(e?.message || "Could not save -- check your inputs.");
+      setError(e?.message || "Could not save, check your inputs.");
     } finally {
       setSaving(false);
     }
@@ -445,7 +445,7 @@ function MenuPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}>
-      <Head><title>Menu -- CateringMS</title></Head>
+      <Head><title>Menu, CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
@@ -460,7 +460,7 @@ function MenuPage() {
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
                   Menu
-                  <InfoTooltip content="Build the dishes your kitchen cooks. Each menu item can have a recipe attached -- the recipe lists ingredients and links each one to the inventory item it consumes.\n\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit." />
+                  <InfoTooltip content="Build the dishes your kitchen cooks. Each menu item can have a recipe attached, the recipe lists ingredients and links each one to the inventory item it consumes.\n\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit." />
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
                   Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list.
@@ -490,7 +490,7 @@ function MenuPage() {
               <CardContent className="p-4">
                 <p className="text-xs uppercase tracking-wider text-slate-500 mb-1 inline-flex items-center gap-1">
                   Avg margin
-                  <InfoTooltip content="Average gross margin across menu items that have BOTH a costed recipe and a base price.\n\nMargin = (base_price - cost_per_serving) / base_price.\n\nOwner-only -- the kitchen surface never sees these numbers." />
+                  <InfoTooltip content="Average gross margin across menu items that have BOTH a costed recipe and a base price.\n\nMargin = (base_price - cost_per_serving) / base_price.\n\nOwner-only, the kitchen surface never sees these numbers." />
                 </p>
                 <p className={`text-2xl font-bold tabular-nums ${
                   stats.avgMarginPct == null ? "text-slate-400" :
@@ -527,7 +527,7 @@ function MenuPage() {
                   {stats.missingRecipe}
                 </p>
                 {stats.missingRecipe > 0 && (
-                  <p className="text-[11px] text-amber-700 mt-1">No ingredient list -- prep flywheel can't project demand</p>
+                  <p className="text-[11px] text-amber-700 mt-1">No ingredient list, prep flywheel can't project demand</p>
                 )}
               </CardContent>
             </Card>
@@ -584,7 +584,7 @@ function MenuPage() {
             <div className="space-y-5">
               {grouped.map(([cat, list]) => (
                 <div key={cat}>
-                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat} -- {list.length}</h2>
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">{cat}, {list.length}</h2>
                   <Card className="border-0 shadow-sm">
                     <CardContent className="p-0">
                       <ul className="divide-y divide-slate-100">
@@ -684,7 +684,7 @@ function MenuPage() {
           <DialogHeader>
             <DialogTitle>{editTargetId ? "Edit menu item" : "Add menu item"}</DialogTitle>
             <DialogDescription>
-              Save the basics first. The recipe block at the bottom is optional -- add it when you know the ingredients,
+              Save the basics first. The recipe block at the bottom is optional, add it when you know the ingredients,
               and the kitchen flywheel will start projecting demand and shortfalls automatically.
             </DialogDescription>
           </DialogHeader>
@@ -745,7 +745,7 @@ function MenuPage() {
               <div className="space-y-1.5">
                 <Label>
                   Image URL
-                  <InfoTooltip content="Paste a public image URL. Hosted upload is on the backlog -- for now use a public link from your storage or website." />
+                  <InfoTooltip content="Paste a public image URL. Hosted upload is on the backlog, for now use a public link from your storage or website." />
                 </Label>
                 <Input
                   value={itemDraft.image_url}
@@ -823,7 +823,7 @@ function MenuPage() {
             </div>
           </div>
 
-          {/* Recipe block -- collapsed by default */}
+          {/* Recipe block, collapsed by default */}
           <div className="space-y-3 border-t pt-4">
             <button
               type="button"
@@ -834,7 +834,7 @@ function MenuPage() {
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Recipe + ingredients</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {recipeDraft.enabled
-                    ? "Recipe attached -- the kitchen flywheel will use this for prep tasks and demand projection"
+                    ? "Recipe attached, the kitchen flywheel will use this for prep tasks and demand projection"
                     : "Optional. Add later if you don't have the ingredients in front of you yet"}
                 </p>
               </div>
@@ -900,14 +900,14 @@ function MenuPage() {
                   <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-1">
                       Ingredients
-                      <InfoTooltip content="Type to search your inventory -- exact matches link the ingredient to the inventory item, so the kitchen flywheel can deduct stock and project demand. Free-text ingredients are still saved but won't auto-deduct." />
+                      <InfoTooltip content="Type to search your inventory, exact matches link the ingredient to the inventory item, so the kitchen flywheel can deduct stock and project demand. Free-text ingredients are still saved but won't auto-deduct." />
                     </Label>
                     <Button type="button" variant="outline" size="sm" onClick={() => addIngredientRow()}>
                       <Plus className="w-3 h-3 mr-1" />Add ingredient
                     </Button>
                   </div>
 
-                  {/* Live cost preview -- recomputes every render off the
+                  {/* Live cost preview, recomputes every render off the
                       draft + the inventory cost map. Fast since both are
                       already in memory. */}
                   {(() => {
@@ -986,7 +986,7 @@ function MenuPage() {
                                 <Package className="w-2.5 h-2.5" />Linked to inventory
                               </span>
                             ) : (
-                              <span className="text-[10px] text-slate-400">Free-text -- won't auto-deduct stock</span>
+                              <span className="text-[10px] text-slate-400">Free-text, won't auto-deduct stock</span>
                             )}
                           </div>
                           <div className="col-span-5 sm:col-span-2">

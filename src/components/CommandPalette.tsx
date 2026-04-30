@@ -186,7 +186,7 @@ export function CommandPalette() {
         // Orders -- number / id, client name, venue
         (orders || []).forEach((o: any) => {
           const ref = o.order_number || (o.id ? `#${String(o.id).slice(0, 8).toUpperCase()}` : "");
-          const label = `${ref || "Order"} -- ${o.client_name || "Unknown client"}`;
+          const label = `${ref || "Order"}, ${o.client_name || "Unknown client"}`;
           const sublabel = [o.venue_address, o.event_date && new Date(o.event_date).toLocaleDateString("en-ZA")]
             .filter(Boolean)
             .join(" - ");
@@ -231,7 +231,7 @@ export function CommandPalette() {
         // Quotes -- number, client, event
         (quotes || []).forEach((q: any) => {
           const ref = q.quote_number || (q.id ? `#${String(q.id).slice(0, 8).toUpperCase()}` : "");
-          const label = `${ref || "Quote"} -- ${q.client_name || "Unknown client"}`;
+          const label = `${ref || "Quote"}, ${q.client_name || "Unknown client"}`;
           const sublabel = [q.event_name, q.event_date && new Date(q.event_date).toLocaleDateString("en-ZA")]
             .filter(Boolean)
             .join(" - ");
@@ -437,7 +437,7 @@ export function CommandPalette() {
         )}
         {showRecent && (groupedNav.length > 0) && <CommandSeparator />}
 
-        {/* Live data results -- only when there's a query */}
+        {/* Live data results, only when there's a query */}
         {term.trim() && groupedData.map((g, gi) => (
           <div key={`data-${g.name}`}>
             <CommandGroup heading={`${g.name}s`}>
@@ -466,7 +466,7 @@ export function CommandPalette() {
           </div>
         ))}
 
-        {/* Navigation entries -- always shown, top-ranked move to top when searching */}
+        {/* Navigation entries, always shown, top-ranked move to top when searching */}
         {groupedNav.map((g, gi) => (
           <div key={`nav-${g.name}`}>
             <CommandGroup heading={g.name}>

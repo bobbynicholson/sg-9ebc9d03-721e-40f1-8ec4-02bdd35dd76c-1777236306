@@ -172,7 +172,7 @@ export default function CleaningEquipmentPage() {
               <ShieldCheck className="h-7 w-7 text-cyan-600" />
               Equipment Verification
             </h1>
-            <p className="text-sm text-slate-600 mt-1">Verify gear returned from a function -- log missing or damaged items with auto-billing</p>
+            <p className="text-sm text-slate-600 mt-1">Verify gear returned from a function, log missing or damaged items with auto-billing</p>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
@@ -243,7 +243,7 @@ export default function CleaningEquipmentPage() {
           <DialogHeader>
             <DialogTitle>Verify {verifyItem?.name}</DialogTitle>
             <DialogDescription>
-              {verifyItem && `Sent out ${verifyItem.quantity ?? 0} -- check what came back. Missing items auto-bill the client at R ${Number(verifyItem.replacement_cost || 0).toFixed(0)} each.`}
+              {verifyItem && `Sent out ${verifyItem.quantity ?? 0}, check what came back. Missing items auto-bill the client at R ${Number(verifyItem.replacement_cost || 0).toFixed(0)} each.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

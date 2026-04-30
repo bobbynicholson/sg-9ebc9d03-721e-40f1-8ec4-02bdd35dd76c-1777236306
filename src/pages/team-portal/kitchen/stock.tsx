@@ -157,7 +157,7 @@ export default function KitchenStockPage() {
               <Package className="h-7 w-7 text-orange-600" />
               Kitchen Stock
             </h1>
-            <p className="text-sm text-slate-600 mt-1">What you have on hand right now -- click any item to log what you used</p>
+            <p className="text-sm text-slate-600 mt-1">What you have on hand right now, click any item to log what you used</p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -210,7 +210,7 @@ export default function KitchenStockPage() {
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">
                           {i.category ?? "--"}
-                          {i.storage_location ? ` -- ${i.storage_location}` : ""}
+                          {i.storage_location ? `, ${i.storage_location}` : ""}
                         </div>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
@@ -236,7 +236,7 @@ export default function KitchenStockPage() {
           <DialogHeader>
             <DialogTitle>Log usage</DialogTitle>
             <DialogDescription>
-              {usingItem && `${usingItem.item_name} -- ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}
+              {usingItem && `${usingItem.item_name}, ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

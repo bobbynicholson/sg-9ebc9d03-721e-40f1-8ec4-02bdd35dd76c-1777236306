@@ -268,7 +268,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             {order.event_date && (
               <span className="text-xs text-slate-500">
                 {new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-                {order.delivery_time && ` -- ${new Date(order.delivery_time).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}`}
+                {order.delivery_time && `, ${new Date(order.delivery_time).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}`}
               </span>
             )}
           </div>
@@ -486,7 +486,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               <Link href="/admin/equipment-shortages" legacyBehavior>
                 <a className="text-xs text-amber-700 hover:underline flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  {equipmentFlagged} flagged -- open in Equipment Shortages
+                  {equipmentFlagged} flagged, open in Equipment Shortages
                 </a>
               </Link>
             )}
@@ -526,7 +526,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         </Card>
       )}
 
-      {/* PROOF OF DELIVERY -- only when captured */}
+      {/* PROOF OF DELIVERY, only when captured */}
       {(order.pod_photo_url || order.pod_signature_url || order.pod_captured_at) && (
         <Card className="border-emerald-200 bg-emerald-50/30">
           <CardContent className="p-3 space-y-2">
@@ -576,7 +576,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         </Card>
       )}
 
-      {/* DRIVER CHAT BLOCK -- only when there's a driver to talk to */}
+      {/* DRIVER CHAT BLOCK, only when there's a driver to talk to */}
       {(order.driver_id || order.assigned_driver_id) && companyId && userId && (
         <Card>
           <CardContent className="p-3">
@@ -664,7 +664,7 @@ function ComposeDrawer({
         body = `Hi ${first},\n\nThe kitchen is on it for ${eventLine}. Anything you'd like to flag before we finish prep, let me know now and I'll fold it in.${sig}`;
         break;
       case "ready":
-        subject = `Ready to dispatch -- ${eventLine.replace(/^your /, "")}`;
+        subject = `Ready to dispatch, ${eventLine.replace(/^your /, "")}`;
         body = `Hi ${first},\n\nEverything is packed and ready for ${eventLine}. The driver will leave shortly. I'll send a tracking link once they're on the road.${sig}`;
         break;
       case "out_for_delivery":
@@ -673,7 +673,7 @@ function ComposeDrawer({
         body = `Hi ${first},\n\nThe driver is on the way to you for ${eventLine}. I'll let you know if anything changes.${sig}`;
         break;
       case "delivered":
-        subject = `Delivered -- enjoy ${eventLine.replace(/^your /, "")}`;
+        subject = `Delivered, enjoy ${eventLine.replace(/^your /, "")}`;
         body = `Hi ${first},\n\nWe've completed delivery for ${eventLine}. Hope it all goes brilliantly. Let me know how it lands and I'll be in touch about the balance once the event wraps.${sig}`;
         break;
     }
@@ -745,7 +745,7 @@ function ComposeDrawer({
             className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono"
           />
           <p className="text-[11px] text-slate-500 mt-1">
-            Edit freely -- the template is a starting point based on the order's status.
+            Edit freely, the template is a starting point based on the order's status.
           </p>
         </div>
 

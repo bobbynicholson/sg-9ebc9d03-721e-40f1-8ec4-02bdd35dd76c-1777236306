@@ -638,7 +638,7 @@ function ProfileSettingsPage() {
                       {((profile.role as string) === "owner"
                         || (profile.role as string) === "admin"
                         || (profile.role as string) === "super_admin") && (
-                        <p className="text-[11px] text-slate-500">Renames your company everywhere -- invoices, emails, dashboard.</p>
+                        <p className="text-[11px] text-slate-500">Renames your company everywhere, invoices, emails, dashboard.</p>
                       )}
                     </div>
                   </div>

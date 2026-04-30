@@ -56,7 +56,7 @@ export function EquipmentTypeahead({
   value,
   onChange,
   onPick,
-  placeholder = "Search your equipment -- 'chafing', 'table', 'chair'...",
+  placeholder = "Search your equipment, 'chafing', 'table', 'chair'...",
   className,
 }: EquipmentTypeaheadProps) {
   const [open, setOpen] = useState(false);
@@ -183,7 +183,7 @@ export function EquipmentTypeahead({
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500 flex items-center gap-2">
               <Package className="w-3.5 h-3.5" />
-              No match in your equipment catalog -- this will save as a custom line.
+              No match in your equipment catalog, this will save as a custom line.
             </div>
           ) : (
             <>

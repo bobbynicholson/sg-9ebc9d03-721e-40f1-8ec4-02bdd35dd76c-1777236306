@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const fields: any = Array.isArray(parsed) ? parsed[0] : parsed?.fields;
     const fileEntry: any = files?.file?.[0] ?? files?.file;
     if (!fileEntry) {
-      return res.status(400).json({ error: "No file provided -- expected field 'file'" });
+      return res.status(400).json({ error: "No file provided, expected field 'file'" });
     }
     const mime = (fileEntry.mimetype || "").toLowerCase();
     if (!ALLOWED_MIMES.has(mime)) {
@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (fileEntry.size > MAX_BYTES) {
       return res.status(413).json({
-        error: `File too large -- ${(fileEntry.size / 1024 / 1024).toFixed(1)} MB. Cap is 5 MB.`,
+        error: `File too large, ${(fileEntry.size / 1024 / 1024).toFixed(1)} MB. Cap is 5 MB.`,
       });
     }
 

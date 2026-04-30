@@ -158,7 +158,7 @@ export default function ShoppingSuppliersPage() {
                 <Users className="h-7 w-7 text-emerald-600" />
                 Suppliers
               </h1>
-              <p className="text-sm text-slate-600 mt-1">Database of your suppliers -- contacts, payment terms, ratings</p>
+              <p className="text-sm text-slate-600 mt-1">Database of your suppliers, contacts, payment terms, ratings</p>
             </div>
             <Button onClick={openNew} className="bg-emerald-600 hover:bg-emerald-700">
               <Plus className="h-4 w-4 mr-2" />Add supplier

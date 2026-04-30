@@ -39,7 +39,7 @@ interface Props {
 }
 
 function buildSnippet(token: string, slug: string) {
-  return `<!-- ${slug} -- powered by CateringMS -->
+  return `<!-- ${slug}, powered by CateringMS -->
 <div data-embed-form data-token="${token}" data-slug="${slug}"></div>
 <script async src="https://cateringms.com/embed/loader.js"></script>`;
 }
@@ -122,7 +122,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
                       <li>Paste the snippet above into the block.</li>
                       <li>Update the page. The form appears wherever you placed the block.</li>
                     </ol>
-                    <p className="text-xs text-slate-500">Tip: don't wrap the snippet in <code>&lt;p&gt;</code> tags -- WordPress sometimes does this automatically. Use a Custom HTML block, not the visual editor.</p>
+                    <p className="text-xs text-slate-500">Tip: don't wrap the snippet in <code>&lt;p&gt;</code> tags, WordPress sometimes does this automatically. Use a Custom HTML block, not the visual editor.</p>
                   </AccordionContent>
                 </AccordionItem>
 
@@ -132,7 +132,7 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
                     <ol className="list-decimal pl-5 space-y-1">
                       <li>In the Wix / Squarespace editor, drag in an <span className="font-medium">Embed Code</span> or <span className="font-medium">Code Block</span>.</li>
                       <li>Paste the snippet above.</li>
-                      <li>Resize the embed container to roughly 600px tall on desktop -- it auto-shrinks on mobile.</li>
+                      <li>Resize the embed container to roughly 600px tall on desktop, it auto-shrinks on mobile.</li>
                       <li>Publish the page.</li>
                     </ol>
                     <p className="text-xs text-slate-500">Squarespace requires a Business plan for code blocks. Wix supports them on every paid plan.</p>

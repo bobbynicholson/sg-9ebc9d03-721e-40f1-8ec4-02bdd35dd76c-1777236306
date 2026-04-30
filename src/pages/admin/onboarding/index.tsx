@@ -96,7 +96,7 @@ function ImportsHistoryPage() {
   useEffect(() => { load(); }, []);
 
   const rollback = async (jobId: string) => {
-    if (!confirm("Roll back this import? This deletes the rows it inserted -- existing records you had before are untouched.")) return;
+    if (!confirm("Roll back this import? This deletes the rows it inserted, existing records you had before are untouched.")) return;
     setBusyId(jobId);
     try {
       const res = await fetch(`/api/imports/${jobId}/rollback`, { method: "POST" });

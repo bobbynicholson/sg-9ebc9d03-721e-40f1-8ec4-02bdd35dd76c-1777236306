@@ -154,7 +154,7 @@ function CompanyProfilePage() {
         .update(payload)
         .eq("id", row.id);
       if (error) throw error;
-      toast({ title: "Saved", description: "Profile updated -- nav, branded client pages and route planning all use this now." });
+      toast({ title: "Saved", description: "Profile updated, nav, branded client pages and route planning all use this now." });
       refreshProfile?.();
     } catch (e: any) {
       toast({ title: "Save failed", description: e?.message, variant: "destructive" });
@@ -266,8 +266,8 @@ function CompanyProfilePage() {
               </CardTitle>
               <CardDescription>
                 {hasMapsKey
-                  ? "Type your address -- Google Places auto-completes and fills the lat/lng for you."
-                  : "Manual entry only -- once Google Maps is connected (see notice below) the autocomplete kicks in."}
+                  ? "Type your address, Google Places auto-completes and fills the lat/lng for you."
+                  : "Manual entry only, once Google Maps is connected (see notice below) the autocomplete kicks in."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

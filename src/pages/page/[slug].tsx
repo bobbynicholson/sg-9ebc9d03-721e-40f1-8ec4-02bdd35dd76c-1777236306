@@ -34,7 +34,7 @@ export default function DynamicPage({ page }: PageProps) {
         <title>{page.meta_title || `${page.title} - CateringMS`}</title>
         <meta name="description" content={page.meta_description || ""} />
         {page.meta_keywords && <meta name="keywords" content={page.meta_keywords} />}
-        {/* OpenGraph for share cards -- the header image doubles as
+        {/* OpenGraph for share cards, the header image doubles as
             the og:image so social previews look right. */}
         {(page as any).header_image_url && (
           <meta property="og:image" content={(page as any).header_image_url} />

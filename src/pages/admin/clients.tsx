@@ -421,7 +421,7 @@ function ClientsCRM() {
             })}
           </div>
 
-          {/* Email cap notice -- ties to pricing tier */}
+          {/* Email cap notice, ties to pricing tier */}
           <Card className="border-0 shadow mb-6 bg-gradient-to-r from-blue-50 to-indigo-50">
             <CardContent className="py-3 px-4 flex items-start gap-3">
               <Inbox className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -621,7 +621,7 @@ function ComposeDrawer({
             className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono"
           />
           <p className="text-[11px] text-slate-500 mt-1">
-            Edit freely -- the template's just a starting point based on this contact's status.
+            Edit freely, the template's just a starting point based on this contact's status.
           </p>
         </div>
 

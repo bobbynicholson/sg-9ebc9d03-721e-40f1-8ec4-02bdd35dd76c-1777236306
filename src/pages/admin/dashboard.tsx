@@ -213,7 +213,7 @@ function AdminDashboardPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
 
-          {/* Header + date range -- date controls every metric below */}
+          {/* Header + date range, date controls every metric below */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -250,7 +250,7 @@ function AdminDashboardPage() {
             </div>
           )}
 
-          {/* Priority Actions -- not date-bound, always-on attention items */}
+          {/* Priority Actions, not date-bound, always-on attention items */}
           {(stats.pendingQuotes > 0 || stats.lowStockItems > 0 || stats.upcomingEvents > 0) && (
             <Card className="border-0 shadow-lg mb-6 bg-gradient-to-r from-amber-50 to-orange-50">
               <CardHeader className="pb-3">
@@ -290,7 +290,7 @@ function AdminDashboardPage() {
             </Card>
           )}
 
-          {/* Key revenue metrics -- all bound to the date range */}
+          {/* Key revenue metrics, all bound to the date range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
             <MetricCard
               label="Booked Revenue"

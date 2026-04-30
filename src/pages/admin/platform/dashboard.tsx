@@ -387,7 +387,7 @@ export default function PlatformDashboard() {
             value={analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)}
             subtitle="MRR"
             icon={TrendingUp}
-            tooltip="Predictable monthly income from active subscriptions billed each month.\n\nAnnual plans are not included here -- they roll into ARR instead."
+            tooltip="Predictable monthly income from active subscriptions billed each month.\n\nAnnual plans are not included here, they roll into ARR instead."
           />
           <StatCard
             title="Churn Rate"
@@ -470,7 +470,7 @@ export default function PlatformDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     Subscription Status
-                    <InfoTooltip content="A breakdown of every tenant by subscription state -- active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
+                    <InfoTooltip content="A breakdown of every tenant by subscription state, active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
                   </CardTitle>
                   <CardDescription>Current subscription distribution</CardDescription>
                 </CardHeader>
@@ -591,7 +591,7 @@ export default function PlatformDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   Plan Distribution
-                  <InfoTooltip content="How tenants and revenue are spread across each subscription plan -- Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
+                  <InfoTooltip content="How tenants and revenue are spread across each subscription plan, Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
                 </CardTitle>
                 <CardDescription>Revenue and customer breakdown by subscription plan</CardDescription>
               </CardHeader>

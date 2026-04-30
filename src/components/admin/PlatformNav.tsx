@@ -217,7 +217,7 @@ function NavLink({ item, active, collapsed, onClick }: NavLinkProps) {
       <Link
         href={item.href}
         onClick={onClick}
-        title={item.sub ? `${item.title} -- ${item.sub}` : item.title}
+        title={item.sub ? `${item.title}, ${item.sub}` : item.title}
         className={cn(
           "flex items-center justify-center w-10 h-10 rounded-lg mx-auto transition-all",
           active
@@ -237,7 +237,7 @@ function NavLink({ item, active, collapsed, onClick }: NavLinkProps) {
     <Link
       href={item.href}
       onClick={onClick}
-      title={item.sub ? `${item.title} -- ${item.sub}` : item.title}
+      title={item.sub ? `${item.title}, ${item.sub}` : item.title}
       className={cn(
         "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
         active
@@ -392,7 +392,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
     return (
       <Link
         href="/admin/dashboard"
-        title="Switch to Tenant View -- Browse as company admin"
+        title="Switch to Tenant View, Browse as company admin"
         className={cn(
           "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors",
           active
@@ -428,7 +428,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
   }) => (
     <ScrollArea className="flex-1">
       <div className={cn(collapsed ? "px-3 py-4 space-y-1" : "px-2 py-3")}>
-        {/* User strip (desktop only -- mobile has it in header) */}
+        {/* User strip (desktop only, mobile has it in header) */}
         {!mobile && !collapsed && (
           <div className="-mx-4 mb-3">
             <UserStrip collapsed={false} profile={profile} />

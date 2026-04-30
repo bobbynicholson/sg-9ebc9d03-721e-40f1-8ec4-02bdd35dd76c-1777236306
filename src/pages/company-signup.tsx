@@ -145,7 +145,7 @@ export default function CompanySignupPage() {
       case "checking":
         return { tone: "neutral" as const, text: "Checking availability..." };
       case "available":
-        return { tone: "good" as const, text: "Available -- this will be your permanent URL." };
+        return { tone: "good" as const, text: "Available, this will be your permanent URL." };
       case "taken":
         return { tone: "bad" as const, text: "Already taken. Pick a different one." };
       case "reserved":
@@ -600,7 +600,7 @@ export default function CompanySignupPage() {
                 )}
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 leading-relaxed">
                   <strong>Permanent.</strong> This URL is locked once your
-                  account is created -- it appears in every link you'll
+                  account is created, it appears in every link you'll
                   ever send to clients (booking confirmations, invoices,
                   the customer portal). Pick something short, on-brand,
                   and easy to type.

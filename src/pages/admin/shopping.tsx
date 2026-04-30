@@ -459,7 +459,7 @@ function SmartShoppingPage() {
                       Plan ahead (next 14 days)
                     </CardTitle>
                     <CardDescription>
-                      Sorted by buy-by date. Perishables surface earliest -- non-perishables can wait. Urgent items pulse amber.
+                      Sorted by buy-by date. Perishables surface earliest, non-perishables can wait. Urgent items pulse amber.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">

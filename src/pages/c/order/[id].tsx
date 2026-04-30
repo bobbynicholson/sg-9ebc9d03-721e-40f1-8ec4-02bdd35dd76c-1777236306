@@ -194,10 +194,10 @@ export default function ClientOrderPage() {
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
 
           {/*
-            Sign-in nudge -- bridges the read-only token view into the
+            Sign-in nudge, bridges the read-only token view into the
             full /client-portal experience (live driver tracking, real-
             time status, billing). The catering company's brand colours
-            stay -- this card uses a soft tinted version, not the full
+            stay, this card uses a soft tinted version, not the full
             gradient, so the headline event card below stays the focal
             point.
 
@@ -224,7 +224,7 @@ export default function ClientOrderPage() {
                     Want live tracking on the day?
                   </p>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mt-0.5">
-                    Sign in for free -- we'll email a magic link. Then watch your driver on the map, see ETA, and tap to call.
+                    Sign in for free, we'll email a magic link. Then watch your driver on the map, see ETA, and tap to call.
                   </p>
                 </div>
                 <Link
@@ -428,7 +428,7 @@ export default function ClientOrderPage() {
           </Card>
 
           <p className="text-center text-xs text-slate-400">
-            This is a private link to your booking. Anyone with the link can see this page -- please don't share publicly.
+            This is a private link to your booking. Anyone with the link can see this page, please don't share publicly.
           </p>
         </div>
 

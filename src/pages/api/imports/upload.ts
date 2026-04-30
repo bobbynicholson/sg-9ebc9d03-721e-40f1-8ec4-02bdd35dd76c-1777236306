@@ -159,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const files: any = Array.isArray(parsed) ? parsed[1] : parsed?.files;
     const fileEntry: any = files?.file?.[0] ?? files?.file;
     if (!fileEntry) {
-      return res.status(400).json({ error: "No file provided -- expected field 'file'" });
+      return res.status(400).json({ error: "No file provided, expected field 'file'" });
     }
     const mime = (fileEntry.mimetype || "").toLowerCase();
     if (mime && !ALLOWED_MIMES.has(mime)) {
@@ -169,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (fileEntry.size > MAX_BYTES) {
       return res.status(413).json({
-        error: `File too large -- ${(fileEntry.size / 1024 / 1024).toFixed(1)} MB. Cap is 5 MB.`,
+        error: `File too large, ${(fileEntry.size / 1024 / 1024).toFixed(1)} MB. Cap is 5 MB.`,
       });
     }
 
@@ -180,7 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sheets = parseWorkbook(buffer, fileEntry.originalFilename || "upload");
     } catch (e: any) {
       return res.status(400).json({
-        error: `Could not parse file -- ${e?.message || "unknown error"}. Make sure the first row contains column headers.`,
+        error: `Could not parse file, ${e?.message || "unknown error"}. Make sure the first row contains column headers.`,
       });
     }
     const totalRows = sheets.reduce((s, sh) => s + sh.rows.length, 0);
@@ -189,7 +189,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (totalRows > MAX_ROWS) {
       return res.status(413).json({
-        error: `Too many rows -- ${totalRows.toLocaleString("en-ZA")}. Cap is ${MAX_ROWS.toLocaleString("en-ZA")} per import. Split the file and run multiple imports.`,
+        error: `Too many rows, ${totalRows.toLocaleString("en-ZA")}. Cap is ${MAX_ROWS.toLocaleString("en-ZA")} per import. Split the file and run multiple imports.`,
       });
     }
 

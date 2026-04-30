@@ -209,7 +209,7 @@ function ImportPage() {
 
   const runRollback = async () => {
     if (!jobId) return;
-    if (!confirm("Roll back this import? This deletes the rows the import inserted -- existing records you had before are untouched.")) return;
+    if (!confirm("Roll back this import? This deletes the rows the import inserted, existing records you had before are untouched.")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/imports/${jobId}/rollback`, { method: "POST" });
@@ -337,7 +337,7 @@ function ImportPage() {
                   Confirm the column mapping
                 </CardTitle>
                 <CardDescription>
-                  We've matched your columns to our fields. Anything below 70% confidence is highlighted -- have a look.
+                  We've matched your columns to our fields. Anything below 70% confidence is highlighted, have a look.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -478,14 +478,14 @@ function ImportPage() {
 
                       {/*
                         Per-row drilldown. Caps at 50 rows in the
-                        DOM -- if there's more, the team can navigate
+                        DOM, if there's more, the team can navigate
                         the full set on /admin/onboarding once
                         committed. This view is for spot-checking,
                         not bulk editing.
                       */}
                       {filtered.length === 0 ? (
                         <p className="text-sm text-slate-500 italic py-3">
-                          {rowFilter === "all" ? "No rows -- something's off." : `No rows in this filter.`}
+                          {rowFilter === "all" ? "No rows, something's off." : `No rows in this filter.`}
                         </p>
                       ) : (
                         <div className="rounded-lg border border-slate-200 overflow-hidden">

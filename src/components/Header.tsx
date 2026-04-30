@@ -135,7 +135,7 @@ export function Header() {
           </button>
         </div>
 
-        {/* Desktop navigation -- mega menus */}
+        {/* Desktop navigation, mega menus */}
         <div className="hidden lg:flex lg:gap-x-1">
           <MegaMenu label="Features" rootHref="/features" items={featuresMenu} cols={2} wide />
           <MegaMenu label="Pricing"  rootHref="/pricing"  items={pricingMenu}  cols={1} />
@@ -194,11 +194,11 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile menu -- persona-aware, action-first */}
+      {/* Mobile menu, persona-aware, action-first */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-slate-200 dark:border-slate-700 max-h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="px-4 pb-6 pt-3 space-y-4">
-            {/* Primary CTA cluster -- what most mobile visitors actually came for */}
+            {/* Primary CTA cluster, what most mobile visitors actually came for */}
             {user ? (
               <Link
                 href={dashboardPath}
@@ -226,14 +226,14 @@ export function Header() {
               </div>
             )}
 
-            {/* Quick links -- the 3 things mobile visitors poke before committing */}
+            {/* Quick links, the 3 things mobile visitors poke before committing */}
             <div className="grid grid-cols-3 gap-2">
               <QuickTile href="/pricing"        label="Pricing"  icon={CreditCard} />
               <QuickTile href="/demo"           label="Demo"     icon={Phone} />
               <QuickTile href="https://wa.me/27000000000" label="WhatsApp" icon={MessageSquare} external />
             </div>
 
-            {/* Persona switch -- different audiences want different doors */}
+            {/* Persona switch, different audiences want different doors */}
             {!user && (
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
@@ -266,7 +266,7 @@ export function Header() {
               </div>
             </div>
 
-            {/* Authed extras -- only useful if you're already in */}
+            {/* Authed extras, only useful if you're already in */}
             {user && (
               <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Link
@@ -284,7 +284,7 @@ export function Header() {
               </div>
             )}
 
-            {/* Footer chrome -- region & theme only matter on long sessions */}
+            {/* Footer chrome, region & theme only matter on long sessions */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <RegionSwitcher />
               <ThemeSwitch />

@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!input.slug || !SLUG_RE.test(input.slug)) {
         return res
           .status(400)
-          .json({ error: "Invalid slug -- lower-case letters, digits and dashes only" });
+          .json({ error: "Invalid slug, lower-case letters, digits and dashes only" });
       }
       if (!input.name) {
         return res.status(400).json({ error: "Form name is required" });

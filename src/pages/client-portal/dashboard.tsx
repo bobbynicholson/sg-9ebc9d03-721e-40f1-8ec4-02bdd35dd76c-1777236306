@@ -435,7 +435,7 @@ export default function ClientPortalDashboard() {
           Branded greeting strip. Uses inline styles for the gradient so
           each tenant's brand colours apply without a Tailwind safelist
           gymnastic. Content stretches the full width of the available
-          area -- no inner max-w cap.
+          area, no inner max-w cap.
         */}
         <header
           className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 text-white shadow-md"
@@ -858,7 +858,7 @@ function PastEventTile({
   return (
     <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:shadow-md transition">
       {/*
-        The whole card is browseable -- the inner Link wraps just the
+        The whole card is browseable, the inner Link wraps just the
         summary so a click on the Rebook button at the bottom doesn't
         navigate. This keeps "go look at the order" and "request a
         rebook" as two separate intents.

@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (e: any) {
       console.error("Service role client unavailable:", e);
       return res.status(500).json({
-        error: "Server is missing service-role credentials -- check SUPABASE_SERVICE_ROLE_KEY in env.",
+        error: "Server is missing service-role credentials, check SUPABASE_SERVICE_ROLE_KEY in env.",
       });
     }
 

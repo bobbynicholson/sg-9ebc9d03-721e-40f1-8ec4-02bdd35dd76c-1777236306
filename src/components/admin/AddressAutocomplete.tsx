@@ -179,7 +179,7 @@ export function AddressAutocomplete({
       {keyAvailable === false && (
         <div className="mt-1 flex items-center gap-1.5 text-[11px] text-amber-700">
           <ShieldAlert className="w-3 h-3 flex-shrink-0" />
-          <span>Manual entry only -- ask the platform owner to enable Google Maps for autocomplete + lat/lng.</span>
+          <span>Manual entry only, ask the platform owner to enable Google Maps for autocomplete + lat/lng.</span>
         </div>
       )}
       {hint && !keyAvailable && false && (

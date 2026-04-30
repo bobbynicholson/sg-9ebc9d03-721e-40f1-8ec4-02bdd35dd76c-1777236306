@@ -115,7 +115,7 @@ function WhiteLabelPage() {
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                     White Label Branding
-                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved on this device only for now -- syncing to your account is coming."} />
+                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved on this device only for now, syncing to your account is coming."} />
                   </h1>
                   <p className="text-slate-600 mt-1">Customize your platform with your own branding</p>
                 </div>
@@ -196,7 +196,7 @@ function WhiteLabelPage() {
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5" />
                     Color Palette
-                    <InfoTooltip content={"Three colours -- primary, secondary, accent -- that flow through buttons, gradients, and highlights across the app."} />
+                    <InfoTooltip content={"Three colours, primary, secondary, accent, that flow through buttons, gradients, and highlights across the app."} />
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">

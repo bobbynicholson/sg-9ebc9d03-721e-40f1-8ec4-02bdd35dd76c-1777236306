@@ -514,7 +514,7 @@ function EquipmentPage() {
                   rows={2}
                   value={editing.description || ""}
                   onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                  placeholder="Optional -- pack notes, dimensions, where it's stored..."
+                  placeholder="Optional, pack notes, dimensions, where it's stored..."
                 />
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -613,7 +613,7 @@ function EquipmentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reservations drawer -- per-item calendar */}
+      {/* Reservations drawer, per-item calendar */}
       <Sheet open={!!reservationsFor} onOpenChange={(o) => { if (!o) { setReservationsFor(null); setReservations([]); } }}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>

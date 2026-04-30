@@ -257,7 +257,7 @@ function DriverManagementPage() {
     }
 
     if (!user?.company_id) {
-      setError("Your account is not linked to a company yet -- contact support");
+      setError("Your account is not linked to a company yet, contact support");
       setAddDriverLoading(false);
       return;
     }
@@ -310,7 +310,7 @@ function DriverManagementPage() {
       loadDrivers();
     } catch (err: any) {
       console.error("Error adding driver:", err);
-      setError(err?.message || "Network or browser error -- check the console for details.");
+      setError(err?.message || "Network or browser error, check the console for details.");
     } finally {
       setAddDriverLoading(false);
     }
@@ -404,7 +404,7 @@ function DriverManagementPage() {
       {/* Two-level layout matches admin/dashboard + admin/inventory: outer
           handles the sidebar offset, inner caps the content width. The
           earlier single-div version put pl-72 INSIDE the max-w box, which
-          ate ~288px from inside the cap -- that's why the content looked
+          ate ~288px from inside the cap, that's why the content looked
           centred / narrow on wide viewports. */}
       <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80">
         <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
@@ -510,7 +510,7 @@ function DriverManagementPage() {
             </div>
           </div>
 
-          {/* Stats -- live operational signals */}
+          {/* Stats, live operational signals */}
           {(() => {
             const onShift = Object.entries(lastPingByDriver).filter(([, ts]) => {
               const ageMin = (Date.now() - new Date(ts).getTime()) / 60_000;
@@ -813,7 +813,7 @@ function DriverManagementPage() {
         companyId={user?.company_id ?? null}
       />
 
-      {/* Edit driver dialog -- capacity, home postcode, regions */}
+      {/* Edit driver dialog, capacity, home postcode, regions */}
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>

@@ -19,7 +19,7 @@ import type { Quote } from "@/types";
 export type QuoteBucket =
   | "all"
   | "action_needed"   // draft (manual + client request), expiring within 3d
-  | "in_play"         // sent / viewed -- waiting on the client
+  | "in_play"         // sent / viewed, waiting on the client
   | "stale"           // sent > 7d ago, no reply
   | "won"             // accepted (with or without converted order)
   | "lost"            // rejected
@@ -131,7 +131,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       bucket: "lost",
       tone: "neutral",
       label: "Win-back nudge",
-      reason: "Quote was rejected -- door's still open",
+      reason: "Quote was rejected, door's still open",
       daysSinceTouch,
       lastTouchAt,
       isClientRequest,
@@ -176,8 +176,8 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: ageDays >= 1 ? `Price + send -- client waiting ${ageDays}d` : "Price + send -- client waiting",
-        reason: "Submitted from client portal -- they're expecting a quote",
+        label: ageDays >= 1 ? `Price + send, client waiting ${ageDays}d` : "Price + send, client waiting",
+        reason: "Submitted from client portal, they're expecting a quote",
         daysSinceTouch,
         lastTouchAt,
         isClientRequest,
@@ -189,7 +189,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       bucket: "action_needed",
       tone: ageDays >= 3 ? "urgent" : "warm",
       label: ageDays >= 3 ? `Finish + send (${ageDays}d old)` : "Finish + send",
-      reason: "Draft quote -- not sent yet",
+      reason: "Draft quote, not sent yet",
       daysSinceTouch,
       lastTouchAt,
       isClientRequest,
@@ -204,7 +204,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: `Confirm -- expires in ${daysUntilExpiry}d`,
+        label: `Confirm, expires in ${daysUntilExpiry}d`,
         reason: "Quote validity is running out",
         daysSinceTouch,
         lastTouchAt,
@@ -222,7 +222,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       return {
         bucket: "action_needed",
         tone: "urgent",
-        label: `Nudge -- viewed ${sinceView}d ago, quiet`,
+        label: `Nudge, viewed ${sinceView}d ago, quiet`,
         reason: "They opened it but haven't replied",
         daysSinceTouch,
         lastTouchAt,
@@ -234,7 +234,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
     return {
       bucket: "in_play",
       tone: "warm",
-      label: "Viewed -- let it breathe",
+      label: "Viewed, let it breathe",
       reason: `They opened it ${sinceView}d ago`,
       daysSinceTouch,
       lastTouchAt,
@@ -251,7 +251,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       return {
         bucket: "stale",
         tone: "urgent",
-        label: `Resend -- ${sinceSent}d, no open`,
+        label: `Resend, ${sinceSent}d, no open`,
         reason: "They likely never saw the email",
         daysSinceTouch,
         lastTouchAt,
@@ -264,7 +264,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
       return {
         bucket: "in_play",
         tone: "warm",
-        label: `Nudge -- ${sinceSent}d, no open`,
+        label: `Nudge, ${sinceSent}d, no open`,
         reason: "Quote has been out a few days",
         daysSinceTouch,
         lastTouchAt,
@@ -276,7 +276,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
     return {
       bucket: "in_play",
       tone: "neutral",
-      label: "Just sent -- give it a beat",
+      label: "Just sent, give it a beat",
       reason: sent ? `Sent ${sinceSent}d ago` : "Recently sent",
       daysSinceTouch,
       lastTouchAt,

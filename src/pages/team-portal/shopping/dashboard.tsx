@@ -239,7 +239,7 @@ export default function ShoppingDashboard() {
                   <div>
                     <p className="text-xs sm:text-sm text-slate-600 flex items-center gap-1">
                       Pending
-                      <InfoTooltip content="Items still to buy.\n\nTick each one off as you grab it -- progress is saved on this device." />
+                      <InfoTooltip content="Items still to buy.\n\nTick each one off as you grab it, progress is saved on this device." />
                     </p>
                     <p className="text-lg sm:text-xl md:text-2xl font-bold text-orange-600">{pendingCount}</p>
                   </div>
