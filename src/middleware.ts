@@ -164,11 +164,23 @@ export async function middleware(request: NextRequest) {
   );
 
   const { pathname } = request.nextUrl;
-  
-  // Skip middleware for static files and api routes
+
+  // Skip middleware for static files and ALL api routes.
+  //
+  // Why every /api/ route, not just webhooks: the tenant-slug detector
+  // below uses /^\/([^\/]+)\/(admin|...)/  which matches /api/admin/...
+  // and incorrectly captures "api" as the company slug. That triggers a
+  // tenant_mismatch redirect on POSTs (e.g. /api/admin/create-user),
+  // which Next turns into a 405 because the role-landing page doesn't
+  // accept POSTs.
+  //
+  // Every /api/ handler in this codebase already does its own session
+  // and role check via createPagesServerClient (see e.g.
+  // /api/admin/create-user, /api/admin/delete-user) -- the middleware
+  // adds nothing here and breaks the auth flow for write endpoints.
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/") ||
     pathname.includes(".") // crude check for files
   ) {
     return response;
