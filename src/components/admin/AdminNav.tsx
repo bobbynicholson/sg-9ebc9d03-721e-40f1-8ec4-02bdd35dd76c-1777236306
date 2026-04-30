@@ -237,6 +237,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Add staff, set rates and standard hours"
         },
         {
+          title: "Wage Dashboard",
+          href: "/admin/wages",
+          icon: DollarSign,
+          description: "Hours x rates roll-up with overtime split"
+        },
+        {
           title: "Staff Hours",
           href: "/admin/staff-hours",
           icon: Clock,
