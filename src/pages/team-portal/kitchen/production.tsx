@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar, Clock, Users as UsersIcon, Loader2, ChevronLeft, ChevronRight,
-  CalendarDays, LayoutGrid, ChefHat,
+  CalendarDays, LayoutGrid, ChefHat, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -93,6 +93,17 @@ export default function KitchenProductionPage() {
   const [stations, setStations] = useState<KitchenStation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Phase 4: recipe accuracy report -- always loads the trailing 30 days so
+  // the panel reflects actual yield history, not just the day on screen.
+  const [recipeAccuracy, setRecipeAccuracy] = useState<Array<{
+    recipe_name: string;
+    samples: number;
+    avg_planned: number;
+    avg_actual: number;
+    avg_variance_pct: number;
+    yield_unit: string | null;
+  }>>([]);
+
   // Date window: day = 1 day, week = 7 days starting Monday (or anchor)
   const windowDays = useMemo(() => {
     if (view === "day") return [anchor];
@@ -137,6 +148,17 @@ export default function KitchenProductionPage() {
           .select("id, order_id, menu_item_id, item_name, quantity, special_instructions")
           .in("order_id", orderIds);
         setItems((lineItems || []) as OrderItem[]);
+      }
+
+      // Phase 4: pull trailing 30 days of recipe accuracy. Cheap, zero
+      // results when no yields have been logged -- panel stays hidden.
+      try {
+        const accFrom = new Date(Date.now() - 30 * 86400000).toISOString();
+        const accTo = new Date().toISOString();
+        const accuracy = await kitchenPrepService.getRecipeAccuracy(user.company_id, accFrom, accTo);
+        setRecipeAccuracy(accuracy);
+      } catch (accErr) {
+        console.warn("Recipe accuracy query failed:", accErr);
       }
     } catch (e: any) {
       toast({ title: "Could not load production", description: e?.message, variant: "destructive" });
@@ -512,6 +534,61 @@ export default function KitchenProductionPage() {
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-200 border border-blue-400" /> In progress</span>
               <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200 border border-emerald-400" /> Done</span>
             </div>
+          )}
+
+          {/* Phase 4: recipe accuracy panel. Only renders when at least one
+              prep task has both planned and actual yields logged. Lists the
+              recipes by absolute variance so the worst offenders surface
+              first. Sample size on each row keeps confidence honest. */}
+          {recipeAccuracy.length > 0 && (
+            <Card className="mt-6 border-0 shadow-md">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-orange-500" />
+                    <h2 className="text-sm sm:text-base font-semibold text-slate-900">Recipe accuracy -- last 30 days</h2>
+                    <InfoTooltip content="Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on -- treat single-digit samples as early signal, not gospel." />
+                  </div>
+                  <span className="text-xs text-slate-500">{recipeAccuracy.length} recipe{recipeAccuracy.length === 1 ? "" : "s"}</span>
+                </div>
+                <div className="overflow-x-auto -mx-1">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th className="px-2 py-2 font-medium">Recipe</th>
+                        <th className="px-2 py-2 font-medium text-right">Samples</th>
+                        <th className="px-2 py-2 font-medium text-right">Planned (avg)</th>
+                        <th className="px-2 py-2 font-medium text-right">Actual (avg)</th>
+                        <th className="px-2 py-2 font-medium text-right">Variance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recipeAccuracy.map((r) => {
+                        const tone =
+                          Math.abs(r.avg_variance_pct) < 5  ? "text-emerald-700" :
+                          Math.abs(r.avg_variance_pct) < 15 ? "text-amber-700"   :
+                                                              "text-red-700";
+                        const Arrow = r.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;
+                        return (
+                          <tr key={r.recipe_name} className="border-b border-slate-100 hover:bg-slate-50/50">
+                            <td className="px-2 py-2 font-medium text-slate-800">{r.recipe_name}</td>
+                            <td className="px-2 py-2 text-right text-slate-600 tabular-nums">{r.samples}</td>
+                            <td className="px-2 py-2 text-right text-slate-600 tabular-nums">{r.avg_planned} {r.yield_unit || ""}</td>
+                            <td className="px-2 py-2 text-right text-slate-900 tabular-nums">{r.avg_actual} {r.yield_unit || ""}</td>
+                            <td className={`px-2 py-2 text-right font-semibold tabular-nums ${tone}`}>
+                              <span className="inline-flex items-center gap-1">
+                                <Arrow className="h-3.5 w-3.5" />
+                                {r.avg_variance_pct > 0 ? "+" : ""}{r.avg_variance_pct}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

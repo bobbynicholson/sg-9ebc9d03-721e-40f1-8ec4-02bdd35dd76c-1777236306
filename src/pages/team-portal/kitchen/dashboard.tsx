@@ -73,6 +73,16 @@ export default function KitchenDashboard() {
     dietary: string;
   } | null>(null);
 
+  // Phase 4: tomorrow + day-after preview, plus hot-hold tunable threshold.
+  const [upcoming, setUpcoming] = useState<Array<{
+    date: string;
+    orders: number;
+    guests: number;
+    earliest_event_time: string | null;
+    items: Array<{ id: string; event_name: string; client_name: string | null; event_time: string | null; guest_count: number; status: string }>;
+  }>>([]);
+  const [maxHotHoldMin, setMaxHotHoldMin] = useState(90);
+
   // Tick the clock every minute so countdowns stay live without polling the DB
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -133,6 +143,25 @@ export default function KitchenDashboard() {
         setProgressByOrder(prog);
       } else {
         setProgressByOrder({});
+      }
+
+      // Phase 4: tomorrow + day-after preview and hot-hold threshold
+      try {
+        const preview = await kitchenPrepService.getUpcomingPreview(user.company_id, 2);
+        setUpcoming(preview);
+      } catch (pErr) {
+        console.warn("Upcoming preview failed:", pErr);
+      }
+      try {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("kitchen_settings")
+          .eq("id", user.company_id)
+          .single();
+        const ks: any = company?.kitchen_settings || {};
+        if (ks.maxHotHoldMin) setMaxHotHoldMin(Number(ks.maxHotHoldMin));
+      } catch (sErr) {
+        console.warn("Settings load failed:", sErr);
       }
     } catch (error) {
       console.error("Dashboard load error:", error);
@@ -437,6 +466,56 @@ export default function KitchenDashboard() {
             </Card>
           )}
 
+          {/* Phase 4: tomorrow + day-after preview. Quiet glance card so the
+              kitchen sees what's brewing before it lands as "Active orders".
+              Hidden when nothing's coming up to keep the page calm. */}
+          {upcoming.length > 0 && (
+            <Card className="border-0 shadow-md mb-4">
+              <CardHeader className="px-3 sm:px-4 md:px-6 pb-2">
+                <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-700">
+                  <Calendar className="w-4 h-4 text-orange-500" />
+                  What's coming up
+                  <InfoTooltip content="Confirmed orders for the next two days. Not yet in the active board -- this is your prep-ahead heads-up." />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 sm:px-4 md:px-6 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {upcoming.map((day) => {
+                    const d = new Date(day.date);
+                    const isTomorrow = d.toDateString() === new Date(Date.now() + 86400000).toDateString();
+                    const label = isTomorrow ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+                    return (
+                      <div key={day.date} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-semibold text-slate-900">{label}</div>
+                          <div className="flex items-center gap-3 text-xs text-slate-600">
+                            <span className="inline-flex items-center gap-1"><Package className="w-3 h-3" />{day.orders}</span>
+                            <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" />{day.guests}</span>
+                            {day.earliest_event_time && (
+                              <span className="inline-flex items-center gap-1 tabular-nums"><Clock className="w-3 h-3" />{day.earliest_event_time.slice(0, 5)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <ul className="space-y-1">
+                          {day.items.slice(0, 4).map((it) => (
+                            <li key={it.id} className="text-xs text-slate-600 flex items-center gap-2">
+                              <span className="tabular-nums text-slate-400 w-10 shrink-0">{it.event_time?.slice(0, 5) || "--"}</span>
+                              <span className="font-medium text-slate-700 truncate flex-1 min-w-0">{it.event_name || it.client_name}</span>
+                              <span className="text-slate-500 tabular-nums shrink-0">{it.guest_count} pax</span>
+                            </li>
+                          ))}
+                          {day.items.length > 4 && (
+                            <li className="text-[11px] text-slate-400 italic">+ {day.items.length - 4} more</li>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Active orders -- kanban (Confirmed / In prep / Ready) */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="px-3 sm:px-4 md:px-6">
@@ -571,12 +650,40 @@ export default function KitchenDashboard() {
                                     Mark ready (notify driver)
                                   </Button>
                                 )}
-                                {col.key === "ready" && (
-                                  <p className="mt-2 text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
-                                    <Truck className="w-3 h-3" />
-                                    Waiting for pickup
-                                  </p>
-                                )}
+                                {col.key === "ready" && (() => {
+                                  // Phase 4: hot-hold warning. Once a Ready
+                                  // order has sat past the threshold the
+                                  // chef sees a clear red bar instead of
+                                  // the calm "waiting for pickup" line.
+                                  const hold = kitchenPrepService.computeHoldTime(
+                                    order.ready_at,
+                                    order.picked_up_at,
+                                    maxHotHoldMin,
+                                    now,
+                                  );
+                                  if (!hold) {
+                                    return (
+                                      <p className="mt-2 text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                                        <Truck className="w-3 h-3" />Waiting for pickup
+                                      </p>
+                                    );
+                                  }
+                                  if (hold.overdue) {
+                                    return (
+                                      <div className="mt-2 text-[11px] font-semibold text-red-800 bg-red-100 border border-red-300 rounded px-2 py-1 inline-flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3" />
+                                        Hot {hold.holdMin}m -- past {maxHotHoldMin}m hold
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <p className={`mt-2 text-[11px] font-medium inline-flex items-center gap-1 ${
+                                      hold.holdMin > maxHotHoldMin * 0.7 ? "text-amber-700" : "text-emerald-700"
+                                    }`}>
+                                      <Truck className="w-3 h-3" />Waiting {hold.holdMin}m -- pickup soon
+                                    </p>
+                                  );
+                                })()}
 
                                 {/* Per-task tick UI lives inside TaskCompletionButtons (existing component) */}
                                 {col.key === "preparing" && (

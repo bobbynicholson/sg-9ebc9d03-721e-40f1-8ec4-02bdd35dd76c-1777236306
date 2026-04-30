@@ -3916,6 +3916,7 @@ export type Database = {
       }
       kitchen_duty_shifts: {
         Row: {
+          break_started_at: string | null
           company_id: string | null
           created_at: string | null
           id: string
@@ -3925,10 +3926,12 @@ export type Database = {
           shift_start: string | null
           shift_type: string | null
           staff_id: string | null
+          total_break_min: number
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          break_started_at?: string | null
           company_id?: string | null
           created_at?: string | null
           id?: string
@@ -3938,10 +3941,12 @@ export type Database = {
           shift_start?: string | null
           shift_type?: string | null
           staff_id?: string | null
+          total_break_min?: number
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          break_started_at?: string | null
           company_id?: string | null
           created_at?: string | null
           id?: string
@@ -3951,6 +3956,7 @@ export type Database = {
           shift_start?: string | null
           shift_type?: string | null
           staff_id?: string | null
+          total_break_min?: number
           updated_at?: string | null
           user_id?: string | null
         }

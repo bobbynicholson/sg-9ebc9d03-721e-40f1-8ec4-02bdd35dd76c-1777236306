@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, DollarSign } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
@@ -26,6 +26,8 @@ interface Shift {
   shift_end: string | null;
   shift_type: string | null;
   is_active: boolean | null;
+  break_started_at: string | null;
+  total_break_min: number;
 }
 
 interface Profile {
@@ -33,6 +35,7 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   role: string | null;
+  hourly_rate: number | null;
 }
 
 export default function KitchenDutyRosterPage() {
@@ -57,6 +60,21 @@ export default function KitchenDutyRosterPage() {
     on_time_rate: number;
     avg_yield_variance_pct: number | null;
   }>>([]);
+
+  // Phase 4: live tick + tenant settings drive earnings, overtime warning
+  // and overdue-break prompt. Settings have safe defaults so the page
+  // works even before any tenant tunes them.
+  const [now, setNow] = useState(new Date());
+  const [settings, setSettings] = useState({
+    overtimeAfterHours: 9,
+    maxHotHoldMin: 90,
+    mealBreakAfterHours: 5,
+  });
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -94,12 +112,29 @@ export default function KitchenDutyRosterPage() {
       if (ids.size > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, full_name, email, role")
+          .select("id, full_name, email, role, hourly_rate")
           .in("id", Array.from(ids))
           .returns<Profile[]>();
         const map: Record<string, Profile> = {};
         (profiles || []).forEach((p) => { map[p.id] = p; });
         setStaff(map);
+      }
+
+      // Pull tenant kitchen settings for overtime / break thresholds
+      try {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("kitchen_settings")
+          .eq("id", user.company_id)
+          .single();
+        const ks: any = company?.kitchen_settings || {};
+        setSettings({
+          overtimeAfterHours: Number(ks.overtimeAfterHours ?? 9),
+          maxHotHoldMin: Number(ks.maxHotHoldMin ?? 90),
+          mealBreakAfterHours: Number(ks.mealBreakAfterHours ?? 5),
+        });
+      } catch (sErr) {
+        console.warn("Settings load failed, using defaults:", sErr);
       }
 
       // Phase 3: chef performance for the last 7 days
@@ -208,6 +243,34 @@ export default function KitchenDutyRosterPage() {
     }
   };
 
+  // Phase 4: break toggle. Pure pass-through to the service so the timestamp
+  // bookkeeping stays in one place.
+  const handleToggleBreak = async (shift: Shift) => {
+    setSaving(true);
+    try {
+      if (shift.break_started_at) {
+        await kitchenPrepService.endBreak(shift.id);
+        toast({ title: "Break ended", description: "Welcome back to your shift." });
+      } else {
+        await kitchenPrepService.startBreak(shift.id);
+        toast({ title: "Break started", description: "Take 5. Tap again when you return." });
+      }
+      load();
+    } catch (e: any) {
+      toast({ title: "Could not toggle break", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Tiny formatters for the earnings panel
+  const fmtMinutes = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h === 0) return `${m}m`;
+    return `${h}h ${m}m`;
+  };
+
   const fmtDuration = (start?: string | null, end?: string | null) => {
     if (!start) return "--";
     const a = new Date(start).getTime();
@@ -234,35 +297,116 @@ export default function KitchenDutyRosterPage() {
             <p className="text-sm text-slate-600 mt-1">Who is in the kitchen right now and recent shift history</p>
           </div>
 
-          <Card className="mb-6 border-orange-200 bg-gradient-to-r from-orange-50 to-red-50">
-            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
-                  <ChefHat className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 flex items-center gap-1">
-                    Your status
-                    <InfoTooltip content="Whether you're clocked in for a shift right now." />
-                  </p>
-                  <p className="text-base font-semibold text-slate-900">
-                    {myActiveShift
-                      ? `On shift -- ${fmtDuration(myActiveShift.shift_start)}`
-                      : "Not clocked in"}
-                  </p>
-                </div>
-              </div>
-              {myActiveShift ? (
-                <Button onClick={() => openEndShift(myActiveShift)} disabled={saving} className="bg-rose-600 hover:bg-rose-700">
-                  <Square className="h-4 w-4 mr-2" />Clock out
-                </Button>
-              ) : (
-                <Button onClick={startShift} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
-                  {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Clocking in</> : <><Play className="h-4 w-4 mr-2" />Clock in</>}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          {/* Phase 4: live earnings + overtime + break panel. Numbers tick
+              every 30s without any DB hit -- pure math off the shift row. */}
+          {(() => {
+            const myProfile = user?.id ? staff[user.id] : null;
+            const earnings = myActiveShift
+              ? kitchenPrepService.computeShiftEarnings({
+                  shiftStart: myActiveShift.shift_start,
+                  breakStartedAt: myActiveShift.break_started_at,
+                  totalBreakMin: myActiveShift.total_break_min,
+                  hourlyRate: myProfile?.hourly_rate ?? null,
+                  settings,
+                  now,
+                })
+              : null;
+            const onBreak = !!myActiveShift?.break_started_at;
+            return (
+              <Card className={`mb-6 border-2 ${
+                earnings?.overtime ? "border-red-300 bg-red-50/40" :
+                earnings?.overdueBreak ? "border-amber-300 bg-amber-50/40" :
+                "border-orange-200 bg-gradient-to-r from-orange-50 to-red-50"
+              }`}>
+                <CardContent className="p-4 sm:p-6 flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                        <ChefHat className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-600 flex items-center gap-1">
+                          Your status
+                          <InfoTooltip content="Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours." />
+                        </p>
+                        <p className="text-base font-semibold text-slate-900">
+                          {myActiveShift
+                            ? onBreak
+                              ? `On break -- ${fmtDuration(myActiveShift.break_started_at)}`
+                              : `On shift -- ${fmtMinutes(earnings?.workedMin ?? 0)}`
+                            : "Not clocked in"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {myActiveShift && (
+                        <Button
+                          onClick={() => handleToggleBreak(myActiveShift)}
+                          disabled={saving}
+                          variant="outline"
+                          className={onBreak ? "border-emerald-400 text-emerald-700 hover:bg-emerald-50" : ""}
+                        >
+                          <Coffee className="h-4 w-4 mr-2" />
+                          {onBreak ? "End break" : "Start break"}
+                        </Button>
+                      )}
+                      {myActiveShift ? (
+                        <Button onClick={() => openEndShift(myActiveShift)} disabled={saving} className="bg-rose-600 hover:bg-rose-700">
+                          <Square className="h-4 w-4 mr-2" />Clock out
+                        </Button>
+                      ) : (
+                        <Button onClick={startShift} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+                          {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Clocking in</> : <><Play className="h-4 w-4 mr-2" />Clock in</>}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Earnings strip -- only renders when on shift */}
+                  {myActiveShift && earnings && (
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2 border-t border-orange-200">
+                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-slate-500">Worked</div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.workedMin)}</div>
+                      </div>
+                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-slate-500">Break</div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">{fmtMinutes(earnings.breakMin)}</div>
+                      </div>
+                      <div className="rounded-md bg-white/70 p-2 sm:p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                          <DollarSign className="h-2.5 w-2.5" />Earnings
+                        </div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">
+                          {earnings.earnings != null ? `R ${earnings.earnings.toFixed(2)}` : "Set rate"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Warnings -- overtime first, break second */}
+                  {earnings?.overtime && (
+                    <div className="flex items-start gap-2 text-xs text-red-800 bg-red-100/70 rounded-md p-2.5 border border-red-200">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold">Overtime -- </span>
+                        you've worked over {settings.overtimeAfterHours}h. Confirm with your manager that the extra hours are approved.
+                      </div>
+                    </div>
+                  )}
+                  {earnings?.overdueBreak && !earnings.overtime && (
+                    <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-100/70 rounded-md p-2.5 border border-amber-200">
+                      <Coffee className="h-4 w-4 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold">Time for a break -- </span>
+                        you've been on shift over {settings.mealBreakAfterHours}h with no break logged.
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1 flex items-center gap-1.5">
             On duty now -- {active.length}

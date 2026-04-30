@@ -27,6 +27,9 @@ export interface KitchenSettings {
   defaultPrepMinPerDish: number;   // when a menu item has no prep_time_minutes
   defaultCookMinPerDish: number;   // when a menu item has no cook_time_minutes
   autoGeneratePrepTasks: boolean;  // can be disabled per tenant
+  overtimeAfterHours: number;      // Phase 4: warn after this many shift hours
+  maxHotHoldMin: number;           // Phase 4: warn when ready orders sit longer
+  mealBreakAfterHours: number;     // Phase 4: prompt a break after this point
 }
 
 const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
@@ -34,6 +37,9 @@ const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
   defaultPrepMinPerDish: 15,
   defaultCookMinPerDish: 30,
   autoGeneratePrepTasks: true,
+  overtimeAfterHours: 9,
+  maxHotHoldMin: 90,
+  mealBreakAfterHours: 5,
 };
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -941,5 +947,228 @@ export const kitchenPrepService = {
         ? Math.round((b.varianceSum / b.varianceCount) * 10) / 10
         : null,
     })).sort((a, b) => b.tasks_completed - a.tasks_completed);
+  },
+
+  // ── Phase 4: shift earnings, breaks, overtime ────────────────────────────
+  /**
+   * Compute live earnings + overtime status for a single in-progress or
+   * completed shift. Pure math: shift duration minus break time, multiplied
+   * by hourly_rate. Falls back to safe defaults so the panel never blows up.
+   */
+  computeShiftEarnings(args: {
+    shiftStart: string | null;
+    shiftEnd?: string | null;
+    breakStartedAt?: string | null;
+    totalBreakMin?: number;
+    hourlyRate?: number | null;
+    settings: KitchenSettings;
+    now?: Date;
+  }): {
+    workedMin: number;
+    breakMin: number;
+    earnings: number | null;
+    overtime: boolean;
+    overdueBreak: boolean;
+  } {
+    const now = args.now ?? new Date();
+    if (!args.shiftStart) {
+      return { workedMin: 0, breakMin: 0, earnings: null, overtime: false, overdueBreak: false };
+    }
+    const start = new Date(args.shiftStart).getTime();
+    const end = args.shiftEnd ? new Date(args.shiftEnd).getTime() : now.getTime();
+    const grossMin = Math.max(0, Math.floor((end - start) / 60_000));
+    const onBreakMin = args.breakStartedAt && !args.shiftEnd
+      ? Math.max(0, Math.floor((now.getTime() - new Date(args.breakStartedAt).getTime()) / 60_000))
+      : 0;
+    const breakMin = (args.totalBreakMin || 0) + onBreakMin;
+    const workedMin = Math.max(0, grossMin - breakMin);
+    const workedH = workedMin / 60;
+    const earnings = args.hourlyRate ? Math.round(workedH * Number(args.hourlyRate) * 100) / 100 : null;
+    return {
+      workedMin,
+      breakMin,
+      earnings,
+      overtime: workedH >= args.settings.overtimeAfterHours,
+      overdueBreak:
+        workedH >= args.settings.mealBreakAfterHours
+        && breakMin === 0
+        && !args.shiftEnd,
+    };
+  },
+
+  /**
+   * Toggle break for an active shift. Two states tracked on the row:
+   *   - break_started_at: timestamp of the current break (NULL when off-break)
+   *   - total_break_min: cumulative minutes of completed breaks
+   * One column flip when starting, two when stopping (stamp + accumulate).
+   */
+  async startBreak(shiftId: string): Promise<void> {
+    const { error } = await supabase
+      .from("kitchen_duty_shifts")
+      .update({ break_started_at: new Date().toISOString() })
+      .eq("id", shiftId);
+    if (error) throw error;
+  },
+
+  async endBreak(shiftId: string): Promise<void> {
+    const { data: shift, error: gErr } = await supabase
+      .from("kitchen_duty_shifts")
+      .select("break_started_at, total_break_min")
+      .eq("id", shiftId)
+      .single();
+    if (gErr || !shift?.break_started_at) return;
+    const elapsedMin = Math.max(0, Math.floor(
+      (Date.now() - new Date(shift.break_started_at).getTime()) / 60_000,
+    ));
+    const newTotal = (shift.total_break_min || 0) + elapsedMin;
+    const { error } = await supabase
+      .from("kitchen_duty_shifts")
+      .update({ break_started_at: null, total_break_min: newTotal })
+      .eq("id", shiftId);
+    if (error) throw error;
+  },
+
+  // ── Phase 4: heated-storage hold-time check ──────────────────────────────
+  /**
+   * Pure helper: how long has a Ready order been sitting hot, and is it past
+   * the safe threshold? `null` for orders that aren't yet ready.
+   */
+  computeHoldTime(
+    readyAt: string | null,
+    pickedUpAt: string | null,
+    maxHotHoldMin: number,
+    now: Date = new Date(),
+  ): { holdMin: number; overdue: boolean } | null {
+    if (!readyAt || pickedUpAt) return null;
+    const minutes = Math.max(0, Math.floor((now.getTime() - new Date(readyAt).getTime()) / 60_000));
+    return { holdMin: minutes, overdue: minutes > maxHotHoldMin };
+  },
+
+  // ── Phase 4: tomorrow + day-after preview ────────────────────────────────
+  /**
+   * Light read of upcoming orders to feed the dashboard's "what's next"
+   * preview. Two days only -- this is a glance, not a planning tool.
+   */
+  async getUpcomingPreview(companyId: string, days: number = 2): Promise<Array<{
+    date: string;
+    orders: number;
+    guests: number;
+    earliest_event_time: string | null;
+    items: Array<{ id: string; event_name: string; client_name: string | null; event_time: string | null; guest_count: number; status: string }>;
+  }>> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() + 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + days);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, event_name, client_name, event_date, event_time, guest_count, status")
+      .eq("company_id", companyId)
+      .gte("event_date", start.toISOString().slice(0, 10))
+      .lt("event_date", end.toISOString().slice(0, 10))
+      .in("status", ["confirmed", "preparing", "ready"])
+      .is("deleted_at", null)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
+    if (error) {
+      console.error("Upcoming preview query failed:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, { date: string; orders: number; guests: number; earliest_event_time: string | null; items: any[] }>();
+    for (const o of (data as any[]) || []) {
+      const b = buckets.get(o.event_date) || {
+        date: o.event_date,
+        orders: 0,
+        guests: 0,
+        earliest_event_time: null as string | null,
+        items: [] as any[],
+      };
+      b.orders += 1;
+      b.guests += o.guest_count || 0;
+      if (o.event_time && (!b.earliest_event_time || o.event_time < b.earliest_event_time)) {
+        b.earliest_event_time = o.event_time;
+      }
+      b.items.push(o);
+      buckets.set(o.event_date, b);
+    }
+    return Array.from(buckets.values());
+  },
+
+  // ── Phase 4: recipe accuracy report (surfaces yield variance) ────────────
+  /**
+   * Aggregates yield variance per recipe across a window. Surfaces the
+   * Phase 3 schema work as a clean read -- which dishes the kitchen
+   * consistently over- or under-yields on, with the sample size so users
+   * can judge confidence.
+   */
+  async getRecipeAccuracy(
+    companyId: string,
+    fromISO: string,
+    toISO: string,
+  ): Promise<Array<{
+    recipe_name: string;
+    samples: number;
+    avg_planned: number;
+    avg_actual: number;
+    avg_variance_pct: number;
+    yield_unit: string | null;
+  }>> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("menu_item_name, planned_yield, actual_yield, yield_unit")
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .not("planned_yield", "is", null)
+      .not("actual_yield", "is", null)
+      .is("deleted_at", null);
+    if (error) {
+      console.error("Recipe accuracy query failed:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, {
+      recipe_name: string;
+      plannedSum: number;
+      actualSum: number;
+      varianceSum: number;
+      n: number;
+      yield_unit: string | null;
+    }>();
+
+    for (const r of (data as any[]) || []) {
+      const planned = Number(r.planned_yield);
+      const actual = Number(r.actual_yield);
+      if (!planned || planned <= 0) continue;
+      const variancePct = ((actual - planned) / planned) * 100;
+      const b = buckets.get(r.menu_item_name) || {
+        recipe_name: r.menu_item_name,
+        plannedSum: 0,
+        actualSum: 0,
+        varianceSum: 0,
+        n: 0,
+        yield_unit: r.yield_unit || null,
+      };
+      b.plannedSum += planned;
+      b.actualSum += actual;
+      b.varianceSum += variancePct;
+      b.n += 1;
+      if (!b.yield_unit && r.yield_unit) b.yield_unit = r.yield_unit;
+      buckets.set(r.menu_item_name, b);
+    }
+
+    return Array.from(buckets.values())
+      .map(b => ({
+        recipe_name: b.recipe_name,
+        samples: b.n,
+        avg_planned: Math.round((b.plannedSum / b.n) * 100) / 100,
+        avg_actual: Math.round((b.actualSum / b.n) * 100) / 100,
+        avg_variance_pct: Math.round((b.varianceSum / b.n) * 10) / 10,
+        yield_unit: b.yield_unit,
+      }))
+      .sort((a, b) => Math.abs(b.avg_variance_pct) - Math.abs(a.avg_variance_pct));
   },
 };
