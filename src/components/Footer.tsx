@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -22,6 +23,49 @@ export function Footer() {
   const { user } = useAuth() as any;
   const isSignedIn = !!user;
 
+  // Footer-below-the-fold: on signed-in dashboards the footer was
+  // showing in the viewport on short pages (e.g. /admin/onboarding).
+  // We dynamically measure how much vertical space the page would have
+  // without the footer, and add a spacer above the footer so its top
+  // edge sits at >=100vh from the page top. Long pages get spacer = 0
+  // and look identical to before.
+  const footerRef = useRef<HTMLElement | null>(null);
+  const [spacerHeight, setSpacerHeight] = useState(0);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    const recompute = () => {
+      const f = footerRef.current;
+      if (!f) return;
+      const rect = f.getBoundingClientRect();
+      const winH = window.innerHeight;
+      // Where is the footer's top edge in document coords today?
+      const currentTop = rect.top + window.scrollY;
+      // Desired position: at least 100vh from the document top so a
+      // first-paint user has to scroll to see it.
+      const targetTop = winH;
+      // We can only push DOWN, never up -- if the footer is already
+      // below the fold (long page), spacer = 0.
+      const naturalTop = currentTop - spacerHeight;
+      const needed = Math.max(0, Math.round(targetTop - naturalTop));
+      setSpacerHeight((prev) => (Math.abs(prev - needed) < 2 ? prev : needed));
+    };
+
+    recompute();
+    // Re-measure after async content settles. Keep the timeouts short
+    // so the spacer doesn't visibly snap.
+    const timers = [setTimeout(recompute, 80), setTimeout(recompute, 300), setTimeout(recompute, 1000)];
+    window.addEventListener("resize", recompute);
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener("resize", recompute);
+    };
+  // We deliberately exclude spacerHeight from deps -- recompute reads
+  // the latest via state setter; including it would loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
+
   const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
@@ -36,7 +80,15 @@ export function Footer() {
   ];
 
   return (
-    <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
+    <>
+      {/* Pushes the footer below the visible viewport on short signed-in
+          pages. Sized to whatever leftover space the page has at first
+          paint, so long pages stay tight and short ones don't surface
+          the footer until the user actively scrolls. */}
+      {isSignedIn && spacerHeight > 0 && (
+        <div aria-hidden style={{ height: spacerHeight }} />
+      )}
+    <footer ref={footerRef} className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         {/*
           Sign-in CTA card. Only shown to UNAUTHENTICATED visitors --
@@ -213,5 +265,6 @@ export function Footer() {
         </div>
       </div>
     </footer>
+    </>
   );
 }
