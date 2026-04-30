@@ -72,6 +72,11 @@ const isPublicRoute = (pathname: string) => {
   // Tenant-scoped login pages: /[slug]/login
   if (/^\/[^\/]+\/login$/.test(pathname)) return true;
 
+  // Tenant-scoped magic-link auth callback: /[slug]/auth/callback.
+  // The callback handles its own session creation via Supabase, so it
+  // must be reachable without an existing session.
+  if (/^\/[^\/]+\/auth\/callback$/.test(pathname)) return true;
+
   // Dynamic prefixes
   if (
     pathname.startsWith("/blog/") ||
