@@ -1,69 +1,29 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { 
-  Shield, 
-  Truck, 
-  ChefHat, 
-  Sparkles, 
-  ShoppingCart, 
-  UserCircle,
+import {
+  Sparkles,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Building2,
+  Users,
+  ArrowRight,
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
   const { branding, isWhiteLabeled } = useBranding();
+  // Auth state drives whether we show the "Sign in" CTA card. The
+  // block doesn't help anyone who's already inside their portal --
+  // it just adds noise to authenticated dashboards. Hidden when
+  // signed in.
+  const { user } = useAuth() as any;
+  const isSignedIn = !!user;
 
   const displayName = branding?.organizationName || "CateringMS";
   const displayLogo = branding?.logoUrl;
-
-  const portalLinks = [
-    {
-      name: "Admin Portal",
-      href: "/auth/login?portal=admin",
-      icon: Shield,
-      description: "Manage operations, staff, and system settings",
-      color: "text-slate-600 hover:text-slate-900"
-    },
-    {
-      name: "Driver Portal",
-      href: "/auth/login?portal=driver",
-      icon: Truck,
-      description: "Track deliveries and manage earnings",
-      color: "text-purple-600 hover:text-purple-800"
-    },
-    {
-      name: "Kitchen Portal",
-      href: "/auth/login?portal=kitchen",
-      icon: ChefHat,
-      description: "View orders and prep schedules",
-      color: "text-orange-600 hover:text-orange-800"
-    },
-    {
-      name: "Cleaning Portal",
-      href: "/auth/login?portal=cleaning",
-      icon: Sparkles,
-      description: "Track equipment cleaning tasks",
-      color: "text-cyan-600 hover:text-cyan-800"
-    },
-    {
-      name: "Shopping Portal",
-      href: "/auth/login?portal=shopping",
-      icon: ShoppingCart,
-      description: "Manage inventory and purchasing",
-      color: "text-green-600 hover:text-green-800"
-    },
-    {
-      name: "Client Portal",
-      href: "/auth/login?portal=client",
-      icon: UserCircle,
-      description: "Book events and track orders",
-      color: "text-blue-600 hover:text-blue-800"
-    }
-  ];
 
   const quickLinks = [
     { name: "About", href: "/about" },
@@ -78,38 +38,64 @@ export function Footer() {
   return (
     <footer className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
       <div className="container mx-auto px-4 py-12 max-w-7xl">
-        {/* Portal Access Section - Now at the top for prominence */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-8 mb-12 border border-slate-600">
-          <div className="text-center mb-6">
-            <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Portal Login Access
-            </h3>
-            <p className="text-slate-300">
-              Use the same username and password for all portals
-            </p>
-            <p className="text-sm text-slate-400 mt-1">
-              Perfect for testing and accessing different areas of the platform
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {portalLinks.map((portal) => (
-              <Link key={portal.name} href={portal.href}>
-                <div className="bg-slate-900/50 border border-slate-600 rounded-lg p-4 hover:bg-slate-800 hover:border-slate-500 transition-all group cursor-pointer">
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg bg-slate-800 group-hover:scale-110 transition-transform ${portal.color}`}>
-                      <portal.icon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-white mb-1">{portal.name}</h4>
-                      <p className="text-xs text-slate-400">{portal.description}</p>
-                    </div>
+        {/*
+          Sign-in CTA card. Only shown to UNAUTHENTICATED visitors --
+          on every authenticated dashboard the team already has their
+          own nav, so the old six-portal grid was just noise.
+          Two clean entry points:
+            1. Catering business -> /auth/login + /company-signup
+            2. Event customer    -> log in via the link in their
+                                    booking email (their company
+                                    portal lives at /{slug}/client/login
+                                    which they shouldn't have to type)
+        */}
+        {!isSignedIn && (
+          <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-8 mb-12 border border-slate-600">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Catering company CTA */}
+              <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-purple-900/30 text-purple-300">
+                    <Building2 className="w-5 h-5" />
                   </div>
+                  <h4 className="text-lg font-semibold text-white">Catering business</h4>
                 </div>
-              </Link>
-            ))}
+                <p className="text-sm text-slate-300 mb-4">
+                  Sign in to manage quotes, orders, kitchen prep, drivers and clients.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/auth/login">
+                    <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90">
+                      Sign in
+                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                    </Button>
+                  </Link>
+                  <Link href="/company-signup">
+                    <Button size="sm" variant="outline" className="border-slate-500 text-slate-200 hover:text-white hover:bg-slate-800">
+                      Sign up free
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Event customer CTA */}
+              <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-blue-900/30 text-blue-300">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-lg font-semibold text-white">Booked an event?</h4>
+                </div>
+                <p className="text-sm text-slate-300 mb-4">
+                  Open the "Track your event" link in your booking confirmation email -- it takes you straight to your portal.
+                </p>
+                <p className="text-xs text-slate-400">
+                  Lost the email? Reply to your last quote and the catering team will resend it.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main Footer Content */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
