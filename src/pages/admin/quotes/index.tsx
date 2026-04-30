@@ -17,6 +17,14 @@ import {
   Copy,
   ExternalLink,
   Search,
+  Flame,
+  Sparkles,
+  Crown,
+  Snowflake,
+  AlertTriangle,
+  Clock,
+  Inbox,
+  ArrowRight,
 } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
@@ -39,7 +47,6 @@ import {
   type QuoteRowState,
 } from "@/lib/quoteIntelligence";
 import { supabase } from "@/integrations/supabase/client";
-import { Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox } from "lucide-react";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
