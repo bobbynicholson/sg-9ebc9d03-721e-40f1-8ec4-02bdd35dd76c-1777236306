@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -110,6 +110,52 @@ export function AdminNav({ className }: AdminNavProps) {
     .slice(0, 2)
     .join("")
     .toUpperCase() || "CM";
+
+  // Sidebar scroll restoration. Without this, navigating between
+  // pages remounts the sidebar and the ScrollArea snaps back to the
+  // top -- so an Operations item near the bottom of the menu felt
+  // like it teleported away every time you clicked it. We persist
+  // the scroll position in sessionStorage and on mount we either
+  // restore it OR scroll the active item into view, whichever lands
+  // it on screen.
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = scrollAreaRef.current;
+    if (!root) return;
+    // shadcn ScrollArea wraps the actual scroll container; the
+    // [data-radix-scroll-area-viewport] is the element that scrolls.
+    const viewport = root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]");
+    if (!viewport) return;
+
+    const KEY = "adminNav-scroll-top";
+    const saved = Number(sessionStorage.getItem(KEY) || "0");
+
+    // First, try to restore the previous scroll position. If that
+    // doesn't bring the active link onto the screen, fall back to
+    // scrollIntoView on the active link.
+    requestAnimationFrame(() => {
+      if (saved > 0) viewport.scrollTop = saved;
+      const active = viewport.querySelector<HTMLElement>("[data-active='true']");
+      if (active) {
+        const aTop = active.offsetTop;
+        const aBottom = aTop + active.offsetHeight;
+        const vTop = viewport.scrollTop;
+        const vBottom = vTop + viewport.clientHeight;
+        if (aTop < vTop || aBottom > vBottom) {
+          // Centre the active link in the viewport.
+          viewport.scrollTop = Math.max(0, aTop - viewport.clientHeight / 2 + active.offsetHeight / 2);
+        }
+      }
+    });
+
+    const onScroll = () => {
+      sessionStorage.setItem(KEY, String(viewport.scrollTop));
+    };
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", onScroll);
+  // Re-run on path change so the active link's "make me visible" check
+  // fires after a navigation.
+  }, [router.asPath]);
 
   // Live "events today" pulse: count today's active orders so the user
   // can glance at the sidebar and know if anything's running right now.
@@ -530,7 +576,7 @@ export function AdminNav({ className }: AdminNavProps) {
   );
 
   const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
-    <ScrollArea className="h-full py-6 px-4">
+    <ScrollArea ref={scrollAreaRef} className="h-full py-6 px-4">
       <div className="space-y-6">
         {mobile ? (
           <div className="space-y-3">
@@ -565,6 +611,7 @@ export function AdminNav({ className }: AdminNavProps) {
                     key={item.href}
                     href={withSlug(item.href)}
                     onClick={() => setOpen(false)}
+                    data-active={active ? "true" : undefined}
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       active
