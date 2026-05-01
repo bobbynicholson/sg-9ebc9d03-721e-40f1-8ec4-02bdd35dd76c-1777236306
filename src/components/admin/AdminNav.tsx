@@ -545,6 +545,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/platform/cms-pages",
           icon: Globe,
           description: "Manage static pages"
+        },
+        {
+          title: "SA Tax Rules",
+          href: "/admin/platform/tax-rules",
+          icon: FileText,
+          description: "Edit slip-scanner deductibility rules"
         }
       ]
     }] : []),
