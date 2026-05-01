@@ -60,10 +60,25 @@ const VEHICLE_TYPES = [
   { id: "other",        label: "Other" },
 ];
 
+interface UtilisationRow {
+  vehicle: Vehicle;
+  runs: number;
+  plannedHours: number;
+  distanceKm: number;
+  revenueCarried: number;
+  completedRuns: number;
+  cancelledRuns: number;
+}
+
 function VehiclesPage() {
   const { user, profile } = useAuth() as any;
   const { toast } = useToast();
   const companyId = profile?.company_id ?? user?.company_id ?? null;
+
+  const [tab, setTab] = useState<"roster" | "utilisation">("roster");
+  const [utilisation, setUtilisation] = useState<UtilisationRow[]>([]);
+  const [utilLoading, setUtilLoading] = useState(false);
+  const [utilFromDays, setUtilFromDays] = useState<number>(30);
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);
@@ -121,6 +136,22 @@ function VehiclesPage() {
   }, [companyId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pull the utilisation rollup whenever the user opens the tab or
+  // adjusts the window. Cheap query: one indexed range scan + a per-
+  // vehicle sum in JS.
+  useEffect(() => {
+    if (tab !== "utilisation" || !companyId) return;
+    let cancelled = false;
+    setUtilLoading(true);
+    const to = new Date();
+    const from = new Date();
+    from.setDate(to.getDate() - utilFromDays);
+    vehicleService.getUtilisation(companyId, from.toISOString(), to.toISOString())
+      .then((rows) => { if (!cancelled) setUtilisation(rows as UtilisationRow[]); })
+      .finally(() => { if (!cancelled) setUtilLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, companyId, utilFromDays]);
 
   const driverNameById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -358,6 +389,36 @@ function VehiclesPage() {
             </Card>
           </div>
 
+          {/* Roster vs Utilisation tabs */}
+          <div className="flex gap-1 rounded-lg border border-slate-200 bg-white shadow-sm p-1 text-xs mb-4 w-fit">
+            {([
+              { id: "roster", label: "Roster" },
+              { id: "utilisation", label: "Utilisation" },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-1.5 rounded-md ${
+                  tab === t.id
+                    ? "bg-indigo-100 text-indigo-700 font-medium"
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {tab === "utilisation" ? (
+            <UtilisationView
+              rows={utilisation}
+              loading={utilLoading}
+              days={utilFromDays}
+              onDaysChange={setUtilFromDays}
+            />
+          ) : (
+            <>
           {/* Filter pills + search */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -493,6 +554,8 @@ function VehiclesPage() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -712,6 +775,147 @@ function VehiclesPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * Utilisation rollup. Helps the dispatcher spot the truck nobody's
+ * touching and the truck doing all the work. Window picker (7 / 30
+ * / 90 days) drives the underlying query.
+ */
+function UtilisationView({
+  rows, loading, days, onDaysChange,
+}: {
+  rows: UtilisationRow[];
+  loading: boolean;
+  days: number;
+  onDaysChange: (n: number) => void;
+}) {
+  const totals = rows.reduce((acc, r) => ({
+    runs: acc.runs + r.runs,
+    hours: acc.hours + r.plannedHours,
+    distance: acc.distance + r.distanceKm,
+    revenue: acc.revenue + r.revenueCarried,
+  }), { runs: 0, hours: 0, distance: 0, revenue: 0 });
+  const totalsHours = Math.max(1, totals.hours); // for share %
+  const fmtR = (v: number) => `R ${Math.round(v).toLocaleString("en-ZA")}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm p-3 flex flex-wrap items-center gap-3">
+        <span className="text-xs text-slate-500 font-semibold uppercase tracking-wide">
+          Window
+        </span>
+        <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+          {([7, 30, 90] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onDaysChange(n)}
+              className={`px-3 py-1.5 rounded-md ${
+                days === n
+                  ? "bg-indigo-100 text-indigo-700 font-medium"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Last {n}d
+            </button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <div className="text-xs text-slate-600">
+          <strong className="text-slate-900">{totals.runs}</strong> runs ·
+          {" "}<strong className="text-slate-900">{totals.hours.toFixed(1)}h</strong> on the road ·
+          {" "}<strong className="text-slate-900">{totals.distance.toFixed(0)}km</strong> ·
+          {" "}<strong className="text-slate-900">{fmtR(totals.revenue)}</strong> carried
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
+            <p className="text-sm text-slate-500">Crunching bookings...</p>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-12 text-sm text-slate-500">
+            No vehicles in the fleet yet. Add one on the Roster tab.
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
+              <tr>
+                <th className="text-left px-4 py-2.5">Vehicle</th>
+                <th className="text-right px-3 py-2.5">Runs</th>
+                <th className="text-right px-3 py-2.5">Hours</th>
+                <th className="text-right px-3 py-2.5">Share</th>
+                <th className="text-right px-3 py-2.5">Distance</th>
+                <th className="text-right px-3 py-2.5">Revenue carried</th>
+                <th className="text-right px-3 py-2.5">Cancels</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const share = (r.plannedHours / totalsHours) * 100;
+                const isQuiet = r.runs === 0;
+                return (
+                  <tr key={r.vehicle.id} className={isQuiet ? "bg-amber-50/30" : ""}>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {r.vehicle.refrigerated
+                          ? <Snowflake className="w-3.5 h-3.5 text-blue-600" />
+                          : r.vehicle.has_warmer
+                            ? <Flame className="w-3.5 h-3.5 text-orange-600" />
+                            : <Truck className="w-3.5 h-3.5 text-slate-500" />}
+                        <span className="font-medium text-slate-900">
+                          {r.vehicle.nickname ? `${r.vehicle.nickname} ` : ""}
+                          <span className="font-mono text-xs text-slate-500">{r.vehicle.plate}</span>
+                        </span>
+                        {r.vehicle.owner_kind === "driver" && (
+                          <Badge className="bg-amber-100 text-amber-800 border-0 text-[10px]">Driver-owned</Badge>
+                        )}
+                        {isQuiet && (
+                          <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]">Idle window</Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">{r.runs}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-900 font-medium">{r.plannedHours.toFixed(1)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
+                      <div className="inline-flex items-center gap-2">
+                        <span>{share.toFixed(0)}%</span>
+                        <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="h-full bg-indigo-500" style={{ width: `${Math.min(100, share)}%` }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
+                      {r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)}km` : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
+                      {r.revenueCarried > 0 ? `R ${Math.round(r.revenueCarried).toLocaleString("en-ZA")}` : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {r.cancelledRuns > 0 ? (
+                        <span className="text-rose-700">{r.cancelledRuns}</span>
+                      ) : (
+                        <span className="text-slate-400">0</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <p className="text-[11px] text-slate-500">
+        Hours are taken from each booking's depart-to-back-at-kitchen window. Distance and revenue
+        come from the linked order. Cancelled bookings are counted in the Cancels column but not in
+        the runs / hours / distance totals.
+      </p>
+    </div>
   );
 }
 

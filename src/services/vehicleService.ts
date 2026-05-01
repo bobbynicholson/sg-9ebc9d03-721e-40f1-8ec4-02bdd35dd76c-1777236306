@@ -352,6 +352,83 @@ export const vehicleService = {
       .in("status", ["planned", "on_route"]);
   },
 
+  // ── Utilisation ──────────────────────────────────────────────────
+
+  /**
+   * Per-vehicle utilisation rollup over a date window.
+   *
+   * Bookings with status='cancelled' are excluded so a swap-over
+   * doesn't double-count. Hours used comes from the booking window;
+   * distance + revenue are pulled from the joined order row when
+   * available.
+   *
+   * Returns one row per vehicle in the company, including ones with
+   * zero bookings -- the dispatcher needs to spot the truck nobody's
+   * touching, not just the busy ones.
+   */
+  async getUtilisation(companyId: string, fromISO: string, toISO: string): Promise<Array<{
+    vehicle: Vehicle;
+    runs: number;
+    plannedHours: number;
+    distanceKm: number;
+    revenueCarried: number;
+    completedRuns: number;
+    cancelledRuns: number;
+  }>> {
+    const fleet = await this.getVehiclesForCompany(companyId);
+    if (fleet.length === 0) return [];
+
+    const { data: bookings } = await supabase
+      .from("vehicle_bookings")
+      .select(`
+        id, vehicle_id, booked_from, booked_until, status,
+        order:order_id(id, total_amount, delivery_distance_km, status)
+      `)
+      .eq("company_id", companyId)
+      .gte("booked_from", fromISO)
+      .lte("booked_until", toISO);
+
+    const byVehicle: Record<string, {
+      runs: number; plannedHours: number; distanceKm: number;
+      revenueCarried: number; completedRuns: number; cancelledRuns: number;
+    }> = {};
+    for (const v of fleet) {
+      byVehicle[v.id] = {
+        runs: 0, plannedHours: 0, distanceKm: 0,
+        revenueCarried: 0, completedRuns: 0, cancelledRuns: 0,
+      };
+    }
+
+    for (const b of (bookings || [])) {
+      const slot = byVehicle[(b as any).vehicle_id];
+      if (!slot) continue;
+      const status = (b as any).status as string;
+      slot.runs += 1;
+      if (status === "cancelled") {
+        slot.cancelledRuns += 1;
+        continue; // don't count cancelled time / revenue
+      }
+      if (status === "completed") slot.completedRuns += 1;
+
+      const fromT = new Date((b as any).booked_from).getTime();
+      const toT   = new Date((b as any).booked_until).getTime();
+      const hrs = Math.max(0, (toT - fromT) / (1000 * 60 * 60));
+      slot.plannedHours += hrs;
+
+      const ord = (b as any).order;
+      if (ord) {
+        slot.distanceKm += Number(ord.delivery_distance_km || 0);
+        if (ord.status !== "cancelled") {
+          slot.revenueCarried += Number(ord.total_amount || 0);
+        }
+      }
+    }
+
+    return fleet
+      .map((v) => ({ vehicle: v, ...byVehicle[v.id] }))
+      .sort((a, b) => b.plannedHours - a.plannedHours);
+  },
+
   /**
    * Find vehicles available for an order. Returns ranked candidates
    * with reasons + warnings for the dispatch UI tooltip.

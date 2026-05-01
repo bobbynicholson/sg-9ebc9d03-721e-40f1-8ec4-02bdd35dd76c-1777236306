@@ -37,6 +37,8 @@ import {
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
+import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
+import { Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon } from "lucide-react";
 
 interface OrderRow {
   id: string;
@@ -55,6 +57,17 @@ interface OrderRow {
   assignment_score: number | null;
   assigned_chef_id: string | null;
   assigned_chef_name: string | null;
+  // Fleet fields surfaced on the dispatch queue so the operator can
+  // see the booked vehicle inline and override it from the row.
+  assigned_vehicle_id: string | null;
+  assigned_vehicle_plate: string | null;
+  assigned_vehicle_refrigerated: boolean | null;
+  secondary_vehicle_id: string | null;
+  secondary_vehicle_plate: string | null;
+  requires_two_drivers: boolean;
+  requires_refrigeration: boolean;
+  requires_waiter: boolean;
+  guest_count: number | null;
 }
 
 const STATUSES: Array<{ value: string; label: string }> = [
@@ -92,6 +105,9 @@ function DispatchQueuePage() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [assignSaving, setAssignSaving] = useState(false);
 
+  // Vehicle picker dialog
+  const [vehicleTarget, setVehicleTarget] = useState<OrderRow | null>(null);
+
   // Bulk dialog
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDriverId, setBulkDriverId] = useState("");
@@ -124,8 +140,12 @@ function DispatchQueuePage() {
           venue_lat, venue_lng, venue_name, venue_address,
           confirmed_at, assigned_driver_id, assigned_at, assignment_score,
           assigned_chef_id,
+          guest_count, requires_refrigeration, requires_waiter, requires_two_drivers,
+          assigned_vehicle_id, secondary_vehicle_id,
           driver:assigned_driver_id(full_name),
-          chef:assigned_chef_id(full_name)
+          chef:assigned_chef_id(full_name),
+          assigned_vehicle:assigned_vehicle_id(id, plate, refrigerated),
+          secondary_vehicle:secondary_vehicle_id(id, plate)
         `)
         .eq("company_id", companyId)
         .gte("event_date", todayISO)
@@ -155,6 +175,15 @@ function DispatchQueuePage() {
         assignment_score: r.assignment_score ?? null,
         assigned_chef_id: r.assigned_chef_id ?? null,
         assigned_chef_name: r.chef?.full_name ?? null,
+        assigned_vehicle_id: r.assigned_vehicle_id ?? null,
+        assigned_vehicle_plate: r.assigned_vehicle?.plate ?? null,
+        assigned_vehicle_refrigerated: r.assigned_vehicle?.refrigerated ?? null,
+        secondary_vehicle_id: r.secondary_vehicle_id ?? null,
+        secondary_vehicle_plate: r.secondary_vehicle?.plate ?? null,
+        requires_two_drivers: !!r.requires_two_drivers,
+        requires_refrigeration: !!r.requires_refrigeration,
+        requires_waiter: !!r.requires_waiter,
+        guest_count: r.guest_count ?? null,
       }));
       setOrders(mapped);
     } finally {
@@ -692,7 +721,7 @@ function DispatchQueuePage() {
                       </div>
                       <div className="min-w-0">
                         {order.assigned_driver_name ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge className="text-[10px] font-normal bg-emerald-100 text-emerald-800 border-0">
                               <CheckCircle2 className="w-3 h-3 mr-0.5" />
                               {order.assigned_driver_name}
@@ -706,6 +735,44 @@ function DispatchQueuePage() {
                         ) : (
                           <span className="text-xs text-amber-700 font-medium">Unassigned</span>
                         )}
+                        {/* Vehicle chip -- click to open the picker. Shows a
+                            'No vehicle' affordance even when the driver is
+                            assigned, so the dispatcher can spot a mid-air
+                            mismatch (driver booked, vehicle isn't). */}
+                        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setVehicleTarget(order)}
+                            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                              order.assigned_vehicle_id
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                                : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 italic"
+                            }`}
+                            title="Pick or override the vehicle on this order"
+                          >
+                            {order.assigned_vehicle_refrigerated
+                              ? <SnowflakeIcon className="w-3 h-3" />
+                              : <TruckIcon className="w-3 h-3" />}
+                            {order.assigned_vehicle_plate
+                              ? <span className="font-mono">{order.assigned_vehicle_plate}</span>
+                              : "Pick vehicle"}
+                            {order.secondary_vehicle_plate && (
+                              <>
+                                <span className="text-slate-400">+</span>
+                                <span className="font-mono">{order.secondary_vehicle_plate}</span>
+                              </>
+                            )}
+                          </button>
+                          {order.requires_two_drivers && (
+                            <span
+                              className="inline-flex items-center gap-1 ml-1.5 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700"
+                              title="This run needs two drivers based on vehicle, guest count or waiter service."
+                            >
+                              <UsersIcon className="w-3 h-3" />
+                              2 drivers
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="min-w-0 flex items-center gap-1 flex-wrap">
                         {order.assigned_chef_name && (
@@ -727,6 +794,10 @@ function DispatchQueuePage() {
                               <DropdownMenuItem onClick={() => openAssign(order)}>
                                 <Sparkles className="w-4 h-4 mr-2 text-emerald-600" />
                                 Reassign with suggestions
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setVehicleTarget(order)}>
+                                <TruckIcon className="w-4 h-4 mr-2 text-indigo-600" />
+                                Pick vehicle / add second
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleUnassign(order)}>
@@ -997,6 +1068,28 @@ function DispatchQueuePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Vehicle picker -- per-order override + secondary vehicle. */}
+      {vehicleTarget && (
+        <VehiclePickerDialog
+          open={!!vehicleTarget}
+          onOpenChange={(o) => { if (!o) setVehicleTarget(null); }}
+          companyId={companyId}
+          order={{
+            id: vehicleTarget.id,
+            client_name: vehicleTarget.client_name,
+            event_date: vehicleTarget.event_date,
+            event_time: vehicleTarget.event_time,
+            guest_count: vehicleTarget.guest_count,
+            requires_refrigeration: vehicleTarget.requires_refrigeration,
+            requires_waiter: vehicleTarget.requires_waiter,
+            assigned_driver_id: vehicleTarget.assigned_driver_id,
+            assigned_vehicle_id: vehicleTarget.assigned_vehicle_id,
+            secondary_vehicle_id: vehicleTarget.secondary_vehicle_id,
+          }}
+          onChanged={() => { loadAll(); }}
+        />
+      )}
     </>
   );
 }
