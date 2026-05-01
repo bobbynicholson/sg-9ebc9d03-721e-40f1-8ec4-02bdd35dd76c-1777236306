@@ -54,6 +54,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
+import { pushQuoteToXero } from "@/services/accountingExportService";
 import {
   deriveQuoteIntelligence,
   summariseAutoEmailsByQuote,
@@ -930,6 +931,50 @@ export default function AdminQuotes() {
                               >
                                 <FileText className="w-4 h-4 mr-2" />
                                 PDF
+                              </Button>
+                              {/* Push to Xero. Tries the live endpoint
+                                  first; falls back to a 'Copy JSON'
+                                  toast when Xero isn't connected yet
+                                  or the server endpoint isn't live --
+                                  the operator can paste into Xero
+                                  manually as a stop-gap. */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Push this quote to your accounting package (Xero)"
+                                onClick={async () => {
+                                  const res = await pushQuoteToXero(quote.id);
+                                  if (res.ok) {
+                                    toast({ title: "Synced to Xero", description: `Quote ${quote.quote_number} pushed as a draft.` });
+                                    return;
+                                  }
+                                  if (res.reason === "not_connected") {
+                                    toast({
+                                      title: "Connect Xero first",
+                                      description: "Open Integrations to link your Xero account, then try again.",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  if (res.reason === "no_endpoint") {
+                                    if (res.payload && typeof window !== "undefined") {
+                                      try {
+                                        await navigator.clipboard.writeText(JSON.stringify(res.payload, null, 2));
+                                        toast({
+                                          title: "Xero endpoint not deployed yet",
+                                          description: "Copied the prepared payload to your clipboard so you can paste into Xero manually for now.",
+                                        });
+                                      } catch {
+                                        toast({ title: "Couldn't copy payload", variant: "destructive" });
+                                      }
+                                    }
+                                    return;
+                                  }
+                                  toast({ title: "Couldn't sync to Xero", description: res.error, variant: "destructive" });
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Push to Xero
                               </Button>
                             </>
                           )}
