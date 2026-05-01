@@ -33,8 +33,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ShoppingCart, Package, AlertTriangle, Calendar, Clock, Truck, Mail,
   CheckCircle2, Loader2, Sparkles, TrendingDown, ChevronDown, ChevronUp,
-  Building2, Snowflake, Flame, Receipt, ChevronRight, ListChecks,
+  Building2, Snowflake, Flame, Receipt, ChevronRight, ListChecks, Camera,
 } from "lucide-react";
+import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -110,6 +111,7 @@ function SmartShoppingPage() {
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [openSupplier, setOpenSupplier] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -392,6 +394,34 @@ function SmartShoppingPage() {
               tooltip={"What you'll spend if you place a purchase order for everything currently flagged as short or below par.\n\nUses your supplier pricing and reorder quantities."}
             />
           </div>
+
+          {/* Slip scanner -- shared with /admin/tax-purchases. Snap a
+              supplier till slip after a shop run; the same scan tags
+              tax-deductibility AND can feed inventory in the
+              reconciliation step. */}
+          <Card className="border-0 shadow mb-6">
+            <button
+              type="button"
+              onClick={() => setScannerOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 rounded-t-lg"
+            >
+              <div className="flex items-center gap-3 text-left">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Just back from the shops?</p>
+                  <p className="text-xs text-slate-500">Scan the till slip -- one upload tags it for tax and feeds your inventory.</p>
+                </div>
+              </div>
+              {scannerOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </button>
+            {scannerOpen && (
+              <CardContent className="border-t border-slate-100 pt-4">
+                <ReceiptScanner accent="emerald" historyHref="/admin/tax-purchases" />
+              </CardContent>
+            )}
+          </Card>
 
           {loading ? (
             <Card className="border-0 shadow"><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
