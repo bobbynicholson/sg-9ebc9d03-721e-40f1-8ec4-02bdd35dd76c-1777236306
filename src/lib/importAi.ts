@@ -482,6 +482,14 @@ export async function extractReceiptViaAI(args: {
   };
 
   const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
+  // Capture any text the model returned alongside the tool call -- if it
+  // refused or struggled with the image, the explanation lives here.
+  const textCommentary: string[] = [];
+  for (const block of blocks) {
+    if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
+      textCommentary.push(block.text.trim());
+    }
+  }
   for (const block of blocks) {
     if (block?.type === "tool_use" && block?.name === "return_receipt") {
       const input = block.input as any;
@@ -507,6 +515,12 @@ export async function extractReceiptViaAI(args: {
         })) : [],
         warnings: Array.isArray(input.warnings) ? input.warnings.map((w: any) => String(w)) : [],
       };
+      // Fold any model commentary into warnings so the operator sees
+      // it (e.g. "Image is rotated sideways", "Slip is too blurry to
+      // read totals"). Helpful for debugging zero-line responses.
+      if (textCommentary.length > 0) {
+        extraction.warnings = [...extraction.warnings, ...textCommentary];
+      }
       break;
     }
   }

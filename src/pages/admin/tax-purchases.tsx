@@ -107,17 +107,23 @@ function TaxPurchasesPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Rescan failed");
       const lineCount = json.extraction?.line_items?.length ?? 0;
+      const warnings = json.extraction?.warnings || [];
+      const tokens = json.ai?.tokens_out ?? 0;
       if (lineCount === 0) {
         toast({
           title: "AI couldn't read line items",
-          description: json.extraction?.warnings?.[0] || "Try a clearer photo of the slip.",
+          description: warnings.length > 0
+            ? `${warnings.slice(0, 2).join(" · ")} (${tokens} output tokens)`
+            : `Try a clearer photo of the slip. (${tokens} output tokens, no warnings returned)`,
           variant: "destructive",
         });
         return;
       }
       toast({
         title: `AI read ${lineCount} line${lineCount === 1 ? "" : "s"}`,
-        description: "Review the tags and save when you're happy.",
+        description: warnings.length > 0
+          ? `${warnings.length} warning${warnings.length === 1 ? "" : "s"} -- review carefully.`
+          : "Review the tags and save when you're happy.",
       });
       setRescanResult({ receiptId, mappedData: json.extraction });
     } catch (e: any) {

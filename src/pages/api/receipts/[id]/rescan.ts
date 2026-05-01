@@ -113,6 +113,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       taxRules,
     });
 
+    // Server-side breadcrumb so a 0-line response is debuggable.
+    console.log("[rescan]", {
+      receipt_id: receiptId,
+      image_bytes: img.bytes.length,
+      image_mime: img.mime,
+      tokens_in,
+      tokens_out,
+      lines: extraction.line_items.length,
+      warnings: extraction.warnings,
+      rules_count: taxRules.length,
+    });
+
     return res.status(200).json({
       ok: true,
       extraction,
@@ -124,6 +136,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         image_path: receipt.image_path,
       },
       ai: { tokens_in, tokens_out },
+      debug: {
+        image_bytes: img.bytes.length,
+        image_mime: img.mime,
+        rules_count: taxRules.length,
+      },
     });
   } catch (e: any) {
     console.error("/api/receipts/[id]/rescan crashed:", e);
