@@ -329,6 +329,23 @@ export interface ReceiptLineItem {
   unit_price: number | null;
   /** Line total -- usually printed on the slip. */
   line_total: number | null;
+  /** AI's deductibility classification, looked up from
+   *  sa_tax_deductibility_rules. Null when no rules were supplied or
+   *  the line couldn't be matched. */
+  tax_category_code?: string | null;
+  /** AI's deductibility flag derived from the matched rule. Null when
+   *  unmatched -- caller treats as 'unknown' rather than false. */
+  is_deductible?: boolean | null;
+  /** Confidence 0-1 the model assigned to its rule match. */
+  match_confidence?: number | null;
+}
+
+export interface TaxRuleForPrompt {
+  category_code: string;
+  display_name: string;
+  group_label: string;
+  deductibility: "deductible" | "partial" | "non_deductible";
+  match_keywords: string[];
 }
 
 export interface ReceiptExtraction {
@@ -349,7 +366,7 @@ export interface ReceiptExtraction {
 
 const RECEIPT_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-sonnet-4-5";
 
-const RECEIPT_SYSTEM = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
+const RECEIPT_SYSTEM_BASE = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
 
 Rules:
 - Currency is almost always ZAR. Strip "R" symbols + spaces. Numbers come back as plain numbers, never strings.
@@ -359,6 +376,14 @@ Rules:
 - If you can't read the supplier name or date, return null and warn.
 - Output via the return_receipt tool. No free-form prose.`;
 
+function buildTaxRulesPrompt(rules: TaxRuleForPrompt[]): string {
+  if (!rules.length) return "";
+  const lines = rules.map((r) =>
+    `- ${r.category_code} (${r.deductibility}, group: ${r.group_label}): ${r.display_name}. Keywords: ${r.match_keywords.slice(0, 12).join(", ")}`,
+  );
+  return `\n\nFor each line item, additionally classify it against this list of SARS deductibility rules. Use tax_category_code = the exact category_code from the list (or null if no rule fits). Set is_deductible based on the matched rule's deductibility (deductible -> true, non_deductible -> false, partial -> true with a warning). Provide match_confidence between 0 and 1.\n\nRules:\n${lines.join("\n")}`;
+}
+
 /**
  * Run a single receipt photo through Claude's vision model and pull
  * out the structured fields. Caller hands us the image as base64
@@ -367,11 +392,16 @@ Rules:
 export async function extractReceiptViaAI(args: {
   imageBase64: string;
   imageMime: string;
+  /** Optional SARS rules. When provided, the model classifies each
+   *  line item against them and returns tax_category_code +
+   *  is_deductible per line. */
+  taxRules?: TaxRuleForPrompt[];
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number }> {
+  const system = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
   const response: any = await (client().messages.create as any)({
     model: RECEIPT_MODEL,
     max_tokens: 2048,
-    system: RECEIPT_SYSTEM,
+    system,
     tools: [
       {
         name: "return_receipt",
@@ -393,13 +423,16 @@ export async function extractReceiptViaAI(args: {
               items: {
                 type: "object",
                 properties: {
-                  description: { type: "string" },
-                  quantity:    { type: ["number", "null"] },
-                  unit:        { type: ["string", "null"], description: "e.g. kg, ea, L" },
-                  unit_price:  { type: ["number", "null"] },
-                  line_total:  { type: ["number", "null"] },
+                  description:        { type: "string" },
+                  quantity:           { type: ["number", "null"] },
+                  unit:               { type: ["string", "null"], description: "e.g. kg, ea, L" },
+                  unit_price:         { type: ["number", "null"] },
+                  line_total:         { type: ["number", "null"] },
+                  tax_category_code:  { type: ["string", "null"], description: "category_code from the supplied rules list, or null if no fit" },
+                  is_deductible:      { type: ["boolean", "null"], description: "Derived from the matched rule" },
+                  match_confidence:   { type: ["number", "null"], description: "0-1 confidence in the rule match" },
                 },
-                required: ["description", "quantity", "unit", "unit_price", "line_total"],
+                required: ["description", "quantity", "unit", "unit_price", "line_total", "tax_category_code", "is_deductible", "match_confidence"],
                 additionalProperties: false,
               },
             },
@@ -468,6 +501,9 @@ export async function extractReceiptViaAI(args: {
           unit: li.unit ?? null,
           unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
           line_total: typeof li.line_total === "number" ? li.line_total : null,
+          tax_category_code: typeof li.tax_category_code === "string" ? li.tax_category_code : null,
+          is_deductible: typeof li.is_deductible === "boolean" ? li.is_deductible : null,
+          match_confidence: typeof li.match_confidence === "number" ? li.match_confidence : null,
         })) : [],
         warnings: Array.isArray(input.warnings) ? input.warnings.map((w: any) => String(w)) : [],
       };

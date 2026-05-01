@@ -110,6 +110,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabase: any = getServiceSupabase();
 
+    // Load active SARS deductibility rules once per upload so every
+    // image in this batch sees the same classifier prompt. The rules
+    // are global (no company_id) -- 45-ish rows, fits in one round-trip.
+    const { data: rulesData } = await supabase
+      .from("sa_tax_deductibility_rules")
+      .select("category_code, display_name, group_label, deductibility, match_keywords")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+    const taxRules = (rulesData || []) as Array<{
+      category_code: string; display_name: string; group_label: string;
+      deductibility: "deductible" | "partial" | "non_deductible";
+      match_keywords: string[];
+    }>;
+
     // 1. Create the parent job. We mark status='committing' for the
     //    duration of the AI extract and flip to 'previewed' after,
     //    so a stuck job is visible to the operator.
@@ -154,6 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { extraction, tokens_in, tokens_out } = await extractReceiptViaAI({
           imageBase64: b64,
           imageMime: f.mimetype,
+          taxRules,
         });
         totalIn += tokens_in;
         totalOut += tokens_out;
