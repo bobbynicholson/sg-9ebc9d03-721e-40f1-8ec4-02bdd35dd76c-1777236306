@@ -44,9 +44,11 @@ import {
 import {
   Receipt, Upload, Plus, Trash2, Download, AlertCircle,
   CheckCircle2, FileText, Loader2, Camera, ChevronDown, ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import {
   uploadReceiptImage,
   createReceipt,
@@ -92,6 +94,38 @@ function TaxPurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [windowKind, setWindowKind] = useState<WindowKind>("this_month");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Rescan state. `rescanningId` shows a spinner on the row while the
+  // AI runs; `rescanResult` opens the Reconcile drawer with the
+  // extracted line items pre-filled when the response lands.
+  const [rescanningId, setRescanningId] = useState<string | null>(null);
+  const [rescanResult, setRescanResult] = useState<{ receiptId: string; mappedData: any } | null>(null);
+
+  const handleRescan = async (receiptId: string) => {
+    setRescanningId(receiptId);
+    try {
+      const res = await fetch(`/api/receipts/${receiptId}/rescan`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Rescan failed");
+      const lineCount = json.extraction?.line_items?.length ?? 0;
+      if (lineCount === 0) {
+        toast({
+          title: "AI couldn't read line items",
+          description: json.extraction?.warnings?.[0] || "Try a clearer photo of the slip.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: `AI read ${lineCount} line${lineCount === 1 ? "" : "s"}`,
+        description: "Review the tags and save when you're happy.",
+      });
+      setRescanResult({ receiptId, mappedData: json.extraction });
+    } catch (e: any) {
+      toast({ title: "Rescan failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setRescanningId(null);
+    }
+  };
 
   // Add slip dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -317,6 +351,8 @@ function TaxPurchasesPage() {
                     expanded={expanded.has(r.id)}
                     onToggle={() => toggleExpand(r.id)}
                     onChanged={reload}
+                    onRescan={handleRescan}
+                    rescanning={rescanningId === r.id}
                   />
                 ))}
               </div>
@@ -395,6 +431,19 @@ function TaxPurchasesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reconcile drawer for the AI rescan result. Saves into the
+          existing receipt id rather than creating a new one. */}
+      <ReconcileSlipDrawer
+        open={!!rescanResult}
+        onClose={() => setRescanResult(null)}
+        onSaved={() => { setRescanResult(null); reload(); }}
+        mappedData={rescanResult?.mappedData ?? null}
+        sourceData={null}
+        companyId={companyId || ""}
+        userId={user?.id || ""}
+        existingReceiptId={rescanResult?.receiptId}
+      />
     </>
   );
 }
@@ -402,12 +451,14 @@ function TaxPurchasesPage() {
 // ── Per-row expand: line items + deductibility toggles ────────────
 
 function ReceiptRow({
-  receipt, expanded, onToggle, onChanged,
+  receipt, expanded, onToggle, onChanged, onRescan, rescanning,
 }: {
   receipt: ReceiptWithItems;
   expanded: boolean;
   onToggle: () => void;
   onChanged: () => Promise<void>;
+  onRescan: (id: string) => void;
+  rescanning: boolean;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -515,6 +566,21 @@ function ReceiptRow({
                 <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]" title={`Slip total ${fmtR(slipTotal)} vs sum of lines ${fmtR(itemsTotal)}`}>
                   Lines don't match slip total
                 </Badge>
+              )}
+              {receipt.image_path && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRescan(receipt.id); }}
+                  disabled={rescanning}
+                  title="Re-run the AI on this slip image to extract line items + tax tags"
+                  className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 disabled:opacity-60"
+                >
+                  {rescanning ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" /> Reading...</>
+                  ) : (
+                    <><Sparkles className="w-3 h-3" /> Rescan with AI</>
+                  )}
+                </button>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-600 mt-0.5">

@@ -104,7 +104,7 @@ const fmtR = (v: number | null | undefined) =>
   v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReconcileSlipDrawer({
-  open, onClose, onSaved, mappedData, sourceData, companyId, userId, manualMode,
+  open, onClose, onSaved, mappedData, sourceData, companyId, userId, manualMode, existingReceiptId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -117,6 +117,10 @@ export function ReconcileSlipDrawer({
    *  scanning. Drawer starts blank and exposes Add-line + vendor
    *  autocomplete from past receipts. */
   manualMode?: boolean;
+  /** When set, the drawer is rescanning an existing purchase_receipts
+   *  row. Save updates the existing row's header fields and inserts
+   *  the new line items into it instead of creating a new receipt. */
+  existingReceiptId?: string;
 }) {
   const { toast } = useToast();
   const [vendor, setVendor] = useState("");
@@ -323,25 +327,44 @@ export function ReconcileSlipDrawer({
         if (supplierMatch) supplierId = (supplierMatch as any).id;
       }
 
-      // 2) Create the receipt row.
+      // 2) Create or update the receipt row depending on mode.
       const totalNum = total ? Number(total) : null;
-      const { data: receipt, error: rcptErr } = await supabase
-        .from("purchase_receipts")
-        .insert({
-          company_id: companyId,
-          uploaded_by: userId,
-          vendor: vendor.trim() || null,
-          supplier_id: supplierId,
-          receipt_date: receiptDate || null,
-          total: totalNum,
-          notes: notes.trim() || null,
-          image_path: imagePath,
-          image_url: imageUrl,
-        })
-        .select()
-        .single();
-      if (rcptErr || !receipt) throw new Error(rcptErr?.message || "Couldn't create receipt");
-      const receiptId = (receipt as any).id as string;
+      let receiptId: string;
+      if (existingReceiptId) {
+        // Rescan flow: update the existing row's header fields and
+        // reuse its id. Don't touch image_path/url -- the original
+        // image is what we just rescanned.
+        const { error: updErr } = await supabase
+          .from("purchase_receipts")
+          .update({
+            vendor: vendor.trim() || null,
+            supplier_id: supplierId,
+            receipt_date: receiptDate || null,
+            total: totalNum,
+            notes: notes.trim() || null,
+          })
+          .eq("id", existingReceiptId);
+        if (updErr) throw new Error(updErr.message);
+        receiptId = existingReceiptId;
+      } else {
+        const { data: receipt, error: rcptErr } = await supabase
+          .from("purchase_receipts")
+          .insert({
+            company_id: companyId,
+            uploaded_by: userId,
+            vendor: vendor.trim() || null,
+            supplier_id: supplierId,
+            receipt_date: receiptDate || null,
+            total: totalNum,
+            notes: notes.trim() || null,
+            image_path: imagePath,
+            image_url: imageUrl,
+          })
+          .select()
+          .single();
+        if (rcptErr || !receipt) throw new Error(rcptErr?.message || "Couldn't create receipt");
+        receiptId = (receipt as any).id as string;
+      }
 
       // 3) For lines flagged as 'add to stock' but with no existing
       //    inventory_item_id (operator opted into Create-new), insert
@@ -448,13 +471,15 @@ export function ReconcileSlipDrawer({
         <div className="flex items-center gap-2 mb-2">
           <ReceiptIcon className="w-5 h-5 text-purple-600" />
           <h2 className="text-lg font-bold text-slate-900">
-            {manualMode ? "Manual shopping entry" : "Reconcile slip"}
+            {manualMode ? "Manual shopping entry" : existingReceiptId ? "Rescan results" : "Reconcile slip"}
           </h2>
         </div>
         <p className="text-sm text-slate-600 -mt-2">
           {manualMode
             ? "Capture a shop run by hand. Tag each line for tax and, if you stock it, feed your inventory."
-            : "Confirm each line's tax tag and, if it's something you stock, link it to inventory. Lines you tick ‘Add to stock’ will be received against your inventory at the unit price shown."}
+            : existingReceiptId
+              ? "AI re-extracted the lines from this slip's image. Confirm or fix the tax tags, then save -- new lines get added to the existing slip."
+              : "Confirm each line's tax tag and, if it's something you stock, link it to inventory. Lines you tick ‘Add to stock’ will be received against your inventory at the unit price shown."}
         </p>
 
         {/* Receipt header */}
