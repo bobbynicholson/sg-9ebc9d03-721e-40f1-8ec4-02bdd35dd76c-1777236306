@@ -52,7 +52,8 @@ import {
   Wand2,
   ChevronLeft,
   Palette,
-  Code2
+  Code2,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -411,10 +412,16 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Public embeddable forms"
         },
         {
-          title: "Email Templates",
+          title: "Messaging Templates",
+          href: "/admin/messaging-templates",
+          icon: Sparkles,
+          description: "Edit every email + WhatsApp template"
+        },
+        {
+          title: "After-Sales Email Templates",
           href: "/admin/email-templates",
           icon: Mail,
-          description: "Manage email templates"
+          description: "Lifecycle automation templates"
         },
         {
           title: "After-Sales Emails",
