@@ -55,6 +55,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ReceiveStockDialog } from "@/components/admin/inventory/ReceiveStockDialog";
+import { RecentReceiptsPanel } from "@/components/admin/inventory/RecentReceiptsPanel";
 import { CycleCountDialog } from "@/components/admin/inventory/CycleCountDialog";
 import { WriteOffDialog } from "@/components/admin/inventory/WriteOffDialog";
 import { BulkActionsBar } from "@/components/admin/inventory/BulkActionsBar";
@@ -872,6 +873,10 @@ export default function AdminInventory() {
               </Button>
             </div>
           </div>
+
+          {/* Recent receipts that fed inventory -- collapsible audit
+              trail tying stock movements back to the slip they came from. */}
+          <RecentReceiptsPanel companyId={companyId} />
 
           {/* Stat cards (4 new ones, ordered by what to act on first) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
