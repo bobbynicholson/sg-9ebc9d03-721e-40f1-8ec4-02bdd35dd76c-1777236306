@@ -915,9 +915,10 @@ function ClientFormDialog({
     notes: "",
   });
 
-  // Load full row when editing -- the Contact aggregate doesn't carry
-  // the optional billing fields, so we fetch them fresh when the dialog
-  // opens. On Add we just clear the form.
+  // Seed the form when the dialog opens. Two layers: first we seed from
+  // the Contact aggregate we already have in memory (name/email/phone)
+  // so the form is never blank, then we fetch the full clients row to
+  // pick up billing address, VAT number and notes. On Add we clear it.
   useEffect(() => {
     if (!open) return;
     if (!editing?.clientId) {
@@ -929,28 +930,39 @@ function ClientFormDialog({
       setShowMore(false);
       return;
     }
+    // Layer 1: in-memory seed -- guarantees the form shows the contact
+    // data we already know about even before the network round-trip.
+    setForm({
+      client_name: editing.name || "",
+      email:       editing.email || "",
+      phone:       editing.phone || "",
+      client_type: "individual",
+      tax_number: "", billing_address_line1: "", billing_address_line2: "",
+      billing_address_city: "", billing_address_postal_code: "", notes: "",
+    });
+    setShowMore(false);
+    // Layer 2: enrich from the row (billing, tax, notes).
     (async () => {
       const { data } = await supabase
         .from("clients")
         .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_address_city, billing_address_postal_code, notes")
         .eq("id", editing.clientId)
         .maybeSingle();
-      if (data) {
-        setForm({
-          client_name: data.client_name || "",
-          email:       data.email || "",
-          phone:       data.phone || "",
-          client_type: data.client_type || "individual",
-          tax_number:  data.tax_number || "",
-          billing_address_line1:       data.billing_address_line1 || "",
-          billing_address_line2:       data.billing_address_line2 || "",
-          billing_address_city:        data.billing_address_city || "",
-          billing_address_postal_code: data.billing_address_postal_code || "",
-          notes:       data.notes || "",
-        });
-        const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes);
-        setShowMore(hasOptional);
-      }
+      if (!data) return;
+      setForm({
+        client_name: data.client_name || editing.name || "",
+        email:       data.email || editing.email || "",
+        phone:       data.phone || editing.phone || "",
+        client_type: data.client_type || "individual",
+        tax_number:  data.tax_number || "",
+        billing_address_line1:       data.billing_address_line1 || "",
+        billing_address_line2:       data.billing_address_line2 || "",
+        billing_address_city:        data.billing_address_city || "",
+        billing_address_postal_code: data.billing_address_postal_code || "",
+        notes:       data.notes || "",
+      });
+      const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes);
+      setShowMore(hasOptional);
     })();
   }, [open, editing]);
 
