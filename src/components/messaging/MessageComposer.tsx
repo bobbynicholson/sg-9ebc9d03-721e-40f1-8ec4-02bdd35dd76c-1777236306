@@ -140,7 +140,7 @@ export function MessageComposer({
     fromName,
   };
 
-  const handleSent = (channel: "gmail" | "outlook" | "mailto" | "clipboard") => {
+  const handleSent = (channel: "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => {
     if (onSent) onSent(channel);
   };
 
