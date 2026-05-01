@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
