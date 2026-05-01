@@ -99,13 +99,17 @@ export interface MessageComposerProps {
   /** Optional WhatsApp slot. When present + the recipient has a phone,
    *  a fifth send action appears next to the email channels. */
   whatsapp?: WhatsAppSlot | WhatsAppStaffSlot;
+  /** Optional public-share URL. When present, a 'Copy public link'
+   *  button is rendered next to the Copy action so the operator
+   *  can drop the URL into the message body or paste into WhatsApp. */
+  publicLink?: string | null;
   onClose: () => void;
 }
 
 export function MessageComposer({
   icon, title, subtitle, banner, controls,
   contextLabel, contextRows, recipient, template,
-  fromName, footerHint, onSent, whatsapp, onClose,
+  fromName, footerHint, onSent, whatsapp, publicLink, onClose,
 }: MessageComposerProps) {
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
@@ -271,6 +275,34 @@ export function MessageComposer({
             <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
           </Button>
         </div>
+
+        {/* Public share link. Optional -- only renders when the
+            caller passed a publicLink string. Lets the operator
+            paste the /q/[token] URL into the email body or share
+            it via WhatsApp without leaving the drawer. */}
+        {publicLink && (
+          <div className="flex items-center justify-between gap-3 pt-2 text-xs">
+            <p className="text-slate-500">
+              Public quote link: <span className="font-mono text-slate-700">{publicLink}</span>
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(publicLink);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                } catch {
+                  // ignore -- the URL is visible above for manual copy
+                }
+              }}
+            >
+              <Copy className="w-3.5 h-3.5" /> Copy public link
+            </Button>
+          </div>
+        )}
 
         {/* WhatsApp pivot. Only shows when the caller passed a slot AND
             we have a phone number to send to. Renders full-width so it

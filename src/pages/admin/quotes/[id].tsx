@@ -609,6 +609,87 @@ export default function AdminQuoteDetail() {
                 ) : null}
               </div>
 
+              {/* Send-flow shortcuts. Same set as the row buttons on
+                  /admin/quotes so the detail page is feature-complete:
+                  Mark sent (anchors follow-up timing), Copy link
+                  (paste into email / WhatsApp), PDF (browser-native
+                  print of the public quote page). */}
+              {!isDraft && quote.status !== "accepted" && quote.status !== "rejected" && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const isAlreadySent = !!(quote as any).sent_at;
+                      const ok = isAlreadySent
+                        ? typeof window !== "undefined" && window.confirm(
+                            `Reset the 'sent' timestamp for this quote? Follow-up timing restarts from now.`,
+                          )
+                        : true;
+                      if (!ok) return;
+                      const nowIso = new Date().toISOString();
+                      const nextStatus = quote.status === "draft" ? "sent" : quote.status;
+                      try {
+                        const { error } = await (supabase as any)
+                          .from("quotes")
+                          .update({ sent_at: nowIso, status: nextStatus })
+                          .eq("id", id);
+                        if (error) throw error;
+                        const refreshed = await quoteService.getQuote(id);
+                        setQuote(refreshed);
+                        toast({
+                          title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
+                          description: isAlreadySent
+                            ? "Follow-up timing restarts from now."
+                            : "Follow-up timing now anchored to this moment.",
+                        });
+                      } catch (err: any) {
+                        toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
+                      }
+                    }}
+                    title="Anchor follow-up timing -- mark as sent without firing an email"
+                    className="gap-1.5"
+                  >
+                    {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}
+                  </Button>
+                  {(quote as any).public_token && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const url = `${window.location.origin}/q/${(quote as any).public_token}`;
+                          try {
+                            await navigator.clipboard.writeText(url);
+                            toast({ title: "Link copied", description: "Paste into email or WhatsApp." });
+                          } catch {
+                            toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                          }
+                        }}
+                        className="gap-1.5"
+                      >
+                        Copy public link
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          window.open(`${window.location.origin}/q/${(quote as any).public_token}?print=1`, "_blank", "noopener");
+                        }}
+                        className="gap-1.5"
+                      >
+                        Download PDF
+                      </Button>
+                    </>
+                  )}
+                  {(quote as any).sent_at && (
+                    <span className="text-[11px] text-slate-500 self-center ml-auto">
+                      Sent {new Date((quote as any).sent_at).toLocaleString("en-ZA")}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {!isDraft && quote.status !== "accepted" && (
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <AlertTriangle className="w-3.5 h-3.5" />

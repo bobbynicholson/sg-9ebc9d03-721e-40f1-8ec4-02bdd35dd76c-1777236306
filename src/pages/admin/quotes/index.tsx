@@ -1270,6 +1270,7 @@ function QuoteComposeDrawer({
           : quote.status === "sent" ? "quote_chase"
           : "quote_sent",
       }}
+      publicLink={(quote as any).public_token ? buildPublicQuoteUrl((quote as any).public_token) : null}
       onSent={onSent}
       onClose={onClose}
     />
