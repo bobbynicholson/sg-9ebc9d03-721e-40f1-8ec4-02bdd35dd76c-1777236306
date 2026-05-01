@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,10 @@ export default function ProtectedSettingsPage() {
 
 function SettingsPage() {
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Snapshot of the last persisted settings, used to derive a clean
+  // 'unsaved changes' state. Updated after a successful save.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [settings, setSettings] = useState({
     company: {
       name: "Your Catering Company",
@@ -139,25 +143,39 @@ function SettingsPage() {
         .single();
       if (!company || cancelled) return;
 
-      setSettings((prev) => ({
-        ...prev,
-        company: {
-          ...prev.company,
-          name: company.company_name ?? prev.company.name,
-          email: company.email ?? prev.company.email,
-          phone: company.phone ?? prev.company.phone,
-          address: company.address_line1 ?? prev.company.address,
-          logo: company.logo_url ?? prev.company.logo,
-          kitchenAddress: company.address_line1 ?? prev.company.kitchenAddress,
-          kitchenLat: company.headquarters_lat ?? prev.company.kitchenLat,
-          kitchenLng: company.headquarters_lng ?? prev.company.kitchenLng,
-        },
-      }));
+      setSettings((prev) => {
+        const next = {
+          ...prev,
+          company: {
+            ...prev.company,
+            name: company.company_name ?? prev.company.name,
+            email: company.email ?? prev.company.email,
+            phone: company.phone ?? prev.company.phone,
+            address: company.address_line1 ?? prev.company.address,
+            logo: company.logo_url ?? prev.company.logo,
+            kitchenAddress: company.address_line1 ?? prev.company.kitchenAddress,
+            kitchenLat: company.headquarters_lat ?? prev.company.kitchenLat,
+            kitchenLng: company.headquarters_lng ?? prev.company.kitchenLng,
+          },
+        };
+        // Take the snapshot AFTER the company fields land so the
+        // dirty-tracker doesn't flag them as user edits.
+        setSavedSnapshot(JSON.stringify(next));
+        return next;
+      });
     })();
     return () => { cancelled = true; };
   }, []);
 
+  // Derive whether the user has any unsaved edits. Cheap JSON compare,
+  // settings is a small object.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!savedSnapshot) return false;
+    return savedSnapshot !== JSON.stringify(settings);
+  }, [savedSnapshot, settings]);
+
   const handleSave = async () => {
+    setSaving(true);
     localStorage.setItem("admin_settings", JSON.stringify(settings));
     try {
       await supabase.auth.updateUser({ data: { admin_settings: settings } });
@@ -193,9 +211,26 @@ function SettingsPage() {
       console.error("Failed to persist company settings to DB:", e);
     }
 
+    // Update the snapshot so the dirty-tracker shows clean again.
+    setSavedSnapshot(JSON.stringify(settings));
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
+
+  // Beforeunload guard: warn the operator if they try to leave the page
+  // while there are unsaved edits. Standard browser confirm dialog --
+  // text is browser-controlled, the actual prompt just relies on us
+  // calling preventDefault.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const updateSetting = (category: string, key: string, value: any) => {
     setSettings({
@@ -231,13 +266,26 @@ function SettingsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <InfoTooltip 
-                content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away."}
+              {hasUnsavedChanges && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Unsaved changes
+                </span>
+              )}
+              <InfoTooltip
+                content={"Saves changes across every tab in one go.\n\nYour preferences apply straight away. The bar at the bottom of the page mirrors this button so you can save without scrolling back up."}
                 side="left"
               />
-              <Button onClick={handleSave} className="bg-slate-600 hover:bg-slate-700 w-full sm:w-auto" size="sm">
+              <Button
+                onClick={handleSave}
+                disabled={!hasUnsavedChanges || saving}
+                className={hasUnsavedChanges
+                  ? "bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
+                  : "bg-slate-600 hover:bg-slate-700 w-full sm:w-auto"}
+                size="sm"
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save All
+                {saving ? "Saving..." : (hasUnsavedChanges ? "Save changes" : "Saved")}
               </Button>
             </div>
           </div>
@@ -1074,6 +1122,30 @@ function SettingsPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Sticky save bar -- always visible at the bottom of the page so
+          the operator never has to scroll back up to save what they
+          changed in a tab. Slides into view only when there are unsaved
+          edits, and hides itself again on save. */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 lg:left-[calc(50%+9rem)] xl:left-[calc(50%+10rem)]">
+          <div className="flex items-center gap-3 rounded-full bg-slate-900 text-white shadow-2xl px-4 py-2.5 border border-amber-400/40">
+            <span className="inline-flex items-center gap-2 text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Unsaved changes
+            </span>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+              className="h-8 bg-amber-500 hover:bg-amber-400 text-slate-900 gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
