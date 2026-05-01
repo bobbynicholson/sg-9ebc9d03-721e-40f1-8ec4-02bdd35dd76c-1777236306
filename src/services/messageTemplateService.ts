@@ -181,6 +181,57 @@ export async function resolveTemplate(args: ResolveArgs): Promise<ResolvedTempla
 }
 
 /**
+ * Synchronous lookup variant for the legacy renderers
+ * (composeEmail.templateFor*, whatsappTemplates.render*) which
+ * cannot easily go async without changing every call site.
+ *
+ * Reads ONLY from the in-memory cache. If the cache hasn't been
+ * primed for this companyId, returns null and the caller should
+ * fall back to its hardcoded default. Call prewarmCompanyTemplates
+ * (or the useTemplateOverrides hook) on mount to populate the cache.
+ */
+export function resolveTemplateSync(args: ResolveArgs): ResolvedTemplate | null {
+  const def = TEMPLATE_REGISTRY.find((t) => t.key === args.key);
+  if (!def) return null;
+
+  let subject = def.defaultSubject ?? "";
+  let body = def.defaultBody;
+  let fromOverride = false;
+
+  if (args.companyId) {
+    const cached = overrideCache.get(args.companyId);
+    if (cached) {
+      const ovr = cached.get(args.key);
+      if (ovr && ovr.isActive) {
+        if (ovr.subject != null && ovr.subject !== "") subject = ovr.subject;
+        if (ovr.body && ovr.body.trim() !== "") body = ovr.body;
+        fromOverride = true;
+      }
+    }
+  }
+
+  const ctx = (args.ctx || {}) as Record<string, string | number | null | undefined>;
+  return {
+    subject: renderTemplate(subject, ctx),
+    body: renderTemplate(body, ctx),
+    fromOverride,
+  };
+}
+
+/**
+ * Fire-and-forget prewarm. Loads the company's overrides into the
+ * in-memory cache so subsequent resolveTemplateSync calls return
+ * customised wording. Returns a promise the caller can optionally
+ * await to know when the cache is hot, but most call sites just
+ * call it on mount and trust the next render to pick up the data.
+ */
+export function prewarmCompanyTemplates(companyId: string | null | undefined): Promise<void> {
+  if (!companyId) return Promise.resolve();
+  if (overrideCache.has(companyId)) return Promise.resolve();
+  return loadCompanyOverrides(companyId).then(() => undefined);
+}
+
+/**
  * Save (or upsert) a per-company override for a single template. The
  * cache for the company is invalidated so the next resolveTemplate
  * call re-fetches.

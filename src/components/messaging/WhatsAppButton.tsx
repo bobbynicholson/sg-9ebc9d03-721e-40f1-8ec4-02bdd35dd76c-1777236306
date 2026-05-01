@@ -32,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageCircle, Send } from "lucide-react";
 import { isLikelyMobile, openWhatsApp } from "@/lib/whatsapp";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTemplateOverrides } from "@/hooks/useTemplateOverrides";
 import {
   CLIENT_WHATSAPP_LABELS,
   STAFF_WHATSAPP_LABELS,
@@ -97,6 +99,15 @@ export function WhatsAppButton(props: Props) {
 
   const showButton = !!phone && (forceShow || isLikelyMobile(phone));
 
+  // Pull companyId off the auth context so the renderer can layer on
+  // the company's customised templates. Prewarm the override cache
+  // on mount; the version counter forces the rendered template to
+  // re-compute once the cache is hot, so the first open of the
+  // popover after a fresh login picks up the latest customisation.
+  const { profile } = useAuth() as any;
+  const companyId: string | null = profile?.company_id ?? null;
+  const { version: overridesVersion } = useTemplateOverrides(companyId);
+
   const templateKeys = useMemo<string[]>(() => {
     if (props.kind === "client") {
       return props.templates ?? DEFAULT_CLIENT_TEMPLATES;
@@ -115,12 +126,15 @@ export function WhatsAppButton(props: Props) {
 
   // Render the picked template against the latest context whenever the
   // popover is open and the operator has not started typing.
+  // overridesVersion is part of the dep list so a customisation saved
+  // in another tab takes effect on the next render.
   const renderedTemplate = useMemo(() => {
     if (props.kind === "client") {
-      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, props.ctx);
+      return renderClientWhatsApp(pickedKey as ClientWhatsAppKind, { ...props.ctx, companyId });
     }
-    return renderStaffWhatsApp(pickedKey as StaffWhatsAppKind, props.ctx);
-  }, [props.kind, props.ctx, pickedKey]);
+    return renderStaffWhatsApp(pickedKey as StaffWhatsAppKind, { ...props.ctx, companyId });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.kind, props.ctx, pickedKey, companyId, overridesVersion]);
 
   // Sync template -> textarea while the operator has not edited it.
   // Effect runs whenever the picked template, the rendered string or

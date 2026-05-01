@@ -5,6 +5,7 @@ import { Session, User } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
+import { prewarmCompanyTemplates } from "@/services/messageTemplateService";
 
 type Company = Tables<"companies">;
 type DbProfile = Tables<"profiles">;
@@ -147,10 +148,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .select("*")
               .eq("id", userProfile.company_id)
               .single();
-            
+
             if (companyData) {
               userCompany = companyData;
             }
+            // Prewarm the messaging-template cache so customisations
+            // saved on /admin/messaging-templates show up the first
+            // time the operator opens a compose drawer in this
+            // session, not on the second open. Fire-and-forget --
+            // failures are non-fatal (the renderers fall back to
+            // hardcoded defaults).
+            prewarmCompanyTemplates(userProfile.company_id).catch(() => {});
           }
 
           const roleValue = (userProfile.role as UserRole) || UserRole.CLIENT;

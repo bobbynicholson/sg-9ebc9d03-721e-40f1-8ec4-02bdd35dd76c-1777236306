@@ -14,6 +14,8 @@
  * doesn't change when we wire it up.
  */
 
+import { resolveTemplateSync } from "@/services/messageTemplateService";
+
 export interface ComposePayload {
   to: string;
   subject: string;
@@ -91,9 +93,57 @@ export interface TemplateContext {
   eventDate?: string;
   daysSinceLastContact?: number;
   fromName?: string;
+  /** When provided, the renderer first checks the company's
+   *  customised template (saved on /admin/messaging-templates) and
+   *  falls back to the hardcoded default below if nothing custom
+   *  is saved yet. Cache must be prewarmed via useTemplateOverrides. */
+  companyId?: string | null;
+}
+
+/**
+ * Map a ClientStatus to the registry key it overrides. Statuses not
+ * in this map fall through to the hardcoded default in templateFor().
+ * Add registry entries + map rows together to extend coverage.
+ */
+const CLIENT_STATUS_TO_REGISTRY: Partial<Record<ClientStatus, string>> = {
+  hot_lead: "email_lead_hot",
+  quoted:   "email_lead_quoted",
+  quiet:    "email_lead_quiet",
+  lost:     "email_lead_lost",
+};
+
+/** Build the registry context object from a TemplateContext. */
+function buildClientCtx(ctx: TemplateContext): Record<string, string | number> {
+  const first = (ctx.contactName || "there").split(" ")[0];
+  return {
+    first_name:   first,
+    client_name:  ctx.contactName || "",
+    company_name: ctx.companyName || "the team",
+    from_name:    ctx.fromName || ctx.companyName || "the team",
+    event_date:   ctx.eventDate || "",
+    event_name:   "",
+    guest_count:  "",
+  };
 }
 
 export function templateFor(status: ClientStatus, ctx: TemplateContext): { subject: string; body: string } {
+  // 1. Try the company override -- only takes effect if cached AND
+  //    the operator has saved a customisation. Otherwise we drop
+  //    through to the hardcoded default so existing UX never changes
+  //    for tenants who haven't customised yet.
+  const overrideKey = CLIENT_STATUS_TO_REGISTRY[status];
+  if (overrideKey) {
+    const resolved = resolveTemplateSync({
+      companyId: ctx.companyId ?? null,
+      key: overrideKey,
+      ctx: buildClientCtx(ctx),
+    });
+    if (resolved && resolved.fromOverride) {
+      return { subject: resolved.subject, body: resolved.body };
+    }
+  }
+
+  // 2. Hardcoded defaults (existing UX, unchanged).
   const first = (ctx.contactName || "there").split(" ")[0];
   const company = ctx.companyName || "the team";
   const sig = `\n\nBest,\n${ctx.fromName || company}`;
@@ -162,12 +212,51 @@ export interface QuoteTemplateContext {
   daysSinceSent?: number;
   fromName?: string;
   companyName?: string;
+  /** When provided, the renderer first checks the company's
+   *  customised template. See note on TemplateContext. */
+  companyId?: string | null;
 }
 
 const fmtRand = (v?: number) =>
   v == null ? "" : `R${Number(v).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`;
 
+const QUOTE_STATUS_TO_REGISTRY: Partial<Record<QuoteStatus, string>> = {
+  sent:     "email_lead_quoted",     // operator chasing a sent quote
+  revised:  "email_quote_revised",
+  accepted: "email_quote_accepted",
+  expired:  "email_quote_expired",
+};
+
+function buildQuoteCtx(ctx: QuoteTemplateContext): Record<string, string | number> {
+  const first = (ctx.contactName || "there").split(" ")[0];
+  return {
+    first_name:   first,
+    client_name:  ctx.contactName || "",
+    company_name: ctx.companyName || "the team",
+    from_name:    ctx.fromName || ctx.companyName || "the team",
+    event_name:   ctx.eventName || "your event",
+    event_date:   ctx.eventDate || "",
+    guest_count:  ctx.guestCount ?? "",
+    quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
+    total:        ctx.total ? fmtRand(ctx.total) : "",
+  };
+}
+
 export function templateForQuote(status: QuoteStatus, ctx: QuoteTemplateContext): { subject: string; body: string } {
+  // 1. Override path -- silent fallback to default when no customisation.
+  const overrideKey = QUOTE_STATUS_TO_REGISTRY[status];
+  if (overrideKey) {
+    const resolved = resolveTemplateSync({
+      companyId: ctx.companyId ?? null,
+      key: overrideKey,
+      ctx: buildQuoteCtx(ctx),
+    });
+    if (resolved && resolved.fromOverride) {
+      return { subject: resolved.subject, body: resolved.body };
+    }
+  }
+
+  // 2. Hardcoded defaults (existing UX, unchanged).
   const first = (ctx.contactName || "there").split(" ")[0];
   const sig = `\n\nBest,\n${ctx.fromName || ctx.companyName || "the team"}`;
   const eventLine = ctx.eventName

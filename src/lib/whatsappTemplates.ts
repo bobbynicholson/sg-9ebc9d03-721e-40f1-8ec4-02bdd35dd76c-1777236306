@@ -18,7 +18,16 @@
  * These mirror the structure of /lib/composeEmail.ts, so the two
  * channels stay intentionally aligned (client gets the same message
  * whether you reach them by email or WhatsApp).
+ *
+ * Override flow:
+ *   When a companyId is passed in the ctx, the renderer first checks
+ *   for a saved per-company customisation (edited on
+ *   /admin/messaging-templates) and silently falls back to the
+ *   hardcoded default when no override exists. The cache must be
+ *   prewarmed via the useTemplateOverrides hook for the override to
+ *   land on the first render.
  */
+import { resolveTemplateSync } from "@/services/messageTemplateService";
 
 const fmtRand = (v?: number | null) =>
   v == null ? "" : `R${Number(v).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`;
@@ -51,6 +60,37 @@ export interface ClientWhatsAppContext {
   daysUntilEvent?: number | null;
   fromName?: string | null;
   companyName?: string | null;
+  /** When set, the per-company customisation is consulted first.
+   *  Cache must be prewarmed via the useTemplateOverrides hook. */
+  companyId?: string | null;
+}
+
+/** Map a client-facing kind to the matching registry override key. */
+const CLIENT_KIND_TO_REGISTRY: Record<ClientWhatsAppKind, string> = {
+  lead_followup:     "whatsapp_lead_followup",
+  quote_sent:        "whatsapp_quote_sent",
+  quote_chase:       "whatsapp_quote_chase",
+  quote_accepted:    "whatsapp_quote_accepted",
+  event_week:        "whatsapp_event_week",
+  event_day_morning: "whatsapp_event_day_morning",
+  event_arrived:     "whatsapp_event_arrived",
+  delay_alert:       "whatsapp_delay_alert",
+};
+
+/** Build the registry context object from a ClientWhatsAppContext. */
+function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | number> {
+  const first = (ctx.contactName || "there").split(" ")[0];
+  return {
+    first_name:   first,
+    client_name:  ctx.contactName || "",
+    company_name: ctx.companyName || "",
+    from_name:    ctx.fromName || ctx.companyName || "",
+    event_name:   ctx.eventName || "your event",
+    event_date:   ctx.eventDate || "",
+    guest_count:  ctx.guestCount ?? "",
+    quote_ref:    ctx.quoteRef ? ` (ref ${ctx.quoteRef})` : "",
+    total:        ctx.total ? `R${Number(ctx.total).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}` : "",
+  };
 }
 
 export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
@@ -67,8 +107,29 @@ export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
 /**
  * Render a client-facing WhatsApp template. Returns the message body
  * ready to be passed to openWhatsApp().
+ *
+ * Order of operations:
+ *   1. If a company override is saved for this kind, use it.
+ *   2. Otherwise fall back to the hardcoded default below.
+ *
+ * Hardcoded defaults stay intact so existing UX never shifts for
+ * tenants who haven't customised yet.
  */
 export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsAppContext): string {
+  // 1. Override path -- silent fallback to default when no customisation.
+  const overrideKey = CLIENT_KIND_TO_REGISTRY[kind];
+  if (overrideKey) {
+    const resolved = resolveTemplateSync({
+      companyId: ctx.companyId ?? null,
+      key: overrideKey,
+      ctx: buildClientCtx(ctx),
+    });
+    if (resolved && resolved.fromOverride) {
+      return resolved.body;
+    }
+  }
+
+  // 2. Hardcoded defaults (existing UX, unchanged).
   const first = firstName(ctx.contactName);
   const sig = ctx.fromName || ctx.companyName || "";
   const sigLine = sig ? `\n\n-- ${sig}` : "";
@@ -134,6 +195,31 @@ export interface StaffWhatsAppContext {
   eventDate?: string | null;
   fromName?: string | null;
   companyName?: string | null;
+  /** When set, the per-company customisation is consulted first. */
+  companyId?: string | null;
+}
+
+const STAFF_KIND_TO_REGISTRY: Record<StaffWhatsAppKind, string> = {
+  shift_confirm:    "whatsapp_staff_shift_confirm",
+  job_assigned:     "whatsapp_staff_job_assigned",
+  pickup_ready:     "whatsapp_staff_pickup_ready",
+  general_check_in: "whatsapp_staff_check_in",
+  schedule_change: "whatsapp_staff_schedule_change",
+};
+
+function buildStaffCtx(ctx: StaffWhatsAppContext): Record<string, string | number> {
+  const first = (ctx.staffName || "there").split(" ")[0];
+  return {
+    first_name:   first,
+    staff_name:   ctx.staffName || "",
+    company_name: ctx.companyName || "",
+    from_name:    ctx.fromName || ctx.companyName || "",
+    shift_date:   ctx.shiftDate || "the shift",
+    shift_time:   ctx.shiftTime || "",
+    client_name:  ctx.clientName || "the client",
+    event_name:   ctx.eventName || "",
+    event_date:   ctx.eventDate || "",
+  };
 }
 
 export const STAFF_WHATSAPP_LABELS: Record<StaffWhatsAppKind, string> = {
@@ -145,6 +231,20 @@ export const STAFF_WHATSAPP_LABELS: Record<StaffWhatsAppKind, string> = {
 };
 
 export function renderStaffWhatsApp(kind: StaffWhatsAppKind, ctx: StaffWhatsAppContext): string {
+  // 1. Override path -- silent fallback to default when no customisation.
+  const overrideKey = STAFF_KIND_TO_REGISTRY[kind];
+  if (overrideKey) {
+    const resolved = resolveTemplateSync({
+      companyId: ctx.companyId ?? null,
+      key: overrideKey,
+      ctx: buildStaffCtx(ctx),
+    });
+    if (resolved && resolved.fromOverride) {
+      return resolved.body;
+    }
+  }
+
+  // 2. Hardcoded defaults (existing UX, unchanged).
   const first = firstName(ctx.staffName);
   const sig = ctx.fromName || ctx.companyName || "";
   const sigLine = sig ? `\n\n-- ${sig}` : "";

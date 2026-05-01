@@ -630,6 +630,7 @@ function ClientsCRM() {
             <ComposeDrawer
               contact={active}
               fromName={profile?.full_name || profile?.company_name}
+              companyId={profile?.company_id ?? null}
               onSent={() => markContacted(active.key)}
               onClose={() => setActive(null)}
             />
@@ -641,10 +642,11 @@ function ClientsCRM() {
 }
 
 function ComposeDrawer({
-  contact, fromName, onSent, onClose,
+  contact, fromName, companyId, onSent, onClose,
 }: {
   contact: Contact;
   fromName?: string;
+  companyId?: string | null;
   onSent: () => void;
   onClose: () => void;
 }) {
@@ -653,6 +655,7 @@ function ComposeDrawer({
     eventDate: contact.nextEventDate ? new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long" }) : undefined,
     daysSinceLastContact: contact.daysSinceLastTouch ?? undefined,
     fromName,
+    companyId: companyId ?? null,
   });
   const [subject, setSubject] = useState(initial.subject);
   const [body, setBody] = useState(initial.body);

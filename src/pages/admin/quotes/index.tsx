@@ -470,6 +470,7 @@ export default function AdminQuotes() {
                     : undefined,
                   total: rs.quote.total ?? rs.quote.subtotal ?? 0,
                   quoteRef: (rs.quote as any).quote_number || rs.quote.id?.slice(0, 8),
+                  companyId: profile?.company_id ?? null,
                 });
                 const url = composeEmail.gmailUrl({
                   to: rs.quote.client_email!,
@@ -835,6 +836,7 @@ export default function AdminQuotes() {
             quote={composeQuote}
             fromName={profile?.full_name || companyName}
             companyName={companyName}
+            companyId={profile?.company_id ?? null}
             mode={composeMode}
             diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
             onClose={() => setComposeQuote(null)}
@@ -891,11 +893,12 @@ export default function AdminQuotes() {
    quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, mode, diary, onClose,
+  quote, fromName, companyName, companyId, mode, diary, onClose,
 }: {
   quote: Quote;
   fromName?: string;
   companyName?: string;
+  companyId?: string | null;
   mode: "status" | "sweetener";
   diary: DiarySignal;
   onClose: () => void;
@@ -915,6 +918,7 @@ function QuoteComposeDrawer({
     quoteRef,
     fromName,
     companyName,
+    companyId: companyId ?? null,
   };
 
   // Sweetener controls. Default to a 10% nudge with a 7-day expiry --
