@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { Input } from "@/components/ui/input";
 import {
   MapPin,
@@ -606,17 +607,15 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         </Card>
       )}
 
-      {/* COMPOSE DRAWER */}
-      <Sheet open={composeOpen} onOpenChange={setComposeOpen}>
-        <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-          <ComposeDrawer
-            order={order}
-            fromName={fromName}
-            companyName={companyName}
-            onClose={() => setComposeOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      {/* COMPOSE DRAWER -- shared resizable host */}
+      <ComposeDrawerHost open={composeOpen} onClose={() => setComposeOpen(false)}>
+        <ComposeDrawer
+          order={order}
+          fromName={fromName}
+          companyName={companyName}
+          onClose={() => setComposeOpen(false)}
+        />
+      </ComposeDrawerHost>
 
       {/* REASSIGN DRIVER DIALOG (Phase 2B one-click swap) */}
       <ReassignDriverDialog

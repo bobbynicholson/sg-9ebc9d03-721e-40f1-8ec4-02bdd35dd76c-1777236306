@@ -31,6 +31,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -642,9 +643,11 @@ function EquipmentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reservations drawer, per-item calendar */}
-      <Sheet open={!!reservationsFor} onOpenChange={(o) => { if (!o) { setReservationsFor(null); setReservations([]); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      {/* Reservations drawer -- shared resizable host (drag the left edge) */}
+      <ComposeDrawerHost
+        open={!!reservationsFor}
+        onClose={() => { setReservationsFor(null); setReservations([]); }}
+      >
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-blue-600" />
@@ -722,8 +725,7 @@ function EquipmentPage() {
               )}
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+      </ComposeDrawerHost>
 
       <ChatBot userRole="admin" companyId={companyId || undefined} />
     </>

@@ -13,6 +13,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
 } from "@/components/ui/accordion";
@@ -157,17 +158,15 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
         </DialogContent>
       </Dialog>
 
-      <Sheet open={composeOpen} onOpenChange={setComposeOpen}>
-        <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-          <DevComposeDrawer
-            form={form}
-            snippet={snippet}
-            companyName={companyName}
-            previewHref={previewHref}
-            onClose={() => setComposeOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      <ComposeDrawerHost open={composeOpen} onClose={() => setComposeOpen(false)}>
+        <DevComposeDrawer
+          form={form}
+          snippet={snippet}
+          companyName={companyName}
+          previewHref={previewHref}
+          onClose={() => setComposeOpen(false)}
+        />
+      </ComposeDrawerHost>
     </>
   );
 }

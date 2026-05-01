@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -725,20 +726,20 @@ function ClientsCRM() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Compose drawer */}
-      <Sheet open={!!active} onOpenChange={(o) => !o && setActive(null)}>
-        <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-          {active && (
-            <ComposeDrawer
-              contact={active}
-              fromName={profile?.full_name || profile?.company_name}
-              companyId={profile?.company_id ?? null}
-              onSent={() => markContacted(active.key)}
-              onClose={() => setActive(null)}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Compose drawer -- shared resizable host so this matches the
+          quotes / leads compose UX. Default ~60% of viewport, draggable
+          on the left edge, width persists across opens via sessionStorage. */}
+      <ComposeDrawerHost open={!!active} onClose={() => setActive(null)}>
+        {active && (
+          <ComposeDrawer
+            contact={active}
+            fromName={profile?.full_name || profile?.company_name}
+            companyId={profile?.company_id ?? null}
+            onSent={() => markContacted(active.key)}
+            onClose={() => setActive(null)}
+          />
+        )}
+      </ComposeDrawerHost>
     </>
   );
 }

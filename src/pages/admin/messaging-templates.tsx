@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { Mail, MessageCircle, Pencil, RotateCcw, Save, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -241,20 +242,18 @@ function MessagingTemplatesPage() {
         </div>
       </div>
 
-      {/* EDITOR DRAWER */}
-      <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          {editing && (
-            <EditorDrawer
-              template={editing}
-              companyId={companyId}
-              onClose={() => setEditing(null)}
-              onSaved={() => { setEditing(null); reload(); }}
-              onReset={() => { setEditing(null); reload(); }}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* EDITOR DRAWER -- shared resizable host (drag the left edge) */}
+      <ComposeDrawerHost open={!!editing} onClose={() => setEditing(null)}>
+        {editing && (
+          <EditorDrawer
+            template={editing}
+            companyId={companyId}
+            onClose={() => setEditing(null)}
+            onSaved={() => { setEditing(null); reload(); }}
+            onReset={() => { setEditing(null); reload(); }}
+          />
+        )}
+      </ComposeDrawerHost>
 
       {/* Footer sits inside the sidebar-offset wrapper so the sidebar
           never overlaps it on desktop. */}

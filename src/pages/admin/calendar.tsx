@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, MapPin,
   Users, ArrowRight, Sparkles, Keyboard, ChefHat, Truck, Star,
@@ -415,9 +416,8 @@ function AdminCalendar() {
         </div>
       </div>
 
-      {/* Day detail sheet */}
-      <Sheet open={!!selectedDate} onOpenChange={(o) => !o && setSelectedDate(null)}>
-        <SheetContent side="right" className="w-full sm:w-[480px] overflow-y-auto">
+      {/* Day detail sheet -- shared resizable host (drag the left edge) */}
+      <ComposeDrawerHost open={!!selectedDate} onClose={() => setSelectedDate(null)}>
           {selectedDate && (
             <>
               <SheetHeader>
@@ -498,8 +498,7 @@ function AdminCalendar() {
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+      </ComposeDrawerHost>
     </>
   );
 }
