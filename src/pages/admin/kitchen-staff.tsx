@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -92,7 +94,7 @@ function KitchenStaffPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
 
   // Filtered view -- search + archived toggle
-  const visible = useMemo(() => {
+  const visibleRaw = useMemo(() => {
     const term = search.trim().toLowerCase();
     return staff
       .filter(s => showArchived ? true : s.is_active && !s.deleted_at)
@@ -102,6 +104,17 @@ function KitchenStaffPage() {
         || (s.phone || "").toLowerCase().includes(term)
       );
   }, [staff, search, showArchived]);
+
+  // Column-style sort exposed via the SortMenu so the team can flip
+  // by name, role, rate or status from a single dropdown.
+  const staffSortColumns: ColumnDef<KitchenStaffMember>[] = useMemo(() => [
+    { key: "name",   accessor: (s) => s.full_name,                                   type: "string" },
+    { key: "role",   accessor: (s) => s.role_title || "",                            type: "string" },
+    { key: "rate",   accessor: (s) => Number(s.hourly_rate ?? -1),                   type: "number" },
+    { key: "status", accessor: (s) => (s.is_active && !s.deleted_at) ? "active" : "archived", type: "string" },
+  ], []);
+  const staffSort = useSortable<KitchenStaffMember>(visibleRaw, staffSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const visible = staffSort.rows;
 
   // Headline stats: how many on the books, how many missing rates (a real
   // gap because the wage dashboard can't compute earnings without them).
@@ -289,7 +302,7 @@ function KitchenStaffPage() {
             </Card>
           </div>
 
-          {/* Search + archived toggle */}
+          {/* Search + archived toggle + sort */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -304,6 +317,19 @@ function KitchenStaffPage() {
               <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
               <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">Show archived</Label>
             </div>
+            <SortMenu
+              activeKey={staffSort.sortKey}
+              activeDir={staffSort.sortDir}
+              onPick={staffSort.setSort}
+              options={[
+                { key: "name",   dir: "asc",  label: "Name (A to Z)" },
+                { key: "name",   dir: "desc", label: "Name (Z to A)" },
+                { key: "role",   dir: "asc",  label: "Role (A to Z)" },
+                { key: "rate",   dir: "desc", label: "Rate (high to low)" },
+                { key: "rate",   dir: "asc",  label: "Rate (low to high)" },
+                { key: "status", dir: "asc",  label: "Active first" },
+              ]}
+            />
           </div>
 
           {/* Staff list */}

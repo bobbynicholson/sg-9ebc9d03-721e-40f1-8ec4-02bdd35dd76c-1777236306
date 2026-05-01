@@ -1,5 +1,7 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortMenu } from "@/components/ui/sort-menu";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -195,7 +197,16 @@ function AdminUsersPage() {
     { limit: 0 },
   );
 
-  const filteredUsers = searchTerm ? fuzzyUsers : users;
+  const fuzzyOrAll = searchTerm ? fuzzyUsers : users;
+
+  const userSortColumns: ColumnDef<UserWithDepartments>[] = useMemo(() => [
+    { key: "name",    accessor: (u) => u.full_name || u.email,                type: "string" },
+    { key: "role",    accessor: (u) => (u.role || "").toString(),             type: "string" },
+    { key: "email",   accessor: (u) => u.email || "",                         type: "string" },
+    { key: "created", accessor: (u) => (u as any).created_at,                 type: "date"   },
+  ], []);
+  const userSort = useSortable<UserWithDepartments>(fuzzyOrAll, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const filteredUsers = userSort.rows;
 
   if (loading) {
     return (
@@ -345,6 +356,19 @@ function AdminUsersPage() {
                 className="pl-9 md:pl-10 text-sm md:text-base"
               />
             </div>
+            <SortMenu
+              activeKey={userSort.sortKey}
+              activeDir={userSort.sortDir}
+              onPick={userSort.setSort}
+              options={[
+                { key: "name",    dir: "asc",  label: "Name (A to Z)" },
+                { key: "name",    dir: "desc", label: "Name (Z to A)" },
+                { key: "role",    dir: "asc",  label: "Role (A to Z)" },
+                { key: "email",   dir: "asc",  label: "Email (A to Z)" },
+                { key: "created", dir: "desc", label: "Newest first" },
+                { key: "created", dir: "asc",  label: "Oldest first" },
+              ]}
+            />
           </div>
 
           {filteredUsers.length === 0 ? (

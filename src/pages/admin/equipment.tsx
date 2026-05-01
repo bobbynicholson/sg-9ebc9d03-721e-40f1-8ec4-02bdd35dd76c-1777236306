@@ -15,6 +15,8 @@
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useEffect, useMemo, useState } from "react";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -162,7 +164,7 @@ function EquipmentPage() {
   }, [reservationsFor, companyId]);
 
   // ── Filter + group by category ───────────────────────────────────
-  const filtered = useMemo(() => {
+  const filteredRaw = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (filterAvailable === "available" && r.is_available === false) return false;
@@ -175,6 +177,18 @@ function EquipmentPage() {
       );
     });
   }, [rows, search, filterAvailable]);
+
+  // Sort layered on top of filter. Card-grid pages get a Sort menu
+  // (no headers to click), so we expose every meaningful axis.
+  const equipmentSortColumns: ColumnDef<EquipmentRow>[] = useMemo(() => [
+    { key: "name",      accessor: (r) => r.name,                                          type: "string" },
+    { key: "category",  accessor: (r) => r.category || "",                                type: "string" },
+    { key: "rate",      accessor: (r) => Number(r.rental_price || 0),                    type: "number" },
+    { key: "free",      accessor: (r) => Number(r.available_quantity || 0),              type: "number" },
+    { key: "qty",       accessor: (r) => Number(r.quantity || 0),                        type: "number" },
+  ], []);
+  const equipmentSort = useSortable<EquipmentRow>(filteredRaw, equipmentSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const filtered = equipmentSort.rows;
 
   const grouped = useMemo(() => {
     const m = new Map<string, EquipmentRow[]>();
@@ -344,6 +358,21 @@ function EquipmentPage() {
                 </button>
               ))}
             </div>
+            <SortMenu
+              activeKey={equipmentSort.sortKey}
+              activeDir={equipmentSort.sortDir}
+              onPick={equipmentSort.setSort}
+              options={[
+                { key: "name",     dir: "asc",  label: "Name (A to Z)" },
+                { key: "name",     dir: "desc", label: "Name (Z to A)" },
+                { key: "category", dir: "asc",  label: "Category (A to Z)" },
+                { key: "rate",     dir: "desc", label: "Rate (high to low)" },
+                { key: "rate",     dir: "asc",  label: "Rate (low to high)" },
+                { key: "free",     dir: "desc", label: "Most free units" },
+                { key: "free",     dir: "asc",  label: "Fewest free units" },
+                { key: "qty",      dir: "desc", label: "Largest catalog qty" },
+              ]}
+            />
           </div>
 
           {/* List */}

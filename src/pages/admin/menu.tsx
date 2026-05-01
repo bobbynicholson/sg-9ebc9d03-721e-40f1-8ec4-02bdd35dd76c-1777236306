@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -133,7 +135,7 @@ function MenuPage() {
 
   // ── Filtering ────────────────────────────────────────────────────────
 
-  const visible = useMemo(() => {
+  const visibleRaw = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items
       .filter(i => showArchived ? true : !i.deleted_at)
@@ -144,6 +146,24 @@ function MenuPage() {
         || (i.description || "").toLowerCase().includes(term)
       );
   }, [items, showArchived, search, filterCategory]);
+
+  // Sortable columns exposed via the SortMenu (the menu page is a
+  // card grid grouped by category, so a click-to-sort header doesn't
+  // fit). Default name ascending.
+  const menuSortColumns: ColumnDef<MenuItemWithRecipeSummary>[] = useMemo(() => [
+    { key: "name",     accessor: (i) => i.item_name,                             type: "string" },
+    { key: "category", accessor: (i) => i.category || "",                        type: "string" },
+    { key: "price",    accessor: (i) => Number(i.base_price || 0),               type: "number" },
+    { key: "cost",     accessor: (i) => Number((i.cost as any)?.cost_per_serving || 0), type: "number" },
+    { key: "margin",   accessor: (i) => {
+      const price = Number(i.base_price || 0);
+      const cost  = Number((i.cost as any)?.cost_per_serving || 0);
+      if (price <= 0) return -1;
+      return ((price - cost) / price) * 100;
+    }, type: "number" },
+  ], []);
+  const menuSort = useSortable<MenuItemWithRecipeSummary>(visibleRaw, menuSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const visible = menuSort.rows;
 
   const grouped = useMemo(() => {
     const m = new Map<string, MenuItemWithRecipeSummary[]>();
@@ -556,6 +576,21 @@ function MenuPage() {
               <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} />
               <Label htmlFor="archived" className="text-sm text-slate-700 cursor-pointer select-none">Show archived</Label>
             </div>
+            <SortMenu
+              activeKey={menuSort.sortKey}
+              activeDir={menuSort.sortDir}
+              onPick={menuSort.setSort}
+              options={[
+                { key: "name",     dir: "asc",  label: "Name (A to Z)" },
+                { key: "name",     dir: "desc", label: "Name (Z to A)" },
+                { key: "category", dir: "asc",  label: "Category (A to Z)" },
+                { key: "price",    dir: "desc", label: "Price (high to low)" },
+                { key: "price",    dir: "asc",  label: "Price (low to high)" },
+                { key: "cost",     dir: "desc", label: "Cost (high to low)" },
+                { key: "margin",   dir: "desc", label: "Best margin" },
+                { key: "margin",   dir: "asc",  label: "Worst margin" },
+              ]}
+            />
           </div>
 
           {/* List */}

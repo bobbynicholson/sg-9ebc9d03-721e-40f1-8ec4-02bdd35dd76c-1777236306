@@ -1,6 +1,8 @@
 ﻿import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortMenu } from "@/components/ui/sort-menu";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -382,7 +384,7 @@ function DriverManagementPage() {
     }
   };
 
-  const filteredDrivers = useFuzzyItems(
+  const fuzzyDrivers = useFuzzyItems(
     drivers,
     searchQuery,
     [
@@ -392,6 +394,15 @@ function DriverManagementPage() {
     ],
     { limit: 0 },
   );
+
+  const driverSortColumns: ColumnDef<Driver>[] = useMemo(() => [
+    { key: "name",   accessor: (d) => d.full_name || d.email || "",            type: "string" },
+    { key: "email",  accessor: (d) => d.email || "",                           type: "string" },
+    { key: "phone",  accessor: (d) => (d as any).phone_number || "",           type: "string" },
+    { key: "status", accessor: (d) => d.is_active ? "active" : "inactive",     type: "string" },
+  ], []);
+  const driverSort = useSortable<Driver>(fuzzyDrivers, driverSortColumns, { defaultKey: "name", defaultDir: "asc" });
+  const filteredDrivers = driverSort.rows;
 
   const activeDrivers = drivers.filter(d => d.is_active).length;
   const inactiveDrivers = drivers.filter(d => !d.is_active).length;
@@ -570,9 +581,9 @@ function DriverManagementPage() {
           })()}
         </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
+        {/* Search + sort */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <Input
               value={searchQuery}
@@ -581,6 +592,19 @@ function DriverManagementPage() {
               className="pl-10 h-12"
             />
           </div>
+          <SortMenu
+            activeKey={driverSort.sortKey}
+            activeDir={driverSort.sortDir}
+            onPick={driverSort.setSort}
+            options={[
+              { key: "name",   dir: "asc",  label: "Name (A to Z)" },
+              { key: "name",   dir: "desc", label: "Name (Z to A)" },
+              { key: "status", dir: "asc",  label: "Active first" },
+              { key: "status", dir: "desc", label: "Inactive first" },
+              { key: "email",  dir: "asc",  label: "Email (A to Z)" },
+              { key: "phone",  dir: "asc",  label: "Phone (A to Z)" },
+            ]}
+          />
         </div>
 
         {/* Drivers List */}
