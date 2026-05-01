@@ -914,8 +914,8 @@ function ClientFormDialog({
     tax_number: "",
     billing_address_line1: "",
     billing_address_line2: "",
-    billing_address_city: "",
-    billing_address_postal_code: "",
+    billing_city: "",
+    billing_postal_code: "",
     notes: "",
   });
 
@@ -929,7 +929,7 @@ function ClientFormDialog({
       setForm({
         client_name: "", email: "", phone: "", client_type: "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
-        billing_address_city: "", billing_address_postal_code: "", notes: "",
+        billing_city: "", billing_postal_code: "", notes: "",
       });
       setShowMore(false);
       return;
@@ -942,14 +942,14 @@ function ClientFormDialog({
       phone:       editing.phone || "",
       client_type: "individual",
       tax_number: "", billing_address_line1: "", billing_address_line2: "",
-      billing_address_city: "", billing_address_postal_code: "", notes: "",
+      billing_city: "", billing_postal_code: "", notes: "",
     });
     setShowMore(false);
     // Layer 2: enrich from the row (billing, tax, notes).
     (async () => {
       const { data } = await supabase
         .from("clients")
-        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_address_city, billing_address_postal_code, notes")
+        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes")
         .eq("id", editing.clientId)
         .maybeSingle();
       if (!data) return;
@@ -961,8 +961,8 @@ function ClientFormDialog({
         tax_number:  data.tax_number || "",
         billing_address_line1:       data.billing_address_line1 || "",
         billing_address_line2:       data.billing_address_line2 || "",
-        billing_address_city:        data.billing_address_city || "",
-        billing_address_postal_code: data.billing_address_postal_code || "",
+        billing_city:        data.billing_city || "",
+        billing_postal_code: data.billing_postal_code || "",
         notes:       data.notes || "",
       });
       const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes);
@@ -986,8 +986,8 @@ function ClientFormDialog({
       tax_number:  form.tax_number.trim() || null,
       billing_address_line1:       form.billing_address_line1.trim() || null,
       billing_address_line2:       form.billing_address_line2.trim() || null,
-      billing_address_city:        form.billing_address_city.trim() || null,
-      billing_address_postal_code: form.billing_address_postal_code.trim() || null,
+      billing_city:        form.billing_city.trim() || null,
+      billing_postal_code: form.billing_postal_code.trim() || null,
       notes:       form.notes.trim() || null,
     };
     let error: any = null;
@@ -1069,8 +1069,8 @@ function ClientFormDialog({
                 <Input value={form.billing_address_line1} onChange={set("billing_address_line1")} placeholder="Line 1" className="mt-1" />
                 <Input value={form.billing_address_line2} onChange={set("billing_address_line2")} placeholder="Line 2 (optional)" className="mt-2" />
                 <div className="grid grid-cols-2 gap-2 mt-2">
-                  <Input value={form.billing_address_city} onChange={set("billing_address_city")} placeholder="City" />
-                  <Input value={form.billing_address_postal_code} onChange={set("billing_address_postal_code")} placeholder="Postal code" />
+                  <Input value={form.billing_city} onChange={set("billing_city")} placeholder="City" />
+                  <Input value={form.billing_postal_code} onChange={set("billing_postal_code")} placeholder="Postal code" />
                 </div>
               </div>
               <div>
