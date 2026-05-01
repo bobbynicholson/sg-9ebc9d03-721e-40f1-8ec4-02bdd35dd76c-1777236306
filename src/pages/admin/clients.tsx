@@ -37,6 +37,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import type { ClientWhatsAppKind } from "@/lib/whatsappTemplates";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
@@ -569,15 +571,45 @@ function ClientsCRM() {
                               ) : "-"}
                             </td>
                             <td className="py-3 pr-4 text-right">
-                              <Button
-                                size="sm"
-                                disabled={!c.email}
-                                onClick={() => setActive(c)}
-                                className="gap-1.5"
-                              >
-                                <Send className="w-3.5 h-3.5" />
-                                Compose
-                              </Button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* WhatsApp the client. Hidden when no
+                                    mobile is on file or it looks like
+                                    a landline. Default template depends
+                                    on contact status (hot lead -> lead
+                                    follow-up; quoted -> quote chase;
+                                    everyone else -> generic check-in
+                                    via lead follow-up). */}
+                                <WhatsAppButton
+                                  kind="client"
+                                  phone={c.phone}
+                                  variant="outline"
+                                  size="sm"
+                                  label=""
+                                  className="h-8 w-8 p-0"
+                                  templates={["lead_followup", "quote_chase", "quote_sent"] as ClientWhatsAppKind[]}
+                                  defaultTemplate={
+                                    c.status === "quoted" ? "quote_chase"
+                                    : "lead_followup"
+                                  }
+                                  ctx={{
+                                    contactName: c.name,
+                                    eventDate: c.nextEventDate
+                                      ? new Date(c.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                                      : null,
+                                    fromName: profile?.full_name || profile?.company_name,
+                                    companyName: profile?.company_name,
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  disabled={!c.email}
+                                  onClick={() => setActive(c)}
+                                  className="gap-1.5"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  Compose
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );

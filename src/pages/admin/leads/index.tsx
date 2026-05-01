@@ -913,6 +913,23 @@ function LeadComposeDrawer({
         "Edit freely, the wording is just a starting point based on this lead's status. Drag the left edge of this drawer to give yourself more room."
       }
       onSent={onSent}
+      whatsapp={{
+        kind: "client",
+        ctx: {
+          contactName: lead.client_name || lead.contact_name || "",
+          eventName: lead.event_type || null,
+          eventDate: lead.event_date
+            ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+            : null,
+          guestCount: lead.guest_count ?? null,
+          fromName,
+        },
+        templates: ["lead_followup", "quote_sent", "quote_chase"],
+        defaultTemplate:
+          kind === "reply_email" ? "lead_followup"
+          : kind === "chase_quote" ? "quote_chase"
+          : "lead_followup",
+      }}
       onClose={onClose}
     />
   );

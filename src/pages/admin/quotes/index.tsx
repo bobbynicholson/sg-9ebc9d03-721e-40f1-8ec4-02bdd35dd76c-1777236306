@@ -1081,12 +1081,31 @@ function QuoteComposeDrawer({
       recipient={{
         name: quote.client_name,
         email: quote.client_email || null,
+        phone: (quote as any).client_phone || null,
       }}
       template={initial}
       fromName={fromName}
       footerHint={mode === "sweetener"
         ? "Tweak the offer above and the body refreshes, once you start typing here we keep your wording."
         : "Edit freely, the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
+      whatsapp={{
+        kind: "client",
+        ctx: {
+          contactName: quote.client_name,
+          eventName: quote.event_name,
+          eventDate: quote.event_date
+            ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+            : null,
+          guestCount: quote.guest_count ?? null,
+          total: quote.total ?? null,
+          quoteRef: quote.quote_number || null,
+          fromName,
+        },
+        templates: ["quote_sent", "quote_chase", "quote_accepted", "lead_followup"],
+        defaultTemplate: quote.status === "accepted" ? "quote_accepted"
+          : quote.status === "sent" ? "quote_chase"
+          : "quote_sent",
+      }}
       onClose={onClose}
     />
   );

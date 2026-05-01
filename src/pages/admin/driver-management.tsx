@@ -32,6 +32,7 @@ import { DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ShiftScheduleDialog } from "@/components/admin/dispatch/ShiftScheduleDialog";
 import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { dispatchService } from "@/services/dispatchService";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 
 interface Driver {
   id: string;
@@ -69,7 +70,7 @@ export default function ProtectedDriverManagementPage() {
 }
 
 function DriverManagementPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth() as any;
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1177,6 +1178,26 @@ function DriverManagementPage() {
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">
+                            {/* WhatsApp the driver. Hidden if the phone
+                                is missing or looks like a landline.
+                                Templates: confirm shift / job assigned
+                                / pickup ready / generic check-in. */}
+                            <WhatsAppButton
+                              kind="staff"
+                              phone={driver.phone_number}
+                              variant="ghost"
+                              size="sm"
+                              label=""
+                              className="h-8 w-8 p-0"
+                              templates={["general_check_in", "shift_confirm", "job_assigned", "pickup_ready", "schedule_change"]}
+                              defaultTemplate="general_check_in"
+                              ctx={{
+                                staffName: driver.full_name || driver.email,
+                                role: "driver",
+                                fromName: profile?.full_name || profile?.company_name || "the team",
+                                companyName: profile?.company_name,
+                              }}
+                            />
                             <Button
                               variant="ghost"
                               size="sm"

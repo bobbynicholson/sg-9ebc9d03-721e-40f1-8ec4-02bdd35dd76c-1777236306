@@ -46,6 +46,7 @@ import { composeEmail } from "@/lib/composeEmail";
 import { useToast } from "@/hooks/use-toast";
 import { ReassignDriverDialog } from "@/components/admin/dispatch/ReassignDriverDialog";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { Camera, FileSignature } from "lucide-react";
 
@@ -119,13 +120,6 @@ function statusIndex(status: string) {
   // tracked in the audit -- different surfaces use different labels).
   const normalised = status === "in_transit" ? "out_for_delivery" : status;
   return STATUS_FLOW.findIndex((s) => s.key === normalised);
-}
-
-function formatPhoneForWa(phone?: string): string {
-  if (!phone) return "";
-  // Strip everything except digits + plus sign for the wa.me link
-  const cleaned = phone.replace(/[^\d+]/g, "");
-  return cleaned.startsWith("+") ? cleaned.slice(1) : cleaned;
 }
 
 export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Props) {
@@ -305,15 +299,28 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 </Button>
               )}
               {order.client_phone && (
-                <a
-                  href={`https://wa.me/${formatPhoneForWa(order.client_phone)}`}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
-                    <MessageCircle className="h-3 w-3" /> WhatsApp
-                  </Button>
-                </a>
+                <WhatsAppButton
+                  kind="client"
+                  phone={order.client_phone}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  defaultTemplate="event_day_morning"
+                  templates={["event_week", "event_day_morning", "event_arrived", "delay_alert", "quote_chase"]}
+                  ctx={{
+                    contactName: order.client_name || "",
+                    eventName: order.event_name,
+                    eventDate: order.event_date
+                      ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                      : null,
+                    driverName: order.driver_name,
+                    arrivalTime: order.delivery_time
+                      ? new Date(order.delivery_time).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
+                      : null,
+                    fromName,
+                    companyName,
+                  }}
+                />
               )}
             </div>
           </CardContent>
@@ -394,7 +401,11 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 <Receipt className="h-3 w-3" /> Invoice
               </Button></a>
             </Link>
-            <Link href={`/admin/kitchen-duty-tracking?orderId=${order.id}`} legacyBehavior>
+            {/* Kitchen prep -- routes to the real prep list page, not
+                the placeholder admin view. /team-portal/kitchen/prep-list
+                shows the per-order prep tasks and is the canonical
+                source the kitchen team works off. */}
+            <Link href={`/team-portal/kitchen/prep-list?orderId=${order.id}`} legacyBehavior>
               <a><Button size="sm" variant="outline" className="gap-1 h-7 text-xs">
                 <ChefHat className="h-3 w-3" /> Kitchen prep
               </Button></a>

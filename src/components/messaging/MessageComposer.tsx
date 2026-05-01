@@ -27,11 +27,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, ExternalLink, Copy, Send } from "lucide-react";
 import { composeEmail } from "@/lib/composeEmail";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
+import type { ClientWhatsAppContext, ClientWhatsAppKind, StaffWhatsAppContext, StaffWhatsAppKind } from "@/lib/whatsappTemplates";
 
 export interface ComposerRecipient {
   name: string;
   email: string | null | undefined;
   phone?: string | null;
+}
+
+/**
+ * Optional WhatsApp slot on the composer. When present, a fifth send
+ * action sits next to Gmail / Outlook / mailto / Copy and the operator
+ * can pivot to WhatsApp without losing what they have drafted. The
+ * WhatsApp template catalog is independent of the email body so the
+ * channel-appropriate wording shows up (short on WhatsApp, fuller on
+ * email).
+ */
+export interface WhatsAppSlot {
+  kind: "client";
+  ctx: ClientWhatsAppContext;
+  templates?: ClientWhatsAppKind[];
+  defaultTemplate?: ClientWhatsAppKind;
+}
+export interface WhatsAppStaffSlot {
+  kind: "staff";
+  ctx: StaffWhatsAppContext;
+  templates?: StaffWhatsAppKind[];
+  defaultTemplate?: StaffWhatsAppKind;
 }
 
 export interface ComposerTemplate {
@@ -72,14 +95,17 @@ export interface MessageComposerProps {
   footerHint?: string;
   /** Called after the operator picks a send channel so the caller can
    *  log a touch / mark as contacted. Optional. */
-  onSent?: (channel: "gmail" | "outlook" | "mailto" | "clipboard") => void;
+  onSent?: (channel: "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => void;
+  /** Optional WhatsApp slot. When present + the recipient has a phone,
+   *  a fifth send action appears next to the email channels. */
+  whatsapp?: WhatsAppSlot | WhatsAppStaffSlot;
   onClose: () => void;
 }
 
 export function MessageComposer({
   icon, title, subtitle, banner, controls,
   contextLabel, contextRows, recipient, template,
-  fromName, footerHint, onSent, onClose,
+  fromName, footerHint, onSent, whatsapp, onClose,
 }: MessageComposerProps) {
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
@@ -191,7 +217,11 @@ export function MessageComposer({
       </div>
 
       <div className="space-y-4 mt-6">
-        {/* Send actions -- four side by side at xl+, two at smaller. */}
+        {/* Send actions -- email channels in a row, plus an optional
+            WhatsApp pivot when the recipient has a mobile. WhatsApp
+            uses its own short-form template catalog so the body that
+            opens in the chat is channel-appropriate, not the long
+            email body the operator has been editing above. */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
           <Button
             variant="default"
@@ -241,6 +271,44 @@ export function MessageComposer({
             <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
           </Button>
         </div>
+
+        {/* WhatsApp pivot. Only shows when the caller passed a slot AND
+            we have a phone number to send to. Renders full-width so it
+            reads as an alternative channel, not a fifth email option. */}
+        {whatsapp && recipient.phone && (
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-500">
+                Prefer WhatsApp? Pre-filled message in the green-tick app, you hit send.
+              </p>
+              {whatsapp.kind === "client" ? (
+                <WhatsAppButton
+                  kind="client"
+                  phone={recipient.phone}
+                  ctx={whatsapp.ctx}
+                  templates={whatsapp.templates}
+                  defaultTemplate={whatsapp.defaultTemplate}
+                  variant="outline"
+                  size="sm"
+                  label="Send on WhatsApp"
+                  onSent={() => handleSent("whatsapp")}
+                />
+              ) : (
+                <WhatsAppButton
+                  kind="staff"
+                  phone={recipient.phone}
+                  ctx={whatsapp.ctx}
+                  templates={whatsapp.templates}
+                  defaultTemplate={whatsapp.defaultTemplate}
+                  variant="outline"
+                  size="sm"
+                  label="Send on WhatsApp"
+                  onSent={() => handleSent("whatsapp")}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         <p className="text-[11px] text-slate-500 text-center">
           Direct send via your own SMTP / Gmail OAuth coming soon. Until then these four options keep the email looking like it came from you, not from us.
