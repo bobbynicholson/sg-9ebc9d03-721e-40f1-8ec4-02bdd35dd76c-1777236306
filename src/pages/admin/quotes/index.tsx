@@ -1092,7 +1092,7 @@ function QuoteComposeDrawer({
         kind: "client",
         ctx: {
           contactName: quote.client_name,
-          eventName: quote.event_name,
+          eventName: (quote as any).event_name ?? null,
           eventDate: quote.event_date
             ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
             : null,
