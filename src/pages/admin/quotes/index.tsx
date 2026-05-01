@@ -310,6 +310,53 @@ export default function AdminQuotes() {
     }
   };
 
+  /**
+   * Manual "Mark as sent" -- sets quotes.sent_at to now without
+   * actually firing an email. Used when the operator sent the quote
+   * outside the system (printed PDF, WhatsApp, walked it across) and
+   * wants the follow-up timing baseline anchored. If the quote is
+   * still in draft, status flips to 'sent' so the suggester picks it
+   * up like any normal sent quote.
+   */
+  const handleMarkAsSent = async (quote: Quote) => {
+    const isAlreadySent = !!(quote as any).sent_at;
+    const ok = isAlreadySent
+      ? typeof window !== "undefined" && window.confirm(
+          `Reset the 'sent' timestamp for ${quote.client_name}? Follow-up timing restarts from now.`
+        )
+      : true;
+    if (!ok) return;
+
+    const nowIso = new Date().toISOString();
+    const nextStatus = quote.status === "draft" ? "sent" : quote.status;
+    try {
+      const { error } = await (supabase as any)
+        .from("quotes")
+        .update({ sent_at: nowIso, status: nextStatus })
+        .eq("id", quote.id);
+      if (error) throw error;
+
+      setQuotes((prev) => prev.map((q) =>
+        q.id === quote.id
+          ? ({ ...q, sent_at: nowIso, status: nextStatus } as Quote)
+          : q,
+      ));
+      toast({
+        title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
+        description: isAlreadySent
+          ? "Follow-up timing restarts from now."
+          : "Follow-up timing now anchored to this moment.",
+      });
+    } catch (err: any) {
+      console.error("Mark as sent failed:", err);
+      toast({
+        title: "Could not mark as sent",
+        description: err?.message || "Try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSend = async (quoteId: string) => {
     setSendingId(quoteId);
     try {
@@ -627,6 +674,29 @@ export default function AdminQuotes() {
                                 booked
                               </Badge>
                             )}
+                            {/* Sent-at pill -- the timing anchor for
+                                follow-ups. Reads 'Sent today' /
+                                'Sent 3d ago' / 'Sent 12 May' depending
+                                on age. Click the Mark-as-sent action
+                                in the row to reset / set this. */}
+                            {(quote as any).sent_at && (() => {
+                              const sentAt = new Date((quote as any).sent_at);
+                              const diffMs = Date.now() - sentAt.getTime();
+                              const diffDays = Math.floor(diffMs / 86_400_000);
+                              const label = diffDays === 0 ? "Sent today"
+                                : diffDays === 1 ? "Sent yesterday"
+                                : diffDays < 14 ? `Sent ${diffDays}d ago`
+                                : `Sent ${sentAt.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`;
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[11px] text-slate-600 border-slate-200 bg-slate-50"
+                                  title={`Sent at ${sentAt.toLocaleString("en-ZA")}`}
+                                >
+                                  {label}
+                                </Badge>
+                              );
+                            })()}
                           </div>
 
                           {/*
@@ -794,6 +864,24 @@ export default function AdminQuotes() {
                             <Mail className="w-4 h-4 mr-2" />
                             Compose
                           </Button>
+                          {/* Mark-as-sent / Reset timestamp. Anchors
+                              the follow-up timing baseline so the
+                              suggester knows when to nudge. Use this
+                              when you sent the quote outside the
+                              system (PDF / WhatsApp / over a call). */}
+                          {quote.status !== "accepted" && quote.status !== "rejected" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkAsSent(quote)}
+                              title={(quote as any).sent_at
+                                ? "Reset the sent timestamp to right now"
+                                : "Mark this quote as sent (without firing an email)"}
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
+                            </Button>
+                          )}
                           <Link href={`/admin/quotes/${quote.id}`}>
                             <Button variant="outline" size="sm">
                               <Edit className="w-4 h-4 mr-2" />
@@ -839,6 +927,32 @@ export default function AdminQuotes() {
             companyId={profile?.company_id ?? null}
             mode={composeMode}
             diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
+            onSent={async () => {
+              // Auto-anchor sent_at the first time the operator picks
+              // any send channel (Gmail / Outlook / mailto / Copy /
+              // WhatsApp). We only stamp when there's no existing
+              // sent_at -- otherwise the original baseline is the
+              // right anchor for follow-up timing, not the latest
+              // touch. Reset is the explicit Mark-sent button.
+              if (!composeQuote || (composeQuote as any).sent_at) return;
+              const nowIso = new Date().toISOString();
+              const nextStatus = composeQuote.status === "draft" ? "sent" : composeQuote.status;
+              try {
+                await (supabase as any)
+                  .from("quotes")
+                  .update({ sent_at: nowIso, status: nextStatus })
+                  .eq("id", composeQuote.id);
+                setQuotes((prev) => prev.map((q) =>
+                  q.id === composeQuote.id
+                    ? ({ ...q, sent_at: nowIso, status: nextStatus } as Quote)
+                    : q,
+                ));
+              } catch (err) {
+                // Non-fatal -- the operator can still hit Mark sent
+                // manually if the auto-stamp fails.
+                console.warn("Auto sent_at stamp failed:", err);
+              }
+            }}
             onClose={() => setComposeQuote(null)}
           />
         )}
@@ -893,7 +1007,7 @@ export default function AdminQuotes() {
    quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, companyId, mode, diary, onClose,
+  quote, fromName, companyName, companyId, mode, diary, onSent, onClose,
 }: {
   quote: Quote;
   fromName?: string;
@@ -901,6 +1015,7 @@ function QuoteComposeDrawer({
   companyId?: string | null;
   mode: "status" | "sweetener";
   diary: DiarySignal;
+  onSent?: (channel: string) => void;
   onClose: () => void;
 }) {
   const derivedStatus = useMemo(() => deriveQuoteStatus(quote), [quote]);
@@ -1110,6 +1225,7 @@ function QuoteComposeDrawer({
           : quote.status === "sent" ? "quote_chase"
           : "quote_sent",
       }}
+      onSent={onSent}
       onClose={onClose}
     />
   );
