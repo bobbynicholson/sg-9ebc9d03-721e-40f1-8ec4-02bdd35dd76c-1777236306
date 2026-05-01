@@ -140,13 +140,13 @@ export function ReconcileSlipDrawer({
     let cancelled = false;
     (async () => {
       const [invRes, rulesRes] = await Promise.all([
-        (supabase as any)
+        supabase
           .from("inventory_items")
           .select("id, item_name, unit_of_measure, current_stock")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .order("item_name"),
-        (supabase as any)
+        supabase
           .from("sa_tax_deductibility_rules")
           .select("id, category_code, display_name, group_label, deductibility")
           .eq("is_active", true)
@@ -199,7 +199,7 @@ export function ReconcileSlipDrawer({
       let imageUrl: string | null = null;
       if (imagePath) {
         try {
-          const { data: signed } = await (supabase as any).storage
+          const { data: signed } = await supabase.storage
             .from("imports")
             .createSignedUrl(imagePath, 60 * 60 * 24 * 365 * 10);
           if (signed?.signedUrl) imageUrl = signed.signedUrl;
@@ -208,7 +208,7 @@ export function ReconcileSlipDrawer({
 
       // 2) Create the receipt row.
       const totalNum = total ? Number(total) : null;
-      const { data: receipt, error: rcptErr } = await (supabase as any)
+      const { data: receipt, error: rcptErr } = await supabase
         .from("purchase_receipts")
         .insert({
           company_id: companyId,
@@ -236,7 +236,7 @@ export function ReconcileSlipDrawer({
         let inventoryItemId: string | null = ln.inventory_item_id;
 
         if (ln.add_to_stock && !inventoryItemId && ln.create_new_name.trim()) {
-          const { data: newInv, error: invErr } = await (supabase as any)
+          const { data: newInv, error: invErr } = await supabase
             .from("inventory_items")
             .insert({
               company_id: companyId,
@@ -278,7 +278,7 @@ export function ReconcileSlipDrawer({
       }
 
       if (itemsToInsert.length > 0) {
-        const { error: itemsErr } = await (supabase as any)
+        const { error: itemsErr } = await supabase
           .from("purchase_receipt_items")
           .insert(itemsToInsert);
         if (itemsErr) throw new Error(itemsErr.message);
