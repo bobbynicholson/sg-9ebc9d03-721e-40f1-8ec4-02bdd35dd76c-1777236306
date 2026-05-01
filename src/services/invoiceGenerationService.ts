@@ -19,6 +19,10 @@ interface InvoiceData {
   companyPhone: string;
   companyEmail: string;
   companyVAT?: string;
+  /** When true, the document is titled 'Tax Invoice' and totals
+   *  read 'incl. VAT'. SARS rule: only VAT-registered businesses
+   *  may issue Tax Invoices. */
+  companyVatRegistered?: boolean;
   
   // Client Details
   clientName: string;
@@ -167,6 +171,7 @@ export async function generateInvoiceData(
       companyPhone: companyData.phone_number || companyData.phone || "",
       companyEmail: companyData.email || "",
       companyVAT: companyData.vat_number || companyData.tax_number || "",
+      companyVatRegistered: !!companyData.vat_registered,
       
       clientName,
       clientEmail: client.email,
@@ -330,7 +335,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Invoice ${data.invoiceNumber}</title>
+  <title>${data.companyVatRegistered ? "Tax Invoice" : "Invoice"} ${data.invoiceNumber}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -462,9 +467,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </div>
     </div>
     <div class="invoice-title">
-      <h2>INVOICE</h2>
+      <h2>${data.companyVatRegistered ? "TAX INVOICE" : "INVOICE"}</h2>
       <div style="margin-top: 10px;">
-        <div class="label">Invoice Number</div>
+        <div class="label">${data.companyVatRegistered ? "Tax Invoice Number" : "Invoice Number"}</div>
         <div class="value highlight" style="font-size: 16px;">${data.invoiceNumber}</div>
         <div class="label">Invoice Date</div>
         <div class="value">${format(new Date(data.invoiceDate), "dd MMM yyyy")}</div>

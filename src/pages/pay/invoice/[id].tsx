@@ -26,6 +26,9 @@ interface InvoiceDetails {
     logo_url: string;
     email: string;
     phone_number: string;
+    vat_registered: boolean | null;
+    vat_number: string | null;
+    vat_rate: number | null;
   };
 }
 
@@ -182,11 +185,15 @@ export default function InvoicePaymentPage() {
 
   const isPaid = invoice.balance_due <= 0;
   const isOverdue = new Date(invoice.due_date) < new Date() && !isPaid;
+  // SARS rule: VAT-registered businesses issue 'Tax Invoice', everyone
+  // else issues 'Invoice'. The flag is set on /admin/company-profile.
+  const vatRegistered = !!invoice.companies.vat_registered;
+  const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
 
   return (
     <>
       <Head>
-        <title>Pay Invoice {invoice.invoice_number} - {invoice.companies.company_name}</title>
+        <title>{docTitle} {invoice.invoice_number} - {invoice.companies.company_name}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
@@ -207,6 +214,11 @@ export default function InvoicePaymentPage() {
             <p className="text-muted-foreground mt-2">
               {invoice.companies.email} | {invoice.companies.phone_number}
             </p>
+            {vatRegistered && invoice.companies.vat_number && (
+              <p className="text-xs text-muted-foreground mt-1">
+                VAT Reg No: <span className="font-mono">{invoice.companies.vat_number}</span>
+              </p>
+            )}
           </div>
 
           {/* Invoice Summary Card */}
@@ -216,7 +228,7 @@ export default function InvoicePaymentPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    Invoice {invoice.invoice_number}
+                    {docTitle} {invoice.invoice_number}
                   </CardTitle>
                   <CardDescription className="mt-2">
                     Issued {format(new Date(invoice.invoice_date), "MMMM d, yyyy")}
