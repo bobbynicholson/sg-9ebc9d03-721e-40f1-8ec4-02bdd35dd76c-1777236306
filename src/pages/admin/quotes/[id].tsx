@@ -633,9 +633,9 @@ export default function AdminQuoteDetail() {
                         const { error } = await (supabase as any)
                           .from("quotes")
                           .update({ sent_at: nowIso, status: nextStatus })
-                          .eq("id", id);
+                          .eq("id", quote.id);
                         if (error) throw error;
-                        const refreshed = await quoteService.getQuote(id);
+                        const refreshed = await quoteService.getQuote(quote.id);
                         setQuote(refreshed);
                         toast({
                           title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
