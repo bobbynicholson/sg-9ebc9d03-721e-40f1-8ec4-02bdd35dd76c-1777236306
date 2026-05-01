@@ -296,7 +296,7 @@ export function ReconcileSlipDrawer({
     try {
       // 1) Best-effort signed URL of the slip image so /admin/tax-purchases
       //    can show it. Imports bucket is private, so we sign for ~10 yrs.
-      let imagePath: string | null = sourceData?.storage_path || null;
+      const imagePath: string | null = sourceData?.storage_path || null;
       let imageUrl: string | null = null;
       if (imagePath) {
         try {

@@ -321,7 +321,7 @@ export const supplierService = {
     const byItem = new Map<string, { description: string; quantity: number; spend: number; inventory_item_id: string | null }>();
 
     let totalSpend = 0;
-    let receiptCount = rcpts.length;
+    const receiptCount = rcpts.length;
 
     for (const t of tx) {
       const amt = Number(t.quantity || 0) * Number(t.unit_cost || 0);
