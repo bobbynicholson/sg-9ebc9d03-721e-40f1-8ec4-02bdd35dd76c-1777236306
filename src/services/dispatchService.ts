@@ -447,11 +447,13 @@ export const dispatchService = {
     score?: number;
     reason?: string;
     enforceGates?: boolean; // when true, refuse if capacity / feasibility fail. Default false (warn-and-allow).
-  }): Promise<{ ok: boolean; reason?: string }> {
+    /** Optional: skip vehicle auto-booking when the operator wants to pick the vehicle by hand. */
+    skipVehicleAutoBook?: boolean;
+  }): Promise<{ ok: boolean; reason?: string; vehicleNote?: string }> {
     // Fetch existing assignment to capture from_driver_id
     const { data: existing } = await supabase
       .from("orders")
-      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng")
+      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter")
       .eq("id", payload.orderId)
       .maybeSingle();
 
@@ -491,7 +493,73 @@ export const dispatchService = {
       reason: payload.reason ?? null,
     }]);
 
-    return { ok: true };
+    // Auto-book the best vehicle for the run, unless the caller has
+    // taken over vehicle picking themselves. Failure here is non-
+    // fatal: the driver assignment already happened. We surface a
+    // 'vehicleNote' on the result so the dispatcher can act on it.
+    let vehicleNote: string | undefined;
+    if (!payload.skipVehicleAutoBook && existing) {
+      try {
+        // Lazy-load to avoid a circular import on the cold path.
+        const { vehicleService, computeOrderVehicleWindow, shouldRequireTwoDrivers } = await import("./vehicleService");
+        const window = computeOrderVehicleWindow({
+          eventDate: existing.event_date,
+          eventTime: existing.event_time,
+          requiresWaiter: !!(existing as any).requires_waiter,
+        });
+        const candidates = await vehicleService.findAvailableVehicles({
+          companyId: payload.companyId,
+          bookedFrom: window.booked_from.toISOString(),
+          bookedUntil: window.booked_until.toISOString(),
+          requiresRefrigeration: !!existing.requires_refrigeration,
+          guestCount: existing.guest_count ?? null,
+          driverId: payload.driverId,
+          ignoreBookingForOrderId: payload.orderId,
+        });
+        if (candidates.length > 0) {
+          const top = candidates[0];
+          await vehicleService.upsertBookingForOrder({
+            companyId: payload.companyId,
+            orderId: payload.orderId,
+            vehicleId: top.vehicle.id,
+            driverId: payload.driverId,
+            bookedFrom: window.booked_from,
+            bookedUntil: window.booked_until,
+            notes: top.driverOwned
+              ? "Driver's own vehicle booked automatically."
+              : "Best-fit company vehicle booked automatically.",
+          });
+          await supabase
+            .from("orders")
+            .update({ assigned_vehicle_id: top.vehicle.id })
+            .eq("id", payload.orderId);
+
+          // Two-driver heuristic: if the chosen vehicle requires it OR
+          // the load is too big for one person, flag the order so the
+          // dispatcher gets a 'second driver needed' chip.
+          const needs = shouldRequireTwoDrivers({
+            guestCount: existing.guest_count ?? null,
+            vehicleRequiresTwoPeople: top.vehicle.requires_two_people,
+            requiresWaiter: !!(existing as any).requires_waiter,
+          });
+          if (needs.required) {
+            await supabase
+              .from("orders")
+              .update({ requires_two_drivers: true })
+              .eq("id", payload.orderId);
+            vehicleNote = `Booked ${top.vehicle.plate}. Two drivers needed: ${needs.reason}`;
+          } else {
+            vehicleNote = `Booked ${top.vehicle.plate}.`;
+          }
+        } else {
+          vehicleNote = "No vehicle available for this window. Add or free one before the run.";
+        }
+      } catch (e) {
+        console.warn("[dispatch] vehicle auto-book failed (non-fatal)", e);
+      }
+    }
+
+    return { ok: true, vehicleNote };
   },
 
   /**

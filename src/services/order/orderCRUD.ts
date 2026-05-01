@@ -52,7 +52,8 @@ export async function getAllOrders(companyId: string) {
         client:clients(*),
         order_items(*),
         assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, email, phone),
-        assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email)
+        assigned_chef:profiles!orders_assigned_chef_id_fkey(id, full_name, email),
+        assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey(id, plate, nickname, refrigerated, has_warmer, max_pax_served, capacity_kg, owner_kind, requires_two_people)
       `)
       .eq("company_id", companyId)
       .order("created_at", { ascending: false });

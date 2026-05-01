@@ -1005,6 +1005,62 @@ function OrderProcessDashboard() {
                     </p>
                   </div>
                 </div>
+
+                {/* Dispatch summary -- vehicle + 2-driver flag. Internal
+                    only, never goes near the client portal. The vehicle
+                    is auto-booked when a driver is assigned and can be
+                    overridden from the Dispatch Queue. */}
+                <div className="col-span-2 mt-2 pt-3 border-t border-slate-200">
+                  <Label className="text-xs flex items-center gap-1.5">
+                    Dispatch
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">internal</span>
+                  </Label>
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                        Vehicle
+                      </p>
+                      {(selectedOrder as any).assigned_vehicle ? (() => {
+                        const v = (selectedOrder as any).assigned_vehicle;
+                        return (
+                          <>
+                            <p className="font-semibold text-slate-900">
+                              {v.nickname ? `${v.nickname} ` : ""}
+                              <span className="font-mono text-slate-500">{v.plate}</span>
+                            </p>
+                            <p className="text-slate-600 mt-0.5 flex flex-wrap items-center gap-1.5">
+                              {v.refrigerated && <span className="inline-flex items-center gap-0.5 text-blue-700"><MapPin className="w-3 h-3" />Refrigerated</span>}
+                              {v.has_warmer && <span className="inline-flex items-center gap-0.5 text-orange-700"><Package className="w-3 h-3" />Warmer</span>}
+                              {v.max_pax_served != null && <span>Rated {v.max_pax_served} guests</span>}
+                              {v.capacity_kg != null && <span>{v.capacity_kg}kg</span>}
+                              {v.owner_kind === "driver" && <span className="inline-flex items-center gap-0.5 text-amber-700">Driver-owned</span>}
+                            </p>
+                          </>
+                        );
+                      })() : (
+                        <p className="text-slate-500 italic">
+                          No vehicle booked yet. Assigning a driver will auto-book the best fit.
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                        Crew
+                      </p>
+                      <p className="font-semibold text-slate-900">
+                        {(selectedOrder as any).requires_two_drivers ? "Two drivers needed" : "One driver"}
+                      </p>
+                      <p className="text-slate-600 mt-0.5">
+                        {(selectedOrder as any).requires_two_drivers
+                          ? "Vehicle, guest count or waiter service flagged this run for a co-driver."
+                          : "Solo run, no co-driver required."}
+                      </p>
+                      {(selectedOrder as any).secondary_driver_id && (
+                        <p className="mt-1 text-emerald-700">Secondary driver assigned.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 

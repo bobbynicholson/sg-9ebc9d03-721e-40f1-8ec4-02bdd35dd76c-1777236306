@@ -83,7 +83,11 @@ export function ReassignDriverDialog({
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
-      toast({ title: "Driver reassigned", description: `${driverName}${order.client_name ? ` on ${order.client_name}` : ""}` });
+      const baseDesc = `${driverName}${order.client_name ? ` on ${order.client_name}` : ""}`;
+      toast({
+        title: "Driver reassigned",
+        description: r.vehicleNote ? `${baseDesc}, ${r.vehicleNote.toLowerCase()}` : baseDesc,
+      });
       onOpenChange(false);
       onAssigned?.();
     } finally {
