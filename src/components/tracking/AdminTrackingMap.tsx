@@ -222,6 +222,19 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
     return "🟢 Available";
   };
 
+  // Coord guard. Leaflet's projection blows up on null / undefined / NaN
+  // and we've seen orders without geocoded venues + drivers without GPS
+  // pings reach the marker render. The whole page crashes when one bad
+  // coord lands, so every marker / polyline goes through this check.
+  const hasCoords = (lat: any, lng: any): boolean => {
+    const a = Number(lat);
+    const b = Number(lng);
+    return Number.isFinite(a) && Number.isFinite(b) && (a !== 0 || b !== 0);
+  };
+
+  const mappableOrders = orders.filter(o => hasCoords(o.venue_lat, o.venue_lng));
+  const mappableDrivers = liveDriverLocations.filter(d => hasCoords(d.current_lat, d.current_lng));
+
   return (
     <MapContainer
       center={mapCenter}
@@ -234,12 +247,14 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapUpdater center={mapCenter} />
-      
-      {/* Venue markers (orders) */}
-      {orders.map((order) => (
+
+      {/* Venue markers (orders) -- only ones with valid coords. Orders
+          without a geocoded venue will appear in the side list but not
+          on the map. */}
+      {mappableOrders.map((order) => (
         <Marker
           key={order.id}
-          position={[order.venue_lat, order.venue_lng]}
+          position={[Number(order.venue_lat), Number(order.venue_lng)]}
           icon={venueIcon}
         >
           <Popup>
@@ -247,7 +262,7 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
               <h3 className="font-semibold text-sm mb-1">{order.client_name}</h3>
               <p className="text-xs text-slate-600 mb-1">{order.venue_address}</p>
               <div className="flex items-center gap-2">
-                <span 
+                <span
                   className="px-2 py-0.5 rounded text-xs font-medium text-white"
                   style={{ backgroundColor: getStatusColor(order.status) }}
                 >
@@ -264,11 +279,11 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
         </Marker>
       ))}
 
-      {/* Live driver markers with real-time updates */}
-      {liveDriverLocations.map((driver) => (
+      {/* Live driver markers -- only ones with valid GPS coords. */}
+      {mappableDrivers.map((driver) => (
         <Marker
           key={driver.id}
-          position={[driver.current_lat, driver.current_lng]}
+          position={[Number(driver.current_lat), Number(driver.current_lng)]}
           icon={driverIcon}
         >
           <Popup>
@@ -279,26 +294,27 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
                 Last updated: {new Date(driver.last_updated).toLocaleTimeString()}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                📍 {driver.current_lat.toFixed(4)}, {driver.current_lng.toFixed(4)}
+                📍 {Number(driver.current_lat).toFixed(4)}, {Number(driver.current_lng).toFixed(4)}
               </p>
             </div>
           </Popup>
         </Marker>
       ))}
 
-      {/* Draw routes from drivers to their active deliveries */}
-      {orders
+      {/* Routes from drivers to active deliveries. Both ends must have
+          valid coords or Leaflet's projection crashes the whole map. */}
+      {mappableOrders
         .filter(o => o.driver_id && o.status === "out_for_delivery")
         .map(order => {
-          const driver = liveDriverLocations.find(d => d.id === order.driver_id);
+          const driver = mappableDrivers.find(d => d.id === order.driver_id);
           if (!driver) return null;
-          
+
           return (
             <Polyline
               key={`route-${order.id}`}
               positions={[
-                [driver.current_lat, driver.current_lng],
-                [order.venue_lat, order.venue_lng]
+                [Number(driver.current_lat), Number(driver.current_lng)],
+                [Number(order.venue_lat), Number(order.venue_lng)]
               ]}
               color={getStatusColor(order.status)}
               weight={3}
