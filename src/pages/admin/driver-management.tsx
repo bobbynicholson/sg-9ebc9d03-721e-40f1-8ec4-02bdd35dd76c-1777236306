@@ -14,7 +14,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake } from "lucide-react";
+import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -75,13 +76,52 @@ function DriverManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [addDriverLoading, setAddDriverLoading] = useState(false);
+  // The Add-Driver dialog is now a single scrollable form covering driver
+  // basics, operational details and the vehicle in one go. See the
+  // strategy note on handleAddDriver for the multi-step write path.
   const [newDriver, setNewDriver] = useState({
+    // Section 1 -- basics (required)
     name: "",
     email: "",
     phone: "",
     password: "",
+    // Section 2 -- ops (optional)
+    home_postcode: "",
+    drive_time_to_kitchen_minutes: "",
+    max_jobs_per_shift: "",
+    // Section 3 -- vehicle
+    has_vehicle: false,
+    vehicle_mode: "new_driver_owned" as "new_driver_owned" | "existing_company",
+    existing_vehicle_id: "",
+    // sub-form for new driver-owned vehicle
+    v_plate: "",
+    v_make: "",
+    v_model: "",
+    v_year: "",
+    v_vehicle_type: "bakkie",
+    v_nickname: "",
+    v_max_pax_served: "",
+    v_capacity_kg: "",
+    v_cargo_volume_litres: "",
+    v_refrigerated: false,
+    v_has_warmer: false,
+    v_requires_two_people: false,
   });
   const [error, setError] = useState("");
+
+  // Reset the add-driver form back to defaults whenever the dialog closes
+  // so a fresh open never inherits stale field values.
+  const resetNewDriver = () => setNewDriver({
+    name: "", email: "", phone: "", password: "",
+    home_postcode: "", drive_time_to_kitchen_minutes: "", max_jobs_per_shift: "",
+    has_vehicle: false,
+    vehicle_mode: "new_driver_owned",
+    existing_vehicle_id: "",
+    v_plate: "", v_make: "", v_model: "", v_year: "",
+    v_vehicle_type: "bakkie", v_nickname: "",
+    v_max_pax_served: "", v_capacity_kg: "", v_cargo_volume_litres: "",
+    v_refrigerated: false, v_has_warmer: false, v_requires_two_people: false,
+  });
 
   // Phase 1B: live signals per driver
   const [loadByDriver, setLoadByDriver] = useState<Record<string, number>>({});
@@ -241,33 +281,73 @@ function DriverManagementPage() {
     }
   };
 
+  /**
+   * Add-driver flow.
+   *
+   * Step 1: validate the basics + the vehicle subform (if a vehicle path
+   *         was chosen) BEFORE any write hits the server. Saves us
+   *         creating an auth user and then failing on a missing plate.
+   *
+   * Step 2: create the auth user + profile via /api/admin/create-user
+   *         (server-side, service-role, rolls back on failure).
+   *
+   * Step 3: if a vehicle was picked, attach it. Two paths:
+   *           - "new_driver_owned"  -> create a new vehicles row owned
+   *             by this driver, set primary_driver_id = newDriverId.
+   *           - "existing_company"  -> set primary_driver_id on the
+   *             chosen company vehicle.
+   *         Either way, also stamp profiles.vehicle_id + the legacy
+   *         vehicle_registration field so the dispatch lookups + older
+   *         displays stay in sync.
+   *
+   * If step 3 fails (e.g. duplicate plate, RLS hiccup) the driver is
+   * still created -- we surface the error and point the operator at
+   * /admin/vehicles to finish the link by hand. The alternative would
+   * be deleting the driver to roll back, which loses the password the
+   * operator just typed.
+   */
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setAddDriverLoading(true);
 
+    // ── Validate driver basics ──
     if (!newDriver.name || !newDriver.email || !newDriver.phone || !newDriver.password) {
-      setError("Please fill in all fields");
+      setError("Fill in name, email, phone and password.");
       setAddDriverLoading(false);
       return;
     }
-
     if (newDriver.password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      setError("Password must be at least 6 characters long.");
       setAddDriverLoading(false);
       return;
     }
-
     if (!user?.company_id) {
-      setError("Your account is not linked to a company yet, contact support");
+      setError("Your account is not linked to a company yet, contact support.");
       setAddDriverLoading(false);
       return;
     }
 
+    // ── Validate vehicle subform if a vehicle path was chosen ──
+    if (newDriver.has_vehicle) {
+      if (newDriver.vehicle_mode === "new_driver_owned") {
+        if (!newDriver.v_plate.trim()) {
+          setError("Vehicle plate is required when registering the driver's own vehicle.");
+          setAddDriverLoading(false);
+          return;
+        }
+      } else if (newDriver.vehicle_mode === "existing_company") {
+        if (!newDriver.existing_vehicle_id) {
+          setError("Pick a company vehicle from the list, or switch to 'driver brings their own'.");
+          setAddDriverLoading(false);
+          return;
+        }
+      }
+    }
+
+    // ── Step 2: create auth user + profile ──
+    let newDriverId: string | null = null;
     try {
-      // Use the server-side create-user endpoint. It runs as service-role,
-      // confirms the email automatically and rolls back the auth user if the
-      // profile insert fails -- no more "user already exists" on retry.
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -279,12 +359,12 @@ function DriverManagementPage() {
           phone: newDriver.phone,
           role: "driver",
           company_id: user.company_id,
+          drive_time_to_kitchen_minutes: newDriver.drive_time_to_kitchen_minutes
+            ? Number(newDriver.drive_time_to_kitchen_minutes)
+            : undefined,
         }),
       });
 
-      // Read the body once as text first, then try parsing as JSON. This
-      // way we surface the actual server message even if the response is
-      // an HTML error page (e.g. middleware redirect, framework crash).
       const rawText = await res.text();
       let payload: any = {};
       try { payload = JSON.parse(rawText); } catch { /* keep raw */ }
@@ -299,17 +379,107 @@ function DriverManagementPage() {
         return;
       }
 
+      newDriverId = payload?.user?.id || null;
+
+      // Stamp the optional ops fields the API doesn't write (postcode,
+      // max jobs per shift). Done as a separate update so the create-user
+      // contract stays narrow.
+      if (newDriverId && (newDriver.home_postcode || newDriver.max_jobs_per_shift)) {
+        await supabase
+          .from("profiles")
+          .update({
+            home_postcode: newDriver.home_postcode.trim() || null,
+            max_jobs_per_shift: newDriver.max_jobs_per_shift
+              ? Number(newDriver.max_jobs_per_shift)
+              : null,
+          } as any)
+          .eq("id", newDriverId);
+      }
+
+      // Toast for the driver-only outcome -- vehicle outcomes patch on top.
+      let resultDescription = payload?.recovered
+        ? `Driver ${newDriver.name} restored from a previous failed attempt.`
+        : `Driver ${newDriver.name} has been added.`;
+      let resultVariant: "default" | "destructive" = "default";
+      let resultTitle = "Driver added";
+
+      // ── Step 3: attach a vehicle if the operator picked one ──
+      if (newDriverId && newDriver.has_vehicle) {
+        try {
+          let attachedVehicleId: string | null = null;
+          let attachedPlate: string | null = null;
+
+          if (newDriver.vehicle_mode === "new_driver_owned") {
+            const created = await vehicleService.createVehicle({
+              companyId: user.company_id,
+              plate: newDriver.v_plate.trim(),
+              make: newDriver.v_make.trim() || undefined,
+              model: newDriver.v_model.trim() || undefined,
+              year: newDriver.v_year ? Number(newDriver.v_year) : null,
+              vehicleType: newDriver.v_vehicle_type || null,
+              nickname: newDriver.v_nickname.trim() || null,
+              ownerKind: "driver",
+              driverOwnerId: newDriverId,
+              primaryDriverId: newDriverId,
+              capacityKg: newDriver.v_capacity_kg ? Number(newDriver.v_capacity_kg) : null,
+              cargoVolumeLitres: newDriver.v_cargo_volume_litres ? Number(newDriver.v_cargo_volume_litres) : null,
+              maxPaxServed: newDriver.v_max_pax_served ? Number(newDriver.v_max_pax_served) : null,
+              refrigerated: newDriver.v_refrigerated,
+              hasWarmer: newDriver.v_has_warmer,
+              requiresTwoPeople: newDriver.v_requires_two_people,
+            });
+            attachedVehicleId = created?.id ?? null;
+            attachedPlate = created?.plate ?? newDriver.v_plate.trim();
+          } else {
+            // Existing company vehicle -- set this driver as the primary.
+            const v = vehicleById[newDriver.existing_vehicle_id];
+            await vehicleService.updateVehicle(newDriver.existing_vehicle_id, {
+              primary_driver_id: newDriverId,
+            } as any);
+            attachedVehicleId = newDriver.existing_vehicle_id;
+            attachedPlate = v?.plate ?? null;
+          }
+
+          // Mirror the vehicle id + plate onto profiles so dispatch's
+          // existing lookups (profiles.vehicle_id and the legacy
+          // vehicle_registration) keep working.
+          if (attachedVehicleId) {
+            await supabase
+              .from("profiles")
+              .update({
+                vehicle_id: attachedVehicleId,
+                vehicle_registration: attachedPlate,
+              } as any)
+              .eq("id", newDriverId);
+          }
+
+          resultDescription += attachedPlate
+            ? ` Vehicle ${attachedPlate} attached.`
+            : " Vehicle attached.";
+        } catch (vehErr: any) {
+          // Driver landed, vehicle didn't. Don't roll back the driver --
+          // the password is gone after a rollback and the operator would
+          // have to re-type everything.
+          console.error("Vehicle attach failed:", vehErr);
+          resultTitle = "Driver added, vehicle didn't attach";
+          resultVariant = "destructive";
+          resultDescription = `${newDriver.name} is in. ${vehErr?.message || "Vehicle could not be saved"}. Finish the vehicle on /admin/vehicles.`;
+        }
+      }
+
       toast({
-        title: "Success!",
-        description: payload?.recovered
-          ? `Driver ${newDriver.name} restored from a previous failed attempt.`
-          : `Driver ${newDriver.name} has been added successfully`,
-        duration: 3000,
+        title: resultTitle,
+        description: resultDescription,
+        variant: resultVariant,
+        duration: 4000,
       });
 
       setIsAddDialogOpen(false);
-      setNewDriver({ name: "", email: "", phone: "", password: "" });
+      resetNewDriver();
       loadDrivers();
+      // Refresh the local vehicle list so the new driver-owned vehicle
+      // (or the freshly-claimed company vehicle) reflects in pickers.
+      vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
     } catch (err: any) {
       console.error("Error adding driver:", err);
       setError(err?.message || "Network or browser error, check the console for details.");
@@ -437,83 +607,338 @@ function DriverManagementPage() {
                 content={"Create a new driver account with login details. They can sign in to their portal as soon as you save."}
                 side="left"
               />
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <Dialog
+                open={isAddDialogOpen}
+                onOpenChange={(o) => {
+                  setIsAddDialogOpen(o);
+                  if (!o) { resetNewDriver(); setError(""); }
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add New Driver
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Add New Driver</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                      <UserPlus className="w-5 h-5 text-indigo-600" />
+                      Add New Driver
+                    </DialogTitle>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Driver basics, operational details and the vehicle, all in one go.
+                    </p>
                   </DialogHeader>
-                  <form onSubmit={handleAddDriver} className="space-y-4">
+                  <form onSubmit={handleAddDriver} className="space-y-5">
                     {error && (
                       <Alert variant="destructive">
                         <AlertDescription>{error}</AlertDescription>
                       </Alert>
                     )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name *</Label>
-                      <Input
-                        id="name"
-                        value={newDriver.name}
-                        onChange={(e) => setNewDriver({ ...newDriver, name: e.target.value })}
-                        placeholder="John Doe"
-                        required
-                      />
-                    </div>
+                    {/* ── Section 1: driver basics ── */}
+                    <Card className="border-slate-200 shadow-none">
+                      <CardContent className="py-4 px-4 space-y-3">
+                        <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                          <UserPlus className="w-3.5 h-3.5 text-indigo-600" />
+                          Driver basics
+                        </Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="name">Full name *</Label>
+                            <Input
+                              id="name"
+                              value={newDriver.name}
+                              onChange={(e) => setNewDriver({ ...newDriver, name: e.target.value })}
+                              placeholder="John Doe"
+                              className="mt-1"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="email">Email address *</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={newDriver.email}
+                              onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
+                              placeholder="john.doe@example.com"
+                              className="mt-1"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="phone">Phone number *</Label>
+                            <Input
+                              id="phone"
+                              type="tel"
+                              value={newDriver.phone}
+                              onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
+                              placeholder="+27 12 345 6789"
+                              className="mt-1"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="password">Password *</Label>
+                            <Input
+                              id="password"
+                              type="password"
+                              value={newDriver.password}
+                              onChange={(e) => setNewDriver({ ...newDriver, password: e.target.value })}
+                              placeholder="At least 6 characters"
+                              className="mt-1"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newDriver.email}
-                        onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
-                        placeholder="john.doe@example.com"
-                        required
-                      />
-                    </div>
+                    {/* ── Section 2: operational details ── */}
+                    <Card className="border-slate-200 shadow-none">
+                      <CardContent className="py-4 px-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                            Operational details
+                          </Label>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, fill what you know</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <Label htmlFor="home_postcode" className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3 text-slate-400" /> Home postcode
+                            </Label>
+                            <Input
+                              id="home_postcode"
+                              value={newDriver.home_postcode}
+                              onChange={(e) => setNewDriver({ ...newDriver, home_postcode: e.target.value })}
+                              placeholder="e.g. 7806"
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Used for regional fit when dispatching.</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="drive_time" className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" /> Drive-time to kitchen (min)
+                            </Label>
+                            <Input
+                              id="drive_time"
+                              type="number"
+                              min="0"
+                              value={newDriver.drive_time_to_kitchen_minutes}
+                              onChange={(e) => setNewDriver({ ...newDriver, drive_time_to_kitchen_minutes: e.target.value })}
+                              placeholder="e.g. 25"
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Feeds the dispatch ETA calc.</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="max_jobs">Max jobs / shift</Label>
+                            <Input
+                              id="max_jobs"
+                              type="number"
+                              min="0"
+                              value={newDriver.max_jobs_per_shift}
+                              onChange={(e) => setNewDriver({ ...newDriver, max_jobs_per_shift: e.target.value })}
+                              placeholder="e.g. 4"
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Caps the load picker won't exceed.</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number *</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={newDriver.phone}
-                        onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
-                        placeholder="+27 12 345 6789"
-                        required
-                      />
-                    </div>
+                    {/* ── Section 3: vehicle ── */}
+                    <Card className="border-slate-200 shadow-none">
+                      <CardContent className="py-4 px-4 space-y-3">
+                        <label className="flex items-start gap-3 cursor-pointer">
+                          <Switch
+                            checked={newDriver.has_vehicle}
+                            onCheckedChange={(v: boolean) => setNewDriver({ ...newDriver, has_vehicle: v })}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                              <Truck className="w-4 h-4 text-indigo-600" />
+                              This driver has a vehicle
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              Skip this if you'll attach a vehicle later. Dispatch can still assign deliveries without one, but it can't pick a vehicle automatically.
+                            </p>
+                          </div>
+                        </label>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={newDriver.password}
-                        onChange={(e) => setNewDriver({ ...newDriver, password: e.target.value })}
-                        placeholder="At least 6 characters"
-                        required
-                      />
-                    </div>
+                        {newDriver.has_vehicle && (
+                          <div className="space-y-3 pt-2 border-t border-slate-100">
+                            {/* Mode toggle */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "new_driver_owned" })}
+                                className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
+                                  newDriver.vehicle_mode === "new_driver_owned"
+                                    ? "bg-amber-500 text-white border-amber-500"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-amber-300"
+                                }`}
+                              >
+                                <User className="w-4 h-4" /> Driver brings their own
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setNewDriver({ ...newDriver, vehicle_mode: "existing_company" })}
+                                className={`px-3 py-2 rounded-md border text-sm flex items-center gap-2 ${
+                                  newDriver.vehicle_mode === "existing_company"
+                                    ? "bg-indigo-600 text-white border-indigo-600"
+                                    : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                                }`}
+                              >
+                                <Building2 className="w-4 h-4" /> Use a company vehicle
+                              </button>
+                            </div>
+
+                            {newDriver.vehicle_mode === "existing_company" ? (
+                              <div>
+                                <Label htmlFor="existing_vehicle">Pick a company vehicle *</Label>
+                                <select
+                                  id="existing_vehicle"
+                                  value={newDriver.existing_vehicle_id}
+                                  onChange={(e) => setNewDriver({ ...newDriver, existing_vehicle_id: e.target.value })}
+                                  className="mt-1 w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                >
+                                  <option value="">— Select a vehicle —</option>
+                                  {vehicles
+                                    .filter(v => v.owner_kind === "company")
+                                    .map(v => (
+                                      <option key={v.id} value={v.id}>
+                                        {v.plate}
+                                        {v.nickname ? ` -- ${v.nickname}` : ""}
+                                        {v.make || v.model ? ` (${[v.make, v.model].filter(Boolean).join(" ")})` : ""}
+                                        {v.primary_driver_id ? "  • already has a primary driver" : ""}
+                                      </option>
+                                    ))}
+                                </select>
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                  We'll set this driver as the default for the vehicle. Dispatch will still allow other drivers to take it on a run.
+                                </p>
+                                {vehicles.filter(v => v.owner_kind === "company").length === 0 && (
+                                  <p className="text-[11px] text-amber-700 mt-1">
+                                    No company vehicles yet. Add one on /admin/vehicles, or switch to 'driver brings their own'.
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div>
+                                    <Label htmlFor="v_plate">Plate *</Label>
+                                    <Input
+                                      id="v_plate"
+                                      value={newDriver.v_plate}
+                                      onChange={(e) => setNewDriver({ ...newDriver, v_plate: e.target.value.toUpperCase() })}
+                                      placeholder="CA 123-456"
+                                      className="mt-1 font-mono"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_make">Make</Label>
+                                    <Input id="v_make" value={newDriver.v_make} onChange={(e) => setNewDriver({ ...newDriver, v_make: e.target.value })} placeholder="Toyota" className="mt-1" />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_model">Model</Label>
+                                    <Input id="v_model" value={newDriver.v_model} onChange={(e) => setNewDriver({ ...newDriver, v_model: e.target.value })} placeholder="Hilux" className="mt-1" />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_year">Year</Label>
+                                    <Input id="v_year" type="number" min="1990" max="2100" value={newDriver.v_year} onChange={(e) => setNewDriver({ ...newDriver, v_year: e.target.value })} className="mt-1" />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_type">Type</Label>
+                                    <select
+                                      id="v_type"
+                                      value={newDriver.v_vehicle_type}
+                                      onChange={(e) => setNewDriver({ ...newDriver, v_vehicle_type: e.target.value })}
+                                      className="mt-1 w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                                    >
+                                      <option value="bakkie">Bakkie / pickup</option>
+                                      <option value="van">Van</option>
+                                      <option value="truck">Truck</option>
+                                      <option value="trailer">Trailer</option>
+                                      <option value="car">Car</option>
+                                      <option value="other">Other</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_nickname">Nickname</Label>
+                                    <Input id="v_nickname" value={newDriver.v_nickname} onChange={(e) => setNewDriver({ ...newDriver, v_nickname: e.target.value })} placeholder="e.g. White Bakkie" className="mt-1" />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <Label htmlFor="v_max_pax">Rated guests</Label>
+                                    <Input id="v_max_pax" type="number" min="0" value={newDriver.v_max_pax_served} onChange={(e) => setNewDriver({ ...newDriver, v_max_pax_served: e.target.value })} placeholder="e.g. 80" className="mt-1" />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_cargo">Cargo (L)</Label>
+                                    <Input id="v_cargo" type="number" min="0" value={newDriver.v_cargo_volume_litres} onChange={(e) => setNewDriver({ ...newDriver, v_cargo_volume_litres: e.target.value })} placeholder="e.g. 1500" className="mt-1" />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="v_kg">Max kg</Label>
+                                    <Input id="v_kg" type="number" min="0" value={newDriver.v_capacity_kg} onChange={(e) => setNewDriver({ ...newDriver, v_capacity_kg: e.target.value })} placeholder="e.g. 800" className="mt-1" />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="flex items-start gap-3 px-3 py-2 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <Switch checked={newDriver.v_refrigerated} onCheckedChange={(v: boolean) => setNewDriver({ ...newDriver, v_refrigerated: v })} />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                                        <Snowflake className="w-3.5 h-3.5 text-blue-600" /> Refrigerated
+                                      </p>
+                                      <p className="text-xs text-slate-500">Required for cold-chain orders.</p>
+                                    </div>
+                                  </label>
+                                  <label className="flex items-start gap-3 px-3 py-2 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <Switch checked={newDriver.v_has_warmer} onCheckedChange={(v: boolean) => setNewDriver({ ...newDriver, v_has_warmer: v })} />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                                        <Flame className="w-3.5 h-3.5 text-orange-600" /> Has a hot warmer
+                                      </p>
+                                      <p className="text-xs text-slate-500">Hot-hold for late-arrival orders.</p>
+                                    </div>
+                                  </label>
+                                  <label className="flex items-start gap-3 px-3 py-2 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                                    <Switch checked={newDriver.v_requires_two_people} onCheckedChange={(v: boolean) => setNewDriver({ ...newDriver, v_requires_two_people: v })} />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5 text-rose-600" /> Needs two on board
+                                      </p>
+                                      <p className="text-xs text-slate-500">Big truck or tight loading. Dispatch will require a co-driver.</p>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> The driver will receive their login credentials and can access the driver portal immediately.
+                        <strong>Note:</strong> The driver can sign in to their portal as soon as you save. Anything you skip here can be filled in from the row's Edit menu later.
                       </p>
                     </div>
 
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                       disabled={addDriverLoading}
                     >
-                      {addDriverLoading ? "Adding Driver..." : "Add Driver"}
+                      {addDriverLoading ? "Adding driver..." : "Add driver"}
                     </Button>
                   </form>
                 </DialogContent>
