@@ -51,6 +51,9 @@ export interface PublicQuoteView {
     address_line1: string | null;
     address_line2: string | null;
     city: string | null;
+    vat_registered: boolean | null;
+    vat_number: string | null;
+    vat_rate: number | null;
   } | null;
 }
 
@@ -84,7 +87,8 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
       valid_until, sent_at, viewed_at, accepted_at,
       company:company_id (
         id, company_name, logo_url, email, phone,
-        address_line1, address_line2, city
+        address_line1, address_line2, city,
+        vat_registered, vat_number, vat_rate
       )
     `)
     .eq("public_token", token)

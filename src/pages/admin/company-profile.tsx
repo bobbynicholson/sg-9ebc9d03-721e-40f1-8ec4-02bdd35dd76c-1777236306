@@ -55,6 +55,9 @@ interface CompanyRow {
   secondary_color: string | null;
   registration_number: string | null;
   tax_number: string | null;
+  vat_registered: boolean | null;
+  vat_number: string | null;
+  vat_rate: number | null;
 }
 
 const PRESET_PALETTES = [
@@ -147,6 +150,9 @@ function CompanyProfilePage() {
         secondary_color: row.secondary_color,
         registration_number: row.registration_number,
         tax_number: row.tax_number,
+        vat_registered: row.vat_registered ?? false,
+        vat_number: row.vat_number,
+        vat_rate: row.vat_rate ?? 15,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -250,8 +256,60 @@ function CompanyProfilePage() {
               <Field id="reg" label="Registration number">
                 <Input id="reg" value={row.registration_number || ""} onChange={(e) => setRow({ ...row, registration_number: e.target.value })} />
               </Field>
-              <Field id="tax" label="VAT / tax number">
+              <Field id="tax" label="Tax number (income tax / company tax)">
                 <Input id="tax" value={row.tax_number || ""} onChange={(e) => setRow({ ...row, tax_number: e.target.value })} />
+              </Field>
+            </CardContent>
+          </Card>
+
+          {/* VAT registration. Drives the document title on quotes
+              and invoices: VAT-registered businesses issue 'Tax
+              Invoice' (with a VAT number on the document); everyone
+              else issues a plain 'Invoice'. SARS rule. */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-emerald-600" />
+                VAT registration
+                <InfoTooltip content={"South African rule: VAT-registered businesses issue 'Tax Invoice' documents with their VAT number on every quote and invoice. Non-registered businesses issue plain 'Invoices'.\n\nFlip the toggle and the document templates + totals labels (incl. VAT) update everywhere automatically."} />
+              </CardTitle>
+              <CardDescription>
+                Switches the document title on your client-facing quotes and invoices, and labels totals as &apos;incl. VAT&apos; when on.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="flex items-start gap-3 px-3 py-3 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={!!row.vat_registered}
+                    onChange={(e) => setRow({ ...row, vat_registered: e.target.checked })}
+                    className="mt-0.5 w-4 h-4"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-900">This business is VAT registered</p>
+                    <p className="text-xs text-slate-500">When on, your quotes and invoices say &apos;Tax Invoice&apos; and show your VAT number.</p>
+                  </div>
+                </label>
+              </div>
+              <Field id="vat_number" label="VAT number">
+                <Input
+                  id="vat_number"
+                  value={row.vat_number || ""}
+                  onChange={(e) => setRow({ ...row, vat_number: e.target.value })}
+                  placeholder="e.g. 4123456789"
+                  disabled={!row.vat_registered}
+                />
+              </Field>
+              <Field id="vat_rate" label="VAT rate (%)">
+                <Input
+                  id="vat_rate"
+                  type="number"
+                  step="0.01"
+                  value={row.vat_rate ?? 15}
+                  onChange={(e) => setRow({ ...row, vat_rate: e.target.value === "" ? null : Number(e.target.value) })}
+                  disabled={!row.vat_registered}
+                />
               </Field>
             </CardContent>
           </Card>

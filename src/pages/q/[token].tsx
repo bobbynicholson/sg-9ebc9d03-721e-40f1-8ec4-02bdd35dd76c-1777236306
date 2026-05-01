@@ -134,6 +134,12 @@ export default function PublicQuotePage() {
   const companyAddress = [company?.address_line1, company?.address_line2, company?.city]
     .filter(Boolean).join(", ") || null;
   const accepted = !!quote.accepted_at;
+  // VAT-aware labelling. SARS rule: VAT-registered businesses issue
+  // 'Tax Invoice' (and the document must show their VAT number).
+  // Everyone else issues a plain Quote / Invoice. The caterer flips
+  // these via /admin/company-profile -> VAT registration toggle.
+  const vatRegistered = !!company?.vat_registered;
+  const vatNumber = company?.vat_number || null;
   const eventDate = quote.event_date
     ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -199,6 +205,11 @@ export default function PublicQuotePage() {
                 <p className="text-sm text-stone-600 mt-2">
                   Reference <span className="font-mono">{quote.quote_number}</span> · prepared {today}
                 </p>
+                {vatRegistered && vatNumber && (
+                  <p className="text-xs text-stone-500 mt-1">
+                    VAT Reg No: <span className="font-mono">{vatNumber}</span>
+                  </p>
+                )}
               </div>
               {accepted ? (
                 <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
@@ -335,12 +346,16 @@ export default function PublicQuotePage() {
               )}
               {!!quote.tax_amount && quote.tax_amount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-stone-600">VAT</span>
+                  <span className="text-stone-600">
+                    VAT {company?.vat_rate ? `(${Number(company.vat_rate).toFixed(0)}%)` : ""}
+                  </span>
                   <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.tax_amount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-orange-600">
-                <span className="text-stone-900 font-serif">Total</span>
+                <span className="text-stone-900 font-serif">
+                  Total{vatRegistered ? " incl. VAT" : ""}
+                </span>
                 <span className="text-orange-700 tabular-nums">{fmtMoney.format(total)}</span>
               </div>
             </CardContent>

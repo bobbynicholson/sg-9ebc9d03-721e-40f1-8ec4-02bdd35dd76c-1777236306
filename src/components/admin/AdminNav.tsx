@@ -53,7 +53,8 @@ import {
   ChevronLeft,
   Palette,
   Code2,
-  Sparkles
+  Sparkles,
+  Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -379,6 +380,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/shopping",
           icon: ShoppingCart,
           description: "Procurement overview"
+        },
+        {
+          title: "Tax-Deductible Purchases",
+          href: "/admin/tax-purchases",
+          icon: Receipt,
+          description: "Slip log + deductible totals for the accountant"
         },
         {
           title: "Client Search",
