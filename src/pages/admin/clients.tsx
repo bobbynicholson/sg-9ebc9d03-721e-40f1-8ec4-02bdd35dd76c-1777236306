@@ -636,28 +636,27 @@ function ClientsCRM() {
                                   <Send className="w-3.5 h-3.5" />
                                   Compose
                                 </Button>
-                                {c.clientId && (
-                                  <>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => { setEditing(c); setFormOpen(true); }}
-                                      className="h-8 w-8 p-0"
-                                      aria-label={`Edit ${c.name}`}
-                                    >
-                                      <Pencil className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setConfirmDelete(c)}
-                                      className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                      aria-label={`Delete ${c.name}`}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </>
-                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => { setEditing(c); setFormOpen(true); }}
+                                  className="h-8 w-8 p-0"
+                                  aria-label={c.clientId ? `Edit ${c.name}` : `Save ${c.name} as client`}
+                                  title={c.clientId ? "Edit" : "Save as client"}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!c.clientId}
+                                  onClick={() => setConfirmDelete(c)}
+                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:text-slate-300 disabled:hover:bg-transparent"
+                                  aria-label={`Delete ${c.name}`}
+                                  title={c.clientId ? "Delete" : "Save as client first to enable delete"}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -679,10 +678,14 @@ function ClientsCRM() {
         companyId={companyId}
         editing={editing}
         onSaved={async () => {
+          const wasPromoting = !!editing && !editing.clientId;
+          const wasEditing = !!editing?.clientId;
           setFormOpen(false);
           setEditing(null);
           await loadContacts();
-          toast({ title: editing ? "Client updated" : "Client added" });
+          toast({
+            title: wasEditing ? "Client updated" : wasPromoting ? "Saved as client" : "Client added",
+          });
         }}
       />
 
@@ -1003,15 +1006,21 @@ function ClientFormDialog({
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const promoting = !!editing && !editing.clientId;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing?.clientId ? "Edit client" : "Add a client"}</DialogTitle>
+          <DialogTitle>
+            {editing?.clientId ? "Edit client" : promoting ? "Save as client" : "Add a client"}
+          </DialogTitle>
           <DialogDescription>
             {editing?.clientId
               ? "Update the contact and billing details for this client."
-              : "Capture a new client. Name, email and phone are required."}
+              : promoting
+                ? `${editing?.name || "This contact"} is currently surfaced from a lead or past order. Save the details to add them to your clients list.`
+                : "Capture a new client. Name, email and phone are required."}
           </DialogDescription>
         </DialogHeader>
 
@@ -1074,7 +1083,7 @@ function ClientFormDialog({
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
-            {saving ? "Saving..." : editing?.clientId ? "Save changes" : "Add client"}
+            {saving ? "Saving..." : editing?.clientId ? "Save changes" : promoting ? "Save as client" : "Add client"}
           </Button>
         </DialogFooter>
       </DialogContent>
