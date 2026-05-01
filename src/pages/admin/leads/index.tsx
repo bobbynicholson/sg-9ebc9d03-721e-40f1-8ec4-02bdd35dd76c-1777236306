@@ -20,6 +20,8 @@ import {
   Send, MailQuestion, RefreshCw,
 } from "lucide-react";
 import { composeEmail } from "@/lib/composeEmail";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
+import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -220,6 +222,14 @@ export default function AdminLeads() {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Compose drawer state -- mirrors the Quotes page so both surfaces
+  // give the team the same rich follow-up flow (subject, body, four
+  // send channels, recipient context rail, drag-to-resize). Email
+  // CTAs on each row open this drawer rather than skipping straight
+  // to Gmail.
+  const [composeLead, setComposeLead] = useState<any | null>(null);
+  const [composeKind, setComposeKind] = useState<LeadActionKind>("reply_email");
+
   const fromName = profile?.full_name || profile?.company_name || "the team";
 
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
@@ -239,8 +249,10 @@ export default function AdminLeads() {
       router.push(`/admin/quotes/new?leadId=${lead.id}`);
       return;
     }
-    // Email-driven kinds: open Gmail compose pre-filled with the
-    // template that matches the suggestion.
+    // Email-driven kinds open the rich compose drawer, same UX as the
+    // Quote Management page. The drawer surfaces the lead context
+    // (event date, guests, days waiting) on the right rail and lets
+    // the operator edit the AI-suggested wording before sending.
     if (!lead.client_email) {
       toast({
         title: "No email on this lead",
@@ -249,14 +261,8 @@ export default function AdminLeads() {
       });
       return;
     }
-    const tpl = templateForLeadAction(kind, lead, fromName);
-    const url = composeEmail.gmailUrl({
-      to: lead.client_email,
-      subject: tpl.subject,
-      body: tpl.body,
-      fromName,
-    });
-    window.open(url, "_blank", "noopener");
+    setComposeKind(kind);
+    setComposeLead(lead);
   };
 
   const handleDelete = async () => {
@@ -763,6 +769,42 @@ export default function AdminLeads() {
         <Footer />
       </div>
 
+      {/* Lead compose drawer -- shared component, same UX as the Quote
+          Management Compose drawer. Subject + body are pre-populated
+          from the suggestion kind (Reply ASAP / Touch base / Win-back
+          / etc.) with the lead's context woven in. The right rail
+          shows the lead context (status, age, event date, source)
+          so the operator never has to flick away while drafting. */}
+      <ComposeDrawerHost
+        open={!!composeLead}
+        onClose={() => setComposeLead(null)}
+      >
+        {composeLead && (
+          <LeadComposeDrawer
+            lead={composeLead}
+            kind={composeKind}
+            fromName={fromName}
+            onSent={async () => {
+              // Mark the lead as 'contacted' if it was still 'new', so
+              // the suggestion strip flips to 'Touch base' next time
+              // and the team isn't nudged again on this lead.
+              try {
+                if ((composeLead.status || "new") === "new") {
+                  await leadService.updateLead(composeLead.id, { status: "contacted" } as any);
+                  setLeads((prev) => prev.map((l) =>
+                    l.id === composeLead.id ? { ...l, status: "contacted" } : l,
+                  ));
+                }
+              } catch (err) {
+                // Non-fatal -- the email's already on its way.
+                console.warn("[leads] auto status flip failed", err);
+              }
+            }}
+            onClose={() => setComposeLead(null)}
+          />
+        )}
+      </ComposeDrawerHost>
+
       <AlertDialog
         open={!!deleteTarget}
         onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
@@ -804,5 +846,74 @@ export default function AdminLeads() {
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
     </>
+  );
+}
+
+/**
+ * Lead-side wrapper around the shared MessageComposer. Builds the
+ * context-rail rows + the suggested template from the lead row and
+ * the action kind the operator clicked.
+ *
+ * The template helper (templateForLeadAction) lives at module scope
+ * so this component stays easy to test in isolation.
+ */
+function LeadComposeDrawer({
+  lead, kind, fromName, onSent, onClose,
+}: {
+  lead: any;
+  kind: LeadActionKind;
+  fromName: string;
+  onSent: () => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const tpl = templateForLeadAction(kind, lead, fromName);
+
+  const ageDays = lead.created_at
+    ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86_400_000)
+    : null;
+  const eventDateLabel = lead.event_date
+    ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : "Not set";
+
+  const ctaText = suggestionCtaText(kind);
+  const headerSubtitle =
+    kind === "reply_email" ? "Brand-new enquiry, get a response across before they shop around."
+    : kind === "touch_base" ? "A warm check-in to keep the lead warm without pushing too hard."
+    : kind === "follow_up"  ? "It has gone quiet. Last chance to nudge before the lead goes cold."
+    : kind === "chase_quote" ? "Quote sent, no reply. Friendly chase with the door still open."
+    : kind === "winback"    ? "Quote did not land, soft win-back so we stay top of mind."
+    : kind === "reopen"     ? "Lead is marked lost. Door-open note, no pressure."
+    : "Personal follow-up. Sent through your own inbox so it looks like it came from you.";
+
+  return (
+    <MessageComposer
+      icon={suggestionCtaIcon(kind)}
+      title={`${ctaText} for ${lead.client_name || lead.contact_name || "this lead"}`}
+      subtitle={headerSubtitle}
+      contextLabel="This lead"
+      contextRows={[
+        { label: "Email",       value: lead.client_email || lead.email || "(none)", title: lead.client_email || lead.email || "(none)" },
+        { label: "Phone",       value: lead.client_phone || lead.phone || "—" },
+        { label: "Status",      value: lead.status || "new" },
+        { label: "Source",      value: lead.source ? lead.source.replace(/_/g, " ") : "manual" },
+        ...(lead.event_type ? [{ label: "Event type", value: lead.event_type as string }] : []),
+        ...(lead.event_date ? [{ label: "Event date", value: eventDateLabel }] : []),
+        ...(lead.guest_count != null ? [{ label: "Guests", value: String(lead.guest_count) }] : []),
+        ...(lead.budget_range ? [{ label: "Budget", value: lead.budget_range as string }] : []),
+        ...(ageDays !== null ? [{ label: "Lead age", value: `${ageDays}d`, divider: true }] : []),
+      ]}
+      recipient={{
+        name: lead.client_name || lead.contact_name || "there",
+        email: lead.client_email || lead.email || null,
+        phone: lead.client_phone || lead.phone || null,
+      }}
+      template={{ subject: tpl.subject, body: tpl.body }}
+      fromName={fromName}
+      footerHint={
+        "Edit freely, the wording is just a starting point based on this lead's status. Drag the left edge of this drawer to give yourself more room."
+      }
+      onSent={onSent}
+      onClose={onClose}
+    />
   );
 }

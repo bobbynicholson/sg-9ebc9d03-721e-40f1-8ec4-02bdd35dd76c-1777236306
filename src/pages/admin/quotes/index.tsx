@@ -4,7 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
+import { MessageComposer, type ContextRow } from "@/components/messaging/MessageComposer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -885,100 +886,9 @@ export default function AdminQuotes() {
   );
 }
 
-/**
- * Sheet wrapper that's bigger out of the gate (60% of viewport, clamped
- * 640..1280) and resizable -- the team can drag the left edge to pull it
- * wider while drafting a long email. Width persists for the session in
- * sessionStorage so it doesn't snap back between opens.
- */
-function ComposeDrawerHost({
-  open, onClose, children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  const MIN_W = 480;
-  const MAX_W = 1280;
-  const DEFAULT_FRAC = 0.6;
-
-  const initialWidth = () => {
-    if (typeof window === "undefined") return 800;
-    const stored = Number(window.sessionStorage.getItem("compose_drawer_w") || "0");
-    if (stored >= MIN_W && stored <= MAX_W) return stored;
-    return Math.min(MAX_W, Math.max(MIN_W, Math.round(window.innerWidth * DEFAULT_FRAC)));
-  };
-
-  const [width, setWidth] = useState<number>(800);
-  const [dragging, setDragging] = useState(false);
-
-  useEffect(() => {
-    if (open) setWidth(initialWidth());
-  }, [open]);
-
-  useEffect(() => {
-    if (!dragging) return;
-    const onMove = (e: MouseEvent) => {
-      // Drag handle is on the left edge of the drawer; the drawer itself
-      // sits on the right edge of the viewport. New width = distance from
-      // mouse to the right edge.
-      const next = Math.min(MAX_W, Math.max(MIN_W, window.innerWidth - e.clientX));
-      setWidth(next);
-    };
-    const onUp = () => {
-      setDragging(false);
-      try {
-        window.sessionStorage.setItem("compose_drawer_w", String(width));
-      } catch { /* ignore */ }
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "ew-resize";
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-    };
-  }, [dragging, width]);
-
-  return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        side="right"
-        className="p-0 sm:max-w-none flex flex-col"
-        style={{ width: `${width}px`, maxWidth: "100vw" }}
-      >
-        {/* Drag handle on the left edge */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize compose drawer"
-          onMouseDown={(e) => { e.preventDefault(); setDragging(true); }}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize group hover:bg-emerald-100/40"
-          style={{ zIndex: 60 }}
-        >
-          <div
-            className={cn(
-              "absolute top-1/2 -translate-y-1/2 left-0 w-1.5 h-16 rounded-r-lg transition-colors",
-              dragging ? "bg-emerald-500" : "bg-slate-200 group-hover:bg-emerald-400",
-            )}
-          />
-          <GripVertical
-            className={cn(
-              "absolute top-1/2 -translate-y-1/2 left-0 w-3 h-3",
-              dragging ? "text-emerald-700" : "text-slate-400 opacity-0 group-hover:opacity-100",
-            )}
-          />
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pl-8 py-6">
-          {children}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
+/* The drawer chrome (resize, drag handle, sticky position) lives in
+   /components/messaging/ComposeDrawerHost so the leads page and the
+   quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
   quote, fromName, companyName, mode, diary, onClose,
@@ -1040,291 +950,144 @@ function QuoteComposeDrawer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, derivedStatus, quote, fromName, companyName, discountKind, discountPercent, discountAmount, perk, validUntilLabel]);
 
-  const [subject, setSubject] = useState(initial.subject);
-  const [body, setBody] = useState(initial.body);
-  const [copied, setCopied] = useState(false);
-  // When the user has manually edited the body we stop re-rendering it
-  // from the template -- otherwise typing a discount tweak would wipe
-  // their wording. Reset on quote/mode change.
-  const [autoTemplate, setAutoTemplate] = useState(true);
+  // Sweetener controls render into the MessageComposer's `controls`
+  // slot so the layout stays in lockstep with the leads compose flow.
+  // The composer takes care of the subject / body / send actions.
+  const sweetenerControls = mode === "sweetener" ? (
+    <Card className="border-emerald-200 bg-emerald-50/50">
+      <CardContent className="py-4 px-4 space-y-3">
+        <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
+          Pick the offer
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { id: "percent", label: "% off" },
+            { id: "amount",  label: "R off" },
+            { id: "perk",    label: "Free perk" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setDiscountKind(opt.id)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                discountKind === opt.id
+                  ? "bg-emerald-600 text-white border-emerald-600"
+                  : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {discountKind === "percent" && (
+          <div>
+            <label className="text-xs font-semibold text-slate-700">Discount %</label>
+            <Input
+              type="number"
+              min={0}
+              max={50}
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(Number(e.target.value) || 0)}
+              className="mt-1 max-w-[120px]"
+            />
+            {quote.total != null && discountPercent > 0 && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total * (1 - discountPercent / 100))}.
+              </p>
+            )}
+          </div>
+        )}
+        {discountKind === "amount" && (
+          <div>
+            <label className="text-xs font-semibold text-slate-700">Rand off</label>
+            <Input
+              type="number"
+              min={0}
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+              className="mt-1 max-w-[160px]"
+            />
+            {quote.total != null && discountAmount > 0 && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total - discountAmount)}.
+              </p>
+            )}
+          </div>
+        )}
+        {discountKind === "perk" && (
+          <div>
+            <label className="text-xs font-semibold text-slate-700">Free perk</label>
+            <Input
+              value={perk}
+              onChange={(e) => setPerk(e.target.value)}
+              placeholder="a complimentary dessert station"
+              className="mt-1"
+            />
+          </div>
+        )}
+        <div>
+          <label className="text-xs font-semibold text-slate-700">Offer holds until</label>
+          <Input
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+            className="mt-1 max-w-[200px]"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  ) : undefined;
 
-  useEffect(() => {
-    setAutoTemplate(true);
-    setSubject(initial.subject);
-    setBody(initial.body);
-    // intentionally only on quote.id + mode swaps; sweetener tweaks
-    // below handle their own re-fill via the autoTemplate guard.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quote.id, mode]);
+  // Diary callout, shown in both modes so the team knows why they're
+  // sending this email. Same tone classes as the inline chip on the row.
+  const diaryBanner = quote.event_date ? (
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2 text-sm flex flex-wrap items-center gap-2",
+        DIARY_TONE[diary.status].chip,
+      )}
+    >
+      <CalendarDays className="w-4 h-4" />
+      <span className="font-semibold">{diary.headline}</span>
+      <span className="text-xs opacity-80">{diary.detail}</span>
+    </div>
+  ) : undefined;
 
-  useEffect(() => {
-    if (!autoTemplate) return;
-    setSubject(initial.subject);
-    setBody(initial.body);
-  }, [autoTemplate, initial.subject, initial.body]);
-
-  const payload = { to: quote.client_email || "", subject, body, fromName };
+  const contextRows: ContextRow[] = [
+    { label: "Email", value: quote.client_email || "(none)", title: quote.client_email || "(none)" },
+    { label: "Status", value: <span className="capitalize">{derivedStatus}</span> },
+    ...(quote.event_date ? [{
+      label: "Event date",
+      value: new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" }),
+    } as ContextRow] : []),
+    ...(quote.guest_count != null ? [{ label: "Guests", value: String(quote.guest_count) } as ContextRow] : []),
+    { label: "Total", value: fmtMoney.format(quote.total ?? 0), divider: true, emphasis: true },
+  ];
 
   return (
-    <>
-      <SheetHeader>
-        <SheetTitle className="flex items-center gap-2">
-          {mode === "sweetener" ? (
-            <Gift className="w-5 h-5 text-emerald-600" />
-          ) : (
-            <Send className="w-5 h-5 text-emerald-600" />
-          )}
-          {mode === "sweetener"
-            ? `Offer ${quote.client_name} a sweetener`
-            : `Compose to ${quote.client_name}`}
-        </SheetTitle>
-        <SheetDescription>
-          {mode === "sweetener"
-            ? "Lock in a wide-open day with a thank-you discount or treat. Tweak the offer and the body updates."
-            : "Personal follow-up. Sent through your own inbox so it looks like it came from you."}
-        </SheetDescription>
-      </SheetHeader>
-
-      {/* Diary callout, shown in both modes so the team knows why
-          they're sending this email. Picks up the same tone classes
-          as the inline chip on the row. */}
-      {quote.event_date && (
-        <div
-          className={cn(
-            "mt-3 rounded-lg border px-3 py-2 text-sm flex flex-wrap items-center gap-2",
-            DIARY_TONE[diary.status].chip,
-          )}
-        >
-          <CalendarDays className="w-4 h-4" />
-          <span className="font-semibold">{diary.headline}</span>
-          <span className="text-xs opacity-80">{diary.detail}</span>
-        </div>
-      )}
-
-      {mode === "sweetener" && (
-        <Card className="mt-3 border-emerald-200 bg-emerald-50/50">
-          <CardContent className="py-4 px-4 space-y-3">
-            <div className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
-              Pick the offer
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([
-                { id: "percent", label: "% off" },
-                { id: "amount",  label: "R off" },
-                { id: "perk",    label: "Free perk" },
-              ] as const).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => { setAutoTemplate(true); setDiscountKind(opt.id); }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-                    discountKind === opt.id
-                      ? "bg-emerald-600 text-white border-emerald-600"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            {discountKind === "percent" && (
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Discount %</label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  value={discountPercent}
-                  onChange={(e) => { setAutoTemplate(true); setDiscountPercent(Number(e.target.value) || 0); }}
-                  className="mt-1 max-w-[120px]"
-                />
-                {quote.total != null && discountPercent > 0 && (
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total * (1 - discountPercent / 100))}.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {discountKind === "amount" && (
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Rand off</label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={discountAmount}
-                  onChange={(e) => { setAutoTemplate(true); setDiscountAmount(Number(e.target.value) || 0); }}
-                  className="mt-1 max-w-[160px]"
-                />
-                {quote.total != null && discountAmount > 0 && (
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Drops {fmtMoney.format(quote.total)} to {fmtMoney.format(quote.total - discountAmount)}.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {discountKind === "perk" && (
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Free perk</label>
-                <Input
-                  value={perk}
-                  onChange={(e) => { setAutoTemplate(true); setPerk(e.target.value); }}
-                  placeholder="a complimentary dessert station"
-                  className="mt-1"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="text-xs font-semibold text-slate-700">Offer holds until</label>
-              <Input
-                type="date"
-                value={validUntil}
-                onChange={(e) => { setAutoTemplate(true); setValidUntil(e.target.value); }}
-                className="mt-1 max-w-[200px]"
-              />
-            </div>
-
-            {!autoTemplate && (
-              <button
-                type="button"
-                onClick={() => setAutoTemplate(true)}
-                className="text-xs text-emerald-700 underline hover:no-underline"
-              >
-                Reset wording from current offer
-              </button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Two-column layout when the drawer is wide enough: quote
-          context lives on the right rail, the email composer takes the
-          full main column. Falls back to one column under 880px. */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(240px,300px)] gap-6 mt-4">
-        <div className="space-y-4 min-w-0">
-          {/* Editable template */}
-          <div>
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
-            <Input
-              value={subject}
-              onChange={(e) => { setAutoTemplate(false); setSubject(e.target.value); }}
-              className="mt-1 h-11 text-base"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
-            <textarea
-              value={body}
-              onChange={(e) => { setAutoTemplate(false); setBody(e.target.value); }}
-              rows={20}
-              className="mt-1 w-full rounded-md border border-slate-200 px-3 py-3 text-sm leading-6 min-h-[420px]"
-            />
-            <p className="text-[11px] text-slate-500 mt-1">
-              {mode === "sweetener"
-                ? "Tweak the offer above and the body refreshes, once you start typing here we keep your wording."
-                : "Edit freely, the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
-            </p>
-          </div>
-        </div>
-
-        {/* Quote summary, right rail at xl+, stacked above the form
-            on narrower drawers so it never gets squeezed. */}
-        <Card className="border-0 shadow-sm bg-slate-50 xl:order-last order-first xl:sticky xl:top-2 xl:self-start">
-          <CardContent className="py-4 px-4 text-xs space-y-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1">
-              This quote
-            </div>
-            <div className="flex justify-between gap-3">
-              <span className="text-slate-500 flex-shrink-0">Email</span>
-              <span className="font-medium text-slate-900 truncate" title={quote.client_email || "(none)"}>
-                {quote.client_email || "(none)"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Status</span>
-              <span className="font-medium text-slate-900 capitalize">{derivedStatus}</span>
-            </div>
-            {quote.event_date && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Event date</span>
-                <span className="font-medium text-slate-900">
-                  {new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
-                </span>
-              </div>
-            )}
-            {quote.guest_count != null && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Guests</span>
-                <span className="font-medium text-slate-900">{quote.guest_count}</span>
-              </div>
-            )}
-            <div className="flex justify-between border-t border-slate-200 pt-2">
-              <span className="text-slate-500">Total</span>
-              <span className="font-semibold text-slate-900">{fmtMoney.format(quote.total ?? 0)}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="space-y-4 mt-6">
-
-        {/* Action buttons, four side by side at xl+, two at smaller. */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-          <Button
-            variant="default"
-            disabled={!quote.client_email}
-            onClick={() => {
-              window.open(composeEmail.gmailUrl(payload), "_blank", "noopener");
-            }}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-          >
-            <ExternalLink className="w-4 h-4" /> Open in Gmail
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!quote.client_email}
-            onClick={() => {
-              window.open(composeEmail.outlookUrl(payload), "_blank", "noopener");
-            }}
-            className="gap-2"
-          >
-            <ExternalLink className="w-4 h-4" /> Open in Outlook
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!quote.client_email}
-            onClick={() => {
-              window.location.href = composeEmail.mailto(payload);
-            }}
-            className="gap-2"
-          >
-            <Mail className="w-4 h-4" /> Default mail app
-          </Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const ok = await composeEmail.copyToClipboard(payload);
-              if (ok) {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }
-            }}
-            className="gap-2"
-          >
-            <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
-          </Button>
-        </div>
-
-        <p className="text-[11px] text-slate-500 text-center">
-          Direct send via your own SMTP / Gmail OAuth coming soon. Until then these four options keep the email looking like it came from you, not from us.
-        </p>
-
-        <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>
-      </div>
-    </>
+    <MessageComposer
+      icon={mode === "sweetener" ? <Gift className="w-5 h-5 text-emerald-600" /> : <Send className="w-5 h-5 text-emerald-600" />}
+      title={mode === "sweetener"
+        ? `Offer ${quote.client_name} a sweetener`
+        : `Compose to ${quote.client_name}`}
+      subtitle={mode === "sweetener"
+        ? "Lock in a wide-open day with a thank-you discount or treat. Tweak the offer and the body updates."
+        : "Personal follow-up. Sent through your own inbox so it looks like it came from you."}
+      banner={diaryBanner}
+      controls={sweetenerControls}
+      contextLabel="This quote"
+      contextRows={contextRows}
+      recipient={{
+        name: quote.client_name,
+        email: quote.client_email || null,
+      }}
+      template={initial}
+      fromName={fromName}
+      footerHint={mode === "sweetener"
+        ? "Tweak the offer above and the body refreshes, once you start typing here we keep your wording."
+        : "Edit freely, the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}
+      onClose={onClose}
+    />
   );
 }
