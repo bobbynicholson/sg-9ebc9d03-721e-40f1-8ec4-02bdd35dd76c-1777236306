@@ -85,11 +85,26 @@ interface LineState {
   add_to_stock: boolean;
 }
 
+const EMPTY_LINE: LineState = {
+  keep: true,
+  description: "",
+  amount: 0,
+  quantity: 1,
+  unit: "ea",
+  unit_price: 0,
+  tax_rule_id: null,
+  is_deductible: true,
+  inventory_item_id: null,
+  inventory_query: "",
+  create_new_name: "",
+  add_to_stock: false,
+};
+
 const fmtR = (v: number | null | undefined) =>
   v == null ? "—" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReconcileSlipDrawer({
-  open, onClose, onSaved, mappedData, sourceData, companyId, userId,
+  open, onClose, onSaved, mappedData, sourceData, companyId, userId, manualMode,
 }: {
   open: boolean;
   onClose: () => void;
@@ -98,6 +113,10 @@ export function ReconcileSlipDrawer({
   sourceData: SourceData | null;
   companyId: string;
   userId: string;
+  /** True when the operator is keying a slip in by hand instead of
+   *  scanning. Drawer starts blank and exposes Add-line + vendor
+   *  autocomplete from past receipts. */
+  manualMode?: boolean;
 }) {
   const { toast } = useToast();
   const [vendor, setVendor] = useState("");
@@ -109,10 +128,26 @@ export function ReconcileSlipDrawer({
   const [inventory, setInventory] = useState<InventoryRef[]>([]);
   const [rules, setRules] = useState<TaxRule[]>([]);
   const [saving, setSaving] = useState(false);
+  // Memory: vendors + descriptions seen on past receipts in this
+  // company. Powers the typeaheads in manual mode and improves
+  // suggestion quality on every fresh slip.
+  const [pastVendors, setPastVendors] = useState<string[]>([]);
+  const [pastDescriptions, setPastDescriptions] = useState<string[]>([]);
 
-  // Seed form state from the extraction whenever the drawer opens.
+  // Seed form state whenever the drawer opens.
   useEffect(() => {
-    if (!open || !mappedData) return;
+    if (!open) return;
+    if (manualMode || !mappedData) {
+      // Manual mode (or no extraction available): blank slate, one
+      // empty line ready for input.
+      setVendor("");
+      setReceiptDate(new Date().toISOString().slice(0, 10));
+      setReceiptNumber("");
+      setTotal("");
+      setNotes("");
+      setLines([{ ...EMPTY_LINE }]);
+      return;
+    }
     setVendor(mappedData.supplier_name || "");
     setReceiptDate(mappedData.receipt_date || new Date().toISOString().slice(0, 10));
     setReceiptNumber(mappedData.receipt_number || "");
@@ -125,21 +160,21 @@ export function ReconcileSlipDrawer({
       quantity: Number(li.quantity ?? 1),
       unit: li.unit || "ea",
       unit_price: Number(li.unit_price ?? li.line_total ?? 0),
-      tax_rule_id: null, // resolved once rules load (uses tax_category_code)
+      tax_rule_id: null,
       is_deductible: li.is_deductible ?? true,
       inventory_item_id: null,
       inventory_query: "",
       create_new_name: "",
       add_to_stock: false,
     })));
-  }, [open, mappedData]);
+  }, [open, mappedData, manualMode]);
 
-  // Load inventory + rules once the drawer is open.
+  // Load inventory + rules + past-vendor/description memory.
   useEffect(() => {
     if (!open || !companyId) return;
     let cancelled = false;
     (async () => {
-      const [invRes, rulesRes] = await Promise.all([
+      const [invRes, rulesRes, vendorsRes, descsRes] = await Promise.all([
         supabase
           .from("inventory_items")
           .select("id, item_name, unit_of_measure, current_stock")
@@ -148,15 +183,41 @@ export function ReconcileSlipDrawer({
           .order("item_name"),
         supabase
           .from("sa_tax_deductibility_rules")
-          .select("id, category_code, display_name, group_label, deductibility")
+          .select("id, category_code, display_name, group_label, deductibility, match_keywords")
           .eq("is_active", true)
           .order("display_order"),
+        // Last 200 receipts -- gives us the recent-vendor list so the
+        // operator doesn't keep retyping "Pick n Pay" or "Makro".
+        supabase
+          .from("purchase_receipts")
+          .select("vendor")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .not("vendor", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        // Recent line descriptions from this tenant -- useful as auto-
+        // suggestions when the operator starts typing a description.
+        (supabase as any)
+          .from("purchase_receipt_items")
+          .select("description, purchase_receipts!inner(company_id, deleted_at)")
+          .eq("purchase_receipts.company_id", companyId)
+          .is("purchase_receipts.deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(300),
       ]);
       if (cancelled) return;
       const inv = (invRes.data || []) as InventoryRef[];
-      const rs = (rulesRes.data || []) as TaxRule[];
+      const rs = (rulesRes.data || []) as unknown as (TaxRule & { match_keywords: string[] })[];
       setInventory(inv);
-      setRules(rs);
+      setRules(rs as any);
+      // Dedupe vendor / description memory, ordered by recency.
+      const vendorSet = new Set<string>();
+      (vendorsRes.data || []).forEach((r: any) => { if (r.vendor) vendorSet.add(r.vendor); });
+      setPastVendors(Array.from(vendorSet).slice(0, 30));
+      const descSet = new Set<string>();
+      (descsRes.data || []).forEach((r: any) => { if (r.description) descSet.add(r.description); });
+      setPastDescriptions(Array.from(descSet).slice(0, 100));
 
       // Resolve AI-suggested tax_category_code -> rule id, and try to
       // fuzzy-match each line's description to an inventory item.
@@ -185,6 +246,46 @@ export function ReconcileSlipDrawer({
 
   const setLine = (idx: number, patch: Partial<LineState>) =>
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+
+  /** Local keyword match from description -> rule. Used in manual mode
+   *  where there's no AI suggestion. Picks the rule with the most
+   *  keyword hits in the description, ties broken by display_order. */
+  const suggestRuleFromDescription = (desc: string): TaxRule | null => {
+    const d = desc.toLowerCase();
+    if (!d) return null;
+    let best: TaxRule | null = null;
+    let bestScore = 0;
+    for (const r of rules) {
+      const kws = (r as any).match_keywords as string[] | undefined;
+      if (!kws) continue;
+      let score = 0;
+      for (const kw of kws) {
+        if (kw && d.includes(kw.toLowerCase())) score += 1;
+      }
+      if (score > bestScore) { best = r; bestScore = score; }
+    }
+    return best;
+  };
+
+  /** When the operator types a description in manual mode, try to
+   *  auto-suggest the tax rule and an inventory match. */
+  const onDescriptionChange = (idx: number, desc: string) => {
+    const ruleSuggestion = suggestRuleFromDescription(desc);
+    const dl = desc.toLowerCase();
+    const invMatch = inventory.find((it) =>
+      dl && (it.item_name.toLowerCase().includes(dl.split(" ")[0] || "_____") || dl.includes(it.item_name.toLowerCase())),
+    );
+    setLine(idx, {
+      description: desc,
+      tax_rule_id: ruleSuggestion?.id ?? null,
+      is_deductible: ruleSuggestion ? ruleSuggestion.deductibility !== "non_deductible" : true,
+      inventory_item_id: invMatch?.id ?? null,
+      inventory_query: invMatch?.item_name || desc,
+      add_to_stock: !!invMatch,
+    });
+  };
+
+  const addBlankLine = () => setLines((prev) => [...prev, { ...EMPTY_LINE }]);
 
   const handleSave = async () => {
     if (!companyId || !userId) {
@@ -329,11 +430,14 @@ export function ReconcileSlipDrawer({
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <ReceiptIcon className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg font-bold text-slate-900">Reconcile slip</h2>
+          <h2 className="text-lg font-bold text-slate-900">
+            {manualMode ? "Manual shopping entry" : "Reconcile slip"}
+          </h2>
         </div>
         <p className="text-sm text-slate-600 -mt-2">
-          Confirm each line's tax tag and, if it's something you stock, link it to inventory.
-          Lines you tick &lsquo;Add to stock&rsquo; will be received against your inventory at the unit price shown.
+          {manualMode
+            ? "Capture a shop run by hand. Tag each line for tax and, if you stock it, feed your inventory."
+            : "Confirm each line's tax tag and, if it's something you stock, link it to inventory. Lines you tick ‘Add to stock’ will be received against your inventory at the unit price shown."}
         </p>
 
         {/* Receipt header */}
@@ -341,7 +445,16 @@ export function ReconcileSlipDrawer({
           <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Vendor</label>
-              <Input value={vendor} onChange={(e) => setVendor(e.target.value)} className="mt-1" />
+              <Input
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+                list="past-vendors"
+                className="mt-1"
+                placeholder={pastVendors[0] ? `e.g. ${pastVendors[0]}` : "e.g. Pick n Pay"}
+              />
+              <datalist id="past-vendors">
+                {pastVendors.map((v) => <option key={v} value={v} />)}
+              </datalist>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Receipt date</label>
@@ -358,10 +471,15 @@ export function ReconcileSlipDrawer({
           </CardContent>
         </Card>
 
+        {/* Past-descriptions datalist for the line description Input */}
+        <datalist id="past-descriptions">
+          {pastDescriptions.map((d) => <option key={d} value={d} />)}
+        </datalist>
+
         {/* Line items */}
         <div className="space-y-3">
           {lines.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-6">No line items extracted from this slip.</p>
+            <p className="text-sm text-slate-500 text-center py-6">No line items yet. Click &lsquo;Add line&rsquo; to start.</p>
           ) : lines.map((ln, idx) => {
             const matchedRule = rules.find((r) => r.id === ln.tax_rule_id) || null;
             const filteredInventory = inventory.filter((it) =>
@@ -380,8 +498,21 @@ export function ReconcileSlipDrawer({
                 <CardContent className="pt-4 space-y-3">
                   <div className="flex items-start gap-2">
                     <div className="flex-1">
-                      <p className="font-semibold text-slate-900">{ln.description || "(no description)"}</p>
-                      <p className="text-xs text-slate-500">
+                      <Input
+                        value={ln.description}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (manualMode || !ln.description) {
+                            onDescriptionChange(idx, val);
+                          } else {
+                            setLine(idx, { description: val });
+                          }
+                        }}
+                        list="past-descriptions"
+                        className="font-semibold text-slate-900 -ml-2 border-transparent hover:border-slate-200 focus:border-slate-300"
+                        placeholder="Item description"
+                      />
+                      <p className="text-xs text-slate-500 ml-1">
                         {fmtR(ln.unit_price)} × {ln.quantity} {ln.unit} = <strong>{fmtR(ln.amount)}</strong>
                       </p>
                     </div>
@@ -529,6 +660,16 @@ export function ReconcileSlipDrawer({
             );
           })}
         </div>
+
+        {/* Add line */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={addBlankLine}
+          className="border-dashed text-slate-700"
+        >
+          <Plus className="w-4 h-4 mr-1.5" /> Add line
+        </Button>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t border-slate-100 -mx-2 px-2 py-3 flex items-center justify-end gap-2">

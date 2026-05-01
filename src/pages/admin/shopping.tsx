@@ -36,6 +36,7 @@ import {
   Building2, Snowflake, Flame, Receipt, ChevronRight, ListChecks, Camera,
 } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
+import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -112,6 +113,7 @@ function SmartShoppingPage() {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [openSupplier, setOpenSupplier] = useState<string | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => {
     if (!companyId) return;
@@ -417,11 +419,36 @@ function SmartShoppingPage() {
               {scannerOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
             </button>
             {scannerOpen && (
-              <CardContent className="border-t border-slate-100 pt-4">
+              <CardContent className="border-t border-slate-100 pt-4 space-y-3">
                 <ReceiptScanner accent="emerald" historyHref="/admin/tax-purchases" />
+                <div className="flex items-center justify-center pt-2 border-t border-slate-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setManualOpen(true)}
+                    className="text-slate-700 gap-1.5"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    Or capture a slip by hand
+                  </Button>
+                </div>
               </CardContent>
             )}
           </Card>
+
+          {/* Manual-entry drawer -- same Reconcile component as the
+              scanner, just primed with empty data and exposing the
+              vendor + description typeaheads from past receipts. */}
+          <ReconcileSlipDrawer
+            open={manualOpen}
+            onClose={() => setManualOpen(false)}
+            onSaved={() => setManualOpen(false)}
+            mappedData={null}
+            sourceData={null}
+            companyId={companyId || ""}
+            userId={user?.id || ""}
+            manualMode
+          />
 
           {loading ? (
             <Card className="border-0 shadow"><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
