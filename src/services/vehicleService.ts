@@ -391,7 +391,6 @@ export const vehicleService = {
       const reasons: string[] = [];
       const warnings: string[] = [];
       let score = 0;
-      let pass = true;
 
       // Hard filters first.
       if (req.requiresRefrigeration && !v.refrigerated) {
@@ -442,8 +441,6 @@ export const vehicleService = {
         warnings.push("Vehicle is flagged for two on board.");
         score -= 5;
       }
-
-      if (!pass) continue;
 
       out.push({
         vehicle: v,
