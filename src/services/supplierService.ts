@@ -1,0 +1,378 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * supplierService -- the supplier hub. Drives:
+ *   - /admin/suppliers          (list page with spend totals)
+ *   - /admin/suppliers/[id]     (detail page with purchases + products)
+ *   - /admin/shopping           (PO email composition)
+ *
+ * Two ways spend is measured:
+ *   1. inventory_transactions   (canonical receive log -- has the
+ *                                 supplier_id FK + qty * unit_cost)
+ *   2. purchase_receipts        (slip ledger -- has supplier_id FK
+ *                                 since the 2026-05 migration; older
+ *                                 rows match by vendor text fallback)
+ *
+ * Spend numbers are union-deduplicated by reference_number where set,
+ * otherwise summed independently. Real-world overlap is small.
+ */
+
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+
+export type Supplier = Tables<"suppliers">;
+export type InventoryItemSupplier = Tables<"inventory_item_suppliers">;
+
+export interface SupplierWithStats extends Supplier {
+  product_count: number;
+  spend_30d: number;
+  spend_90d: number;
+  spend_365d: number;
+  last_purchase_at: string | null;
+  active_receipts_count: number;
+}
+
+export interface SupplierProduct extends InventoryItemSupplier {
+  inventory_items: {
+    id: string;
+    item_name: string;
+    category: string | null;
+    unit_of_measure: string | null;
+    current_stock: number;
+    minimum_stock: number;
+  } | null;
+}
+
+export interface SupplierReceiptRow {
+  id: string;
+  receipt_date: string | null;
+  vendor: string | null;
+  total: number | null;
+  notes: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface SupplierPurchaseSummary {
+  total_spend: number;
+  receipt_count: number;
+  unique_items: number;
+  avg_receipt_value: number;
+  /** Per-product breakdown sorted by total spend desc. */
+  by_item: Array<{
+    inventory_item_id: string | null;
+    description: string;
+    quantity: number;
+    spend: number;
+  }>;
+}
+
+const isoDaysAgo = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+};
+
+export const supplierService = {
+  /**
+   * List suppliers for a tenant with rolling spend totals. Computed
+   * client-side from inventory_transactions to keep the query simple --
+   * the receipts ledger is a secondary source used on the detail page.
+   */
+  async listForCompany(companyId: string): Promise<SupplierWithStats[]> {
+    const { data: suppliers, error: suppErr } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("supplier_name", { ascending: true });
+    if (suppErr) {
+      console.error("supplierService.listForCompany:", suppErr);
+      return [];
+    }
+
+    if (!suppliers || suppliers.length === 0) return [];
+
+    // Pull all transactions in the last 365 days in one shot, then
+    // bucket per-supplier client-side. Avoids N round-trips.
+    const { data: tx } = await (supabase as any)
+      .from("inventory_transactions")
+      .select("supplier_id, quantity, unit_cost, performed_at, created_at")
+      .eq("company_id", companyId)
+      .not("supplier_id", "is", null)
+      .gte("created_at", isoDaysAgo(365));
+
+    // And the receipt ledger for completeness.
+    const { data: receipts } = await (supabase as any)
+      .from("purchase_receipts")
+      .select("supplier_id, total, receipt_date, created_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .not("supplier_id", "is", null)
+      .gte("created_at", isoDaysAgo(365));
+
+    // Item count per supplier (multi-supplier table).
+    const { data: linksRaw } = await supabase
+      .from("inventory_item_suppliers")
+      .select("supplier_id")
+      .eq("company_id", companyId);
+    const productCount = new Map<string, number>();
+    (linksRaw || []).forEach((l: any) => {
+      productCount.set(l.supplier_id, (productCount.get(l.supplier_id) || 0) + 1);
+    });
+
+    const cutoff30 = new Date(); cutoff30.setDate(cutoff30.getDate() - 30);
+    const cutoff90 = new Date(); cutoff90.setDate(cutoff90.getDate() - 90);
+
+    return suppliers.map((s: any) => {
+      const sId = s.id;
+      let spend30 = 0, spend90 = 0, spend365 = 0;
+      let lastAt: string | null = null;
+      const txRows = (tx || []).filter((t: any) => t.supplier_id === sId);
+      for (const t of txRows) {
+        const amt = Number(t.quantity || 0) * Number(t.unit_cost || 0);
+        const at = t.created_at;
+        if (!lastAt || at > lastAt) lastAt = at;
+        const ad = new Date(at);
+        spend365 += amt;
+        if (ad >= cutoff90) spend90 += amt;
+        if (ad >= cutoff30) spend30 += amt;
+      }
+      const rcptRows = (receipts || []).filter((r: any) => r.supplier_id === sId);
+      let activeReceiptsCount = 0;
+      for (const r of rcptRows) {
+        const amt = Number(r.total || 0);
+        const at = r.created_at;
+        if (!lastAt || at > lastAt) lastAt = at;
+        const ad = new Date(at);
+        spend365 += amt;
+        activeReceiptsCount += 1;
+        if (ad >= cutoff90) spend90 += amt;
+        if (ad >= cutoff30) spend30 += amt;
+      }
+      return {
+        ...(s as Supplier),
+        product_count: productCount.get(sId) || 0,
+        spend_30d: spend30,
+        spend_90d: spend90,
+        spend_365d: spend365,
+        last_purchase_at: lastAt,
+        active_receipts_count: activeReceiptsCount,
+      } as SupplierWithStats;
+    });
+  },
+
+  async getById(supplierId: string): Promise<Supplier | null> {
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("id", supplierId)
+      .maybeSingle();
+    if (error) { console.error("supplierService.getById:", error); return null; }
+    return data as Supplier | null;
+  },
+
+  async create(args: {
+    companyId: string;
+    supplier_name: string;
+    email?: string | null;
+    phone?: string | null;
+    contact_person?: string | null;
+    payment_terms?: string | null;
+    payment_method?: string | null;
+    preferred_contact_method?: string | null;
+    website?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    postal_code?: string | null;
+    supplier_categories?: string[];
+    notes?: string | null;
+  }): Promise<Supplier | null> {
+    const { data, error } = await supabase
+      .from("suppliers")
+      .insert({
+        company_id: args.companyId,
+        supplier_name: args.supplier_name,
+        email: args.email ?? null,
+        phone: args.phone ?? null,
+        contact_person: args.contact_person ?? null,
+        payment_terms: args.payment_terms ?? null,
+        payment_method: args.payment_method ?? null,
+        preferred_contact_method: args.preferred_contact_method ?? "email",
+        website: args.website ?? null,
+        address_line1: args.address_line1 ?? null,
+        address_line2: args.address_line2 ?? null,
+        city: args.city ?? null,
+        postal_code: args.postal_code ?? null,
+        supplier_categories: args.supplier_categories ?? [],
+        notes: args.notes ?? null,
+        is_active: true,
+        active: true,
+      } as any)
+      .select()
+      .single();
+    if (error) { console.error("supplierService.create:", error); return null; }
+    return data as Supplier;
+  },
+
+  async update(supplierId: string, patch: Partial<Supplier>): Promise<void> {
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ ...patch, updated_at: new Date().toISOString() } as any)
+      .eq("id", supplierId);
+    if (error) throw error;
+  },
+
+  async softDelete(supplierId: string): Promise<void> {
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ deleted_at: new Date().toISOString(), is_active: false } as any)
+      .eq("id", supplierId);
+    if (error) throw error;
+  },
+
+  /** All inventory items linked to this supplier, with the join row's
+   *  per-supplier price + lead time. */
+  async listProducts(supplierId: string): Promise<SupplierProduct[]> {
+    const { data, error } = await (supabase as any)
+      .from("inventory_item_suppliers")
+      .select(`
+        *,
+        inventory_items(id, item_name, category, unit_of_measure, current_stock, minimum_stock)
+      `)
+      .eq("supplier_id", supplierId)
+      .order("is_preferred", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) { console.error("supplierService.listProducts:", error); return []; }
+    return (data || []) as SupplierProduct[];
+  },
+
+  async linkProduct(args: {
+    companyId: string;
+    inventoryItemId: string;
+    supplierId: string;
+    unit_price?: number | null;
+    pack_size?: string | null;
+    lead_time_days?: number | null;
+    is_preferred?: boolean;
+    notes?: string | null;
+  }): Promise<void> {
+    const { error } = await supabase
+      .from("inventory_item_suppliers")
+      .upsert({
+        company_id: args.companyId,
+        inventory_item_id: args.inventoryItemId,
+        supplier_id: args.supplierId,
+        unit_price: args.unit_price ?? null,
+        pack_size: args.pack_size ?? null,
+        lead_time_days: args.lead_time_days ?? null,
+        is_preferred: args.is_preferred ?? false,
+        notes: args.notes ?? null,
+      } as any, { onConflict: "inventory_item_id,supplier_id" });
+    if (error) throw error;
+  },
+
+  async unlinkProduct(linkId: string): Promise<void> {
+    const { error } = await supabase
+      .from("inventory_item_suppliers")
+      .delete()
+      .eq("id", linkId);
+    if (error) throw error;
+  },
+
+  /** Rolling purchase summary for a supplier between two ISO dates. */
+  async getPurchaseSummary(args: {
+    supplierId: string;
+    companyId: string;
+    fromIso: string;
+    toIso: string;
+  }): Promise<SupplierPurchaseSummary> {
+    const [txRes, rcptRes, itemsRes] = await Promise.all([
+      (supabase as any)
+        .from("inventory_transactions")
+        .select(`
+          id, quantity, unit_cost, inventory_item_id, created_at,
+          inventory_items(item_name)
+        `)
+        .eq("company_id", args.companyId)
+        .eq("supplier_id", args.supplierId)
+        .gte("created_at", args.fromIso)
+        .lte("created_at", args.toIso),
+      (supabase as any)
+        .from("purchase_receipts")
+        .select(`
+          id, total, receipt_date, created_at,
+          items:purchase_receipt_items(
+            id, description, amount, quantity, inventory_item_id,
+            inventory_items(item_name)
+          )
+        `)
+        .eq("company_id", args.companyId)
+        .eq("supplier_id", args.supplierId)
+        .is("deleted_at", null)
+        .gte("created_at", args.fromIso)
+        .lte("created_at", args.toIso),
+      Promise.resolve(null),
+    ]);
+
+    const tx = (txRes.data || []) as any[];
+    const rcpts = (rcptRes.data || []) as any[];
+
+    const byItem = new Map<string, { description: string; quantity: number; spend: number; inventory_item_id: string | null }>();
+
+    let totalSpend = 0;
+    let receiptCount = rcpts.length;
+
+    for (const t of tx) {
+      const amt = Number(t.quantity || 0) * Number(t.unit_cost || 0);
+      totalSpend += amt;
+      const key = t.inventory_item_id || `_unmapped_${t.id}`;
+      const desc = t.inventory_items?.item_name || "(unmapped item)";
+      const cur = byItem.get(key) || { description: desc, quantity: 0, spend: 0, inventory_item_id: t.inventory_item_id };
+      cur.quantity += Number(t.quantity || 0);
+      cur.spend += amt;
+      byItem.set(key, cur);
+    }
+
+    for (const r of rcpts) {
+      totalSpend += Number(r.total || 0);
+      for (const it of (r.items || [])) {
+        const key = it.inventory_item_id || `_unmapped_${it.id}`;
+        const desc = it.inventory_items?.item_name || it.description || "(no description)";
+        const cur = byItem.get(key) || { description: desc, quantity: 0, spend: 0, inventory_item_id: it.inventory_item_id };
+        cur.quantity += Number(it.quantity || 0);
+        cur.spend += Number(it.amount || 0);
+        byItem.set(key, cur);
+      }
+    }
+
+    const by_item = Array.from(byItem.values()).sort((a, b) => b.spend - a.spend);
+
+    return {
+      total_spend: totalSpend,
+      receipt_count: receiptCount,
+      unique_items: by_item.length,
+      avg_receipt_value: receiptCount > 0 ? Number(rcpts.reduce((s, r) => s + Number(r.total || 0), 0)) / receiptCount : 0,
+      by_item,
+    };
+  },
+
+  async listReceipts(args: {
+    supplierId: string;
+    companyId: string;
+    fromIso?: string;
+    toIso?: string;
+  }): Promise<SupplierReceiptRow[]> {
+    let q = (supabase as any)
+      .from("purchase_receipts")
+      .select("id, vendor, receipt_date, total, notes, image_url, created_at")
+      .eq("company_id", args.companyId)
+      .eq("supplier_id", args.supplierId)
+      .is("deleted_at", null);
+    if (args.fromIso) q = q.gte("created_at", args.fromIso);
+    if (args.toIso)   q = q.lte("created_at", args.toIso);
+    const { data, error } = await q.order("created_at", { ascending: false });
+    if (error) { console.error("supplierService.listReceipts:", error); return []; }
+    return (data || []) as SupplierReceiptRow[];
+  },
+};

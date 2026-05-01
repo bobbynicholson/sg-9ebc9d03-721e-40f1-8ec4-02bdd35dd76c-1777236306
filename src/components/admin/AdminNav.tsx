@@ -382,6 +382,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Procurement overview"
         },
         {
+          title: "Suppliers",
+          href: "/admin/suppliers",
+          icon: Building2,
+          description: "Supplier hub: contacts, products, spend"
+        },
+        {
           title: "Tax-Deductible Purchases",
           href: "/admin/tax-purchases",
           icon: Receipt,

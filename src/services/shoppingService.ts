@@ -8,7 +8,16 @@ import { billingEmailService } from "./billingEmailService";
 export type ShoppingList = Tables<"shopping_lists">;
 export type ShoppingListItem = Tables<"shopping_list_items">;
 export type PurchaseHistory = Tables<"purchase_history">;
-export type SupplierPrice = Tables<"supplier_prices">;
+/**
+ * Supplier-pricing rows now live on the inventory_item_suppliers
+ * join table. The historical `supplier_prices` table was a stub
+ * that never carried real data and has been retired.
+ */
+export type SupplierPrice = Tables<"inventory_item_suppliers"> & {
+  /** Joined from inventory_items.item_name to keep the legacy
+   *  callsites (which expected an item_name column) working. */
+  item_name?: string;
+};
 
 export const shoppingService = {
   async getShoppingLists(companyId: string): Promise<ShoppingList[]> {
@@ -298,17 +307,16 @@ export const shoppingService = {
   },
 
   async getSupplierPrices(companyId: string, itemName?: string): Promise<SupplierPrice[]> {
-    let query = supabase
-      .from("supplier_prices")
-      .select("*")
+    let query = (supabase as any)
+      .from("inventory_item_suppliers")
+      .select("*, inventory_items!inner(item_name, company_id)")
       .eq("company_id", companyId);
 
     if (itemName) {
-      query = query.ilike("item_name", `%${itemName}%`);
+      query = query.ilike("inventory_items.item_name", `%${itemName}%`);
     }
 
     const { data, error } = await query
-      .order("item_name")
       .order("unit_price");
 
     if (error) {
@@ -316,24 +324,29 @@ export const shoppingService = {
       return [];
     }
 
-    return data || [];
+    return (data || []).map((row: any) => ({
+      ...row,
+      item_name: row.inventory_items?.item_name,
+    })) as SupplierPrice[];
   },
 
   async getBestSupplierPrice(companyId: string, itemName: string): Promise<SupplierPrice | null> {
-    const { data, error } = await supabase
-      .from("supplier_prices")
-      .select("*")
+    const { data, error } = await (supabase as any)
+      .from("inventory_item_suppliers")
+      .select("*, inventory_items!inner(item_name, company_id)")
       .eq("company_id", companyId)
-      .ilike("item_name", `%${itemName}%`)
+      .ilike("inventory_items.item_name", `%${itemName}%`)
+      .not("unit_price", "is", null)
       .order("unit_price")
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching best supplier price:", error);
       return null;
     }
 
-    return data;
+    if (!data) return null;
+    return { ...data, item_name: (data as any).inventory_items?.item_name } as SupplierPrice;
   },
 };

@@ -307,6 +307,22 @@ export function ReconcileSlipDrawer({
         } catch { /* non-fatal */ }
       }
 
+      // Resolve supplier_id from vendor name (case-insensitive exact
+      // match within this tenant's suppliers). Anything fuzzier the
+      // operator can fix later from /admin/suppliers.
+      let supplierId: string | null = null;
+      if (vendor.trim()) {
+        const { data: supplierMatch } = await supabase
+          .from("suppliers")
+          .select("id")
+          .eq("company_id", companyId)
+          .ilike("supplier_name", vendor.trim())
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+        if (supplierMatch) supplierId = (supplierMatch as any).id;
+      }
+
       // 2) Create the receipt row.
       const totalNum = total ? Number(total) : null;
       const { data: receipt, error: rcptErr } = await supabase
@@ -315,6 +331,7 @@ export function ReconcileSlipDrawer({
           company_id: companyId,
           uploaded_by: userId,
           vendor: vendor.trim() || null,
+          supplier_id: supplierId,
           receipt_date: receiptDate || null,
           total: totalNum,
           notes: notes.trim() || null,
@@ -390,7 +407,7 @@ export function ReconcileSlipDrawer({
       if (stockReceives.length > 0) {
         const result = await inventoryService.receiveStock({
           companyId,
-          supplierId: null,
+          supplierId,
           invoiceNumber: receiptNumber || `slip-${receiptId.slice(0, 8)}`,
           receivedDate: receiptDate || new Date().toISOString().slice(0, 10),
           performedBy: userId,
