@@ -895,24 +895,43 @@ export default function AdminQuotes() {
                               quotes.public_token. Page tracks viewed
                               and accepted timestamps. */}
                           {(quote as any).public_token && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              title="Copy public quote link to clipboard"
-                              onClick={async () => {
-                                const url = buildPublicQuoteUrl((quote as any).public_token);
-                                if (!url) return;
-                                try {
-                                  await navigator.clipboard.writeText(url);
-                                  toast({ title: "Link copied", description: "Paste it into an email or WhatsApp." });
-                                } catch {
-                                  toast({ title: "Couldn't copy", description: url, variant: "destructive" });
-                                }
-                              }}
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              Copy link
-                            </Button>
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Copy public quote link to clipboard"
+                                onClick={async () => {
+                                  const url = buildPublicQuoteUrl((quote as any).public_token);
+                                  if (!url) return;
+                                  try {
+                                    await navigator.clipboard.writeText(url);
+                                    toast({ title: "Link copied", description: "Paste it into an email or WhatsApp." });
+                                  } catch {
+                                    toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                                  }
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Copy link
+                              </Button>
+                              {/* PDF -- opens the public quote page
+                                  with ?print=1 which auto-fires the
+                                  print dialog. Save as PDF from there
+                                  and attach to email / WhatsApp. */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Open the printable view, save as PDF, attach to email or WhatsApp"
+                                onClick={() => {
+                                  const url = buildPublicQuoteUrl((quote as any).public_token);
+                                  if (!url) return;
+                                  window.open(`${url}?print=1`, "_blank", "noopener");
+                                }}
+                              >
+                                <FileText className="w-4 h-4 mr-2" />
+                                PDF
+                              </Button>
+                            </>
                           )}
                           <Button
                             size="sm"

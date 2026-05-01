@@ -10,13 +10,20 @@
  * What the page does:
  *   - Loads the quote + company branding via fetchByToken
  *   - Stamps viewed_at the first time the page renders
- *   - Renders a clean branded view (header, line items, total, terms)
+ *   - Renders a branded, spit-braai-style view (warm palette, big
+ *     serif headlines, signature feel) in screen mode, and a clean
+ *     printer-friendly version in print mode
  *   - Accept button collects the acceptor's name then stamps
  *     accepted_at + flips status to 'accepted'
+ *   - 'Download PDF' uses the browser's native print dialog so we
+ *     don't need a server-side renderer or a new dependency. The
+ *     print CSS strips chrome (header background, navigation,
+ *     accept button) and produces a clean A4-shaped output the
+ *     operator saves as PDF and attaches to email / WhatsApp.
  *
- * Future hooks (Phase 4 design pass + Phase 3 PDF):
- *   - Spit-braai-style branded look will land here
- *   - 'Download PDF' button will sit alongside Accept
+ * URL flag: /q/[token]?print=1 auto-fires the print dialog after
+ * the quote loads. Used by the admin 'Download PDF' button so the
+ * operator opens, prints, attaches without an extra click.
  */
 
 import { useEffect, useState } from "react";
@@ -28,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
+  Flame, Printer,
 } from "lucide-react";
 import { fetchByToken, recordView, recordAccept, type PublicQuoteView } from "@/services/publicQuoteService";
 
@@ -36,6 +44,7 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 export default function PublicQuotePage() {
   const router = useRouter();
   const token = typeof router.query.token === "string" ? router.query.token : null;
+  const autoPrint = router.query.print === "1";
 
   const [quote, setQuote] = useState<PublicQuoteView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +77,17 @@ export default function PublicQuotePage() {
     return () => { cancelled = true; };
   }, [token]);
 
+  // Auto-print when the admin 'Download PDF' button opens us with
+  // ?print=1. Wait for the quote to render so the print preview
+  // captures the full content.
+  useEffect(() => {
+    if (!autoPrint || !quote || loading) return;
+    const t = setTimeout(() => {
+      try { window.print(); } catch { /* ignore */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autoPrint, quote, loading]);
+
   const handleAccept = async () => {
     if (!token) return;
     setAccepting(true);
@@ -87,20 +107,20 @@ export default function PublicQuotePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
       </div>
     );
   }
 
   if (notFound || !quote) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
         <Card className="max-w-md">
           <CardContent className="py-8 px-6 text-center space-y-3">
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-            <h1 className="text-lg font-semibold text-slate-900">Quote not found</h1>
-            <p className="text-sm text-slate-600">
+            <h1 className="text-lg font-semibold text-stone-900">Quote not found</h1>
+            <p className="text-sm text-stone-600">
               The link looks broken, or the quote has been removed. Reach out to the catering company to ask for a fresh link.
             </p>
           </CardContent>
@@ -120,36 +140,73 @@ export default function PublicQuotePage() {
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  const total = Number(quote.total ?? quote.total_amount ?? 0);
+  const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
 
   return (
     <>
       <Head>
         <title>{`Quote ${quote.quote_number} from ${companyName}`}</title>
         <meta name="robots" content="noindex, nofollow" />
+        {/* Print-friendly styling. Browser-native Save as PDF gives
+            us a clean A4-style export with no extra dependencies. */}
+        <style>{`
+          @media print {
+            body { background: white !important; }
+            .no-print { display: none !important; }
+            .print-shadow-none { box-shadow: none !important; }
+            .print-border-none { border: none !important; }
+            .print-bg-white { background: white !important; }
+            @page { margin: 16mm; }
+          }
+        `}</style>
       </Head>
 
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-stone-50 print-bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
 
-          {/* HEADER */}
-          <div className="mb-6">
+          {/* Floating action bar -- screen only */}
+          <div className="no-print flex items-center justify-end gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="gap-1.5"
+            >
+              <Printer className="w-4 h-4" />
+              Download PDF
+            </Button>
+          </div>
+
+          {/* SPIT-BRAAI-STYLE HEADER --
+              Warm palette (amber accent on cream), serif headline,
+              flame icon as a wink at the spit-braai aesthetic.
+              Reads like a printed quote, not a generic SaaS page. */}
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 sm:p-8 mb-4 print-bg-white print-shadow-none print-border-none">
             <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">{companyName}</p>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-1">
-                  {quote.quote_name || `Quote ${quote.quote_number}`}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center">
+                    <Flame className="w-4 h-4 text-white" />
+                  </div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-orange-700 font-bold">
+                    {companyName}
+                  </p>
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
+                  {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Reference <span className="font-mono">{quote.quote_number}</span>
+                <p className="text-sm text-stone-600 mt-2">
+                  Reference <span className="font-mono">{quote.quote_number}</span> · prepared {today}
                 </p>
               </div>
               {accepted ? (
-                <Badge className="bg-emerald-100 text-emerald-800 border-0 gap-1 px-3 py-1.5 text-sm">
+                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
                   Accepted
                 </Badge>
               ) : (
-                <Badge className="bg-blue-100 text-blue-800 border-0 px-3 py-1.5 text-sm">
+                <Badge className="bg-orange-600 text-white border-0 px-3 py-1.5 text-sm">
                   Awaiting your response
                 </Badge>
               )}
@@ -157,36 +214,36 @@ export default function PublicQuotePage() {
           </div>
 
           {/* EVENT DETAILS */}
-          <Card className="mb-4 border-0 shadow-sm">
+          <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {quote.client_name && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">For</p>
-                  <p className="text-sm font-medium text-slate-900 mt-0.5">{quote.client_name}</p>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold">For</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.client_name}</p>
                 </div>
               )}
               {eventDate && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
                     <Calendar className="w-3 h-3" /> Event date
                   </p>
-                  <p className="text-sm font-medium text-slate-900 mt-0.5">{eventDate}</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{eventDate}</p>
                 </div>
               )}
               {quote.guest_count != null && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
                     <Users className="w-3 h-3" /> Guests
                   </p>
-                  <p className="text-sm font-medium text-slate-900 mt-0.5">{quote.guest_count}</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.guest_count}</p>
                 </div>
               )}
               {quote.venue_address && (
                 <div className="sm:col-span-3">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Venue
                   </p>
-                  <p className="text-sm font-medium text-slate-900 mt-0.5">{quote.venue_address}</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.venue_address}</p>
                 </div>
               )}
             </CardContent>
@@ -194,28 +251,32 @@ export default function PublicQuotePage() {
 
           {/* MENU ITEMS */}
           {Array.isArray(quote.menu_items) && quote.menu_items.length > 0 && (
-            <Card className="mb-4 border-0 shadow-sm">
+            <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
-                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
-                  Menu
+                <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-3">
+                  From the kitchen
                 </p>
                 <div className="space-y-2">
                   {quote.menu_items.map((item: any, i: number) => {
                     const name = item?.name || item?.menu_item_name || `Item ${i + 1}`;
+                    const description = item?.description || item?.notes || null;
                     const qty = item?.quantity ?? item?.qty ?? 1;
                     const unitPrice = Number(item?.unit_price ?? item?.price ?? 0);
                     const lineTotal = Number(item?.total ?? unitPrice * qty);
                     return (
-                      <div key={i} className="flex justify-between gap-3 text-sm py-1.5 border-b border-slate-100 last:border-b-0">
+                      <div key={i} className="flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900">{name}</p>
+                          <p className="font-semibold text-stone-900">{name}</p>
+                          {description && (
+                            <p className="text-xs text-stone-500 mt-0.5">{description}</p>
+                          )}
                           {qty > 1 && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-stone-500 mt-0.5">
                               {qty} x {fmtMoney.format(unitPrice)}
                             </p>
                           )}
                         </div>
-                        <p className="text-slate-900 font-medium tabular-nums shrink-0">
+                        <p className="text-stone-900 font-semibold tabular-nums shrink-0">
                           {fmtMoney.format(lineTotal)}
                         </p>
                       </div>
@@ -228,9 +289,9 @@ export default function PublicQuotePage() {
 
           {/* EQUIPMENT */}
           {Array.isArray(quote.equipment_items) && quote.equipment_items.length > 0 && (
-            <Card className="mb-4 border-0 shadow-sm">
+            <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
-                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-3">
+                <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-3">
                   Equipment
                 </p>
                 <div className="space-y-2">
@@ -239,15 +300,15 @@ export default function PublicQuotePage() {
                     const qty = item?.quantity ?? item?.qty ?? 1;
                     const lineTotal = Number(item?.total ?? Number(item?.unit_price ?? 0) * qty);
                     return (
-                      <div key={i} className="flex justify-between gap-3 text-sm py-1.5 border-b border-slate-100 last:border-b-0">
+                      <div key={i} className="flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900">{name}</p>
+                          <p className="font-semibold text-stone-900">{name}</p>
                           {qty > 1 && (
-                            <p className="text-xs text-slate-500">{qty} x</p>
+                            <p className="text-xs text-stone-500">{qty} x</p>
                           )}
                         </div>
                         {lineTotal > 0 && (
-                          <p className="text-slate-900 font-medium tabular-nums shrink-0">
+                          <p className="text-stone-900 font-semibold tabular-nums shrink-0">
                             {fmtMoney.format(lineTotal)}
                           </p>
                         )}
@@ -259,123 +320,125 @@ export default function PublicQuotePage() {
             </Card>
           )}
 
-          {/* TOTALS */}
-          <Card className="mb-4 border-0 shadow-sm">
+          {/* TOTALS -- spit-braai accent bar */}
+          <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-600">Subtotal</span>
-                <span className="text-slate-900 tabular-nums">{fmtMoney.format(quote.subtotal || 0)}</span>
+                <span className="text-stone-600">Subtotal</span>
+                <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.subtotal || 0)}</span>
               </div>
               {!!quote.discount_amount && quote.discount_amount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Discount</span>
+                  <span className="text-stone-600">Discount</span>
                   <span className="text-emerald-700 tabular-nums">-{fmtMoney.format(quote.discount_amount)}</span>
                 </div>
               )}
               {!!quote.tax_amount && quote.tax_amount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">VAT</span>
-                  <span className="text-slate-900 tabular-nums">{fmtMoney.format(quote.tax_amount)}</span>
+                  <span className="text-stone-600">VAT</span>
+                  <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.tax_amount)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200">
-                <span className="text-slate-900">Total</span>
-                <span className="text-slate-900 tabular-nums">{fmtMoney.format(quote.total || quote.total_amount || 0)}</span>
+              <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-orange-600">
+                <span className="text-stone-900 font-serif">Total</span>
+                <span className="text-orange-700 tabular-nums">{fmtMoney.format(total)}</span>
               </div>
             </CardContent>
           </Card>
 
           {/* NOTES + T&Cs */}
           {(quote.notes || quote.terms_and_conditions) && (
-            <Card className="mb-4 border-0 shadow-sm">
+            <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5 space-y-4">
                 {quote.notes && (
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">Notes</p>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{quote.notes}</p>
+                    <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-1.5">A note from us</p>
+                    <p className="text-sm text-stone-700 whitespace-pre-wrap">{quote.notes}</p>
                   </div>
                 )}
                 {quote.terms_and_conditions && (
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">Terms</p>
-                    <p className="text-xs text-slate-600 whitespace-pre-wrap">{quote.terms_and_conditions}</p>
+                    <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-1.5">Terms</p>
+                    <p className="text-xs text-stone-600 whitespace-pre-wrap">{quote.terms_and_conditions}</p>
                   </div>
                 )}
                 {validUntil && (
-                  <p className="text-[11px] text-slate-500">Valid until {validUntil}.</p>
+                  <p className="text-[11px] text-stone-500">Valid until {validUntil}.</p>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* ACCEPT */}
-          {accepted ? (
-            <Card className="border-0 bg-emerald-50 shadow-sm">
-              <CardContent className="py-6 px-5 text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                <h2 className="text-base font-semibold text-emerald-900">
-                  {justAccepted ? "Thanks, your quote is accepted!" : "Quote accepted"}
-                </h2>
-                <p className="text-sm text-emerald-800">
-                  {companyName} will be in touch shortly with the next steps. Keep an eye on your inbox.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="border-0 shadow-sm">
-              <CardContent className="py-6 px-5">
-                {acceptOpen ? (
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-slate-900">Confirm acceptance</p>
-                    <p className="text-sm text-slate-600">
-                      Type your name to lock this in. {companyName} will follow up with the deposit invoice.
-                    </p>
-                    <Input
-                      value={acceptName}
-                      onChange={(e) => setAcceptName(e.target.value)}
-                      placeholder="Your full name"
-                      autoFocus
-                    />
-                    {acceptError && (
-                      <p className="text-xs text-rose-600">{acceptError}</p>
-                    )}
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="outline" onClick={() => { setAcceptOpen(false); setAcceptError(null); }} disabled={accepting}>
-                        Cancel
-                      </Button>
+          {/* ACCEPT -- screen only, hidden in print */}
+          <div className="no-print">
+            {accepted ? (
+              <Card className="border-0 bg-emerald-50 shadow-sm">
+                <CardContent className="py-6 px-5 text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <h2 className="text-base font-semibold text-emerald-900">
+                    {justAccepted ? "Thanks, your quote is accepted!" : "Quote accepted"}
+                  </h2>
+                  <p className="text-sm text-emerald-800">
+                    {companyName} will be in touch shortly with the next steps. Keep an eye on your inbox.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="py-6 px-5">
+                  {acceptOpen ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-semibold text-stone-900">Confirm acceptance</p>
+                      <p className="text-sm text-stone-600">
+                        Type your name to lock this in. {companyName} will follow up with the deposit invoice.
+                      </p>
+                      <Input
+                        value={acceptName}
+                        onChange={(e) => setAcceptName(e.target.value)}
+                        placeholder="Your full name"
+                        autoFocus
+                      />
+                      {acceptError && (
+                        <p className="text-xs text-rose-600">{acceptError}</p>
+                      )}
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="outline" onClick={() => { setAcceptOpen(false); setAcceptError(null); }} disabled={accepting}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAccept}
+                          disabled={accepting || !acceptName.trim()}
+                          className="bg-orange-600 hover:bg-orange-700 gap-1.5"
+                        >
+                          {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          {accepting ? "Accepting..." : "Accept quote"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center space-y-3">
+                      <p className="text-sm text-stone-700">
+                        Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
+                      </p>
                       <Button
-                        onClick={handleAccept}
-                        disabled={accepting || !acceptName.trim()}
-                        className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                        onClick={() => setAcceptOpen(true)}
+                        className="bg-orange-600 hover:bg-orange-700 gap-1.5 px-6"
+                        size="lg"
                       >
-                        {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                        {accepting ? "Accepting..." : "Accept quote"}
+                        <CheckCircle2 className="w-5 h-5" />
+                        Accept this quote
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center space-y-3">
-                    <p className="text-sm text-slate-700">
-                      Happy with the quote? Hit accept and {companyName} will send the deposit invoice.
-                    </p>
-                    <Button
-                      onClick={() => setAcceptOpen(true)}
-                      className="bg-emerald-600 hover:bg-emerald-700 gap-1.5 px-6"
-                      size="lg"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      Accept this quote
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
           {/* COMPANY FOOTER */}
           {company && (company.email || company.phone || companyAddress) && (
-            <div className="mt-8 text-center text-xs text-slate-500 space-y-0.5">
-              <p className="font-semibold text-slate-700">{companyName}</p>
+            <div className="mt-8 text-center text-xs text-stone-500 space-y-0.5">
+              <p className="font-bold text-stone-700">{companyName}</p>
               {company.email && <p>{company.email}</p>}
               {company.phone && <p>{company.phone}</p>}
               {companyAddress && <p>{companyAddress}</p>}
