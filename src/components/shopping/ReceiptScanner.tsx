@@ -21,10 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Upload, Loader2, FileImage, AlertTriangle, CheckCircle2, X,
-  Sparkles, Clock,
+  Sparkles, Clock, ListChecks,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useAuth } from "@/contexts/AuthContext";
+import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
 
 interface RowShape {
   id: string;
@@ -58,10 +60,14 @@ export function ReceiptScanner({
   accent = "purple",
 }: ReceiptScannerProps) {
   const { toast } = useToast();
+  const { user, profile } = useAuth() as any;
+  const companyId = profile?.company_id || user?.company_id;
   const [picked, setPicked] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [rows, setRows] = useState<RowShape[]>([]);
+  const [reconcileRow, setReconcileRow] = useState<RowShape | null>(null);
+  const [savedRowIds, setSavedRowIds] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const accentText = accent === "emerald" ? "text-emerald-600" : "text-purple-600";
@@ -301,6 +307,22 @@ export function ReceiptScanner({
                     <div className="text-right">
                       <p className="text-[10px] uppercase tracking-wide text-slate-500">Total</p>
                       <p className="text-xl font-bold text-emerald-600">{fmtR(m.total)}</p>
+                      {!hasError && (
+                        savedRowIds.has(r.id) ? (
+                          <Badge className="mt-1 bg-emerald-100 text-emerald-700 border-emerald-200 border">
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Saved
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="mt-1 bg-gradient-to-r from-purple-600 to-pink-600"
+                            onClick={() => setReconcileRow(r)}
+                          >
+                            <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+                            Reconcile & save
+                          </Button>
+                        )
+                      )}
                     </div>
                   </div>
 
@@ -373,6 +395,23 @@ export function ReceiptScanner({
           )}
         </div>
       )}
+
+      {/* Reconcile drawer -- opens when the operator clicks 'Reconcile & save'
+          on any successful extraction. Persists the slip to purchase_receipts
+          + items and (optionally) feeds inventory via receiveStock. */}
+      <ReconcileSlipDrawer
+        open={!!reconcileRow}
+        onClose={() => setReconcileRow(null)}
+        onSaved={() => {
+          if (reconcileRow) {
+            setSavedRowIds((prev) => new Set([...prev, reconcileRow.id]));
+          }
+        }}
+        mappedData={(reconcileRow?.mapped_data as any) || null}
+        sourceData={(reconcileRow?.source_data as any) || null}
+        companyId={companyId || ""}
+        userId={user?.id || ""}
+      />
     </>
   );
 }
