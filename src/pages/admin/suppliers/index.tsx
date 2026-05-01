@@ -355,7 +355,7 @@ function SupplierFormDialog({
         email: editing.email || "",
         phone: editing.phone || "",
         contact_person: editing.contact_person || "",
-        payment_terms: editing.payment_terms || "",
+        payment_terms: editing.payment_terms != null ? String(editing.payment_terms) : "",
         payment_method: (editing.payment_method as string) || "eft",
         preferred_contact_method: (editing.preferred_contact_method as string) || "email",
         website: (editing.website as string) || "",
