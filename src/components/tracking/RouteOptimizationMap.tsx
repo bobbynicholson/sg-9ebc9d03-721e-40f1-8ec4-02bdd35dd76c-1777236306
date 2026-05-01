@@ -40,17 +40,26 @@ const createNumberedIcon = (number: number, color: string) => {
   });
 };
 
-function MapUpdater({ route }: { route: any }) {
+// Coord guard. Leaflet's projection blows up on null / undefined / NaN.
+// Stops without geocoded venues reach this component, so every Marker
+// and Polyline goes through this filter.
+const hasCoords = (lat: any, lng: any): boolean => {
+  const a = Number(lat);
+  const b = Number(lng);
+  return Number.isFinite(a) && Number.isFinite(b) && (a !== 0 || b !== 0);
+};
+
+function MapUpdater({ stops }: { stops: any[] }) {
   const map = useMap();
 
   useEffect(() => {
-    if (route && route.stops.length > 0) {
+    if (stops.length > 0) {
       const bounds = L.latLngBounds(
-        route.stops.map((stop: any) => [stop.venue_lat, stop.venue_lng])
+        stops.map((stop: any) => [Number(stop.venue_lat), Number(stop.venue_lng)])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [route, map]);
+  }, [stops, map]);
 
   return null;
 }
@@ -64,14 +73,29 @@ interface RouteOptimizationMapProps {
 }
 
 export default function RouteOptimizationMap({ route }: RouteOptimizationMapProps) {
-  if (!route || route.stops.length === 0) {
+  if (!route || !route.stops || route.stops.length === 0) {
     return null;
   }
 
-  // Create route line coordinates
-  const routeCoordinates = route.stops.map((stop) => [
-    stop.venue_lat,
-    stop.venue_lng,
+  // Filter to stops that have valid coords. Anything else is excluded
+  // from the polyline + markers + bounds calc so a single ungeocoded
+  // stop can't crash the whole map.
+  const mappableStops = route.stops.filter((s) => hasCoords(s.venue_lat, s.venue_lng));
+
+  if (mappableStops.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
+        <p className="text-slate-500 text-sm text-center px-4">
+          Route map unavailable -- none of the stops have been geocoded yet.
+        </p>
+      </div>
+    );
+  }
+
+  // Route line coordinates -- numbers coerced for safety.
+  const routeCoordinates = mappableStops.map((stop) => [
+    Number(stop.venue_lat),
+    Number(stop.venue_lng),
   ]) as [number, number][];
 
   // Calculate color based on priority
@@ -83,11 +107,11 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
 
   return (
     <MapContainer
-      center={[route.stops[0].venue_lat, route.stops[0].venue_lng]}
+      center={[Number(mappableStops[0].venue_lat), Number(mappableStops[0].venue_lng)]}
       zoom={13}
       style={{ height: "100%", width: "100%", borderRadius: "8px" }}
     >
-      <MapUpdater route={route} />
+      <MapUpdater stops={mappableStops} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -103,10 +127,10 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
       />
 
       {/* Stop markers */}
-      {route.stops.map((stop, index) => (
+      {mappableStops.map((stop, index) => (
         <Marker
           key={stop.id}
-          position={[stop.venue_lat, stop.venue_lng]}
+          position={[Number(stop.venue_lat), Number(stop.venue_lng)]}
           icon={createNumberedIcon(index + 1, getMarkerColor(stop.priority))}
         >
           <Popup>
@@ -142,40 +166,38 @@ export default function RouteOptimizationMap({ route }: RouteOptimizationMapProp
       ))}
 
       {/* Start marker */}
-      {route.stops.length > 0 && (
-        <Marker
-          position={[route.stops[0].venue_lat, route.stops[0].venue_lng]}
-          icon={L.divIcon({
-            html: `
-              <div style="
-                background-color: #10b981;
-                width: 40px;
-                height: 40px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border: 3px solid white;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              ">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-            `,
-            className: "start-marker",
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-          })}
-        >
-          <Popup>
-            <div className="p-2">
-              <h3 className="font-semibold text-green-700 mb-1">Route Start</h3>
-              <p className="text-sm text-slate-600">First delivery point</p>
+      <Marker
+        position={[Number(mappableStops[0].venue_lat), Number(mappableStops[0].venue_lng)]}
+        icon={L.divIcon({
+          html: `
+            <div style="
+              background-color: #10b981;
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border: 3px solid white;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            ">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
             </div>
-          </Popup>
-        </Marker>
-      )}
+          `,
+          className: "start-marker",
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+        })}
+      >
+        <Popup>
+          <div className="p-2">
+            <h3 className="font-semibold text-green-700 mb-1">Route Start</h3>
+            <p className="text-sm text-slate-600">First delivery point</p>
+          </div>
+        </Popup>
+      </Marker>
     </MapContainer>
   );
 }

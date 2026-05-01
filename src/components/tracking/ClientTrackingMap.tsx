@@ -204,10 +204,35 @@ export function ClientTrackingMap({
     return () => clearInterval(interval);
   }, [driverId, onLocationUpdate]);
 
+  // Coord guard. Leaflet's projection blows up on null / undefined / NaN
+  // and we've seen orders without a geocoded venue reach this component.
+  // The whole page crashes when one bad coord lands, so every Marker /
+  // Polyline goes through this check.
+  const hasCoords = (lat: any, lng: any): boolean => {
+    const a = Number(lat);
+    const b = Number(lng);
+    return Number.isFinite(a) && Number.isFinite(b) && (a !== 0 || b !== 0);
+  };
+
+  const venueOk = hasCoords(venueLocation?.lat, venueLocation?.lng);
+  const driverOk = !!liveDriverLocation && hasCoords(liveDriverLocation.lat, liveDriverLocation.lng);
+
   if (mapCenter[0] === 0 && mapCenter[1] === 0) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
         <p className="text-slate-500">Loading map...</p>
+      </div>
+    );
+  }
+
+  // No usable destination -- show a graceful fallback rather than asking
+  // Leaflet to project a null lat/lng (which crashes the page).
+  if (!venueOk) {
+    return (
+      <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
+        <p className="text-slate-500 text-sm text-center px-4">
+          Map unavailable -- delivery address hasn't been geocoded yet.
+        </p>
       </div>
     );
   }
@@ -251,7 +276,7 @@ export function ClientTrackingMap({
       
       {/* Venue marker (destination) */}
       <Marker
-        position={[venueLocation.lat, venueLocation.lng]}
+        position={[Number(venueLocation.lat), Number(venueLocation.lng)]}
         icon={venueIcon}
       >
         <Popup>
@@ -267,10 +292,10 @@ export function ClientTrackingMap({
         </Popup>
       </Marker>
 
-      {/* Live driver marker */}
-      {liveDriverLocation && (
+      {/* Live driver marker -- only when we have valid GPS coords. */}
+      {driverOk && liveDriverLocation && (
         <Marker
-          position={[liveDriverLocation.lat, liveDriverLocation.lng]}
+          position={[Number(liveDriverLocation.lat), Number(liveDriverLocation.lng)]}
           icon={driverIcon}
         >
           <Popup>
@@ -290,12 +315,13 @@ export function ClientTrackingMap({
         </Marker>
       )}
 
-      {/* Route line from driver to destination */}
-      {liveDriverLocation && (
+      {/* Route line from driver to destination -- both ends must have
+          valid coords or Leaflet's projection crashes the whole map. */}
+      {driverOk && liveDriverLocation && (
         <Polyline
           positions={[
-            [liveDriverLocation.lat, liveDriverLocation.lng],
-            [venueLocation.lat, venueLocation.lng]
+            [Number(liveDriverLocation.lat), Number(liveDriverLocation.lng)],
+            [Number(venueLocation.lat), Number(venueLocation.lng)]
           ]}
           color={getRouteColor()}
           weight={4}
