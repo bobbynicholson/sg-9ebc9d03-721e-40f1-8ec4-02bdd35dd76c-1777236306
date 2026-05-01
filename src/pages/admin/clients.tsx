@@ -16,19 +16,26 @@
  *   for now until we ship the contacts log table)
  * - Suggested action chip on every row colour-coded to urgency
  */
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle,
   Snowflake, Crown, ArrowRight, Send, Copy, ExternalLink, Inbox,
   Calendar as CalendarIcon, MapPin, ShoppingCart, MessageSquare,
-  CheckCircle2, RefreshCw, Filter,
+  CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -47,6 +54,10 @@ import { SortHeader } from "@/components/ui/sort-header";
 interface Contact {
   key: string;          // canonical de-dupe key (lower-cased email or name)
   source: "client" | "lead" | "order_only";
+  /** Underlying clients-table row id, set when source is 'client' or
+   *  when a lead/order row was promoted by an Add. Drives Edit/Delete
+   *  on the row -- if null, those actions are hidden. */
+  clientId: string | null;
   name: string;
   email: string | null;
   phone: string | null;
@@ -99,6 +110,7 @@ const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "
 function ClientsCRM() {
   const { user, profile } = useAuth() as any;
   const companyId = profile?.company_id || user?.company_id;
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
@@ -106,6 +118,13 @@ function ClientsCRM() {
   const [active, setActive] = useState<Contact | null>(null);
   const [contactedKeys, setContactedKeys] = useState<Record<string, string>>({});
   const searchRef = useRef<HTMLInputElement>(null);
+  // CRUD state. `editing` carries an existing client id to load + update;
+  // `null` means a fresh add. `confirmDelete` keeps the contact whose row
+  // the operator clicked the bin on so we can show a confirm prompt before
+  // soft-deleting.
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Contact | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
 
   // Load contactedKeys from localStorage
   useEffect(() => {
@@ -120,31 +139,28 @@ function ClientsCRM() {
     localStorage.setItem(`crm-contacted-${companyId}`, JSON.stringify(contactedKeys));
   }, [contactedKeys, companyId]);
 
-  // Pull from clients + leads + orders, merge by lowercased email
-  useEffect(() => {
+  // Pull from clients + leads + orders, merge by lowercased email.
+  // Extracted so Add/Edit/Delete can reload after writes.
+  const loadContacts = useCallback(async () => {
     if (!companyId) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const [clientsRes, leadsRes, ordersRes] = await Promise.all([
-        supabase
-          .from("clients")
-          .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
-          .eq("company_id", companyId)
-          .is("deleted_at", null),
-        supabase
-          .from("leads")
-          .select("id, contact_name, email, phone, status, source, event_date, created_at")
-          .eq("company_id", companyId)
-          .is("deleted_at", null),
-        supabase
-          .from("orders")
-          .select("id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at")
-          .eq("company_id", companyId)
-          .is("deleted_at", null),
-      ]);
-
-      if (cancelled) return;
+    setLoading(true);
+    const [clientsRes, leadsRes, ordersRes] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
+      supabase
+        .from("leads")
+        .select("id, contact_name, email, phone, status, source, event_date, created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
+      supabase
+        .from("orders")
+        .select("id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
+    ]);
 
       const today = new Date();
       const map = new Map<string, Contact>();
@@ -158,6 +174,7 @@ function ClientsCRM() {
         map.set(k, {
           key: k,
           source: "client",
+          clientId: c.id,
           name: c.client_name || "Unnamed",
           email: c.email,
           phone: c.phone,
@@ -185,6 +202,7 @@ function ClientsCRM() {
           map.set(k, {
             key: k,
             source: "lead",
+            clientId: null,
             name: l.contact_name || "Unnamed lead",
             email: l.email,
             phone: l.phone,
@@ -211,6 +229,7 @@ function ClientsCRM() {
           c = {
             key: k,
             source: "order_only",
+            clientId: null,
             name: o.client_name || "Unnamed",
             email: o.client_email,
             phone: o.client_phone,
@@ -310,9 +329,11 @@ function ClientsCRM() {
         return order[a.suggestion.tone] - order[b.suggestion.tone];
       }));
       setLoading(false);
-    })();
-    return () => { cancelled = true; };
   }, [companyId]);
+
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
 
   // "/" or Cmd+F focuses the search box -- a tiny SV touch
   useEffect(() => {
@@ -410,6 +431,12 @@ function ClientsCRM() {
                   className="pl-9 w-64 sm:w-80"
                 />
               </div>
+              <Button
+                onClick={() => { setEditing(null); setFormOpen(true); }}
+                className="gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+              >
+                <Plus className="w-4 h-4" /> Add client
+              </Button>
             </div>
           </div>
 
@@ -609,6 +636,28 @@ function ClientsCRM() {
                                   <Send className="w-3.5 h-3.5" />
                                   Compose
                                 </Button>
+                                {c.clientId && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => { setEditing(c); setFormOpen(true); }}
+                                      className="h-8 w-8 p-0"
+                                      aria-label={`Edit ${c.name}`}
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setConfirmDelete(c)}
+                                      className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                      aria-label={`Delete ${c.name}`}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -622,6 +671,56 @@ function ClientsCRM() {
           </Card>
         </div>
       </div>
+
+      {/* Add / Edit client dialog */}
+      <ClientFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        companyId={companyId}
+        editing={editing}
+        onSaved={async () => {
+          setFormOpen(false);
+          setEditing(null);
+          await loadContacts();
+          toast({ title: editing ? "Client updated" : "Client added" });
+        }}
+      />
+
+      {/* Soft-delete confirm */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this client?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDelete?.name} will be hidden from the clients list. Their orders and quotes are kept on file. You can ask support to restore them later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700"
+              onClick={async () => {
+                const c = confirmDelete;
+                if (!c?.clientId) return;
+                const { error } = await supabase
+                  .from("clients")
+                  .update({ deleted_at: new Date().toISOString() })
+                  .eq("id", c.clientId)
+                  .eq("company_id", companyId);
+                setConfirmDelete(null);
+                if (error) {
+                  toast({ title: "Couldn't delete", description: error.message, variant: "destructive" });
+                  return;
+                }
+                await loadContacts();
+                toast({ title: "Client deleted" });
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Compose drawer */}
       <Sheet open={!!active} onOpenChange={(o) => !o && setActive(null)}>
@@ -782,6 +881,192 @@ function ComposeDrawer({
         <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>
       </div>
     </>
+  );
+}
+
+/**
+ * Add / Edit form for a clients-table row. Loads the row when `editing`
+ * carries a clientId, otherwise inserts a new one. Hard-required: name,
+ * email, phone (matches the table NOT NULL constraints). Everything else
+ * is optional and folds into a 'More details' panel.
+ */
+function ClientFormDialog({
+  open, onOpenChange, companyId, editing, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  companyId: string | null | undefined;
+  editing: Contact | null;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [form, setForm] = useState({
+    client_name: "",
+    email: "",
+    phone: "",
+    client_type: "individual",
+    tax_number: "",
+    billing_address_line1: "",
+    billing_address_line2: "",
+    billing_address_city: "",
+    billing_address_postal_code: "",
+    notes: "",
+  });
+
+  // Load full row when editing -- the Contact aggregate doesn't carry
+  // the optional billing fields, so we fetch them fresh when the dialog
+  // opens. On Add we just clear the form.
+  useEffect(() => {
+    if (!open) return;
+    if (!editing?.clientId) {
+      setForm({
+        client_name: "", email: "", phone: "", client_type: "individual",
+        tax_number: "", billing_address_line1: "", billing_address_line2: "",
+        billing_address_city: "", billing_address_postal_code: "", notes: "",
+      });
+      setShowMore(false);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_address_city, billing_address_postal_code, notes")
+        .eq("id", editing.clientId)
+        .maybeSingle();
+      if (data) {
+        setForm({
+          client_name: data.client_name || "",
+          email:       data.email || "",
+          phone:       data.phone || "",
+          client_type: data.client_type || "individual",
+          tax_number:  data.tax_number || "",
+          billing_address_line1:       data.billing_address_line1 || "",
+          billing_address_line2:       data.billing_address_line2 || "",
+          billing_address_city:        data.billing_address_city || "",
+          billing_address_postal_code: data.billing_address_postal_code || "",
+          notes:       data.notes || "",
+        });
+        const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes);
+        setShowMore(hasOptional);
+      }
+    })();
+  }, [open, editing]);
+
+  const handleSave = async () => {
+    if (!companyId) return;
+    if (!form.client_name.trim() || !form.email.trim() || !form.phone.trim()) {
+      toast({ title: "Missing required fields", description: "Name, email and phone are required.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    const payload: any = {
+      company_id: companyId,
+      client_name: form.client_name.trim(),
+      email:       form.email.trim(),
+      phone:       form.phone.trim(),
+      client_type: form.client_type || null,
+      tax_number:  form.tax_number.trim() || null,
+      billing_address_line1:       form.billing_address_line1.trim() || null,
+      billing_address_line2:       form.billing_address_line2.trim() || null,
+      billing_address_city:        form.billing_address_city.trim() || null,
+      billing_address_postal_code: form.billing_address_postal_code.trim() || null,
+      notes:       form.notes.trim() || null,
+    };
+    let error: any = null;
+    if (editing?.clientId) {
+      ({ error } = await supabase.from("clients").update(payload).eq("id", editing.clientId).eq("company_id", companyId));
+    } else {
+      ({ error } = await supabase.from("clients").insert({ ...payload, is_active: true }));
+    }
+    setSaving(false);
+    if (error) {
+      toast({ title: "Couldn't save", description: error.message, variant: "destructive" });
+      return;
+    }
+    onSaved();
+  };
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editing?.clientId ? "Edit client" : "Add a client"}</DialogTitle>
+          <DialogDescription>
+            {editing?.clientId
+              ? "Update the contact and billing details for this client."
+              : "Capture a new client. Name, email and phone are required."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Name</label>
+            <Input value={form.client_name} onChange={set("client_name")} placeholder="Sarah Naidoo" className="mt-1" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Email</label>
+              <Input type="email" value={form.email} onChange={set("email")} placeholder="sarah@example.co.za" className="mt-1" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Phone</label>
+              <Input value={form.phone} onChange={set("phone")} placeholder="082 123 4567" className="mt-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Client type</label>
+            <select
+              value={form.client_type}
+              onChange={(e) => setForm((f) => ({ ...f, client_type: e.target.value }))}
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              <option value="individual">Individual</option>
+              <option value="company">Company</option>
+              <option value="non_profit">Non-profit / NPO</option>
+              <option value="government">Government</option>
+            </select>
+          </div>
+
+          {!showMore ? (
+            <Button variant="ghost" size="sm" onClick={() => setShowMore(true)} className="text-slate-600">
+              + More details (billing, tax, notes)
+            </Button>
+          ) : (
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">VAT / Tax number</label>
+                <Input value={form.tax_number} onChange={set("tax_number")} placeholder="VAT 4123456789" className="mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Billing address</label>
+                <Input value={form.billing_address_line1} onChange={set("billing_address_line1")} placeholder="Line 1" className="mt-1" />
+                <Input value={form.billing_address_line2} onChange={set("billing_address_line2")} placeholder="Line 2 (optional)" className="mt-2" />
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <Input value={form.billing_address_city} onChange={set("billing_address_city")} placeholder="City" />
+                  <Input value={form.billing_address_postal_code} onChange={set("billing_address_postal_code")} placeholder="Postal code" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Notes</label>
+                <Textarea value={form.notes} onChange={set("notes")} rows={3} className="mt-1" placeholder="Allergies, preferences, anything worth remembering..." />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700">
+            {saving ? "Saving..." : editing?.clientId ? "Save changes" : "Add client"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
