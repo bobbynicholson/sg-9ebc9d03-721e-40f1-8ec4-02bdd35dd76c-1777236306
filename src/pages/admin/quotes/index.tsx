@@ -53,6 +53,7 @@ import { quoteService } from "@/services/quoteService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
+import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import {
   deriveQuoteIntelligence,
   summariseAutoEmailsByQuote,
@@ -888,6 +889,31 @@ export default function AdminQuotes() {
                               View
                             </Button>
                           </Link>
+                          {/* Public share link. Copies a /q/[token]
+                              URL the client opens with no login. The
+                              row keeps a per-quote token (uuid) on
+                              quotes.public_token. Page tracks viewed
+                              and accepted timestamps. */}
+                          {(quote as any).public_token && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="Copy public quote link to clipboard"
+                              onClick={async () => {
+                                const url = buildPublicQuoteUrl((quote as any).public_token);
+                                if (!url) return;
+                                try {
+                                  await navigator.clipboard.writeText(url);
+                                  toast({ title: "Link copied", description: "Paste it into an email or WhatsApp." });
+                                } catch {
+                                  toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Copy link
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
