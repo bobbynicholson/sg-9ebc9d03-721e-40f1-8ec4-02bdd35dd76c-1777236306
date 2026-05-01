@@ -319,8 +319,13 @@ function NewQuotePage() {
   }, []);
 
   // ── Pre-fill: load lead when ?leadId=... ──────────────────────────
+  // Deps include user.id so the effect re-runs once auth settles.
+  // Without that, the first render fires while the session is still
+  // restoring, RLS blocks the read, and the form sits empty even
+  // though the URL has the leadId.
   useEffect(() => {
     if (!leadId || typeof leadId !== "string") return;
+    if (!user?.id) return;
     let cancelled = false;
     (async () => {
       const { data: lead, error } = await supabase
@@ -328,7 +333,10 @@ function NewQuotePage() {
         .select("*")
         .eq("id", leadId)
         .maybeSingle();
-      if (cancelled || error || !lead) return;
+      if (cancelled || error || !lead) {
+        if (error) console.warn("[new quote] lead pre-fill failed:", error.message);
+        return;
+      }
 
       const l = lead as any;
       setClientName(l.contact_name || l.client_name || "");
@@ -363,7 +371,7 @@ function NewQuotePage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [leadId, toast]);
+  }, [leadId, toast, user?.id]);
 
   // ── Pre-fill: load an existing quote when ?fromQuoteId=... ────────
   // Lets the in-place editor on /admin/quotes/[id] hand off complex

@@ -119,45 +119,57 @@ export const quoteIntelligenceService = {
     term: string,
     limit: number = 8,
   ): Promise<KnownClientResult[]> {
-    if (!companyId || !term || term.trim().length < 2) return [];
-    const t = term.trim();
-    const like = `%${t}%`;
+    if (!companyId) return [];
+    const t = (term || "").trim();
+    // Empty / 1-char term -> return the most recent clients across the
+    // four sources so the typeahead can act as a "browse" list when the
+    // operator just opens the field. This was a real Callum complaint:
+    // an empty search box surfaced nothing, so it looked like there was
+    // no way to pick an existing client.
+    const browse = t.length < 2;
+    const like = browse ? null : `%${t}%`;
+
+    const orClient = browse ? null : `client_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`;
+    const orLead   = browse ? null : `contact_name.ilike.${like},company_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`;
+    const orQuote  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like}`;
+    const orOrder  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like},client_phone.ilike.${like}`;
 
     // Run the four queries in parallel -- each capped low so we don't
     // pull a giant slug of data through the dropdown.
+    const clientsQ = supabase
+      .from("clients")
+      .select("id, client_name, email, phone, billing_address_line1, tags, notes, updated_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    const leadsQ = supabase
+      .from("leads")
+      .select("id, contact_name, company_name, email, phone, event_type, event_date, guest_count, venue_address, converted_to_client_id, updated_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+    const quotesQ = supabase
+      .from("quotes")
+      .select("id, client_id, client_name, client_email, event_date, guest_count, venue_address, total_amount, created_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    const ordersQ = supabase
+      .from("orders")
+      .select("id, client_id, client_name, client_email, client_phone, event_date, guest_count, venue_address, created_at")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
     const [clientsRes, leadsRes, quotesRes, ordersRes] = await Promise.all([
-      supabase
-        .from("clients")
-        .select("id, client_name, email, phone, billing_address_line1, tags, notes, updated_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(`client_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`)
-        .order("updated_at", { ascending: false })
-        .limit(limit),
-      supabase
-        .from("leads")
-        .select("id, contact_name, company_name, email, phone, event_type, event_date, guest_count, venue_address, converted_to_client_id, updated_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(`contact_name.ilike.${like},company_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`)
-        .order("updated_at", { ascending: false })
-        .limit(limit),
-      supabase
-        .from("quotes")
-        .select("id, client_id, client_name, client_email, event_date, guest_count, venue_address, total_amount, created_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(`client_name.ilike.${like},client_email.ilike.${like}`)
-        .order("created_at", { ascending: false })
-        .limit(limit),
-      supabase
-        .from("orders")
-        .select("id, client_id, client_name, client_email, client_phone, event_date, guest_count, venue_address, created_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(`client_name.ilike.${like},client_email.ilike.${like},client_phone.ilike.${like}`)
-        .order("created_at", { ascending: false })
-        .limit(limit),
+      orClient ? clientsQ.or(orClient) : clientsQ,
+      orLead   ? leadsQ.or(orLead)     : leadsQ,
+      orQuote  ? quotesQ.or(orQuote)   : quotesQ,
+      orOrder  ? ordersQ.or(orOrder)   : ordersQ,
     ]);
 
     const buckets = new Map<string, KnownClientResult>();

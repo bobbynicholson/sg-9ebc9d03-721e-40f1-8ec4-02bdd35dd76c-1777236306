@@ -72,19 +72,22 @@ export function ClientTypeahead({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // Debounce the search to avoid hammering Supabase on every keystroke
+  // Debounce the search to avoid hammering Supabase on every keystroke.
+  // When the field is empty (or under the threshold), we show a small
+  // "Recent clients" prefetch instead of nothing, so the operator can
+  // browse and click without remembering a name to type. This was a
+  // real complaint from Callum on his first run-through.
   useEffect(() => {
     if (!companyId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value || value.trim().length < 2) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
+    const term = (value || "").trim();
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const rows = await quoteIntelligenceService.searchKnownClients(companyId, value, 8);
+        // Empty / 1-char input falls back to "show me whoever I worked
+        // with most recently". searchKnownClients accepts a blank query
+        // and returns the top recent matches.
+        const rows = await quoteIntelligenceService.searchKnownClients(companyId, term, 8);
         setResults(rows);
         setHighlight(0);
       } catch (e) {
@@ -96,7 +99,7 @@ export function ClientTypeahead({
       } finally {
         setLoading(false);
       }
-    }, 220);
+    }, term.length === 0 ? 0 : 220);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -145,17 +148,33 @@ export function ClientTypeahead({
         )}
       </div>
 
-      {open && (results.length > 0 || (value.trim().length >= 2 && !loading)) && (
+      {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500 flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              No match in your records yet, this will create a new client.
+              {loading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Loading clients...
+                </>
+              ) : value.trim().length === 0 ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  No clients on file yet. Type a name and we'll create one when you save.
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  No match in your records yet, this will create a new client.
+                </>
+              )}
             </div>
           ) : (
             <>
               <div className="px-3 py-2 text-[10px] uppercase tracking-wide text-slate-500 border-b bg-slate-50">
-                {results.length} match{results.length === 1 ? "" : "es"} from your history
+                {value.trim().length === 0
+                  ? "Recent clients (click to use)"
+                  : `${results.length} match${results.length === 1 ? "" : "es"} from your history`}
               </div>
               {results.map((r, i) => (
                 <button
