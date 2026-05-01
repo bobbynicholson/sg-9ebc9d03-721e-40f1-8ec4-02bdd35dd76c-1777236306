@@ -45,6 +45,8 @@ import { UserPlus, Trash2, Building2, Loader2, Search } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 
 type User = {
   id: string;
@@ -229,7 +231,7 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = useFuzzyItems(
+  const fuzzyUsers = useFuzzyItems(
     users,
     searchTerm,
     [
@@ -240,6 +242,17 @@ export default function UserManagementPage() {
     ],
     { limit: 0 },
   );
+
+  // Layered column sort, click any header to flip the order.
+  const userSortColumns: ColumnDef<any>[] = useMemo(() => [
+    { key: "user",    accessor: (u) => u.full_name || u.email,                  type: "string" },
+    { key: "role",    accessor: (u) => u.role,                                  type: "string" },
+    { key: "company", accessor: (u) => u.company_name || "",                    type: "string" },
+    { key: "status",  accessor: (u) => u.email_verified ? "active" : "pending", type: "string" },
+    { key: "created", accessor: (u) => u.created_at,                            type: "date"   },
+  ], []);
+  const sortedUsers = useSortable<any>(fuzzyUsers, userSortColumns, { defaultKey: "created", defaultDir: "desc" });
+  const filteredUsers = sortedUsers.rows;
 
   const getRoleBadge = (role: string) => {
     const roleConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -392,11 +405,21 @@ export default function UserManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="user" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>User</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="role" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Role</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="company" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Company</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="status" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Status</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="created" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Created</SortHeader>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

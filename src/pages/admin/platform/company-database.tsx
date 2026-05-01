@@ -51,6 +51,8 @@ import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 
 interface Company {
   id: string;
@@ -117,7 +119,7 @@ export default function CompanyDatabasePage() {
       : companies.filter((c: any) => c.subscription_status === statusFilter);
   }, [companies, statusFilter]);
 
-  const filteredCompanies = useFuzzyItems(
+  const fuzzyCompanies = useFuzzyItems(
     statusFilteredCompanies,
     searchTerm,
     [
@@ -127,6 +129,20 @@ export default function CompanyDatabasePage() {
     ],
     { limit: 0 },
   );
+
+  // Layered column sort. Defaults to newest signups first so the
+  // platform owner sees fresh tenants without scrolling.
+  const companySortColumns: ColumnDef<any>[] = useMemo(() => [
+    { key: "company",  accessor: (c) => c.company_name,                                  type: "string" },
+    { key: "owner",    accessor: (c) => c.owner_name || c.email || "",                   type: "string" },
+    { key: "location", accessor: (c) => `${c.country || ""} ${c.city || ""}`,            type: "string" },
+    { key: "status",   accessor: (c) => (c.subscription_status || "").toLowerCase(),     type: "string" },
+    { key: "users",    accessor: (c) => Number(c.user_count || 0),                       type: "number" },
+    { key: "orders",   accessor: (c) => Number(c.order_count || 0),                      type: "number" },
+    { key: "created",  accessor: (c) => c.created_at,                                    type: "date"   },
+  ], []);
+  const sortedCompanies = useSortable<any>(fuzzyCompanies, companySortColumns, { defaultKey: "created", defaultDir: "desc" });
+  const filteredCompanies = sortedCompanies.rows;
 
   const loadCompanies = async () => {
     try {
@@ -787,13 +803,27 @@ export default function CompanyDatabasePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Orders</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="company" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Company</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="owner" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Owner</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="location" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Location</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="status" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Status</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="users" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Users</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="orders" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Orders</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader sortKey="created" activeKey={sortedCompanies.sortKey} activeDir={sortedCompanies.sortDir} onToggle={sortedCompanies.toggle}>Created</SortHeader>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

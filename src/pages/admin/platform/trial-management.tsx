@@ -1,4 +1,6 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useMemo } from "react";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/router";
 import { subscriptionService } from "@/services/subscriptionService";
@@ -29,6 +31,18 @@ export default function TrialManagementPage() {
   const [companies, setCompanies] = useState<CompanyTrialStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+
+  // Click-to-sort on the trial table. Default to expiry-date ascending
+  // so the most urgent trials sit at the top.
+  const trialsSortColumns: ColumnDef<CompanyTrialStatus>[] = useMemo(() => [
+    { key: "company", accessor: (c) => c.company_name,                                       type: "string" },
+    { key: "owner",   accessor: (c) => c.owner_email,                                        type: "string" },
+    { key: "expiry",  accessor: (c) => c.trial_ends_at,                                      type: "date"   },
+    { key: "days",    accessor: (c) => Number(c.days_remaining ?? 9999),                     type: "number" },
+    { key: "notifs",  accessor: (c) => Number(c.notifications_sent ?? 0),                    type: "number" },
+    { key: "last",    accessor: (c) => c.last_notification_type || "",                       type: "string" },
+  ], []);
+  const trialsSort = useSortable<CompanyTrialStatus>(companies, trialsSortColumns, { defaultKey: "expiry", defaultDir: "asc" });
   const [stats, setStats] = useState({
     totalTrials: 0,
     expiringIn7Days: 0,
@@ -403,17 +417,29 @@ export default function TrialManagementPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Owner Email</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead>Days Left</TableHead>
-                  <TableHead>Notifications</TableHead>
-                  <TableHead>Last Notification</TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="company" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Company</SortHeader>
+                  </TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="owner" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Owner Email</SortHeader>
+                  </TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="expiry" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Expiry Date</SortHeader>
+                  </TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="days" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Days Left</SortHeader>
+                  </TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="notifs" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Notifications</SortHeader>
+                  </TableHead>
+                  <TableHead>
+                    <SortHeader sortKey="last" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Last Notification</SortHeader>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {companies.map((company) => (
+                {trialsSort.rows.map((company) => (
                   <TableRow key={company.id}>
                     <TableCell className="font-medium">
                       <div>

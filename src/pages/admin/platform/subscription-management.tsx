@@ -39,6 +39,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
 
 // We treat every company row as a subscription record. This works whether the
 // company is on a free trial, an active paid plan, or cancelled — the source
@@ -221,7 +223,7 @@ export default function PlatformSubscriptionManagement() {
       : subscriptions.filter((sub: any) => sub.status === statusFilter);
   }, [subscriptions, statusFilter]);
 
-  const filteredSubscriptions = useFuzzyItems(
+  const fuzzyFiltered = useFuzzyItems(
     statusFilteredSubs,
     searchTerm,
     [
@@ -232,6 +234,19 @@ export default function PlatformSubscriptionManagement() {
     ],
     { limit: 0 },
   );
+
+  // Layered sort on top of search + status filter so the table can be
+  // ranked by any column the team finds useful.
+  const subSortColumns: ColumnDef<any>[] = useMemo(() => [
+    { key: "company",  accessor: (s) => s.company_name,                         type: "string" },
+    { key: "plan",     accessor: (s) => s.plan_name,                            type: "string" },
+    { key: "status",   accessor: (s) => s.status,                               type: "string" },
+    { key: "amount",   accessor: (s) => Number(s.amount || 0),                  type: "number" },
+    { key: "billing",  accessor: (s) => s.billing_cycle,                        type: "string" },
+    { key: "next",     accessor: (s) => s.next_billing_date,                    type: "date"   },
+  ], []);
+  const sortedSubs = useSortable<any>(fuzzyFiltered, subSortColumns, { defaultKey: "company", defaultDir: "asc" });
+  const filteredSubscriptions = sortedSubs.rows;
 
   const formatCurrency = (amount: number, currency: string = "ZAR") => {
     return new Intl.NumberFormat("en-ZA", {
@@ -449,12 +464,24 @@ export default function PlatformSubscriptionManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Billing Cycle</TableHead>
-                      <TableHead>Next Billing</TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="company" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Customer</SortHeader>
+                      </TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="plan" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Plan</SortHeader>
+                      </TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="status" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Status</SortHeader>
+                      </TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="amount" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Amount</SortHeader>
+                      </TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="billing" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Billing Cycle</SortHeader>
+                      </TableHead>
+                      <TableHead>
+                        <SortHeader sortKey="next" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Next Billing</SortHeader>
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>

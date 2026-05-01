@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   DollarSign, Clock, AlertTriangle, ChefHat, TrendingUp, Loader2,
   Calendar, Download, ExternalLink, Users,
@@ -103,7 +104,7 @@ function fromDateInput(local: string, endOfDay = false): string {
   return d.toISOString();
 }
 
-type SortKey = "name" | "hours" | "overtime" | "wage";
+type SortKey = "name" | "shifts" | "standard" | "hours" | "overtime" | "wage" | "rate";
 
 function WageDashboardPage() {
   const { profile } = useAuth();
@@ -178,17 +179,20 @@ function WageDashboardPage() {
     };
   }, [rows]);
 
-  // Sort
+  // Sort, every column on the wages table can drive it now.
   const sorted = useMemo(() => {
     const arr = [...rows];
     arr.sort((a, b) => {
-      let av = 0, bv = 0;
       if (sortKey === "name") return sortDir === "asc"
         ? a.full_name.localeCompare(b.full_name)
         : b.full_name.localeCompare(a.full_name);
-      if (sortKey === "hours") { av = a.total_min; bv = b.total_min; }
-      else if (sortKey === "overtime") { av = a.overtime_min; bv = b.overtime_min; }
-      else if (sortKey === "wage") { av = a.total_wage; bv = b.total_wage; }
+      let av = 0, bv = 0;
+      if (sortKey === "shifts")        { av = a.shifts_count;  bv = b.shifts_count; }
+      else if (sortKey === "standard") { av = a.standard_min;  bv = b.standard_min; }
+      else if (sortKey === "hours")    { av = a.total_min;     bv = b.total_min; }
+      else if (sortKey === "overtime") { av = a.overtime_min;  bv = b.overtime_min; }
+      else if (sortKey === "rate")     { av = Number(a.hourly_rate ?? -1); bv = Number(b.hourly_rate ?? -1); }
+      else if (sortKey === "wage")     { av = a.total_wage;    bv = b.total_wage; }
       return sortDir === "asc" ? av - bv : bv - av;
     });
     return arr;
@@ -395,27 +399,25 @@ function WageDashboardPage() {
                     <thead>
                       <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
                         <th className="px-4 py-2.5 font-medium">
-                          <button onClick={() => toggleSort("name")} className="hover:text-slate-900">
-                            Staff {sortKey === "name" && (sortDir === "asc" ? "▲" : "▼")}
-                          </button>
-                        </th>
-                        <th className="px-2 py-2.5 font-medium text-right">Shifts</th>
-                        <th className="px-2 py-2.5 font-medium text-right">Standard</th>
-                        <th className="px-2 py-2.5 font-medium text-right">
-                          <button onClick={() => toggleSort("overtime")} className="hover:text-slate-900">
-                            Overtime {sortKey === "overtime" && (sortDir === "asc" ? "▲" : "▼")}
-                          </button>
+                          <SortHeader sortKey="name" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)}>Staff</SortHeader>
                         </th>
                         <th className="px-2 py-2.5 font-medium text-right">
-                          <button onClick={() => toggleSort("hours")} className="hover:text-slate-900">
-                            Total hrs {sortKey === "hours" && (sortDir === "asc" ? "▲" : "▼")}
-                          </button>
+                          <SortHeader sortKey="shifts" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Shifts</SortHeader>
                         </th>
-                        <th className="px-2 py-2.5 font-medium text-right">Rate</th>
+                        <th className="px-2 py-2.5 font-medium text-right">
+                          <SortHeader sortKey="standard" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Standard</SortHeader>
+                        </th>
+                        <th className="px-2 py-2.5 font-medium text-right">
+                          <SortHeader sortKey="overtime" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Overtime</SortHeader>
+                        </th>
+                        <th className="px-2 py-2.5 font-medium text-right">
+                          <SortHeader sortKey="hours" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Total hrs</SortHeader>
+                        </th>
+                        <th className="px-2 py-2.5 font-medium text-right">
+                          <SortHeader sortKey="rate" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Rate</SortHeader>
+                        </th>
                         <th className="px-3 py-2.5 font-medium text-right">
-                          <button onClick={() => toggleSort("wage")} className="hover:text-slate-900">
-                            Wage {sortKey === "wage" && (sortDir === "asc" ? "▲" : "▼")}
-                          </button>
+                          <SortHeader sortKey="wage" activeKey={sortKey} activeDir={sortDir} onToggle={(k) => toggleSort(k as SortKey)} align="right">Wage</SortHeader>
                         </th>
                       </tr>
                     </thead>
