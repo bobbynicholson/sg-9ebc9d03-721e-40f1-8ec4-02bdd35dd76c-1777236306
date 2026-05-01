@@ -99,7 +99,7 @@ export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
   quote_chase:       "Quote chase",
   quote_accepted:    "Quote accepted, next steps",
   event_week:        "Event this week",
-  event_day_morning: "Event day -- morning",
+  event_day_morning: "Event day, morning",
   event_arrived:     "We are on site",
   delay_alert:       "Running late",
 };
@@ -132,7 +132,7 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
   // 2. Hardcoded defaults (existing UX, unchanged).
   const first = firstName(ctx.contactName);
   const sig = ctx.fromName || ctx.companyName || "";
-  const sigLine = sig ? `\n\n-- ${sig}` : "";
+  const sigLine = sig ? `\n\n${sig}` : "";
   const eventLine = ctx.eventName
     ? ctx.eventDate ? `your ${ctx.eventName} on ${ctx.eventDate}` : `your ${ctx.eventName}`
     : ctx.eventDate ? `your event on ${ctx.eventDate}` : `your event`;
@@ -141,7 +141,7 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
 
   switch (kind) {
     case "lead_followup":
-      return `Hi ${first}, thanks for the enquiry about ${eventLine}. Quick check -- still on for the date? Happy to put a quote together as soon as I have final guest numbers.${sigLine}`;
+      return `Hi ${first}, thanks for the enquiry about ${eventLine}. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.${sigLine}`;
 
     case "quote_sent":
       return `Hi ${first}, just sent the quote across for ${eventLine}${ref}.${totalLine} Have a look when you can and let me know if anything needs tweaking.${sigLine}`;
@@ -170,7 +170,7 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
 
     case "delay_alert": {
       const mins = ctx.delayMinutes != null ? `${ctx.delayMinutes} min` : "a few minutes";
-      return `Hi ${first}, quick heads-up -- running about ${mins} behind. Driver is on the way and I will message again as soon as we are pulling in.${sigLine}`;
+      return `Hi ${first}, quick heads up. Running about ${mins} behind. Driver is on the way and I will message again as soon as we are pulling in.${sigLine}`;
     }
   }
 }
@@ -247,7 +247,7 @@ export function renderStaffWhatsApp(kind: StaffWhatsAppKind, ctx: StaffWhatsAppC
   // 2. Hardcoded defaults (existing UX, unchanged).
   const first = firstName(ctx.staffName);
   const sig = ctx.fromName || ctx.companyName || "";
-  const sigLine = sig ? `\n\n-- ${sig}` : "";
+  const sigLine = sig ? `\n\n${sig}` : "";
   const shift = ctx.shiftDate
     ? ctx.shiftTime ? `${ctx.shiftDate} (${ctx.shiftTime})` : ctx.shiftDate
     : "the shift";
@@ -269,6 +269,6 @@ export function renderStaffWhatsApp(kind: StaffWhatsAppKind, ctx: StaffWhatsAppC
       return `Hi ${first}, quick check-in. All good for today? Shout if anything is off.${sigLine}`;
 
     case "schedule_change":
-      return `Hi ${first}, heads-up -- there is a schedule change on your shift for ${shift}. Open your team portal for the latest version.${sigLine}`;
+      return `Hi ${first}, heads up. There is a schedule change on your shift for ${shift}. Open your team portal for the latest version.${sigLine}`;
   }
 }

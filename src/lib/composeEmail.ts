@@ -106,10 +106,15 @@ export interface TemplateContext {
  * Add registry entries + map rows together to extend coverage.
  */
 const CLIENT_STATUS_TO_REGISTRY: Partial<Record<ClientStatus, string>> = {
-  hot_lead: "email_lead_hot",
-  quoted:   "email_lead_quoted",
-  quiet:    "email_lead_quiet",
-  lost:     "email_lead_lost",
+  hot_lead:  "email_lead_hot",
+  quoted:    "email_lead_quoted",
+  quiet:     "email_lead_quiet",
+  lost:      "email_lead_lost",
+  active:    "email_client_active",
+  returning: "email_client_returning",
+  vip:       "email_client_vip",
+  cold:      "email_client_cold",
+  won:       "email_client_won",
 };
 
 /** Build the registry context object from a TemplateContext. */
@@ -225,6 +230,8 @@ const QUOTE_STATUS_TO_REGISTRY: Partial<Record<QuoteStatus, string>> = {
   revised:  "email_quote_revised",
   accepted: "email_quote_accepted",
   expired:  "email_quote_expired",
+  draft:    "email_quote_draft",
+  rejected: "email_quote_rejected",
 };
 
 function buildQuoteCtx(ctx: QuoteTemplateContext): Record<string, string | number> {

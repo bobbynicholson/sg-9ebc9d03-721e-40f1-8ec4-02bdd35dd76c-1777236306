@@ -224,7 +224,7 @@ export function WhatsAppButton(props: Props) {
         />
 
         <p className="text-[10px] text-slate-500 leading-snug">
-          Opens WhatsApp with the message pre-filled. You hit send -- nothing leaves until you do.
+          Opens WhatsApp with the message pre-filled. You hit send. Nothing leaves until you do.
         </p>
 
         <Button

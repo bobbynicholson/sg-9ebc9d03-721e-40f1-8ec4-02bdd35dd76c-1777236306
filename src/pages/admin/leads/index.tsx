@@ -20,6 +20,7 @@ import {
   Send, MailQuestion, RefreshCw,
 } from "lucide-react";
 import { composeEmail } from "@/lib/composeEmail";
+import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { useToast } from "@/hooks/use-toast";
@@ -155,10 +156,23 @@ function suggestionCtaIcon(kind: LeadActionKind) {
  * the catering team's name. Lifts the same shape as the quote
  * compose templates so the body reads natural in Gmail / Outlook.
  */
+// Map LeadActionKind values to the registry key the override resolver
+// looks up. Statuses without a key fall through to the hardcoded
+// default in the switch below (existing UX, unchanged).
+const LEAD_ACTION_TO_REGISTRY: Partial<Record<LeadActionKind, string>> = {
+  reply_email: "email_lead_reply",
+  touch_base:  "email_lead_touch_base",
+  follow_up:   "email_lead_follow_up",
+  chase_quote: "email_lead_chase_quote",
+  winback:     "email_lead_winback",
+  reopen:      "email_lead_reopen",
+};
+
 function templateForLeadAction(
   kind: LeadActionKind,
   lead: any,
   fromName: string,
+  companyId?: string | null,
 ): { subject: string; body: string } {
   const first = String(lead.client_name || "there").split(" ")[0];
   const eventLine = lead.event_type
@@ -170,6 +184,31 @@ function templateForLeadAction(
       : `your enquiry`;
   const sig = `\n\nBest,\n${fromName || "the team"}`;
 
+  // 1. Override path -- silent fallback to default when no customisation.
+  const overrideKey = LEAD_ACTION_TO_REGISTRY[kind];
+  if (overrideKey) {
+    const eventDateLabel = lead.event_date
+      ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+      : "";
+    const resolved = resolveTemplateSync({
+      companyId: companyId ?? null,
+      key: overrideKey,
+      ctx: {
+        first_name:   first,
+        client_name:  lead.client_name || "",
+        company_name: "",
+        from_name:    fromName || "the team",
+        event_name:   lead.event_type || "your event",
+        event_date:   eventDateLabel,
+        guest_count:  lead.guest_count ?? "",
+      },
+    });
+    if (resolved && resolved.fromOverride) {
+      return { subject: resolved.subject, body: resolved.body };
+    }
+  }
+
+  // 2. Hardcoded defaults (existing UX, unchanged).
   switch (kind) {
     case "reply_email":
       return {
@@ -784,6 +823,7 @@ export default function AdminLeads() {
             lead={composeLead}
             kind={composeKind}
             fromName={fromName}
+            companyId={profile?.company_id ?? null}
             onSent={async () => {
               // Mark the lead as 'contacted' if it was still 'new', so
               // the suggestion strip flips to 'Touch base' next time
@@ -858,15 +898,16 @@ export default function AdminLeads() {
  * so this component stays easy to test in isolation.
  */
 function LeadComposeDrawer({
-  lead, kind, fromName, onSent, onClose,
+  lead, kind, fromName, companyId, onSent, onClose,
 }: {
   lead: any;
   kind: LeadActionKind;
   fromName: string;
+  companyId?: string | null;
   onSent: () => Promise<void> | void;
   onClose: () => void;
 }) {
-  const tpl = templateForLeadAction(kind, lead, fromName);
+  const tpl = templateForLeadAction(kind, lead, fromName, companyId);
 
   const ageDays = lead.created_at
     ? Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86_400_000)

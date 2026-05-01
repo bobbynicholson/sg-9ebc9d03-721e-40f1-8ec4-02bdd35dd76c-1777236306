@@ -190,13 +190,188 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "client",
     group: "Quote",
     label: "Quote expired",
-    description: "Old quote that's lapsed -- offer a fresh one.",
+    description: "Old quote that's lapsed. Offer a fresh one.",
     defaultSubject: "Your quote has expired, want me to refresh it?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `The quote we sent for your {{event_name}} on {{event_date}} has lapsed. Pricing on a few items may have shifted since.\n\n` +
       `If the event is still on, I can put a fresh quote across in a few minutes. Just confirm guest numbers and venue and I will get it out today.\n\nBest,\n{{from_name}}`,
     variables: QUOTE_VARS,
+  },
+  {
+    key: "email_quote_draft",
+    channel: "email",
+    category: "client",
+    group: "Quote",
+    label: "Quote in draft",
+    description: "Heads-up that the quote is being prepared.",
+    defaultSubject: "Quick note about your quote{{quote_ref}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Just a heads up that I am polishing your quote for {{event_name}} on {{event_date}}. I will have it across to you shortly. If anything has changed on your side (guest count, venue, dietary), let me know now so I can fold it in.\n\nBest,\n{{from_name}}`,
+    variables: QUOTE_VARS,
+  },
+  {
+    key: "email_quote_rejected",
+    channel: "email",
+    category: "client",
+    group: "Win-back",
+    label: "Quote rejected, soft win-back",
+    description: "Client passed on the quote. Door-open response.",
+    defaultSubject: "Following up",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Understand the quote did not land this time. No hard feelings. Happy to be kept in mind for the next event. If anything comes up where we can help, drop me a line and I will put a fresh quote together quickly.\n\nBest,\n{{from_name}}`,
+    variables: QUOTE_VARS,
+  },
+  // --- CLIENT EMAIL: relationship lifecycle ---
+  {
+    key: "email_client_active",
+    channel: "email",
+    category: "client",
+    group: "Active client",
+    label: "Final details for upcoming event",
+    description: "Active client, event coming up. Confirm last details.",
+    defaultSubject: "Final details for {{event_date}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Quick check-in. Everything's on track for your upcoming event. Would you like to confirm guest numbers and any last menu tweaks this week?\n\n` +
+      `Reply here and I'll lock it in.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_client_returning",
+    channel: "email",
+    category: "client",
+    group: "Active client",
+    label: "Returning client check-in",
+    description: "Booked with us before. Warm follow-up.",
+    defaultSubject: "Good to have you back",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Always nice to see your name in the inbox. Let's lock in the next one when you have the details. Same flow as before, anything you want to tweak this time around just shout.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_client_vip",
+    channel: "email",
+    category: "client",
+    group: "Active client",
+    label: "VIP, no agenda check-in",
+    description: "Top client, friendly note with no pitch.",
+    defaultSubject: "It's been a while, how are things?",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `No agenda here. Just wanted to drop a note and say hi.\n\n` +
+      `If there's anything coming up where we can help, you know where to find me.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_client_cold",
+    channel: "email",
+    category: "client",
+    group: "Win-back",
+    label: "Cold lead, gentle re-engage",
+    description: "Long pause since the last booking.",
+    defaultSubject: "Hello again",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Reaching out after a long pause. We've added a few things to the menu since you last booked. Worth a look if you have anything coming up.\n\n` +
+      `No pressure, just keeping the door open.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_client_won",
+    channel: "email",
+    category: "client",
+    group: "Active client",
+    label: "Confirmed booking, generic check-in",
+    description: "Default catch-all for confirmed clients.",
+    defaultSubject: "Quick check-in",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Hope all is well. Let me know if there's anything we can help with on the catering side.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  // --- LEAD ACTIONS (button-driven follow-ups in /admin/leads) ---
+  {
+    key: "email_lead_reply",
+    channel: "email",
+    category: "client",
+    group: "Lead follow-up",
+    label: "Lead reply (fresh enquiry)",
+    description: "First reply when a fresh lead lands.",
+    defaultSubject: "Thanks for reaching out about {{event_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Thanks for getting in touch about your {{event_name}} on {{event_date}}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\n` +
+      `Happy to walk through menu options if it would help.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_lead_touch_base",
+    channel: "email",
+    category: "client",
+    group: "Lead follow-up",
+    label: "Touch base on a warm lead",
+    description: "A few days after the initial enquiry, no quote yet.",
+    defaultSubject: "Quick check-in on your {{event_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Just circling back on your {{event_name}}. Did anything come up that I can help with on the catering side? Happy to share menu ideas before you commit to anything.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_lead_follow_up",
+    channel: "email",
+    category: "client",
+    group: "Lead follow-up",
+    label: "Follow up on a quiet lead",
+    description: "Last nudge before the lead goes cold.",
+    defaultSubject: "Following up",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `It has been a few days since we last touched on your {{event_name}}. Wanted to make sure your enquiry has not slipped through. Reply here and I can have a quote across to you the same day.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_lead_chase_quote",
+    channel: "email",
+    category: "client",
+    group: "Quote",
+    label: "Chase a sent quote (lead-side)",
+    description: "Lead has a quote but has gone quiet.",
+    defaultSubject: "Following up on your quote",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Just circling back on the quote we sent for your {{event_name}}. Anything you would like changed, or shall we lock the date in?\n\nBest,\n{{from_name}}`,
+    variables: QUOTE_VARS,
+  },
+  {
+    key: "email_lead_winback",
+    channel: "email",
+    category: "client",
+    group: "Win-back",
+    label: "Lead win-back",
+    description: "Quote did not land. Soft door-open note.",
+    defaultSubject: "Door is still open",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Understand the last quote did not land for your {{event_name}}. No hard feelings. Happy to be considered for the next one. If anything comes up, drop me a line and I will put a fresh quote across quickly.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
+    key: "email_lead_reopen",
+    channel: "email",
+    category: "client",
+    group: "Win-back",
+    label: "Reopen a lost lead",
+    description: "Lead was marked lost. No agenda nudge.",
+    defaultSubject: "Hello again",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `No agenda here, just keeping the door open. If anything comes up where we can help on the catering side, I am happy to put together a quick quote.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
   },
 
   // --- CLIENT WHATSAPP ---
@@ -208,7 +383,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     label: "Lead follow-up",
     description: "First WhatsApp on a fresh enquiry.",
     defaultBody:
-      `Hi {{first_name}}, thanks for the enquiry about your event. Quick check -- still on for the date? Happy to put a quote together as soon as I have final guest numbers.\n\n-- {{from_name}}`,
+      `Hi {{first_name}}, thanks for the enquiry about your event. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.\n\n{{from_name}}`,
     variables: COMMON_CLIENT_VARS,
   },
   {
@@ -260,7 +435,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Day of event",
-    label: "Event day -- morning",
+    label: "Event day, morning",
     description: "We're prepping, driver leaves at X.",
     defaultBody:
       `Hi {{first_name}}, all set for today. Driver should be on site around the agreed time. Reply to this message if anything changes on your side.\n\n-- {{from_name}}`,
@@ -285,7 +460,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     label: "Running late",
     description: "Heads-up message when there's a delay.",
     defaultBody:
-      `Hi {{first_name}}, quick heads-up -- running a few minutes behind. Driver is on the way and I will message again as soon as we are pulling in.\n\n-- {{from_name}}`,
+      `Hi {{first_name}}, quick heads up. running a few minutes behind. Driver is on the way and I will message again as soon as we are pulling in.\n\n-- {{from_name}}`,
     variables: COMMON_CLIENT_VARS,
   },
 
@@ -342,7 +517,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     label: "Schedule change",
     description: "Alert about a shift schedule update.",
     defaultBody:
-      `Hi {{first_name}}, heads-up -- there is a schedule change on your shift for {{shift_date}}. Open your team portal for the latest version.\n\n-- {{from_name}}`,
+      `Hi {{first_name}}, heads up. there is a schedule change on your shift for {{shift_date}}. Open your team portal for the latest version.\n\n-- {{from_name}}`,
     variables: STAFF_VARS,
   },
 ];

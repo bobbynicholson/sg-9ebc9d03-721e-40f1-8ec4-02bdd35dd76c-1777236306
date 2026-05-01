@@ -105,8 +105,8 @@ function MessagingTemplatesPage() {
       <AdminNav />
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-        <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80">
-          <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
+        <div className="overflow-x-hidden lg:pl-72 xl:pl-80">
+          <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 pb-24 max-w-screen-2xl">
 
             {/* HEADER */}
             <div className="mb-6">
@@ -256,7 +256,11 @@ function MessagingTemplatesPage() {
         </SheetContent>
       </Sheet>
 
-      <Footer />
+      {/* Footer sits inside the sidebar-offset wrapper so the sidebar
+          never overlaps it on desktop. */}
+      <div className="lg:pl-72 xl:pl-80">
+        <Footer />
+      </div>
     </>
   );
 }
