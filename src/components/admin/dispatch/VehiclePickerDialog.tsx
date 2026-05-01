@@ -68,7 +68,7 @@ export function VehiclePickerDialog({
   const [primaryId, setPrimaryId] = useState<string | null>(order.assigned_vehicle_id ?? null);
   const [secondaryId, setSecondaryId] = useState<string | null>(order.secondary_vehicle_id ?? null);
 
-  const window = useMemo(() => computeOrderVehicleWindow({
+  const runWindow = useMemo(() => computeOrderVehicleWindow({
     eventDate: order.event_date,
     eventTime: order.event_time,
     requiresWaiter: !!order.requires_waiter,
@@ -81,8 +81,8 @@ export function VehiclePickerDialog({
     setLoading(true);
     vehicleService.findAvailableVehicles({
       companyId,
-      bookedFrom: window.booked_from.toISOString(),
-      bookedUntil: window.booked_until.toISOString(),
+      bookedFrom: runWindow.booked_from.toISOString(),
+      bookedUntil: runWindow.booked_until.toISOString(),
       requiresRefrigeration: !!order.requires_refrigeration,
       guestCount: order.guest_count ?? null,
       driverId: order.assigned_driver_id ?? null,
@@ -105,8 +105,8 @@ export function VehiclePickerDialog({
         orderId: order.id,
         vehicleId,
         driverId: order.assigned_driver_id ?? null,
-        bookedFrom: window.booked_from,
-        bookedUntil: window.booked_until,
+        bookedFrom: runWindow.booked_from,
+        bookedUntil: runWindow.booked_until,
         notes: "Primary vehicle picked from the override dialog.",
       });
 
@@ -155,8 +155,8 @@ export function VehiclePickerDialog({
           vehicle_id: vehicleId,
           order_id: order.id,
           driver_id: order.secondary_driver_id ?? null,
-          booked_from: window.booked_from.toISOString(),
-          booked_until: window.booked_until.toISOString(),
+          booked_from: runWindow.booked_from.toISOString(),
+          booked_until: runWindow.booked_until.toISOString(),
           status: "planned",
           notes: "Secondary vehicle for a multi-vehicle run.",
         }]);
@@ -247,8 +247,8 @@ export function VehiclePickerDialog({
             Vehicle for {order.client_name || "order"}
           </DialogTitle>
           <p className="text-sm text-slate-500">
-            Round-trip window: <span className="font-mono">{fmtTime(window.booked_from)}</span>
-            {" "}to <span className="font-mono">{fmtTime(window.booked_until)}</span> on{" "}
+            Round-trip window: <span className="font-mono">{fmtTime(runWindow.booked_from)}</span>
+            {" "}to <span className="font-mono">{fmtTime(runWindow.booked_until)}</span> on{" "}
             {new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}.
             Vehicles already booked for this window are filtered out.
           </p>

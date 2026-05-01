@@ -20,6 +20,7 @@ import {
   AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles,
   ChevronDown, ChevronRight, X, CheckCircle2, Building2, MapPin, Filter,
   ArrowUpRight, MoreHorizontal,
+  Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -38,7 +39,6 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
 import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
-import { Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon } from "lucide-react";
 
 interface OrderRow {
   id: string;

@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Truck, Plus, Snowflake, Edit, Trash2, AlertCircle, Search, Flame,
-  User, Building2, Users, Package,
+  User, Building2, Users,
 } from "lucide-react";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
