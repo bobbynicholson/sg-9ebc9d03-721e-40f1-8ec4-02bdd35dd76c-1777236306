@@ -183,13 +183,17 @@ export async function buildAccountingPayloadForQuote(quoteId: string, documentTy
   return buildAccountingDocumentFromQuote({ quote, company, documentType });
 }
 
+/** Accounting providers we map to. Keep this in lock-step with the
+ *  integrations table's integration_type values + the API route names
+ *  in /api/integrations/{provider}/sync-quote. */
+export type AccountingProvider = "xero" | "quickbooks" | "sage";
+
 /**
- * Check whether the current user has an active Xero integration row.
- * Returns true when the OAuth flow is in place and a fetch to the
- * sync endpoint can succeed. Used to gate the 'Push to Xero' button:
- * when false, we surface 'Connect Xero in Integrations' instead.
+ * Check whether the current user has an active integration row for
+ * the given provider. Returns true when the OAuth flow is in place
+ * and a fetch to the sync endpoint can succeed.
  */
-export async function isXeroConnected(): Promise<boolean> {
+export async function isAccountingConnected(provider: AccountingProvider): Promise<boolean> {
   try {
     const { data: user } = await (supabase as any).auth.getUser();
     if (!user?.user) return false;
@@ -197,7 +201,7 @@ export async function isXeroConnected(): Promise<boolean> {
       .from("integrations")
       .select("id, is_active")
       .eq("user_id", user.user.id)
-      .eq("integration_type", "xero")
+      .eq("integration_type", provider)
       .eq("is_active", true)
       .maybeSingle();
     return !!integration;
@@ -206,29 +210,47 @@ export async function isXeroConnected(): Promise<boolean> {
   }
 }
 
-/**
- * Push a quote to Xero. Wraps the existing xeroIntegrationService
- * path with the canonical mapper above so the UI doesn't need to
- * know how Xero shapes data.
- *
- * Until the Xero OAuth + server endpoint pair are configured, this
- * will fall back to returning the prepared payload so the UI can
- * offer 'Copy JSON' as a manual stop-gap.
- */
-export async function pushQuoteToXero(quoteId: string): Promise<{
+/** Back-compat shim. */
+export async function isXeroConnected(): Promise<boolean> {
+  return isAccountingConnected("xero");
+}
+export async function isQuickBooksConnected(): Promise<boolean> {
+  return isAccountingConnected("quickbooks");
+}
+export async function isSageConnected(): Promise<boolean> {
+  return isAccountingConnected("sage");
+}
+
+export interface PushResult {
   ok: boolean;
   reason?: "not_connected" | "no_endpoint" | "error";
   payload?: AccountingDocument;
   error?: string;
-}> {
-  const payload = await buildAccountingPayloadForQuote(quoteId, "Quote");
+}
+
+/**
+ * Push a quote to one of the supported accounting packages. The
+ * canonical AccountingDocument is generic enough that the per-provider
+ * adapter at the API route can shape-shift to Xero / QBO / Sage
+ * without the UI needing to care.
+ *
+ * Until the OAuth flow + the per-provider /api/integrations/{provider}/
+ * sync-quote endpoint are deployed, the call returns 'no_endpoint' and
+ * the UI falls back to a 'Copy JSON' clipboard stop-gap so the operator
+ * can paste into the package manually.
+ */
+export async function pushQuoteToAccounting(args: {
+  quoteId: string;
+  provider: AccountingProvider;
+}): Promise<PushResult> {
+  const payload = await buildAccountingPayloadForQuote(args.quoteId, "Quote");
   if (!payload) return { ok: false, reason: "error", error: "Couldn't build the payload for this quote." };
 
-  const connected = await isXeroConnected();
+  const connected = await isAccountingConnected(args.provider);
   if (!connected) return { ok: false, reason: "not_connected", payload };
 
   try {
-    const res = await fetch("/api/integrations/xero/sync-quote", {
+    const res = await fetch(`/api/integrations/${args.provider}/sync-quote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
@@ -236,8 +258,8 @@ export async function pushQuoteToXero(quoteId: string): Promise<{
     });
     if (!res.ok) {
       const text = await res.text();
-      // 404 means the server endpoint isn't deployed yet -- not the
-      // operator's fault. Tell them and offer the fallback.
+      // 404 means the server endpoint isn't deployed yet for this
+      // provider -- tell the operator and offer the fallback.
       if (res.status === 404) {
         return { ok: false, reason: "no_endpoint", payload };
       }
@@ -246,5 +268,27 @@ export async function pushQuoteToXero(quoteId: string): Promise<{
     return { ok: true, payload };
   } catch (err: any) {
     return { ok: false, reason: "error", error: err?.message, payload };
+  }
+}
+
+/** Back-compat shim. Existing callers can keep using this name. */
+export async function pushQuoteToXero(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "xero" });
+}
+export async function pushQuoteToQuickBooks(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "quickbooks" });
+}
+export async function pushQuoteToSage(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "sage" });
+}
+
+/**
+ * Friendly label for the provider, used in toasts + buttons.
+ */
+export function accountingProviderLabel(provider: AccountingProvider): string {
+  switch (provider) {
+    case "xero":       return "Xero";
+    case "quickbooks": return "QuickBooks";
+    case "sage":       return "Sage";
   }
 }

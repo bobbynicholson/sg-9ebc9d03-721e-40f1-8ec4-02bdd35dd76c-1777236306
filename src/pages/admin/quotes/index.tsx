@@ -54,7 +54,15 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
-import { pushQuoteToXero } from "@/services/accountingExportService";
+import {
+  pushQuoteToAccounting,
+  accountingProviderLabel,
+  type AccountingProvider,
+  type PushResult,
+} from "@/services/accountingExportService";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   deriveQuoteIntelligence,
   summariseAutoEmailsByQuote,
@@ -932,50 +940,65 @@ export default function AdminQuotes() {
                                 <FileText className="w-4 h-4 mr-2" />
                                 PDF
                               </Button>
-                              {/* Push to Xero. Tries the live endpoint
-                                  first; falls back to a 'Copy JSON'
-                                  toast when Xero isn't connected yet
-                                  or the server endpoint isn't live --
-                                  the operator can paste into Xero
-                                  manually as a stop-gap. */}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                title="Push this quote to your accounting package (Xero)"
-                                onClick={async () => {
-                                  const res = await pushQuoteToXero(quote.id);
-                                  if (res.ok) {
-                                    toast({ title: "Synced to Xero", description: `Quote ${quote.quote_number} pushed as a draft.` });
-                                    return;
-                                  }
-                                  if (res.reason === "not_connected") {
-                                    toast({
-                                      title: "Connect Xero first",
-                                      description: "Open Integrations to link your Xero account, then try again.",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  if (res.reason === "no_endpoint") {
-                                    if (res.payload && typeof window !== "undefined") {
-                                      try {
-                                        await navigator.clipboard.writeText(JSON.stringify(res.payload, null, 2));
-                                        toast({
-                                          title: "Xero endpoint not deployed yet",
-                                          description: "Copied the prepared payload to your clipboard so you can paste into Xero manually for now.",
-                                        });
-                                      } catch {
-                                        toast({ title: "Couldn't copy payload", variant: "destructive" });
-                                      }
-                                    }
-                                    return;
-                                  }
-                                  toast({ title: "Couldn't sync to Xero", description: res.error, variant: "destructive" });
-                                }}
-                              >
-                                <ExternalLink className="w-4 h-4 mr-2" />
-                                Push to Xero
-                              </Button>
+                              {/* Push to accounting. Three providers
+                                  share one canonical payload; the
+                                  per-provider API route adapter shapes
+                                  it for Xero / QuickBooks / Sage.
+                                  Until OAuth + endpoint are deployed
+                                  per provider, the click falls back
+                                  to copying the JSON to the clipboard
+                                  so the operator can paste into the
+                                  package manually as a stop-gap. */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    title="Push this quote to your accounting package"
+                                  >
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    Push to accounting
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {(["xero", "quickbooks", "sage"] as AccountingProvider[]).map((p) => (
+                                    <DropdownMenuItem
+                                      key={p}
+                                      onClick={async () => {
+                                        const res: PushResult = await pushQuoteToAccounting({ quoteId: quote.id, provider: p });
+                                        const label = accountingProviderLabel(p);
+                                        if (res.ok) {
+                                          toast({ title: `Synced to ${label}`, description: `Quote ${quote.quote_number} pushed as a draft.` });
+                                          return;
+                                        }
+                                        if (res.reason === "not_connected") {
+                                          toast({
+                                            title: `Connect ${label} first`,
+                                            description: "Open Integrations to link the account, then try again.",
+                                            variant: "destructive",
+                                          });
+                                          return;
+                                        }
+                                        if (res.reason === "no_endpoint" && res.payload && typeof window !== "undefined") {
+                                          try {
+                                            await navigator.clipboard.writeText(JSON.stringify(res.payload, null, 2));
+                                            toast({
+                                              title: `${label} endpoint not deployed yet`,
+                                              description: `Copied the prepared payload to your clipboard so you can paste into ${label} manually for now.`,
+                                            });
+                                          } catch {
+                                            toast({ title: "Couldn't copy payload", variant: "destructive" });
+                                          }
+                                          return;
+                                        }
+                                        toast({ title: `Couldn't sync to ${label}`, description: res.error, variant: "destructive" });
+                                      }}
+                                    >
+                                      {accountingProviderLabel(p)}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </>
                           )}
                           <Button
