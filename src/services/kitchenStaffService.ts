@@ -400,7 +400,9 @@ export const kitchenStaffService = {
     // the same ISO week.
     const shiftStart = new Date(shift.shift_start);
     const dateStr = shiftStart.toISOString().slice(0, 10);
-    const { data: holidayRow } = await supabase
+    // Cast through any -- the public_holidays table was added by migration
+    // 20260502130000 but the generated DB types haven't been refreshed yet.
+    const { data: holidayRow } = await (supabase as any)
       .from("public_holidays")
       .select("id")
       .eq("date", dateStr)
