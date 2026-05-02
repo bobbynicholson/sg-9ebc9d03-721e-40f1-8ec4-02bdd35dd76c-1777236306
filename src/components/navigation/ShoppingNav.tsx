@@ -170,7 +170,7 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
     return false;
   };
 
-  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
+  const NavContent = ({ mobile = false, hideSignOut = false }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
     <ScrollArea className="h-full py-6 px-4">
       <div className="space-y-6">
         {mobile && (
@@ -225,7 +225,9 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
             </CollapsibleNavSection>
           );
         })}
-        <div className="pt-4 border-t border-slate-100"><SignOutButton /></div>
+        {!hideSignOut && (
+          <div className="pt-4 border-t border-slate-100"><SignOutButton /></div>
+        )}
       </div>
     </ScrollArea>
   );
@@ -233,7 +235,10 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
   return (
     <>
       {/* Mobile Navigation */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+      <div
+        className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Sheet open={open} onOpenChange={setOpen}>
@@ -242,12 +247,26 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[350px] p-0">
-                <div className="px-6 py-4 border-b bg-gradient-to-r from-green-500 to-emerald-500">
+              <SheetContent
+                side="left"
+                className="w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col"
+              >
+                <div
+                  className="px-6 py-4 border-b bg-gradient-to-r from-green-500 to-emerald-500 flex-shrink-0"
+                  style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
+                >
                   <h2 className="text-xl font-bold text-white">Shopping Portal</h2>
                   <p className="text-sm text-green-100 mt-1">Manage inventory</p>
                 </div>
-                <NavContent mobile />
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <NavContent mobile hideSignOut />
+                </div>
+                <div
+                  className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex-shrink-0 bg-white dark:bg-slate-900"
+                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
+                >
+                  <SignOutButton />
+                </div>
               </SheetContent>
             </Sheet>
             <Link href={"/team-portal/shopping/dashboard"} className="flex items-center gap-2">

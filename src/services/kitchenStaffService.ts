@@ -167,7 +167,7 @@ export function splitBCEA(args: {
   const dailyCap = Math.max(0, Math.round(args.standardHoursPerDay * 60));
   const weeklyCap = Math.max(0, Math.round(args.weeklyOrdinaryHours * 60));
   const dailyOvertime = Math.max(0, args.workedMin - dailyCap);
-  let standardCandidate = Math.min(args.workedMin, dailyCap);
+  const standardCandidate = Math.min(args.workedMin, dailyCap);
   // Anything beyond the weekly ordinary cap also becomes overtime.
   const remainingWeekly = Math.max(0, weeklyCap - args.weekToDateOrdinaryMin);
   const weeklyOvertime = Math.max(0, standardCandidate - remainingWeekly);

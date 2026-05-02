@@ -122,7 +122,10 @@ export function ClientNav() {
   return (
     <>
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+      <div
+        className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top, 0.75rem))" }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setOpen(!open)}>
@@ -145,14 +148,15 @@ export function ClientNav() {
       {/* Mobile Menu Overlay */}
       {open && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 mt-16"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setOpen(false)}
         >
           <div
-            className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl overflow-y-auto"
+            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
+            style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
           >
-            <nav className="p-4 space-y-3">
+            <nav className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               <MobileSearchTrigger accent="bg-emerald-50 hover:bg-emerald-100 text-emerald-700" hint="Search orders, invoices..." />
               <MobileQuickActions
                 onNavigate={() => setOpen(false)}
@@ -195,6 +199,11 @@ export function ClientNav() {
                 );
               })}
               </div>
+            </nav>
+            <div
+              className="border-t border-slate-200 px-4 py-3 flex-shrink-0 bg-white"
+              style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
+            >
               <Button
                 variant="ghost"
                 className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -203,7 +212,7 @@ export function ClientNav() {
                 <LogOut className="w-5 h-5 mr-3" />
                 Sign Out
               </Button>
-            </nav>
+            </div>
           </div>
         </div>
       )}
