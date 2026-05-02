@@ -60,7 +60,7 @@ function PublicHolidaysAdmin() {
     if (!companyId) return;
     setLoading(true);
     // Pull globals + this tenant's customs in one fetch.
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("public_holidays")
       .select("*")
       .or(`company_id.is.null,company_id.eq.${companyId}`)
@@ -230,7 +230,7 @@ function PublicHolidaysAdmin() {
               onClick={async () => {
                 if (!confirmDelete) return;
                 try {
-                  const { error } = await (supabase as any)
+                  const { error } = await supabase
                     .from("public_holidays")
                     .delete()
                     .eq("id", confirmDelete.id);
@@ -282,7 +282,7 @@ function AddHolidayDialog({
     }
     setSaving(true);
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("public_holidays")
         .insert({
           company_id: companyId,

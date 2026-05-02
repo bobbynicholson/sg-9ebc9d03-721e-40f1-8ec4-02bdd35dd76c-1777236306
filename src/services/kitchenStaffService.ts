@@ -71,9 +71,8 @@ export interface KitchenShift {
   total_break_min: number;
   standard_min: number | null;
   overtime_min: number | null;
-  /** BCEA Sunday + public-holiday minutes. 2x rate. Stamped at clock-out.
-   *  Optional because rows pre-dating the BCEA migration won't have it. */
-  sunday_holiday_min?: number | null;
+  /** BCEA Sunday + public-holiday minutes. 2x rate. Stamped at clock-out. */
+  sunday_holiday_min: number | null;
   clocked_in_by: string | null;
   clocked_out_by: string | null;
   manual_override: boolean;
@@ -400,9 +399,7 @@ export const kitchenStaffService = {
     // the same ISO week.
     const shiftStart = new Date(shift.shift_start);
     const dateStr = shiftStart.toISOString().slice(0, 10);
-    // Cast through any -- the public_holidays table was added by migration
-    // 20260502130000 but the generated DB types haven't been refreshed yet.
-    const { data: holidayRow } = await (supabase as any)
+    const { data: holidayRow } = await supabase
       .from("public_holidays")
       .select("id")
       .eq("date", dateStr)
