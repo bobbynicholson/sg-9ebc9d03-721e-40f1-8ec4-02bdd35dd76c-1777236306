@@ -1,0 +1,163 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * POST /api/staff/[id]/invite-login
+ *
+ * Invite an existing kitchen_staff_members row to the portal: creates
+ * an auth user, sends them a magic-link / set-password email,
+ * provisions a profiles row in their company with the chosen role,
+ * and stamps staff.linked_profile_id so future actions on that staff
+ * member resolve to one identity.
+ *
+ * Use case: most kitchen + cleaning staff don't need a portal login;
+ * the manager clocks them in/out via the tile-board. But a sous chef
+ * who runs prep schedules, or a head cleaner who reports issues,
+ * eventually needs to log in. This endpoint lets the owner upgrade
+ * any staff member to a portal user without leaving /admin/staff.
+ *
+ * Tenant-scoped via session. Caller must be admin/owner/super_admin.
+ */
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createPagesServerClient } from "@/lib/supabase/server";
+import { getServiceSupabase } from "@/lib/supabase/service";
+
+const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
+
+const ROLE_MAP: Record<string, string> = {
+  kitchen_staff: "kitchen",
+  cleaning_staff: "cleaning",
+  shopping_staff: "shopping",
+  driver: "driver",
+  admin: "admin",
+  owner: "admin",
+};
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  try {
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+    const ssr = createPagesServerClient({ req, res });
+    const { data: { user: callerAuth } } = await ssr.auth.getUser();
+    if (!callerAuth) return res.status(401).json({ error: "Not signed in" });
+
+    const { data: callerProfile } = await ssr
+      .from("profiles")
+      .select("role, active_role, company_id")
+      .eq("id", callerAuth.id)
+      .single();
+    const callerRole = ((callerProfile as any)?.active_role || (callerProfile as any)?.role || "") as string;
+    if (!ALLOWED_CALLER_ROLES.has(callerRole)) {
+      return res.status(403).json({ error: "Only owners / admins can invite staff to the portal" });
+    }
+    const callerCompanyId = (callerProfile as any)?.company_id as string | null;
+    if (!callerCompanyId) return res.status(403).json({ error: "Account is not linked to a company" });
+
+    const staffId = String(req.query.id || "");
+    if (!staffId) return res.status(400).json({ error: "Missing staff id" });
+
+    const { role: requestedRole, redirectTo } = (req.body || {}) as { role?: string; redirectTo?: string };
+    const roleInput = (requestedRole || "kitchen_staff").toLowerCase();
+    const dbRole = ROLE_MAP[roleInput] || roleInput;
+
+    let admin: any;
+    try {
+      admin = getServiceSupabase();
+    } catch (e: any) {
+      console.error("Service role unavailable:", e);
+      return res.status(500).json({ error: "Server is missing service-role credentials." });
+    }
+
+    // Tenant check + grab staff details to seed the profile.
+    const { data: staff, error: staffErr } = await admin
+      .from("kitchen_staff_members")
+      .select("id, company_id, full_name, email, phone, linked_profile_id, departments, role_title")
+      .eq("id", staffId)
+      .maybeSingle();
+    if (staffErr || !staff) return res.status(404).json({ error: "Staff member not found" });
+    if (staff.company_id !== callerCompanyId && callerRole !== "super_admin") {
+      return res.status(403).json({ error: "Cross-tenant invite blocked" });
+    }
+    if (!staff.email) {
+      return res.status(400).json({ error: "Staff member has no email on record. Add one first." });
+    }
+    if (staff.linked_profile_id) {
+      return res.status(409).json({ error: "Staff member already has a portal login linked." });
+    }
+
+    // Look for an existing auth user with this email (e.g. a returning
+    // staff member who was invited before).
+    let authUserId: string | null = null;
+    try {
+      const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const match = existing?.users?.find((u: any) => u.email?.toLowerCase() === String(staff.email).toLowerCase());
+      if (match) authUserId = match.id;
+    } catch (lookupErr: any) {
+      console.warn("Auth user lookup failed:", lookupErr?.message);
+    }
+
+    if (!authUserId) {
+      // Create + send invite email (Supabase ships a built-in template).
+      const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
+        staff.email,
+        {
+          data: {
+            full_name: staff.full_name,
+            company_id: staff.company_id,
+            role: dbRole,
+            active_role: dbRole,
+            phone: staff.phone || null,
+            invited_from: "staff_admin",
+            staff_member_id: staff.id,
+          },
+          redirectTo: redirectTo || undefined,
+        },
+      );
+      if (inviteErr || !invited?.user) {
+        console.error("inviteUserByEmail failed:", inviteErr);
+        return res.status(500).json({ error: inviteErr?.message || "Could not send invite" });
+      }
+      authUserId = invited.user.id;
+    }
+
+    // Upsert a profile row so the auth user has a tenant + role on file
+    // the moment they accept the invite.
+    const { error: profileErr } = await admin
+      .from("profiles")
+      .upsert(
+        {
+          id: authUserId,
+          email: staff.email,
+          full_name: staff.full_name,
+          phone: staff.phone || null,
+          company_id: staff.company_id,
+          role: dbRole,
+          active_role: dbRole,
+          is_active: true,
+        },
+        { onConflict: "id" },
+      );
+    if (profileErr) {
+      console.error("Profile upsert failed:", profileErr);
+      return res.status(500).json({ error: profileErr.message });
+    }
+
+    // Stamp linked_profile_id so the staff member is now bound to the
+    // auth user.
+    const { error: linkErr } = await admin
+      .from("kitchen_staff_members")
+      .update({ linked_profile_id: authUserId, updated_at: new Date().toISOString() })
+      .eq("id", staffId);
+    if (linkErr) {
+      console.error("Linking staff to profile failed:", linkErr);
+      return res.status(500).json({ error: linkErr.message });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      profile_id: authUserId,
+      message: `Invite sent to ${staff.email}`,
+    });
+  } catch (e: any) {
+    console.error("invite-login crashed:", e);
+    return res.status(500).json({ error: e?.message || "Invite failed" });
+  }
+}

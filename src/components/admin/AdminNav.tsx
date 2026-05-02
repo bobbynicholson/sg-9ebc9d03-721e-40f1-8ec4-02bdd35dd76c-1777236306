@@ -321,6 +321,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Every staff member across kitchen, cleaning, shopping. Hourly / monthly / per-shift pay."
         },
         {
+          title: "Public holidays",
+          href: "/admin/public-holidays",
+          icon: Calendar,
+          description: "SA gazetted dates + your company customs. Drives the 2x BCEA rate."
+        },
+        {
           title: "Wage Dashboard",
           href: "/admin/wages",
           icon: DollarSign,

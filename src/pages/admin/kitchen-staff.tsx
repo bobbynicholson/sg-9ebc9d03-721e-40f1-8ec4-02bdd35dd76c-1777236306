@@ -102,6 +102,8 @@ function KitchenStaffPage() {
   const [draft, setDraft] = useState<DraftStaff>(EMPTY_DRAFT);
   const [error, setError] = useState("");
   const [archiveTarget, setArchiveTarget] = useState<KitchenStaffMember | null>(null);
+  const [inviteRole, setInviteRole] = useState<string>("kitchen_staff");
+  const [inviting, setInviting] = useState(false);
 
   const companyId = (profile as any)?.company_id as string | undefined;
 
@@ -267,6 +269,47 @@ function KitchenStaffPage() {
       setError(e?.message || "Could not save, check your inputs.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendInvite = async () => {
+    if (!editTarget) return;
+    if (!editTarget.email && !draft.email.trim()) {
+      setError("Add an email first -- the invite is sent there.");
+      return;
+    }
+    setInviting(true);
+    try {
+      // If the email was changed in the draft but not yet saved, save it
+      // first so the invite goes to the right address.
+      if (draft.email.trim() && draft.email.trim() !== (editTarget.email || "")) {
+        await kitchenStaffService.upsertStaff({
+          id: editTarget.id,
+          company_id: editTarget.company_id,
+          full_name: editTarget.full_name,
+          email: draft.email.trim(),
+        } as any);
+      }
+      const res = await fetch(`/api/staff/${editTarget.id}/invite-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: inviteRole,
+          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Could not send invite");
+      toast({
+        title: "Portal invite sent",
+        description: json.message || `Invite sent to ${draft.email || editTarget.email}`,
+      });
+      setDialogOpen(false);
+      load();
+    } catch (e: any) {
+      setError(e?.message || "Could not send invite");
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -742,6 +785,56 @@ function KitchenStaffPage() {
               />
             </div>
           </div>
+
+          {/* Portal access -- only meaningful when editing an existing
+              row (we need an id) and when the staff member doesn't
+              already have a login linked. */}
+          {editTarget && !editTarget.linked_profile_id && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 mt-3 space-y-2">
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900">Portal access</p>
+                  <p className="text-xs text-slate-600">
+                    Most kitchen / cleaning staff don&apos;t need a login -- the manager clocks them in. Invite this person only if they need to log in themselves (e.g. sous chef, head cleaner).
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">Login role</Label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  >
+                    <option value="kitchen_staff">Kitchen staff</option>
+                    <option value="cleaning_staff">Cleaning staff</option>
+                    <option value="shopping_staff">Shopping staff</option>
+                    <option value="driver">Driver</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendInvite}
+                  disabled={inviting || saving || (!editTarget.email && !draft.email.trim())}
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  {inviting ? "Sending..." : "Send portal invite"}
+                </Button>
+              </div>
+            </div>
+          )}
+          {editTarget && editTarget.linked_profile_id && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 mt-3">
+              <p className="text-sm font-semibold text-emerald-800">Portal access linked</p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                This staff member has a portal login. Manage roles + permissions on{" "}
+                <Link href="/admin/users" className="underline">Users</Link>.
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>

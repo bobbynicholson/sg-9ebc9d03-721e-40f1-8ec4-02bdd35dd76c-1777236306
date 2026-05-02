@@ -71,6 +71,8 @@ export interface KitchenShift {
   total_break_min: number;
   standard_min: number | null;
   overtime_min: number | null;
+  /** BCEA Sunday + public-holiday minutes. 2x rate. Stamped at clock-out. */
+  sunday_holiday_min: number | null;
   clocked_in_by: string | null;
   clocked_out_by: string | null;
   manual_override: boolean;
@@ -92,15 +94,18 @@ export interface StaffWageSummary {
   pay_type: StaffPayType;
   hourly_rate: number | null;
   overtime_rate: number | null;
+  sunday_holiday_rate: number | null;
   monthly_salary: number | null;
   shift_rate: number | null;
   shifts_count: number;
   standard_min: number;
   overtime_min: number;
+  sunday_holiday_min: number;
   break_min: number;
   total_min: number;
   standard_wage: number;
   overtime_wage: number;
+  sunday_holiday_wage: number;
   total_wage: number;
   open_shift: boolean; // true if a shift is currently in progress
 }
@@ -121,12 +126,66 @@ export function effectiveOvertimeRate(staff: { hourly_rate: number | null; overt
 /**
  * Split worked minutes into standard / overtime based on a daily threshold.
  * Pure -- used at clock-out and again at the owner roll-up.
+ *
+ * Kept for back-compat. New code should call splitBCEA which also handles
+ * Sundays + public holidays (2x) and the weekly 45h ordinary-hours cap.
  */
 export function splitStandardOvertime(workedMin: number, standardHoursPerDay: number): { standard_min: number; overtime_min: number } {
   const cap = Math.max(0, Math.round(standardHoursPerDay * 60));
   const standard_min = Math.min(workedMin, cap);
   const overtime_min = Math.max(0, workedMin - cap);
   return { standard_min, overtime_min };
+}
+
+/**
+ * BCEA-correct split. Three buckets:
+ *   - standard_min: ordinary hours (≤ 9h/day AND week-to-date ≤ 45h)
+ *   - overtime_min: hours over the daily cap, OR ordinary hours that
+ *                   would push the week-to-date past 45h
+ *   - sunday_holiday_min: every minute of a Sunday or public-holiday
+ *                         shift, no daily/weekly cap applied
+ *
+ * Sunday detection runs against the shift_start (local time of the
+ * server -- same approach as the existing daily threshold). Public
+ * holidays come from the caller (db lookup).
+ */
+export function splitBCEA(args: {
+  shiftStart: Date;
+  workedMin: number;
+  standardHoursPerDay: number;        // default 9
+  weeklyOrdinaryHours: number;        // default 45
+  isPublicHoliday: boolean;
+  /** Total ordinary minutes already worked this ISO week BEFORE this
+   *  shift. Used to compute how many ordinary minutes are left under
+   *  the weekly cap. Sundays + holidays don't count toward this. */
+  weekToDateOrdinaryMin: number;
+}): { standard_min: number; overtime_min: number; sunday_holiday_min: number } {
+  const isSunday = args.shiftStart.getDay() === 0;
+  if (isSunday || args.isPublicHoliday) {
+    return { standard_min: 0, overtime_min: 0, sunday_holiday_min: Math.max(0, args.workedMin) };
+  }
+  const dailyCap = Math.max(0, Math.round(args.standardHoursPerDay * 60));
+  const weeklyCap = Math.max(0, Math.round(args.weeklyOrdinaryHours * 60));
+  const dailyOvertime = Math.max(0, args.workedMin - dailyCap);
+  let standardCandidate = Math.min(args.workedMin, dailyCap);
+  // Anything beyond the weekly ordinary cap also becomes overtime.
+  const remainingWeekly = Math.max(0, weeklyCap - args.weekToDateOrdinaryMin);
+  const weeklyOvertime = Math.max(0, standardCandidate - remainingWeekly);
+  return {
+    standard_min: Math.max(0, standardCandidate - weeklyOvertime),
+    overtime_min: dailyOvertime + weeklyOvertime,
+    sunday_holiday_min: 0,
+  };
+}
+
+/** ISO week start (Monday 00:00 local) for a given date. */
+export function isoWeekStart(d: Date): Date {
+  const day = d.getDay();              // 0 Sun .. 6 Sat
+  const offset = day === 0 ? 6 : day - 1;
+  const start = new Date(d);
+  start.setDate(d.getDate() - offset);
+  start.setHours(0, 0, 0, 0);
+  return start;
 }
 
 /** Current worked minutes on an in-progress shift, accounting for any open break. */
@@ -315,12 +374,13 @@ export const kitchenStaffService = {
   }): Promise<KitchenShift> {
     const { data: shift, error: gErr } = await supabase
       .from("kitchen_staff_shifts")
-      .select("*, staff:staff_member_id ( standard_hours_per_day )")
+      .select("*, staff:staff_member_id ( standard_hours_per_day, weekly_ordinary_hours )")
       .eq("id", args.shiftId)
       .single();
     if (gErr || !shift) throw gErr || new Error("Shift not found");
 
     const stdHours = Number((shift as any).staff?.standard_hours_per_day ?? 9);
+    const weeklyHours = Number((shift as any).staff?.weekly_ordinary_hours ?? 45);
     const endIso = args.overrideEndAt || new Date().toISOString();
     const endMs = new Date(endIso).getTime();
     const startMs = new Date(shift.shift_start).getTime();
@@ -333,7 +393,44 @@ export const kitchenStaffService = {
       : 0;
     const totalBreakMin = (shift.total_break_min || 0) + openBreakMin + (args.extraBreakMin || 0);
     const workedMin = Math.max(0, grossMin - totalBreakMin);
-    const { standard_min, overtime_min } = splitStandardOvertime(workedMin, stdHours);
+
+    // BCEA split: detect Sunday / public holiday + look up week-to-date
+    // ordinary minutes from this staff member's other closed shifts in
+    // the same ISO week.
+    const shiftStart = new Date(shift.shift_start);
+    const dateStr = shiftStart.toISOString().slice(0, 10);
+    const { data: holidayRow } = await supabase
+      .from("public_holidays")
+      .select("id")
+      .eq("date", dateStr)
+      .or(`company_id.is.null,company_id.eq.${shift.company_id}`)
+      .limit(1)
+      .maybeSingle();
+    const isPublicHoliday = !!holidayRow;
+
+    const weekStart = isoWeekStart(shiftStart);
+    const { data: weekShifts } = await supabase
+      .from("kitchen_staff_shifts")
+      .select("standard_min, shift_start")
+      .eq("staff_member_id", shift.staff_member_id)
+      .eq("company_id", shift.company_id)
+      .gte("shift_start", weekStart.toISOString())
+      .lt("shift_start", new Date(weekStart.getTime() + 7 * 86400000).toISOString())
+      .neq("id", shift.id)
+      .is("deleted_at", null);
+    const weekToDateOrdinaryMin = (weekShifts || []).reduce(
+      (sum: number, w: any) => sum + (Number(w.standard_min) || 0),
+      0,
+    );
+
+    const { standard_min, overtime_min, sunday_holiday_min } = splitBCEA({
+      shiftStart,
+      workedMin,
+      standardHoursPerDay: stdHours,
+      weeklyOrdinaryHours: weeklyHours,
+      isPublicHoliday,
+      weekToDateOrdinaryMin,
+    });
 
     const patch: any = {
       shift_end: endIso,
@@ -341,6 +438,7 @@ export const kitchenStaffService = {
       break_started_at: null,
       standard_min,
       overtime_min,
+      sunday_holiday_min,
       clocked_out_by: args.clockedOutBy,
     };
     if (args.manualOverride) {
@@ -462,22 +560,30 @@ export const kitchenStaffService = {
     const buckets = new Map<string, StaffWageSummary>();
     const seedFor = (id: string): StaffWageSummary => {
       const s = staffMap.get(id);
+      const hourly = s ? Number(s.hourly_rate ?? 0) || null : null;
+      const explicitSunday = s ? (s as any).sunday_holiday_rate : null;
+      const sundayRate = explicitSunday != null
+        ? Number(explicitSunday)
+        : hourly != null ? hourly * 2 : null;
       return {
         staff_id: id,
         full_name: s?.full_name || "Unknown",
         role_title: s?.role_title || null,
         pay_type: (s?.pay_type as StaffPayType) || "hourly",
-        hourly_rate: s ? Number(s.hourly_rate ?? 0) || null : null,
+        hourly_rate: hourly,
         overtime_rate: s ? effectiveOvertimeRate(s) : null,
+        sunday_holiday_rate: sundayRate,
         monthly_salary: s?.monthly_salary != null ? Number(s.monthly_salary) : null,
         shift_rate: s?.shift_rate != null ? Number(s.shift_rate) : null,
         shifts_count: 0,
         standard_min: 0,
         overtime_min: 0,
+        sunday_holiday_min: 0,
         break_min: 0,
         total_min: 0,
         standard_wage: 0,
         overtime_wage: 0,
+        sunday_holiday_wage: 0,
         total_wage: 0,
         open_shift: false,
       };
@@ -490,10 +596,11 @@ export const kitchenStaffService = {
       if (sh.shift_end) {
         b.standard_min += sh.standard_min || 0;
         b.overtime_min += sh.overtime_min || 0;
+        b.sunday_holiday_min += (sh as any).sunday_holiday_min || 0;
       } else {
         b.open_shift = true;
       }
-      b.total_min = b.standard_min + b.overtime_min;
+      b.total_min = b.standard_min + b.overtime_min + b.sunday_holiday_min;
       buckets.set(sh.staff_member_id, b);
     }
 
@@ -530,12 +637,14 @@ export const kitchenStaffService = {
         b.total_wage = b.standard_wage;
         continue;
       }
-      // Default: hourly with overtime split.
+      // Default: hourly with overtime + Sunday/holiday split.
       const hr = b.hourly_rate;
       const otHr = b.overtime_rate;
+      const sunHr = b.sunday_holiday_rate;
       b.standard_wage = hr ? Math.round((b.standard_min / 60) * hr * 100) / 100 : 0;
       b.overtime_wage = otHr ? Math.round((b.overtime_min / 60) * otHr * 100) / 100 : 0;
-      b.total_wage = Math.round((b.standard_wage + b.overtime_wage) * 100) / 100;
+      b.sunday_holiday_wage = sunHr ? Math.round((b.sunday_holiday_min / 60) * sunHr * 100) / 100 : 0;
+      b.total_wage = Math.round((b.standard_wage + b.overtime_wage + b.sunday_holiday_wage) * 100) / 100;
     }
 
     return Array.from(buckets.values()).sort((a, b) => b.total_wage - a.total_wage || a.full_name.localeCompare(b.full_name));
