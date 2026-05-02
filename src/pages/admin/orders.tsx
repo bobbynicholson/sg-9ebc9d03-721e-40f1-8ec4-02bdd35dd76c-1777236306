@@ -775,16 +775,44 @@ function OrderProcessDashboard() {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
     // Joined data the dashboard's getAllOrders fetch returns alongside
-    // the order row but the type doesn't expose. Read from `(order as any)`.
+    // the order row but the type doesn't expose. We also fetch
+    // order_items directly when the modal opens as a belt-and-braces
+    // fallback -- the parent join can come back empty in some race
+    // conditions or when the row was loaded via a different code path.
+    const [fetchedItems, setFetchedItems] = useState<any[] | null>(null);
     const orderItemsRaw: any[] = useMemo(() => {
       if (!selectedOrder) return [];
+      // Prefer fresh fetched items when present, fall back to whatever
+      // the parent join returned.
+      if (Array.isArray(fetchedItems) && fetchedItems.length > 0) return fetchedItems;
       const a = (selectedOrder as any).order_items;
       return Array.isArray(a) ? a : [];
-    }, [selectedOrder]);
+    }, [selectedOrder, fetchedItems]);
     // Equipment bookings + status history aren't joined in getAllOrders --
     // fetch them on demand when the modal opens.
     const [equipmentBookings, setEquipmentBookings] = useState<any[]>([]);
     const [equipmentLoading, setEquipmentLoading] = useState(false);
+
+    // Direct fetch of order_items so the modal never shows the empty
+    // state when items actually exist for this order in the db.
+    useEffect(() => {
+      if (!selectedOrder?.id) { setFetchedItems(null); return; }
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from("order_items")
+            .select("id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at")
+            .eq("order_id", selectedOrder.id)
+            .order("created_at", { ascending: true });
+          if (!cancelled) setFetchedItems(data || []);
+        } catch (err) {
+          console.warn("[orders] order_items fetch failed", err);
+          if (!cancelled) setFetchedItems([]);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [selectedOrder?.id]);
 
     useEffect(() => {
       if (selectedOrder) {
