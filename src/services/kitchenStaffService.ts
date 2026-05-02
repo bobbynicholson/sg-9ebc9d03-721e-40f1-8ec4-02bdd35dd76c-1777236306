@@ -169,18 +169,21 @@ export const kitchenStaffService = {
 
   /**
    * Kitchen view -- explicitly omits rate columns so they never enter the
-   * client bundle. Used by the tablet board.
+   * client bundle. Used by the tablet board. Optional department arg
+   * narrows to staff whose departments[] includes the given value.
    */
-  async listStaffPublic(companyId: string): Promise<KitchenStaffPublic[]> {
-    const { data, error } = await supabase
+  async listStaffPublic(companyId: string, opts: { department?: string } = {}): Promise<KitchenStaffPublic[]> {
+    let q = supabase
       .from("kitchen_staff_members")
       .select(
-        "id, company_id, full_name, role_title, phone, email, is_active, linked_profile_id, notes, created_at, updated_at, deleted_at"
+        "id, company_id, full_name, role_title, phone, email, is_active, linked_profile_id, notes, departments, created_at, updated_at, deleted_at",
       )
       .eq("company_id", companyId)
       .eq("is_active", true)
       .is("deleted_at", null)
       .order("full_name", { ascending: true });
+    if (opts.department) q = q.contains("departments", [opts.department]);
+    const { data, error } = await q;
     if (error) {
       console.error("listStaffPublic failed:", error);
       return [];
@@ -212,15 +215,18 @@ export const kitchenStaffService = {
 
   // ── Shifts ───────────────────────────────────────────────────────────────
 
-  /** All currently-open shifts (shift_end NULL) for the company. */
-  async listOpenShifts(companyId: string): Promise<KitchenShift[]> {
-    const { data, error } = await supabase
+  /** All currently-open shifts (shift_end NULL) for the company. Pass
+   *  `department` to narrow to one duty board (e.g. 'cleaning'). */
+  async listOpenShifts(companyId: string, opts: { department?: string } = {}): Promise<KitchenShift[]> {
+    let q = supabase
       .from("kitchen_staff_shifts")
       .select("*")
       .eq("company_id", companyId)
       .is("shift_end", null)
       .is("deleted_at", null)
       .order("shift_start", { ascending: true });
+    if (opts.department) q = q.eq("department", opts.department);
+    const { data, error } = await q;
     if (error) {
       console.error("listOpenShifts failed:", error);
       return [];

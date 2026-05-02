@@ -8,6 +8,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
+import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerificationPanel";
 import { CleaningWorkflowTracker } from "@/components/cleaning/CleaningWorkflowTracker";
 import { BrokenEquipmentDashboard } from "@/components/cleaning/BrokenEquipmentDashboard";
@@ -304,64 +305,13 @@ export default function CleaningDashboard() {
             </TabsContent>
 
             <TabsContent value="team" className="space-y-6">
-              <Card className="border-0 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-teal-50">
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-green-600" />
-                    Cleaning Team Status
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    View who is currently on duty and their cleaning assignments
-                  </p>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-100 rounded-lg">
-                              <Users className="h-6 w-6 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Currently On Duty</p>
-                              <p className="text-2xl font-bold text-green-600">
-                                {user?.user_metadata?.full_name || "You"}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <Card className="bg-gradient-to-br from-blue-50 to-cyan-50">
-                        <CardContent className="pt-6">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-100 rounded-lg">
-                              <Droplets className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Active Tasks</p>
-                              <p className="text-2xl font-bold text-blue-600">--</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-center py-8">
-                          <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                          <p className="font-medium text-muted-foreground">Team tracking coming soon</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            View real-time team status and assignments
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Cleaning duty board -- same tile-board the kitchen
+                  uses, scoped to the cleaning department. Manager
+                  taps each cleaner's tile to clock them in / out;
+                  staff don't need their own logins. Cross-over staff
+                  (kitchen + cleaning) appear on both boards because
+                  their departments[] array contains both. */}
+              <KitchenStaffTileBoard department="cleaning" />
             </TabsContent>
           </Tabs>
 

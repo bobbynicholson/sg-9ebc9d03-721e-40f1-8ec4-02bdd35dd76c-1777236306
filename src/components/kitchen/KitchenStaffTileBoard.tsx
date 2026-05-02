@@ -89,7 +89,15 @@ function fromLocalInput(local: string): string | null {
   return d.toISOString();
 }
 
-export function KitchenStaffTileBoard() {
+export function KitchenStaffTileBoard({
+  department = "kitchen",
+}: {
+  /** Which duty board this is. Drives staff filtering (only people whose
+   *  departments[] includes this) + which department gets stamped on
+   *  every shift this board creates. Default 'kitchen' so existing
+   *  callers don't need to change anything. */
+  department?: string;
+} = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const companyId = (user as any)?.company_id as string | undefined;
@@ -125,8 +133,8 @@ export function KitchenStaffTileBoard() {
     setLoading(true);
     try {
       const [s, sh] = await Promise.all([
-        kitchenStaffService.listStaffPublic(companyId),
-        kitchenStaffService.listOpenShifts(companyId),
+        kitchenStaffService.listStaffPublic(companyId, { department }),
+        kitchenStaffService.listOpenShifts(companyId, { department }),
       ]);
       setStaff(s);
       setOpenShifts(sh);
@@ -174,6 +182,7 @@ export function KitchenStaffTileBoard() {
         companyId,
         staffMemberId: s.id,
         clockedInBy: user?.id || null,
+        department,
       });
       toast({ title: "Clocked in", description: s.full_name });
       load();
@@ -306,6 +315,7 @@ export function KitchenStaffTileBoard() {
           overrideStartAt: startIso,
           manualOverride: true,
           overrideReason: overrideDraft.reason.trim(),
+          department,
         });
         if (endIso) {
           await kitchenStaffService.clockOut({
@@ -332,13 +342,22 @@ export function KitchenStaffTileBoard() {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  // Departmenty strings -- kept here so a future shopping/service board
+  // doesn't need a fork. Simple lookup, not a registry.
+  const deptLabel =
+    department === "cleaning" ? "Cleaning team"
+    : department === "shopping" ? "Shopping team"
+    : department === "service" ? "Service team"
+    : "Kitchen team";
+  const manageHref = `/admin/staff?department=${department}`;
+
   return (
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-3">
         <CardTitle className="text-base sm:text-lg flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Users className="w-5 h-5 text-orange-600" />
-            Kitchen team
+            {deptLabel}
             <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}`}>
               {onDutyCount} on duty
             </Badge>
@@ -346,7 +365,7 @@ export function KitchenStaffTileBoard() {
           </span>
           {staff.length > 0 && (
             <Link
-              href="/admin/kitchen-staff"
+              href={manageHref}
               className="text-xs font-normal text-slate-500 hover:text-orange-600 inline-flex items-center gap-1"
             >
               Manage <ChevronRight className="w-3 h-3" />
@@ -365,13 +384,13 @@ export function KitchenStaffTileBoard() {
             <ChefHat className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-700 font-medium">No staff yet</p>
             <p className="text-sm text-slate-500 mt-1">
-              The owner needs to add kitchen staff before anyone can clock in.
+              The owner needs to add {department === "cleaning" ? "cleaning" : department === "shopping" ? "shopping" : "kitchen"} staff before anyone can clock in.
             </p>
             <Link
-              href="/admin/kitchen-staff"
+              href={manageHref}
               className="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:text-orange-700 mt-3"
             >
-              Open Kitchen Staff settings <ChevronRight className="w-3 h-3" />
+              Open Staff settings <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
         ) : (
