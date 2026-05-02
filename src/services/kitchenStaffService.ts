@@ -71,8 +71,9 @@ export interface KitchenShift {
   total_break_min: number;
   standard_min: number | null;
   overtime_min: number | null;
-  /** BCEA Sunday + public-holiday minutes. 2x rate. Stamped at clock-out. */
-  sunday_holiday_min: number | null;
+  /** BCEA Sunday + public-holiday minutes. 2x rate. Stamped at clock-out.
+   *  Optional because rows pre-dating the BCEA migration won't have it. */
+  sunday_holiday_min?: number | null;
   clocked_in_by: string | null;
   clocked_out_by: string | null;
   manual_override: boolean;
