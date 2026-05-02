@@ -315,10 +315,10 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Manage delivery drivers"
         },
         {
-          title: "Kitchen Staff",
-          href: "/admin/kitchen-staff",
+          title: "Staff & rates",
+          href: "/admin/staff",
           icon: ChefHat,
-          description: "Add staff, set rates and standard hours"
+          description: "Every staff member across kitchen, cleaning, shopping. Hourly / monthly / per-shift pay."
         },
         {
           title: "Wage Dashboard",

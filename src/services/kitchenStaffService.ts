@@ -23,6 +23,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+export type StaffPayType = "hourly" | "monthly" | "shift";
+
 export interface KitchenStaffMember {
   id: string;
   company_id: string;
@@ -34,6 +36,17 @@ export interface KitchenStaffMember {
   hourly_rate: number | null;
   overtime_rate: number | null;
   standard_hours_per_day: number;
+  // Pay model: hourly (default), monthly (flat salary), shift (per-shift fee).
+  pay_type: StaffPayType;
+  monthly_salary: number | null;
+  shift_rate: number | null;
+  // Departments this staff member can be clocked into. Default ['kitchen'];
+  // a person who also does cleaning can be ['kitchen','cleaning'].
+  departments: string[];
+  id_number: string | null;
+  start_date: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
   is_active: boolean;
   linked_profile_id: string | null;
   notes: string | null;
@@ -76,8 +89,11 @@ export interface StaffWageSummary {
   staff_id: string;
   full_name: string;
   role_title: string | null;
+  pay_type: StaffPayType;
   hourly_rate: number | null;
   overtime_rate: number | null;
+  monthly_salary: number | null;
+  shift_rate: number | null;
   shifts_count: number;
   standard_min: number;
   overtime_min: number;
@@ -130,16 +146,19 @@ export const kitchenStaffService = {
 
   /**
    * Owner view -- pulls every column including rates. Used by the admin
-   * Staff & Rates page and the wage dashboard.
+   * Staff & Rates page and the wage dashboard. Optional department filter
+   * narrows to staff who can work that department (e.g. cleaning duty
+   * board only shows people whose departments[] contains 'cleaning').
    */
-  async listStaffWithRates(companyId: string, includeArchived = false): Promise<KitchenStaffMember[]> {
+  async listStaffWithRates(companyId: string, opts: { includeArchived?: boolean; department?: string } = {}): Promise<KitchenStaffMember[]> {
     let q = supabase
       .from("kitchen_staff_members")
       .select("*")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("full_name", { ascending: true });
-    if (!includeArchived) q = q.eq("is_active", true);
+    if (!opts.includeArchived) q = q.eq("is_active", true);
+    if (opts.department) q = q.contains("departments", [opts.department]);
     const { data, error } = await q;
     if (error) {
       console.error("listStaffWithRates failed:", error);
@@ -238,6 +257,10 @@ export const kitchenStaffService = {
     overrideStartAt?: string;
     manualOverride?: boolean;
     overrideReason?: string;
+    /** Which department this shift belongs to. Defaults to 'kitchen'.
+     *  Drives wages + analytics so a person who works both kitchen and
+     *  cleaning can have their hours split per department. */
+    department?: string;
   }): Promise<KitchenShift> {
     // Defensive check -- RLS won't catch a duplicate open shift since both
     // are valid rows. The kitchen UI relies on this.
@@ -260,6 +283,7 @@ export const kitchenStaffService = {
       clocked_in_by: args.clockedInBy,
       manual_override: !!args.manualOverride,
       override_reason: args.manualOverride ? args.overrideReason || null : null,
+      department: args.department || "kitchen",
     };
     const { data, error } = await supabase
       .from("kitchen_staff_shifts")
@@ -424,7 +448,7 @@ export const kitchenStaffService = {
    */
   async getWageSummary(companyId: string, fromISO: string, toISO: string): Promise<StaffWageSummary[]> {
     const [staff, shifts] = await Promise.all([
-      this.listStaffWithRates(companyId, /* includeArchived */ true),
+      this.listStaffWithRates(companyId, { includeArchived: true }),
       this.listShiftsInRange(companyId, fromISO, toISO),
     ]);
     const staffMap = new Map<string, KitchenStaffMember>(staff.map(s => [s.id, s] as const));
@@ -436,8 +460,11 @@ export const kitchenStaffService = {
         staff_id: id,
         full_name: s?.full_name || "Unknown",
         role_title: s?.role_title || null,
+        pay_type: (s?.pay_type as StaffPayType) || "hourly",
         hourly_rate: s ? Number(s.hourly_rate ?? 0) || null : null,
         overtime_rate: s ? effectiveOvertimeRate(s) : null,
+        monthly_salary: s?.monthly_salary != null ? Number(s.monthly_salary) : null,
+        shift_rate: s?.shift_rate != null ? Number(s.shift_rate) : null,
         shifts_count: 0,
         standard_min: 0,
         overtime_min: 0,
@@ -465,7 +492,39 @@ export const kitchenStaffService = {
     }
 
     // Wage math runs once at the end so we don't recompute per shift.
+    // Pay type drives the formula: hourly = clocked time × rate (with
+    // overtime split); monthly = flat salary prorated to the window;
+    // shift = flat per-shift fee × shifts_count.
+    const windowDays = Math.max(
+      1,
+      Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 86_400_000),
+    );
+    const monthFraction = windowDays / 30;
+
+    // Make sure salaried staff with zero clocked hours still appear in
+    // the dashboard -- otherwise the owner thinks they vanished.
+    for (const s of staff) {
+      if (s.pay_type === "monthly" && !buckets.has(s.id)) {
+        buckets.set(s.id, seedFor(s.id));
+      }
+    }
+
     for (const b of buckets.values()) {
+      if (b.pay_type === "monthly") {
+        const sal = b.monthly_salary || 0;
+        b.standard_wage = Math.round(sal * monthFraction * 100) / 100;
+        b.overtime_wage = 0;
+        b.total_wage = b.standard_wage;
+        continue;
+      }
+      if (b.pay_type === "shift") {
+        const rate = b.shift_rate || 0;
+        b.standard_wage = Math.round(rate * b.shifts_count * 100) / 100;
+        b.overtime_wage = 0;
+        b.total_wage = b.standard_wage;
+        continue;
+      }
+      // Default: hourly with overtime split.
       const hr = b.hourly_rate;
       const otHr = b.overtime_rate;
       b.standard_wage = hr ? Math.round((b.standard_min / 60) * hr * 100) / 100 : 0;

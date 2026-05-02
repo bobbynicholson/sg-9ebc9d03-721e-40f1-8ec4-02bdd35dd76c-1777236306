@@ -37,16 +37,32 @@ import {
   type KitchenStaffMember,
 } from "@/services/kitchenStaffService";
 
-const ROLE_TITLES = ["Chef", "Sous Chef", "Prep", "Cook", "Cold Prep", "Pack", "Plate", "Waiter", "Cleaning", "Shopping", "Other"];
+const ROLE_TITLES = ["Chef", "Sous Chef", "Prep", "Cook", "Cold Prep", "Pack", "Plate", "Waiter", "Cleaner", "Shopper", "Driver Helper", "Other"];
+
+const ALL_DEPARTMENTS = [
+  { id: "kitchen",  label: "Kitchen"  },
+  { id: "cleaning", label: "Cleaning" },
+  { id: "shopping", label: "Shopping" },
+  { id: "service",  label: "Service"  },
+  { id: "office",   label: "Office"   },
+] as const;
 
 interface DraftStaff {
   full_name: string;
   role_title: string;
   phone: string;
   email: string;
+  pay_type: "hourly" | "monthly" | "shift";
   hourly_rate: string;          // text inputs, parsed on submit
   overtime_rate: string;
+  monthly_salary: string;
+  shift_rate: string;
   standard_hours_per_day: string;
+  departments: string[];
+  id_number: string;
+  start_date: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
   notes: string;
 }
 
@@ -55,9 +71,17 @@ const EMPTY_DRAFT: DraftStaff = {
   role_title: "Chef",
   phone: "",
   email: "",
+  pay_type: "hourly",
   hourly_rate: "",
   overtime_rate: "",
+  monthly_salary: "",
+  shift_rate: "",
   standard_hours_per_day: "9",
+  departments: ["kitchen"],
+  id_number: "",
+  start_date: "",
+  emergency_contact_name: "",
+  emergency_contact_phone: "",
   notes: "",
 };
 
@@ -69,6 +93,9 @@ function KitchenStaffPage() {
   const [staff, setStaff] = useState<KitchenStaffMember[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
+  // Department filter -- 'all' shows the company-wide hub view, picking
+  // a department narrows to people whose departments[] includes it.
+  const [filterDept, setFilterDept] = useState<"all" | string>("all");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<KitchenStaffMember | null>(null);
@@ -82,7 +109,7 @@ function KitchenStaffPage() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const list = await kitchenStaffService.listStaffWithRates(companyId, /* includeArchived */ true);
+      const list = await kitchenStaffService.listStaffWithRates(companyId, { includeArchived: true });
       setStaff(list);
     } catch (e: any) {
       toast({ title: "Could not load staff", description: e?.message, variant: "destructive" });
@@ -93,17 +120,20 @@ function KitchenStaffPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId]);
 
-  // Filtered view -- search + archived toggle
+  // Filtered view -- search + archived toggle + department filter
   const visibleRaw = useMemo(() => {
     const term = search.trim().toLowerCase();
     return staff
       .filter(s => showArchived ? true : s.is_active && !s.deleted_at)
+      .filter(s => filterDept === "all"
+        ? true
+        : Array.isArray((s as any).departments) && (s as any).departments.includes(filterDept))
       .filter(s => !term
         || s.full_name.toLowerCase().includes(term)
         || (s.role_title || "").toLowerCase().includes(term)
         || (s.phone || "").toLowerCase().includes(term)
       );
-  }, [staff, search, showArchived]);
+  }, [staff, search, showArchived, filterDept]);
 
   // Column-style sort exposed via the SortMenu so the team can flip
   // by name, role, rate or status from a single dropdown.
@@ -136,14 +166,23 @@ function KitchenStaffPage() {
 
   const openEdit = (s: KitchenStaffMember) => {
     setEditTarget(s);
+    const sa = s as any;
     setDraft({
       full_name: s.full_name || "",
       role_title: s.role_title || "Chef",
       phone: s.phone || "",
       email: s.email || "",
+      pay_type: (sa.pay_type as "hourly" | "monthly" | "shift") || "hourly",
       hourly_rate: s.hourly_rate != null ? String(s.hourly_rate) : "",
       overtime_rate: s.overtime_rate != null ? String(s.overtime_rate) : "",
+      monthly_salary: sa.monthly_salary != null ? String(sa.monthly_salary) : "",
+      shift_rate: sa.shift_rate != null ? String(sa.shift_rate) : "",
       standard_hours_per_day: String(s.standard_hours_per_day ?? 9),
+      departments: Array.isArray(sa.departments) && sa.departments.length > 0 ? sa.departments : ["kitchen"],
+      id_number: sa.id_number || "",
+      start_date: sa.start_date || "",
+      emergency_contact_name: sa.emergency_contact_name || "",
+      emergency_contact_phone: sa.emergency_contact_phone || "",
       notes: s.notes || "",
     });
     setError("");
@@ -173,6 +212,26 @@ function KitchenStaffPage() {
       return;
     }
 
+    const monthlySalary = draft.monthly_salary.trim() ? Number(draft.monthly_salary) : null;
+    const shiftRate = draft.shift_rate.trim() ? Number(draft.shift_rate) : null;
+    if (monthlySalary != null && (isNaN(monthlySalary) || monthlySalary < 0)) {
+      setError("Monthly salary must be a positive number");
+      return;
+    }
+    if (shiftRate != null && (isNaN(shiftRate) || shiftRate < 0)) {
+      setError("Per-shift rate must be a positive number");
+      return;
+    }
+    if (draft.pay_type === "monthly" && monthlySalary == null) {
+      setError("Monthly salary is required when pay type is 'monthly'");
+      return;
+    }
+    if (draft.pay_type === "shift" && shiftRate == null) {
+      setError("Per-shift rate is required when pay type is 'shift'");
+      return;
+    }
+    const departments = draft.departments.length > 0 ? draft.departments : ["kitchen"];
+
     setSaving(true);
     try {
       const payload: any = {
@@ -181,9 +240,17 @@ function KitchenStaffPage() {
         role_title: draft.role_title || null,
         phone: draft.phone.trim() || null,
         email: draft.email.trim() || null,
+        pay_type: draft.pay_type,
         hourly_rate: rate,
         overtime_rate: otRate,
+        monthly_salary: monthlySalary,
+        shift_rate: shiftRate,
         standard_hours_per_day: stdHours,
+        departments,
+        id_number: draft.id_number.trim() || null,
+        start_date: draft.start_date || null,
+        emergency_contact_name: draft.emergency_contact_name.trim() || null,
+        emergency_contact_phone: draft.emergency_contact_phone.trim() || null,
         notes: draft.notes.trim() || null,
         is_active: true,
       };
@@ -300,6 +367,38 @@ function KitchenStaffPage() {
                 </Link>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Department filter chips -- 'All' shows the company-wide hub,
+              picking a department narrows to staff who can work it. */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {([{ id: "all", label: "All staff" }, ...ALL_DEPARTMENTS] as const).map((d) => {
+              const active = filterDept === d.id;
+              const count = d.id === "all"
+                ? staff.filter((s) => s.is_active && !s.deleted_at).length
+                : staff.filter((s) =>
+                    s.is_active && !s.deleted_at &&
+                    Array.isArray((s as any).departments) &&
+                    (s as any).departments.includes(d.id),
+                  ).length;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setFilterDept(d.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    active
+                      ? "bg-orange-100 text-orange-700 border-orange-200"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {d.label}
+                  <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${active ? "bg-white/60" : "bg-slate-100 text-slate-600"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Search + archived toggle + sort */}
@@ -475,48 +574,161 @@ function KitchenStaffPage() {
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />Hourly rate (R)
+                Departments
+                <InfoTooltip content="Which duty boards this person appears on. Tick more than one if they cross over (e.g. kitchen + cleaning)." />
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={draft.hourly_rate}
-                onChange={(e) => setDraft({ ...draft, hourly_rate: e.target.value })}
-                placeholder="80"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />Overtime rate (R)
-                <InfoTooltip content="Optional. Leave blank for the SA default of 1.5x the hourly rate (BCEA ordinary overtime)." />
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={draft.overtime_rate}
-                onChange={(e) => setDraft({ ...draft, overtime_rate: e.target.value })}
-                placeholder="1.5x rate if blank"
-              />
+              <div className="flex flex-wrap gap-2">
+                {ALL_DEPARTMENTS.map((d) => {
+                  const checked = draft.departments.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDraft((prev) => ({
+                        ...prev,
+                        departments: checked
+                          ? prev.departments.filter((x) => x !== d.id)
+                          : [...prev.departments, d.id],
+                      }))}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                        checked
+                          ? "bg-orange-100 text-orange-700 border-orange-200"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />Standard hours per day
-                <InfoTooltip content="Anything worked above this in a single day is logged as overtime. SA default is 9 hours per the BCEA." />
+                Pay type
+                <InfoTooltip content={"Hourly: paid per clocked hour, with a 1.5x overtime split after the daily threshold.\n\nMonthly: flat salary regardless of hours -- clocked time still tracked for attendance.\n\nShift: flat fee per shift completed (e.g. R200 per shift no matter how long)."} />
               </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["hourly", "monthly", "shift"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setDraft({ ...draft, pay_type: p })}
+                    className={`px-3 py-2 rounded-md text-sm font-semibold border transition-all ${
+                      draft.pay_type === p
+                        ? "bg-orange-100 text-orange-700 border-orange-200"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {p === "hourly" ? "Hourly" : p === "monthly" ? "Monthly" : "Per shift"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {draft.pay_type === "hourly" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" />Hourly rate (R)
+                  </Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={draft.hourly_rate}
+                    onChange={(e) => setDraft({ ...draft, hourly_rate: e.target.value })}
+                    placeholder="80"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" />Overtime rate (R)
+                    <InfoTooltip content="Optional. Leave blank for the SA default of 1.5x the hourly rate (BCEA ordinary overtime)." />
+                  </Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={draft.overtime_rate}
+                    onChange={(e) => setDraft({ ...draft, overtime_rate: e.target.value })}
+                    placeholder="1.5x rate if blank"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />Standard hours per day
+                    <InfoTooltip content="Anything worked above this in a single day is logged as overtime. SA default is 9 hours per the BCEA." />
+                  </Label>
+                  <Input
+                    type="number" step="0.5" min="0" max="24"
+                    value={draft.standard_hours_per_day}
+                    onChange={(e) => setDraft({ ...draft, standard_hours_per_day: e.target.value })}
+                    placeholder="9"
+                  />
+                </div>
+              </>
+            )}
+
+            {draft.pay_type === "monthly" && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="flex items-center gap-1">
+                  <DollarSign className="w-3 h-3" />Monthly salary (R)
+                  <InfoTooltip content="Flat amount paid per month regardless of clocked hours. Wage dashboard prorates for partial windows." />
+                </Label>
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={draft.monthly_salary}
+                  onChange={(e) => setDraft({ ...draft, monthly_salary: e.target.value })}
+                  placeholder="e.g. 18000"
+                />
+              </div>
+            )}
+
+            {draft.pay_type === "shift" && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="flex items-center gap-1">
+                  <DollarSign className="w-3 h-3" />Per-shift rate (R)
+                  <InfoTooltip content="Flat fee paid per shift completed, regardless of length. Useful for casual / piece-work staff." />
+                </Label>
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={draft.shift_rate}
+                  onChange={(e) => setDraft({ ...draft, shift_rate: e.target.value })}
+                  placeholder="e.g. 250"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label>SA ID / passport</Label>
               <Input
-                type="number"
-                step="0.5"
-                min="0"
-                max="24"
-                value={draft.standard_hours_per_day}
-                onChange={(e) => setDraft({ ...draft, standard_hours_per_day: e.target.value })}
-                placeholder="9"
+                value={draft.id_number}
+                onChange={(e) => setDraft({ ...draft, id_number: e.target.value })}
+                placeholder="Optional, for tax / UIF"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Start date</Label>
+              <Input
+                type="date"
+                value={draft.start_date}
+                onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Emergency contact name</Label>
+              <Input
+                value={draft.emergency_contact_name}
+                onChange={(e) => setDraft({ ...draft, emergency_contact_name: e.target.value })}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Emergency contact phone</Label>
+              <Input
+                value={draft.emergency_contact_phone}
+                onChange={(e) => setDraft({ ...draft, emergency_contact_phone: e.target.value })}
+                placeholder="Optional"
               />
             </div>
 

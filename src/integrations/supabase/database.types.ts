@@ -4956,51 +4956,75 @@ export type Database = {
           company_id: string
           created_at: string
           deleted_at: string | null
+          departments: string[]
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           full_name: string
           hourly_rate: number | null
           id: string
+          id_number: string | null
           is_active: boolean
           linked_profile_id: string | null
+          monthly_salary: number | null
           notes: string | null
           overtime_rate: number | null
+          pay_type: string
           phone: string | null
           role_title: string | null
+          shift_rate: number | null
           standard_hours_per_day: number
+          start_date: string | null
           updated_at: string
         }
         Insert: {
           company_id: string
           created_at?: string
           deleted_at?: string | null
+          departments?: string[]
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name: string
           hourly_rate?: number | null
           id?: string
+          id_number?: string | null
           is_active?: boolean
           linked_profile_id?: string | null
+          monthly_salary?: number | null
           notes?: string | null
           overtime_rate?: number | null
+          pay_type?: string
           phone?: string | null
           role_title?: string | null
+          shift_rate?: number | null
           standard_hours_per_day?: number
+          start_date?: string | null
           updated_at?: string
         }
         Update: {
           company_id?: string
           created_at?: string
           deleted_at?: string | null
+          departments?: string[]
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           full_name?: string
           hourly_rate?: number | null
           id?: string
+          id_number?: string | null
           is_active?: boolean
           linked_profile_id?: string | null
+          monthly_salary?: number | null
           notes?: string | null
           overtime_rate?: number | null
+          pay_type?: string
           phone?: string | null
           role_title?: string | null
+          shift_rate?: number | null
           standard_hours_per_day?: number
+          start_date?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5028,6 +5052,7 @@ export type Database = {
           company_id: string
           created_at: string
           deleted_at: string | null
+          department: string
           id: string
           manual_override: boolean
           notes: string | null
@@ -5047,6 +5072,7 @@ export type Database = {
           company_id: string
           created_at?: string
           deleted_at?: string | null
+          department?: string
           id?: string
           manual_override?: boolean
           notes?: string | null
@@ -5066,6 +5092,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           deleted_at?: string | null
+          department?: string
           id?: string
           manual_override?: boolean
           notes?: string | null
