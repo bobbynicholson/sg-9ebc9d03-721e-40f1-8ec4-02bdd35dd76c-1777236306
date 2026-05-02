@@ -1178,7 +1178,7 @@ function OrderProcessDashboard() {
     const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG];
 
     return (
-      <div className="flex flex-col min-w-[320px] max-w-[320px]">
+      <div className="flex flex-col w-[88vw] sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] flex-shrink-0">
         <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${config.dotColor}`} />
@@ -1212,7 +1212,7 @@ function OrderProcessDashboard() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 md:py-8 lg:py-12 max-w-full">
+        <div className="px-4 pt-20 lg:pt-6 pb-12 max-w-full">
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

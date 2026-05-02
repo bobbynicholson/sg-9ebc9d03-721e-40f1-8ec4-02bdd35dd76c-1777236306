@@ -211,7 +211,7 @@ function AdminDashboardPage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
-        <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-screen-2xl">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
           {/* Header + date range, date controls every metric below */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

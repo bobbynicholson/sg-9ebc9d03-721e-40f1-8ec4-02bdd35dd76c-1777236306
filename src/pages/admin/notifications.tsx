@@ -150,7 +150,7 @@ function NotificationsPage() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
       <AdminNav />
-      <div className="px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 max-w-5xl">
+      <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-5xl">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between mb-4">

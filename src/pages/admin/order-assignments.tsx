@@ -407,7 +407,7 @@ function DispatchQueuePage() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-6 max-w-screen-2xl">
+        <div className="px-4 pt-20 lg:pt-6 pb-6 max-w-screen-2xl">
 
           {/* Header */}
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
