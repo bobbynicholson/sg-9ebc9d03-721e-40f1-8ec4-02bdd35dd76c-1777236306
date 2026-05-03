@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wand2, Upload, RotateCcw, ArrowRight, Clock, CheckCircle2,
-  AlertTriangle, FileSpreadsheet, Loader2, Trash2,
+  AlertTriangle, FileSpreadsheet, Loader2, Trash2, BellOff, Bell,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -39,6 +39,11 @@ interface ImportJobRow {
   created_at: string;
   completed_at: string | null;
   failed_reason: string | null;
+  // Quarantine fields. NULL on comms_enabled_at means "still paused
+  // -- the team hasn't reviewed and green-lit this batch yet". Once
+  // stamped, downstream automations are free to fire on these rows.
+  comms_enabled_at: string | null;
+  comms_enabled_by?: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; tone: string }> = {
@@ -94,6 +99,39 @@ function ImportsHistoryPage() {
     }
   };
   useEffect(() => { load(); }, []);
+
+  const enableComms = async (job: ImportJobRow) => {
+    if (job.comms_enabled_at) return;
+    const counts = job.summary?.commit;
+    const inserted =
+      (counts?.clients?.inserted || 0) +
+      (counts?.orders?.inserted || 0) +
+      (counts?.leads?.inserted || 0) +
+      (counts?.quotes?.inserted || 0);
+    const msg = inserted > 0
+      ? `Enable automated comms for the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"? After this, welcome emails / after-sales sequences / lead auto-replies can fire against them. There is no undo button -- comms run from the moment you click.`
+      : `Enable automated comms for this batch? After this, welcome emails / after-sales sequences / lead auto-replies can fire against the imported records.`;
+    if (!confirm(msg)) return;
+    setBusyId(job.id);
+    try {
+      const res = await fetch(`/api/imports/${job.id}/enable-comms`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Could not enable comms");
+      const cleared =
+        (json.clients || 0) + (json.leads || 0) + (json.orders || 0) + (json.quotes || 0);
+      toast({
+        title: "Comms enabled",
+        description: cleared > 0
+          ? `Cleared the pause on ${cleared} record${cleared === 1 ? "" : "s"}.`
+          : "Batch is now green-lit.",
+      });
+      load();
+    } catch (e: any) {
+      toast({ title: "Could not enable comms", description: e?.message || "", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const rollback = async (jobId: string) => {
     if (!confirm("Roll back this import? This deletes the rows it inserted, existing records you had before are untouched.")) return;
@@ -317,9 +355,26 @@ function ImportsHistoryPage() {
                 return (
                   <Card key={j.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4 flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                         <FileSpreadsheet className="w-4 h-4 text-slate-400" />
                         <Badge className={`border ${meta.tone}`}>{meta.label}</Badge>
+                        {/* Comms quarantine badge. Only meaningful for
+                            completed jobs -- in-flight ones haven't
+                            inserted real rows yet so the pause flag
+                            isn't a useful signal there. */}
+                        {j.status === "completed" && (
+                          j.comms_enabled_at ? (
+                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1">
+                              <Bell className="w-2.5 h-2.5" />
+                              Comms live
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 text-[10px] gap-1">
+                              <BellOff className="w-2.5 h-2.5" />
+                              Comms paused
+                            </Badge>
+                          )
+                        )}
                       </div>
                       <div className="flex-1 min-w-[200px]">
                         <div className="font-semibold text-slate-900 truncate">
@@ -355,6 +410,26 @@ function ImportsHistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Enable comms button -- shown on completed
+                            batches that haven't been green-lit yet.
+                            One click clears the pause across every
+                            row from the batch via an atomic RPC. */}
+                        {j.status === "completed" && !j.comms_enabled_at && (
+                          <Button
+                            size="sm"
+                            onClick={() => enableComms(j)}
+                            disabled={busyId === j.id}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            title="Allow welcome emails / after-sales / lead auto-replies to fire on this batch"
+                          >
+                            {busyId === j.id ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <Bell className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Enable comms
+                          </Button>
+                        )}
                         {canRollback && (
                           <Button
                             size="sm"
