@@ -64,7 +64,14 @@ export default async function handler(
         .map((r) => r.toLowerCase().trim());
 
       if (recipientLower.length > 0) {
-        const { data: blocks } = await ssr
+        // Cast through any -- the auto-generated database.types.ts doesn't
+        // yet include blocked_contacts or the is_comms_paused_for_email
+        // RPC, and the typed client tries to recurse infinitely on
+        // unknown table names. Re-generate types and remove the cast
+        // when convenient.
+        const ssrAny = ssr as any;
+
+        const { data: blocks } = await ssrAny
           .from("blocked_contacts")
           .select("email_lower, reason")
           .eq("company_id", companyId)
@@ -84,7 +91,7 @@ export default async function handler(
         // send blocks the whole call -- safer default than partial
         // delivery.
         for (const recip of recipientLower) {
-          const { data: paused } = await ssr.rpc("is_comms_paused_for_email", {
+          const { data: paused } = await ssrAny.rpc("is_comms_paused_for_email", {
             p_company_id: companyId,
             p_email: recip,
           });
