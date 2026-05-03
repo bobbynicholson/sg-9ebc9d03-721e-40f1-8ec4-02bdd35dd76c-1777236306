@@ -78,6 +78,8 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitchens";
 import { dispatchService } from "@/services/dispatchService";
+import { resolveBranchSettings } from "@/services/branchSettingsService";
+import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
@@ -238,6 +240,14 @@ function NewQuotePage() {
   const [deliveryDistance, setDeliveryDistance] = useState(0);
   const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(8.5);
   const [minDeliveryFee, setMinDeliveryFee] = useState(0);
+  /** Effective VAT rate, resolved from region override or company
+   *  default. Held in state because it changes when the operator
+   *  switches kitchen on a multi-branch quote. */
+  const [taxRate, setTaxRate] = useState(0.15);
+  /** Effective deposit percentage. Stamped onto the quote at save so
+   *  downstream order + invoice generation honour the branch override
+   *  without re-resolving. */
+  const [depositPercent, setDepositPercent] = useState(30);
   const [deliveryFee, setDeliveryFee] = useState(0);
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
@@ -258,6 +268,28 @@ function NewQuotePage() {
       setKitchenId(kitchens[0].id);
     }
   }, [kitchens, kitchenId]);
+
+  // Capacity-based kitchen suggestion. Triggers whenever the event
+  // date or the set of available kitchens changes. The hint appears
+  // next to the kitchen picker so the operator can swap to a less
+  // busy branch on a known-busy date without having to dig through
+  // /admin/regions or the calendar.
+  const [capacitySuggestion, setCapacitySuggestion] = useState<CapacitySuggestion | null>(null);
+  useEffect(() => {
+    if (!companyId || !eventDate) { setCapacitySuggestion(null); return; }
+    const candidates = kitchens.filter((k) => k.source === "region").map((k) => k.id);
+    if (candidates.length <= 1) { setCapacitySuggestion(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await suggestKitchenForDate(companyId, eventDate, candidates);
+        if (!cancelled) setCapacitySuggestion(s);
+      } catch (e) {
+        console.warn("[quotes/new] capacity suggestion failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, eventDate, kitchens]);
 
   const [surgePct, setSurgePct] = useState(0);
   const [discountPct, setDiscountPct] = useState(0);
@@ -312,7 +344,7 @@ function NewQuotePage() {
     const afterDiscounts = afterSurge - pctDiscount - discountFlat;
 
     const subtotal = afterDiscounts + deliveryFee;
-    const tax = subtotal * TAX_RATE;
+    const tax = subtotal * taxRate;
     const total = subtotal + tax;
 
     return {
@@ -329,7 +361,7 @@ function NewQuotePage() {
       tax,
       total,
     };
-  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee]);
+  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate]);
 
   // ── Pre-fill: load company default delivery rate ──────────────────
   useEffect(() => {
@@ -426,6 +458,7 @@ function NewQuotePage() {
     setClientId(q.client_id || null);
     setClientName(q.client_name || "");
     setEmail(q.client_email || "");
+    if (q.client_phone) setPhone(q.client_phone);
     if (q.event_date) setEventDate(q.event_date);
     if (q.quote_name) setEventName(q.quote_name);
     if (typeof q.guest_count === "number") setGuestCount(q.guest_count);
@@ -464,26 +497,41 @@ function NewQuotePage() {
     }
   }
 
-  // ── Pull the company's per-km rate + min-fee from dispatch settings.
+  // ── Resolve effective settings (VAT, delivery, deposit) for the
+  // currently picked branch. Re-runs when the operator switches
+  // kitchen on a multi-branch quote so the totals reflect the right
+  // branch's overrides instead of head-office defaults.
   useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
+    const regionForResolver =
+      selectedKitchen && selectedKitchen.source === "region"
+        ? selectedKitchen.id
+        : null;
     (async () => {
       try {
-        const s = await dispatchService.getDispatchSettings(companyId);
+        const s = await resolveBranchSettings(companyId, regionForResolver);
         if (cancelled) return;
         if (typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm > 0) {
           setDeliveryCostPerKm(s.deliveryCostPerKm);
         }
-        if (typeof s.minDeliveryFee === "number" && s.minDeliveryFee > 0) {
+        if (typeof s.minDeliveryFee === "number" && s.minDeliveryFee >= 0) {
           setMinDeliveryFee(s.minDeliveryFee);
         }
+        if (typeof s.vatRate === "number" && s.vatRate >= 0) {
+          // s.vatRegistered=false should still produce 0 VAT on the
+          // total even if vatRate is populated, so respect that flag.
+          setTaxRate(s.vatRegistered ? s.vatRate : 0);
+        }
+        if (typeof s.depositPercent === "number" && s.depositPercent >= 0) {
+          setDepositPercent(s.depositPercent);
+        }
       } catch (e) {
-        console.warn("[quotes/new] dispatch settings load failed:", e);
+        console.warn("[quotes/new] branch settings load failed:", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId]);
+  }, [companyId, selectedKitchen?.id, selectedKitchen?.source]);
 
   // ── Auto-distance from selected kitchen to venue (haversine). ────
   // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
@@ -751,12 +799,21 @@ function NewQuotePage() {
           hire_in_cost_total: hireCost,
         };
       });
+    // Region propagation: a kitchen with source='region' carries a
+    // real regions.id; the 'hq' fallback is a virtual origin (no
+    // regions row), so we leave region_id null for those quotes.
+    const resolvedRegionId =
+      selectedKitchen && selectedKitchen.source === "region"
+        ? selectedKitchen.id
+        : null;
     return {
       company_id: companyId,
+      region_id: resolvedRegionId,
       lead_id: typeof leadId === "string" ? leadId : null,
       client_id: clientId,
       client_name: clientName || "Client",
       client_email: email || null,
+      client_phone: phone || null,
       quote_name: eventName || "Quote",
       event_date: eventDate || null,
       guest_count: guestCount || null,
@@ -770,6 +827,11 @@ function NewQuotePage() {
       discount_amount: computed.pctDiscount + computed.flatDiscount,
       tax_amount: computed.tax,
       tax: computed.tax,
+      // Stamp the branch-resolved deposit % so quote -> order -> invoice
+      // inherits it. Without this the downstream paymentProcessingService
+      // falls back to the hard-coded 30% even when CPT has overridden
+      // it to 50% on the regions page.
+      deposit_percentage: depositPercent,
       total_amount: computed.total,
       total: computed.total,
       valid_until: validUntil || null,
@@ -777,8 +839,8 @@ function NewQuotePage() {
       external_source: null,
     } as any;
   }, [
-    menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email,
-    eventName, eventDate, venueAddress, venueLat, venueLng, deliveryFee,
+    menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email, phone,
+    selectedKitchen, eventName, eventDate, venueAddress, venueLat, venueLng, deliveryFee, depositPercent,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
   ]);
@@ -813,6 +875,7 @@ function NewQuotePage() {
               .from("leads")
               .insert({
                 company_id: companyId,
+                region_id: payload.region_id ?? null,
                 contact_name: clientName,
                 client_name: clientName,
                 email,
@@ -1155,6 +1218,32 @@ function NewQuotePage() {
                           <p className="text-[11px] text-blue-700/80 mt-1">
                             Picking a different kitchen recalculates distance + fee.
                           </p>
+                          {capacitySuggestion?.meaningful
+                            && capacitySuggestion.leastLoadedRegionId
+                            && capacitySuggestion.leastLoadedRegionId !== selectedKitchen.id && (() => {
+                              const lighterKitchen = kitchens.find(
+                                (k) => k.id === capacitySuggestion.leastLoadedRegionId,
+                              );
+                              const currentLoad = capacitySuggestion.loads.find(
+                                (l) => l.regionId === selectedKitchen.id,
+                              );
+                              const lighterLoad = capacitySuggestion.loads.find(
+                                (l) => l.regionId === capacitySuggestion.leastLoadedRegionId,
+                              );
+                              if (!lighterKitchen) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setKitchenId(lighterKitchen.id)}
+                                  className="mt-2 w-full text-left rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900 hover:border-amber-400 hover:bg-amber-100"
+                                  title="Switch to the lighter branch"
+                                >
+                                  💡 {selectedKitchen.name} has {currentLoad?.orderCount ?? 0} order{(currentLoad?.orderCount ?? 0) === 1 ? "" : "s"} + {currentLoad?.openQuoteCount ?? 0} open quote{(currentLoad?.openQuoteCount ?? 0) === 1 ? "" : "s"} on this date.{" "}
+                                  {lighterKitchen.name} is lighter ({lighterLoad?.orderCount ?? 0} order{(lighterLoad?.orderCount ?? 0) === 1 ? "" : "s"} + {lighterLoad?.openQuoteCount ?? 0} quote{(lighterLoad?.openQuoteCount ?? 0) === 1 ? "" : "s"}).{" "}
+                                  <span className="font-medium underline">Switch to {lighterKitchen.name}</span>
+                                </button>
+                              );
+                            })()}
                         </div>
                       )}
                       {kitchens.length === 0 && (
@@ -1641,7 +1730,7 @@ function NewQuotePage() {
                     <Row label={`Delivery (${deliveryDistance.toFixed(1)}km @ R${deliveryCostPerKm}/km)`} value={fmtR(deliveryFee)} muted />
                     <div className="my-1 border-t border-slate-200" />
                     <Row label="Subtotal" value={fmtR(computed.subtotal)} />
-                    <Row label={`VAT (${(TAX_RATE * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
+                    <Row label={`VAT (${(taxRate * 100).toFixed(0)}%)`} value={fmtR(computed.tax)} muted />
                     <div className="my-1 border-t border-slate-200" />
                     <Row label="Total" value={fmtR(computed.total)} tone="bold" />
                   </CardContent>

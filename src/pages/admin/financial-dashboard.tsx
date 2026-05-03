@@ -30,6 +30,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
+import { Building2 } from "lucide-react";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -56,6 +58,13 @@ export default function FinancialDashboardPage() {
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // Per-branch P&L sources from useCompanyKitchens. Cross-branch
+  // operators see a "Branches" tab; single-branch tenants don't get
+  // it (one row would just duplicate the Overview).
+  const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
+  const branches = kitchens.filter((k) => k.source === "region");
+  const showBranchesTab = branches.length > 1;
 
   const loadFinancialData = useCallback(async () => {
     if (!user) return;
@@ -393,11 +402,12 @@ export default function FinancialDashboardPage() {
 
           {/* Detailed Tabs */}
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={`grid w-full ${showBranchesTab ? "grid-cols-5" : "grid-cols-4"}`}>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="projections">Projections</TabsTrigger>
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
               <TabsTrigger value="orders">Order Analysis</TabsTrigger>
+              {showBranchesTab && <TabsTrigger value="branches">Branches</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">
@@ -619,6 +629,117 @@ export default function FinancialDashboardPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {showBranchesTab && (
+              <TabsContent value="branches" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5" />
+                      Per-branch P&L
+                      <InfoTooltip content={"Revenue, paid amount, outstanding and order count broken down by branch.\n\nUnassigned rows are orders that don't yet have a branch stamped."} />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      // Group orders by region_id. Unassigned (NULL) rows get
+                      // their own bucket so legacy / company-wide orders stay
+                      // visible until they're tagged.
+                      const buckets = new Map<string, {
+                        regionId: string | null;
+                        name: string;
+                        address?: string | null;
+                        revenue: number;
+                        paid: number;
+                        outstanding: number;
+                        count: number;
+                      }>();
+                      const ensure = (id: string | null, name: string, address?: string | null) => {
+                        const key = id || "__unassigned__";
+                        if (!buckets.has(key)) {
+                          buckets.set(key, { regionId: id, name, address: address ?? null, revenue: 0, paid: 0, outstanding: 0, count: 0 });
+                        }
+                        return buckets.get(key)!;
+                      };
+                      // Seed with every branch so empty branches render with zeros.
+                      branches.forEach((b) => ensure(b.id, b.name, b.address));
+                      orders.forEach((o: any) => {
+                        const branch = branches.find((b) => b.id === o.region_id);
+                        const bucket = ensure(
+                          o.region_id || null,
+                          branch?.name || (o.region_id ? "Unknown branch" : "Unassigned"),
+                          branch?.address ?? null,
+                        );
+                        const total = Number(o.total_amount || 0);
+                        const paid = o.payment_status === "paid" ? total : Number(o.amount_paid || 0);
+                        bucket.revenue += total;
+                        bucket.paid += paid;
+                        bucket.outstanding += Math.max(total - paid, 0);
+                        bucket.count += 1;
+                      });
+                      const rows = Array.from(buckets.values()).sort((a, b) => b.revenue - a.revenue);
+                      const totals = rows.reduce(
+                        (acc, r) => ({
+                          revenue: acc.revenue + r.revenue,
+                          paid: acc.paid + r.paid,
+                          outstanding: acc.outstanding + r.outstanding,
+                          count: acc.count + r.count,
+                        }),
+                        { revenue: 0, paid: 0, outstanding: 0, count: 0 },
+                      );
+
+                      return (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
+                                <th className="py-2 pr-3 font-medium">Branch</th>
+                                <th className="py-2 px-3 font-medium text-right">Orders</th>
+                                <th className="py-2 px-3 font-medium text-right">Revenue</th>
+                                <th className="py-2 px-3 font-medium text-right">Paid</th>
+                                <th className="py-2 pl-3 font-medium text-right">Outstanding</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r) => (
+                                <tr key={r.regionId || "__unassigned__"} className="border-b last:border-0 hover:bg-slate-50">
+                                  <td className="py-2.5 pr-3">
+                                    <div className="font-medium text-slate-900">{r.name}</div>
+                                    {r.address && (
+                                      <div className="text-xs text-slate-500 truncate max-w-[20rem]">{r.address}</div>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono">{r.count}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono font-semibold">{formatCurrency(r.revenue)}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(r.paid)}</td>
+                                  <td className="py-2.5 pl-3 text-right font-mono text-amber-700">{formatCurrency(r.outstanding)}</td>
+                                </tr>
+                              ))}
+                              {rows.length === 0 && (
+                                <tr>
+                                  <td colSpan={5} className="py-6 text-center text-slate-500">No orders to break down yet.</td>
+                                </tr>
+                              )}
+                            </tbody>
+                            {rows.length > 0 && (
+                              <tfoot>
+                                <tr className="bg-slate-50 font-semibold">
+                                  <td className="py-2.5 pr-3">All branches</td>
+                                  <td className="py-2.5 px-3 text-right font-mono">{totals.count}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono">{formatCurrency(totals.revenue)}</td>
+                                  <td className="py-2.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(totals.paid)}</td>
+                                  <td className="py-2.5 pl-3 text-right font-mono text-amber-700">{formatCurrency(totals.outstanding)}</td>
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </div>

@@ -184,6 +184,7 @@ function DriverManagementPage() {
         .from("orders")
         .select("assigned_driver_id")
         .eq("company_id", user.company_id)
+        .is("deleted_at", null)
         .eq("event_date", today)
         .in("assigned_driver_id", driverIds)
         .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]);

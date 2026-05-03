@@ -31,6 +31,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
+import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -266,6 +268,7 @@ function templateForLeadAction(
 
 export default function AdminLeads() {
   const { user, profile } = useAuth() as any;
+  const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
   const [leads, setLeads] = useState<any[]>([]);
@@ -415,25 +418,35 @@ export default function AdminLeads() {
   // pipeline (not won, not converted, not lost). Won/converted leads are
   // already clients now, lost leads are archived; both have their own
   // chip if the team needs to dig them out.
+  // Apply the global branch filter first so chips, search and counts
+  // all reflect the operator's current branch scope.
+  const regionFilteredLeads = useMemo(() => {
+    if (!regionFilterId) return leads;
+    return leads.filter((l) => {
+      const rid = (l as any).region_id;
+      return !rid || rid === regionFilterId;
+    });
+  }, [leads, regionFilterId]);
+
   const statusFilteredLeads = useMemo(() => {
-    if (statusFilter === "all") return leads;
+    if (statusFilter === "all") return regionFilteredLeads;
     if (statusFilter === "active") {
       const archived = new Set(["won", "converted", "lost"]);
-      return leads.filter((l) => !archived.has(l.status || "new"));
+      return regionFilteredLeads.filter((l) => !archived.has(l.status || "new"));
     }
     if (statusFilter === "won") {
       // Single chip covers both legacy "converted" rows and the new "won".
-      return leads.filter((l) => l.status === "won" || l.status === "converted");
+      return regionFilteredLeads.filter((l) => l.status === "won" || l.status === "converted");
     }
-    return leads.filter((l) => l.status === statusFilter);
-  }, [leads, statusFilter]);
+    return regionFilteredLeads.filter((l) => l.status === statusFilter);
+  }, [regionFilteredLeads, statusFilter]);
 
   // Counts for the chip strip. Computed once so chips render with live
   // pipeline weight without re-walking the array per chip.
   const statusCounts = useMemo(() => {
     const archived = new Set(["won", "converted", "lost"]);
     let active = 0, neu = 0, qualified = 0, quoted = 0, won = 0, lost = 0;
-    for (const l of leads) {
+    for (const l of regionFilteredLeads) {
       const s = l.status || "new";
       if (!archived.has(s)) active += 1;
       if (s === "new") neu += 1;
@@ -442,8 +455,8 @@ export default function AdminLeads() {
       if (s === "won" || s === "converted") won += 1;
       if (s === "lost") lost += 1;
     }
-    return { all: leads.length, active, new: neu, qualified, quoted, won, lost };
-  }, [leads]);
+    return { all: regionFilteredLeads.length, active, new: neu, qualified, quoted, won, lost };
+  }, [regionFilteredLeads]);
 
   const filteredLeads = useFuzzyItems(
     statusFilteredLeads,
@@ -662,6 +675,7 @@ export default function AdminLeads() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
                             <h3 className="font-semibold text-slate-900">{lead.client_name}</h3>
+                            <RegionBadge regionId={(lead as any).region_id} />
                             <Badge className={getStatusColor(lead.status || "new")}>
                               {lead.status || "new"}
                             </Badge>

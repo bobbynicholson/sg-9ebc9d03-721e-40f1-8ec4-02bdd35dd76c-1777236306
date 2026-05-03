@@ -101,6 +101,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const jobId = String(req.query.id || "");
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
 
+    // Optional target region. The importer page lets the operator
+    // pick which branch the imported clients / orders belong to.
+    // Validated against regions for this tenant -- a poisoned id
+    // from another company is rejected rather than silently dropped.
+    let targetRegionId: string | null = null;
+    const requestedRegionId = (req.body && typeof req.body === "object")
+      ? (req.body as any).region_id
+      : null;
+    if (typeof requestedRegionId === "string" && requestedRegionId.length === 36) {
+      const { data: regionRow } = await ssr
+        .from("regions")
+        .select("id")
+        .eq("id", requestedRegionId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (regionRow) targetRegionId = (regionRow as any).id;
+    }
+
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
     if (job.status !== "previewed" && job.status !== "mapped") {
@@ -151,6 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // and is_active here.
         const insertPayload: any = {
           company_id: companyId,
+          region_id: targetRegionId,
           client_name: mapped.client_name || mapped.company_name || "Imported client",
           email: mapped.email || null,
           phone: mapped.phone || null,
@@ -239,6 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // enum.
         const orderPayload: any = {
           company_id: companyId,
+          region_id: targetRegionId,
           client_id: clientId,
           client_name: mapped.client_name || null,
           client_email: mapped.client_email || null,

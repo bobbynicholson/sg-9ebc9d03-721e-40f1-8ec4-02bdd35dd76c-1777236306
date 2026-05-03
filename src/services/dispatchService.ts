@@ -202,6 +202,31 @@ export const dispatchService = {
   },
 
   /**
+   * Filter the company driver pool down to those who can deliver from a
+   * given region. Used by suggestDriversForOrder to enforce branch
+   * scoping before scoring -- so the dispatcher doesn't see a JHB
+   * driver as a candidate for a CPT order unless they explicitly opt
+   * in to cross-region lending.
+   *
+   * Inclusion rules (any one is enough):
+   *   * driver.regions_covered contains regionId
+   *   * driver.region_id == regionId (legacy single-region setup)
+   *   * driver has no scoping at all (regions_covered empty AND
+   *     region_id null) -- treated as "company-wide" so a tenant who
+   *     hasn't carved up their drivers yet still gets candidates
+   */
+  filterDriversByRegion(drivers: DriverCandidate[], regionId: string | null | undefined): DriverCandidate[] {
+    if (!regionId) return drivers;
+    return drivers.filter((d: any) => {
+      const covered: string[] | null = Array.isArray(d.regions_covered) ? d.regions_covered : null;
+      const primary: string | null = d.region_id ?? null;
+      if (covered && covered.length > 0) return covered.includes(regionId);
+      if (primary) return primary === regionId;
+      return true; // unscoped driver = company-wide pool
+    });
+  },
+
+  /**
    * Driver load on a given date: count of confirmed/active orders assigned
    * to this driver whose event_date matches.
    */
@@ -375,10 +400,24 @@ export const dispatchService = {
     companyId: string,
     order: OrderForDispatch,
     limit = 3,
+    opts: { restrictToRegion?: boolean } = {},
   ): Promise<DispatchSuggestion[]> {
     const settings = await this.getDispatchSettings(companyId);
-    const drivers = await this.getDriversForCompany(companyId);
+    let drivers = await this.getDriversForCompany(companyId);
     if (drivers.length === 0) return [];
+
+    // Branch gating. Default behaviour: when the order belongs to a
+    // branch, only suggest drivers who cover that branch. Dispatcher
+    // can pass restrictToRegion=false to widen to the full company
+    // pool ("lend" workflow).
+    const shouldRestrict = opts.restrictToRegion !== false;
+    if (shouldRestrict && order.region_id) {
+      const filtered = this.filterDriversByRegion(drivers, order.region_id);
+      // Fall back to the full pool if branch has no eligible drivers
+      // (avoid silently returning zero suggestions and stranding the
+      // order). The UI flags this as a cross-branch suggestion.
+      drivers = filtered.length > 0 ? filtered : drivers;
+    }
 
     const driverIds = drivers.map(d => d.id);
     const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);

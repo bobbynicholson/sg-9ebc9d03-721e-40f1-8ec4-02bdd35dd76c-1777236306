@@ -136,7 +136,27 @@ export async function generateInvoiceData(
     }));
 
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const taxRate = companyData.tax_rate || companyData.tax_percentage || 15; // Default 15% VAT
+    // Resolve VAT through the branch settings resolver so a JHB order
+    // honours JHB's vat_rate override instead of falling back to head
+    // office. Async fetch happens up front so the rest of the function
+    // stays synchronous.
+    let taxRatePct: number;
+    try {
+      const { resolveBranchSettings } = await import("@/services/branchSettingsService");
+      const branch = await resolveBranchSettings(
+        companyId,
+        (orderData.region_id as string | null) ?? null,
+      );
+      // resolver returns a decimal (0.15); the rest of this function
+      // works in percentage points. Honour vat_registered so an
+      // unregistered branch generates a 0% VAT invoice even when the
+      // company has a rate set.
+      taxRatePct = branch.vatRegistered ? Number(branch.vatRate) * 100 : 0;
+    } catch (e) {
+      console.warn("[invoiceGenerationService] branch resolver failed, falling back to company default:", e);
+      taxRatePct = Number(companyData.tax_rate || companyData.tax_percentage || 15);
+    }
+    const taxRate = taxRatePct;
     const taxAmount = subtotal * (taxRate / 100);
     const total = subtotal + taxAmount;
     const depositPaid = orderData.amount_paid || 0;

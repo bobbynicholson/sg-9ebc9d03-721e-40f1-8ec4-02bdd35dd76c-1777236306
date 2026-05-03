@@ -96,6 +96,38 @@ export const leadService = {
           link: `/leads?leadId=${data.id}`,
         });
 
+        // 1b. If the lead is region-scoped and the branch has its own
+        // manager assigned, ping them too. The owner already got the
+        // notification above; this just makes sure the local manager
+        // sees it without having to filter by region every morning.
+        // The branch can mute these in its own settings via
+        // regions.notify_manager_on_new_lead -- respected here.
+        if ((lead as any).region_id) {
+          try {
+            const { data: region } = await supabase
+              .from("regions")
+              .select("manager_user_id, name, notify_manager_on_new_lead")
+              .eq("id", (lead as any).region_id)
+              .maybeSingle();
+            const managerId = (region as any)?.manager_user_id as string | null;
+            const optedIn = (region as any)?.notify_manager_on_new_lead !== false;
+            if (managerId && managerId !== lead.user_id && optedIn) {
+              await notificationService.createNotification({
+                company_id: lead.company_id,
+                user_id: lead.user_id,
+                recipient_id: managerId,
+                notification_type: "quote_sent",
+                title: `🎉 New ${(region as any)?.name || "branch"} lead`,
+                message: `New inquiry from ${lead.client_name || lead.client_email} for your branch.`,
+                priority: "urgent",
+                link: `/leads?leadId=${data.id}`,
+              });
+            }
+          } catch (e) {
+            console.warn("[leadService] region manager notify failed (non-blocking):", e);
+          }
+        }
+
         // 2. Email notification to admin
         if (adminProfile?.email) {
           const subject = `New Lead Captured: ${lead.client_name}`;

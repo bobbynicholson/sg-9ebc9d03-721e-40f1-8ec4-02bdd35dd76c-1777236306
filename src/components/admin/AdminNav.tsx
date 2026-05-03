@@ -59,9 +59,10 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { RegionFilterDropdown } from "@/components/admin/RegionFilterDropdown";
 import { StaffViewSwitcher } from "@/components/admin/StaffViewSwitcher";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
-import { canAccessFinance } from "@/lib/authGuards";
+import { canAccessFinance, isCompanyAdmin } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 
@@ -501,7 +502,11 @@ export function AdminNav({ className }: AdminNavProps) {
         }
       ]
     },
-    {
+    // Branding + system settings are company-wide -- only company-level
+    // admins should reach them. region_admin / sales_admin lose this
+    // section, which keeps a branch manager from accidentally
+    // re-skinning the whole tenant.
+    ...(profile && isCompanyAdmin(profile.role as UserRole) ? [{
       id: "branding",
       title: "Branding & Settings",
       defaultOpen: false,
@@ -531,7 +536,7 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "General configuration"
         }
       ]
-    },
+    }] : []),
     ...(profile && profile.role === "super_admin" ? [{
       id: "platform",
       title: "Platform Admin",
@@ -760,6 +765,7 @@ export function AdminNav({ className }: AdminNavProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2">
+            <RegionFilterDropdown />
             <NotificationBell />
             <ThemeSwitch />
           </div>
@@ -806,6 +812,7 @@ export function AdminNav({ className }: AdminNavProps) {
                   </div>
                 </Link>
                 <div className="flex items-center gap-2">
+                  <RegionFilterDropdown />
                   <NotificationBell />
                   {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
                   <ThemeSwitch />

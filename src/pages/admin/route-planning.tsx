@@ -99,6 +99,7 @@ export default function RoutePlanning() {
         event_time: pair.primary.event_time,
         venue_lat: pair.primary.venue_lat,
         venue_lng: pair.primary.venue_lng,
+        region_id: pair.primary.region_id ?? null,
       }, 1);
       const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
       if (!top) {
@@ -204,6 +205,7 @@ export default function RoutePlanning() {
           event_time: o.event_time,
           venue_lat: o.venue_lat ?? o.delivery_lat ?? null,
           venue_lng: o.venue_lng ?? o.delivery_lng ?? null,
+          region_id: o.region_id ?? null,
         }, 1);
         const top = suggestions.find(s => s.capacity.ok && s.feasibility.ok && s.vehicle.ok);
         if (!top) { skipped += 1; continue; }

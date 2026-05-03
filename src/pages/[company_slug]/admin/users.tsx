@@ -17,6 +17,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
+import { Building2 } from "lucide-react";
 
 interface StaffMember {
   id: string;
@@ -28,13 +30,21 @@ interface StaffMember {
 }
 
 const ROLE_OPTIONS = [
-  { value: "company_admin", label: "Company Admin", icon: Shield, color: "bg-indigo-100 text-indigo-700" },
+  { value: "company_admin", label: "Company Admin (all branches)", icon: Shield, color: "bg-indigo-100 text-indigo-700" },
+  { value: "region_admin", label: "Branch Manager (single / multi-branch)", icon: Building2, color: "bg-blue-100 text-blue-700" },
+  { value: "sales_admin", label: "Sales Admin (cross-branch sales)", icon: Shield, color: "bg-violet-100 text-violet-700" },
   { value: "admin", label: "Admin", icon: Shield, color: "bg-purple-100 text-purple-700" },
   { value: "driver", label: "Driver", icon: Truck, color: "bg-green-100 text-green-700" },
   { value: "kitchen_staff", label: "Kitchen Staff", icon: ChefHat, color: "bg-orange-100 text-orange-700" },
   { value: "shopping_staff", label: "Shopping Staff", icon: ShoppingCart, color: "bg-pink-100 text-pink-700" },
   { value: "cleaning_staff", label: "Cleaning Staff", icon: Sparkles, color: "bg-cyan-100 text-cyan-700" },
 ];
+
+// Roles that get region scoping. Cross-branch roles (company_admin,
+// sales_admin) ignore the picker -- they see all branches by RLS rule.
+const REGION_SCOPED_ROLE_VALUES = new Set([
+  "region_admin", "driver", "kitchen_staff", "shopping_staff", "cleaning_staff",
+]);
 
 export default function StaffManagementPage() {
   const router = useRouter();
@@ -53,6 +63,13 @@ export default function StaffManagementPage() {
     full_name: "",
     role: "driver",
   });
+  // Branch / kitchen scoping. regions_covered is the array we write to
+  // profiles for region_admin + branch-scoped staff. Cross-branch roles
+  // ignore this entirely -- the picker hides itself.
+  const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
+  const [regionIds, setRegionIds] = useState<string[]>([]);
+  const showRegionPicker =
+    REGION_SCOPED_ROLE_VALUES.has(newStaff.role) && kitchens.filter((k) => k.source === "region").length > 0;
 
   useEffect(() => {
     if (user && company_slug) {
@@ -114,6 +131,8 @@ export default function StaffManagementPage() {
           full_name: newStaff.full_name,
           role: newStaff.role,
           company_id: user.company_id,
+          regions_covered: REGION_SCOPED_ROLE_VALUES.has(newStaff.role) ? regionIds : null,
+          region_id: REGION_SCOPED_ROLE_VALUES.has(newStaff.role) && regionIds[0] ? regionIds[0] : null,
         }),
       });
       const payload = await res.json();
@@ -132,6 +151,7 @@ export default function StaffManagementPage() {
         full_name: "",
         role: "driver",
       });
+      setRegionIds([]);
 
       setIsDialogOpen(false);
       loadStaff();
@@ -277,6 +297,50 @@ export default function StaffManagementPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {showRegionPicker && (
+                  <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-3">
+                    <Label className="flex items-center gap-1.5 text-sm font-medium text-blue-900">
+                      <Building2 className="w-4 h-4" /> Branches this user can access
+                    </Label>
+                    <p className="text-xs text-blue-800/70">
+                      Tick one or more branches. Leave all unticked to give cross-branch access
+                      (only valid for managers covering everything).
+                    </p>
+                    <div className="space-y-1.5 max-h-40 overflow-auto pr-1">
+                      {kitchens
+                        .filter((k) => k.source === "region")
+                        .map((k) => {
+                          const checked = regionIds.includes(k.id);
+                          return (
+                            <label
+                              key={k.id}
+                              className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm cursor-pointer hover:border-blue-300"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) =>
+                                  setRegionIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, k.id]
+                                      : prev.filter((id) => id !== k.id),
+                                  )
+                                }
+                                className="h-4 w-4"
+                              />
+                              <span className="font-medium">{k.name}</span>
+                              {k.address && (
+                                <span className="text-xs text-slate-500 truncate">
+                                  -- {k.address}
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />

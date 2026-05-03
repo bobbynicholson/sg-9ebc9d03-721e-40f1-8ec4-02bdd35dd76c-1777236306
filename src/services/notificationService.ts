@@ -53,6 +53,17 @@ interface BroadcastNotificationParams {
   targetRoles?: UserRole[];
   priority?: string;
   link?: string;
+  /**
+   * Optional region scoping. When set, only profiles that can access
+   * this region receive the broadcast:
+   *   * super_admin / company_admin / sales_admin always receive (cross-branch)
+   *   * region_admin receives if regionId is in their regions_covered or
+   *     matches their primary region_id
+   *   * driver / kitchen / shopping / cleaning staff receive on the
+   *     same scoping rule
+   * Leave undefined for company-wide broadcasts (existing behaviour).
+   */
+  regionId?: string | null;
 }
 
 interface CleanupOptions {
@@ -266,7 +277,7 @@ export const notificationService = {
     try {
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("id, role")
+        .select("id, role, region_id, regions_covered")
         .eq("company_id", params.userId);
 
       if (profileError) {
@@ -278,12 +289,31 @@ export const notificationService = {
         return 0;
       }
 
+      // Region-aware fan-out. Cross-branch roles always receive; everyone
+      // else receives only if the broadcast is unscoped, or their
+      // regions_covered/region_id covers the target region.
+      const CROSS_BRANCH_ROLES = new Set([
+        "super_admin", "company_admin", "sales_admin",
+      ]);
+      const regionScope = params.regionId ?? null;
+
       const notifications = profiles
         .filter(profile => {
           if (!params.targetRoles || params.targetRoles.length === 0) {
-            return true;
+            // No role restriction; still apply region scoping below.
+          } else if (!params.targetRoles.includes(profile.role as UserRole)) {
+            return false;
           }
-          return params.targetRoles.includes(profile.role as UserRole);
+          if (!regionScope) return true;  // company-wide broadcast
+          if (CROSS_BRANCH_ROLES.has(profile.role as string)) return true;
+          const covered = (profile as any).regions_covered as string[] | null;
+          const primary = (profile as any).region_id as string | null;
+          if (covered && covered.length > 0) return covered.includes(regionScope);
+          if (primary) return primary === regionScope;
+          // Profile has no region scoping data -- preserve existing
+          // behaviour (treat as cross-branch) so legacy users don't
+          // silently miss notifications.
+          return true;
         })
         .map(profile => ({
           recipient_id: profile.id,

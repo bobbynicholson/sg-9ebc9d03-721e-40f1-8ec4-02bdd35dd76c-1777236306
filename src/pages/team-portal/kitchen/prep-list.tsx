@@ -14,6 +14,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPrepService";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +64,7 @@ type ViewMode = "by_order" | "by_ingredient";
 
 export default function KitchenPrepListPage() {
   const { profile } = useAuth();
+  const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [rows, setRows] = useState<DemandRow[]>([]);
   const [outlook, setOutlook] = useState<Record<string, OutlookRow>>({});
@@ -129,7 +131,7 @@ export default function KitchenPrepListPage() {
       // Aggregated demand runs in parallel via the kitchen prep service
       setAggregatedLoading(true);
       try {
-        const agg = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizon);
+        const agg = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizon, regionFilterId);
         if (!cancelled) setAggregated(agg);
       } catch (e) {
         console.warn("Aggregated demand failed:", e);
@@ -138,7 +140,7 @@ export default function KitchenPrepListPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [profile?.company_id]);
+  }, [profile?.company_id, regionFilterId]);
 
   // ── Group by order ────────────────────────────────────────────────
   const orders = useMemo(() => {

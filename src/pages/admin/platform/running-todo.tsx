@@ -1001,6 +1001,21 @@ const productNotesCards: SprintCard[] = [
       { title: "Sync-quote endpoints for Xero / QuickBooks / Sage", detail: "/admin/quotes Push-to-accounting calls /api/integrations/{provider}/sync-quote which doesn't exist yet -- it falls back to copying the prepared payload to the clipboard, which the operator pastes manually. To make it a real one-click sync we need to clone /api/accounting/{xero,quickbooks}/sync-invoice.ts into sync-quote.ts per provider (~300 lines each), point accountingExportService at the new path, and make sure the OAuth + token refresh chain stays healthy. Sage adapter is the third provider (no existing scaffold, would be a bigger build). Build once a paying tenant has actually connected their accounting integration.", status: "todo" },
     ],
   },
+  {
+    id: "post-launch-onboarding-walkthrough",
+    title: "First-run onboarding walkthrough (4 may 2026)",
+    why: "Bobby flagged after Stage 0-3 multi-branch testing: 'first step once signed up, onboarding should take users to each page showing them where they can add leads, create quotes and walk them through each step'. Today a new tenant lands on /admin/dashboard cold -- there's an Onboarding page in the nav but it's a checklist, not a walkthrough. The drop-off risk is the highest in the first 5 minutes after signup; without a guided tour the operator pokes around, doesn't see how lead -> quote -> order chains together, and bounces. A real product tour anchored to actual nav items + create buttons closes that gap.",
+    estimate: "1 sprint (3-5 days)",
+    risk: "Medium",
+    icon: Sparkles,
+    accent: "from-indigo-500 to-purple-600",
+    items: [
+      { title: "Tour engine + step model", detail: "Pick driver.js or react-joyride. Build a TourProvider that reads a per-tenant flag (companies.onboarding_tour_state -- 'pending' | 'in_progress' | 'completed' | 'skipped') and only auto-fires when 'pending'. Each step takes a CSS selector (or ref), copy, optional CTA, and an 'onAdvance' hook so the tour can wait for an actual click instead of just a Next button. Persist progress per step so a refresh doesn't restart from zero.", status: "todo" },
+      { title: "Define the 'first booking' tour script", detail: "8-10 step happy path: 1) Welcome on /admin/dashboard, 2) Click Leads in nav -> 'this is where every enquiry lands', 3) Click + New lead -> walk through the form, save a real lead, 4) Click Quotes -> 'now turn that lead into a quote', 5) Open the quote builder pre-filled with the lead, 6) Send -> 'this generates the public quote URL', 7) Show the Orders page -> 'when the client accepts, an order appears here', 8) Show Invoices -> 'when the order is delivered, the invoice generates automatically', 9) Show Calendar / Dispatch as the day-of-event view, 10) Wrap with 'you can replay this tour anytime from /admin/onboarding'.", status: "todo" },
+      { title: "Skip + replay controls", detail: "A persistent 'Skip tour' button at every step (writes onboarding_tour_state='skipped'). On /admin/onboarding add a 'Run the welcome tour again' button that resets the flag and restarts from step 1. Important: the tour must NEVER fire for region_admin / sales_admin invitees -- only the company owner sees it on first login. Their team gets per-role mini-tours later (separate scope).", status: "todo" },
+      { title: "Per-role mini-tours (Phase 2)", detail: "Once the owner tour is shipped, add 3-step mini-tours for kitchen / driver / shopping staff on their first portal load. Kitchen: 'this is your prep list, this is how you mark a task done, this is how you flag a shortage'. Driver: 'this is the route, this is how you start a delivery, this is how you confirm handover'. Shopping: 'this is the demand list, this is how you turn shortfalls into a shopping order'. Each mini-tour is 30 seconds max -- staff tolerate way less than owners do.", status: "todo" },
+    ],
+  },
 ];
 
 // =====================================================================

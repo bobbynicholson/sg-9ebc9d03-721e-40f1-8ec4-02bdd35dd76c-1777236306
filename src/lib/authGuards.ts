@@ -15,6 +15,49 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/*",
     "/team-portal/*",
   ],
+  [UserRole.REGION_ADMIN]: [
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    "/admin/orders/*",
+    "/admin/calendar",
+    "/admin/contacts",
+    "/admin/clients",
+    "/admin/clients/*",
+    "/admin/inventory",
+    "/admin/inventory-tracking",
+    "/admin/menu",
+    "/admin/equipment",
+    "/admin/tracking",
+    "/admin/route-planning",
+    "/admin/order-assignments",
+    "/admin/dispatch",
+    "/admin/equipment-shortages",
+    "/admin/notifications",
+    "/admin/notification-settings",
+    "/admin/regions",
+    "/team-portal/*",
+  ],
+  [UserRole.SALES_ADMIN]: [
+    // Cross-branch sales pool. Reads everything sales-related across
+    // branches; locked out of kitchen / dispatch operations because
+    // those are branch-managed.
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    "/admin/contacts",
+    "/admin/clients",
+    "/admin/clients/*",
+    "/admin/calendar",
+    "/admin/notifications",
+    "/admin/regions",
+  ],
   [UserRole.ADMIN]: [
     "/admin/dashboard",
     "/admin/leads",
@@ -72,6 +115,8 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
 export const ADMIN_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.COMPANY_ADMIN,
+  UserRole.REGION_ADMIN,
+  UserRole.SALES_ADMIN,
   UserRole.ADMIN,
 ];
 
@@ -81,9 +126,20 @@ export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.COMPANY_ADMIN,
 ];
 
+// Cross-branch admin roles -- they ignore the region filter for read
+// purposes and can switch context freely between branches via the
+// global region dropdown.
+export const CROSS_BRANCH_ADMIN_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.COMPANY_ADMIN,
+  UserRole.SALES_ADMIN,
+];
+
 // Roles with company access but restricted finance (no payment gateways, subscription, financial dashboard)
 export const RESTRICTED_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.ADMIN,
+  UserRole.REGION_ADMIN,
+  UserRole.SALES_ADMIN,
 ];
 
 // Finance-only routes (company_admin, owner, super_admin only)
@@ -99,6 +155,8 @@ export const ROLE_NAMES: Record<UserRole, string> = {
   [UserRole.ADMIN]: "Administrator",
   [UserRole.SUPER_ADMIN]: "Platform Administrator",
   [UserRole.COMPANY_ADMIN]: "Company Administrator",
+  [UserRole.REGION_ADMIN]: "Branch Manager",
+  [UserRole.SALES_ADMIN]: "Sales Admin",
   [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
   [UserRole.SHOPPING_STAFF]: "Shopping Staff",
   [UserRole.DRIVER]: "Driver/Waiter",
@@ -116,6 +174,8 @@ export const ROLE_NAMES: Record<UserRole, string> = {
 export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
   [UserRole.SUPER_ADMIN]: () => "/admin/platform/dashboard",
   [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.REGION_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.SALES_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
   [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
@@ -130,6 +190,8 @@ export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => stri
 export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => string> = {
   super_admin: () => "/admin/platform/dashboard",
   company_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  region_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  sales_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   owner: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
   kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/dashboard` : "/team-portal/kitchen/dashboard",
@@ -267,9 +329,27 @@ export function isPlatformAdmin(userRole: UserRole): boolean {
  * Check if role is a company admin role (including admin with restricted access)
  */
 export function isCompanyAdmin(userRole: UserRole): boolean {
-  return userRole === UserRole.COMPANY_ADMIN || 
-         userRole === UserRole.ADMIN || 
+  return userRole === UserRole.COMPANY_ADMIN ||
+         userRole === UserRole.ADMIN ||
          userRole === UserRole.SUPER_ADMIN;
+}
+
+/**
+ * Cross-branch admin check. True for roles that see / act across
+ * every branch (super_admin, company_admin, sales_admin). False for
+ * region-scoped admins -- they get the region filter forced on.
+ */
+export function isCrossBranchAdmin(userRole: UserRole): boolean {
+  return CROSS_BRANCH_ADMIN_ROLES.includes(userRole);
+}
+
+/**
+ * True for any admin role that can run a branch (region_admin or
+ * higher). Used by AdminNav to gate branch-specific surfaces like
+ * /admin/regions and the branch P&L tab.
+ */
+export function canManageBranch(userRole: UserRole): boolean {
+  return userRole === UserRole.REGION_ADMIN || isCompanyAdmin(userRole);
 }
 
 /**

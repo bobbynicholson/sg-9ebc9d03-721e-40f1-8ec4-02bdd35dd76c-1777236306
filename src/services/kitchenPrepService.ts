@@ -518,16 +518,36 @@ export const kitchenPrepService = {
    * computes shortfall = max(0, total_demand - on_hand). This is the
    * math that catches "two orders both need 10kg lettuce, you only have
    * 12kg" -- one banner instead of two ok / short labels that lie.
+   *
+   * Pass `regionId` to scope the demand to a single branch:
+   *   * Only orders for that branch are aggregated.
+   *   * Inventory is sourced from getInventoryForRegion(regionId): the
+   *     branch's pinned pool plus shared (company-wide) items. Stock
+   *     pinned to other branches is invisible -- so a CPT prep run
+   *     doesn't think it can draw on JHB's chicken.
+   * Pass null to get the company-wide view (legacy behaviour).
    */
-  async getAggregatedDemand(companyId: string, fromDate: string, toDate: string): Promise<IngredientDemand[]> {
+  async getAggregatedDemand(
+    companyId: string,
+    fromDate: string,
+    toDate: string,
+    regionId: string | null = null,
+  ): Promise<IngredientDemand[]> {
     // Pull confirmed / preparing / ready orders in the date window
-    const { data: orders } = await supabase
+    let ordersQuery = supabase
       .from("orders")
-      .select("id, client_name, event_date, menu_items, guest_count, final_guest_count, status")
+      .select("id, client_name, event_date, menu_items, guest_count, final_guest_count, status, region_id")
       .eq("company_id", companyId)
       .gte("event_date", fromDate)
       .lte("event_date", toDate)
       .in("status", ["confirmed", "preparing", "ready"]);
+    if (regionId) {
+      // Same fall-through rule as RLS: branch rows + null/legacy
+      // (company-wide) rows. Without the OR a region_admin would lose
+      // visibility on legacy orders that never got stamped.
+      ordersQuery = ordersQuery.or(`region_id.eq.${regionId},region_id.is.null`);
+    }
+    const { data: orders } = await ordersQuery;
     if (!orders || orders.length === 0) return [];
 
     // Aggregate demand per ingredient name
@@ -579,13 +599,19 @@ export const kitchenPrepService = {
 
     if (demandByIngredient.size === 0) return [];
 
-    // Join to inventory by name to get on_hand
-    const names = Array.from(demandByIngredient.values()).map(d => d.name);
-    const { data: inv } = await supabase
+    // Join to inventory by name to get on_hand. When the caller asked
+    // for a region-scoped demand view, only consider the branch's own
+    // pool plus shared items so the shortfall numbers reflect what
+    // that kitchen can actually draw on.
+    let invQuery = supabase
       .from("inventory_items")
-      .select("id, item_name, current_stock, unit_of_measure")
+      .select("id, item_name, current_stock, unit_of_measure, region_id, is_shared")
       .eq("company_id", companyId)
       .is("deleted_at", null);
+    if (regionId) {
+      invQuery = invQuery.or(`region_id.eq.${regionId},is_shared.eq.true`);
+    }
+    const { data: inv } = await invQuery;
     const invByName = new Map<string, any>();
     for (const i of (inv || []) as any[]) {
       invByName.set((i.item_name || "").toLowerCase(), i);

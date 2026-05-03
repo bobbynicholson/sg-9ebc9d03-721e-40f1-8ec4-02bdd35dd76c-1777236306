@@ -24,6 +24,8 @@ interface Props {
     venue_lat?: number | null;
     venue_lng?: number | null;
     requires_refrigeration?: boolean;
+    /** Branch the order belongs to. Drives default driver pool scoping. */
+    region_id?: string | null;
   };
   /** When true, shows an Unassign button (for active orders that should drop off the queue). */
   allowUnassign?: boolean;
@@ -51,10 +53,15 @@ export function ReassignDriverDialog({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reason, setReason] = useState("");
+  // Branch lending. Default = restrict to the order's branch pool;
+  // toggle off when the local pool is full / unavailable and the
+  // dispatcher needs to borrow a driver from another branch.
+  const [lendFromOtherBranches, setLendFromOtherBranches] = useState(false);
 
   useEffect(() => {
     if (!open || !companyId) return;
     setReason("");
+    setLendFromOtherBranches(false);
     setLoading(true);
     dispatchService.suggestDriversForOrder(companyId, {
       id: order.id,
@@ -63,8 +70,9 @@ export function ReassignDriverDialog({
       venue_lat: order.venue_lat,
       venue_lng: order.venue_lng,
       requires_refrigeration: order.requires_refrigeration,
-    }, 5).then(setSuggestions).finally(() => setLoading(false));
-  }, [open, companyId, order.id]);
+      region_id: order.region_id ?? null,
+    }, 5, { restrictToRegion: !lendFromOtherBranches }).then(setSuggestions).finally(() => setLoading(false));
+  }, [open, companyId, order.id, lendFromOtherBranches]);
 
   const handlePick = async (driverId: string, score?: number) => {
     if (!companyId) return;
@@ -137,6 +145,38 @@ export function ReassignDriverDialog({
             className="mt-1 text-sm"
           />
         </div>
+
+        {/* Cross-branch lend toggle. Hidden when the order has no
+            region scoping (single-branch tenants don't need it). */}
+        {order.region_id && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-amber-900">Borrow from other branches</div>
+              <div className="text-[11px] text-amber-800/80">
+                {lendFromOtherBranches
+                  ? "Showing all company drivers, including other branches."
+                  : "Suggestions are limited to this branch's pool. Toggle on if no local driver fits."}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLendFromOtherBranches((v) => !v)}
+              className={`shrink-0 inline-flex h-6 w-10 items-center rounded-full border transition-colors ${
+                lendFromOtherBranches
+                  ? "bg-amber-600 border-amber-600"
+                  : "bg-white border-slate-300"
+              }`}
+              aria-pressed={lendFromOtherBranches}
+              aria-label="Toggle cross-branch driver lending"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  lendFromOtherBranches ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="py-8 text-center text-sm text-slate-500">

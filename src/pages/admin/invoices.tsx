@@ -50,7 +50,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 export default function InvoicesPage() {
   const router = useRouter();
-  const { user, activeRole } = useAuth();
+  const { user, activeRole, loading: authLoading } = useAuth() as any;
   const { toast } = useToast();
   
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -116,6 +116,7 @@ export default function InvoicesPage() {
         )
       `)
       .eq("company_id", user.company_id)
+      .is("deleted_at", null)
       .in("status", ["confirmed", "completed"])
       .order("event_date", { ascending: false });
 
@@ -324,7 +325,22 @@ export default function InvoicesPage() {
     { limit: 0 },
   );
 
-  const allowedRoles = ["admin", "super_admin", "company_admin", "owner"];
+  // Don't gate-check until auth has finished hydrating, otherwise a
+  // brief !user window flashes the Access Denied screen before the
+  // session resolves -- and if the user lands on it before useAuth
+  // emits the authenticated state, they're stuck looking at the
+  // denial even though they are an admin.
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-slate-500 text-sm">
+        Loading invoices...
+      </div>
+    );
+  }
+
+  // Multi-branch roles can also reach invoices; finance pages stay
+  // gated separately via canAccessFinance for the dashboard view.
+  const allowedRoles = ["admin", "super_admin", "company_admin", "region_admin", "sales_admin", "owner"];
   if (!user || !allowedRoles.includes(activeRole as string)) {
     return (
       <div className="flex items-center justify-center h-screen">

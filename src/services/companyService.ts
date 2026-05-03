@@ -69,6 +69,32 @@ export const companyService = {
         };
       }
 
+      // Seed a default region (the "Main" kitchen / branch) so every
+      // tenant has at least one regions row from day one. Lifecycle
+      // artifacts (leads, quotes, orders) carry region_id from the
+      // moment of creation, which means single-branch tenants don't
+      // need to think about regions and multi-branch tenants only
+      // create extras on top. Coords stay null until the owner sets
+      // an HQ address; useCompanyKitchens filters regions without
+      // coords, so the picker only surfaces real, deliverable origins.
+      try {
+        const regionCode = (slug || "main").toUpperCase().slice(0, 12);
+        await supabase.from("regions").insert({
+          company_id: company.id,
+          code: regionCode,
+          name: "Main kitchen",
+          country: data.currency === "ZAR" ? "ZA" : "ZA",
+          currency: company.currency,
+          timezone: company.timezone,
+          is_active: true,
+        } as any);
+      } catch (seedErr) {
+        // Non-blocking. If the seed fails (e.g. unique-code clash)
+        // the tenant still works -- HQ fallback in useCompanyKitchens
+        // covers them until they add a region manually.
+        console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
+      }
+
       // Send welcome email via API route
       if (data.email) {
         try {
@@ -282,7 +308,24 @@ export const companyService = {
     if (profileError) {
         console.error("Error updating profile with company_id:", profileError);
     }
-    
+
+    // Seed the default "Main kitchen" region. See companyService.createCompany
+    // for the rationale -- this keeps every tenant region-aware from day one.
+    try {
+      const regionCode = (company.slug || "main").toUpperCase().slice(0, 12);
+      await supabase.from("regions").insert({
+        company_id: company.id,
+        code: regionCode,
+        name: "Main kitchen",
+        country: "ZA",
+        currency: company.currency,
+        timezone: company.timezone,
+        is_active: true,
+      } as any);
+    } catch (seedErr) {
+      console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
+    }
+
     // Send welcome email via API route
     try {
       await fetch('/api/send-email', {
@@ -379,14 +422,32 @@ export const companyService = {
       // 3. Update the user's profile with the new company ID
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          company_id: company.id, 
-          company_slug: data.company_slug 
+        .update({
+          company_id: company.id,
+          company_slug: data.company_slug
         } as any)
         .eq('id', userId);
 
       if (profileError) {
         console.error("Error updating profile:", profileError);
+      }
+
+      // 4. Seed the default "Main kitchen" region.
+      try {
+        const regionCode = (data.company_slug || "main").toUpperCase().slice(0, 12);
+        await supabase.from("regions").insert({
+          company_id: company.id,
+          code: regionCode,
+          name: "Main kitchen",
+          country: data.country || "ZA",
+          city: data.city || null,
+          address: data.address_line1 || null,
+          postal_code: data.postal_code || null,
+          currency: data.billing_currency || "ZAR",
+          is_active: true,
+        } as any);
+      } catch (seedErr) {
+        console.warn("[companyService] default region seed failed (non-blocking):", seedErr);
       }
 
       return { success: true, company };

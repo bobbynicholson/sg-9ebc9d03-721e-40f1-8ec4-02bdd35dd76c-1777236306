@@ -45,6 +45,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
@@ -138,6 +139,11 @@ const emptyForm = {
   sku: "",
   storage_location: "",
   preferred_supplier_id: "",
+  // Branch scoping. "shared" = available to every branch (legacy
+  // single-pool behaviour). "<region_id>" = pinned to that branch.
+  // Stored as a string here so the UI can use a single Select with
+  // a sentinel value; on save we translate to (region_id, is_shared).
+  branch_scope: "shared",
 };
 
 interface SupplierOption {
@@ -449,6 +455,7 @@ export default function AdminInventory() {
     setAddSaving(true);
     setAddError("");
     try {
+      const branchPick = (addForm as any).branch_scope || "shared";
       await inventoryService.createInventoryItem({
         company_id: companyId,
         item_name: addForm.item_name.trim(),
@@ -461,6 +468,11 @@ export default function AdminInventory() {
         sku: addForm.sku.trim() || null,
         storage_location: addForm.storage_location.trim() || null,
         preferred_supplier_id: addForm.preferred_supplier_id || null,
+        // Schema CHECK constraint: items pinned to a region cannot
+        // also be flagged shared. Translate the single-select picker
+        // into the (region_id, is_shared) pair the DB expects.
+        region_id: branchPick === "shared" ? null : branchPick,
+        is_shared: branchPick === "shared",
       } as any);
       setAddOpen(false);
       toast({ title: "Item added", description: addForm.item_name.trim() });
@@ -486,6 +498,9 @@ export default function AdminInventory() {
       sku: item.sku,
       storage_location: item.storageLocation,
       preferred_supplier_id: item.supplierId || "",
+      branch_scope: (item as any).region_id
+        ? String((item as any).region_id)
+        : "shared",
     });
     setEditError("");
     setEditOpen(true);
@@ -497,6 +512,7 @@ export default function AdminInventory() {
     setEditSaving(true);
     setEditError("");
     try {
+      const branchPick = (editForm as any).branch_scope || "shared";
       await inventoryService.updateInventoryItem(editTarget.id, {
         item_name: editForm.item_name.trim(),
         category: editForm.category,
@@ -508,6 +524,8 @@ export default function AdminInventory() {
         sku: editForm.sku.trim() || null,
         storage_location: editForm.storage_location.trim() || null,
         preferred_supplier_id: editForm.preferred_supplier_id || null,
+        region_id: branchPick === "shared" ? null : branchPick,
+        is_shared: branchPick === "shared",
       } as any);
       setEditOpen(false);
       toast({ title: "Saved", description: editForm.item_name.trim() });
@@ -2019,7 +2037,44 @@ function ItemForm({
           </p>
         )}
       </div>
+      <BranchScopePicker form={form} setForm={setForm} />
       {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+// Branch scoping picker for inventory items. Hides itself for
+// single-branch tenants -- "shared" is the only sensible value when
+// there's nothing to split across.
+function BranchScopePicker({
+  form,
+  setForm,
+}: {
+  form: typeof emptyForm;
+  setForm: (f: typeof emptyForm) => void;
+}) {
+  const { user } = useAuth() as any;
+  const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
+  const branches = kitchens.filter((k) => k.source === "region");
+  if (branches.length <= 1) return null;
+  return (
+    <div>
+      <Label htmlFor="branch_scope">Branch</Label>
+      <select
+        id="branch_scope"
+        value={(form as any).branch_scope || "shared"}
+        onChange={(e) => setForm({ ...form, branch_scope: e.target.value } as any)}
+        className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+      >
+        <option value="shared">Shared (every branch can use this)</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>{b.name} only</option>
+        ))}
+      </select>
+      <p className="text-[11px] text-slate-500 mt-1">
+        Shared items show up in every branch's prep + shopping lists. Pinning to one branch
+        keeps it out of the others.
+      </p>
     </div>
   );
 }

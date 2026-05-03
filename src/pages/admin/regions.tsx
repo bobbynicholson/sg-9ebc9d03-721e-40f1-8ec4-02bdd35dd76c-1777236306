@@ -56,6 +56,9 @@ interface Region {
   manager?: { id: string; full_name: string; email: string } | null;
   staff_count?: number;
   order_count?: number;
+  mtd_order_count?: number;
+  mtd_revenue?: number;
+  open_quote_count?: number;
 }
 
 interface RegionFormState {
@@ -79,6 +82,17 @@ interface RegionFormState {
   auto_assign_orders: boolean;
   is_active: boolean;
   notes: string;
+  // Per-branch overrides. Empty string = inherit company default.
+  // The form keeps these as strings to make "blank means inherit"
+  // unambiguous in the UI; conversion to numbers happens at save.
+  vat_rate_override: string;
+  deposit_percent_override: string;
+  delivery_cost_per_km_override: string;
+  min_delivery_fee_override: string;
+  // Notification preferences for the branch manager.
+  notify_manager_on_new_lead: boolean;
+  notify_manager_on_new_order: boolean;
+  notify_manager_on_prep_alert: boolean;
 }
 
 const emptyForm = (): RegionFormState => {
@@ -104,6 +118,13 @@ const emptyForm = (): RegionFormState => {
     auto_assign_orders: true,
     is_active: true,
     notes: "",
+    vat_rate_override: "",
+    deposit_percent_override: "",
+    delivery_cost_per_km_override: "",
+    min_delivery_fee_override: "",
+    notify_manager_on_new_lead: true,
+    notify_manager_on_new_order: true,
+    notify_manager_on_prep_alert: true,
   };
 };
 
@@ -151,14 +172,53 @@ function RegionsPage() {
       return;
     }
 
+    // Month-to-date window for the per-branch KPI strip. Local-day
+    // boundaries are fine here -- a branch's KPI is "events booked
+    // this calendar month from the operator's perspective".
+    const now = new Date();
+    const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const mtdStartIso = mtdStart.toISOString().slice(0, 10);
+
     // Enrich with staff/order counts (best-effort; failures shouldn't block UI)
     const enriched = await Promise.all(
       (data || []).map(async (r: any) => {
-        const [{ count: staffCount }, { count: orderCount }] = await Promise.all([
+        const [
+          { count: staffCount },
+          { count: orderCount },
+          { count: mtdOrderCount },
+          mtdRevenueRes,
+          { count: openQuoteCount },
+        ] = await Promise.all([
           supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id),
           supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id),
+          supabase
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("region_id", r.id)
+            .gte("event_date", mtdStartIso),
+          supabase
+            .from("orders")
+            .select("total_amount")
+            .eq("region_id", r.id)
+            .gte("event_date", mtdStartIso),
+          supabase
+            .from("quotes")
+            .select("id", { count: "exact", head: true })
+            .eq("region_id", r.id)
+            .in("status", ["draft", "sent", "revised"]),
         ]);
-        return { ...r, staff_count: staffCount || 0, order_count: orderCount || 0 } as Region;
+        const mtdRevenue = (mtdRevenueRes?.data || []).reduce(
+          (sum: number, row: any) => sum + Number(row?.total_amount || 0),
+          0,
+        );
+        return {
+          ...r,
+          staff_count: staffCount || 0,
+          order_count: orderCount || 0,
+          mtd_order_count: mtdOrderCount || 0,
+          mtd_revenue: mtdRevenue,
+          open_quote_count: openQuoteCount || 0,
+        } as Region;
       }),
     );
 
@@ -205,6 +265,13 @@ function RegionsPage() {
       auto_assign_orders: region.auto_assign_orders ?? true,
       is_active: region.is_active ?? true,
       notes: region.notes || "",
+      vat_rate_override: (region as any).vat_rate != null ? String(Number((region as any).vat_rate) * 100) : "",
+      deposit_percent_override: (region as any).deposit_percent != null ? String((region as any).deposit_percent) : "",
+      delivery_cost_per_km_override: (region as any).delivery_cost_per_km != null ? String((region as any).delivery_cost_per_km) : "",
+      min_delivery_fee_override: (region as any).min_delivery_fee != null ? String((region as any).min_delivery_fee) : "",
+      notify_manager_on_new_lead: (region as any).notify_manager_on_new_lead !== false,
+      notify_manager_on_new_order: (region as any).notify_manager_on_new_order !== false,
+      notify_manager_on_prep_alert: (region as any).notify_manager_on_prep_alert !== false,
     });
     setCreateOpen(true);
   };
@@ -232,6 +299,17 @@ function RegionsPage() {
     }
 
     setSubmitting(true);
+    // Override fields: empty string = inherit (NULL), value = override.
+    // VAT is entered as % in the UI (e.g. "15") but stored as a
+    // decimal (0.15) to match companies.vat_rate.
+    const parseOverride = (raw: string, asPercentToDecimal = false): number | null => {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) return null;
+      return asPercentToDecimal ? n / 100 : n;
+    };
+
     const payload: Record<string, any> = {
       company_id: user.company_id,
       name: form.name.trim(),
@@ -254,6 +332,13 @@ function RegionsPage() {
       auto_assign_orders: form.auto_assign_orders,
       is_active: form.is_active,
       notes: form.notes || null,
+      vat_rate: parseOverride(form.vat_rate_override, true),
+      deposit_percent: parseOverride(form.deposit_percent_override),
+      delivery_cost_per_km: parseOverride(form.delivery_cost_per_km_override),
+      min_delivery_fee: parseOverride(form.min_delivery_fee_override),
+      notify_manager_on_new_lead: form.notify_manager_on_new_lead,
+      notify_manager_on_new_order: form.notify_manager_on_new_order,
+      notify_manager_on_prep_alert: form.notify_manager_on_prep_alert,
     };
 
     let error: any;
@@ -295,7 +380,19 @@ function RegionsPage() {
     countries: new Set(regions.map((r) => r.country)).size,
     totalStaff: regions.reduce((s, r) => s + (r.staff_count || 0), 0),
     totalOrders: regions.reduce((s, r) => s + (r.order_count || 0), 0),
+    mtdOrders: regions.reduce((s, r) => s + (r.mtd_order_count || 0), 0),
+    mtdRevenue: regions.reduce((s, r) => s + (r.mtd_revenue || 0), 0),
+    openQuotes: regions.reduce((s, r) => s + (r.open_quote_count || 0), 0),
   }), [regions]);
+
+  const currencyFmt = useMemo(() => {
+    const code = regions[0]?.currency || "ZAR";
+    try {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: code, maximumFractionDigits: 0 });
+    } catch {
+      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+    }
+  }, [regions]);
 
   return (
     <>
@@ -327,12 +424,21 @@ function RegionsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <StatTile label="Total Regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
-            <StatTile label="Active" value={stats.active} accent="text-emerald-600" tooltip={"Regions that are currently switched on and accepting work."} />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <StatTile label="Active branches" value={stats.active} accent="text-emerald-600" tooltip={"Regions that are currently switched on and accepting work."} />
+            <StatTile label="Open quotes" value={stats.openQuotes} accent="text-purple-600" tooltip={"Quotes in draft / sent / revised across every branch."} />
+            <StatTile label="MTD orders" value={stats.mtdOrders} accent="text-blue-600" tooltip={"Orders booked since the 1st of this month, summed across branches."} />
+            <StatTile
+              label="MTD revenue"
+              value={currencyFmt.format(stats.mtdRevenue)}
+              accent="text-amber-600"
+              tooltip={"Total order value this month across every branch. Excludes quotes that haven't been accepted yet."}
+            />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <StatTile label="Total regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
             <StatTile label="Countries" value={stats.countries} accent="text-purple-600" tooltip={"How many different countries you operate in across your regions."} />
-            <StatTile label="Linked Staff" value={stats.totalStaff} accent="text-blue-600" tooltip={"Total staff members linked to any region."} />
-            <StatTile label="Linked Orders" value={stats.totalOrders} accent="text-amber-600" tooltip={"Total orders allocated to any region."} />
+            <StatTile label="Linked staff" value={stats.totalStaff} accent="text-blue-600" tooltip={"Total staff members linked to any region."} />
           </div>
 
           {loading ? (
@@ -395,10 +501,20 @@ function RegionsPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this region."} />
-                      <MiniStat icon={Truck} label="Orders" value={region.order_count || 0} tooltip={"Orders allocated to this region."} />
-                      <MiniStat icon={ChefHat} label="Auto-assign" value={region.auto_assign_orders ? "On" : "Off"} tooltip={"Whether new orders inside this region's catchment are routed here automatically."} />
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <MiniStat icon={Truck} label="MTD orders" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event date in the current calendar month."} />
+                      <MiniStat
+                        icon={Users}
+                        label="MTD revenue"
+                        value={currencyFmt.format(region.mtd_revenue || 0)}
+                        tooltip={"Sum of total_amount on this branch's orders for the current month. Cancelled orders are excluded only if you've removed them; this counts every booked order."}
+                      />
+                      <MiniStat icon={ChefHat} label="Open quotes" value={region.open_quote_count || 0} tooltip={"Quotes for this branch in draft, sent or revised state."} />
+                      <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch."} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-slate-500">
+                      <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
+                      <div>Auto-assign: <span className="font-semibold text-slate-700">{region.auto_assign_orders ? "On" : "Off"}</span></div>
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
                       {region.manager?.full_name && (
@@ -590,6 +706,106 @@ function RegionsPage() {
             <div>
               <Label htmlFor="region-notes">Notes</Label>
               <Input id="region-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything specific about this region" />
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-blue-900">
+                <MapPin className="w-4 h-4" /> Branch overrides
+                <InfoTooltip content={"Leave any field blank to inherit the company default. Fill it in to override just for this branch.\n\nUseful when one branch trades under a different VAT registration, runs a different deposit policy, or has a different delivery cost structure than head office."} />
+              </div>
+              <p className="text-xs text-blue-800/80">
+                Blank = inherit from your company-wide defaults. Fill in to override
+                pricing or policy for this branch only.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="region-vat" className="text-xs">VAT rate (%)</Label>
+                  <Input
+                    id="region-vat"
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    max={100}
+                    placeholder="Inherit"
+                    value={form.vat_rate_override}
+                    onChange={(e) => setForm({ ...form, vat_rate_override: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="region-deposit" className="text-xs">Deposit (%)</Label>
+                  <Input
+                    id="region-deposit"
+                    type="number"
+                    step="1"
+                    min={0}
+                    max={100}
+                    placeholder="Inherit"
+                    value={form.deposit_percent_override}
+                    onChange={(e) => setForm({ ...form, deposit_percent_override: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="region-perkm" className="text-xs">Delivery R / km</Label>
+                  <Input
+                    id="region-perkm"
+                    type="number"
+                    step="0.5"
+                    min={0}
+                    placeholder="Inherit"
+                    value={form.delivery_cost_per_km_override}
+                    onChange={(e) => setForm({ ...form, delivery_cost_per_km_override: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="region-minfee" className="text-xs">Min delivery fee (R)</Label>
+                  <Input
+                    id="region-minfee"
+                    type="number"
+                    step="1"
+                    min={0}
+                    placeholder="Inherit"
+                    value={form.min_delivery_fee_override}
+                    onChange={(e) => setForm({ ...form, min_delivery_fee_override: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-900">
+                <AlertCircle className="w-4 h-4" /> Branch manager notifications
+                <InfoTooltip content={"Whether the branch manager (assigned above) gets pinged when activity hits this branch.\n\nThe company owner always receives notifications regardless of these toggles -- this controls only the branch manager's secondary copy."} />
+              </div>
+              <p className="text-xs text-emerald-800/80">
+                The owner always gets the notification. These toggles control whether the
+                branch manager also gets a copy.
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notif-new-lead" className="font-normal text-sm">New lead lands in this branch</Label>
+                  <Switch
+                    id="notif-new-lead"
+                    checked={form.notify_manager_on_new_lead}
+                    onCheckedChange={(v) => setForm({ ...form, notify_manager_on_new_lead: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notif-new-order" className="font-normal text-sm">New order confirmed for this branch</Label>
+                  <Switch
+                    id="notif-new-order"
+                    checked={form.notify_manager_on_new_order}
+                    onCheckedChange={(v) => setForm({ ...form, notify_manager_on_new_order: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notif-prep" className="font-normal text-sm">Kitchen prep / stock shortfall alerts</Label>
+                  <Switch
+                    id="notif-prep"
+                    checked={form.notify_manager_on_prep_alert}
+                    onCheckedChange={(v) => setForm({ ...form, notify_manager_on_prep_alert: v })}
+                  />
+                </div>
+              </div>
             </div>
 
             <Alert>

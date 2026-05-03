@@ -48,6 +48,8 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
+import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -100,6 +102,7 @@ function deriveQuoteStatus(quote: Quote): QuoteStatus {
 
 export default function AdminQuotes() {
   const { user, profile } = useAuth() as any;
+  const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [autoEmailRows, setAutoEmailRows] = useState<any[]>([]);
@@ -139,10 +142,20 @@ export default function AdminQuotes() {
       .sort((a, b) => a.sortKey - b.sortKey);
   }, [quotes, autoEmailRows]);
 
-  const counts = useMemo(() => countByBucket(rowStates), [rowStates]);
+  // Apply the global branch filter before bucketing so the bucket
+  // counts reflect only the branch the operator is scoped to.
+  const regionFilteredRows = useMemo(() => {
+    if (!regionFilterId) return rowStates;
+    return rowStates.filter((r) => {
+      const rid = (r.quote as any).region_id;
+      return !rid || rid === regionFilterId;
+    });
+  }, [rowStates, regionFilterId]);
+
+  const counts = useMemo(() => countByBucket(regionFilteredRows), [regionFilteredRows]);
   const bucketFilteredRows = useMemo(
-    () => (bucket === "all" ? rowStates : rowStates.filter((r) => r.intelligence.bucket === bucket)),
-    [rowStates, bucket],
+    () => (bucket === "all" ? regionFilteredRows : regionFilteredRows.filter((r) => r.intelligence.bucket === bucket)),
+    [regionFilteredRows, bucket],
   );
 
   // Smart fuzzy search across client name, email, event name, venue, ref
@@ -659,6 +672,7 @@ export default function AdminQuotes() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
+                            <RegionBadge regionId={(quote as any).region_id} />
                             <Badge className={`${getStatusColor(quote.status)} border`}>
                               {quote.status}
                             </Badge>

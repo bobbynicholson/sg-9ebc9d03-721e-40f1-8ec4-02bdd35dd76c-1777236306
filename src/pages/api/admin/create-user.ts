@@ -14,9 +14,17 @@ function mapRoleToDatabase(role: string): string {
     "admin": "admin",
     "driver": "driver",
     "client": "client",
+    // Multi-branch roles map straight through to the user_role enum.
+    "company_admin": "company_admin",
+    "region_admin": "region_admin",
+    "sales_admin": "sales_admin",
   };
   return roleMap[role] || role;
 }
+
+// Roles that are scoped to one or more branches. region_id +
+// regions_covered are only meaningful for these.
+const REGION_SCOPED_ROLES = new Set(["region_admin", "kitchen", "kitchen_staff", "driver", "shopping", "shopping_staff", "cleaning", "cleaning_staff"]);
 
 // Roles permitted to create users via this endpoint.
 const CALLER_ROLES_ALLOWED = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -83,7 +91,18 @@ export default async function handler(
       company_id,
       drive_time_to_kitchen_minutes,
       vehicle_registration,
+      region_id,
+      regions_covered,
     } = req.body || {};
+
+    // Sanitise scoping inputs. regions_covered must be a uuid array;
+    // empty array means "no regions assigned" which is fail-closed for
+    // region_admin (they see nothing). Cross-branch roles ignore both.
+    const safeRegionsCovered: string[] | null = Array.isArray(regions_covered)
+      ? regions_covered.filter((x: any) => typeof x === "string" && x.length === 36)
+      : null;
+    const safeRegionId: string | null =
+      typeof region_id === "string" && region_id.length === 36 ? region_id : null;
 
     if (!email || !password || !full_name || !role || !company_id) {
       return res.status(400).json({
@@ -149,6 +168,13 @@ export default async function handler(
             if (vehicle_registration != null) profilePayload.vehicle_registration = vehicle_registration;
             if (drive_time_to_kitchen_minutes != null) profilePayload.drive_time_to_kitchen_minutes = drive_time_to_kitchen_minutes;
           }
+          // Branch scoping. Only stamp the columns when the role is
+          // region-scoped; cross-branch roles (company_admin, sales_admin)
+          // get null/empty so RLS treats them as unrestricted.
+          if (REGION_SCOPED_ROLES.has(role)) {
+            if (safeRegionId) profilePayload.region_id = safeRegionId;
+            if (safeRegionsCovered) profilePayload.regions_covered = safeRegionsCovered;
+          }
           const { error: insErr } = await admin.from("profiles").insert([profilePayload]);
           if (insErr) {
             console.error("Healing orphan profile failed:", insErr);
@@ -208,6 +234,10 @@ export default async function handler(
     if (role === "driver") {
       if (vehicle_registration != null) profileUpdates.vehicle_registration = vehicle_registration;
       if (drive_time_to_kitchen_minutes != null) profileUpdates.drive_time_to_kitchen_minutes = drive_time_to_kitchen_minutes;
+    }
+    if (REGION_SCOPED_ROLES.has(role)) {
+      if (safeRegionId) profileUpdates.region_id = safeRegionId;
+      if (safeRegionsCovered) profileUpdates.regions_covered = safeRegionsCovered;
     }
 
     const { error: upsertErr } = await admin

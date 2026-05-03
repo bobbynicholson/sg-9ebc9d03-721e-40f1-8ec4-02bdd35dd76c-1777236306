@@ -23,6 +23,41 @@ export const inventoryService = {
   },
 
   /**
+   * Inventory visible to a specific branch.
+   *
+   * Returns the union of:
+   *   * items pinned to this region (region_id = regionId)
+   *   * items flagged as shared (is_shared = true) -- the company-wide
+   *     pool, available to every branch
+   *
+   * Pass regionId = null for company-wide views (returns everything).
+   * Used by the kitchen prep + shopping list flows so a CPT prep run
+   * doesn't draw down JHB-pinned stock by accident.
+   */
+  async getInventoryForRegion(
+    companyId: string,
+    regionId: string | null,
+  ): Promise<Inventory[]> {
+    let query = supabase
+      .from("inventory_items")
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
+
+    if (regionId) {
+      // PostgREST `or` filter: region_id matches OR is_shared = true.
+      query = query.or(`region_id.eq.${regionId},is_shared.eq.true`);
+    }
+
+    const { data, error } = await query.order("item_name");
+    if (error) {
+      console.error("Error fetching region inventory:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  /**
    * Cost-stripped getter for surfaces that should never see rand values
    * (kitchen tablet today, possibly other operator surfaces in future).
    * Mirrors the listStaffPublic / listStaffWithRates split from Phase 5

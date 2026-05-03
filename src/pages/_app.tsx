@@ -1,6 +1,7 @@
 import type { AppProps } from "next/app";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
+import { RegionFilterProvider } from "@/contexts/RegionFilterContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -16,11 +17,13 @@ export default function App({ Component, pageProps }: AppProps) {
       <ThemeProvider>
         <BrandingProvider>
           <AuthProvider>
-            <Component {...pageProps} />
-            <CommandPalette />
-            <MiddlewareErrorToast />
-            <VersionWatcher />
-            <Toaster />
+            <RegionFilterProvider>
+              <Component {...pageProps} />
+              <CommandPalette />
+              <MiddlewareErrorToast />
+              <VersionWatcher />
+              <Toaster />
+            </RegionFilterProvider>
           </AuthProvider>
         </BrandingProvider>
       </ThemeProvider>

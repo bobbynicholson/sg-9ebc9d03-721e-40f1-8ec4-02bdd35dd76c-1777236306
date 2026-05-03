@@ -631,6 +631,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
           venue_lat: order.venue_lat,
           venue_lng: order.venue_lng,
           requires_refrigeration: order.requires_refrigeration,
+          region_id: (order as any).region_id ?? null,
         }}
         allowUnassign
       />

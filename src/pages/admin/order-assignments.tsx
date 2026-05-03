@@ -148,6 +148,7 @@ function DispatchQueuePage() {
           secondary_vehicle:secondary_vehicle_id(id, plate)
         `)
         .eq("company_id", companyId)
+        .is("deleted_at", null)
         .gte("event_date", todayISO)
         .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"])
         .order("event_date", { ascending: true })
@@ -297,6 +298,7 @@ function DispatchQueuePage() {
         event_time: order.event_time,
         venue_lat: order.venue_lat,
         venue_lng: order.venue_lng,
+        region_id: (order as any).region_id ?? null,
       }, 3);
       setSuggestions(result);
     } finally {

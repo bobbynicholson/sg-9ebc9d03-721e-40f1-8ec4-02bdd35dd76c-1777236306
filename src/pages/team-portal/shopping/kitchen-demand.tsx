@@ -16,6 +16,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   kitchenPrepService,
@@ -38,6 +39,7 @@ const HORIZONS = [
 
 export default function ShoppingKitchenDemandPage() {
   const { user, profile } = useAuth();
+  const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || user?.company_id;
 
@@ -55,7 +57,7 @@ export default function ShoppingKitchenDemandPage() {
     if (!companyId) return;
     setLoading(true);
     try {
-      const data = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizonStr);
+      const data = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizonStr, regionFilterId);
       setDemand(data);
     } catch (e: any) {
       toast({ title: "Could not load kitchen demand", description: e?.message, variant: "destructive" });
@@ -64,7 +66,7 @@ export default function ShoppingKitchenDemandPage() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, todayStr, horizonStr]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, todayStr, horizonStr, regionFilterId]);
 
   // ── Filtering ─────────────────────────────────────────────────────────
 

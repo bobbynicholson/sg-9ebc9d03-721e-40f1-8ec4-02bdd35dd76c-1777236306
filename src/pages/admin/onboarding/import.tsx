@@ -34,6 +34,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
+import { Building2 } from "lucide-react";
 
 type Step = "upload" | "mapping" | "preview" | "commit" | "done";
 
@@ -77,6 +79,21 @@ function ImportPage() {
   const [job, setJob] = useState<JobShape | null>(null);
   const [rows, setRows] = useState<RowShape[]>([]);
   const [busy, setBusy] = useState<boolean>(false);
+
+  // Branch / kitchen scoping for the imported rows. Only matters for
+  // multi-branch tenants -- single-branch operators get the only
+  // option auto-selected and the picker hides itself in the UI.
+  const { kitchens } = useCompanyKitchens(companyId);
+  const branchOptions = useMemo(
+    () => kitchens.filter((k) => k.source === "region"),
+    [kitchens],
+  );
+  const [importRegionId, setImportRegionId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!importRegionId && branchOptions.length === 1) {
+      setImportRegionId(branchOptions[0].id);
+    }
+  }, [branchOptions, importRegionId]);
 
   // Local edits to the AI mapping before the team confirms it.
   const [editedMapping, setEditedMapping] = useState<any>(null);
@@ -229,7 +246,11 @@ function ImportPage() {
     if (!confirm("Commit this import? Inserts will be stamped so you can undo within 24 h.")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/imports/${jobId}/commit`, { method: "POST" });
+      const res = await fetch(`/api/imports/${jobId}/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ region_id: importRegionId }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Commit failed");
       await refreshJob(jobId);
@@ -618,6 +639,31 @@ function ImportPage() {
                               Showing 50 of {filtered.length}. Commit and use Imports History for the full audit.
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {branchOptions.length > 1 && (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 mt-2">
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-blue-900 mb-1">
+                            <Building2 className="w-4 h-4" /> Target branch
+                          </div>
+                          <p className="text-xs text-blue-800/70 mb-2">
+                            Every imported client and order will be stamped to this branch.
+                            You can leave it as "Unassigned" to import without a branch.
+                          </p>
+                          <select
+                            value={importRegionId || ""}
+                            onChange={(e) => setImportRegionId(e.target.value || null)}
+                            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="">Unassigned (no branch)</option>
+                            {branchOptions.map((k) => (
+                              <option key={k.id} value={k.id}>
+                                {k.name}
+                                {k.address ? ` -- ${k.address}` : ""}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       )}
 

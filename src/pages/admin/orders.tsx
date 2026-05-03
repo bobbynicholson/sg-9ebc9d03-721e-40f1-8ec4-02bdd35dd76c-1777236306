@@ -54,6 +54,8 @@ import {
 } from "@/lib/orderIntelligence";
 import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRegionFilter } from "@/contexts/RegionFilterContext";
+import { RegionBadge } from "@/components/admin/RegionBadge";
 import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
@@ -171,6 +173,7 @@ const getNextStage = (order: AppOrder): string | null => {
 
 function OrderProcessDashboard() {
   const { user } = useAuth();
+  const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   // Per-order summary of email_automation_log entries: count of sent
@@ -316,6 +319,13 @@ function OrderProcessDashboard() {
   // fuzzy hook doesn't get a fresh array on every render.
   const statusDateFilteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Global region filter -- when an operator scopes to one branch
+      // in the top-bar dropdown, hide rows from other branches.
+      // region_id IS NULL rows (legacy / company-wide) stay visible
+      // so they can be triaged.
+      if (regionFilterId && (order as any).region_id && (order as any).region_id !== regionFilterId) {
+        return false;
+      }
       // Hide cancelled by default ("All Statuses" excludes them).
       // Only surface cancelled when the operator explicitly picks
       // "cancelled" in the status dropdown -- otherwise they'd
@@ -375,7 +385,7 @@ function OrderProcessDashboard() {
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -426,7 +436,10 @@ function OrderProcessDashboard() {
             {/* Header */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-slate-900 mb-1 truncate">{order.client_name}</h4>
+                <div className="flex items-center gap-2 mb-1 min-w-0">
+                  <h4 className="font-semibold text-slate-900 truncate">{order.client_name}</h4>
+                  <RegionBadge regionId={(order as any).region_id} />
+                </div>
                 <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
                   {order.venue_address}
                 </p>
@@ -553,6 +566,7 @@ function OrderProcessDashboard() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
+                  <RegionBadge regionId={(order as any).region_id} />
                   {isToday && (
                     <Badge className="bg-blue-500">Today</Badge>
                   )}

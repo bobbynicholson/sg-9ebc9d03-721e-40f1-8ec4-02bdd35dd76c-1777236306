@@ -73,7 +73,7 @@ export const lifecycleService = {
     const { data: lead, error: leadErr } = await sb
       .from("leads")
       .select(
-        "id, company_id, contact_name, email, phone, tags, notes, converted_to_client_id, deleted_at",
+        "id, company_id, region_id, contact_name, email, phone, tags, notes, converted_to_client_id, deleted_at",
       )
       .eq("id", leadId)
       .single();
@@ -119,6 +119,7 @@ export const lifecycleService = {
         .from("clients")
         .insert({
           company_id: (lead as any).company_id,
+          region_id: (lead as any).region_id ?? null,
           client_name: (lead as any).contact_name,
           email: (lead as any).email,
           phone: (lead as any).phone || "",
@@ -226,7 +227,7 @@ export const lifecycleService = {
     //    if needed.
     const { data: order } = await sb
       .from("orders")
-      .select("id, company_id, client_id, quote_id, order_number, client_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
+      .select("id, company_id, region_id, client_id, quote_id, order_number, client_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
       .eq("id", orderId)
       .maybeSingle();
     if (!order || (order as any).deleted_at) {
@@ -234,6 +235,7 @@ export const lifecycleService = {
     }
 
     const companyId = (order as any).company_id as string;
+    const regionId = ((order as any).region_id as string | null) ?? null;
     const email = (order as any).client_email as string | null;
     const name = (order as any).client_name as string | null;
     const phone = (order as any).client_phone as string | null;
@@ -255,6 +257,7 @@ export const lifecycleService = {
           .from("clients")
           .insert({
             company_id: companyId,
+            region_id: regionId,
             client_name: name || "Client",
             email,
             phone: phone || "",
@@ -295,6 +298,7 @@ export const lifecycleService = {
           .from("leads")
           .insert({
             company_id: companyId,
+            region_id: regionId,
             contact_name: name || "Customer",
             client_name: name || "Customer",
             email,
@@ -341,6 +345,7 @@ export const lifecycleService = {
         .from("quotes")
         .insert({
           company_id: companyId,
+          region_id: regionId,
           quote_number: quoteNumber,
           client_id: clientId,
           lead_id: leadId,
@@ -409,7 +414,7 @@ export const lifecycleService = {
 
     const { data: client } = await sb
       .from("clients")
-      .select("id, company_id, client_name, email, phone, deleted_at")
+      .select("id, company_id, region_id, client_name, email, phone, deleted_at")
       .eq("id", clientId)
       .maybeSingle();
     if (!client || (client as any).deleted_at || !(client as any).email) {
@@ -441,6 +446,7 @@ export const lifecycleService = {
       .from("leads")
       .insert({
         company_id: (client as any).company_id,
+        region_id: (client as any).region_id ?? null,
         contact_name: (client as any).client_name || "Customer",
         client_name: (client as any).client_name || "Customer",
         email: (client as any).email,

@@ -1,10 +1,10 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, MapPin, Save } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -14,6 +14,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { leadService } from "@/services/leadService";
+import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { useToast } from "@/hooks/use-toast";
 
 export default function NewLead() {
@@ -33,6 +34,21 @@ export default function NewLead() {
     notes: ""
   });
 
+  // Branch / kitchen scoping. Single-branch tenants get auto-picked
+  // and the picker stays hidden; multi-branch tenants must choose
+  // before save so quotes / orders flowing off this lead inherit
+  // the right region.
+  const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!kitchenId && kitchens.length > 0) setKitchenId(kitchens[0].id);
+  }, [kitchens, kitchenId]);
+  const selectedKitchen = kitchens.find((k) => k.id === kitchenId) || null;
+  const resolvedRegionId =
+    selectedKitchen && selectedKitchen.source === "region"
+      ? selectedKitchen.id
+      : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.company_id) return;
@@ -41,6 +57,7 @@ export default function NewLead() {
     try {
       await leadService.createLead({
         company_id: user.company_id,
+        region_id: resolvedRegionId,
         contact_name: formData.name,
         client_name: formData.name,
         client_email: formData.email,
@@ -197,6 +214,30 @@ export default function NewLead() {
                     placeholder="Additional information about the lead..."
                   />
                 </div>
+
+                {kitchens.length > 1 && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                    <Label className="flex items-center gap-1.5 text-sm font-medium text-blue-900">
+                      <MapPin className="w-4 h-4" /> Branch / kitchen
+                    </Label>
+                    <p className="text-xs text-blue-800/70 mb-2">
+                      Quotes, orders and prep that flow from this lead will be scoped to the
+                      branch you pick.
+                    </p>
+                    <select
+                      value={kitchenId || ""}
+                      onChange={(e) => setKitchenId(e.target.value || null)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {kitchens.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.name}
+                          {k.address ? ` -- ${k.address}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <Button type="submit" disabled={loading}>

@@ -243,6 +243,11 @@ export interface Payment {
 export enum UserRole {
   SUPER_ADMIN = "super_admin",
   COMPANY_ADMIN = "company_admin",
+  // Multi-branch admin variants. region_admin is scoped to one or
+  // more branches via profiles.regions_covered; sales_admin is
+  // cross-branch but read-only on kitchen / dispatch ops.
+  REGION_ADMIN = "region_admin",
+  SALES_ADMIN = "sales_admin",
   ADMIN = "admin",
   KITCHEN_STAFF = "kitchen_staff",
   SHOPPING_STAFF = "shopping_staff",
