@@ -19,6 +19,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +126,7 @@ function ClientsCRM() {
   const { user, profile } = useAuth() as any;
   const companyId = profile?.company_id || user?.company_id;
   const { toast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
@@ -725,6 +727,29 @@ function ClientsCRM() {
                                   <Send className="w-3.5 h-3.5" />
                                   Compose
                                 </Button>
+                                {/* One-click "Bobby called, need a quote".
+                                    Routes to /admin/quotes/new with the
+                                    contact's existing lead id so the new
+                                    quote page prefills name / email /
+                                    phone from the lead row. The contacts
+                                    aggregation already guarantees every
+                                    real contact has at least one lead
+                                    via the ensureLeadForClient backfill,
+                                    so leadIds[0] will be populated. */}
+                                {c.leadIds.length > 0 && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      router.push(`/admin/quotes/new?leadId=${c.leadIds[0]}`);
+                                    }}
+                                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    title={`Create a new quote for ${c.name}`}
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    New quote
+                                  </Button>
+                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"
