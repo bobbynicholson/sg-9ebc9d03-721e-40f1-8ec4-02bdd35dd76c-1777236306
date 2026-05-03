@@ -60,6 +60,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
+import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 
 interface OrderStats {
   total: number;
@@ -896,6 +897,66 @@ function OrderProcessDashboard() {
       }
     };
 
+    // Inline "add menu item" form state (mirrors the equipment one).
+    // Item-level price comes from the catalog's pricePerPerson field;
+    // operator can override quantity + price-per-line on add.
+    const [miSearch, setMiSearch] = useState("");
+    const [miPick, setMiPick] = useState<MenuItemPick | null>(null);
+    const [miQty, setMiQty] = useState<string>("1");
+    const [miUnitPrice, setMiUnitPrice] = useState<string>("");
+    const [miAdding, setMiAdding] = useState(false);
+    const [miRemoving, setMiRemoving] = useState<string | null>(null);
+
+    const reloadOrderItems = async () => {
+      if (!selectedOrder?.id) return;
+      const { data } = await supabase
+        .from("order_items")
+        .select("id, item_name, description, quantity, unit_price, line_total, special_instructions, created_at")
+        .eq("order_id", selectedOrder.id)
+        .order("created_at", { ascending: true });
+      setFetchedItems(data || []);
+    };
+
+    const handleAddMenuItem = async () => {
+      if (!selectedOrder?.id || !miPick) return;
+      const qty = Math.max(1, parseInt(miQty, 10) || 1);
+      const unit = Number(miUnitPrice) > 0 ? Number(miUnitPrice) : Number(miPick.pricePerPerson) || 0;
+      setMiAdding(true);
+      try {
+        const { error } = await supabase.from("order_items").insert({
+          order_id: selectedOrder.id,
+          menu_item_id: miPick.id,
+          item_name: miPick.name,
+          description: miPick.description || null,
+          quantity: qty,
+          unit_price: unit,
+          line_total: qty * unit,
+        } as any);
+        if (error) throw error;
+        toast({ title: "Item added", description: `${qty} x ${miPick.name} added.` });
+        setMiSearch(""); setMiPick(null); setMiQty("1"); setMiUnitPrice("");
+        await reloadOrderItems();
+      } catch (e: any) {
+        toast({ title: "Could not add item", description: e?.message || "Try again", variant: "destructive" });
+      } finally {
+        setMiAdding(false);
+      }
+    };
+
+    const handleRemoveMenuItem = async (itemId: string) => {
+      setMiRemoving(itemId);
+      try {
+        const { error } = await supabase.from("order_items").delete().eq("id", itemId);
+        if (error) throw error;
+        toast({ title: "Item removed" });
+        await reloadOrderItems();
+      } catch (e: any) {
+        toast({ title: "Could not remove item", description: e?.message || "Try again", variant: "destructive" });
+      } finally {
+        setMiRemoving(null);
+      }
+    };
+
     // Direct fetch of order_items so the modal never shows the empty
     // state when items actually exist for this order in the db.
     useEffect(() => {
@@ -948,10 +1009,11 @@ function OrderProcessDashboard() {
     const handleSave = async () => {
       setSaving(true);
       try {
-        // Save only fields that exist on the orders table. Notes maps
-        // to internal_notes (the customer-facing field is
-        // special_instructions; we keep that read-only here).
-        await orderService.updateOrder(editedOrder.id, {
+        // orderService.updateOrder doesn't throw on RLS / column errors --
+        // it returns { success: false, error }. We have to check that
+        // explicitly, otherwise a silent reject toasts "Saved" while
+        // nothing actually persisted.
+        const result: any = await orderService.updateOrder(editedOrder.id, {
           client_name: editedOrder.client_name,
           venue_address: editedOrder.venue_address,
           guest_count: editedOrder.guest_count,
@@ -959,18 +1021,31 @@ function OrderProcessDashboard() {
           status: editedOrder.status,
           internal_notes: (editedOrder as any).internal_notes,
         });
+        if (result && result.success === false) {
+          throw new Error(result.error || "Update failed");
+        }
 
         toast({
           title: "Order Updated",
           description: "Changes have been saved successfully.",
         });
 
+        // Push the saved values back into both selectedOrder and
+        // editedOrder so the modal shows the change immediately. The
+        // background loadOrders() then keeps the list in sync.
+        const merged: any = {
+          ...selectedOrder,
+          ...editedOrder,
+          ...(result?.data || {}),
+        };
+        setSelectedOrder(merged);
+        setEditedOrder(merged);
         setEditMode(false);
-        loadOrders(); // Refresh orders list
-      } catch (error) {
+        loadOrders();
+      } catch (error: any) {
         toast({
           title: "Error",
-          description: "Failed to update order. Please try again.",
+          description: error?.message || "Failed to update order. Please try again.",
           variant: "destructive",
         });
       } finally {
@@ -1229,15 +1304,78 @@ function OrderProcessDashboard() {
             </TabsContent>
 
             <TabsContent value="menu" className="space-y-4 mt-4">
-              {/* Menu lines come from the order_items joined table. Read-only
-                  here -- editing line items lives on the parent quote so we
-                  don't drift the totals out of sync with the booking. */}
+              {/* Menu lines come from the order_items joined table.
+                  Inline add / remove in edit mode mirrors the Equipment
+                  tab. Heads up: the order's total_amount column is set
+                  at quote-acceptance time and isn't auto-recalculated
+                  when you tweak items here. If you change the value
+                  significantly, also bump it via Edit > Details so the
+                  invoice + dashboard stay in sync. */}
               <div className="space-y-3">
+                {/* Inline add form (edit mode only) */}
+                {editMode && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <Label className="text-xs font-semibold text-blue-900">Add menu item to this order</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                      <MenuItemTypeahead
+                        companyId={(selectedOrder as any)?.company_id}
+                        value={miSearch}
+                        onChange={setMiSearch}
+                        onPick={(p) => {
+                          setMiPick(p);
+                          setMiSearch(p.name);
+                          setMiUnitPrice(p.pricePerPerson ? String(p.pricePerPerson) : "");
+                        }}
+                      />
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-600">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          className="w-20 bg-white"
+                          value={miQty}
+                          onChange={(e) => setMiQty(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-600">Unit price (R)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          className="w-28 bg-white"
+                          placeholder={miPick?.pricePerPerson ? String(miPick.pricePerPerson) : "0"}
+                          value={miUnitPrice}
+                          onChange={(e) => setMiUnitPrice(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleAddMenuItem}
+                        disabled={miAdding || !miPick}
+                        className="self-end"
+                      >
+                        {miAdding ? "Adding..." : "Add"}
+                      </Button>
+                    </div>
+                    {miPick && (
+                      <p className="text-xs text-slate-600">
+                        Selected: <strong>{miPick.name}</strong> ({miPick.category})
+                        {miPick.pricePerPerson ? ` -- R${Number(miPick.pricePerPerson).toLocaleString("en-ZA")} / person` : ""}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {orderItemsRaw.length === 0 ? (
                   <div className="text-center py-8 text-slate-400">
                     <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No menu items on this order yet.</p>
-                    <p className="text-xs mt-1">Add them from the source quote and they'll appear here.</p>
+                    <p className="text-xs mt-1">
+                      {editMode
+                        ? "Use the search above to add items."
+                        : "Click Edit on this order to add items."}
+                    </p>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -1248,6 +1386,7 @@ function OrderProcessDashboard() {
                           <th className="text-right px-3 py-2 w-16">Qty</th>
                           <th className="text-right px-3 py-2 w-28">Unit price</th>
                           <th className="text-right px-3 py-2 w-28">Line total</th>
+                          {editMode && <th className="px-3 py-2 w-12" />}
                         </tr>
                       </thead>
                       <tbody>
@@ -1269,10 +1408,30 @@ function OrderProcessDashboard() {
                             <td className="px-3 py-2 text-right tabular-nums font-medium">
                               R{Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
                             </td>
+                            {editMode && (
+                              <td className="px-3 py-2 text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 h-7 w-7 p-0"
+                                  onClick={() => handleRemoveMenuItem(it.id)}
+                                  disabled={miRemoving === it.id}
+                                  title="Remove from order"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {!editMode && orderItemsRaw.length > 0 && (
+                  <div className="text-xs text-slate-500 pt-1">
+                    Originating quote owns the totals. Tweak items here for last-minute adjustments and update Details &gt; Total to keep the invoice in sync.
                   </div>
                 )}
               </div>
