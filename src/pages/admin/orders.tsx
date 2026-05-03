@@ -937,7 +937,14 @@ function OrderProcessDashboard() {
                 <div className="flex gap-2">
                   {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
                     <Button
-                      onClick={() => setCancelDialogOpen(true)}
+                      onClick={() => {
+                        // Close the Order Details modal first so the
+                        // Cancel dialog isn't stacked behind it. The
+                        // selectedOrder state stays so the cancel
+                        // dialog still has the order id to work with.
+                        setIsModalOpen(false);
+                        setCancelDialogOpen(true);
+                      }}
                       variant="outline"
                       size="sm"
                       className="text-rose-700 border-rose-200 hover:bg-rose-50"
