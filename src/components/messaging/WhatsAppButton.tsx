@@ -86,6 +86,7 @@ const DEFAULT_CLIENT_TEMPLATES: ClientWhatsAppKind[] = [
 ];
 
 const DEFAULT_STAFF_TEMPLATES: StaffWhatsAppKind[] = [
+  "welcome_login", "welcome_no_login",
   "shift_confirm", "job_assigned", "pickup_ready", "general_check_in", "schedule_change",
 ];
 

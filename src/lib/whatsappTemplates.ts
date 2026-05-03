@@ -178,6 +178,8 @@ export function renderClientWhatsApp(kind: ClientWhatsAppKind, ctx: ClientWhatsA
 // ── STAFF-FACING ───────────────────────────────────────────────────
 
 export type StaffWhatsAppKind =
+  | "welcome_login"
+  | "welcome_no_login"
   | "shift_confirm"
   | "job_assigned"
   | "pickup_ready"
@@ -200,6 +202,8 @@ export interface StaffWhatsAppContext {
 }
 
 const STAFF_KIND_TO_REGISTRY: Record<StaffWhatsAppKind, string> = {
+  welcome_login:    "whatsapp_staff_welcome_login",
+  welcome_no_login: "whatsapp_staff_welcome_no_login",
   shift_confirm:    "whatsapp_staff_shift_confirm",
   job_assigned:     "whatsapp_staff_job_assigned",
   pickup_ready:     "whatsapp_staff_pickup_ready",
@@ -223,6 +227,8 @@ function buildStaffCtx(ctx: StaffWhatsAppContext): Record<string, string | numbe
 }
 
 export const STAFF_WHATSAPP_LABELS: Record<StaffWhatsAppKind, string> = {
+  welcome_login:    "Welcome (portal login)",
+  welcome_no_login: "Welcome (no login)",
   shift_confirm:    "Confirm shift",
   job_assigned:     "Job assigned",
   pickup_ready:     "Pickup ready",

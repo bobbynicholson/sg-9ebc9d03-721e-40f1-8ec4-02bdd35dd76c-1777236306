@@ -466,6 +466,28 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
 
   // --- STAFF WHATSAPP ---
   {
+    key: "whatsapp_staff_welcome_login",
+    channel: "whatsapp",
+    category: "staff",
+    group: "Onboarding",
+    label: "Welcome (portal login)",
+    description: "Heads-up after a portal invite email goes out -- helps it not get lost in spam.",
+    defaultBody:
+      `Hi {{first_name}}, welcome to {{company_name}}. We just emailed you a portal invite -- check your inbox (and spam) and tap the link to set your password. Once you're in, you'll see your shifts, jobs, and earnings.\n\n-- {{from_name}}`,
+    variables: STAFF_VARS,
+  },
+  {
+    key: "whatsapp_staff_welcome_no_login",
+    channel: "whatsapp",
+    category: "staff",
+    group: "Onboarding",
+    label: "Welcome (no portal login)",
+    description: "For staff who'll be tap-in'd on a shared tablet -- explains the flow without an app to install.",
+    defaultBody:
+      `Hi {{first_name}}, welcome to {{company_name}}. You're on the books. No app to download -- your manager will tap you in/out on the tablet at the start and end of each shift. Hours and pay roll up automatically. If anything ever feels off, ask me to check the system.\n\n-- {{from_name}}`,
+    variables: STAFF_VARS,
+  },
+  {
     key: "whatsapp_staff_shift_confirm",
     channel: "whatsapp",
     category: "staff",
