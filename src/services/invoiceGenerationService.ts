@@ -324,24 +324,33 @@ export async function ensureInvoiceForOrder(
       return { success: false, error: created.error };
     }
 
-    // Fire-and-forget Xero sync. Only fires when the tenant has Xero
-    // connected + push enabled; the endpoint short-circuits otherwise.
-    // Server-to-server auth via x-cms-internal: CRON_SECRET so the
-    // call doesn't need a session. Failures here don't unwind the
-    // invoice creation; sync errors are written to invoices.sync_error
-    // for the admin dashboard to surface.
+    // Fire-and-forget accounting sync. Routes to whichever provider
+    // the tenant has connected (Xero or QuickBooks). The endpoints
+    // short-circuit when nothing's connected, so it's safe to call
+    // both speculatively. Server-to-server auth via x-cms-internal:
+    // CRON_SECRET. Failures here don't unwind the invoice creation;
+    // sync errors are written to invoices.sync_error for the admin
+    // dashboard to surface.
     if (created.invoiceId) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
       const cronSecret = process.env.CRON_SECRET;
       if (cronSecret) {
+        // Fire to whichever provider is connected. The endpoint
+        // short-circuits with 409 when not connected, which is fine
+        // for fire-and-forget. Both endpoints write the external_id
+        // back onto invoices, so the next invocation no-ops via the
+        // alreadySynced check -- meaning we can't double-sync even
+        // if both providers ever became connected at once.
         void fetch(`${baseUrl}/api/accounting/xero/sync-invoice`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-cms-internal": cronSecret,
-          },
+          headers: { "Content-Type": "application/json", "x-cms-internal": cronSecret },
           body: JSON.stringify({ invoice_id: created.invoiceId }),
         }).catch((e) => console.warn("[ensureInvoiceForOrder] xero sync fire failed:", e));
+        void fetch(`${baseUrl}/api/accounting/quickbooks/sync-invoice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-cms-internal": cronSecret },
+          body: JSON.stringify({ invoice_id: created.invoiceId }),
+        }).catch((e) => console.warn("[ensureInvoiceForOrder] quickbooks sync fire failed:", e));
       }
     }
 
