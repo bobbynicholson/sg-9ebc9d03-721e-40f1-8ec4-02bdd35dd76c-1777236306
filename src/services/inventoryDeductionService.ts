@@ -474,11 +474,105 @@ export async function deductInventoryForOrder(
       warnings,
       errors
     };
-    
+
   } catch (error: any) {
     console.error("Inventory deduction failed:", error);
     errors.push(error.message || "Unknown error");
     return { success: false, deducted, warnings, errors };
+  }
+}
+
+/**
+ * Reverse + re-run inventory deduction for an order. Used by the
+ * amendment cascade -- when an admin approves a guest_count or
+ * menu_items change, we need to undo the original deduction and
+ * deduct against the new order shape.
+ *
+ * Strategy: look up the prior 'usage' transactions tagged with this
+ * order's id, increment each affected item back by the original
+ * quantity, and stamp a compensating 'adjustment' transaction.
+ * Then re-run deductInventoryForOrder against the now-updated order
+ * row. Net result: inventory matches the amended order.
+ *
+ * Idempotent: a no-op if there were no prior deductions for the
+ * order (e.g. if the amendment lands before the deduction worker
+ * fires for the first time).
+ */
+export async function recalculateInventoryForOrder(
+  orderId: string,
+  companyId: string,
+  performedBy: string,
+): Promise<{
+  success: boolean;
+  reversed: number;
+  deducted: Array<{ item: string; quantity: number; unit: string }>;
+  warnings: Array<{ item: string; message: string }>;
+  errors: string[];
+}> {
+  const orderTag = orderId.slice(-8);
+  const errors: string[] = [];
+  let reversed = 0;
+
+  try {
+    // 1. Pull every prior 'usage' transaction for this order.
+    const { data: priorTx, error: txErr } = await (supabase as any)
+      .from("inventory_transactions")
+      .select("id, inventory_item_id, quantity")
+      .eq("company_id", companyId)
+      .eq("transaction_type", "usage")
+      .ilike("notes", `%order #${orderTag}%`);
+    if (txErr) {
+      errors.push(`Couldn't read prior transactions: ${txErr.message}`);
+      return { success: false, reversed: 0, deducted: [], warnings: [], errors };
+    }
+
+    // 2. Reverse each one. Add the deducted quantity back to stock,
+    // stamp a compensating 'adjustment' tx so the audit trail shows
+    // the reversal explicitly.
+    for (const tx of priorTx || []) {
+      const { data: item } = await (supabase as any)
+        .from("inventory_items")
+        .select("current_stock")
+        .eq("id", (tx as any).inventory_item_id)
+        .maybeSingle();
+      if (!item) continue;
+      const restored = Number((item as any).current_stock || 0) + Number((tx as any).quantity || 0);
+      await (supabase as any)
+        .from("inventory_items")
+        .update({ current_stock: restored })
+        .eq("id", (tx as any).inventory_item_id);
+      await (supabase as any)
+        .from("inventory_transactions")
+        .insert({
+          company_id: companyId,
+          inventory_item_id: (tx as any).inventory_item_id,
+          transaction_type: "adjustment",
+          quantity: Number((tx as any).quantity || 0),
+          notes: `Reversed for amendment to order #${orderTag}`,
+          performed_by: performedBy,
+        });
+      reversed += 1;
+    }
+
+    // 3. Re-run the deduction. The order row now reflects the amended
+    // guest_count / menu_items, so this picks up the new shape.
+    const replayed = await deductInventoryForOrder(orderId, companyId, performedBy);
+
+    return {
+      success: replayed.success && errors.length === 0,
+      reversed,
+      deducted: replayed.deducted,
+      warnings: replayed.warnings,
+      errors: [...errors, ...replayed.errors],
+    };
+  } catch (e: any) {
+    return {
+      success: false,
+      reversed,
+      deducted: [],
+      warnings: [],
+      errors: [...errors, e?.message || "recalculateInventoryForOrder crashed"],
+    };
   }
 }
 

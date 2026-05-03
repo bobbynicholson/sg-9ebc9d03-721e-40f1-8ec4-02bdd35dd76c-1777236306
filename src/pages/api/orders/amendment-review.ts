@@ -164,7 +164,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     })();
 
-    return res.status(200).json({ ok: true, applied: Object.keys(toApply).length, applied_keys: Object.keys(toApply) });
+    // Inventory cascade. Only fire when the amendment touched
+    // guest_count, menu_items, or equipment_items -- those are the
+    // keys that change what's needed from the kitchen / store. A pure
+    // venue / time amendment doesn't need a recalc.
+    const inventoryRelevant = ["guest_count", "menu_items", "equipment_items"];
+    const touchedInventory = Object.keys(toApply).some((k) => inventoryRelevant.includes(k));
+    if (touchedInventory) {
+      void (async () => {
+        try {
+          const { recalculateInventoryForOrder } = await import("@/services/inventoryDeductionService");
+          const result = await recalculateInventoryForOrder(
+            (request as any).order_id,
+            (request as any).company_id,
+            user.id,
+          );
+          if (!result.success) {
+            console.warn("[amendment-review] inventory recalc had errors:", result.errors);
+          }
+        } catch (e) {
+          console.warn("[amendment-review] inventory recalc crashed:", e);
+        }
+      })();
+    }
+
+    return res.status(200).json({
+      ok: true,
+      applied: Object.keys(toApply).length,
+      applied_keys: Object.keys(toApply),
+      inventory_recalc_queued: touchedInventory,
+    });
   } catch (err: any) {
     console.error("[amendment-review] crashed:", err);
     return res.status(500).json({ error: err?.message || "Amendment review failed" });
