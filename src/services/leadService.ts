@@ -16,6 +16,7 @@ export const leadService = {
       .from("leads")
       .select("*")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -28,6 +29,7 @@ export const leadService = {
       .from("leads")
       .select("*")
       .eq("id", id)
+      .is("deleted_at", null)
       .single();
 
     if (error) throw error;
@@ -40,6 +42,7 @@ export const leadService = {
       .select("*")
       .eq("company_id", companyId)
       .eq("status", status)
+      .is("deleted_at", null)
       .order("event_date", { ascending: true });
 
     if (error) throw error;
