@@ -85,6 +85,14 @@ export default function CompanySignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  // True when Supabase is configured to require email confirmation. We
+  // detect this from a missing session after signUp + a failed auto-login,
+  // and use it to show a "check your inbox" success state instead of a
+  // misleading "you're logged in" -- the latter sends users into routes
+  // that 401 because they haven't verified yet.
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "error">("idle");
   const [slugTouched, setSlugTouched] = useState(false);
   const [slugAvailability, setSlugAvailability] =
     useState<SlugAvailability>({ state: "idle" });
@@ -338,25 +346,39 @@ export default function CompanySignupPage() {
         console.warn("⚠️ Company admin role assignment failed (non-critical):", roleError);
       }
 
-      // Step 6: Attempt auto-login (non-blocking)
+      // Step 6: Attempt auto-login. Detect email-verification-required
+      // state from either:
+      //   a) signUp came back without a session (Supabase's signal that
+      //      email confirmation is enabled), or
+      //   b) signInWithPassword fails with an email-confirmation error.
+      // When we hit either, render the inbox-check success state instead
+      // of pretending the user is already in.
       console.log("🔐 Step 6: Attempting auto-login...");
-      try {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
+      let verificationRequired = !authData.session;
+      if (!verificationRequired) {
+        try {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: formData.email,
+            password: formData.password
+          });
 
-        if (signInError) {
-          console.warn("⚠️ Auto-login failed:", signInError);
-          if (signInError.message.includes("email") && (signInError.message.includes("confirm") || signInError.message.includes("verified"))) {
-            console.log("📧 Email confirmation required - user will need to verify email first");
+          if (signInError) {
+            console.warn("⚠️ Auto-login failed:", signInError);
+            const msg = signInError.message.toLowerCase();
+            if (msg.includes("email") && (msg.includes("confirm") || msg.includes("verif"))) {
+              console.log("📧 Email confirmation required");
+              verificationRequired = true;
+            }
+          } else {
+            console.log("✅ User auto-logged in");
           }
-        } else {
-          console.log("✅ User auto-logged in");
+        } catch (loginError) {
+          console.warn("⚠️ Auto-login error:", loginError);
         }
-      } catch (loginError) {
-        console.warn("⚠️ Auto-login error (non-critical):", loginError);
+      } else {
+        console.log("📧 No session returned from signUp -- email verification required");
       }
+      setEmailVerificationRequired(verificationRequired);
 
       // Step 7: Show success page
       console.log("🎉 Step 7: Registration complete!");
@@ -381,74 +403,149 @@ export default function CompanySignupPage() {
   };
 
   if (success) {
+    // Two flavours of success: actually-logged-in vs verify-your-email.
+    // The branch below renders both from the same card so the layout is
+    // identical -- only the copy + buttons differ.
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div
+        className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+        }}
+      >
         <Card className="w-full max-w-2xl border-0 shadow-2xl">
           <CardContent className="p-8 md:p-12">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 mx-auto flex items-center justify-center shadow-lg mb-6 animate-pulse">
+              <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center shadow-lg mb-6 ${
+                emailVerificationRequired
+                  ? "bg-gradient-to-br from-amber-500 to-orange-500"
+                  : "bg-gradient-to-br from-green-500 to-emerald-500 animate-pulse"
+              }`}>
                 <CheckCircle className="w-10 h-10 text-white" />
               </div>
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-                🎉 Welcome to CateringMS!
+                {emailVerificationRequired
+                  ? "Almost there -- check your inbox"
+                  : "Welcome to CateringMS"}
               </h2>
               <p className="text-lg text-slate-600 mb-2">
-                <strong>{formData.companyName}</strong> has been successfully registered!
+                <strong>{formData.companyName}</strong> is registered.
               </p>
               <p className="text-sm text-slate-500">
-                Your account is ready and you're now logged in.
+                {emailVerificationRequired
+                  ? <>We sent a confirmation link to <strong>{formData.email}</strong>. Click it to activate your login, then sign in.</>
+                  : "Your account is ready and you're signed in."}
               </p>
             </div>
 
-            <div className="space-y-4 mb-8">
-              <h3 className="text-lg font-semibold text-slate-900">What's Next?</h3>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-sm font-bold text-purple-600">1</span>
+            {!emailVerificationRequired && (
+              <div className="space-y-4 mb-8">
+                <h3 className="text-lg font-semibold text-slate-900">What's next</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-purple-600">1</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Complete your onboarding</p>
+                      <p className="text-sm text-slate-600">Set up your company profile and preferences</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-slate-900">Complete Your Onboarding</p>
-                    <p className="text-sm text-slate-600">Set up your company profile and preferences</p>
+                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-purple-600">2</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Invite your team</p>
+                      <p className="text-sm text-slate-600">Add drivers, kitchen staff, and other team members</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-sm font-bold text-purple-600">2</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">Invite Your Team</p>
-                    <p className="text-sm text-slate-600">Add drivers, kitchen staff, and other team members</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
-                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-sm font-bold text-purple-600">3</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">Start Managing Orders</p>
-                    <p className="text-sm text-slate-600">Create your first quote or order</p>
+                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg border border-slate-200">
+                    <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-purple-600">3</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">Start managing orders</p>
+                      <p className="text-sm text-slate-600">Create your first quote or order</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {emailVerificationRequired && (
+              <div className="space-y-4 mb-8">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+                  <p className="font-medium text-slate-900">Didn't get the email?</p>
+                  <ul className="text-sm text-slate-700 space-y-1 list-disc list-inside">
+                    <li>Give it a minute -- delivery isn't always instant</li>
+                    <li>Check your spam / junk folder</li>
+                    <li>Confirm <strong>{formData.email}</strong> is the right address</li>
+                  </ul>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    disabled={resendingEmail || resendStatus === "sent"}
+                    onClick={async () => {
+                      setResendingEmail(true);
+                      setResendStatus("idle");
+                      try {
+                        const { error: resendError } = await supabase.auth.resend({
+                          type: "signup",
+                          email: formData.email,
+                        });
+                        setResendStatus(resendError ? "error" : "sent");
+                      } catch {
+                        setResendStatus("error");
+                      } finally {
+                        setResendingEmail(false);
+                      }
+                    }}
+                  >
+                    {resendingEmail
+                      ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Resending...</>
+                      : resendStatus === "sent"
+                        ? "Sent -- check your inbox"
+                        : "Resend confirmation email"}
+                  </Button>
+                  {resendStatus === "error" && (
+                    <p className="text-sm text-rose-600 mt-2">Couldn't resend right now. Try again in a minute or contact support.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                size="lg"
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
-                onClick={() => router.push(`/${formData.customSlug}/admin/onboarding`)}
-              >
-                Start Onboarding
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="flex-1 h-12"
-                onClick={() => router.push(`/${formData.customSlug}/admin/dashboard`)}
-              >
-                Go to Dashboard
-              </Button>
+              {emailVerificationRequired ? (
+                <Button
+                  size="lg"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
+                  onClick={() => router.push(`/${formData.customSlug}/login`)}
+                >
+                  Go to login
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white h-12"
+                    onClick={() => router.push(`/${formData.customSlug}/admin/onboarding`)}
+                  >
+                    Start onboarding
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="flex-1 h-12"
+                    onClick={() => router.push(`/${formData.customSlug}/admin/dashboard`)}
+                  >
+                    Go to dashboard
+                  </Button>
+                </>
+              )}
             </div>
 
             <div className="mt-6 text-center">

@@ -220,7 +220,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 flex items-center justify-center p-4"
+      style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+      }}
+    >
       <Card className="w-full max-w-4xl border-0 shadow-2xl">
         <CardHeader className="space-y-4 px-6 pt-8">
           <div className="flex items-center justify-between">

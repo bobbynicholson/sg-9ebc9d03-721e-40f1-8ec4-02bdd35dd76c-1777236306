@@ -95,7 +95,10 @@ export default function AdminOnboarding() {
       <AdminNav />
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl">
+        <div
+          className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-8 max-w-screen-2xl"
+          style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom, 2rem))" }}
+        >
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
               <Rocket className="w-6 h-6 text-white" />

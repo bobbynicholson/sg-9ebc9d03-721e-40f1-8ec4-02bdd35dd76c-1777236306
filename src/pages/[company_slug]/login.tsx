@@ -159,7 +159,13 @@ export default function CompanyStaffLoginPage() {
 
   if (!company_slug && !companyLookupFailed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50">
+      <div
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 px-4"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+        }}
+      >
         <Card className="w-full max-w-md">
           <CardContent className="p-12 text-center">
             <Loader2 className="w-8 h-8 mx-auto mb-3 text-slate-400 animate-spin" />
@@ -172,7 +178,13 @@ export default function CompanyStaffLoginPage() {
 
   if (companyLookupFailed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
+      <div
+        className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+        }}
+      >
         <Card className="w-full max-w-md border-0 shadow-xl">
           <CardContent className="p-10 text-center">
             <Building2 className="w-10 h-10 mx-auto mb-3 text-slate-400" />
@@ -194,7 +206,11 @@ export default function CompanyStaffLoginPage() {
       </Head>
       <div
         className="min-h-screen flex items-center justify-center px-4 py-10"
-        style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)" }}
+        style={{
+          background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+          paddingTop: "max(2.5rem, env(safe-area-inset-top, 2.5rem))",
+          paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 2.5rem))",
+        }}
       >
         <Card className="w-full max-w-md border-0 shadow-2xl rounded-3xl overflow-hidden">
           <div className="px-7 pt-7 pb-6" style={{ background: brandGradient }}>
