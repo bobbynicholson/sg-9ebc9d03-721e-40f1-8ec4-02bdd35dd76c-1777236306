@@ -401,9 +401,30 @@ export default function ClientTracking() {
                           <div className="bg-blue-100 p-3 rounded-full">
                             <Phone className="w-6 h-6 text-blue-600" />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="text-sm text-slate-600">Contact</p>
-                            <p className="font-semibold">{selectedOrder.driver_phone}</p>
+                            <p className="font-semibold truncate">{selectedOrder.driver_phone}</p>
+                            {/* Tap-to-call + WhatsApp -- closes the audit gap
+                                "client sees driver phone but cannot message".
+                                Mirrors the driver-side bridge on /team-portal/driver/deliveries. */}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <a
+                                href={`tel:${String(selectedOrder.driver_phone).replace(/[^+\d]/g, "")}`}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                              >
+                                📞 Call
+                              </a>
+                              <a
+                                href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                                  `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                              >
+                                💬 WhatsApp
+                              </a>
+                            </div>
                           </div>
                         </div>
                       )}

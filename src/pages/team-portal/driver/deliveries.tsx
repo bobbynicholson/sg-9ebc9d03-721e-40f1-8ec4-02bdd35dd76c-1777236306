@@ -27,6 +27,12 @@ interface DriverOrder {
   delivery_status?: string | null;
   total_amount: number | null;
   client_name?: string | null;
+  /** Client contact details for the driver-to-client comms bridge.
+   *  These are surfaced as call / WhatsApp links inline on each
+   *  delivery so the driver can reach the client without copying
+   *  numbers off another screen. */
+  client_phone?: string | null;
+  client_email?: string | null;
   /** From orders.equipment_items jsonb -- the load list. */
   equipment_items?: any[] | null;
   /** From orders.menu_items jsonb -- so the driver knows the headline. */
@@ -73,7 +79,7 @@ export default function DriverDeliveriesPage() {
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
-        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, total_amount, client_name, equipment_items, menu_items")
+        .select("id, event_date, event_time, venue_address, guest_count, status, delivery_status, total_amount, client_name, client_phone, client_email, equipment_items, menu_items")
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (!cancelled) {
@@ -217,6 +223,46 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   <span className="truncate">{o.venue_address}</span>
                 </p>
+                {/* Driver -> client comms bridge. Tap-to-call + open
+                    WhatsApp / email so the driver can reach the
+                    client without copying numbers off another screen.
+                    Closes the audit gap "client sees driver phone but
+                    driver cannot message client". */}
+                {(o.client_phone || o.client_email) && (
+                  <div className="flex items-center gap-2 mt-2">
+                    {o.client_phone && (
+                      <>
+                        <a
+                          href={`tel:${String(o.client_phone).replace(/[^+\d]/g, "")}`}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                          title={`Call ${o.client_phone}`}
+                        >
+                          📞 Call
+                        </a>
+                        <a
+                          href={`https://wa.me/${String(o.client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                            `Hi ${(o.client_name || "there").split(" ")[0]}, I'm your driver for today's delivery to ${String(o.venue_address || "").split(",")[0]}.`,
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                          title="Open WhatsApp"
+                        >
+                          💬 WhatsApp
+                        </a>
+                      </>
+                    )}
+                    {o.client_email && (
+                      <a
+                        href={`mailto:${o.client_email}`}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700"
+                        title={`Email ${o.client_email}`}
+                      >
+                        ✉️ Email
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex md:flex-col items-end gap-3 md:gap-1 md:text-right">
                 <span className="text-sm text-slate-500">{o.guest_count} pax</span>
