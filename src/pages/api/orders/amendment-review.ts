@@ -36,10 +36,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const ssr = createPagesServerClient({ req, res });
-    // Cast through any for the new order_amendment_requests table --
-    // the generated types haven't picked it up yet. Same pattern as
-    // the request endpoint.
-    const ssrAny = ssr as any;
     const { data: { user } } = await ssr.auth.getUser();
     if (!user) return res.status(401).json({ error: "Not signed in" });
 
@@ -58,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Invalid request_id or action" });
     }
 
-    const { data: request } = await ssrAny
+    const { data: request } = await ssr
       .from("order_amendment_requests")
       .select("id, order_id, company_id, proposed_changes, status")
       .eq("id", request_id)
@@ -77,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const nowIso = new Date().toISOString();
 
     if (action === "reject") {
-      await ssrAny.from("order_amendment_requests").update({
+      await ssr.from("order_amendment_requests").update({
         status: "rejected",
         reviewed_by_user_id: user.id,
         reviewed_at: nowIso,
@@ -126,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (updateErr) return res.status(500).json({ error: updateErr.message });
 
     // Stamp the request as approved + capture snapshot.
-    await ssrAny.from("order_amendment_requests").update({
+    await ssr.from("order_amendment_requests").update({
       status: action === "approve_partial" && Object.keys(toApply).length < Object.keys(proposed).length
         ? "approved" // still 'approved' even when partial -- keys list lives in applied_snapshot
         : "approved",

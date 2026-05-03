@@ -342,6 +342,44 @@ export type Database = {
           },
         ]
       }
+      blocked_contacts: {
+        Row: {
+          blocked_at: string
+          blocked_by: string | null
+          company_id: string
+          email_lower: string | null
+          id: string
+          phone: string | null
+          reason: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by?: string | null
+          company_id: string
+          email_lower?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string | null
+          company_id?: string
+          email_lower?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blog_posts: {
         Row: {
           author: string | null
@@ -822,6 +860,7 @@ export type Database = {
           billing_postal_code: string | null
           client_name: string
           client_type: string | null
+          comms_paused_until: string | null
           company_id: string
           created_at: string | null
           credit_limit: number | null
@@ -829,6 +868,7 @@ export type Database = {
           email: string
           id: string
           import_job_id: string | null
+          imported_at: string | null
           is_active: boolean | null
           notes: string | null
           outstanding_balance: number | null
@@ -847,6 +887,7 @@ export type Database = {
           billing_postal_code?: string | null
           client_name: string
           client_type?: string | null
+          comms_paused_until?: string | null
           company_id: string
           created_at?: string | null
           credit_limit?: number | null
@@ -854,6 +895,7 @@ export type Database = {
           email: string
           id?: string
           import_job_id?: string | null
+          imported_at?: string | null
           is_active?: boolean | null
           notes?: string | null
           outstanding_balance?: number | null
@@ -872,6 +914,7 @@ export type Database = {
           billing_postal_code?: string | null
           client_name?: string
           client_type?: string | null
+          comms_paused_until?: string | null
           company_id?: string
           created_at?: string | null
           credit_limit?: number | null
@@ -879,6 +922,7 @@ export type Database = {
           email?: string
           id?: string
           import_job_id?: string | null
+          imported_at?: string | null
           is_active?: boolean | null
           notes?: string | null
           outstanding_balance?: number | null
@@ -973,6 +1017,7 @@ export type Database = {
         Row: {
           address_line1: string | null
           address_line2: string | null
+          amendment_cutoff_days: number
           auto_reply_to_embed_submissions: boolean
           billing_currency: string | null
           city: string | null
@@ -1024,6 +1069,7 @@ export type Database = {
         Insert: {
           address_line1?: string | null
           address_line2?: string | null
+          amendment_cutoff_days?: number
           auto_reply_to_embed_submissions?: boolean
           billing_currency?: string | null
           city?: string | null
@@ -1075,6 +1121,7 @@ export type Database = {
         Update: {
           address_line1?: string | null
           address_line2?: string | null
+          amendment_cutoff_days?: number
           auto_reply_to_embed_submissions?: boolean
           billing_currency?: string | null
           city?: string | null
@@ -3922,6 +3969,8 @@ export type Database = {
       import_jobs: {
         Row: {
           ai_call_cap: number
+          comms_enabled_at: string | null
+          comms_enabled_by: string | null
           company_id: string
           completed_at: string | null
           created_at: string
@@ -3931,6 +3980,7 @@ export type Database = {
           id: string
           kind: string
           mapping: Json | null
+          review_notes: string | null
           source_file_path: string | null
           source_filename: string | null
           source_mime: string | null
@@ -3942,6 +3992,8 @@ export type Database = {
         }
         Insert: {
           ai_call_cap?: number
+          comms_enabled_at?: string | null
+          comms_enabled_by?: string | null
           company_id: string
           completed_at?: string | null
           created_at?: string
@@ -3951,6 +4003,7 @@ export type Database = {
           id?: string
           kind?: string
           mapping?: Json | null
+          review_notes?: string | null
           source_file_path?: string | null
           source_filename?: string | null
           source_mime?: string | null
@@ -3962,6 +4015,8 @@ export type Database = {
         }
         Update: {
           ai_call_cap?: number
+          comms_enabled_at?: string | null
+          comms_enabled_by?: string | null
           company_id?: string
           completed_at?: string | null
           created_at?: string
@@ -3971,6 +4026,7 @@ export type Database = {
           id?: string
           kind?: string
           mapping?: Json | null
+          review_notes?: string | null
           source_file_path?: string | null
           source_filename?: string | null
           source_mime?: string | null
@@ -5260,6 +5316,7 @@ export type Database = {
           client_email: string | null
           client_name: string | null
           client_phone: string | null
+          comms_paused_until: string | null
           company_id: string
           company_name: string | null
           contact_name: string
@@ -5272,6 +5329,8 @@ export type Database = {
           event_type: string | null
           guest_count: number | null
           id: string
+          import_job_id: string | null
+          imported_at: string | null
           notes: string | null
           phone: string | null
           requested_items: Json | null
@@ -5293,6 +5352,7 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          comms_paused_until?: string | null
           company_id: string
           company_name?: string | null
           contact_name: string
@@ -5305,6 +5365,8 @@ export type Database = {
           event_type?: string | null
           guest_count?: number | null
           id?: string
+          import_job_id?: string | null
+          imported_at?: string | null
           notes?: string | null
           phone?: string | null
           requested_items?: Json | null
@@ -5326,6 +5388,7 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           client_phone?: string | null
+          comms_paused_until?: string | null
           company_id?: string
           company_name?: string | null
           contact_name?: string
@@ -5338,6 +5401,8 @@ export type Database = {
           event_type?: string | null
           guest_count?: number | null
           id?: string
+          import_job_id?: string | null
+          imported_at?: string | null
           notes?: string | null
           phone?: string | null
           requested_items?: Json | null
@@ -5365,6 +5430,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_to_client_id_fkey"
+            columns: ["converted_to_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -5756,6 +5835,76 @@ export type Database = {
           },
         ]
       }
+      order_amendment_requests: {
+        Row: {
+          applied_at: string | null
+          applied_snapshot: Json | null
+          client_notes: string | null
+          company_id: string
+          id: string
+          order_id: string
+          proposed_changes: Json
+          requested_at: string
+          requested_by_user_id: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
+          status: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_snapshot?: Json | null
+          client_notes?: string | null
+          company_id: string
+          id?: string
+          order_id: string
+          proposed_changes: Json
+          requested_at?: string
+          requested_by_user_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_snapshot?: Json | null
+          client_notes?: string | null
+          company_id?: string
+          id?: string
+          order_id?: string
+          proposed_changes?: Json
+          requested_at?: string
+          requested_by_user_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_amendment_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_amendment_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_ingredient_demand"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "order_amendment_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_assignment_audit: {
         Row: {
           company_id: string
@@ -5988,6 +6137,7 @@ export type Database = {
           client_name: string | null
           client_phone: string | null
           collection_time: string | null
+          comms_paused_until: string | null
           company_id: string
           completed_at: string | null
           confirmed_at: string | null
@@ -6009,6 +6159,8 @@ export type Database = {
           deposit_percentage: number | null
           dietary_requirements: string | null
           discount_amount: number | null
+          driver_acknowledged_at: string | null
+          driver_acknowledged_via: string | null
           driver_id: string | null
           equipment_return_method: string | null
           event_date: string
@@ -6018,6 +6170,7 @@ export type Database = {
           guest_count: number
           id: string
           import_job_id: string | null
+          imported_at: string | null
           internal_notes: string | null
           kitchen_instructions: string | null
           order_number: string
@@ -6079,6 +6232,7 @@ export type Database = {
           client_name?: string | null
           client_phone?: string | null
           collection_time?: string | null
+          comms_paused_until?: string | null
           company_id: string
           completed_at?: string | null
           confirmed_at?: string | null
@@ -6100,6 +6254,8 @@ export type Database = {
           deposit_percentage?: number | null
           dietary_requirements?: string | null
           discount_amount?: number | null
+          driver_acknowledged_at?: string | null
+          driver_acknowledged_via?: string | null
           driver_id?: string | null
           equipment_return_method?: string | null
           event_date: string
@@ -6109,6 +6265,7 @@ export type Database = {
           guest_count: number
           id?: string
           import_job_id?: string | null
+          imported_at?: string | null
           internal_notes?: string | null
           kitchen_instructions?: string | null
           order_number: string
@@ -6170,6 +6327,7 @@ export type Database = {
           client_name?: string | null
           client_phone?: string | null
           collection_time?: string | null
+          comms_paused_until?: string | null
           company_id?: string
           completed_at?: string | null
           confirmed_at?: string | null
@@ -6191,6 +6349,8 @@ export type Database = {
           deposit_percentage?: number | null
           dietary_requirements?: string | null
           discount_amount?: number | null
+          driver_acknowledged_at?: string | null
+          driver_acknowledged_via?: string | null
           driver_id?: string | null
           equipment_return_method?: string | null
           event_date?: string
@@ -6200,6 +6360,7 @@ export type Database = {
           guest_count?: number
           id?: string
           import_job_id?: string | null
+          imported_at?: string | null
           internal_notes?: string | null
           kitchen_instructions?: string | null
           order_number?: string
@@ -6369,6 +6530,7 @@ export type Database = {
       }
       outgoing_email_queue: {
         Row: {
+          attempts: number
           body: string
           client_link: string | null
           company_id: string
@@ -6376,15 +6538,19 @@ export type Database = {
           error_message: string | null
           id: string
           magic_link: string | null
+          scheduled_for: string | null
           sent_at: string | null
           status: string
           subject: string
+          template_type: string | null
           to_email: string
           to_name: string | null
           trigger_event: string
           trigger_ref_id: string | null
+          variables: Json | null
         }
         Insert: {
+          attempts?: number
           body: string
           client_link?: string | null
           company_id: string
@@ -6392,15 +6558,19 @@ export type Database = {
           error_message?: string | null
           id?: string
           magic_link?: string | null
+          scheduled_for?: string | null
           sent_at?: string | null
           status?: string
           subject: string
+          template_type?: string | null
           to_email: string
           to_name?: string | null
           trigger_event: string
           trigger_ref_id?: string | null
+          variables?: Json | null
         }
         Update: {
+          attempts?: number
           body?: string
           client_link?: string | null
           company_id?: string
@@ -6408,13 +6578,16 @@ export type Database = {
           error_message?: string | null
           id?: string
           magic_link?: string | null
+          scheduled_for?: string | null
           sent_at?: string | null
           status?: string
           subject?: string
+          template_type?: string | null
           to_email?: string
           to_name?: string | null
           trigger_event?: string
           trigger_ref_id?: string | null
+          variables?: Json | null
         }
         Relationships: [
           {
@@ -7299,6 +7472,7 @@ export type Database = {
           client_email: string | null
           client_id: string | null
           client_name: string | null
+          comms_paused_until: string | null
           company_id: string
           converted_to_order_id: string | null
           created_at: string | null
@@ -7310,6 +7484,8 @@ export type Database = {
           external_source: string | null
           guest_count: number | null
           id: string
+          import_job_id: string | null
+          imported_at: string | null
           lead_id: string | null
           menu_items: Json | null
           notes: string | null
@@ -7340,6 +7516,7 @@ export type Database = {
           client_email?: string | null
           client_id?: string | null
           client_name?: string | null
+          comms_paused_until?: string | null
           company_id: string
           converted_to_order_id?: string | null
           created_at?: string | null
@@ -7351,6 +7528,8 @@ export type Database = {
           external_source?: string | null
           guest_count?: number | null
           id?: string
+          import_job_id?: string | null
+          imported_at?: string | null
           lead_id?: string | null
           menu_items?: Json | null
           notes?: string | null
@@ -7381,6 +7560,7 @@ export type Database = {
           client_email?: string | null
           client_id?: string | null
           client_name?: string | null
+          comms_paused_until?: string | null
           company_id?: string
           converted_to_order_id?: string | null
           created_at?: string | null
@@ -7392,6 +7572,8 @@ export type Database = {
           external_source?: string | null
           guest_count?: number | null
           id?: string
+          import_job_id?: string | null
+          imported_at?: string | null
           lead_id?: string | null
           menu_items?: Json | null
           notes?: string | null
@@ -7430,6 +7612,27 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_converted_to_order_id_fkey"
+            columns: ["converted_to_order_id"]
+            isOneToOne: false
+            referencedRelation: "order_ingredient_demand"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "quotes_converted_to_order_id_fkey"
+            columns: ["converted_to_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "import_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -9485,6 +9688,7 @@ export type Database = {
           }
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
+      enable_comms_for_import_job: { Args: { p_job_id: string }; Returns: Json }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       geometry: { Args: { "": string }; Returns: unknown }
@@ -9603,6 +9807,10 @@ export type Database = {
         Args: { p_form_id: string }
         Returns: undefined
       }
+      is_comms_paused_for_email: {
+        Args: { p_company_id: string; p_email: string }
+        Returns: boolean
+      }
       is_company_admin: { Args: { user_id: string }; Returns: boolean }
       is_company_slug_available: {
         Args: { p_slug: string }
@@ -9611,6 +9819,7 @@ export type Database = {
           reason: string
         }[]
       }
+      is_order_amendable: { Args: { p_order_id: string }; Returns: boolean }
       is_owner_or_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }

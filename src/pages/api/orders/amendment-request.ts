@@ -96,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // it up on behalf of the client and may be inside the cutoff
     // for legitimate reasons). Clients are gated.
     if (!isAdminInCompany) {
-      const { data: amendable } = await (ssr as any).rpc("is_order_amendable", {
+      const { data: amendable } = await ssr.rpc("is_order_amendable", {
         p_order_id: order_id,
       });
       if (amendable !== true) {
@@ -106,11 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Auto-generated database.types.ts doesn't yet include
-    // order_amendment_requests (added in 20260503170000). Cast
-    // through any so the build doesn't fight us. Re-generate types
-    // and remove the cast when convenient.
-    const { data: inserted, error } = await (ssr as any)
+    const { data: inserted, error } = await ssr
       .from("order_amendment_requests")
       .insert({
         order_id,

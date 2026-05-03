@@ -36,8 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: "Owner or admin only" });
     }
 
-    // Cast to any -- the RPC isn't in the auto-generated types yet.
-    const { data, error } = await (ssr as any).rpc("enable_comms_for_import_job", {
+    const { data, error } = await ssr.rpc("enable_comms_for_import_job", {
       p_job_id: jobId,
     });
     if (error) return res.status(500).json({ error: error.message });
