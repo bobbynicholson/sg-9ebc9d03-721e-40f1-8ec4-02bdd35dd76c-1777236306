@@ -959,6 +959,20 @@ const productNotesCards: SprintCard[] = [
       { title: "Image upload bucket for menu items (Supabase Storage)", detail: "Today /admin/menu uses a paste-a-URL field for image_url. Add a real upload bucket like the avatars one with a 5MB cap and JPG/PNG/WebP, plus an 'upload from camera' option on mobile so phone shots go straight in.", status: "todo" },
     ],
   },
+  {
+    id: "post-launch-haccp-and-kitchen-intelligence",
+    title: "Post-launch, food-safety + kitchen-as-learning-system (3 may 2026, deferred until after launch)",
+    why: "Three orphan tables surfaced during the schema audit map onto features Bobby wants but that are too hectic to ship pre-launch. Added here so they don't fall off the radar. Sequence: (1) cold-chain first because it's the audit-and-insurance landmine, (2) staff cert expiry next because one expired food-handler cert can fail a kitchen inspection, (3) substitutions + waste paired because they feed each other and turn the kitchen into a learning system rather than re-using the same wrong yield numbers forever.",
+    estimate: "Defer to post-launch",
+    risk: "Medium",
+    icon: ShieldAlert,
+    accent: "from-rose-500 to-orange-500",
+    items: [
+      { title: "Cold-chain compliance (temperature_logs)", detail: "Cold-chain is the audit-and-insurance landmine for catering. Right now there's no cold-store temperature record, if a batch goes off and a guest gets ill there's no defensible log. Smallest viable build: a daily check-in form on the kitchen tablet (one entry per fridge / freezer per shift), an alert if a reading falls outside a per-asset min / max band, and an exportable PDF of the last 90 days for inspectors. This is the one to do first post-launch.", status: "todo" },
+      { title: "Staff food-handler certificate expiry alerts (health_certificates)", detail: "Per-staff food handler certs with expiry alerts. Today nothing prompts when someone's cert is about to lapse, a single expired cert can fail a kitchen inspection. Build: a column on the user / staff record + 30 / 14 / 7-day reminder emails to the owner. Low effort, high ass-saving value.", status: "todo" },
+      { title: "Substitution rules + waste logging, paired (ingredient_substitutions + waste_logs)", detail: "Pair these, they feed each other. Substitutions: 'if no full-cream milk, use 2x low-fat' rules so the shopping list and recipe scaler can suggest swaps when stock is short. Waste logs: what got binned per event (over-prep, plate waste, spoilage), which over time tells you the real yield-per-guest vs the theoretical recipe yield. The combo turns the kitchen into a learning system rather than re-using the same wrong numbers forever.", status: "todo" },
+    ],
+  },
 ];
 
 // =====================================================================
