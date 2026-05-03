@@ -1173,15 +1173,34 @@ function OrderProcessDashboard() {
                       <ChevronRight className="w-3 h-3" />
                     </Link>
                   )}
-                  <a
-                    href={`/c/order/${(selectedOrder as any).id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      // The /c/order/[id] page expects a client access
+                      // token in the URL. Mint a fresh one for the
+                      // admin via the preview endpoint, then open the
+                      // tokenised URL in a new tab.
+                      try {
+                        const r = await fetch(`/api/orders/${(selectedOrder as any).id}/preview-as-client`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                        });
+                        const j = await r.json();
+                        if (!r.ok) throw new Error(j.error || "Could not generate preview link");
+                        window.open(j.url, "_blank", "noopener,noreferrer");
+                      } catch (e: any) {
+                        toast({
+                          title: "Couldn't open preview",
+                          description: e?.message || "Try again",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
                     className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
                   >
                     <ChevronRight className="w-3 h-3" />
                     View as client sees it
-                  </a>
+                  </button>
                   <Link
                     href={`/admin/invoices`}
                     onClick={() => setIsModalOpen(false)}
