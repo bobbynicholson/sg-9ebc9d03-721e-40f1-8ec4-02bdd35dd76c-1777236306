@@ -5,6 +5,7 @@ import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
 import { AppOrder, Quote } from "@/types/app";
 import { regionService } from "./regionService";
+import { lifecycleService } from "./lifecycleService";
 
 export const quoteService = {
   async getQuotes(companyId: string): Promise<Quote[]> {
@@ -87,6 +88,29 @@ export const quoteService = {
   },
 
   async updateQuote(quoteId: string, updates: Partial<Quote>): Promise<Quote | null> {
+    // Detect status transitions that need side-effects. The audit
+    // (May 2026) found that quotes were sometimes flipped to 'sent' by
+    // direct supabase calls in pages/admin/quotes/* that bypassed
+    // sendQuoteToClient -- meaning the client email never went out
+    // even though the quote was marked as sent. Centralising the
+    // "transition to sent" check here means every code path picks up
+    // the email automatically.
+    let wasTransitioningToSent = false;
+    if (updates.status === "sent") {
+      try {
+        const { data: current } = await supabase
+          .from("quotes")
+          .select("status")
+          .eq("id", quoteId)
+          .maybeSingle();
+        wasTransitioningToSent = !!current && (current as any).status !== "sent";
+      } catch {
+        // If we can't read the current row we assume it IS a transition --
+        // worst case we send the email twice, vs missing it entirely.
+        wasTransitioningToSent = true;
+      }
+    }
+
     const { data, error } = await supabase
       .from("quotes")
       .update(updates)
@@ -99,7 +123,61 @@ export const quoteService = {
       throw error;
     }
 
+    if (wasTransitioningToSent) {
+      // Fire-and-forget. We don't want a slow email send to block the
+      // UI's "quote saved" toast, and we don't want a failed send to
+      // make the user think the quote didn't save.
+      void this._fireQuoteSentEmail(quoteId).catch((e) =>
+        console.warn("[quoteService] post-update quote-sent email fire failed:", e),
+      );
+    }
+
     return data;
+  },
+
+  /**
+   * Internal: send the "your quote is ready" email to the client.
+   * Pulled out of sendQuoteToClient so updateQuote can fire it on the
+   * draft->sent transition without duplicating the call. Idempotent
+   * to a degree (Resend deduplicates on idempotency keys we don't
+   * currently send, so multiple calls = multiple emails -- but the
+   * transition guard in updateQuote prevents that in normal use).
+   */
+  async _fireQuoteSentEmail(quoteId: string): Promise<void> {
+    const quote = await this.getQuote(quoteId);
+    if (!quote) {
+      console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} not found`);
+      return;
+    }
+    if (!quote.client_email) {
+      console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} has no client_email`);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, company_name")
+      .eq("id", quote.user_id)
+      .single();
+    const companyName =
+      profile?.company_name || profile?.full_name || "Your Catering Company";
+
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: quote.user_id,
+        to: quote.client_email,
+        subject: `Your Quote from ${companyName} is Ready!`,
+        template: "custom-quote-ready",
+        variables: {
+          clientName: quote.client_name,
+          companyName: companyName,
+          quoteNumber: quoteId,
+          totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+        },
+      }),
+    });
   },
 
   async deleteQuote(quoteId: string): Promise<boolean> {
@@ -120,11 +198,23 @@ export const quoteService = {
     const quote = await this.getQuote(quoteId);
     if (!quote) return null;
 
+    // Lifecycle backbone: orders.client_id is NOT NULL on the schema,
+    // so we MUST have a client_id before inserting. If this quote came
+    // from a lead that was never promoted to a client (the historical
+    // common case), promote them now -- creates the clients row,
+    // stamps leads.converted_to_client_id, marks lead status='won'.
+    // Idempotent so re-acceptance of the same quote is safe.
+    const resolvedClientId = await lifecycleService.resolveQuoteClientId({
+      id: quote.id,
+      client_id: quote.client_id ?? null,
+      lead_id: (quote as any).lead_id ?? null,
+    });
+
     const orderData = {
       ...quote,
       quote_id: quote.id,
       user_id: quote.user_id,
-      client_id: quote.client_id,
+      client_id: resolvedClientId,
       region_id: quote.region_id,
       status: "confirmed",
       order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
@@ -152,7 +242,14 @@ export const quoteService = {
       throw orderError;
     }
 
-    await this.updateQuote(quoteId, { status: "accepted", accepted_at: new Date().toISOString() });
+    // Mark quote accepted + back-link to the order so future audits can
+    // trace forwards (quote -> order) as well as backwards
+    // (orders.quote_id -> quote).
+    await this.updateQuote(quoteId, {
+      status: "accepted",
+      accepted_at: new Date().toISOString(),
+      converted_to_order_id: newOrder.id,
+    });
 
     // ✅ FIX BUG #16.2: Send order confirmation after quote acceptance
     if (quote.client_email) {
@@ -200,61 +297,23 @@ export const quoteService = {
   },
 
   /**
-   * Send custom quote to client with pricing details
-   * NEW FUNCTION - Completes Bug #16 fix
+   * Explicit "send this quote to the client" action.
+   *
+   * Now a thin wrapper over updateQuote -- updateQuote detects the
+   * draft->sent transition and fires the email itself, so this method
+   * just exists for callers that want a single explicit verb. Kept
+   * so existing UI buttons (admin Quote list "Send" action, etc.)
+   * keep working without refactor.
    */
   async sendQuoteToClient(quoteId: string): Promise<boolean> {
     try {
-      const quote = await this.getQuote(quoteId);
-      if (!quote) {
-        throw new Error("Quote not found");
-      }
-
-      if (!quote.client_email) {
-        throw new Error("Client email not available");
-      }
-
-      // Get company details
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, company_name")
-        .eq("id", quote.user_id)
-        .single();
-
-      const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
-      const quoteUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?quoteId=${quoteId}`;
-
-      // TODO: Generate PDF quote and get download URL
-      const pdfUrl = undefined; // Will be implemented with PDF generation
-
-      // ✅ Use API route instead of emailService directly
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId: quote.user_id,
-          to: quote.client_email,
-          subject: `Your Quote from ${companyName} is Ready!`,
-          template: 'custom-quote-ready',
-          variables: {
-            clientName: quote.client_name,
-            companyName: companyName,
-            quoteNumber: quoteId,
-            totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
-          }
-        })
-      });
-
-      // Update quote status to 'sent'
-      await this.updateQuote(quoteId, { 
+      const result = await this.updateQuote(quoteId, {
         status: "sent",
-        sent_at: new Date().toISOString()
+        sent_at: new Date().toISOString(),
       });
-
-      console.log("✅ Custom quote email sent to:", quote.client_email);
-      return true;
+      return !!result;
     } catch (error) {
-      console.error("⚠️ Failed to send custom quote email:", error);
+      console.error("Failed to send custom quote email:", error);
       return false;
     }
   }

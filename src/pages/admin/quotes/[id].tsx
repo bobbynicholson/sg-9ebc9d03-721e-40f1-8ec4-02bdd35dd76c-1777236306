@@ -205,13 +205,16 @@ export default function AdminQuoteDetail() {
     }
     setSending(true);
     try {
-      // First persist the latest pricing -- otherwise sending uses the
-      // stale figures from before the team last edited.
-      const { error: saveErr } = await supabase
-        .from("quotes")
-        .update({ ...buildPayload(), status: "sent", sent_at: new Date().toISOString() })
-        .eq("id", id);
-      if (saveErr) throw saveErr;
+      // Persist the latest pricing AND flip status -> sent in one shot
+      // through quoteService.updateQuote so the draft->sent transition
+      // fires the client email automatically. Bypassing the service
+      // here used to skip the email send -- the audit caught that.
+      const updated = await quoteService.updateQuote(id, {
+        ...(buildPayload() as Partial<Quote>),
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      });
+      if (!updated) throw new Error("Quote update returned no row");
       const refreshed = await quoteService.getQuote(id);
       setQuote(refreshed);
       toast({

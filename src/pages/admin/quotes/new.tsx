@@ -89,6 +89,7 @@ import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { quoteService } from "@/services/quoteService";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -726,10 +727,29 @@ function NewQuotePage() {
       // Status overrides: caller tells us when this is a Send.
       Object.assign(payload, override);
       if (quoteId) {
+        // Read current status BEFORE the update so we can detect the
+        // draft -> sent transition. Lifecycle audit (May 2026) found
+        // this page used to write status='sent' directly without ever
+        // firing the client email; now we route the side-effect
+        // through quoteService._fireQuoteSentEmail.
+        let prevStatus: string | null = null;
+        if (override.status === "sent") {
+          const { data: cur } = await supabase
+            .from("quotes")
+            .select("status")
+            .eq("id", quoteId)
+            .maybeSingle();
+          prevStatus = (cur as any)?.status ?? null;
+        }
         const { error } = await supabase.from("quotes").update(payload).eq("id", quoteId);
         if (error) throw error;
         setSavedAt(new Date());
         if (override.status) setStatus(override.status as any);
+        if (override.status === "sent" && prevStatus !== "sent") {
+          void quoteService._fireQuoteSentEmail(quoteId).catch((e) =>
+            console.warn("[quotes/new] sent-email fire failed:", e),
+          );
+        }
         return quoteId;
       } else {
         const number = newQuoteNumber();
@@ -750,6 +770,14 @@ function NewQuotePage() {
         setQuoteNumber(data.quote_number);
         setStatus(data.status as any);
         setSavedAt(new Date());
+        // First save with status='sent' (Save & Send on a brand-new
+        // quote) -- fire the client email. NULL prev-status acts like
+        // a transition from draft.
+        if (override.status === "sent") {
+          void quoteService._fireQuoteSentEmail(data.id).catch((e) =>
+            console.warn("[quotes/new] sent-email fire failed:", e),
+          );
+        }
         // Lead linkage: flip the lead to 'quoted' on first save.
         if (typeof leadId === "string" && leadId) {
           try {
