@@ -105,14 +105,47 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
  * Stamp viewed_at the first time the public page loads. No-op if
  * the quote already has a viewed_at -- we want the anchor to be
  * the first view, not the latest.
+ *
+ * Fires a low-priority admin notification on the FIRST view so the
+ * catering team knows the client has actually opened the quote and
+ * isn't sitting in their spam folder. Closes the audit gap "no quote
+ * engagement tracking" -- before this, admins had no signal between
+ * send and accept.
  */
 export async function recordView(token: string, currentViewedAt: string | null): Promise<void> {
   if (currentViewedAt) return;
-  await (supabase as any)
+  // Update + return the row so we can fire the notification with
+  // its details. maybeSingle so we don't blow up if the token is
+  // already invalid by the time we try.
+  const { data: row } = await (supabase as any)
     .from("quotes")
     .update({ viewed_at: new Date().toISOString() })
     .eq("public_token", token)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id, company_id, user_id, client_name, total, currency, event_date")
+    .maybeSingle();
+  if (!row) return;
+
+  // Best-effort -- a failed notify mustn't break the public page load.
+  try {
+    const { notificationService } = await import("./notificationService");
+    const totalLabel = `${(row as any).currency || "ZAR"} ${Number((row as any).total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
+    const eventLabel = (row as any).event_date
+      ? new Date((row as any).event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+      : "TBD";
+    await notificationService.createNotification({
+      company_id: (row as any).company_id,
+      user_id: (row as any).user_id,
+      recipient_id: (row as any).user_id,
+      notification_type: "quote_viewed",
+      title: "👀 Client viewed your quote",
+      message: `${(row as any).client_name || "Client"} just opened the quote (${totalLabel}, event ${eventLabel}). They're considering -- a follow-up nudge tomorrow if quiet might help.`,
+      priority: "normal",
+      link: `/admin/quotes/${(row as any).id}`,
+    } as any);
+  } catch (e) {
+    console.warn("[publicQuoteService] view notify failed:", e);
+  }
 }
 
 /**

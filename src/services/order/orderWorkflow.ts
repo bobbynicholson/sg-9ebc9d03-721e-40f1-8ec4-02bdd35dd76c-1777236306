@@ -68,6 +68,19 @@ export async function updateOrderStatus(
       }
     }
 
+    // Schedule pre-event reminders on confirm. Closes the audit gap
+    // "no automated pre-event reminders" -- the templates existed
+    // but nothing fired them. We schedule a 1-week-before and a
+    // 1-day-before email; both honour the same quarantine + block
+    // gates as everything else via emailService.
+    if (newStatus === "confirmed" && order.company_id) {
+      try {
+        await ensureScheduledPreEventReminders(order);
+      } catch (e) {
+        console.warn("[orderWorkflow] pre-event reminders crashed (non-blocking):", e);
+      }
+    }
+
     return { success: true, data: order };
   } catch (error: any) {
     console.error("Error updating order status:", error);
@@ -86,7 +99,7 @@ export async function assignDriver(orderId: string, driverId: string) {
 
     if (error) throw error;
 
-    // Notify driver
+    // In-app notification (existing behaviour).
     await notificationService.createNotification({
       user_id: driverId,
       recipient_id: driverId,
@@ -95,6 +108,48 @@ export async function assignDriver(orderId: string, driverId: string) {
       type: "order",
       priority: "high",
     });
+
+    // WhatsApp the driver too. Closes the audit gap "kitchen ready ->
+    // driver only gets in-app notification (none if driving)" + "driver
+    // never sees order flags". Sends the headline + the special
+    // handling flags so they're visible on the lock screen, not buried
+    // inside the app.
+    try {
+      const { data: driver } = await (supabase as any)
+        .from("profiles")
+        .select("phone, phone_number, full_name")
+        .eq("id", driverId)
+        .maybeSingle();
+      const driverPhone = (driver as any)?.phone || (driver as any)?.phone_number;
+      if (driverPhone && data) {
+        const flagLines: string[] = [];
+        if ((data as any).requires_refrigeration) flagLines.push("⚠️ Needs refrigeration");
+        if ((data as any).requires_two_drivers) flagLines.push("⚠️ Two-driver load");
+        if ((data as any).requires_waiter) flagLines.push("⚠️ Waiter service");
+        const eventDate = (data as any).event_date
+          ? new Date((data as any).event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+          : "TBD";
+        const venue = (data as any).venue_address
+          ? String((data as any).venue_address).split(",")[0]
+          : "TBD";
+        const guests = (data as any).guest_count ?? "?";
+        const message =
+          `🚚 You have a new delivery: ${data.order_number}\n\n` +
+          `📅 ${eventDate}\n` +
+          `📍 ${venue}\n` +
+          `👥 ${guests} guests\n` +
+          (flagLines.length > 0 ? `\n${flagLines.join("\n")}\n` : "") +
+          `\nOpen the driver app to acknowledge.`;
+        const { whatsappIntegrationService } = await import("@/services/whatsappIntegrationService");
+        await (whatsappIntegrationService as any).sendWhatsAppMessage({
+          to: driverPhone,
+          type: "text",
+          text: { body: message },
+        });
+      }
+    } catch (e) {
+      console.warn("[orderWorkflow] driver WhatsApp on assign failed (non-blocking):", e);
+    }
 
     return { success: true, data };
   } catch (error: any) {
@@ -509,5 +564,92 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
     }
   } catch (e) {
     console.warn("[orderWorkflow] ensureScheduledAfterSales internal failure:", e);
+  }
+}
+
+/**
+ * Persist pre-event reminders into outgoing_email_queue. Two
+ * reminders by default: 7 days before and 1 day before the event.
+ * Idempotent + quarantine-aware, same pattern as the after-sales
+ * scheduler. The cron worker dispatches them through emailService
+ * which runs the block-list + quarantine gates centrally.
+ *
+ * Why two only? Audit feedback was that operators currently have to
+ * remember to send these manually and forget half the time -- two
+ * automated touchpoints is the right ratio of presence to spam. The
+ * lib/whatsappTemplates "event_week" / "event_day_morning" templates
+ * already exist for the manual flow; if we ever want WhatsApp to
+ * fire automatically too, mirror this scheduler against an
+ * outgoing_whatsapp_queue (doesn't exist yet).
+ */
+async function ensureScheduledPreEventReminders(order: any): Promise<void> {
+  if (!order?.id || !order?.company_id || !order?.client_email || !order?.event_date) return;
+
+  // Quarantine guard.
+  if (order.imported_at || (order.comms_paused_until && new Date(order.comms_paused_until) > new Date())) {
+    return;
+  }
+
+  // Idempotency.
+  const { data: existing } = await (supabase as any)
+    .from("outgoing_email_queue")
+    .select("id")
+    .eq("trigger_event", "pre_event")
+    .eq("trigger_ref_id", order.id)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  const eventDate = new Date(order.event_date);
+  const eventLabel = eventDate.toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+  const firstName = String(order.client_name || "there").trim().split(" ")[0] || "there";
+
+  const reminders = [
+    {
+      offsetMs: -7 * 24 * 3600 * 1000,
+      key: "week_before",
+      subject: `One week to go -- your event on ${eventLabel}`,
+      body:
+        `Hi ${firstName},\n\n` +
+        `Just a friendly reminder that your event is one week away (${eventLabel}). ` +
+        `If anything has changed -- final headcount, menu tweaks, drop-off time -- now is the perfect time to let us know.\n\n` +
+        `Reply to this email or open your client portal to request a change.\n\n` +
+        `Looking forward to it.`,
+    },
+    {
+      offsetMs: -1 * 24 * 3600 * 1000,
+      key: "day_before",
+      subject: `Tomorrow's the day -- ${eventLabel}`,
+      body:
+        `Hi ${firstName},\n\n` +
+        `Quick check-in -- everything is locked in for tomorrow. ` +
+        `Final guest count + venue address are confirmed on our side. ` +
+        `If anything urgent comes up between now and then, give us a ring.\n\n` +
+        `See you tomorrow!`,
+    },
+  ];
+
+  const rows: any[] = [];
+  for (const r of reminders) {
+    const sendAt = new Date(eventDate.getTime() + r.offsetMs);
+    // Skip if the reminder time is already in the past (e.g. event
+    // is 3 days away when the order gets confirmed).
+    if (sendAt.getTime() < Date.now()) continue;
+    rows.push({
+      company_id: order.company_id,
+      to_email: order.client_email,
+      to_name: order.client_name || "there",
+      subject: r.subject,
+      body: r.body,
+      trigger_event: "pre_event",
+      trigger_ref_id: order.id,
+      status: "pending",
+      scheduled_for: sendAt.toISOString(),
+      template_type: `pre_event_${r.key}`,
+      variables: { clientName: firstName, eventDate: eventLabel },
+    });
+  }
+
+  if (rows.length > 0) {
+    await (supabase as any).from("outgoing_email_queue").insert(rows);
   }
 }
