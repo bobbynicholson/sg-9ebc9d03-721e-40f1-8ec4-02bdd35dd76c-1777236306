@@ -106,7 +106,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const { data: inserted, error } = await ssr
+    // Auto-generated database.types.ts doesn't yet include
+    // order_amendment_requests (added in 20260503170000). Cast
+    // through any so the build doesn't fight us. Re-generate types
+    // and remove the cast when convenient.
+    const { data: inserted, error } = await (ssr as any)
       .from("order_amendment_requests")
       .insert({
         order_id,
@@ -115,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         proposed_changes: sanitized,
         client_notes: client_notes || null,
         status: "pending",
-      } as any)
+      })
       .select("id")
       .single();
     if (error) return res.status(500).json({ error: error.message });
