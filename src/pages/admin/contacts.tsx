@@ -282,6 +282,8 @@ function ClientsCRM() {
             clientId: null,
             leadIds: [],
             orderIds: [],
+            quoteIds: [],
+            invoiceIds: [],
             name: o.client_name || "Unnamed",
             email: o.client_email,
             phone: o.client_phone,
