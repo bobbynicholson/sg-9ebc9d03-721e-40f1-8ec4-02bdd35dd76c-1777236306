@@ -15,13 +15,33 @@ export async function updateOrderStatus(
   updatedBy?: string
 ) {
   try {
-    // Update order status
+    // Stamp confirmed_at the first time an order moves to (or past)
+    // 'confirmed'. The dashboard's Booked Revenue gate keys on this
+    // column, so it has to be written even when the operator skips
+    // straight from pending to preparing/ready/etc.
+    const advancedStatuses = new Set([
+      "confirmed", "preparing", "ready", "in_transit",
+      "out_for_delivery", "delivered", "completed",
+    ]);
+    const updates: any = {
+      status: newStatus as any,
+      updated_at: new Date().toISOString(),
+    };
+    if (advancedStatuses.has(newStatus)) {
+      // Only set if NULL -- never clobber an existing stamp.
+      const { data: prior } = await supabase
+        .from("orders")
+        .select("confirmed_at")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!prior?.confirmed_at) {
+        updates.confirmed_at = new Date().toISOString();
+      }
+    }
+
     const { data: order, error } = await supabase
       .from("orders")
-      .update({ 
-        status: newStatus as any,
-        updated_at: new Date().toISOString()
-      })
+      .update(updates)
       .eq("id", orderId)
       .select()
       .single();

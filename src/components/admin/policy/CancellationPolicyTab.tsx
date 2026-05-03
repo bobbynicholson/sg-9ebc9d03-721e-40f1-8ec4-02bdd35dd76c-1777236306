@@ -175,7 +175,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
               return (
                 <div key={`${tier.min_days_before_event}-${tier.refund_pct}-${idxSorted}`} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="space-y-1">
-                    <Label className="text-xs text-slate-600">Days before event (>=)</Label>
+                    <Label className="text-xs text-slate-600">Days before event (at least)</Label>
                     <Input
                       type="number"
                       min={0}
@@ -197,7 +197,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
                   </div>
                   <div className="flex-1 text-xs text-slate-600 px-2">
                     {tier.min_days_before_event === 0
-                      ? `Cancelled <${policy.deposit_refund_tiers
+                      ? `Cancelled less than ${policy.deposit_refund_tiers
                           .filter((t) => t.min_days_before_event > 0)
                           .reduce((m, t) => Math.min(m, t.min_days_before_event), 99)} days from event`
                       : `Cancelled ${tier.min_days_before_event}+ days before event`}
