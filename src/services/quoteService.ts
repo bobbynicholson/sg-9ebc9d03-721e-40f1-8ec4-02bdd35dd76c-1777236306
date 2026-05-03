@@ -87,6 +87,7 @@ export const quoteService = {
     return data;
   },
 
+  async updateQuote(quoteId: string, updates: Partial<Quote>): Promise<Quote | null> {
     // Status transition guard rails. The audit (May 2026) flagged
     // that admins could flip a quote from any status to any status
     // with no warning -- e.g. accepted -> draft, which silently
@@ -105,8 +106,11 @@ export const quoteService = {
     // To override, pass updates with __force_status_change: true (we
     // strip it before the actual update). Used by support tools or
     // admin recovery flows.
-    const force = (updates as any).__force_status_change === true;
-    if (force) delete (updates as any).__force_status_change;
+    const updatesLoose: any = updates;
+    const force: boolean = updatesLoose.__force_status_change === true;
+    if (force) {
+      delete updatesLoose.__force_status_change;
+    }
 
     if (updates.status && !force) {
       try {
