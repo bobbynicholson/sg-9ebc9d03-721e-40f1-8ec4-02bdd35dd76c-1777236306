@@ -76,7 +76,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
-import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitchens";
 import { dispatchService } from "@/services/dispatchService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
@@ -242,11 +242,22 @@ function NewQuotePage() {
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
   const [deliveryFeeOverridden, setDeliveryFeeOverridden] = useState(false);
-  /** Kitchen origin (region or HQ) used as the distance reference. */
-  const { origin: kitchenOrigin, source: kitchenOriginSource } = useKitchenOrigin(
-    user?.id || null,
-    companyId || null,
-  );
+  /** Available kitchens for this company (active branches + HQ). */
+  const { kitchens } = useCompanyKitchens(companyId || null);
+  /** Currently picked kitchen the delivery is leaving from. Defaults
+   *  to the first available kitchen on load; operator switches via
+   *  the picker when the company has more than one branch. */
+  const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const selectedKitchen: KitchenOption | null =
+    kitchens.find((k) => k.id === kitchenId) || kitchens[0] || null;
+
+  // Default the picker to the first kitchen once they load. Re-runs
+  // if the operator's company switches (super_admin scenario).
+  useEffect(() => {
+    if (!kitchenId && kitchens.length > 0) {
+      setKitchenId(kitchens[0].id);
+    }
+  }, [kitchens, kitchenId]);
 
   const [surgePct, setSurgePct] = useState(0);
   const [discountPct, setDiscountPct] = useState(0);
@@ -474,30 +485,28 @@ function NewQuotePage() {
     return () => { cancelled = true; };
   }, [companyId]);
 
-  // ── Auto-distance from kitchen to venue (haversine). ──────────────
+  // ── Auto-distance from selected kitchen to venue (haversine). ────
   // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
-  // on pick). Operator can still type into the distance input to
-  // override -- their override sticks until they pick a new address.
+  // on pick) OR the operator switches kitchen via the picker.
   useEffect(() => {
     if (
-      !kitchenOrigin?.lat || !kitchenOrigin?.lng ||
+      !selectedKitchen ||
       typeof venueLat !== "number" || typeof venueLng !== "number"
     ) return;
     const R = 6371;
     const toRad = (d: number) => (d * Math.PI) / 180;
-    const dLat = toRad(venueLat - kitchenOrigin.lat);
-    const dLng = toRad(venueLng - kitchenOrigin.lng);
+    const dLat = toRad(venueLat - selectedKitchen.lat);
+    const dLng = toRad(venueLng - selectedKitchen.lng);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(kitchenOrigin.lat)) *
+      Math.cos(toRad(selectedKitchen.lat)) *
         Math.cos(toRad(venueLat)) *
         Math.sin(dLng / 2) ** 2;
     const km = 2 * R * Math.asin(Math.sqrt(a));
     setDeliveryDistance(Number(km.toFixed(2)));
-    // Picking a new address re-enables auto-fee. Operator can override
-    // again if needed.
+    // Switching kitchen / picking new address re-enables auto-fee.
     setDeliveryFeeOverridden(false);
-  }, [kitchenOrigin?.lat, kitchenOrigin?.lng, venueLat, venueLng]);
+  }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
 
   // ── Auto-fee from distance × per-km, floored at min fee. ──────────
   // Skipped once the operator has typed a manual override into the
@@ -1119,15 +1128,38 @@ function NewQuotePage() {
                     <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
                       <div className="flex items-center justify-between text-xs text-blue-900">
                         <span className="font-semibold">Delivery distance + fee</span>
-                        {kitchenOrigin?.lat && (
+                        {selectedKitchen && kitchens.length === 1 && (
                           <span className="text-blue-700/80">
-                            From {kitchenOriginSource === "region" ? "regional kitchen" : "company HQ"}
+                            From {selectedKitchen.name}
                           </span>
                         )}
                       </div>
-                      {!kitchenOrigin?.lat && (
+                      {/* Kitchen picker only renders when there are
+                          multiple branches with coords. Single-branch
+                          tenants get the silent "From {name}" badge
+                          above instead. */}
+                      {kitchens.length > 1 && selectedKitchen && (
+                        <div>
+                          <Label className="text-[11px] text-blue-900">From kitchen / branch</Label>
+                          <select
+                            value={selectedKitchen.id}
+                            onChange={(e) => setKitchenId(e.target.value)}
+                            className="w-full h-9 px-2 rounded-md border border-blue-200 bg-white text-sm"
+                          >
+                            {kitchens.map((k) => (
+                              <option key={k.id} value={k.id}>
+                                {k.name}{k.address ? ` -- ${k.address}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-blue-700/80 mt-1">
+                            Picking a different kitchen recalculates distance + fee.
+                          </p>
+                        </div>
+                      )}
+                      {kitchens.length === 0 && (
                         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                          Kitchen origin not set. Open Company profile and pin your HQ address so distance auto-calculates.
+                          No kitchen with coordinates set up. Open Company profile and pin your HQ address (or add a Region with lat/lng) so distance auto-calculates.
                         </p>
                       )}
                       <div className="grid grid-cols-3 gap-2">
