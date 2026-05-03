@@ -747,7 +747,10 @@ export default function AdminLeads() {
                               {expandedLeadId === lead.id ? "Hide" : "Details"}
                             </Button>
                             {/* Always-available secondary, start a fresh
-                                quote even when the primary CTA was an email. */}
+                                quote even when the primary CTA was an email.
+                                Styled blue to match the same shortcut on
+                                /admin/contacts so the muscle memory carries
+                                across both surfaces. */}
                             {!links.orderId && (
                               <Button
                                 size="sm"
@@ -759,7 +762,10 @@ export default function AdminLeads() {
                                     router.push(`/admin/quotes/new?leadId=${lead.id}`);
                                   }
                                 }}
+                                className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                title={links.latestQuoteId ? "Open the existing quote for this lead" : `Create a new quote for ${lead.contact_name || lead.client_name || "this lead"}`}
                               >
+                                <FileText className="w-3.5 h-3.5" />
                                 {links.latestQuoteId ? "Open quote" : "New quote"}
                               </Button>
                             )}
