@@ -250,15 +250,20 @@ function OrderProcessDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // The revenue card used to sum every non-cancelled order, which made
-    // soft-pending and draft rows inflate the headline number ("R624k!?").
-    // The catering team thinks of revenue as orders the client has
-    // committed to -- i.e. confirmed onwards. Pending / draft are the
-    // pipeline before that, and we surface them separately.
-    const BOOKED_STATUSES = new Set([
-      "confirmed", "preparing", "ready", "in_transit", "delivered", "completed",
-    ]);
+    // Booked revenue is gated on actual confirmation, not on status
+    // advancing past pending. An order counts as booked when either:
+    //   * deposit_paid = true   (client paid the deposit), OR
+    //   * confirmed_at != null  (admin manually marked it confirmed)
+    // Cancelled orders are always excluded.
+    //
+    // Status-based filtering would over-count in messy data (an admin
+    // could push status to 'preparing' without recording a deposit).
+    // The explicit columns are the source of truth for "client has
+    // committed to this booking".
     const REALISED_STATUSES = new Set(["delivered", "completed"]);
+    const isConfirmedOrder = (o: any) =>
+      o.status !== "cancelled" &&
+      (o.deposit_paid === true || !!o.confirmed_at);
 
     const visible = getFilteredOrders();
 
@@ -267,7 +272,7 @@ function OrderProcessDashboard() {
 
       const orderTotal = Number(order.total_amount) || 0;
 
-      if (BOOKED_STATUSES.has(order.status)) {
+      if (isConfirmedOrder(order)) {
         bookedRevenue += orderTotal;
         if (REALISED_STATUSES.has(order.status)) {
           realisedRevenue += orderTotal;
@@ -1357,7 +1362,7 @@ function OrderProcessDashboard() {
                     <div className="min-w-0">
                       <p className="text-sm text-green-700 mb-1 flex items-center gap-1.5">
                         Booked revenue
-                        <InfoTooltip content={"Sum of orders the client has committed to, confirmed, in-prep, ready, in-transit, delivered or completed.\n\nPending and draft orders aren't counted, since they haven't been confirmed by the client yet. Cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed, 'money in the till'."} />
+                        <InfoTooltip content={"Total value of orders the client has confirmed, either by paying a deposit or by being manually marked as confirmed by your team.\n\nPending, draft, and cancelled orders are excluded.\n\nRealised below is the slice already delivered or completed, 'money in the till'."} />
                       </p>
                       <p className="text-2xl font-bold text-green-900">
                         R{(stats.revenue.booked / 1000).toFixed(0)}k

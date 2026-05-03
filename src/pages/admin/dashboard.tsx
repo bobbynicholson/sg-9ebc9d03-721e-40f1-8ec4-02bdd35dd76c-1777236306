@@ -46,7 +46,6 @@ const EMPTY: Stats = {
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
-const COUNTS_AS_BOOKED = ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"];
 
 function AdminDashboardPage() {
   const { user, profile, companySlug } = useAuth();
@@ -77,7 +76,7 @@ function AdminDashboardPage() {
       const [ordersRes, quotesRes, usersRes, invRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date")
+          .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromISO)
@@ -122,10 +121,13 @@ function AdminDashboardPage() {
         const total  = Number(o.total_amount || 0);
         if (status === "cancelled") continue;
 
-        // Booked: confirmed onwards OR has a paid deposit OR fully paid
+        // Booked: client has actually committed to the booking. Gate is
+        // explicit confirmation, not status advancement -- either the
+        // deposit's been paid, the admin manually marked confirmed_at,
+        // or money has come in (paid / partial).
         const isBooked =
-          COUNTS_AS_BOOKED.includes(status) ||
           o.deposit_paid === true ||
+          !!o.confirmed_at ||
           pay === "paid" ||
           pay === "partial";
         if (isBooked) {
@@ -301,7 +303,7 @@ function AdminDashboardPage() {
               label="Booked Revenue"
               value={fmt.format(stats.bookedRevenue)}
               hint={`${stats.bookedOrders} confirmed booking${stats.bookedOrders === 1 ? "" : "s"}`}
-              tooltip={`Total value of confirmed bookings for ${range.label.toLowerCase()}. Includes deposits paid, partial payments and fully paid orders.\n\nCancelled orders are not counted.`}
+              tooltip={`Total value of orders the client has confirmed for ${range.label.toLowerCase()}, either by paying a deposit or by being manually marked as confirmed by your team. Also includes orders with any payment recorded.\n\nPending, draft, and cancelled orders are excluded.`}
               icon={DollarSign}
               iconColor="text-green-600"
               badge={{ text: `${stats.bookedOrders} booked`, tone: "green" }}
