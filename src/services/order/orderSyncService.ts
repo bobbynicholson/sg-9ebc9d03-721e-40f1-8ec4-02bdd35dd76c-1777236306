@@ -79,16 +79,35 @@ export async function syncOrderArtifacts(
       return sum + Number(b.quantity || 0) * dailyRate * days;
     }, 0);
 
-    const subtotal = Number((itemSubtotal + equipmentSubtotal).toFixed(2));
+    const computedSubtotal = Number((itemSubtotal + equipmentSubtotal).toFixed(2));
 
     // 3. Derive tax rate from the order's existing tax_amount / subtotal
     //    so we preserve whatever was originally quoted (could be 0%
     //    for VAT-exempt clients, 15% for standard SA VAT, etc).
     const priorSubtotal = Number((order as any).subtotal || 0);
     const priorTax = Number((order as any).tax_amount || 0);
-    const taxRate = priorSubtotal > 0 ? priorTax / priorSubtotal : FALLBACK_TAX_RATE;
-    const tax_amount = Number((subtotal * taxRate).toFixed(2));
-    const total_amount = Number((subtotal + tax_amount).toFixed(2));
+    const priorTotal = Number((order as any).total_amount || 0);
+
+    let subtotal: number;
+    let tax_amount: number;
+    let total_amount: number;
+
+    if (computedSubtotal > 0) {
+      // Items + equipment cover the order -- recompute from them.
+      const taxRate = priorSubtotal > 0 ? priorTax / priorSubtotal : FALLBACK_TAX_RATE;
+      subtotal = computedSubtotal;
+      tax_amount = Number((subtotal * taxRate).toFixed(2));
+      total_amount = Number((subtotal + tax_amount).toFixed(2));
+    } else {
+      // Flat-price order with no line items / equipment to derive from
+      // (typical when the quote captured a single negotiated price
+      // rather than itemising). Preserve the existing totals so an
+      // unrelated edit (guest count, venue, date) doesn't zero out
+      // the order value.
+      subtotal = priorSubtotal || priorTotal;
+      tax_amount = priorTax;
+      total_amount = priorTotal;
+    }
 
     // 4. Update the order's totals.
     await sb.from("orders").update({
