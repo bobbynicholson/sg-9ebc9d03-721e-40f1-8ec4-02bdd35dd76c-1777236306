@@ -108,7 +108,7 @@ export const onboardingProgressService = {
       tableCount("payment_gateways", companyId, { col: "is_active", val: true }),
       supabase
         .from("companies")
-        .select("name,phone,email,onboarding_completed_at,onboarding_dismissed_at")
+        .select("company_name,phone,email,onboarding_completed_at,onboarding_dismissed_at")
         .eq("id", companyId)
         .maybeSingle(),
     ]);
@@ -117,9 +117,9 @@ export const onboardingProgressService = {
     const completedAt = company?.onboarding_completed_at ?? null;
     const dismissedAt = company?.onboarding_dismissed_at ?? null;
 
-    // Company info is "complete" when the basics are in -- name + phone
-    // exist (signup ensures name; phone is part of the form too).
-    const companyInfoComplete = !!(company?.name && company?.phone);
+    // Company info is "complete" when the basics are in -- company_name +
+    // phone exist (signup ensures both).
+    const companyInfoComplete = !!(company?.company_name && company?.phone);
 
     // Team is "complete" when there's at least one staff record beyond the
     // owner. Either an extra profile or a kitchen_staff_members entry.
