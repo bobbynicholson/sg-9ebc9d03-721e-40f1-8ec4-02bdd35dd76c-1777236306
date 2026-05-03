@@ -68,25 +68,25 @@ export async function suggestKitchenForDate(
     return empty;
   }
 
-  const ACTIVE_ORDER_STATUSES = ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"];
-  const ACTIVE_QUOTE_STATUSES = ["draft", "sent", "revised"];
-
   // Two parallel reads. Group client-side because PostgREST doesn't
   // expose GROUP BY without an RPC and the row volume here is small
-  // (orders for one date, quotes for one date).
+  // (orders for one date, quotes for one date). Status arrays are
+  // inlined so TS narrows them to the enum unions on the generated
+  // Database types -- extracting them to a const widens to string[]
+  // and breaks the build.
   const [ordersRes, quotesRes] = await Promise.all([
     supabase
       .from("orders")
       .select("region_id")
       .eq("company_id", companyId)
       .eq("event_date", eventDate)
-      .in("status", ACTIVE_ORDER_STATUSES),
+      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]),
     supabase
       .from("quotes")
       .select("region_id")
       .eq("company_id", companyId)
       .eq("event_date", eventDate)
-      .in("status", ACTIVE_QUOTE_STATUSES),
+      .in("status", ["draft", "sent", "revised"]),
   ]);
 
   const orderCounts = new Map<string, number>();
