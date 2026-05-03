@@ -608,27 +608,6 @@ export type Database = {
           },
         ]
       }
-      cleaning_supplies: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          current_quantity: number | null
-          id: string
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          current_quantity?: number | null
-          id?: string
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          current_quantity?: number | null
-          id?: string
-        }
-        Relationships: []
-      }
       client_access_log: {
         Row: {
           action: string
@@ -1463,24 +1442,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      dishwasher_cycles: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          id: string
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-        }
-        Relationships: []
       }
       dispatch_messages: {
         Row: {
@@ -2940,27 +2901,6 @@ export type Database = {
         }
         Relationships: []
       }
-      glassware_catalog: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          id: string
-          quantity_available: number | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-          quantity_available?: number | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-          quantity_available?: number | null
-        }
-        Relationships: []
-      }
       gps_tracking: {
         Row: {
           accuracy: number | null
@@ -3040,27 +2980,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           staff_id?: string | null
-        }
-        Relationships: []
-      }
-      ice_tracking: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          event_id: string | null
-          id: string
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          event_id?: string | null
-          id?: string
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          event_id?: string | null
-          id?: string
         }
         Relationships: []
       }
@@ -4558,24 +4477,6 @@ export type Database = {
         Update: {
           company_id?: string | null
           compliant?: boolean | null
-          created_at?: string | null
-          id?: string
-        }
-        Relationships: []
-      }
-      linen_inventory: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          id: string
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-        }
-        Update: {
-          company_id?: string | null
           created_at?: string | null
           id?: string
         }
@@ -7614,30 +7515,6 @@ export type Database = {
           id?: string
           is_primary?: boolean | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      utensil_tracking: {
-        Row: {
-          company_id: string | null
-          created_at: string | null
-          id: string
-          qr_code: string | null
-          status: string | null
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-          qr_code?: string | null
-          status?: string | null
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string | null
-          id?: string
-          qr_code?: string | null
-          status?: string | null
         }
         Relationships: []
       }

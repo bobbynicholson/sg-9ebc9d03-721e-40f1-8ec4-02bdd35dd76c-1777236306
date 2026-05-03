@@ -973,6 +973,21 @@ const productNotesCards: SprintCard[] = [
       { title: "Substitution rules + waste logging, paired (ingredient_substitutions + waste_logs)", detail: "Pair these, they feed each other. Substitutions: 'if no full-cream milk, use 2x low-fat' rules so the shopping list and recipe scaler can suggest swaps when stock is short. Waste logs: what got binned per event (over-prep, plate waste, spoilage), which over time tells you the real yield-per-guest vs the theoretical recipe yield. The combo turns the kitchen into a learning system rather than re-using the same wrong numbers forever.", status: "todo" },
     ],
   },
+  {
+    id: "post-launch-equipment-ops-deepening",
+    title: "Post-launch, equipment ops deepening (3 may 2026, deferred)",
+    why: "Schema audit on 3 May surfaced four orphan tables that map to genuine operational features once the core launch is bedded in. Sequence: kits first because it's the highest leverage (caterers reuse the same bundles every weekend, saves 70-80% of quote-builder clicks); preventive maintenance second because today equipment_damages is only the reactive log, no preventive log; per-crate handoff third for big spit-braai jobs; warehouse storage location last because it only earns its keep once a tenant has multiple rooms / racks. Six other orphan tables in the same audit (utensil_tracking, linen_inventory, glassware_catalog, cleaning_supplies, ice_tracking, dishwasher_cycles) were dropped outright since they fold cleanly into equipment or inventory_items.",
+    estimate: "Defer to post-launch",
+    risk: "Low",
+    icon: Package,
+    accent: "from-indigo-500 to-purple-500",
+    items: [
+      { title: "Equipment kits, bookable as one unit (equipment_kits + equipment_kit_items)", detail: "Owner defines kits once, e.g. '50-guest spit-braai kit = 50 plates + 50 cutlery sets + 2 chafing dishes + 1 carving station'. On the quote builder, owner adds the kit as a single line. On quote acceptance, the kit explodes into individual equipment_bookings rows. New 'Kits' tab in /admin/equipment lets owners create / edit kits. Saves 70-80% of click-clicking when building the same wedding / funeral / corporate combo every weekend. Slots cleanly into the existing equipment_hire_orders + equipment_bookings cascade.", status: "todo" },
+      { title: "Preventive maintenance log per asset (equipment_maintenance)", detail: "Today equipment_damages is the reactive log (someone broke it). This is the preventive log: gas bottle re-test due in 60 days, generator service every 200hrs, chafing dish lid hinge service every 12 months. New panel on /admin/equipment/[id] shows service history + next-service-due date. Nightly cron flags overdue items. Pairs with pat_testing (UK) and equipment_damages (live) to complete the asset-lifecycle story.", status: "todo" },
+      { title: "Per-crate pack/unpack tracking for big jobs (delivery_crates)", detail: "Today kitchen_handoffs covers the per-order kitchen-to-driver handoff. delivery_crates is a finer-grained per-crate version: kitchen packs Crate 1 (starters), Crate 2 (mains), Crate 3 (dessert + drinks), each scanned by driver at pickup and again at venue. Driver knows nothing's missing before driving off. Real operational value for spit-braai jobs (4-6 crates typical) but per-order acknowledgement is enough for launch.", status: "todo" },
+      { title: "Warehouse storage locations + racks (storage_locations + storage_racks)", detail: "Adds a location_id column to equipment and inventory_items so the kitchen-prep tablet can tell staff exactly where to grab item X ('Bay 3, Rack B'). Load-bearing only when a tenant has more than one storage room or rack. For small caterers ('the storeroom') it adds friction with no payoff. Build once a paying tenant asks.", status: "todo" },
+    ],
+  },
 ];
 
 // =====================================================================
