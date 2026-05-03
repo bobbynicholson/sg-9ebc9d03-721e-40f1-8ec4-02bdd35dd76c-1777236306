@@ -264,6 +264,27 @@ export const quoteService = {
       lead_id: (quote as any).lead_id ?? null,
     });
 
+    // Why "confirmed" and not "pending"? (Audit, May 2026)
+    // The audit asked whether a "pending" intermediate state would be
+    // useful here as an admin review checkpoint. Decision: no.
+    //
+    //   - The quote review happens BEFORE the quote is sent to the
+    //     client. Once the client clicks Accept, the booking is real
+    //     -- the catering team is now committed to delivering, not
+    //     reviewing. Adding a pending step here would create the
+    //     wrong incentive (admin has a "back out" lever after the
+    //     client has psychologically committed).
+    //   - The order workflow already has explicit transitions
+    //     (confirmed -> preparing -> ready -> in_transit -> delivered
+    //     -> completed). Each stage has its own ack moment. There is
+    //     no missing checkpoint -- pending would just be UI noise.
+    //   - convertQuoteToOrder being idempotent is the actual safety
+    //     net: re-running it doesn't double-book; the quote's
+    //     converted_to_order_id pointer holds the original.
+    //
+    // If the team ever wants a manual approval step, the cleanest
+    // place is BEFORE quote send (a draft -> approval-needed -> sent
+    // gate on the quote), not here.
     const orderData = {
       ...quote,
       quote_id: quote.id,
@@ -303,7 +324,20 @@ export const quoteService = {
       status: "accepted",
       accepted_at: new Date().toISOString(),
       converted_to_order_id: newOrder.id,
-    });
+    } as any);
+
+    // Auto-invoice. The order was just inserted with status='confirmed'
+    // so updateOrderStatus's hook never fired -- trigger explicitly
+    // here. Idempotent + skips imported orders.
+    try {
+      const { ensureInvoiceForOrder } = await import("./invoiceGenerationService");
+      const inv = await ensureInvoiceForOrder(newOrder.id, newOrder.company_id);
+      if (!inv.success) {
+        console.warn("[quoteService] auto-invoice on convert failed:", inv.error);
+      }
+    } catch (e) {
+      console.warn("[quoteService] auto-invoice on convert crashed (non-blocking):", e);
+    }
 
     // ✅ FIX BUG #16.2: Send order confirmation after quote acceptance
     if (quote.client_email) {

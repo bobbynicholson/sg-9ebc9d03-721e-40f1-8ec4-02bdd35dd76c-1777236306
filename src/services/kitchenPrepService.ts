@@ -346,6 +346,31 @@ export const kitchenPrepService = {
     const settings = await this.getKitchenSettings(companyId);
     if (!settings.autoGeneratePrepTasks) return { created: 0 };
 
+    // Quarantine guard. Imported orders (rows brought in from a prior
+    // system at onboarding time) must not spin up kitchen prep tasks
+    // -- the events already happened. We check the order row itself
+    // for imported_at / comms_paused_until before planning anything.
+    const { data: orderMeta } = await (supabase as any)
+      .from("orders")
+      .select("imported_at, comms_paused_until, event_date")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderMeta) {
+      const importedAt = (orderMeta as any).imported_at;
+      const paused = (orderMeta as any).comms_paused_until;
+      const isPaused = paused && new Date(paused) > new Date();
+      if (importedAt || isPaused) {
+        console.log(`[kitchenPrep] order ${orderId} is in import quarantine -- skipping prep generation`);
+        return { created: 0 };
+      }
+      // Also skip if the event_date is in the past -- even fresh
+      // status changes on historical orders shouldn't trigger prep.
+      if ((orderMeta as any).event_date && new Date((orderMeta as any).event_date) < new Date()) {
+        console.log(`[kitchenPrep] order ${orderId} is in the past -- skipping prep generation`);
+        return { created: 0 };
+      }
+    }
+
     const planned = await this.planTasksForOrder(companyId, orderId);
     if (planned.length === 0) return { created: 0 };
 

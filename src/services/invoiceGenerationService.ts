@@ -274,6 +274,62 @@ export async function createInvoiceRecord(
 }
 
 /**
+ * Idempotent: ensure an invoice exists for the given order. Used by
+ * the order workflow so confirming an order auto-generates its
+ * invoice without the admin needing to click "Generate Invoice".
+ *
+ * Returns the existing invoice's id if one is already on file
+ * (so callers don't duplicate invoices). Skips imported orders --
+ * they had their financials handled in the prior system.
+ */
+export async function ensureInvoiceForOrder(
+  orderId: string,
+  companyId: string,
+): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
+  try {
+    // 1. Skip if there's already a live invoice for this order.
+    const { data: existing } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("order_id", orderId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existing?.id) {
+      return { success: true, invoiceId: (existing as any).id, alreadyExisted: true };
+    }
+
+    // 2. Skip imported / quarantined orders -- their financials are
+    // historical and already settled in the prior system.
+    const { data: orderRow } = await supabase
+      .from("orders")
+      .select("imported_at, comms_paused_until")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderRow) {
+      const importedAt = (orderRow as any).imported_at;
+      const paused = (orderRow as any).comms_paused_until;
+      if (importedAt || (paused && new Date(paused) > new Date())) {
+        return { success: true, skipped: "import_quarantine" };
+      }
+    }
+
+    // 3. Build + persist.
+    const built = await generateInvoiceData(orderId, companyId);
+    if (!built.success || !built.data) {
+      return { success: false, error: built.error || "Could not build invoice data" };
+    }
+    const created = await createInvoiceRecord(built.data, orderId, companyId);
+    if (!created.success) {
+      return { success: false, error: created.error };
+    }
+    return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "ensureInvoiceForOrder crashed" };
+  }
+}
+
+/**
  * Generate payment link for invoice
  * Bug #22 FIX: Integrate with PayFast to generate actual payment form/URL
  */
