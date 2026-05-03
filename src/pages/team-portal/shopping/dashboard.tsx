@@ -11,6 +11,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
+import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { LowStockAlerts } from "@/components/shopping/LowStockAlerts";
 import { supabase } from "@/integrations/supabase/client";
@@ -172,6 +173,8 @@ export default function ShoppingDashboard() {
               <p className="text-xs sm:text-sm md:text-base text-slate-600">Manage inventory and purchasing</p>
             </div>
           </div>
+
+          <TeamWelcomeBanner role="shopping" userId={user?.id} />
 
           <Card className="border-0 shadow-lg mb-6 sm:mb-8">
             <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">

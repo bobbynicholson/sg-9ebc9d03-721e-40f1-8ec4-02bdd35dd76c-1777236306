@@ -18,6 +18,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 
 interface Stats {
   bookedRevenue: number;
@@ -48,7 +49,7 @@ const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
 const COUNTS_AS_BOOKED = ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"];
 
 function AdminDashboardPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, companySlug } = useAuth();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
 
   const [range, setRange] = useState<DateRange>(() => resolvePreset("this_month"));
@@ -249,6 +250,10 @@ function AdminDashboardPage() {
               <Button onClick={loadMetrics} size="sm" className="mt-2">Retry</Button>
             </div>
           )}
+
+          {/* Day-zero "First Steps" card. Self-hides once required steps
+              are in or the owner dismisses / completes onboarding. */}
+          {companyId ? <FirstStepsCard companyId={companyId} slug={companySlug || ""} /> : null}
 
           {/* Priority Actions, not date-bound, always-on attention items */}
           {(stats.pendingQuotes > 0 || stats.lowStockItems > 0 || stats.upcomingEvents > 0) && (

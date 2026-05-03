@@ -28,6 +28,7 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { DynamicNav } from "@/components/DynamicNav";
+import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
@@ -335,6 +336,8 @@ export default function KitchenDashboard() {
               <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-400">Manage prep, duty shifts, and inventory</p>
             </div>
           </div>
+
+          <TeamWelcomeBanner role="kitchen" userId={user?.id} />
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}

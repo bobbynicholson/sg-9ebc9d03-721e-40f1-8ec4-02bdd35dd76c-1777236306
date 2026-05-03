@@ -994,6 +994,8 @@ export type Database = {
           kitchen_settings: Json
           legal_name: string | null
           logo_url: string | null
+          onboarding_completed_at: string | null
+          onboarding_dismissed_at: string | null
           owner_id: string | null
           phone: string | null
           postal_code: string | null
@@ -1043,6 +1045,8 @@ export type Database = {
           kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_dismissed_at?: string | null
           owner_id?: string | null
           phone?: string | null
           postal_code?: string | null
@@ -1092,6 +1096,8 @@ export type Database = {
           kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_dismissed_at?: string | null
           owner_id?: string | null
           phone?: string | null
           postal_code?: string | null

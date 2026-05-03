@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MessageCircle } from "lucide-react";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -384,6 +385,8 @@ export default function DriverDashboard() {
                 </Button>
               </div>
             </div>
+
+            <TeamWelcomeBanner role="driver" userId={user?.id} />
 
             {/* Today's Earnings Summary */}
             <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50 mb-4 sm:mb-6">

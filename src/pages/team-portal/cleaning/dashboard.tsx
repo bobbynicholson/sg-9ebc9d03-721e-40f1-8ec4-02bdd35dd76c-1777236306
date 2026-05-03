@@ -17,6 +17,7 @@ import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { DynamicNav } from "@/components/DynamicNav";
+import { TeamWelcomeBanner } from "@/components/portal/TeamWelcomeBanner";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -108,6 +109,8 @@ export default function CleaningDashboard() {
               <p className="text-slate-600">Equipment maintenance and tracking</p>
             </div>
           </div>
+
+          <TeamWelcomeBanner role="cleaning" userId={user?.id} />
 
           <Card className="border-0 shadow-lg mb-8 bg-gradient-to-r from-cyan-50 to-blue-50">
             <CardHeader className="pb-3">
