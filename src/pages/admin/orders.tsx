@@ -34,6 +34,7 @@ import {
   Trash2,
   Save,
   X,
+  FileText,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -411,6 +412,21 @@ function OrderProcessDashboard() {
                 <p className="text-sm text-slate-600 truncate" title={order.venue_address}>
                   {order.venue_address}
                 </p>
+                {/* Quote backlink -- so the team can jump back to the
+                    accepted quote that spawned this order. Only renders
+                    when the order has a quote_id (orders converted from
+                    a quote, not the rare manually-created ones). */}
+                {(order as any).quote_id && (
+                  <Link
+                    href={`/admin/quotes/${(order as any).quote_id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                    title="Open the quote this order was built from"
+                  >
+                    <FileText className="w-3 h-3" />
+                    from quote
+                  </Link>
+                )}
               </div>
               <Badge
                 variant="outline"
@@ -517,7 +533,7 @@ function OrderProcessDashboard() {
             {/* Order Header */}
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
                   {isToday && (
                     <Badge className="bg-blue-500">Today</Badge>
@@ -527,6 +543,17 @@ function OrderProcessDashboard() {
                       <AlertCircle className="w-3 h-3" />
                       Overdue
                     </Badge>
+                  )}
+                  {(order as any).quote_id && (
+                    <Link
+                      href={`/admin/quotes/${(order as any).quote_id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                      title="Open the quote this order was built from"
+                    >
+                      <FileText className="w-3 h-3" />
+                      from quote
+                    </Link>
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-slate-600">
@@ -885,6 +912,17 @@ function OrderProcessDashboard() {
                 <DialogDescription className="mt-1">
                   {editMode ? "Edit order information" : "View order details"}
                 </DialogDescription>
+                {(selectedOrder as any).quote_id && (
+                  <Link
+                    href={`/admin/quotes/${(selectedOrder as any).quote_id}`}
+                    onClick={() => setIsModalOpen(false)}
+                    className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Open the originating quote
+                    <ChevronRight className="w-3 h-3" />
+                  </Link>
+                )}
               </div>
               {!editMode ? (
                 <Button onClick={() => setEditMode(true)} variant="outline" size="sm">

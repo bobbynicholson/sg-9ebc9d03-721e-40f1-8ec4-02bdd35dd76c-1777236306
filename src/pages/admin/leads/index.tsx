@@ -256,7 +256,12 @@ export default function AdminLeads() {
   const [linksByLeadId, setLinksByLeadId] = useState<Map<string, LeadLinks>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // Default to "active" -- the pipeline view. Leads that have already
+  // won/converted are clients now, and lost leads are archived. Hiding
+  // them by default stops the leads page from doubling as a graveyard.
+  // The chip strip below lets the team toggle into archived buckets
+  // when they want to do win-back or audit work.
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -390,9 +395,39 @@ export default function AdminLeads() {
   // Apply status filter first, then fuzzy-rank the remainder. Searches
   // across name, email, company, event type and notes so a query like
   // "wedding 25" still surfaces a lead with that event type + guest count.
+  // "active" is the synthetic default -- everything that's still in the
+  // pipeline (not won, not converted, not lost). Won/converted leads are
+  // already clients now, lost leads are archived; both have their own
+  // chip if the team needs to dig them out.
   const statusFilteredLeads = useMemo(() => {
-    return statusFilter === "all" ? leads : leads.filter((l) => l.status === statusFilter);
+    if (statusFilter === "all") return leads;
+    if (statusFilter === "active") {
+      const archived = new Set(["won", "converted", "lost"]);
+      return leads.filter((l) => !archived.has(l.status || "new"));
+    }
+    if (statusFilter === "won") {
+      // Single chip covers both legacy "converted" rows and the new "won".
+      return leads.filter((l) => l.status === "won" || l.status === "converted");
+    }
+    return leads.filter((l) => l.status === statusFilter);
   }, [leads, statusFilter]);
+
+  // Counts for the chip strip. Computed once so chips render with live
+  // pipeline weight without re-walking the array per chip.
+  const statusCounts = useMemo(() => {
+    const archived = new Set(["won", "converted", "lost"]);
+    let active = 0, neu = 0, qualified = 0, quoted = 0, won = 0, lost = 0;
+    for (const l of leads) {
+      const s = l.status || "new";
+      if (!archived.has(s)) active += 1;
+      if (s === "new") neu += 1;
+      if (s === "qualified") qualified += 1;
+      if (s === "quoted") quoted += 1;
+      if (s === "won" || s === "converted") won += 1;
+      if (s === "lost") lost += 1;
+    }
+    return { all: leads.length, active, new: neu, qualified, quoted, won, lost };
+  }, [leads]);
 
   const filteredLeads = useFuzzyItems(
     statusFilteredLeads,
@@ -422,7 +457,7 @@ export default function AdminLeads() {
     <>
       <NoIndexMeta />
       <Head>
-        <title>Lead Management - CateringMS Admin</title>
+        <title>Leads - CateringMS Admin</title>
       </Head>
 
       <AdminNav />
@@ -435,8 +470,14 @@ export default function AdminLeads() {
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900">Lead Management</h1>
-                <p className="text-slate-600">Track and convert potential customers</p>
+                <h1 className="text-3xl font-bold text-slate-900">Leads</h1>
+                <p className="text-slate-600">
+                  Active enquiry pipeline. Once a quote is paid the lead becomes a{" "}
+                  <Link href="/admin/clients" className="text-indigo-600 hover:underline font-medium">
+                    client
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
             <Link href="/admin/leads/new">
@@ -512,7 +553,7 @@ export default function AdminLeads() {
           </div>
 
           <Card className="border-0 shadow-lg">
-            <CardHeader>
+            <CardHeader className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -523,20 +564,44 @@ export default function AdminLeads() {
                     className="pl-10"
                   />
                 </div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 border rounded-lg"
-                >
-                  <option value="all">All Status</option>
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="qualified">Qualified</option>
-                  <option value="quoted">Quoted</option>
-                  <option value="won">Won</option>
-                  <option value="converted">Converted</option>
-                  <option value="lost">Lost</option>
-                </select>
+              </div>
+              {/* Status chip strip. Active is the daily-driver default;
+                  the archive chips (Won, Lost) are kept one click away
+                  for win-back work and audits without polluting the
+                  main pipeline view. */}
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { key: "active",    label: "Active",    count: statusCounts.active,    tone: "primary" as const },
+                  { key: "new",       label: "New",       count: statusCounts.new,       tone: "default" as const },
+                  { key: "qualified", label: "Qualified", count: statusCounts.qualified, tone: "default" as const },
+                  { key: "quoted",    label: "Quoted",    count: statusCounts.quoted,    tone: "default" as const },
+                  { key: "won",       label: "Won (archive)",  count: statusCounts.won,  tone: "muted" as const },
+                  { key: "lost",      label: "Lost (archive)", count: statusCounts.lost, tone: "muted" as const },
+                  { key: "all",       label: "All",       count: statusCounts.all,       tone: "muted" as const },
+                ]).map((chip) => {
+                  const active = statusFilter === chip.key;
+                  const base = "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors";
+                  const cls = active
+                    ? chip.tone === "primary"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                      : chip.tone === "muted"
+                        ? "bg-slate-700 text-white border-slate-700"
+                        : "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => setStatusFilter(chip.key)}
+                      className={`${base} ${cls}`}
+                    >
+                      {chip.label}
+                      <span className={`ml-1.5 text-xs ${active ? "opacity-90" : "text-slate-500"}`}>
+                        {chip.count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </CardHeader>
             <CardContent>
@@ -545,7 +610,16 @@ export default function AdminLeads() {
               ) : filteredLeads.length === 0 ? (
                 <div className="text-center py-12 text-slate-600">
                   <TrendingUp className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                  <p>No leads found</p>
+                  {statusFilter === "active" ? (
+                    <>
+                      <p className="font-medium">Your active pipeline is empty.</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        New enquiries land here automatically. Use the chips above to view archived leads.
+                      </p>
+                    </>
+                  ) : (
+                    <p>No leads match this filter.</p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -233,16 +233,16 @@ export function AdminNav({ className }: AdminNavProps) {
       defaultOpen: true,
       items: [
         {
-          title: "Clients",
-          href: "/admin/clients",
-          icon: User,
-          description: "Status, last touch, suggested actions"
+          title: "Contacts",
+          href: "/admin/contacts",
+          icon: MessageSquare,
+          description: "CRM inbox -- everyone you've touched, sorted by next action"
         },
         {
           title: "Leads",
           href: "/admin/leads",
           icon: UserPlus,
-          description: "Inbound enquiries pipeline"
+          description: "Active enquiry pipeline (haven't paid yet)"
         },
         {
           title: "Quotes",
@@ -255,6 +255,18 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/orders",
           icon: ClipboardList,
           description: "View and manage orders"
+        },
+        {
+          title: "Invoices",
+          href: "/admin/invoices",
+          icon: Receipt,
+          description: "Invoices issued for orders"
+        },
+        {
+          title: "Clients",
+          href: "/admin/clients",
+          icon: User,
+          description: "Paid customers -- order history and lifetime value"
         },
         {
           title: "Calendar",
@@ -303,10 +315,10 @@ export function AdminNav({ className }: AdminNavProps) {
       defaultOpen: true,
       items: [
         {
-          title: "Users",
+          title: "Full team",
           href: "/admin/users",
           icon: Users,
-          description: "Manage user accounts"
+          description: "Everyone with a login -- owners, admins, staff"
         },
         {
           title: "Drivers",
@@ -407,6 +419,21 @@ export function AdminNav({ className }: AdminNavProps) {
         }
       ]
     },
+    // Finance is role-gated: only owner/admin/super-admin see it. Hides
+    // invoiced totals + cashflow from staff who only need ops visibility.
+    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
+      id: "finance",
+      title: "Finance",
+      defaultOpen: false,
+      items: [
+        {
+          title: "Financial Dashboard",
+          href: "/admin/financial-dashboard",
+          icon: BarChart3,
+          description: "Revenue, profitability, cashflow"
+        }
+      ]
+    }] : []),
     {
       id: "comms",
       title: "Communications",
