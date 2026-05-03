@@ -36,8 +36,9 @@ import {
   Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle,
   Snowflake, Crown, ArrowRight, Send, Copy, ExternalLink, Inbox,
   Calendar as CalendarIcon, MapPin, ShoppingCart, MessageSquare,
-  CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2,
+  CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -66,6 +67,11 @@ interface Contact {
   /** Every order row matched to this contact by email/name. Same
    *  reason -- delete fans out across all backing records. */
   orderIds: string[];
+  /** Every quote row matched to this contact. Lets the delete fan
+   *  out wipe their quote history at the same time. */
+  quoteIds: string[];
+  /** Every invoice row matched to this contact (via order_id). */
+  invoiceIds: string[];
   name: string;
   email: string | null;
   phone: string | null;
@@ -133,6 +139,15 @@ function ClientsCRM() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
+  // Block-list opt-in stamped at delete time. Default off so a quick
+  // bin-click doesn't quietly cut off a real client; the operator has
+  // to tick "Block from future comms" deliberately.
+  const [deleteBlockToo, setDeleteBlockToo] = useState(false);
+  // Typing-confirm gate. When the contact has live orders attached,
+  // the operator has to type the contact's name to enable the Delete
+  // button. Stops a careless click from wiping a paying customer.
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // Load contactedKeys from localStorage
   useEffect(() => {
@@ -152,7 +167,7 @@ function ClientsCRM() {
   const loadContacts = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
-    const [clientsRes, leadsRes, ordersRes] = await Promise.all([
+    const [clientsRes, leadsRes, ordersRes, quotesRes, invoicesRes] = await Promise.all([
       supabase
         .from("clients")
         .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
@@ -168,10 +183,27 @@ function ClientsCRM() {
         .select("id, client_name, client_email, client_phone, event_date, total_amount, status, payment_status, created_at")
         .eq("company_id", companyId)
         .is("deleted_at", null),
+      supabase
+        .from("quotes")
+        .select("id, client_name, client_email, client_id, lead_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
+      supabase
+        .from("invoices")
+        .select("id, client_id, order_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null),
     ]);
 
       const today = new Date();
       const map = new Map<string, Contact>();
+      // Order id -> contact key, populated when we walk the orders.
+      // Lets us bind invoices back to the right contact when the
+      // invoice's only link is via order_id.
+      const orderIdToKey = new Map<string, string>();
+      // Client id -> contact key, populated from the clients seed.
+      // Same purpose for quote.client_id and invoice.client_id.
+      const clientIdToKey = new Map<string, string>();
 
       const keyOf = (email: string | null, name: string | null) =>
         (email || name || "").toLowerCase().trim() || `unknown-${Math.random()}`;
@@ -179,12 +211,15 @@ function ClientsCRM() {
       // Seed from clients
       (clientsRes.data || []).forEach((c: any) => {
         const k = keyOf(c.email, c.client_name);
+        clientIdToKey.set(c.id, k);
         map.set(k, {
           key: k,
           source: "client",
           clientId: c.id,
           leadIds: [],
           orderIds: [],
+          quoteIds: [],
+          invoiceIds: [],
           name: c.client_name || "Unnamed",
           email: c.email,
           phone: c.phone,
@@ -216,6 +251,8 @@ function ClientsCRM() {
             clientId: null,
             leadIds: [l.id],
             orderIds: [],
+            quoteIds: [],
+            invoiceIds: [],
             name: l.contact_name || "Unnamed lead",
             email: l.email,
             phone: l.phone,
@@ -260,6 +297,10 @@ function ClientsCRM() {
           map.set(k, c);
         }
         c.orderIds.push(o.id);
+        // We index orderId -> contact key here so the invoices merge
+        // below can resolve invoice.order_id back to the right person
+        // even when the invoice has no client_id (legacy orders).
+        orderIdToKey.set(o.id, k);
         const status = String(o.status || "").toLowerCase();
         if (status !== "cancelled") {
           c.orderCount += 1;
@@ -270,6 +311,36 @@ function ClientsCRM() {
             if (!c.nextEventDate || o.event_date < c.nextEventDate) c.nextEventDate = o.event_date;
           }
         }
+      });
+
+      // Merge quotes. Resolve which contact each quote belongs to:
+      // (1) client_id mapping if the quote was promoted from a client
+      // (2) email/name fallback for legacy quotes where client_id is null
+      (quotesRes.data || []).forEach((q: any) => {
+        let k: string | null = null;
+        if (q.client_id && clientIdToKey.has(q.client_id)) {
+          k = clientIdToKey.get(q.client_id)!;
+        } else {
+          k = keyOf(q.client_email, q.client_name);
+        }
+        if (!k) return;
+        const existing = map.get(k);
+        if (existing) existing.quoteIds.push(q.id);
+      });
+
+      // Merge invoices. invoice.client_id is the cleanest path; fall
+      // back to invoice.order_id -> orders.client_email mapping if the
+      // invoice predates the lifecycle backbone work.
+      (invoicesRes.data || []).forEach((inv: any) => {
+        let k: string | null = null;
+        if (inv.client_id && clientIdToKey.has(inv.client_id)) {
+          k = clientIdToKey.get(inv.client_id)!;
+        } else if (inv.order_id && orderIdToKey.has(inv.order_id)) {
+          k = orderIdToKey.get(inv.order_id)!;
+        }
+        if (!k) return;
+        const existing = map.get(k);
+        if (existing) existing.invoiceIds.push(inv.id);
       });
 
       // Compute status + suggestion per contact
@@ -704,91 +775,228 @@ function ClientsCRM() {
         }}
       />
 
-      {/* Soft-delete confirm. Fans out across every backing record:
-          the clients row (if any), every linked lead, every linked
-          order. Each table has its own soft-delete column (deleted_at)
-          so nothing is hard-removed -- support can still restore. */}
-      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this contact?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDelete && (
-                <>
-                  <span className="block">
-                    <span className="font-medium text-slate-900">{confirmDelete.name}</span>
-                    {confirmDelete.email ? <> ({confirmDelete.email})</> : null} will be removed from contacts.
-                  </span>
-                  <span className="block mt-2 text-slate-600">
-                    {[
-                      confirmDelete.clientId ? "their client record" : null,
-                      confirmDelete.leadIds.length > 0
-                        ? `${confirmDelete.leadIds.length} lead${confirmDelete.leadIds.length === 1 ? "" : "s"}`
-                        : null,
-                      confirmDelete.orderIds.length > 0
-                        ? `${confirmDelete.orderIds.length} order${confirmDelete.orderIds.length === 1 ? "" : "s"}`
-                        : null,
-                    ].filter(Boolean).join(" + ") || "nothing else"} will be hidden too.
-                  </span>
-                  <span className="block mt-2 text-rose-600">
-                    Soft delete -- support can restore if needed.
-                  </span>
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-700"
-              onClick={async () => {
-                const c = confirmDelete;
-                if (!c) return;
-                const stamp = new Date().toISOString();
-                const errors: string[] = [];
-                if (c.clientId) {
-                  const { error } = await supabase
-                    .from("clients")
-                    .update({ deleted_at: stamp })
-                    .eq("id", c.clientId)
-                    .eq("company_id", companyId);
-                  if (error) errors.push(`client: ${error.message}`);
-                }
-                if (c.leadIds.length > 0) {
-                  const { error } = await supabase
-                    .from("leads")
-                    .update({ deleted_at: stamp })
-                    .in("id", c.leadIds)
-                    .eq("company_id", companyId);
-                  if (error) errors.push(`leads: ${error.message}`);
-                }
-                if (c.orderIds.length > 0) {
-                  const { error } = await supabase
-                    .from("orders")
-                    .update({ deleted_at: stamp })
-                    .in("id", c.orderIds)
-                    .eq("company_id", companyId);
-                  if (error) errors.push(`orders: ${error.message}`);
-                }
-                setConfirmDelete(null);
-                if (errors.length > 0) {
-                  toast({
-                    title: "Partly failed",
-                    description: errors.join("; "),
-                    variant: "destructive",
-                  });
-                }
-                await loadContacts();
-                if (errors.length === 0) {
-                  toast({ title: "Contact deleted" });
-                }
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* High-friction delete dialog. Bobby's rule (May 2026): a staff
+          member must never wipe a paying customer by accident, and a
+          deleted contact must never re-surface in any future comms.
+          So this dialog:
+          (a) lists every backing record about to be hidden, with money
+              attached so the impact is unmistakable,
+          (b) makes the operator type the contact name when there are
+              live orders, and
+          (c) offers a "block from future comms" toggle that writes
+              into blocked_contacts (the /api/send-email API refuses
+              to deliver to anyone in that table).
+          Soft-delete only -- the deleted_at columns mean support can
+          always restore. */}
+      <Dialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmDelete(null);
+            setDeleteBlockToo(false);
+            setConfirmText("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {confirmDelete && (() => {
+            const c = confirmDelete;
+            const counts = [
+              { kind: "client record", n: c.clientId ? 1 : 0, icon: Users },
+              { kind: "lead", n: c.leadIds.length, icon: Sparkles },
+              { kind: "quote", n: c.quoteIds.length, icon: FileText },
+              { kind: "order", n: c.orderIds.length, icon: ShoppingCart },
+              { kind: "invoice", n: c.invoiceIds.length, icon: FileText },
+            ].filter((x) => x.n > 0);
+            // Typing-confirm gate when there's real money on the row.
+            // Either past spend or live orders attached.
+            const requiresTyping = c.orderIds.length > 0 || c.totalSpent > 0;
+            const typedOk = !requiresTyping
+              || confirmText.trim().toLowerCase() === c.name.trim().toLowerCase();
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle className="h-5 w-5" />
+                    Delete {c.name}?
+                  </DialogTitle>
+                  <DialogDescription>
+                    Read the impact first. Every linked record will be hidden in the same action so nothing is left orphaned.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+                    <p className="text-sm font-semibold text-rose-900 mb-2">
+                      What gets hidden
+                    </p>
+                    {counts.length === 0 ? (
+                      <p className="text-sm text-rose-700">
+                        Nothing on file beyond the contact entry itself.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1 text-sm text-rose-800">
+                        {counts.map(({ kind, n, icon: Icon }) => (
+                          <li key={kind} className="flex items-center gap-2">
+                            <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>{n} {kind}{n === 1 ? "" : "s"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {c.totalSpent > 0 && (
+                      <p className="text-sm font-medium text-rose-900 mt-2 pt-2 border-t border-rose-200">
+                        Lifetime spend on file: {fmtMoney.format(c.totalSpent)}
+                      </p>
+                    )}
+                  </div>
+
+                  {c.email && (
+                    <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 cursor-pointer">
+                      <Checkbox
+                        checked={deleteBlockToo}
+                        onCheckedChange={(v) => setDeleteBlockToo(v === true)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1 text-sm">
+                        <div className="font-medium text-slate-900 flex items-center gap-1.5">
+                          <Ban className="h-3.5 w-3.5 text-slate-500" />
+                          Also block {c.email} from future comms
+                        </div>
+                        <div className="text-slate-600 mt-0.5">
+                          Stops emails and automated follow-ups from sending to this address even if the contact is recreated.
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
+                  {requiresTyping && (
+                    <div className="space-y-1.5">
+                      <label htmlFor="confirm-name" className="text-sm font-medium text-slate-900">
+                        Type{" "}
+                        <span className="font-mono text-rose-600">{c.name}</span>{" "}
+                        to confirm
+                      </label>
+                      <Input
+                        id="confirm-name"
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value)}
+                        placeholder={c.name}
+                        autoComplete="off"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Required because this contact has paying history. Stops accidental deletes.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setConfirmDelete(null);
+                      setDeleteBlockToo(false);
+                      setConfirmText("");
+                    }}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-rose-600 hover:bg-rose-700 text-white"
+                    disabled={deleting || !typedOk}
+                    onClick={async () => {
+                      setDeleting(true);
+                      const stamp = new Date().toISOString();
+                      const errors: string[] = [];
+                      if (c.clientId) {
+                        const { error } = await supabase
+                          .from("clients")
+                          .update({ deleted_at: stamp })
+                          .eq("id", c.clientId)
+                          .eq("company_id", companyId);
+                        if (error) errors.push(`client: ${error.message}`);
+                      }
+                      if (c.leadIds.length > 0) {
+                        const { error } = await supabase
+                          .from("leads")
+                          .update({ deleted_at: stamp })
+                          .in("id", c.leadIds)
+                          .eq("company_id", companyId);
+                        if (error) errors.push(`leads: ${error.message}`);
+                      }
+                      if (c.quoteIds.length > 0) {
+                        const { error } = await supabase
+                          .from("quotes")
+                          .update({ deleted_at: stamp })
+                          .in("id", c.quoteIds)
+                          .eq("company_id", companyId);
+                        if (error) errors.push(`quotes: ${error.message}`);
+                      }
+                      if (c.orderIds.length > 0) {
+                        const { error } = await supabase
+                          .from("orders")
+                          .update({ deleted_at: stamp })
+                          .in("id", c.orderIds)
+                          .eq("company_id", companyId);
+                        if (error) errors.push(`orders: ${error.message}`);
+                      }
+                      if (c.invoiceIds.length > 0) {
+                        const { error } = await supabase
+                          .from("invoices")
+                          .update({ deleted_at: stamp })
+                          .in("id", c.invoiceIds)
+                          .eq("company_id", companyId);
+                        if (error) errors.push(`invoices: ${error.message}`);
+                      }
+                      if (deleteBlockToo && c.email) {
+                        const { error } = await supabase
+                          .from("blocked_contacts")
+                          .insert({
+                            company_id: companyId,
+                            email_lower: c.email.toLowerCase().trim(),
+                            phone: c.phone || null,
+                            reason: `Deleted via Contacts on ${new Date().toLocaleDateString("en-ZA")}`,
+                          });
+                        // Conflict on existing block is fine -- means
+                        // we already had them blocked, no toast.
+                        if (error && !String(error.message).match(/duplicate|unique/i)) {
+                          errors.push(`block: ${error.message}`);
+                        }
+                      }
+                      setDeleting(false);
+                      setConfirmDelete(null);
+                      setDeleteBlockToo(false);
+                      setConfirmText("");
+                      if (errors.length > 0) {
+                        toast({
+                          title: "Partly failed",
+                          description: errors.join("; "),
+                          variant: "destructive",
+                        });
+                      } else {
+                        toast({
+                          title: deleteBlockToo
+                            ? "Contact deleted and blocked"
+                            : "Contact deleted",
+                        });
+                      }
+                      await loadContacts();
+                    }}
+                  >
+                    {deleting
+                      ? "Deleting..."
+                      : deleteBlockToo
+                        ? "Delete and block"
+                        : "Delete contact"}
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Compose drawer -- shared resizable host so this matches the
           quotes / leads compose UX. Default ~60% of viewport, draggable

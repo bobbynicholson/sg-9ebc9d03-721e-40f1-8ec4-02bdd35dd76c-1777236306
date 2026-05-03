@@ -43,6 +43,30 @@ export default async function handler(
       if (callerRole !== "super_admin" && (profile as any)?.company_id !== companyId) {
         return res.status(403).json({ error: "Cannot send email for another company" });
       }
+
+      // Block-list guard. If the recipient was previously deleted from
+      // /admin/contacts with the "block" toggle on, refuse to send.
+      // Stops a recreated lead row (or a stale automation) from
+      // pinging the same person again. Lower-cased recipient lookup
+      // because blocked_contacts.email_lower stores normalised emails.
+      const recipients = Array.isArray(to) ? to : [to];
+      const recipientLower = recipients
+        .filter((r): r is string => typeof r === "string" && !!r)
+        .map((r) => r.toLowerCase().trim());
+      if (recipientLower.length > 0) {
+        const { data: blocks } = await ssr
+          .from("blocked_contacts")
+          .select("email_lower, reason")
+          .eq("company_id", companyId)
+          .in("email_lower", recipientLower);
+        if (blocks && blocks.length > 0) {
+          return res.status(409).json({
+            error: "Recipient is on this company's block list",
+            blocked: blocks.map((b: any) => b.email_lower),
+            reason: blocks[0]?.reason ?? null,
+          });
+        }
+      }
     }
 
     let result = false;
