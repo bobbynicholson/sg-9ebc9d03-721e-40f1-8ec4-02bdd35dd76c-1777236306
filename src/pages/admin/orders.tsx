@@ -59,6 +59,7 @@ import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
+import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 
 interface OrderStats {
   total: number;
@@ -828,6 +829,72 @@ function OrderProcessDashboard() {
     // fetch them on demand when the modal opens.
     const [equipmentBookings, setEquipmentBookings] = useState<any[]>([]);
     const [equipmentLoading, setEquipmentLoading] = useState(false);
+    // Inline "add equipment" form state for edit mode.
+    const [eqSearch, setEqSearch] = useState("");
+    const [eqPick, setEqPick] = useState<EquipmentPick | null>(null);
+    const [eqQty, setEqQty] = useState<string>("1");
+    const [eqAdding, setEqAdding] = useState(false);
+    const [eqRemoving, setEqRemoving] = useState<string | null>(null);
+
+    const reloadEquipment = async () => {
+      if (!selectedOrder?.id) return;
+      const { data } = await supabase
+        .from("equipment_bookings")
+        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment(name, daily_rate)")
+        .eq("order_id", selectedOrder.id);
+      setEquipmentBookings(data || []);
+    };
+
+    const handleAddEquipment = async () => {
+      if (!selectedOrder?.id || !eqPick) return;
+      const qty = Math.max(1, parseInt(eqQty, 10) || 1);
+      // Default booking window to event_date - 1 day through event_date + 1 day
+      // (typical pickup-then-return overnight). Operator can refine later.
+      const eventDate = (selectedOrder as any).event_date;
+      let bookedFrom: string | null = null;
+      let bookedUntil: string | null = null;
+      if (eventDate) {
+        const d = new Date(eventDate);
+        const from = new Date(d); from.setDate(from.getDate() - 1);
+        const until = new Date(d); until.setDate(until.getDate() + 1);
+        bookedFrom = from.toISOString().slice(0, 10);
+        bookedUntil = until.toISOString().slice(0, 10);
+      }
+      setEqAdding(true);
+      try {
+        const { error } = await supabase.from("equipment_bookings").insert({
+          order_id: selectedOrder.id,
+          company_id: (selectedOrder as any).company_id,
+          equipment_id: eqPick.id,
+          quantity: qty,
+          status: "booked",
+          booked_from: bookedFrom,
+          booked_until: bookedUntil,
+        } as any);
+        if (error) throw error;
+        toast({ title: "Equipment added", description: `${qty} x ${eqPick.name} booked.` });
+        setEqSearch(""); setEqPick(null); setEqQty("1");
+        await reloadEquipment();
+      } catch (e: any) {
+        toast({ title: "Could not add equipment", description: e?.message || "Try again", variant: "destructive" });
+      } finally {
+        setEqAdding(false);
+      }
+    };
+
+    const handleRemoveEquipment = async (bookingId: string) => {
+      setEqRemoving(bookingId);
+      try {
+        const { error } = await supabase.from("equipment_bookings").delete().eq("id", bookingId);
+        if (error) throw error;
+        toast({ title: "Equipment removed" });
+        await reloadEquipment();
+      } catch (e: any) {
+        toast({ title: "Could not remove equipment", description: e?.message || "Try again", variant: "destructive" });
+      } finally {
+        setEqRemoving(null);
+      }
+    };
 
     // Direct fetch of order_items so the modal never shows the empty
     // state when items actually exist for this order in the db.
@@ -1213,8 +1280,55 @@ function OrderProcessDashboard() {
 
             <TabsContent value="equipment" className="space-y-4 mt-4">
               {/* Equipment is tracked as bookings against the order_id, not
-                  as JSON on the order row. We fetch on modal open. */}
+                  as JSON on the order row. We fetch on modal open and let
+                  the operator add / remove inline when the modal is in
+                  edit mode. Booking window defaults to event_date +/- 1
+                  day; tweak via the Equipment page if you need exact
+                  pickup / return times. */}
               <div className="space-y-3">
+                {/* Inline add form (edit mode only) */}
+                {editMode && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <Label className="text-xs font-semibold text-blue-900">Add equipment to this order</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                      <EquipmentTypeahead
+                        companyId={(selectedOrder as any)?.company_id}
+                        value={eqSearch}
+                        onChange={setEqSearch}
+                        onPick={(p) => { setEqPick(p); setEqSearch(p.name); }}
+                      />
+                      <div className="space-y-1">
+                        <Label className="text-xs text-slate-600">Qty</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          className="w-20 bg-white"
+                          value={eqQty}
+                          onChange={(e) => setEqQty(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={handleAddEquipment}
+                        disabled={eqAdding || !eqPick}
+                        className="self-end"
+                      >
+                        {eqAdding ? "Adding..." : "Add"}
+                      </Button>
+                    </div>
+                    {eqPick && (
+                      <p className="text-xs text-slate-600">
+                        Selected: <strong>{eqPick.name}</strong>
+                        {eqPick.availableQuantity !== null ? ` -- ${eqPick.availableQuantity} available` : ""}
+                        {eqPick.rentalPrice ? ` -- R${Number(eqPick.rentalPrice).toLocaleString("en-ZA")} / day` : ""}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Booking window auto-defaults to the day before through the day after the event. Refine on the Equipment page if needed.
+                    </p>
+                  </div>
+                )}
+
                 {equipmentLoading ? (
                   <div className="text-center py-8 text-slate-400">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2" />
@@ -1224,7 +1338,11 @@ function OrderProcessDashboard() {
                   <div className="text-center py-8 text-slate-400">
                     <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No equipment booked for this order.</p>
-                    <p className="text-xs mt-1">Add items from the Equipment page or the source quote.</p>
+                    <p className="text-xs mt-1">
+                      {editMode
+                        ? "Use the search above to add items."
+                        : "Click Edit on this order to add equipment."}
+                    </p>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -1235,6 +1353,7 @@ function OrderProcessDashboard() {
                           <th className="text-right px-3 py-2 w-16">Qty</th>
                           <th className="text-left px-3 py-2 w-32">Status</th>
                           <th className="text-left px-3 py-2 w-44">Booked window</th>
+                          {editMode && <th className="px-3 py-2 w-12" />}
                         </tr>
                       </thead>
                       <tbody>
@@ -1251,11 +1370,42 @@ function OrderProcessDashboard() {
                                 <Badge variant="outline" className="capitalize">{b.status || "booked"}</Badge>
                               </td>
                               <td className="px-3 py-2 text-xs text-slate-600">{window}</td>
+                              {editMode && (
+                                <td className="px-3 py-2 text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 h-7 w-7 p-0"
+                                    onClick={() => handleRemoveEquipment(b.id)}
+                                    disabled={eqRemoving === b.id}
+                                    title="Remove from order"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Footer link out -- for the rare case where the operator
+                    needs the full equipment management surface (catalog
+                    edits, exact times, returns workflow, damage reports). */}
+                {!editMode && equipmentBookings.length > 0 && (
+                  <div className="text-xs text-slate-500 pt-1">
+                    Need to manage availability, returns or damages? Go to{" "}
+                    <Link
+                      href="/admin/equipment"
+                      onClick={() => setIsModalOpen(false)}
+                      className="text-blue-700 hover:underline"
+                    >
+                      Equipment
+                    </Link>
+                    .
                   </div>
                 )}
               </div>
