@@ -100,7 +100,7 @@ export async function syncOrderArtifacts(
     // 5. Mirror to the source quote, if any. We mirror header fields
     //    (so a venue change on the order shows up on the customer's
     //    quote view) plus menu_items / equipment_items jsonb.
-    let quote_id: string | null = (order as any).quote_id || null;
+    const quote_id: string | null = (order as any).quote_id || null;
     if (quote_id) {
       const menuItemsJsonb = (items || []).map((it: any) => ({
         id: it.id,
