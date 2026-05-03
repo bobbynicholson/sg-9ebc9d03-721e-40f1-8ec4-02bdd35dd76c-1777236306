@@ -1053,9 +1053,45 @@ function OrderProcessDashboard() {
       await persistSave();
     };
 
+    // Ratio + projected scaled total used by the dialog and the save
+    // path. When items exist, scale each item.quantity by the ratio
+    // and let the sync service recompute the total from the new
+    // line totals (preserves the operator's per-unit prices). When
+    // no items exist, scale the order's total_amount directly.
+    const guestRatio =
+      oldGuestCount > 0 && newGuestCount > 0 ? newGuestCount / oldGuestCount : 1;
+    const projectedTotal = Number((oldTotal * guestRatio).toFixed(2));
+
     const persistSave = async () => {
       setSaving(true);
       try {
+        const guestChanged = oldGuestCount !== newGuestCount && oldGuestCount > 0 && newGuestCount > 0;
+
+        // Scale path A: items exist, multiply each item.quantity by
+        // the ratio (round to integer, recompute line_total). Sync
+        // will pick up the new line_totals and write a new subtotal.
+        if (guestChanged && orderItemsRaw.length > 0) {
+          await Promise.all(orderItemsRaw.map((it: any) => {
+            const newQty = Math.max(1, Math.round(Number(it.quantity || 0) * guestRatio));
+            const unit = Number(it.unit_price || 0);
+            return supabase.from("order_items").update({
+              quantity: newQty,
+              line_total: Number((newQty * unit).toFixed(2)),
+            } as any).eq("id", it.id);
+          }));
+        }
+
+        // Scale path B: flat-price order, scale total_amount directly.
+        // Written before the syncOrderArtifacts call so the sync's
+        // preserve-existing branch picks it up.
+        if (guestChanged && orderItemsRaw.length === 0 && projectedTotal > 0) {
+          await supabase.from("orders").update({
+            subtotal: projectedTotal,
+            total_amount: projectedTotal,
+            tax_amount: 0,
+          } as any).eq("id", editedOrder.id);
+        }
+
         const result: any = await orderService.updateOrder(editedOrder.id, {
           client_name: editedOrder.client_name,
           venue_address: editedOrder.venue_address,
@@ -1681,21 +1717,30 @@ function OrderProcessDashboard() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-amber-600" />
-                Heads-up on the order total
+                Confirm guest count change
               </DialogTitle>
               <DialogDescription>
-                You're changing guest count from <strong>{oldGuestCount}</strong> to <strong>{newGuestCount}</strong>.
+                Guest count: <strong>{oldGuestCount}</strong> → <strong>{newGuestCount}</strong>
+                {guestRatio !== 1 ? ` (${guestRatio < 1 ? "−" : "+"}${Math.abs(Math.round((1 - guestRatio) * -100))}%)` : ""}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3 text-sm">
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
-                <p className="text-amber-900">
-                  Order total stays at <strong>R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</strong>. Guest count is amended; price is not auto-scaled.
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                <p className="text-emerald-900">
+                  Items + total will scale to the new guest count using the <strong>current per-unit prices</strong>.
                 </p>
+                <div className="flex items-center justify-between text-xs text-emerald-900/80 pt-1 border-t border-emerald-200">
+                  <span>Current total</span>
+                  <span className="tabular-nums">R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between text-emerald-900 font-semibold">
+                  <span>New total</span>
+                  <span className="tabular-nums">R{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
               <p className="text-slate-600 text-xs">
-                If the price needs to change as well, edit the source quote (or invoice if already issued) so the line items, totals and client-facing copy stay aligned. Inline order edits are designed for small operational tweaks, not re-pricing.
+                If the <strong>per-unit prices</strong> need to change as part of this amendment (volume discount, premium upgrade, etc.), update the source quote or invoice so the client-facing copy stays aligned.
               </p>
             </div>
 
@@ -1713,16 +1758,15 @@ function OrderProcessDashboard() {
                   onClick={() => {
                     setPriceAdjustOpen(false);
                     setIsModalOpen(false);
-                    // Send them to the quote where they can repurpose price properly.
                     window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
                   }}
                   disabled={saving}
                 >
-                  Open quote instead
+                  Update quote/invoice here
                 </Button>
               )}
               <Button onClick={persistSave} disabled={saving}>
-                {saving ? "Saving..." : "Save guest count change"}
+                {saving ? "Saving..." : `Save + scale to R${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
               </Button>
             </div>
           </DialogContent>
