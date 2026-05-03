@@ -316,6 +316,11 @@ function OrderProcessDashboard() {
   // fuzzy hook doesn't get a fresh array on every render.
   const statusDateFilteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Hide cancelled by default ("All Statuses" excludes them).
+      // Only surface cancelled when the operator explicitly picks
+      // "cancelled" in the status dropdown -- otherwise they'd
+      // clutter the kanban + timeline forever.
+      if (statusFilter === "all" && order.status === "cancelled") return false;
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
       // Date filter -- preset windows on the order's event_date
@@ -1239,16 +1244,37 @@ function OrderProcessDashboard() {
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <Button 
+                  {/* In edit mode, "Cancel order" stays accessible so
+                      the operator doesn't have to discard their edit
+                      first to get to it. The edit-discard button is
+                      relabelled "Discard" so it's clearly distinct
+                      from cancelling the order itself. */}
+                  {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
+                    <Button
+                      onClick={() => {
+                        setEditedOrder(selectedOrder);
+                        setEditMode(false);
+                        setIsModalOpen(false);
+                        setCancelDialogOpen(true);
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Cancel order
+                    </Button>
+                  )}
+                  <Button
                     onClick={() => {
                       setEditedOrder(selectedOrder);
                       setEditMode(false);
-                    }} 
-                    variant="outline" 
+                    }}
+                    variant="outline"
                     size="sm"
                   >
                     <X className="w-4 h-4 mr-2" />
-                    Cancel
+                    Discard
                   </Button>
                   <Button onClick={handleSave} disabled={saving} size="sm">
                     {saving ? (
