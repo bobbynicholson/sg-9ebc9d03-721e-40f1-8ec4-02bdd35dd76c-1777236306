@@ -726,6 +726,42 @@ function NewQuotePage() {
       const payload = buildPayload();
       // Status overrides: caller tells us when this is a Send.
       Object.assign(payload, override);
+      // DB constraint quote_has_lead_or_client requires lead_id OR
+      // client_id to be set. The fromQuoteId duplicate flow can land
+      // here with both null when the source quote was a legacy row
+      // without proper lifecycle linkage. Find-or-create a lead by
+      // email so the constraint always passes.
+      if (!payload.lead_id && !payload.client_id && email) {
+        try {
+          const { data: existingLead } = await supabase
+            .from("leads")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("email", email)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if ((existingLead as any)?.id) {
+            payload.lead_id = (existingLead as any).id;
+          } else {
+            const { data: newLead } = await supabase
+              .from("leads")
+              .insert({
+                company_id: companyId,
+                contact_name: clientName,
+                client_name: clientName,
+                email,
+                phone: phone || null,
+                status: "new",
+                source: "quote_builder",
+              } as any)
+              .select("id")
+              .single();
+            if ((newLead as any)?.id) payload.lead_id = (newLead as any).id;
+          }
+        } catch (linkErr) {
+          console.warn("[quotes/new] lead auto-link failed:", linkErr);
+        }
+      }
       if (quoteId) {
         // Read current status BEFORE the update so we can detect the
         // draft -> sent transition. Lifecycle audit (May 2026) found
