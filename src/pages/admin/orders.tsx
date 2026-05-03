@@ -56,6 +56,7 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 
 interface OrderStats {
   total: number;
@@ -961,10 +962,11 @@ function OrderProcessDashboard() {
           </DialogHeader>
 
           <Tabs defaultValue="details" className="mt-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="menu">Menu Items</TabsTrigger>
               <TabsTrigger value="equipment">Equipment</TabsTrigger>
+              <TabsTrigger value="amendments">Amendments</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -1228,6 +1230,18 @@ function OrderProcessDashboard() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="amendments" className="space-y-4 mt-4">
+              <AmendmentsTab
+                orderId={editedOrder.id}
+                currentOrder={editedOrder as any}
+                onActioned={() => {
+                  // Re-pull the order after an approval since the diff
+                  // is now applied -- the modal's currentOrder is stale.
+                  setSelectedOrder({ ...selectedOrder } as any);
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="history" className="space-y-4 mt-4">
