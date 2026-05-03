@@ -988,6 +988,19 @@ const productNotesCards: SprintCard[] = [
       { title: "Warehouse storage locations + racks (storage_locations + storage_racks)", detail: "Adds a location_id column to equipment and inventory_items so the kitchen-prep tablet can tell staff exactly where to grab item X ('Bay 3, Rack B'). Load-bearing only when a tenant has more than one storage room or rack. For small caterers ('the storeroom') it adds friction with no payoff. Build once a paying tenant asks.", status: "todo" },
     ],
   },
+  {
+    id: "post-launch-quote-actions-polish",
+    title: "Post-launch, quote-card action polish (3 may 2026, deferred)",
+    why: "Surfaced during the /admin/quotes button audit. Both items have working fallbacks today (print dialog for PDF, clipboard payload for accounting push) so they aren't blockers, but they need finishing before a tenant with strong accounting integration habits will love the product.",
+    estimate: "Defer to post-launch",
+    risk: "Low",
+    icon: FileText,
+    accent: "from-slate-500 to-slate-700",
+    items: [
+      { title: "Server-side PDF for quotes", detail: "Today the PDF button on /admin/quotes opens the public quote URL with ?print=1 and relies on the browser's Ctrl+P dialog. Works but indirect. Build /api/quotes/[id]/pdf that returns a real PDF attachment (probably puppeteer or react-pdf), with the company's branded letterhead, totals tidy at the bottom, and the policy / T&C block on a second page. Same pattern can later cover invoices + cancellation refund receipts.", status: "todo" },
+      { title: "Sync-quote endpoints for Xero / QuickBooks / Sage", detail: "/admin/quotes Push-to-accounting calls /api/integrations/{provider}/sync-quote which doesn't exist yet -- it falls back to copying the prepared payload to the clipboard, which the operator pastes manually. To make it a real one-click sync we need to clone /api/accounting/{xero,quickbooks}/sync-invoice.ts into sync-quote.ts per provider (~300 lines each), point accountingExportService at the new path, and make sure the OAuth + token refresh chain stays healthy. Sage adapter is the third provider (no existing scaffold, would be a bigger build). Build once a paying tenant has actually connected their accounting integration.", status: "todo" },
+    ],
+  },
 ];
 
 // =====================================================================
