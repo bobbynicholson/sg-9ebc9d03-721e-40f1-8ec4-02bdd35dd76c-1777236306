@@ -263,6 +263,12 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Invoices issued for orders"
         },
         {
+          title: "Refunds",
+          href: "/admin/refunds",
+          icon: Receipt,
+          description: "Cancellation refunds, mark as paid"
+        },
+        {
           title: "Clients",
           href: "/admin/clients",
           icon: User,

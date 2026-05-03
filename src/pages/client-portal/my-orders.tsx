@@ -4,7 +4,8 @@ import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, DollarSign, Package, Truck, ArrowLeft, Pencil } from "lucide-react";
+import { Calendar, MapPin, Users, DollarSign, Package, Truck, ArrowLeft, Pencil, CalendarX, Receipt, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +55,32 @@ export default function MyOrders() {
   const [amendVenue, setAmendVenue] = useState<string>("");
   const [amendNotes, setAmendNotes] = useState<string>("");
   const [amendSubmitting, setAmendSubmitting] = useState(false);
+  // Cancel/postpone request dialog state.
+  const [cancelRequestOrder, setCancelRequestOrder] = useState<Order | null>(null);
+  const [cancelRequestType, setCancelRequestType] = useState<"cancel" | "postpone">("cancel");
+  const [cancelPostponeDate, setCancelPostponeDate] = useState<string>("");
+  const [cancelReason, setCancelReason] = useState<string>("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState<any | null>(null);
   const { toast } = useToast();
+
+  // Pull a refund preview when the cancel/postpone dialog opens so the
+  // client sees what they'd get back before submitting.
+  useEffect(() => {
+    if (!cancelRequestOrder) {
+      setCancelPreview(null);
+      return;
+    }
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_refund_for_order", { p_order_id: cancelRequestOrder.id });
+        if (error) throw error;
+        setCancelPreview(data);
+      } catch (e) {
+        console.warn("[my-orders] preview failed", e);
+      }
+    })();
+  }, [cancelRequestOrder]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -226,20 +252,36 @@ export default function MyOrders() {
                               friendly UI hint to hide the button on
                               completed / cancelled orders. */}
                           {!["completed", "cancelled", "delivered"].includes(order.status) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full sm:w-auto"
-                              onClick={() => {
-                                setAmendingOrder(order);
-                                setAmendGuestCount(String(order.guest_count || ""));
-                                setAmendVenue(order.venue_address || "");
-                                setAmendNotes("");
-                              }}
-                            >
-                              <Pencil className="w-4 h-4 mr-2" />
-                              Request a change
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full sm:w-auto"
+                                onClick={() => {
+                                  setAmendingOrder(order);
+                                  setAmendGuestCount(String(order.guest_count || ""));
+                                  setAmendVenue(order.venue_address || "");
+                                  setAmendNotes("");
+                                }}
+                              >
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Request a change
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full sm:w-auto text-rose-700 border-rose-200 hover:bg-rose-50"
+                                onClick={() => {
+                                  setCancelRequestOrder(order);
+                                  setCancelRequestType("cancel");
+                                  setCancelPostponeDate("");
+                                  setCancelReason("");
+                                }}
+                              >
+                                <CalendarX className="w-4 h-4 mr-2" />
+                                Cancel or postpone
+                              </Button>
+                            </>
                           )}
                           <Button size="sm" variant="outline">
                             View Details
@@ -376,6 +418,135 @@ export default function MyOrders() {
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {amendSubmitting ? "Submitting..." : "Submit request"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel / postpone request dialog. Submits to
+          /api/orders/cancellation-request which captures the policy
+          snapshot + refund preview at submit time. The catering team
+          reviews and approves via /api/orders/cancellation-review. */}
+      <Dialog
+        open={!!cancelRequestOrder}
+        onOpenChange={(o) => { if (!o) setCancelRequestOrder(null); }}
+      >
+        <DialogContent className="max-w-lg">
+          {cancelRequestOrder && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-rose-700 flex items-center gap-2">
+                  <CalendarX className="w-5 h-5" />
+                  Cancel or postpone your booking
+                </DialogTitle>
+                <DialogDescription>
+                  Tell us what you'd like to do and the team will confirm by email. Postponing is often a softer landing than cancelling.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-600">What do you want to do?</Label>
+                  <Select value={cancelRequestType} onValueChange={(v) => setCancelRequestType(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="postpone">Postpone to another date</SelectItem>
+                      <SelectItem value="cancel">Cancel the booking</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {cancelRequestType === "postpone" ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-slate-600">New event date</Label>
+                    <Input
+                      type="date"
+                      value={cancelPostponeDate}
+                      onChange={(e) => setCancelPostponeDate(e.target.value)}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Postponements need at least {cancelPreview?.postponement_notice_days || 14} days' notice. We'll confirm the new date with you.
+                    </p>
+                  </div>
+                ) : null}
+
+                {cancelRequestType === "cancel" && cancelPreview ? (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm space-y-1">
+                    <div className="flex items-start gap-2">
+                      <Receipt className="w-4 h-4 mt-0.5 flex-shrink-0 text-rose-600" />
+                      <div>
+                        Cancellation policy: event is in <strong>{cancelPreview.days_to_event} day{cancelPreview.days_to_event === 1 ? "" : "s"}</strong>.
+                        {" "}Refund: <strong>R{Number(cancelPreview.refund_amount || 0).toFixed(2)}</strong> ({cancelPreview.refund_pct || 0}% of paid).
+                      </div>
+                    </div>
+                    {cancelPreview.requires_owner_override ? (
+                      <div className="flex items-start gap-2 text-rose-800 text-xs">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        Late cancellations need owner-level approval. Submit anyway and we'll come back to you.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-600">Reason / notes (optional)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="A short note helps us understand and offer alternatives if useful"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCancelRequestOrder(null)}
+                  disabled={cancelSubmitting}
+                >
+                  Keep the booking
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={cancelSubmitting || (cancelRequestType === "postpone" && !cancelPostponeDate)}
+                  onClick={async () => {
+                    if (!cancelRequestOrder) return;
+                    setCancelSubmitting(true);
+                    try {
+                      const resp = await fetch("/api/orders/cancellation-request", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          order_id: cancelRequestOrder.id,
+                          request_type: cancelRequestType,
+                          requested_postpone_date: cancelRequestType === "postpone" ? cancelPostponeDate : undefined,
+                          reason: cancelReason.trim() || undefined,
+                        }),
+                      });
+                      const j = await resp.json().catch(() => ({}));
+                      if (!resp.ok) throw new Error(j?.error || "Could not submit");
+                      toast({
+                        title: cancelRequestType === "cancel" ? "Cancellation request submitted" : "Postponement request submitted",
+                        description: "The catering team will confirm by email shortly.",
+                      });
+                      setCancelRequestOrder(null);
+                    } catch (err: any) {
+                      toast({
+                        title: "Could not submit",
+                        description: err?.message || "Try again",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setCancelSubmitting(false);
+                    }
+                  }}
+                >
+                  {cancelSubmitting ? "Submitting..." : "Submit request"}
                 </Button>
               </DialogFooter>
             </>

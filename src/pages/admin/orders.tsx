@@ -41,6 +41,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { CancelOrderDialog } from "@/components/admin/orders/CancelOrderDialog";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
@@ -57,6 +58,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
+import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 
 interface OrderStats {
   total: number;
@@ -184,6 +186,7 @@ function OrderProcessDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<AppOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -931,10 +934,23 @@ function OrderProcessDashboard() {
                 )}
               </div>
               {!editMode ? (
-                <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </Button>
+                <div className="flex gap-2">
+                  {selectedOrder && (selectedOrder as any).status !== "cancelled" && (
+                    <Button
+                      onClick={() => setCancelDialogOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Cancel order
+                    </Button>
+                  )}
+                  <Button onClick={() => setEditMode(true)} variant="outline" size="sm">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                </div>
               ) : (
                 <div className="flex gap-2">
                   <Button 
@@ -967,11 +983,12 @@ function OrderProcessDashboard() {
           </DialogHeader>
 
           <Tabs defaultValue="details" className="mt-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="menu">Menu Items</TabsTrigger>
               <TabsTrigger value="equipment">Equipment</TabsTrigger>
               <TabsTrigger value="amendments">Amendments</TabsTrigger>
+              <TabsTrigger value="cancellations">Cancellations</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
 
@@ -1245,6 +1262,16 @@ function OrderProcessDashboard() {
                   // Re-pull the order after an approval since the diff
                   // is now applied -- the modal's currentOrder is stale.
                   setSelectedOrder({ ...selectedOrder } as any);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="cancellations" className="space-y-4 mt-4">
+              <CancellationRequestsTab
+                orderId={editedOrder.id}
+                onActioned={() => {
+                  setIsModalOpen(false);
+                  loadOrders();
                 }}
               />
             </TabsContent>
@@ -1549,6 +1576,20 @@ function OrderProcessDashboard() {
 
             {/* Order Details Modal */}
             <OrderDetailsModal />
+
+            {/* Cancel order dialog with refund preview, fed by the
+                get_refund_for_order RPC. Refund flow lands a payments
+                row + cancellation_requests audit + status cascade. */}
+            <CancelOrderDialog
+              open={cancelDialogOpen}
+              onOpenChange={setCancelDialogOpen}
+              orderId={selectedOrder?.id || null}
+              orderNumber={(selectedOrder as any)?.order_number || null}
+              onCancelled={() => {
+                setIsModalOpen(false);
+                loadOrders();
+              }}
+            />
           </div>
         </div>
 

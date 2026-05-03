@@ -223,19 +223,99 @@ export async function completeOrder(orderId: string) {
   return updateOrderStatus(orderId, "delivered");
 }
 
-export async function cancelOrder(orderId: string, reason?: string) {
+/**
+ * Cancel an order with the full cascade: stamp who/when, release booked
+ * resources, and let the existing status-notification fan-out handle
+ * comms via the updateOrderStatus call path's caller.
+ *
+ * Cascades, fire-and-forget (a failed cascade doesn't undo the cancel):
+ *   - equipment_bookings linked to this order -> status='cancelled'
+ *   - kitchen_prep_tasks linked to this order -> status='cancelled'
+ *   - assigned_driver_id, assigned_chef_id, assigned_vehicle_id -> null
+ *
+ * Audit:
+ *   - cancelled_at, cancelled_by_user_id, cancellation_reason,
+ *     cancellation_reason_category written on the order row
+ *   - order_status_history row written by updateOrderStatus path
+ */
+export async function cancelOrder(
+  orderId: string,
+  opts: {
+    reason?: string;
+    reason_category?: string;
+    cancelled_by_user_id?: string;
+  } = {},
+) {
   try {
+    const nowIso = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("orders")
-      .update({ 
+      .update({
         status: "cancelled",
-        cancellation_reason: reason 
-      })
+        cancellation_reason: opts.reason || null,
+        cancellation_reason_category: opts.reason_category || null,
+        cancelled_at: nowIso,
+        cancelled_by_user_id: opts.cancelled_by_user_id || null,
+        // Resource release on the same UPDATE so kitchen / driver views
+        // stop showing the order against them immediately.
+        assigned_driver_id: null,
+        assigned_chef_id: null,
+        assigned_vehicle_id: null,
+      } as any)
       .eq("id", orderId)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Resource cascades. Fire-and-forget so a bad row doesn't undo the
+    // cancel itself.
+    void (async () => {
+      try {
+        await supabase
+          .from("equipment_bookings")
+          .update({ status: "cancelled" } as any)
+          .eq("order_id", orderId);
+      } catch (e) {
+        console.warn("[cancelOrder] equipment_bookings release failed:", e);
+      }
+    })();
+
+    void (async () => {
+      try {
+        await supabase
+          .from("kitchen_prep_tasks")
+          .update({ status: "cancelled" } as any)
+          .eq("order_id", orderId);
+      } catch (e) {
+        console.warn("[cancelOrder] kitchen_prep_tasks release failed:", e);
+      }
+    })();
+
+    // order_status_history row + notification fan-out happens via the
+    // status-update side-effect block fed below by callers that go
+    // through updateOrderStatus. cancelOrder writes directly so we
+    // mirror the audit log inline.
+    try {
+      await supabase.from("order_status_history").insert({
+        order_id: orderId,
+        status: "cancelled",
+        changed_by: opts.cancelled_by_user_id || null,
+        notes: opts.reason
+          ? `Cancelled: ${opts.reason_category || "other"} -- ${opts.reason}`
+          : `Cancelled: ${opts.reason_category || "other"}`,
+      } as any);
+    } catch (e) {
+      console.warn("[cancelOrder] status history insert failed:", e);
+    }
+
+    // Run the existing notification fan-out for the cancelled status.
+    try {
+      await sendStatusNotifications(data);
+    } catch (e) {
+      console.warn("[cancelOrder] notifications failed:", e);
+    }
 
     return { success: true, data };
   } catch (error: any) {
@@ -444,13 +524,10 @@ async function sendStatusNotifications(order: any) {
           `If anything wasn't quite right, please reply -- we read every email and we'd rather hear it.`,
       },
       completed: null,
-      cancelled: {
-        subject: `Order cancelled -- ${orderNumber}`,
-        body:
-          `Hi ${clientFirstName},\n\n` +
-          `This is a confirmation that order ${orderNumber} has been cancelled. ` +
-          `If this wasn't expected, please get in touch with us straight away.`,
-      },
+      // The cancellation email is sent by sendCancellationEmail() from
+      // the cancel API endpoint with the actual refund amount included.
+      // Skipping here so the client doesn't get two emails.
+      cancelled: null,
     };
     const tpl = customerEmailFor[status];
     if (tpl) {

@@ -463,39 +463,101 @@ export type Database = {
       }
       cancellation_requests: {
         Row: {
+          applied_at: string | null
           cancellation_type: string | null
           company_id: string | null
           created_at: string | null
           feedback: string | null
           id: string
+          order_id: string | null
+          policy_snapshot: Json | null
           reason: string | null
+          refund_amount_approved: number | null
+          refund_amount_calculated: number | null
+          request_type: string | null
+          requested_by_user_id: string | null
+          requested_postpone_date: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
           status: string | null
           subscription_id: string | null
           user_id: string | null
         }
         Insert: {
+          applied_at?: string | null
           cancellation_type?: string | null
           company_id?: string | null
           created_at?: string | null
           feedback?: string | null
           id?: string
+          order_id?: string | null
+          policy_snapshot?: Json | null
           reason?: string | null
+          refund_amount_approved?: number | null
+          refund_amount_calculated?: number | null
+          request_type?: string | null
+          requested_by_user_id?: string | null
+          requested_postpone_date?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
           status?: string | null
           subscription_id?: string | null
           user_id?: string | null
         }
         Update: {
+          applied_at?: string | null
           cancellation_type?: string | null
           company_id?: string | null
           created_at?: string | null
           feedback?: string | null
           id?: string
+          order_id?: string | null
+          policy_snapshot?: Json | null
           reason?: string | null
+          refund_amount_approved?: number | null
+          refund_amount_calculated?: number | null
+          request_type?: string | null
+          requested_by_user_id?: string | null
+          requested_postpone_date?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
           status?: string | null
           subscription_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "order_ingredient_demand"
+            referencedColumns: ["order_id"]
+          },
+          {
+            foreignKeyName: "cancellation_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_requests_requested_by_user_id_fkey"
+            columns: ["requested_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cancellation_requests_reviewed_by_user_id_fkey"
+            columns: ["reviewed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cleaning_duty_logs: {
         Row: {
@@ -906,6 +968,7 @@ export type Database = {
           amendment_cutoff_days: number
           auto_reply_to_embed_submissions: boolean
           billing_currency: string | null
+          cancellation_policy: Json
           city: string | null
           company_name: string
           country: string | null
@@ -944,6 +1007,7 @@ export type Database = {
           subscription_tier: string | null
           suspended_reason: string | null
           tax_number: string | null
+          terms_and_conditions: string | null
           timezone: string | null
           trial_ends_at: string | null
           updated_at: string | null
@@ -958,6 +1022,7 @@ export type Database = {
           amendment_cutoff_days?: number
           auto_reply_to_embed_submissions?: boolean
           billing_currency?: string | null
+          cancellation_policy?: Json
           city?: string | null
           company_name: string
           country?: string | null
@@ -996,6 +1061,7 @@ export type Database = {
           subscription_tier?: string | null
           suspended_reason?: string | null
           tax_number?: string | null
+          terms_and_conditions?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
@@ -1010,6 +1076,7 @@ export type Database = {
           amendment_cutoff_days?: number
           auto_reply_to_embed_submissions?: boolean
           billing_currency?: string | null
+          cancellation_policy?: Json
           city?: string | null
           company_name?: string
           country?: string | null
@@ -1048,6 +1115,7 @@ export type Database = {
           subscription_tier?: string | null
           suspended_reason?: string | null
           tax_number?: string | null
+          terms_and_conditions?: string | null
           timezone?: string | null
           trial_ends_at?: string | null
           updated_at?: string | null
@@ -5015,7 +5083,9 @@ export type Database = {
           balance_paid: boolean | null
           balance_paid_at: string | null
           cancellation_reason: string | null
+          cancellation_reason_category: string | null
           cancelled_at: string | null
+          cancelled_by_user_id: string | null
           client_email: string | null
           client_id: string
           client_name: string | null
@@ -5067,6 +5137,8 @@ export type Database = {
           pod_photo_url: string | null
           pod_recipient_name: string | null
           pod_signature_url: string | null
+          postponed_at: string | null
+          postponed_from_date: string | null
           prep_started_at: string | null
           quote_id: string | null
           ready_at: string | null
@@ -5109,7 +5181,9 @@ export type Database = {
           balance_paid?: boolean | null
           balance_paid_at?: string | null
           cancellation_reason?: string | null
+          cancellation_reason_category?: string | null
           cancelled_at?: string | null
+          cancelled_by_user_id?: string | null
           client_email?: string | null
           client_id: string
           client_name?: string | null
@@ -5161,6 +5235,8 @@ export type Database = {
           pod_photo_url?: string | null
           pod_recipient_name?: string | null
           pod_signature_url?: string | null
+          postponed_at?: string | null
+          postponed_from_date?: string | null
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
@@ -5203,7 +5279,9 @@ export type Database = {
           balance_paid?: boolean | null
           balance_paid_at?: string | null
           cancellation_reason?: string | null
+          cancellation_reason_category?: string | null
           cancelled_at?: string | null
+          cancelled_by_user_id?: string | null
           client_email?: string | null
           client_id?: string
           client_name?: string | null
@@ -5255,6 +5333,8 @@ export type Database = {
           pod_photo_url?: string | null
           pod_recipient_name?: string | null
           pod_signature_url?: string | null
+          postponed_at?: string | null
+          postponed_from_date?: string | null
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
@@ -5305,6 +5385,13 @@ export type Database = {
             columns: ["assigned_vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_cancelled_by_user_id_fkey"
+            columns: ["cancelled_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5620,9 +5707,11 @@ export type Database = {
       payments: {
         Row: {
           amount: number | null
+          cancellation_request_id: string | null
           client_id: string | null
           company_id: string | null
           created_at: string | null
+          created_by_user_id: string | null
           currency: string | null
           failed_at: string | null
           gateway: string | null
@@ -5638,6 +5727,7 @@ export type Database = {
           payment_status: Database["public"]["Enums"]["payment_status"] | null
           payment_type: string | null
           processed_at: string | null
+          reason: string | null
           refunded_at: string | null
           status: string | null
           transaction_id: string | null
@@ -5646,9 +5736,11 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          cancellation_request_id?: string | null
           client_id?: string | null
           company_id?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
           currency?: string | null
           failed_at?: string | null
           gateway?: string | null
@@ -5664,6 +5756,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           payment_type?: string | null
           processed_at?: string | null
+          reason?: string | null
           refunded_at?: string | null
           status?: string | null
           transaction_id?: string | null
@@ -5672,9 +5765,11 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          cancellation_request_id?: string | null
           client_id?: string | null
           company_id?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
           currency?: string | null
           failed_at?: string | null
           gateway?: string | null
@@ -5690,6 +5785,7 @@ export type Database = {
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           payment_type?: string | null
           processed_at?: string | null
+          reason?: string | null
           refunded_at?: string | null
           status?: string | null
           transaction_id?: string | null
@@ -5697,6 +5793,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_cancellation_request_id_fkey"
+            columns: ["cancellation_request_id"]
+            isOneToOne: false
+            referencedRelation: "cancellation_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_client_id_fkey"
             columns: ["client_id"]
@@ -5709,6 +5812,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -8335,6 +8445,7 @@ export type Database = {
           slug: string
         }[]
       }
+      get_refund_for_order: { Args: { p_order_id: string }; Returns: Json }
       get_user_company_id: { Args: { user_id: string }; Returns: string }
       gettransactionid: { Args: never; Returns: unknown }
       increment_embed_form_views: {
@@ -9075,6 +9186,7 @@ export type Database = {
         | "completed"
         | "failed"
         | "refunded"
+        | "partially_refunded"
         | "disputed"
         | "partial"
         | "paid"
@@ -9318,6 +9430,7 @@ export const Constants = {
         "completed",
         "failed",
         "refunded",
+        "partially_refunded",
         "disputed",
         "partial",
         "paid",

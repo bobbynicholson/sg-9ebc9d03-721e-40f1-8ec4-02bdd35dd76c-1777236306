@@ -26,6 +26,13 @@ export interface SendEmailPayload {
   variables?: Record<string, any>;
   orderId?: string;
   quoteId?: string;
+  /**
+   * Set to true for service-critical comms (cancellation, refund-paid,
+   * postponement) that must reach the recipient regardless of import
+   * quarantine state. blocked_contacts still applies (the operator
+   * deliberately silenced them) but comms_paused_until is bypassed.
+   */
+  bypassQuarantine?: boolean;
 }
 
 export interface EmailLog {
@@ -184,10 +191,16 @@ export const emailService = {
           return false;
         }
 
-        const { data: paused } = await sb.rpc("is_comms_paused_for_email", {
-          p_company_id: payload.companyId,
-          p_email: recipientLower,
-        });
+        // Critical-comm carve-out: cancellation, refund-paid and
+        // postponement emails must reach the client even if their
+        // record is in import quarantine. blocked_contacts above still
+        // applies (deliberate block stays a block).
+        const { data: paused } = payload.bypassQuarantine
+          ? { data: false }
+          : await sb.rpc("is_comms_paused_for_email", {
+              p_company_id: payload.companyId,
+              p_email: recipientLower,
+            });
         if (paused === true) {
           console.warn(`[emailService] refused -- ${recipientLower} is in import quarantine for ${payload.companyId}`);
           await this.logEmailSent(

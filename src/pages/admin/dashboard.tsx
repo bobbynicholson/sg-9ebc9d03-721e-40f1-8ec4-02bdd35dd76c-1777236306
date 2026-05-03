@@ -35,6 +35,10 @@ interface Stats {
   pendingQuotes: number;
   lowStockItems: number;
   activeUsers: number;
+  cancelledOrdersInRange: number;
+  refundsOutstandingCount: number;
+  refundsOutstandingValue: number;
+  topCancelReason: string;
 }
 
 const EMPTY: Stats = {
@@ -43,6 +47,8 @@ const EMPTY: Stats = {
   upcomingEvents: 0, totalOrdersInRange: 0, completedOrdersInRange: 0,
   averageOrderValue: 0, completionRate: 0,
   pendingQuotes: 0, lowStockItems: 0, activeUsers: 0,
+  cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
+  refundsOutstandingValue: 0, topCancelReason: "-",
 };
 
 const ACTIVE_STATUSES = ["confirmed", "preparing", "ready", "in_transit"];
@@ -76,7 +82,7 @@ function AdminDashboardPage() {
       const [ordersRes, quotesRes, usersRes, invRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at")
+          .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromISO)
@@ -177,6 +183,36 @@ function AdminDashboardPage() {
         (r: any) => Number(r.current_stock || 0) <= Number(r.minimum_stock || 0),
       ).length;
 
+      // Cancellations + refunds tile data. Pulls cancelled orders in
+      // the date window plus all pending refunds for this tenant
+      // (refunds are queue-style -- pending refunds are about
+      // "what's outstanding right now", not bound to the date filter).
+      const cancelledOrdersInRange = orders.filter((o: any) =>
+        String(o.status || "").toLowerCase() === "cancelled",
+      ).length;
+
+      const reasonCounts: Record<string, number> = {};
+      for (const o of orders) {
+        if (String(o.status || "").toLowerCase() !== "cancelled") continue;
+        const cat = (o as any).cancellation_reason_category || "other";
+        reasonCounts[cat] = (reasonCounts[cat] || 0) + 1;
+      }
+      const topCancelReason = Object.entries(reasonCounts)
+        .sort((a, b) => b[1] - a[1])[0]?.[0]
+        ?.replace(/_/g, " ") || "-";
+
+      const { data: refundRows } = await supabase
+        .from("payments")
+        .select("amount, status")
+        .eq("company_id", companyId)
+        .eq("payment_type", "refund")
+        .neq("status", "completed");
+      const refundsOutstandingCount = (refundRows || []).length;
+      const refundsOutstandingValue = (refundRows || []).reduce(
+        (sum: number, r: any) => sum + (Number(r.amount) || 0),
+        0,
+      );
+
       setStats({
         bookedRevenue, collectedRevenue, outstandingRevenue,
         bookedOrders, collectedOrders,
@@ -186,6 +222,8 @@ function AdminDashboardPage() {
         pendingQuotes: quotesRes.count ?? 0,
         activeUsers: usersRes.count ?? 0,
         lowStockItems,
+        cancelledOrdersInRange, refundsOutstandingCount,
+        refundsOutstandingValue, topCancelReason,
       });
     } catch (err: any) {
       console.error("Dashboard load error:", err);
@@ -377,6 +415,39 @@ function AdminDashboardPage() {
               tooltip={"Everyone attached to your company right now. This is your current team size and is not affected by the date filter."}
               icon={Users}
               iconColor="text-cyan-600"
+              loading={loading}
+            />
+          </div>
+
+          {/* Cancellations + refunds tile row. Surfaced separately so a
+              spike in cancellations (or unpaid refund queue) is visible
+              at a glance without having to drill into /admin/refunds. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-6">
+            <MetricCard
+              label="Cancellations"
+              value={stats.cancelledOrdersInRange}
+              hint={`In ${range.label.toLowerCase()}`}
+              tooltip={`Orders that ended up cancelled in ${range.label.toLowerCase()}. Top reason: ${stats.topCancelReason}.`}
+              icon={Calendar}
+              iconColor="text-rose-600"
+              loading={loading}
+            />
+            <MetricCard
+              label="Refunds Outstanding"
+              value={fmt.format(stats.refundsOutstandingValue)}
+              hint={`${stats.refundsOutstandingCount} pending payout${stats.refundsOutstandingCount === 1 ? "" : "s"}`}
+              tooltip={"Refunds that have been raised on cancellation but not yet paid out via EFT or gateway. Action them on /admin/refunds."}
+              icon={DollarSign}
+              iconColor="text-amber-600"
+              loading={loading}
+            />
+            <MetricCard
+              label="Top Cancel Reason"
+              value={stats.topCancelReason || "-"}
+              hint={stats.cancelledOrdersInRange === 0 ? "Nothing cancelled in range" : "Most common category"}
+              tooltip={"The most common cancellation reason category for the date range. Useful for spotting patterns -- e.g. lots of 'no_payment' tells you to tighten the deposit reminder cadence."}
+              icon={AlertCircle}
+              iconColor="text-orange-600"
               loading={loading}
             />
           </div>

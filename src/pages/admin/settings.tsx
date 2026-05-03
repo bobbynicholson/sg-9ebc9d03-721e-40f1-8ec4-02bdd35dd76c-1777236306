@@ -40,6 +40,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InventorySettingsTab } from "@/components/admin/inventory/InventorySettingsTab";
 import { DispatchSettingsTab } from "@/components/admin/dispatch/DispatchSettingsTab";
+import { CancellationPolicyTab } from "@/components/admin/policy/CancellationPolicyTab";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 
 export default function ProtectedSettingsPage() {
@@ -446,7 +447,7 @@ function SettingsPage() {
           {/* Tabs - Mobile Optimized with Scrollable Tab List */}
           <Tabs defaultValue="company" className="space-y-4 md:space-y-6">
             <div className="overflow-x-auto">
-              <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-7 gap-1">
+              <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-10 gap-1">
                 <TabsTrigger value="company" className="text-xs md:text-sm whitespace-nowrap">Company</TabsTrigger>
                 <TabsTrigger value="notifications" className="text-xs md:text-sm whitespace-nowrap">Notifications</TabsTrigger>
                 <TabsTrigger value="automation" className="text-xs md:text-sm whitespace-nowrap">Automation</TabsTrigger>
@@ -455,6 +456,7 @@ function SettingsPage() {
                 <TabsTrigger value="inventory" className="text-xs md:text-sm whitespace-nowrap">Inventory</TabsTrigger>
                 <TabsTrigger value="dispatch" className="text-xs md:text-sm whitespace-nowrap">Dispatch</TabsTrigger>
                 <TabsTrigger value="financial" className="text-xs md:text-sm whitespace-nowrap">Financial</TabsTrigger>
+                <TabsTrigger value="cancellation" className="text-xs md:text-sm whitespace-nowrap">Cancellation</TabsTrigger>
                 <TabsTrigger value="email-automation" className="text-xs md:text-sm whitespace-nowrap">Email Auto</TabsTrigger>
               </TabsList>
             </div>
@@ -918,6 +920,10 @@ function SettingsPage() {
 
             <TabsContent value="dispatch">
               <DispatchSettingsTab />
+            </TabsContent>
+
+            <TabsContent value="cancellation">
+              <CancellationPolicyTab />
             </TabsContent>
 
             <TabsContent value="financial">
