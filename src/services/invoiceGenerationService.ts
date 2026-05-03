@@ -323,6 +323,28 @@ export async function ensureInvoiceForOrder(
     if (!created.success) {
       return { success: false, error: created.error };
     }
+
+    // Fire-and-forget Xero sync. Only fires when the tenant has Xero
+    // connected + push enabled; the endpoint short-circuits otherwise.
+    // Server-to-server auth via x-cms-internal: CRON_SECRET so the
+    // call doesn't need a session. Failures here don't unwind the
+    // invoice creation; sync errors are written to invoices.sync_error
+    // for the admin dashboard to surface.
+    if (created.invoiceId) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret) {
+        void fetch(`${baseUrl}/api/accounting/xero/sync-invoice`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-cms-internal": cronSecret,
+          },
+          body: JSON.stringify({ invoice_id: created.invoiceId }),
+        }).catch((e) => console.warn("[ensureInvoiceForOrder] xero sync fire failed:", e));
+      }
+    }
+
     return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
   } catch (e: any) {
     return { success: false, error: e?.message || "ensureInvoiceForOrder crashed" };
