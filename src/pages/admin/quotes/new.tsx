@@ -572,7 +572,11 @@ function NewQuotePage() {
         equipment_id: null,
         name: "",
         category: null,
-        quantity: 1,
+        // Equipment is almost always 1-per-guest (plate, fork, napkin,
+        // glass). Default the new line to the event's guest count;
+        // the operator can override for table-level kit (carving
+        // station x1, gas burner x2).
+        quantity: guestCount > 0 ? guestCount : 1,
         unitPrice: 0,
       },
     ]);
