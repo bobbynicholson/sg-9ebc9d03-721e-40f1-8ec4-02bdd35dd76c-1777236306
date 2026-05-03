@@ -295,8 +295,11 @@ export default function ShoppingDashboard() {
             <CardContent className="px-3 sm:px-4 md:px-6">
               <div className="space-y-2 sm:space-y-3">
                 {filteredItems.length === 0 ? (
-                  <div className="text-center py-8 text-sm sm:text-base text-slate-600">
-                    No items to display
+                  <div className="text-center py-8 px-4">
+                    <p className="text-sm sm:text-base font-medium text-slate-700">Nothing to shop right now.</p>
+                    <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
+                      As confirmed orders + low-stock alerts come in, the items you need to buy will appear here, prioritised by event date.
+                    </p>
                   </div>
                 ) : (
                   filteredItems.map((item) => {

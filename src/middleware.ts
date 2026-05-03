@@ -252,24 +252,40 @@ export async function middleware(request: NextRequest) {
     console.error("[Middleware] Error fetching profile:", error);
   }
 
-  // Resolve user's own company slug for slug-aware landing redirects
+  // Resolve user's own company slug + onboarding state for slug-aware
+  // landing redirects. We piggyback the onboarding_completed_at lookup
+  // on the slug fetch so it's a single round trip per request.
   let userCompanySlug: string | undefined;
+  let onboardingCompletedAt: string | null = null;
   if (profileCompanyId) {
     try {
       const { data: company } = await supabase
         .from("companies")
-        .select("slug")
+        .select("slug, onboarding_completed_at")
         .eq("id", profileCompanyId)
         .single();
       userCompanySlug = company?.slug ?? undefined;
+      onboardingCompletedAt = company?.onboarding_completed_at ?? null;
     } catch (error) {
       console.error("[Middleware] Error fetching user company slug:", error);
     }
   }
 
-  const roleLandingPage = profileRole
+  const baseLandingPage = profileRole
     ? getLandingPageForRoleString(profileRole, userCompanySlug)
     : undefined;
+
+  // Onboarding-aware landing override: a tenant admin/owner with
+  // incomplete onboarding lands on /admin/onboarding instead of the
+  // dashboard, so they pick up where they left off rather than staring
+  // at a wall of zeros. Once onboarding_completed_at is set on
+  // companies, we revert to the normal landing.
+  const isAdminish =
+    profileRole === "company_admin" || profileRole === "admin" || profileRole === "owner";
+  const roleLandingPage =
+    isAdminish && !onboardingCompletedAt && userCompanySlug
+      ? `/${userCompanySlug}/admin/onboarding`
+      : baseLandingPage;
 
   // ✅ Redirect authenticated users away from auth pages to their landing
   if (pathname === "/auth/login" || pathname === "/auth/register") {

@@ -561,8 +561,11 @@ export default function DriverDashboard() {
                     Loading deliveries...
                   </div>
                 ) : jobs.length === 0 ? (
-                  <div className="text-center py-8 text-sm sm:text-base text-slate-600">
-                    No deliveries scheduled
+                  <div className="text-center py-8 px-4">
+                    <p className="text-sm sm:text-base font-medium text-slate-700">No deliveries scheduled.</p>
+                    <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
+                      Once dispatch assigns you to an event, it'll show up here with the route, ETA and pickup details.
+                    </p>
                   </div>
                 ) : (
                   jobs.map((job) => (

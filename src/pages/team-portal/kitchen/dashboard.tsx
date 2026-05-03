@@ -603,7 +603,10 @@ export default function KitchenDashboard() {
               ) : orders.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-                  <p className="text-sm text-slate-600">No live orders. Use the breather to deep-clean or restock.</p>
+                  <p className="text-sm font-medium text-slate-700">All caught up -- no live orders right now.</p>
+                  <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">
+                    Orders show up here automatically once the admin confirms a quote. Use the breather to deep-clean or restock.
+                  </p>
                 </div>
               ) : (() => {
                 const byStatus: Record<string, Order[]> = {
