@@ -258,9 +258,13 @@ function NewQuotePage() {
   // ── Computed totals ───────────────────────────────────────────────
   const computed = useMemo(() => {
     const lineFigures = menuItems.map((it) => {
+      // Per-guest lines default to the global guest count, but the
+      // operator can override per line (vegetarian for 2, normal lamb
+      // for 98 of a 100-guest event). A non-null line.quantity always
+      // wins; null falls back to guestCount.
       const q =
         it.pricingMode === "per_person"
-          ? guestCount
+          ? (typeof it.quantity === "number" && it.quantity > 0 ? it.quantity : guestCount)
           : it.pricingMode === "flat"
             ? 1
             : it.quantity;
@@ -1099,7 +1103,7 @@ function NewQuotePage() {
                   {menuItems.map((line, idx) => {
                     const computedQty =
                       line.pricingMode === "per_person"
-                        ? guestCount
+                        ? (typeof line.quantity === "number" && line.quantity > 0 ? line.quantity : guestCount)
                         : line.pricingMode === "flat"
                           ? 1
                           : line.quantity;
@@ -1166,13 +1170,16 @@ function NewQuotePage() {
                               <Input
                                 type="number"
                                 min={0}
-                                disabled={line.pricingMode === "per_person" || line.pricingMode === "flat"}
-                                value={
+                                disabled={line.pricingMode === "flat"}
+                                placeholder={
                                   line.pricingMode === "per_person"
-                                    ? guestCount
-                                    : line.pricingMode === "flat"
-                                      ? 1
-                                      : line.quantity || ""
+                                    ? `${guestCount || 0} (default)`
+                                    : ""
+                                }
+                                value={
+                                  line.pricingMode === "flat"
+                                    ? 1
+                                    : line.quantity || ""
                                 }
                                 onChange={(e) => updateLine(line.id, { quantity: safeNum(e.target.value) })}
                               />
