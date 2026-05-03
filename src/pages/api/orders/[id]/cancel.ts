@@ -119,10 +119,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       refund_override !== null && refund_override >= 0 ? Number(refund_override) : refund_calc;
 
     // Run the cancelOrder workflow (status, cascades, audit, notifications).
+    // Pass the ssr client so the UPDATE runs as the authenticated user
+    // -- the imported browser supabase has no session in this context
+    // and would hit "permission denied for table orders" via RLS.
     const result = await cancelOrder(orderId, {
       reason: reason || undefined,
       reason_category,
       cancelled_by_user_id: user.id,
+      client: ssr,
     });
     if (!result.success) {
       return res.status(500).json({ error: result.error || "Cancel failed" });

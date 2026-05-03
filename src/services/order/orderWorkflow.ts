@@ -264,12 +264,22 @@ export async function cancelOrder(
     reason?: string;
     reason_category?: string;
     cancelled_by_user_id?: string;
+    /**
+     * Server-side callers (Next.js API routes) MUST pass an SSR
+     * Supabase client here -- the imported browser client has no
+     * cookie/session in that context and RLS will reject the UPDATE
+     * with "permission denied for table orders". Browser callers
+     * can omit this and the default browser client picks up the
+     * user's session automatically.
+     */
+    client?: any;
   } = {},
 ) {
   try {
     const nowIso = new Date().toISOString();
+    const sb = opts.client || supabase;
 
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("orders")
       .update({
         status: "cancelled",
@@ -293,7 +303,7 @@ export async function cancelOrder(
     // cancel itself.
     void (async () => {
       try {
-        await supabase
+        await sb
           .from("equipment_bookings")
           .update({ status: "cancelled" } as any)
           .eq("order_id", orderId);
@@ -304,7 +314,7 @@ export async function cancelOrder(
 
     void (async () => {
       try {
-        await supabase
+        await sb
           .from("kitchen_prep_tasks")
           .update({ status: "cancelled" } as any)
           .eq("order_id", orderId);
@@ -318,7 +328,7 @@ export async function cancelOrder(
     // through updateOrderStatus. cancelOrder writes directly so we
     // mirror the audit log inline.
     try {
-      await supabase.from("order_status_history").insert({
+      await sb.from("order_status_history").insert({
         order_id: orderId,
         status: "cancelled",
         changed_by: opts.cancelled_by_user_id || null,

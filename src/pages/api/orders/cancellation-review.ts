@@ -135,6 +135,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       reason: (request as any).reason || review_notes || "Client-requested cancellation",
       reason_category: "client_cancelled",
       cancelled_by_user_id: user.id,
+      client: ssr,
     });
     if (!cancelResult.success) {
       return res.status(500).json({ error: cancelResult.error || "Cancel failed" });
