@@ -39,10 +39,19 @@ export interface BrandedShellProps {
   children: React.ReactNode;
 }
 
+// Read once at module load. Server-side render (via @react-email/render
+// inside API routes) means we have access to process.env here; the
+// fallback chain handles local dev / preview where these aren't set.
+const PLATFORM_NAME =
+  (typeof process !== "undefined" && process.env.PLATFORM_BRAND_NAME) || "CateringMS";
+const PLATFORM_SUPPORT =
+  (typeof process !== "undefined" && process.env.PLATFORM_SUPPORT_EMAIL) ||
+  "support@cateringms.co.za";
+
 const DEFAULT_BRAND: Required<Pick<CompanyBrand, "name" | "primaryColor" | "supportEmail">> = {
-  name: "CateringMS",
+  name: PLATFORM_NAME,
   primaryColor: "#7c3aed",
-  supportEmail: "support@cateringms.co.za",
+  supportEmail: PLATFORM_SUPPORT,
 };
 
 export function BrandedShell({ brand, preview, children }: BrandedShellProps) {
@@ -77,7 +86,7 @@ export function BrandedShell({ brand, preview, children }: BrandedShellProps) {
               .
             </Text>
             <Text style={footerSmall}>
-              Powered by CateringMS -- run your catering business without the chaos.
+              Powered by {PLATFORM_NAME} -- run your catering business without the chaos.
             </Text>
           </Section>
         </Container>

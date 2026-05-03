@@ -21,6 +21,8 @@ export interface OwnerWelcomeEmailProps {
   /** Fully-qualified URL to the tenant's onboarding page. */
   onboardingUrl: string;
   brand?: CompanyBrand;
+  /** Platform name (e.g. "CateringMS"). Defaults to env / hardcoded fallback. */
+  platformName?: string;
 }
 
 export default function OwnerWelcomeEmail({
@@ -28,13 +30,18 @@ export default function OwnerWelcomeEmail({
   companyName,
   onboardingUrl,
   brand,
+  platformName,
 }: OwnerWelcomeEmailProps) {
   const brandColor = brand?.primaryColor || "#7c3aed";
+  const platform =
+    platformName ||
+    (typeof process !== "undefined" && process.env.PLATFORM_BRAND_NAME) ||
+    "CateringMS";
   return (
     <BrandedShell brand={brand} preview={`${companyName} is in. Here's what to do first.`}>
       <Text style={emailHeadingStyle}>Welcome aboard, {ownerFirstName}.</Text>
       <Text style={emailBodyTextStyle}>
-        <strong>{companyName}</strong> is now running on CateringMS. Setup takes about 20 minutes
+        <strong>{companyName}</strong> is now running on {platform}. Setup takes about 20 minutes
         end-to-end -- we've broken it into a checklist that updates itself as you fill in real data,
         so nothing's wasted.
       </Text>

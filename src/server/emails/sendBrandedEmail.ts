@@ -56,8 +56,11 @@ interface SendResult {
   error?: string;
 }
 
-const PLATFORM_FROM_NAME = "CateringMS";
-const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "noreply@cateringms.co.za";
+// Platform identity. Both env-driven so renaming the SaaS later is a
+// config change -- no code edit, no rebuild beyond a redeploy. Fall
+// back to CateringMS so nothing breaks if the env var isn't set.
+const PLATFORM_FROM_NAME = process.env.PLATFORM_BRAND_NAME || "CateringMS";
+const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "onboarding@resend.dev";
 
 export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<SendResult> {
   const html = await render(args.component);

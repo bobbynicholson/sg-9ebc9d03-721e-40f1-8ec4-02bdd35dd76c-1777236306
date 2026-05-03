@@ -74,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       brand: { name: companyName },
     }),
     to: email,
-    subject: `Welcome to CateringMS, ${firstName}`,
+    subject: `Welcome to ${process.env.PLATFORM_BRAND_NAME || "CateringMS"}, ${firstName}`,
     companyId,
     templateType: "owner_welcome",
     recipientName: ownerName,
