@@ -76,6 +76,8 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
+import { dispatchService } from "@/services/dispatchService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { EquipmentTypeahead, EquipmentPick } from "@/components/admin/EquipmentTypeahead";
@@ -235,7 +237,16 @@ function NewQuotePage() {
 
   const [deliveryDistance, setDeliveryDistance] = useState(0);
   const [deliveryCostPerKm, setDeliveryCostPerKm] = useState(8.5);
+  const [minDeliveryFee, setMinDeliveryFee] = useState(0);
   const [deliveryFee, setDeliveryFee] = useState(0);
+  /** True once the operator has manually overridden the auto-fee.
+   *  Stops subsequent auto-recalcs from clobbering their override. */
+  const [deliveryFeeOverridden, setDeliveryFeeOverridden] = useState(false);
+  /** Kitchen origin (region or HQ) used as the distance reference. */
+  const { origin: kitchenOrigin, source: kitchenOriginSource } = useKitchenOrigin(
+    user?.id || null,
+    companyId || null,
+  );
 
   const [surgePct, setSurgePct] = useState(0);
   const [discountPct, setDiscountPct] = useState(0);
@@ -442,22 +453,60 @@ function NewQuotePage() {
     }
   }
 
-  // ── Auto-distance on venue change ─────────────────────────────────
+  // ── Pull the company's per-km rate + min-fee from dispatch settings.
   useEffect(() => {
-    if (!venueAddress || venueAddress.length < 5) return;
-    // Naive estimate while we don't have a real distance API hook
-    // here. The settings-driven cost-per-km still applies and the
-    // user can override the fee directly.
-    const handle = setTimeout(() => {
-      const estimated = Math.max(8, Math.min(60, venueAddress.length / 2));
-      setDeliveryDistance((prev) => (prev === 0 ? estimated : prev));
-    }, 400);
-    return () => clearTimeout(handle);
-  }, [venueAddress]);
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await dispatchService.getDispatchSettings(companyId);
+        if (cancelled) return;
+        if (typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm > 0) {
+          setDeliveryCostPerKm(s.deliveryCostPerKm);
+        }
+        if (typeof s.minDeliveryFee === "number" && s.minDeliveryFee > 0) {
+          setMinDeliveryFee(s.minDeliveryFee);
+        }
+      } catch (e) {
+        console.warn("[quotes/new] dispatch settings load failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
+  // ── Auto-distance from kitchen to venue (haversine). ──────────────
+  // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
+  // on pick). Operator can still type into the distance input to
+  // override -- their override sticks until they pick a new address.
   useEffect(() => {
-    setDeliveryFee(deliveryDistance * deliveryCostPerKm);
-  }, [deliveryDistance, deliveryCostPerKm]);
+    if (
+      !kitchenOrigin?.lat || !kitchenOrigin?.lng ||
+      typeof venueLat !== "number" || typeof venueLng !== "number"
+    ) return;
+    const R = 6371;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(venueLat - kitchenOrigin.lat);
+    const dLng = toRad(venueLng - kitchenOrigin.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(kitchenOrigin.lat)) *
+        Math.cos(toRad(venueLat)) *
+        Math.sin(dLng / 2) ** 2;
+    const km = 2 * R * Math.asin(Math.sqrt(a));
+    setDeliveryDistance(Number(km.toFixed(2)));
+    // Picking a new address re-enables auto-fee. Operator can override
+    // again if needed.
+    setDeliveryFeeOverridden(false);
+  }, [kitchenOrigin?.lat, kitchenOrigin?.lng, venueLat, venueLng]);
+
+  // ── Auto-fee from distance × per-km, floored at min fee. ──────────
+  // Skipped once the operator has typed a manual override into the
+  // delivery fee input.
+  useEffect(() => {
+    if (deliveryFeeOverridden) return;
+    const calc = deliveryDistance * deliveryCostPerKm;
+    setDeliveryFee(Math.max(calc, minDeliveryFee));
+  }, [deliveryDistance, deliveryCostPerKm, minDeliveryFee, deliveryFeeOverridden]);
 
   // ── Cascade guest count to per_person lines ───────────────────────
   useEffect(() => {
@@ -1060,6 +1109,83 @@ function NewQuotePage() {
                       }}
                     />
                   </div>
+
+                  {/* Distance + delivery fee. Auto-calculated from
+                      kitchen -> venue once both lat/lng are set; the
+                      operator can override either field manually. The
+                      override flag stops auto-recalc from clobbering
+                      a manual fee until they pick a fresh address. */}
+                  {(venueLat || deliveryDistance > 0) && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-blue-900">
+                        <span className="font-semibold">Delivery distance + fee</span>
+                        {kitchenOrigin?.lat && (
+                          <span className="text-blue-700/80">
+                            From {kitchenOriginSource === "region" ? "regional kitchen" : "company HQ"}
+                          </span>
+                        )}
+                      </div>
+                      {!kitchenOrigin?.lat && (
+                        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                          Kitchen origin not set. Open Company profile and pin your HQ address so distance auto-calculates.
+                        </p>
+                      )}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[11px] text-blue-900">Distance (km)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={deliveryDistance || ""}
+                            onChange={(e) => {
+                              setDeliveryDistance(safeNum(e.target.value));
+                              setDeliveryFeeOverridden(false);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-blue-900">R per km</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            value={deliveryCostPerKm || ""}
+                            onChange={(e) => {
+                              setDeliveryCostPerKm(safeNum(e.target.value));
+                              setDeliveryFeeOverridden(false);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-blue-900 flex items-center gap-1">
+                            Fee (R)
+                            {deliveryFeeOverridden && (
+                              <span className="text-[10px] text-rose-700 font-normal">(manual)</span>
+                            )}
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={deliveryFee || ""}
+                            onChange={(e) => {
+                              setDeliveryFee(safeNum(e.target.value));
+                              setDeliveryFeeOverridden(true);
+                            }}
+                            className="bg-white"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-blue-700/80">
+                        {deliveryFeeOverridden
+                          ? `Manual override active. Fee = R${deliveryFee.toFixed(2)}.`
+                          : `Auto: ${deliveryDistance.toFixed(1)}km × R${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor R${minDeliveryFee}` : ""} = R${deliveryFee.toFixed(2)}`}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Recent-quote templates from the picked client. */}
                   {clientSnapshot && clientSnapshot.recent_quotes.length > 0 && (

@@ -32,6 +32,10 @@ export interface DispatchSettings {
   batchDistanceKm: number;
   /** Phase 3: max time in minutes between two orders' event times to qualify. */
   batchTimeWindowMinutes: number;
+  /** Rand per kilometre delivery fee, applied on the quote builder. */
+  deliveryCostPerKm: number;
+  /** Floor delivery fee. If distance × per-km falls below this, the floor wins. */
+  minDeliveryFee: number;
   weights: {
     distance: number;
     currentLoad: number;
@@ -48,6 +52,8 @@ const DEFAULT_SETTINGS: DispatchSettings = {
   autoSuggestEnabled: true,
   batchDistanceKm: 2,
   batchTimeWindowMinutes: 60,
+  deliveryCostPerKm: 8.5,            // SA market average; tenant overrides
+  minDeliveryFee: 0,                 // off by default
   weights: {
     distance:     0.30,
     currentLoad:  0.20,
@@ -141,6 +147,8 @@ export const dispatchService = {
       autoSuggestEnabled:     Boolean(raw.auto_suggest_enabled     ?? DEFAULT_SETTINGS.autoSuggestEnabled),
       batchDistanceKm:        Number(raw.batch_distance_km         ?? DEFAULT_SETTINGS.batchDistanceKm),
       batchTimeWindowMinutes: Number(raw.batch_time_window_minutes ?? DEFAULT_SETTINGS.batchTimeWindowMinutes),
+      deliveryCostPerKm:      Number(raw.delivery_cost_per_km      ?? DEFAULT_SETTINGS.deliveryCostPerKm),
+      minDeliveryFee:         Number(raw.min_delivery_fee          ?? DEFAULT_SETTINGS.minDeliveryFee),
       weights: {
         distance:    Number(raw.auto_assign_weights?.distance     ?? DEFAULT_SETTINGS.weights.distance),
         currentLoad: Number(raw.auto_assign_weights?.current_load ?? DEFAULT_SETTINGS.weights.currentLoad),
@@ -159,6 +167,8 @@ export const dispatchService = {
       auto_suggest_enabled:      s.autoSuggestEnabled,
       batch_distance_km:         s.batchDistanceKm,
       batch_time_window_minutes: s.batchTimeWindowMinutes,
+      delivery_cost_per_km:      s.deliveryCostPerKm,
+      min_delivery_fee:          s.minDeliveryFee,
       auto_assign_weights: {
         distance:     s.weights.distance,
         current_load: s.weights.currentLoad,
