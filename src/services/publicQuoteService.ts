@@ -118,7 +118,9 @@ export async function recordView(token: string, currentViewedAt: string | null):
 /**
  * Stamp accepted_at when the client clicks Accept. Updates status to
  * 'accepted' too so the admin side picks up the change without a
- * second round-trip.
+ * second round-trip. Fires admin notifications (in-app + email +
+ * WhatsApp) so the catering team finds out the moment the client
+ * commits, not on next page reload.
  */
 export async function recordAccept(args: {
   token: string;
@@ -131,14 +133,118 @@ export async function recordAccept(args: {
   // so we don't need a new column. The acceptance audit trail lives
   // in the row's accepted_at + status change.
   const nowIso = new Date().toISOString();
-  const { error } = await (supabase as any)
+  const { data: updated, error } = await (supabase as any)
     .from("quotes")
     .update({
       accepted_at: nowIso,
       status: "accepted",
     })
     .eq("public_token", args.token)
-    .is("deleted_at", null);
+    .is("deleted_at", null)
+    .select("id, company_id, user_id, client_name, client_email, total, currency, event_date, guest_count")
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  if (!updated) return { ok: false, error: "Quote not found." };
+
+  // Fire-and-forget admin alerts. Wrapped in its own try/catch so a
+  // failed notification (Resend down, etc.) never makes the public
+  // accept fail -- the quote IS accepted, the alert is best-effort.
+  notifyAdminOfAcceptance(updated, args.acceptedByName).catch((notifyErr) =>
+    console.warn("[publicQuoteService] admin acceptance alert failed:", notifyErr),
+  );
+
   return { ok: true };
+}
+
+/**
+ * Internal: in-app + email + WhatsApp ping to the catering team that
+ * this quote was just accepted. Pulled out so recordAccept reads
+ * linearly. Best-effort -- every channel is wrapped in its own try
+ * so one failure (no admin phone configured, no email provider) does
+ * not block the others.
+ */
+async function notifyAdminOfAcceptance(
+  quote: any,
+  acceptedByName: string,
+): Promise<void> {
+  const sb: any = supabase;
+
+  // Owner profile drives in-app notification recipient + email + phone.
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("id, full_name, email, phone, phone_number, company_name")
+    .eq("id", quote.user_id)
+    .maybeSingle();
+
+  const companyName = profile?.company_name || profile?.full_name || "Your catering company";
+  const totalLabel = `${quote.currency || "ZAR"} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  const eventLabel = quote.event_date
+    ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : "TBD";
+  const acceptorLabel = acceptedByName || quote.client_name || "the client";
+
+  // 1. In-app notification (urgent priority -- admin should act on
+  //    converting to an order today).
+  try {
+    const { notificationService } = await import("./notificationService");
+    await notificationService.createNotification({
+      company_id: quote.company_id,
+      user_id: quote.user_id,
+      recipient_id: quote.user_id,
+      notification_type: "quote_accepted",
+      title: "✅ Quote accepted!",
+      message: `${acceptorLabel} accepted the quote for ${quote.client_name || "this booking"} -- ${totalLabel}, event ${eventLabel}.`,
+      priority: "urgent",
+      link: `/admin/quotes/${quote.id}`,
+    } as any);
+  } catch (e) {
+    console.warn("[publicQuoteService] in-app accept notif failed:", e);
+  }
+
+  // 2. Email to the owner.
+  try {
+    if (profile?.email) {
+      await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: quote.user_id,
+          to: profile.email,
+          subject: `Quote accepted -- ${quote.client_name || "client"}`,
+          body: `${acceptorLabel} just accepted the quote for ${quote.client_name || "this booking"}.\n\n` +
+                `Total: ${totalLabel}\nEvent date: ${eventLabel}\nGuests: ${quote.guest_count ?? "TBD"}\n\n` +
+                `Open the quote to convert it into an order: ${typeof window !== "undefined" ? window.location.origin : ""}/admin/quotes/${quote.id}`,
+          variables: {
+            clientName: quote.client_name,
+            companyName,
+            totalAmount: totalLabel,
+          },
+        }),
+      });
+    }
+  } catch (e) {
+    console.warn("[publicQuoteService] accept email to owner failed:", e);
+  }
+
+  // 3. WhatsApp to the owner (if a phone is configured).
+  try {
+    const adminPhone = profile?.phone || profile?.phone_number;
+    if (adminPhone) {
+      const { whatsappIntegrationService } = await import("./whatsappIntegrationService");
+      await whatsappIntegrationService.sendWhatsAppMessage({
+        to: adminPhone,
+        type: "text",
+        text: {
+          body:
+            `✅ Quote accepted!\n\n` +
+            `Client: ${quote.client_name || acceptorLabel}\n` +
+            `Total: ${totalLabel}\n` +
+            `Event: ${eventLabel}\n\n` +
+            `Convert to order in the admin portal.`,
+        },
+      } as any);
+    }
+  } catch (e) {
+    console.warn("[publicQuoteService] accept whatsapp to owner failed:", e);
+  }
 }

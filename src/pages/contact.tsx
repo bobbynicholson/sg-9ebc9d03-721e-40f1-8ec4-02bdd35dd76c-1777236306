@@ -34,6 +34,12 @@ export default function ContactPage() {
     subject: "general"
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  // Honeypot field -- bots fill every input; humans never see it
+  // because it's hidden. If it's non-empty when we POST, the API
+  // treats the request as spam.
+  const [website, setWebsite] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -42,21 +48,29 @@ export default function ContactPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        company: "",
-        message: "",
-        subject: "general"
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const resp = await fetch("/api/contact-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, website }),
       });
-    }, 3000);
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({}));
+        throw new Error(j?.error || "Could not send your message.");
+      }
+      setSubmitted(true);
+      setFormData({ name: "", email: "", phone: "", company: "", message: "", subject: "general" });
+      setWebsite("");
+    } catch (err: any) {
+      setSubmitError(err?.message || "Could not send your message. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const contactMethods = [
@@ -332,13 +346,32 @@ export default function ContactPage() {
                     />
                   </div>
 
-                  <Button 
-                    type="submit" 
-                    size="lg" 
-                    className="w-full h-12 sm:h-14 text-base sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity"
+                  {/* Honeypot -- hidden from real users, bots fill it. */}
+                  <input
+                    type="text"
+                    name="website"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+                  />
+
+                  {submitError && (
+                    <p className="text-sm text-rose-600 text-center" role="alert">
+                      {submitError}
+                    </p>
+                  )}
+
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={submitting}
+                    className="w-full h-12 sm:h-14 text-base sm:text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90 transition-opacity disabled:opacity-60"
                   >
                     <Send className="w-5 h-5 mr-2" />
-                    Send Message
+                    {submitting ? "Sending..." : "Send Message"}
                   </Button>
 
                   <p className="text-xs sm:text-sm text-slate-500 text-center">

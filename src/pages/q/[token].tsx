@@ -387,15 +387,61 @@ export default function PublicQuotePage() {
           {/* ACCEPT -- screen only, hidden in print */}
           <div className="no-print">
             {accepted ? (
-              <Card className="border-0 bg-emerald-50 shadow-sm">
-                <CardContent className="py-6 px-5 text-center space-y-2">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <h2 className="text-base font-semibold text-emerald-900">
-                    {justAccepted ? "Thanks, your quote is accepted!" : "Quote accepted"}
-                  </h2>
-                  <p className="text-sm text-emerald-800">
-                    {companyName} will be in touch shortly with the next steps. Keep an eye on your inbox.
-                  </p>
+              <Card className="border-0 bg-gradient-to-br from-emerald-50 to-amber-50 shadow-sm">
+                <CardContent className="py-8 px-5 text-center space-y-5">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-600 shadow-lg">
+                    <CheckCircle2 className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-emerald-900">
+                      {justAccepted
+                        ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} -- you're booked in`
+                        : "Quote accepted"}
+                    </h2>
+                    <p className="text-sm text-emerald-800 mt-1.5 max-w-md mx-auto">
+                      {companyName} has been notified. Here's what happens from here.
+                    </p>
+                  </div>
+
+                  {/* Next-steps timeline. Three concrete steps so the
+                      client knows they're not in a black hole. */}
+                  <ol className="text-left max-w-md mx-auto space-y-3">
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-stone-900">Confirmation email</p>
+                        <p className="text-xs text-stone-600">A copy of this quote and the next steps will arrive in your inbox shortly.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-stone-900">Deposit invoice</p>
+                        <p className="text-xs text-stone-600">{companyName} will send the deposit invoice to lock in your event date.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-stone-900">
+                          {eventDate ? `Event day -- ${eventDate}` : "Event day"}
+                        </p>
+                        <p className="text-xs text-stone-600">We'll be in touch the week before with final headcount + final tweaks.</p>
+                      </div>
+                    </li>
+                  </ol>
+
+                  <div className="pt-2 border-t border-emerald-200">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.print()}
+                      className="gap-1.5 text-stone-700"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Save a copy of this quote
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

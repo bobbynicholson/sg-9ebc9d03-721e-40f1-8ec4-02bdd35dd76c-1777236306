@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { orderService } from "@/services/orderService";
+import { emailService } from "@/services/emailService";
 import crypto from "crypto";
 
 /**
@@ -112,7 +113,60 @@ export default async function handler(
           channels: ["in_app", "email"]
         }]);
 
-        // TODO: Send invoice payment confirmation email
+        // Invoice payment confirmation -- "thank you, payment received".
+        // Emit through emailService so it picks up the company's
+        // configured Resend / SMTP provider and the negative gates
+        // (block list + import quarantine) run server-side.
+        try {
+          // Pull a recipient email off the linked client, or fall
+          // back to the order's client_email if the invoice has no
+          // client_id link.
+          let recipientEmail: string | null = null;
+          let recipientName: string | null = null;
+          if (invoiceData.client_id) {
+            const { data: clientRow } = await supabase
+              .from("clients")
+              .select("email, client_name")
+              .eq("id", invoiceData.client_id)
+              .maybeSingle();
+            if (clientRow) {
+              recipientEmail = (clientRow as any).email;
+              recipientName = (clientRow as any).client_name;
+            }
+          }
+          if (!recipientEmail && invoiceData.order_id) {
+            const { data: orderRow } = await supabase
+              .from("orders")
+              .select("client_email, client_name")
+              .eq("id", invoiceData.order_id)
+              .maybeSingle();
+            if (orderRow) {
+              recipientEmail = (orderRow as any).client_email;
+              recipientName = (orderRow as any).client_name;
+            }
+          }
+
+          if (recipientEmail) {
+            await emailService.sendEmail({
+              companyId,
+              to: recipientEmail,
+              subject: `Payment received -- invoice ${invoiceData.invoice_number}`,
+              template: "invoice-payment-received",
+              variables: {
+                clientName: recipientName || "there",
+                invoiceNumber: invoiceData.invoice_number,
+                amount: `R${Number(amount_gross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
+                companyName: companyData?.company_name || "Your caterer",
+              },
+            });
+          }
+        } catch (emailErr) {
+          // Non-blocking -- the invoice is already marked paid;
+          // a failed confirmation email is logged but doesn't undo
+          // the webhook. Surfaces in the email-failures dashboard
+          // (item #9) once that lands.
+          console.warn("Invoice payment confirmation email failed:", emailErr);
+        }
         console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
       }
 
@@ -282,7 +336,10 @@ async function triggerEmail(order: any, emailType: string) {
       .replace("{event_date}", new Date(order.event_date).toLocaleDateString())
       .replace("{venue}", order.venue_address || "TBD");
 
-    // Log the email
+    // Actually send through emailService -- this honours the company's
+    // Resend / SMTP config and runs the block-list + quarantine guards.
+    // Log first so we have a row even if the send fails (the failure
+    // dashboard reads this table).
     await supabase.from("email_automation_log").insert([{
       user_id: order.user_id,
       order_id: order.id,
@@ -290,12 +347,32 @@ async function triggerEmail(order: any, emailType: string) {
       recipient_email: order.client_email,
       recipient_name: order.client_name,
       subject: subject,
-      status: "sent",
+      status: "queued",
     }]);
 
-    // TODO: Actual email sending via Resend/SMTP
-    console.log("Email queued:", emailType, order.client_email);
-
+    if (order.client_email) {
+      const sent = await emailService.sendEmail({
+        companyId: order.user_id,
+        to: order.client_email,
+        subject,
+        body,
+        variables: {
+          clientName: order.client_name,
+          orderNumber: order.order_number,
+          eventDate: order.event_date
+            ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+            : "TBD",
+          venue: order.venue_address || "TBD",
+        },
+      });
+      // Update the log row to reflect the real outcome.
+      await supabase.from("email_automation_log")
+        .update({ status: sent ? "sent" : "failed" })
+        .eq("user_id", order.user_id)
+        .eq("order_id", order.id)
+        .eq("template_type", emailType)
+        .eq("status", "queued");
+    }
   } catch (error) {
     console.error("Error triggering email:", error);
   }

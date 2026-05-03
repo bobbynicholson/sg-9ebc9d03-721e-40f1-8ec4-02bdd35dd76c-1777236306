@@ -87,7 +87,61 @@ export const quoteService = {
     return data;
   },
 
-  async updateQuote(quoteId: string, updates: Partial<Quote>): Promise<Quote | null> {
+    // Status transition guard rails. The audit (May 2026) flagged
+    // that admins could flip a quote from any status to any status
+    // with no warning -- e.g. accepted -> draft, which silently
+    // discards the client's acceptance signal. We don't block the
+    // user (some legitimate edge cases need overrides) but we DO
+    // refuse the transitions that have downstream consequences:
+    //
+    //   - sent -> draft: the client may have already viewed/clicked
+    //     the link; reverting to draft is almost always a mistake.
+    //   - accepted -> anything except 'accepted' or 'expired':
+    //     accepted is a commitment from the client; reverting it
+    //     loses the audit trail and orphans the converted order.
+    //   - expired -> draft: no real harm but wrong workflow; user
+    //     should "duplicate as draft" instead.
+    //
+    // To override, pass updates with __force_status_change: true (we
+    // strip it before the actual update). Used by support tools or
+    // admin recovery flows.
+    const force = (updates as any).__force_status_change === true;
+    if (force) delete (updates as any).__force_status_change;
+
+    if (updates.status && !force) {
+      try {
+        const { data: current } = await supabase
+          .from("quotes")
+          .select("status")
+          .eq("id", quoteId)
+          .maybeSingle();
+        const from = (current as any)?.status as string | undefined;
+        const to = updates.status as string;
+        if (from && from !== to) {
+          const protectedFrom: Record<string, string[]> = {
+            sent:     ["draft"],
+            accepted: ["draft", "sent", "rejected"],
+            expired:  ["draft"],
+          };
+          const blocked = protectedFrom[from] || [];
+          if (blocked.includes(to)) {
+            const err: any = new Error(
+              `Quote status transition blocked: ${from} -> ${to}. ` +
+              `Use the "duplicate as draft" action or pass __force_status_change=true if you really meant this.`,
+            );
+            err.code = "QUOTE_STATUS_TRANSITION_BLOCKED";
+            err.from = from;
+            err.to = to;
+            throw err;
+          }
+        }
+      } catch (e: any) {
+        // Re-throw guard errors; suppress only read failures.
+        if (e?.code === "QUOTE_STATUS_TRANSITION_BLOCKED") throw e;
+        console.warn("[quoteService] guard rail read failed, allowing through:", e);
+      }
+    }
+
     // Detect status transitions that need side-effects. The audit
     // (May 2026) found that quotes were sometimes flipped to 'sent' by
     // direct supabase calls in pages/admin/quotes/* that bypassed

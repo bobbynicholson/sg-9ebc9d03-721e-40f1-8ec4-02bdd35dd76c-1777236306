@@ -138,6 +138,45 @@ export const emailService = {
       return false;
     }
 
+    // Negative gates -- these run for every send path, including
+    // webhooks and the after-sales worker, not just /api/send-email.
+    // Centralising here means a recipient can never sneak a message
+    // through by going around the API route.
+    //   (1) blocked_contacts: deleted with "block" toggle on
+    //   (2) comms_paused_until on leads/clients: still in import
+    //       quarantine, owner hasn't reviewed the batch yet.
+    const sb = payload._client || supabase;
+    const recipientLower = String(payload.to || "").toLowerCase().trim();
+    if (recipientLower) {
+      try {
+        const { data: blocks } = await sb
+          .from("blocked_contacts")
+          .select("email_lower")
+          .eq("company_id", payload.companyId)
+          .eq("email_lower", recipientLower)
+          .limit(1);
+        if (blocks && blocks.length > 0) {
+          console.warn(`[emailService] refused -- ${recipientLower} is on the block list for ${payload.companyId}`);
+          return false;
+        }
+
+        const { data: paused } = await sb.rpc("is_comms_paused_for_email", {
+          p_company_id: payload.companyId,
+          p_email: recipientLower,
+        });
+        if (paused === true) {
+          console.warn(`[emailService] refused -- ${recipientLower} is in import quarantine for ${payload.companyId}`);
+          return false;
+        }
+      } catch (guardErr) {
+        // Don't let a guard failure silently allow sends. Log loudly
+        // but proceed -- worst case we send through, vs the worse
+        // case of failing closed and breaking every email when the
+        // RPC is briefly unavailable.
+        console.warn("[emailService] guard check failed, proceeding:", guardErr);
+      }
+    }
+
     let finalBody = payload.body || "";
 
     if (payload.template) {

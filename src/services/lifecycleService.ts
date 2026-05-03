@@ -158,6 +158,28 @@ export const lifecycleService = {
       );
     }
 
+    // 6. Audit-log the promotion moment so the contact timeline can
+    // show "lead became a client on May 3 2026". Best-effort: a
+    // write failure here doesn't undo the promotion. The pointer
+    // columns on leads + clients still tell the story; this row
+    // adds the user-facing "when did this happen" answer.
+    try {
+      await (sb as any).from("audit_logs").insert({
+        company_id: (lead as any).company_id,
+        action: "lead_promoted_to_client",
+        entity_type: "lead",
+        entity_id: leadId,
+        details: {
+          new_client_id: clientId,
+          new_client_created: isNew,
+          contact_name: (lead as any).contact_name,
+          email: (lead as any).email,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[lifecycleService] audit log write failed (non-blocking):", auditErr);
+    }
+
     return { clientId, isNew, alreadyConverted: false };
   },
 
