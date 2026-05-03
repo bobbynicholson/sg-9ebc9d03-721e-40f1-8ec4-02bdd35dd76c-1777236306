@@ -21,6 +21,20 @@ export async function createOrder(orderData: any) {
       .single();
 
     if (error) throw error;
+
+    // Every order must have its lifecycle artifacts (contact, lead,
+    // quote, invoice) so /admin/contacts, /admin/leads etc. don't
+    // show ghost rows. Fire-and-forget so a backfill failure doesn't
+    // unwind the order create itself.
+    void (async () => {
+      try {
+        const { lifecycleService } = await import("@/services/lifecycleService");
+        await lifecycleService.ensureLifecycleArtifactsForOrder((data as any).id);
+      } catch (e) {
+        console.warn("[createOrder] lifecycle backfill failed:", e);
+      }
+    })();
+
     return { success: true, data };
   } catch (error: any) {
     console.error("Error creating order:", error);

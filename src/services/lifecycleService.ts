@@ -184,6 +184,212 @@ export const lifecycleService = {
   },
 
   /**
+   * Ensure every lifecycle artifact exists for a given order.
+   *
+   * The rule: every order must have a contact (client), a lead, a
+   * quote, and (when status >= confirmed) an invoice. Orders created
+   * via the new-order flow without a quote -- or imported orders, or
+   * legacy orders -- can land missing one or more of those artifacts.
+   * This method fills in whichever ones are missing.
+   *
+   * Idempotent: safe to spam. Returns the resolved IDs.
+   *
+   * Order of operations:
+   *   1. Read the order. Bail early if not found / soft-deleted.
+   *   2. Find or create a clients row by (company_id, email). Sets
+   *      orders.client_id if it was empty.
+   *   3. Find or create a leads row by (company_id, email). Stamps
+   *      status='won' since the lead has already converted (an order
+   *      exists). Links lead.converted_to_client_id to the client.
+   *   4. Find or create a quotes row. If orders.quote_id is null, we
+   *      synthesise a quote with status='accepted' from the order's
+   *      header + line items, then link orders.quote_id to it.
+   *   5. Invoice creation deferred to invoiceGenerationService's
+   *      ensureInvoiceForOrder helper, called from this method when
+   *      the order is at least confirmed.
+   */
+  async ensureLifecycleArtifactsForOrder(
+    orderId: string,
+    opts: PromoteLeadOpts = {},
+  ): Promise<{
+    orderId: string;
+    clientId: string | null;
+    leadId: string | null;
+    quoteId: string | null;
+    invoiceId: string | null;
+    backfilled: string[];
+  }> {
+    const sb = opts.client || supabase;
+    const backfilled: string[] = [];
+
+    // 1. Read the order with its items so we can synthesise a quote
+    //    if needed.
+    const { data: order } = await sb
+      .from("orders")
+      .select("id, company_id, client_id, quote_id, order_number, client_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (!order || (order as any).deleted_at) {
+      return { orderId, clientId: null, leadId: null, quoteId: null, invoiceId: null, backfilled: [] };
+    }
+
+    const companyId = (order as any).company_id as string;
+    const email = (order as any).client_email as string | null;
+    const name = (order as any).client_name as string | null;
+    const phone = (order as any).client_phone as string | null;
+
+    // 2. Find or create the clients row.
+    let clientId: string | null = (order as any).client_id || null;
+    if (!clientId && email) {
+      const { data: existingClient } = await sb
+        .from("clients")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("email", email)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existingClient?.id) {
+        clientId = (existingClient as any).id;
+      } else {
+        const { data: newClient } = await sb
+          .from("clients")
+          .insert({
+            company_id: companyId,
+            client_name: name || "Client",
+            email,
+            phone: phone || "",
+            is_active: true,
+          } as any)
+          .select("id")
+          .single();
+        clientId = (newClient as any)?.id || null;
+        if (clientId) backfilled.push("client");
+      }
+      if (clientId) {
+        await sb.from("orders").update({ client_id: clientId } as any).eq("id", orderId);
+      }
+    }
+
+    // 3. Find or create the leads row.
+    let leadId: string | null = null;
+    if (email) {
+      const { data: existingLead } = await sb
+        .from("leads")
+        .select("id, converted_to_client_id")
+        .eq("company_id", companyId)
+        .eq("email", email)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existingLead?.id) {
+        leadId = (existingLead as any).id;
+        // Ensure the lead is stamped as converted to this client.
+        if (clientId && (existingLead as any).converted_to_client_id !== clientId) {
+          await sb.from("leads").update({
+            converted_to_client_id: clientId,
+            converted_at: new Date().toISOString(),
+            status: "won",
+          } as any).eq("id", leadId);
+        }
+      } else {
+        const { data: newLead } = await sb
+          .from("leads")
+          .insert({
+            company_id: companyId,
+            contact_name: name || "Customer",
+            client_name: name || "Customer",
+            email,
+            phone: phone || null,
+            status: "won",
+            source: "order_backfill",
+            converted_to_client_id: clientId,
+            converted_at: new Date().toISOString(),
+          } as any)
+          .select("id")
+          .single();
+        leadId = (newLead as any)?.id || null;
+        if (leadId) backfilled.push("lead");
+      }
+    }
+
+    // 4. Find or create the quote.
+    let quoteId: string | null = (order as any).quote_id || null;
+    if (!quoteId) {
+      // Pull order_items to copy onto the synthetic quote's menu_items
+      // jsonb. Equipment_bookings could also be mirrored but the
+      // existing orderSyncService already handles that direction; the
+      // quote's role here is "the price book this order locked in".
+      const { data: items } = await sb
+        .from("order_items")
+        .select("id, item_name, description, quantity, unit_price, line_total")
+        .eq("order_id", orderId);
+      const menuItemsJsonb = (items || []).map((it: any) => ({
+        id: it.id,
+        name: it.item_name,
+        description: it.description || null,
+        quantity: Number(it.quantity || 0),
+        pricePerPerson: Number(it.unit_price || 0),
+        unit_price: Number(it.unit_price || 0),
+        line_total: Number(it.line_total || 0),
+      }));
+
+      const total = Number((order as any).total_amount || 0);
+      const subtotal = Number((order as any).subtotal || total);
+      const taxAmount = Number((order as any).tax_amount || 0);
+      const quoteNumber = `QT-${(order as any).order_number || orderId.slice(0, 8)}`;
+
+      const { data: newQuote } = await sb
+        .from("quotes")
+        .insert({
+          company_id: companyId,
+          quote_number: quoteNumber,
+          client_id: clientId,
+          lead_id: leadId,
+          client_name: name,
+          client_email: email,
+          event_date: (order as any).event_date,
+          guest_count: (order as any).guest_count,
+          venue_address: (order as any).venue_address,
+          subtotal,
+          tax_amount: taxAmount,
+          tax: taxAmount,
+          total_amount: total,
+          total: total,
+          menu_items: menuItemsJsonb,
+          status: "accepted",
+          accepted_at: new Date().toISOString(),
+          converted_to_order_id: orderId,
+        } as any)
+        .select("id")
+        .single();
+      quoteId = (newQuote as any)?.id || null;
+      if (quoteId) {
+        await sb.from("orders").update({ quote_id: quoteId } as any).eq("id", orderId);
+        backfilled.push("quote");
+      }
+    }
+
+    // 5. Invoice. Only attempt to ensure when the order is at least
+    //    confirmed -- ensureInvoiceForOrder lives in a different
+    //    service so we re-export the work here as a best-effort hop.
+    let invoiceId: string | null = null;
+    const status = String((order as any).status || "").toLowerCase();
+    if (["confirmed", "preparing", "ready", "in_transit", "out_for_delivery", "delivered", "completed"].includes(status)) {
+      try {
+        const { ensureInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+        const result = await ensureInvoiceForOrder(orderId, companyId);
+        if (result?.success && result.invoiceId) {
+          invoiceId = result.invoiceId;
+          if (!result.alreadyExisted) backfilled.push("invoice");
+        }
+      } catch (e) {
+        console.warn("[lifecycleService] invoice ensure failed (non-blocking):", e);
+      }
+    }
+
+    return { orderId, clientId, leadId, quoteId, invoiceId, backfilled };
+  },
+
+  /**
    * Resolve a quote's effective client_id.
    *
    * If the quote has client_id set, return it.
