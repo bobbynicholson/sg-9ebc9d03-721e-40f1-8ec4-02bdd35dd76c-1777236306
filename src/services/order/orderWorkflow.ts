@@ -317,6 +317,35 @@ async function sendStatusNotifications(order: any) {
           type: "order",
         });
       }
+      // Multi-ready cluster alert. When 2+ orders hit ready inside
+      // a 30-minute window, dispatch needs to coordinate -- without
+      // this, the kitchen can have 3 hot meals waiting while a
+      // single driver wonders which to grab first. Counts the
+      // current order's company by status='ready' updated in the
+      // last 30m; an `>= 2` result fires the cluster alert.
+      if (order.company_id && order.user_id) {
+        try {
+          const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+          const { count: readyCount } = await (supabase as any)
+            .from("orders")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", order.company_id)
+            .eq("status", "ready")
+            .gte("updated_at", since)
+            .is("deleted_at", null);
+          if (typeof readyCount === "number" && readyCount >= 2) {
+            inApp.push({
+              userId: order.user_id,
+              title: `🔥 ${readyCount} orders ready -- coordinate dispatch`,
+              message: `Multiple orders are sitting ready in the last 30 min. Open the dispatch queue to assign drivers before food cools.`,
+              type: "dispatch_cluster",
+              priority: "urgent",
+            } as any);
+          }
+        } catch (e) {
+          console.warn("[sendStatusNotifications] cluster check failed:", e);
+        }
+      }
       break;
     case "in_transit":
       if (order.client_id) {

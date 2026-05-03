@@ -175,6 +175,27 @@ export default function DriverDashboard() {
       );
 
       setJobs(uniqueJobs);
+
+      // Auto-acknowledge any unacked assignments. Opening the driver
+      // app IS the acknowledgement -- the audit gap was "admin doesn't
+      // know if driver saw the dispatch". Loading the dashboard is
+      // proof they saw it. Fire-and-forget per order; the API
+      // endpoint is idempotent so re-firing on already-acked orders
+      // is a cheap no-op.
+      const unackedIds = (directOrders || [])
+        .filter((o: any) => !o.driver_acknowledged_at)
+        .map((o: any) => o.id);
+      if (unackedIds.length > 0) {
+        void Promise.allSettled(
+          unackedIds.map((id) =>
+            fetch(`/api/orders/${id}/driver-ack`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ via: "in_app" }),
+            }),
+          ),
+        ).catch((e) => console.warn("[driver dashboard] auto-ack fire failed:", e));
+      }
     } catch (error) {
       console.error("Error in loadDriverJobs:", error);
     } finally {
