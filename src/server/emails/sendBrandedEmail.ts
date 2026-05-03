@@ -14,7 +14,7 @@
  * This is server-only -- it uses @react-email/render (Node-only) and the
  * Supabase service-role client. Don't import from the browser.
  */
-import { renderAsync } from "@react-email/render";
+import { render } from "@react-email/render";
 import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
@@ -60,8 +60,8 @@ const PLATFORM_FROM_NAME = "CateringMS";
 const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "noreply@cateringms.co.za";
 
 export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<SendResult> {
-  const html = await renderAsync(args.component);
-  const text = await renderAsync(args.component, { plainText: true });
+  const html = await render(args.component);
+  const text = await render(args.component, { plainText: true });
 
   // Resolve tenant provider config if we have a companyId.
   let tenantProvider: string | null = null;
