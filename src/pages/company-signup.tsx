@@ -346,6 +346,23 @@ export default function CompanySignupPage() {
         console.warn("⚠️ Company admin role assignment failed (non-critical):", roleError);
       }
 
+      // Fire-and-forget the branded owner welcome email. Doesn't block
+      // signup completion -- if Resend / SMTP isn't configured the API
+      // simulates and logs, and the user still progresses.
+      console.log("📧 Firing owner welcome email...");
+      void fetch("/api/emails/owner-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          companyId,
+          ownerName: formData.ownerName,
+          companyName: formData.companyName,
+          email: formData.email,
+          slug: companySlug,
+        }),
+      }).catch((err) => console.warn("Owner welcome email fire-and-forget failed:", err));
+
       // Step 6: Attempt auto-login. Detect email-verification-required
       // state from either:
       //   a) signUp came back without a session (Supabase's signal that
