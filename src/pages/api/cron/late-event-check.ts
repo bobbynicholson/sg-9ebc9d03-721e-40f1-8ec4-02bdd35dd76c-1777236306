@@ -17,8 +17,8 @@
  *
  * Auth: shared CRON_SECRET via Authorization: Bearer ${CRON_SECRET}.
  *
- * Vercel cron schedule: */15 * * * * (every 15 min). Runs alongside
- * the existing process-email-queue cron.
+ * Vercel cron schedule: every 15 minutes (configured in vercel.json).
+ * Runs alongside the existing process-email-queue cron.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
