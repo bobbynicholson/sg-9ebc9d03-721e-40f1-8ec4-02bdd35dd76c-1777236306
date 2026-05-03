@@ -55,6 +55,19 @@ export async function updateOrderStatus(
       }
     }
 
+    // Schedule the after-sales email sequence on completion. We hook
+    // 'completed' (after the final invoice is paid) rather than
+    // 'delivered' so we only nurture customers who actually closed
+    // out the engagement. ensureScheduledAfterSales is idempotent so
+    // re-running on an already-scheduled order is safe. Non-blocking.
+    if (newStatus === "completed" && order.company_id) {
+      try {
+        await ensureScheduledAfterSales(order);
+      } catch (e) {
+        console.warn("[orderWorkflow] after-sales scheduling crashed (non-blocking):", e);
+      }
+    }
+
     return { success: true, data: order };
   } catch (error: any) {
     console.error("Error updating order status:", error);
@@ -420,5 +433,81 @@ export async function getOrderStatusHistory(orderId: string) {
   } catch (error: any) {
     console.error("Error fetching order status history:", error);
     return { success: false, error: error.message, data: [] };
+  }
+}
+
+/**
+ * Persist after-sales follow-ups into outgoing_email_queue for the
+ * cron worker to dispatch. Idempotent: skips if the queue already
+ * has scheduled rows for this order. Skips imported / quarantined
+ * orders so historical data uploaded at onboarding doesn't trigger
+ * "thanks for your event" emails for events that happened years ago.
+ *
+ * The actual templates / monthly cadence live in
+ * src/lib/afterSalesTemplates.ts. We pull the template list at
+ * scheduling time and snapshot the body into the queue row -- if
+ * the template changes later, scheduled rows still send the wording
+ * the operator approved when they ran.
+ */
+async function ensureScheduledAfterSales(order: any): Promise<void> {
+  if (!order?.id || !order?.company_id || !order?.client_email) return;
+
+  // Quarantine guard.
+  if (order.imported_at || (order.comms_paused_until && new Date(order.comms_paused_until) > new Date())) {
+    console.log(`[orderWorkflow] order ${order.id} is quarantined -- skipping after-sales scheduling`);
+    return;
+  }
+
+  // Idempotency: don't double-schedule.
+  const { data: existing } = await (supabase as any)
+    .from("outgoing_email_queue")
+    .select("id")
+    .eq("trigger_event", "aftersales")
+    .eq("trigger_ref_id", order.id)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  try {
+    const { defaultAfterSalesTemplates, interpolateEmailTemplate, getEmailVariables } =
+      await import("@/lib/afterSalesTemplates");
+    const eventDate = order.event_date ? new Date(order.event_date) : new Date();
+    const variables = getEmailVariables(
+      order.id,
+      order.client_name || "there",
+      order.event_type || "your event",
+      eventDate.toISOString(),
+    );
+
+    const rows: any[] = [];
+    for (const template of defaultAfterSalesTemplates) {
+      if (!template.isActive) continue;
+      const sendAt = new Date(eventDate);
+      sendAt.setMonth(sendAt.getMonth() + (template.monthsAfterEvent || 0));
+      // Don't schedule rows whose send-time is already in the past
+      // (e.g. completing a 6-month-old order) -- they'd fire all at
+      // once and look like spam. The dashboard can offer a "resume"
+      // path later if the operator wants to back-fill.
+      if (sendAt.getTime() < Date.now() - 24 * 3600 * 1000) continue;
+
+      rows.push({
+        company_id: order.company_id,
+        to_email: order.client_email,
+        to_name: order.client_name || "there",
+        subject: interpolateEmailTemplate(template.subject, variables),
+        body: interpolateEmailTemplate(template.body, variables),
+        trigger_event: "aftersales",
+        trigger_ref_id: order.id,
+        status: "pending",
+        scheduled_for: sendAt.toISOString(),
+        template_type: `aftersales_${template.id}`,
+        variables,
+      });
+    }
+
+    if (rows.length > 0) {
+      await (supabase as any).from("outgoing_email_queue").insert(rows);
+    }
+  } catch (e) {
+    console.warn("[orderWorkflow] ensureScheduledAfterSales internal failure:", e);
   }
 }
