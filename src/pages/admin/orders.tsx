@@ -814,6 +814,9 @@ function OrderProcessDashboard() {
   const OrderDetailsModal = () => {
     const [editedOrder, setEditedOrder] = useState<AppOrder | null>(null);
     const [saving, setSaving] = useState(false);
+    // "Hey, the price won't scale automatically" confirmation when
+    // guest_count is being changed in edit mode.
+    const [priceAdjustOpen, setPriceAdjustOpen] = useState(false);
     // Joined data the dashboard's getAllOrders fetch returns alongside
     // the order row but the type doesn't expose. We also fetch
     // order_items directly when the modal opens as a belt-and-braces
@@ -1028,13 +1031,31 @@ function OrderProcessDashboard() {
 
     if (!selectedOrder || !editedOrder) return null;
 
+    // Amendments are usually small (venue change, time tweak, +/- a
+    // few guests). When guest_count is changing we pop a quick info
+    // dialog that says "the total stays the same, fix the price on
+    // the quote if it needs changing". Stops the operator quietly
+    // expecting the price to scale.
+    const oldGuestCount = Number((selectedOrder as any).guest_count || 0);
+    const newGuestCount = Number((editedOrder as any).guest_count || 0);
+    const oldTotal = Number((selectedOrder as any).total_amount || 0);
+
     const handleSave = async () => {
+      if (
+        oldGuestCount > 0 &&
+        newGuestCount > 0 &&
+        oldGuestCount !== newGuestCount &&
+        oldTotal > 0
+      ) {
+        setPriceAdjustOpen(true);
+        return;
+      }
+      await persistSave();
+    };
+
+    const persistSave = async () => {
       setSaving(true);
       try {
-        // orderService.updateOrder doesn't throw on RLS / column errors --
-        // it returns { success: false, error }. We have to check that
-        // explicitly, otherwise a silent reject toasts "Saved" while
-        // nothing actually persisted.
         const result: any = await orderService.updateOrder(editedOrder.id, {
           client_name: editedOrder.client_name,
           venue_address: editedOrder.venue_address,
@@ -1047,9 +1068,7 @@ function OrderProcessDashboard() {
           throw new Error(result.error || "Update failed");
         }
 
-        // Mirror the change to the source quote + invoice so all three
-        // surfaces (client quote view, admin order view, accounting
-        // invoice) stay in lock-step.
+        // Quote + invoice mirror so all three artifacts stay in sync.
         const sync = await syncOrderArtifacts(editedOrder.id);
 
         toast({
@@ -1059,10 +1078,6 @@ function OrderProcessDashboard() {
             : "Saved, but the quote/invoice sync hit an issue. Check the totals.",
         });
 
-        // Push the saved + recalculated values back into both
-        // selectedOrder and editedOrder so the modal shows the change
-        // immediately. The background loadOrders() then keeps the
-        // kanban list in sync.
         const merged: any = {
           ...selectedOrder,
           ...editedOrder,
@@ -1074,6 +1089,7 @@ function OrderProcessDashboard() {
         setSelectedOrder(merged);
         setEditedOrder(merged);
         setEditMode(false);
+        setPriceAdjustOpen(false);
         loadOrders();
       } catch (error: any) {
         toast({
@@ -1656,6 +1672,61 @@ function OrderProcessDashboard() {
             </TabsContent>
           </Tabs>
         </DialogContent>
+
+        {/* Price-doesn't-scale confirmation. Pops when guest_count
+            changes on Save -- nudges the operator that price changes
+            are a quote-level edit, not an order-level amendment. */}
+        <Dialog open={priceAdjustOpen} onOpenChange={setPriceAdjustOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                Heads-up on the order total
+              </DialogTitle>
+              <DialogDescription>
+                You're changing guest count from <strong>{oldGuestCount}</strong> to <strong>{newGuestCount}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 text-sm">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+                <p className="text-amber-900">
+                  Order total stays at <strong>R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</strong>. Guest count is amended; price is not auto-scaled.
+                </p>
+              </div>
+              <p className="text-slate-600 text-xs">
+                If the price needs to change as well, edit the source quote (or invoice if already issued) so the line items, totals and client-facing copy stay aligned. Inline order edits are designed for small operational tweaks, not re-pricing.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 justify-end mt-4">
+              <Button
+                variant="outline"
+                onClick={() => setPriceAdjustOpen(false)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              {(selectedOrder as any)?.quote_id && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPriceAdjustOpen(false);
+                    setIsModalOpen(false);
+                    // Send them to the quote where they can repurpose price properly.
+                    window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
+                  }}
+                  disabled={saving}
+                >
+                  Open quote instead
+                </Button>
+              )}
+              <Button onClick={persistSave} disabled={saving}>
+                {saving ? "Saving..." : "Save guest count change"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </Dialog>
     );
   };
