@@ -154,6 +154,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       outcomes.push({ index: i, email, ok: true, status: "imported" });
     });
 
+    // Quarantine guard: every imported client gets stamped with
+    // imported_at + comms_paused_until + an import_jobs row to tie
+    // them to. Default pause window is 7 days; the owner can finish
+    // it sooner via /admin/onboarding (calls enable_comms_for_import_job).
+    // Without this, day-one of a new tenant would fire welcome
+    // emails / after-sales sequences against historical data.
+    let importJobId: string | null = null;
+    if (toInsert.length > 0) {
+      const { data: job, error: jobErr } = await supabase
+        .from("import_jobs")
+        .insert({
+          company_id: companyId,
+          source_filename: req.body?.filename || null,
+          source_row_count: rows.length,
+          status: "completed",
+          kind: "easy_clients",
+          created_by: user.id,
+          completed_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (jobErr || !job) {
+        return res.status(500).json({
+          error: jobErr?.message || "Could not register import job",
+          outcomes,
+        });
+      }
+      importJobId = job.id;
+
+      const stampedAt = new Date().toISOString();
+      const pausedUntil = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+      for (const r of toInsert) {
+        r.import_job_id = importJobId;
+        r.imported_at = stampedAt;
+        r.comms_paused_until = pausedUntil;
+      }
+    }
+
     let insertedCount = 0;
     if (toInsert.length > 0) {
       const { data: inserted, error: insertErr } = await supabase
@@ -175,6 +213,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       imported: insertedCount,
       skipped: outcomes.filter((o) => o.status === "skipped").length,
       rejected: outcomes.filter((o) => o.status === "rejected").length,
+      // Surface the import job id so the onboarding UI can deep-link
+      // to "review this batch + green-light comms" without a follow-up
+      // round trip.
+      import_job_id: importJobId,
+      comms_paused_for_days: insertedCount > 0 ? 7 : 0,
       outcomes,
     });
   } catch (e: any) {

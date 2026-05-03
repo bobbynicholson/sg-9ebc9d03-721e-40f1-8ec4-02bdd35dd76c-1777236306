@@ -44,15 +44,25 @@ export default async function handler(
         return res.status(403).json({ error: "Cannot send email for another company" });
       }
 
-      // Block-list guard. If the recipient was previously deleted from
-      // /admin/contacts with the "block" toggle on, refuse to send.
-      // Stops a recreated lead row (or a stale automation) from
-      // pinging the same person again. Lower-cased recipient lookup
-      // because blocked_contacts.email_lower stores normalised emails.
+      // Negative gates -- two ways a send can be refused:
+      //
+      //   (1) blocked_contacts: the contact was deleted with the
+      //       "block from future comms" toggle on. Permanent unless
+      //       the row is removed from blocked_contacts.
+      //
+      //   (2) comms_paused_until: the recipient lives on a lead or
+      //       client row that came from a bulk import and the owner
+      //       hasn't reviewed + green-lit the batch yet. Stops naive
+      //       "welcome email" blasts from going out to historical
+      //       data on day one of a new tenant.
+      //
+      // Both checks run for every recipient. Either one triggers a
+      // 409 response so the caller can surface the reason in the UI.
       const recipients = Array.isArray(to) ? to : [to];
       const recipientLower = recipients
         .filter((r): r is string => typeof r === "string" && !!r)
         .map((r) => r.toLowerCase().trim());
+
       if (recipientLower.length > 0) {
         const { data: blocks } = await ssr
           .from("blocked_contacts")
@@ -65,6 +75,25 @@ export default async function handler(
             blocked: blocks.map((b: any) => b.email_lower),
             reason: blocks[0]?.reason ?? null,
           });
+        }
+
+        // Quarantine guard. is_comms_paused_for_email looks across
+        // leads + clients for any row matching this address whose
+        // comms_paused_until is still in the future. Importantly we
+        // run it per recipient so one paused email in a multi-recipient
+        // send blocks the whole call -- safer default than partial
+        // delivery.
+        for (const recip of recipientLower) {
+          const { data: paused } = await ssr.rpc("is_comms_paused_for_email", {
+            p_company_id: companyId,
+            p_email: recip,
+          });
+          if (paused === true) {
+            return res.status(409).json({
+              error: "Recipient is in import quarantine -- comms paused until the owner reviews the batch",
+              quarantined: recip,
+            });
+          }
         }
       }
     }

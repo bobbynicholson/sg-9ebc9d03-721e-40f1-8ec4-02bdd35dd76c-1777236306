@@ -55,6 +55,20 @@ export const leadService = {
 
     if (error) throw error;
 
+    // Quarantine guard. Imported lead rows must not fire any of the
+    // "fresh enquiry" side effects below: no admin urgent notification,
+    // no admin email, no admin WhatsApp, no client auto-reply. The
+    // owner reviews them inside /admin/onboarding and explicitly
+    // green-lights comms via enable_comms_for_import_job. See migration
+    // 20260503160000_import_quarantine.
+    const isQuarantined =
+      !!(lead as any).imported_at ||
+      !!(lead as any).import_job_id ||
+      ((lead as any).comms_paused_until && new Date((lead as any).comms_paused_until) > new Date());
+    if (isQuarantined) {
+      return data;
+    }
+
     // ✅ FIX BUG #19.1: Send admin notification for new lead (URGENT)
     if (data && lead.user_id) {
       try {
