@@ -1061,6 +1061,13 @@ function OrderProcessDashboard() {
     const guestRatio =
       oldGuestCount > 0 && newGuestCount > 0 ? newGuestCount / oldGuestCount : 1;
     const projectedTotal = Number((oldTotal * guestRatio).toFixed(2));
+    // Threshold for "this is a big change, go fix it on the quote"
+    // vs "small amendment, scale inline". 20% is the soft line --
+    // a 5% move (200 -> 190) is fine here, a 50% move (200 -> 100)
+    // gets routed to the quote where prices can also be re-thought.
+    const guestDeltaPct =
+      oldGuestCount > 0 ? Math.abs(newGuestCount - oldGuestCount) / oldGuestCount : 0;
+    const isBigGuestChange = guestDeltaPct > 0.20;
 
     const persistSave = async () => {
       setSaving(true);
@@ -1716,32 +1723,43 @@ function OrderProcessDashboard() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-600" />
-                Confirm guest count change
+                <AlertCircle className={`w-5 h-5 ${isBigGuestChange ? "text-rose-600" : "text-amber-600"}`} />
+                {isBigGuestChange ? "Big change -- update the quote" : "Confirm guest count change"}
               </DialogTitle>
               <DialogDescription>
                 Guest count: <strong>{oldGuestCount}</strong> → <strong>{newGuestCount}</strong>
-                {guestRatio !== 1 ? ` (${guestRatio < 1 ? "−" : "+"}${Math.abs(Math.round((1 - guestRatio) * -100))}%)` : ""}
+                {guestRatio !== 1 ? ` (${guestRatio < 1 ? "−" : "+"}${Math.round(guestDeltaPct * 100)}%)` : ""}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3 text-sm">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-                <p className="text-emerald-900">
-                  Items + total will scale to the new guest count using the <strong>current per-unit prices</strong>.
-                </p>
-                <div className="flex items-center justify-between text-xs text-emerald-900/80 pt-1 border-t border-emerald-200">
-                  <span>Current total</span>
-                  <span className="tabular-nums">R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+              {isBigGuestChange ? (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2">
+                  <p className="text-rose-900">
+                    A change of this size usually needs a re-think on price too (volume discount, menu mix, equipment, delivery fee). The cleanest path is to amend the <strong>quote / invoice</strong> directly so all the client-facing copy and totals stay aligned.
+                  </p>
+                  <p className="text-rose-900/80 text-xs">
+                    Inline order amendments are designed for small tweaks only.
+                  </p>
                 </div>
-                <div className="flex items-center justify-between text-emerald-900 font-semibold">
-                  <span>New total</span>
-                  <span className="tabular-nums">R{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                  <p className="text-emerald-900">
+                    Items + total will scale to the new guest count using the <strong>current per-unit prices</strong>.
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-emerald-900/80 pt-1 border-t border-emerald-200">
+                    <span>Current total</span>
+                    <span className="tabular-nums">R{Number(oldTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-emerald-900 font-semibold">
+                    <span>New total</span>
+                    <span className="tabular-nums">R{Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <p className="text-emerald-900/80 text-xs pt-1">
+                    To change the per-unit prices (e.g., volume discount, menu upgrade), update the source quote.
+                  </p>
                 </div>
-              </div>
-              <p className="text-slate-600 text-xs">
-                If the <strong>per-unit prices</strong> need to change as part of this amendment (volume discount, premium upgrade, etc.), update the source quote or invoice so the client-facing copy stays aligned.
-              </p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2 justify-end mt-4">
@@ -1752,22 +1770,53 @@ function OrderProcessDashboard() {
               >
                 Cancel
               </Button>
-              {(selectedOrder as any)?.quote_id && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setPriceAdjustOpen(false);
-                    setIsModalOpen(false);
-                    window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
-                  }}
-                  disabled={saving}
-                >
-                  Update quote/invoice here
-                </Button>
+              {/* On big changes, the quote link is the recommended
+                  path so it gets the primary styling. The "scale
+                  anyway" stays available for the rare case the
+                  operator knows what they're doing. */}
+              {isBigGuestChange ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={persistSave}
+                    disabled={saving}
+                    className="text-slate-700"
+                  >
+                    {saving ? "Scaling..." : "Scale inline anyway"}
+                  </Button>
+                  {(selectedOrder as any)?.quote_id && (
+                    <Button
+                      onClick={() => {
+                        setPriceAdjustOpen(false);
+                        setIsModalOpen(false);
+                        window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
+                      }}
+                      disabled={saving}
+                    >
+                      Update quote / invoice
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {(selectedOrder as any)?.quote_id && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setPriceAdjustOpen(false);
+                        setIsModalOpen(false);
+                        window.location.href = `/admin/quotes/${(selectedOrder as any).quote_id}`;
+                      }}
+                      disabled={saving}
+                    >
+                      Update quote/invoice instead
+                    </Button>
+                  )}
+                  <Button onClick={persistSave} disabled={saving}>
+                    {saving ? "Saving..." : `Save + scale to R${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+                  </Button>
+                </>
               )}
-              <Button onClick={persistSave} disabled={saving}>
-                {saving ? "Saving..." : `Save + scale to R${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
