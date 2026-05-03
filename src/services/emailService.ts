@@ -97,10 +97,18 @@ export const emailService = {
     orderId?: string,
     quoteId?: string,
     client?: any,
+    statusOverride?: "sent" | "failed" | "simulated" | "blocked" | "quarantined",
+    failureReason?: string,
   ): Promise<EmailLog | null> {
     // Mirrors getEmailConfig: server-side callers pass a service-role
     // client so the insert isn't blocked by RLS for unauthenticated
     // flows (magic-link sign-in).
+    //
+    // statusOverride lets callers record failures and gated sends
+    // (blocked / quarantined) on the same audit trail. The
+    // /admin/email-automation-dashboard reads from this table to
+    // surface failures for retry. Closes the audit-flagged "every
+    // send is fire-and-forget" gap.
     const sb = client || supabase;
     const { data, error } = await sb
       .from("email_automation_log")
@@ -108,12 +116,12 @@ export const emailService = {
         {
           user_id: companyId,
           order_id: orderId || null,
-          quote_id: quoteId || null,
           template_type: templateType,
           recipient_email: recipientEmail,
           recipient_name: recipientName,
           subject: subject,
-          status: "sent"
+          status: statusOverride || "sent",
+          error_message: failureReason || null,
         }
       ])
       .select()
@@ -121,7 +129,9 @@ export const emailService = {
 
     if (error) {
       console.error("Error logging email:", error);
-      throw error;
+      // Don't throw -- a logging failure must never crash the actual
+      // send. The console.error gives ops a paper trail.
+      return null;
     }
 
     return data;
@@ -157,6 +167,20 @@ export const emailService = {
           .limit(1);
         if (blocks && blocks.length > 0) {
           console.warn(`[emailService] refused -- ${recipientLower} is on the block list for ${payload.companyId}`);
+          // Log the refusal so admin sees "blocked" in the failures
+          // dashboard rather than wondering where the email went.
+          await this.logEmailSent(
+            payload.companyId,
+            payload.template || "custom",
+            payload.to,
+            payload.variables?.clientName || "N/A",
+            payload.subject,
+            payload.orderId,
+            payload.quoteId,
+            (payload as any)._client,
+            "blocked",
+            "Recipient is on the company block list",
+          );
           return false;
         }
 
@@ -166,6 +190,18 @@ export const emailService = {
         });
         if (paused === true) {
           console.warn(`[emailService] refused -- ${recipientLower} is in import quarantine for ${payload.companyId}`);
+          await this.logEmailSent(
+            payload.companyId,
+            payload.template || "custom",
+            payload.to,
+            payload.variables?.clientName || "N/A",
+            payload.subject,
+            payload.orderId,
+            payload.quoteId,
+            (payload as any)._client,
+            "quarantined",
+            "Recipient is in import quarantine",
+          );
           return false;
         }
       } catch (guardErr) {
@@ -247,13 +283,43 @@ export const emailService = {
           payload.orderId,
           payload.quoteId,
           (payload as any)._client,
+          "sent",
         );
         return true;
       }
 
+      // Provider returned !ok. Log the failure so admin sees it in
+      // the dashboard.
+      await this.logEmailSent(
+        payload.companyId,
+        payload.template || 'custom',
+        payload.to,
+        payload.variables?.clientName || "N/A",
+        finalSubject,
+        payload.orderId,
+        payload.quoteId,
+        (payload as any)._client,
+        "failed",
+        `Provider ${config.provider || "?"} returned not-ok`,
+      );
       return false;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending email:", error);
+      // Crash path -- still log so ops can find it.
+      try {
+        await this.logEmailSent(
+          payload.companyId,
+          payload.template || 'custom',
+          payload.to,
+          payload.variables?.clientName || "N/A",
+          finalSubject,
+          payload.orderId,
+          payload.quoteId,
+          (payload as any)._client,
+          "failed",
+          String(error?.message || error || "Unknown crash"),
+        );
+      } catch { /* logging the failure itself failed -- nothing to do */ }
       return false;
     }
   },
