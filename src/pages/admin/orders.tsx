@@ -35,6 +35,7 @@ import {
   Save,
   X,
   FileText,
+  Receipt,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -61,6 +62,7 @@ import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
+import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 
 interface OrderStats {
   total: number;
@@ -876,6 +878,7 @@ function OrderProcessDashboard() {
         toast({ title: "Equipment added", description: `${qty} x ${eqPick.name} booked.` });
         setEqSearch(""); setEqPick(null); setEqQty("1");
         await reloadEquipment();
+        await syncAndRefresh();
       } catch (e: any) {
         toast({ title: "Could not add equipment", description: e?.message || "Try again", variant: "destructive" });
       } finally {
@@ -890,11 +893,28 @@ function OrderProcessDashboard() {
         if (error) throw error;
         toast({ title: "Equipment removed" });
         await reloadEquipment();
+        await syncAndRefresh();
       } catch (e: any) {
         toast({ title: "Could not remove equipment", description: e?.message || "Try again", variant: "destructive" });
       } finally {
         setEqRemoving(null);
       }
+    };
+
+    // Recompute totals + push to quote + invoice + reflect in modal
+    // header. Called after every inline item / equipment add or remove.
+    const syncAndRefresh = async () => {
+      if (!selectedOrder?.id) return;
+      const sync = await syncOrderArtifacts(selectedOrder.id);
+      if (!sync.ok) return;
+      const merged: any = {
+        ...selectedOrder,
+        subtotal: sync.subtotal,
+        tax_amount: sync.tax_amount,
+        total_amount: sync.total_amount,
+      };
+      setSelectedOrder(merged);
+      setEditedOrder({ ...editedOrder, ...merged } as any);
     };
 
     // Inline "add menu item" form state (mirrors the equipment one).
@@ -936,6 +956,7 @@ function OrderProcessDashboard() {
         toast({ title: "Item added", description: `${qty} x ${miPick.name} added.` });
         setMiSearch(""); setMiPick(null); setMiQty("1"); setMiUnitPrice("");
         await reloadOrderItems();
+        await syncAndRefresh();
       } catch (e: any) {
         toast({ title: "Could not add item", description: e?.message || "Try again", variant: "destructive" });
       } finally {
@@ -950,6 +971,7 @@ function OrderProcessDashboard() {
         if (error) throw error;
         toast({ title: "Item removed" });
         await reloadOrderItems();
+        await syncAndRefresh();
       } catch (e: any) {
         toast({ title: "Could not remove item", description: e?.message || "Try again", variant: "destructive" });
       } finally {
@@ -1025,18 +1047,29 @@ function OrderProcessDashboard() {
           throw new Error(result.error || "Update failed");
         }
 
+        // Mirror the change to the source quote + invoice so all three
+        // surfaces (client quote view, admin order view, accounting
+        // invoice) stay in lock-step.
+        const sync = await syncOrderArtifacts(editedOrder.id);
+
         toast({
           title: "Order Updated",
-          description: "Changes have been saved successfully.",
+          description: sync.ok
+            ? `Saved. Quote${sync.quote_id ? "" : " (none)"} and invoice${sync.invoice_id ? "" : " (none)"} synced.`
+            : "Saved, but the quote/invoice sync hit an issue. Check the totals.",
         });
 
-        // Push the saved values back into both selectedOrder and
-        // editedOrder so the modal shows the change immediately. The
-        // background loadOrders() then keeps the list in sync.
+        // Push the saved + recalculated values back into both
+        // selectedOrder and editedOrder so the modal shows the change
+        // immediately. The background loadOrders() then keeps the
+        // kanban list in sync.
         const merged: any = {
           ...selectedOrder,
           ...editedOrder,
           ...(result?.data || {}),
+          subtotal: sync.subtotal,
+          tax_amount: sync.tax_amount,
+          total_amount: sync.total_amount,
         };
         setSelectedOrder(merged);
         setEditedOrder(merged);
@@ -1063,17 +1096,43 @@ function OrderProcessDashboard() {
                 <DialogDescription className="mt-1">
                   {editMode ? "Edit order information" : "View order details"}
                 </DialogDescription>
-                {(selectedOrder as any).quote_id && (
-                  <Link
-                    href={`/admin/quotes/${(selectedOrder as any).quote_id}`}
-                    onClick={() => setIsModalOpen(false)}
-                    className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
+                {/* Quick links: source quote, client-facing order view,
+                    invoice. The "View as client sees it" link opens the
+                    public-ish customer order view in a new tab so the
+                    operator can sanity-check that everything they just
+                    edited (items, totals, venue, date) propagated
+                    through. */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {(selectedOrder as any).quote_id && (
+                    <Link
+                      href={`/admin/quotes/${(selectedOrder as any).quote_id}`}
+                      onClick={() => setIsModalOpen(false)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Source quote
+                      <ChevronRight className="w-3 h-3" />
+                    </Link>
+                  )}
+                  <a
+                    href={`/c/order/${(selectedOrder as any).id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 hover:bg-emerald-100"
                   >
-                    <FileText className="w-3 h-3" />
-                    Open the originating quote
+                    <ChevronRight className="w-3 h-3" />
+                    View as client sees it
+                  </a>
+                  <Link
+                    href={`/admin/invoices`}
+                    onClick={() => setIsModalOpen(false)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 hover:bg-amber-100"
+                  >
+                    <Receipt className="w-3 h-3" />
+                    Open invoice
                     <ChevronRight className="w-3 h-3" />
                   </Link>
-                )}
+                </div>
               </div>
               {!editMode ? (
                 <div className="flex gap-2">
