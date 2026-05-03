@@ -59,6 +59,13 @@ interface Contact {
    *  when a lead/order row was promoted by an Add. Drives Edit/Delete
    *  on the row -- if null, those actions are hidden. */
   clientId: string | null;
+  /** Every lead row that merged into this contact. Used by the
+   *  delete handler so a single bin click sweeps the lead, the
+   *  client, and the orders together. */
+  leadIds: string[];
+  /** Every order row matched to this contact by email/name. Same
+   *  reason -- delete fans out across all backing records. */
+  orderIds: string[];
   name: string;
   email: string | null;
   phone: string | null;
@@ -176,6 +183,8 @@ function ClientsCRM() {
           key: k,
           source: "client",
           clientId: c.id,
+          leadIds: [],
+          orderIds: [],
           name: c.client_name || "Unnamed",
           email: c.email,
           phone: c.phone,
@@ -197,6 +206,7 @@ function ClientsCRM() {
         if (existing) {
           existing.leadStatus = l.status;
           existing.leadSource = l.source;
+          existing.leadIds.push(l.id);
           if (!existing.phone && l.phone) existing.phone = l.phone;
           if (!existing.email && l.email) existing.email = l.email;
         } else {
@@ -204,6 +214,8 @@ function ClientsCRM() {
             key: k,
             source: "lead",
             clientId: null,
+            leadIds: [l.id],
+            orderIds: [],
             name: l.contact_name || "Unnamed lead",
             email: l.email,
             phone: l.phone,
@@ -231,6 +243,8 @@ function ClientsCRM() {
             key: k,
             source: "order_only",
             clientId: null,
+            leadIds: [],
+            orderIds: [],
             name: o.client_name || "Unnamed",
             email: o.client_email,
             phone: o.client_phone,
@@ -245,6 +259,7 @@ function ClientsCRM() {
           };
           map.set(k, c);
         }
+        c.orderIds.push(o.id);
         const status = String(o.status || "").toLowerCase();
         if (status !== "cancelled") {
           c.orderCount += 1;
@@ -650,11 +665,10 @@ function ClientsCRM() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  disabled={!c.clientId}
                                   onClick={() => setConfirmDelete(c)}
-                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 disabled:text-slate-300 disabled:hover:bg-transparent"
+                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
                                   aria-label={`Delete ${c.name}`}
-                                  title={c.clientId ? "Delete" : "Save as client first to enable delete"}
+                                  title="Delete contact"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
@@ -690,13 +704,37 @@ function ClientsCRM() {
         }}
       />
 
-      {/* Soft-delete confirm */}
+      {/* Soft-delete confirm. Fans out across every backing record:
+          the clients row (if any), every linked lead, every linked
+          order. Each table has its own soft-delete column (deleted_at)
+          so nothing is hard-removed -- support can still restore. */}
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this client?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this contact?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmDelete?.name} will be hidden from the clients list. Their orders and quotes are kept on file. You can ask support to restore them later.
+              {confirmDelete && (
+                <>
+                  <span className="block">
+                    <span className="font-medium text-slate-900">{confirmDelete.name}</span>
+                    {confirmDelete.email ? <> ({confirmDelete.email})</> : null} will be removed from contacts.
+                  </span>
+                  <span className="block mt-2 text-slate-600">
+                    {[
+                      confirmDelete.clientId ? "their client record" : null,
+                      confirmDelete.leadIds.length > 0
+                        ? `${confirmDelete.leadIds.length} lead${confirmDelete.leadIds.length === 1 ? "" : "s"}`
+                        : null,
+                      confirmDelete.orderIds.length > 0
+                        ? `${confirmDelete.orderIds.length} order${confirmDelete.orderIds.length === 1 ? "" : "s"}`
+                        : null,
+                    ].filter(Boolean).join(" + ") || "nothing else"} will be hidden too.
+                  </span>
+                  <span className="block mt-2 text-rose-600">
+                    Soft delete -- support can restore if needed.
+                  </span>
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -705,19 +743,45 @@ function ClientsCRM() {
               className="bg-rose-600 hover:bg-rose-700"
               onClick={async () => {
                 const c = confirmDelete;
-                if (!c?.clientId) return;
-                const { error } = await supabase
-                  .from("clients")
-                  .update({ deleted_at: new Date().toISOString() })
-                  .eq("id", c.clientId)
-                  .eq("company_id", companyId);
+                if (!c) return;
+                const stamp = new Date().toISOString();
+                const errors: string[] = [];
+                if (c.clientId) {
+                  const { error } = await supabase
+                    .from("clients")
+                    .update({ deleted_at: stamp })
+                    .eq("id", c.clientId)
+                    .eq("company_id", companyId);
+                  if (error) errors.push(`client: ${error.message}`);
+                }
+                if (c.leadIds.length > 0) {
+                  const { error } = await supabase
+                    .from("leads")
+                    .update({ deleted_at: stamp })
+                    .in("id", c.leadIds)
+                    .eq("company_id", companyId);
+                  if (error) errors.push(`leads: ${error.message}`);
+                }
+                if (c.orderIds.length > 0) {
+                  const { error } = await supabase
+                    .from("orders")
+                    .update({ deleted_at: stamp })
+                    .in("id", c.orderIds)
+                    .eq("company_id", companyId);
+                  if (error) errors.push(`orders: ${error.message}`);
+                }
                 setConfirmDelete(null);
-                if (error) {
-                  toast({ title: "Couldn't delete", description: error.message, variant: "destructive" });
-                  return;
+                if (errors.length > 0) {
+                  toast({
+                    title: "Partly failed",
+                    description: errors.join("; "),
+                    variant: "destructive",
+                  });
                 }
                 await loadContacts();
-                toast({ title: "Client deleted" });
+                if (errors.length === 0) {
+                  toast({ title: "Contact deleted" });
+                }
               }}
             >
               Delete
