@@ -31,6 +31,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assuming this is where the component is imported
 import {  UserRole  } from "@/types/app"; // Assuming this is where UserRole is imported
+import { EmailFailuresTab } from "@/components/admin/EmailFailuresTab";
 
 export default function ProtectedEmailAutomationDashboard() {
   return (
@@ -211,9 +212,10 @@ function EmailAutomationDashboard() {
           </div>
 
           <Tabs defaultValue="upcoming" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="upcoming">Upcoming Emails</TabsTrigger>
               <TabsTrigger value="all-queues">All Queues</TabsTrigger>
+              <TabsTrigger value="failures">Failures</TabsTrigger>
               <TabsTrigger value="statistics">Statistics</TabsTrigger>
             </TabsList>
 
@@ -342,6 +344,24 @@ function EmailAutomationDashboard() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="failures">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-5 w-5" />
+                    Failures and gated sends
+                    <InfoTooltip content={"Every email send that didn't go through cleanly. Failed = the provider rejected; Blocked = recipient is on your block list; Quarantined = recipient came from an import you haven't green-lit yet; Simulated = no email provider configured. Click Resend on a failed row to retry."} />
+                  </CardTitle>
+                  <CardDescription>
+                    Audit + retry hub for emails that didn't reach the recipient.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <EmailFailuresTab />
                 </CardContent>
               </Card>
             </TabsContent>
