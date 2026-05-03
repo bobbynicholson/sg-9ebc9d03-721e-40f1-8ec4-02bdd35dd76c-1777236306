@@ -892,10 +892,10 @@ export default function AdminQuotes() {
                               {(quote as any).sent_at ? "Reset sent" : "Mark sent"}
                             </Button>
                           )}
-                          <Link href={`/admin/quotes/${quote.id}`}>
+                          <Link href={`/admin/quotes/new?fromQuoteId=${quote.id}`}>
                             <Button variant="outline" size="sm">
                               <Edit className="w-4 h-4 mr-2" />
-                              View
+                              Edit
                             </Button>
                           </Link>
                           {/* Public share link. Copies a /q/[token]

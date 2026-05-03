@@ -282,11 +282,11 @@ export default function AdminLeads() {
       return;
     }
     if (kind === "convert_to_order" && links.latestQuoteId) {
-      router.push(`/admin/quotes/${links.latestQuoteId}`);
+      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
       return;
     }
     if (kind === "open_quote_draft" && links.latestQuoteId) {
-      router.push(`/admin/quotes/${links.latestQuoteId}`);
+      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
       return;
     }
     if (kind === "send_quote") {
@@ -652,7 +652,7 @@ export default function AdminLeads() {
                             {/* Provenance / conversion pills */}
                             {links.quoteCount > 0 && links.latestQuoteId && (
                               <Link
-                                href={`/admin/quotes/${links.latestQuoteId}`}
+                                href={`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`}
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
                               >
                                 <FileText className="w-3 h-3" />
@@ -757,7 +757,7 @@ export default function AdminLeads() {
                                 variant="outline"
                                 onClick={() => {
                                   if (links.latestQuoteId) {
-                                    router.push(`/admin/quotes/${links.latestQuoteId}`);
+                                    router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
                                   } else {
                                     router.push(`/admin/quotes/new?leadId=${lead.id}`);
                                   }

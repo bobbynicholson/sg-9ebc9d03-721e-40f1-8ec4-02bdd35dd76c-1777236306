@@ -727,27 +727,32 @@ function ClientsCRM() {
                                   <Send className="w-3.5 h-3.5" />
                                   Compose
                                 </Button>
-                                {/* One-click "Bobby called, need a quote".
-                                    Routes to /admin/quotes/new with the
-                                    contact's existing lead id so the new
-                                    quote page prefills name / email /
-                                    phone from the lead row. The contacts
-                                    aggregation already guarantees every
-                                    real contact has at least one lead
-                                    via the ensureLeadForClient backfill,
-                                    so leadIds[0] will be populated. */}
-                                {c.leadIds.length > 0 && (
+                                {/* One-click "phone rang, sort the quote".
+                                    If the contact already has a quote,
+                                    open the latest one in the editable
+                                    builder. Otherwise start a fresh
+                                    quote prefilled from the lead row.
+                                    Both routes land on the rich builder
+                                    (/admin/quotes/new) which is fully
+                                    editable -- the [id] detail page is
+                                    a separate read-only-ish surface and
+                                    we want operators in the builder. */}
+                                {(c.quoteIds.length > 0 || c.leadIds.length > 0) && (
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                      router.push(`/admin/quotes/new?leadId=${c.leadIds[0]}`);
+                                      if (c.quoteIds.length > 0) {
+                                        router.push(`/admin/quotes/new?fromQuoteId=${c.quoteIds[0]}`);
+                                      } else {
+                                        router.push(`/admin/quotes/new?leadId=${c.leadIds[0]}`);
+                                      }
                                     }}
                                     className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
-                                    title={`Create a new quote for ${c.name}`}
+                                    title={c.quoteIds.length > 0 ? `Open the latest quote for ${c.name}` : `Create a new quote for ${c.name}`}
                                   >
                                     <FileText className="w-3.5 h-3.5" />
-                                    New quote
+                                    {c.quoteIds.length > 0 ? "Open quote" : "New quote"}
                                   </Button>
                                 )}
                                 <Button
