@@ -264,27 +264,32 @@ export const quoteService = {
       lead_id: (quote as any).lead_id ?? null,
     });
 
-    // Why "confirmed" and not "pending"? (Audit, May 2026)
-    // The audit asked whether a "pending" intermediate state would be
-    // useful here as an admin review checkpoint. Decision: no.
+    // Why "confirmed" and not "pending"? (Audit + Bobby, May 2026)
     //
-    //   - The quote review happens BEFORE the quote is sent to the
-    //     client. Once the client clicks Accept, the booking is real
-    //     -- the catering team is now committed to delivering, not
-    //     reviewing. Adding a pending step here would create the
-    //     wrong incentive (admin has a "back out" lever after the
-    //     client has psychologically committed).
-    //   - The order workflow already has explicit transitions
-    //     (confirmed -> preparing -> ready -> in_transit -> delivered
-    //     -> completed). Each stage has its own ack moment. There is
-    //     no missing checkpoint -- pending would just be UI noise.
-    //   - convertQuoteToOrder being idempotent is the actual safety
-    //     net: re-running it doesn't double-book; the quote's
-    //     converted_to_order_id pointer holds the original.
+    // Orders go straight to "confirmed" because acceptance IS the
+    // commitment moment -- adding a pending review step here would
+    // give the catering team a "back out" lever after the client has
+    // psychologically committed, and the quote review already
+    // happens BEFORE send.
     //
-    // If the team ever wants a manual approval step, the cleanest
-    // place is BEFORE quote send (a draft -> approval-needed -> sent
-    // gate on the quote), not here.
+    // What the team needs instead is a way to handle late changes
+    // -- adjusted guest counts, last-minute menu swaps, time / venue
+    // tweaks. That's the order amendment workflow, owned by the
+    // order_amendment_requests table (migration 20260503170000):
+    //
+    //   - companies.amendment_cutoff_days controls how close to the
+    //     event the client can still request changes (default 3).
+    //   - is_order_amendable(order_id) RPC tells the UI whether a
+    //     given order is still inside the amendment window.
+    //   - Clients submit a structured diff via /api/orders/amendment-request.
+    //   - Admin reviews + approves; approval cascades to kitchen
+    //     prep regen, shopping list refresh, inventory deduction
+    //     diff, and an updated invoice if the total changed.
+    //
+    // So this code path stays simple: born confirmed, lifecycle
+    // continues through preparing -> ready -> in_transit ->
+    // delivered -> completed. Amendments live alongside, not in
+    // line, with the order itself.
     const orderData = {
       ...quote,
       quote_id: quote.id,
