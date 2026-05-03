@@ -127,6 +127,22 @@ function suggestionCtaText(kind: LeadActionKind): string {
   }
 }
 
+/** Hover tooltip explaining what the primary CTA actually does. */
+function suggestionCtaTooltip(kind: LeadActionKind): string {
+  switch (kind) {
+    case "reply_email":      return "Open the email composer with a quick first-reply template, prefilled from the lead.";
+    case "touch_base":       return "Open the email composer with a 'just checking in' template (lead is 2-6 days old).";
+    case "follow_up":        return "Open the email composer with a 'haven't heard back, here's a nudge' template (lead has gone quiet 7+ days).";
+    case "chase_quote":      return "Open the email composer with a 'just chasing on the quote' template -- you've already sent one, time to nudge.";
+    case "send_quote":       return "Jump straight into the rich quote builder, prefilled from this lead.";
+    case "open_quote_draft": return "Open the existing draft quote in the editable builder so you can finish + send it.";
+    case "convert_to_order": return "The client accepted the quote -- open it so you can convert it to an order.";
+    case "winback":          return "Quote was rejected. Open the email composer with a soft win-back template.";
+    case "reopen":           return "Re-open this lost lead with a low-pressure check-in email.";
+    case "view_order":       return "This lead is already booked -- jump to the order.";
+  }
+}
+
 /** Inline icon for the CTA. JSX returned so we can use it directly. */
 function suggestionCtaIcon(kind: LeadActionKind) {
   const cls = "w-4 h-4 mr-2";
@@ -727,6 +743,7 @@ export default function AdminLeads() {
                           <Button
                             size="sm"
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
+                            title={suggestionCtaTooltip(suggestion.kind)}
                             className={
                               suggestion.tone === "urgent"
                                 ? "bg-rose-600 hover:bg-rose-700"
@@ -746,29 +763,45 @@ export default function AdminLeads() {
                             >
                               {expandedLeadId === lead.id ? "Hide" : "Details"}
                             </Button>
-                            {/* Always-available secondary, start a fresh
-                                quote even when the primary CTA was an email.
-                                Styled blue to match the same shortcut on
-                                /admin/contacts so the muscle memory carries
-                                across both surfaces. */}
-                            {!links.orderId && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  if (links.latestQuoteId) {
-                                    router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
-                                  } else {
-                                    router.push(`/admin/quotes/new?leadId=${lead.id}`);
+                            {/* Secondary "open / start a quote" button.
+                                Only rendered when the primary CTA isn't
+                                already routing to the same quote --
+                                otherwise we end up with two buttons that
+                                navigate to the same URL (Bobby flagged
+                                this). */}
+                            {(() => {
+                              if (links.orderId) return null;
+                              const primaryAlreadyOpensQuote = [
+                                "open_quote_draft",
+                                "chase_quote",
+                                "convert_to_order",
+                                "winback",
+                                "send_quote",
+                              ].includes(suggestion.kind);
+                              if (primaryAlreadyOpensQuote) return null;
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    if (links.latestQuoteId) {
+                                      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
+                                    } else {
+                                      router.push(`/admin/quotes/new?leadId=${lead.id}`);
+                                    }
+                                  }}
+                                  className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                  title={
+                                    links.latestQuoteId
+                                      ? "Skip the touch-base and open the existing quote in the editable builder"
+                                      : `Skip the touch-base and start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`
                                   }
-                                }}
-                                className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
-                                title={links.latestQuoteId ? "Open the existing quote for this lead" : `Create a new quote for ${lead.contact_name || lead.client_name || "this lead"}`}
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                {links.latestQuoteId ? "Open quote" : "New quote"}
-                              </Button>
-                            )}
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  {links.latestQuoteId ? "Open quote" : "New quote"}
+                                </Button>
+                              );
+                            })()}
                             <Button
                               size="sm"
                               variant="ghost"
