@@ -390,6 +390,72 @@ export const lifecycleService = {
   },
 
   /**
+   * Ensure a clients row has a matching "won" lead record.
+   *
+   * Every client should have a historical lead (their first-touch
+   * record) -- otherwise /admin/leads shows an inconsistent pipeline
+   * vs /admin/contacts. When a client is created without going
+   * through the normal lead -> quote -> client flow (admin manually
+   * created, imported, etc.), this fills the gap.
+   *
+   * Idempotent: re-running on a client that already has a linked
+   * lead returns the existing lead_id.
+   */
+  async ensureLeadForClient(
+    clientId: string,
+    opts: PromoteLeadOpts = {},
+  ): Promise<{ leadId: string | null; created: boolean }> {
+    const sb = opts.client || supabase;
+
+    const { data: client } = await sb
+      .from("clients")
+      .select("id, company_id, client_name, email, phone, deleted_at")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!client || (client as any).deleted_at || !(client as any).email) {
+      return { leadId: null, created: false };
+    }
+
+    // Existing lead for this email?
+    const { data: existing } = await sb
+      .from("leads")
+      .select("id, converted_to_client_id, status")
+      .eq("company_id", (client as any).company_id)
+      .eq("email", (client as any).email)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (existing?.id) {
+      // Stamp the conversion link if missing.
+      if ((existing as any).converted_to_client_id !== clientId) {
+        await sb.from("leads").update({
+          converted_to_client_id: clientId,
+          converted_at: new Date().toISOString(),
+          status: "won",
+        } as any).eq("id", (existing as any).id);
+      }
+      return { leadId: (existing as any).id, created: false };
+    }
+
+    // No lead for this client yet -- create one stamped 'won'.
+    const { data: newLead } = await sb
+      .from("leads")
+      .insert({
+        company_id: (client as any).company_id,
+        contact_name: (client as any).client_name || "Customer",
+        client_name: (client as any).client_name || "Customer",
+        email: (client as any).email,
+        phone: (client as any).phone || null,
+        status: "won",
+        source: "client_backfill",
+        converted_to_client_id: clientId,
+        converted_at: new Date().toISOString(),
+      } as any)
+      .select("id")
+      .single();
+    return { leadId: (newLead as any)?.id || null, created: !!newLead };
+  },
+
+  /**
    * Resolve a quote's effective client_id.
    *
    * If the quote has client_id set, return it.

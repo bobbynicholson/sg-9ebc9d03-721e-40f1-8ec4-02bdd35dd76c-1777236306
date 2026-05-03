@@ -104,11 +104,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Also walk every active client without a matching lead and
+    // backfill a 'won' lead row -- so /admin/leads "All" / "Won
+    // (archive)" shows the full historical pipeline.
+    let clientLeadsCreated = 0;
+    let clientsQuery = ssr
+      .from("clients")
+      .select("id, company_id, client_name, email")
+      .is("deleted_at", null);
+    if (role !== "super_admin" && (profile as any)?.company_id) {
+      clientsQuery = clientsQuery.eq("company_id", (profile as any).company_id);
+    }
+    const { data: clientRows } = await clientsQuery;
+    for (const c of clientRows || []) {
+      try {
+        const result = await lifecycleService.ensureLeadForClient(
+          (c as any).id,
+          { client: ssr as any },
+        );
+        if (result.created) clientLeadsCreated++;
+      } catch (e) {
+        console.warn(`[backfill-lifecycle] client ${(c as any).id} lead-fill failed:`, e);
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       dry_run: false,
       total_active_orders: (orders || []).length,
       orders_backfilled: summary.length,
+      client_leads_created: clientLeadsCreated,
       details: summary,
     });
   } catch (err: any) {
