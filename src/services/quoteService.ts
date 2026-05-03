@@ -13,6 +13,7 @@ export const quoteService = {
       .from("quotes")
       .select("*")
       .eq("company_id", companyId)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -28,6 +29,7 @@ export const quoteService = {
       .from("quotes")
       .select("*")
       .eq("id", quoteId)
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -238,10 +240,16 @@ export const quoteService = {
     });
   },
 
+  /**
+   * Soft-delete (not hard). publicQuoteService + admin lists already
+   * filter `deleted_at IS NULL`, so a hard delete would orphan
+   * downstream references (orders.quote_id, invoices) and lose the
+   * audit trail. Restoring is just clearing deleted_at.
+   */
   async deleteQuote(quoteId: string): Promise<boolean> {
     const { error } = await supabase
       .from("quotes")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() } as any)
       .eq("id", quoteId);
 
     if (error) {
