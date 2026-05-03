@@ -24,6 +24,7 @@ const ClientTrackingMap = dynamic(
 
 interface OrderDetails {
   id: string;
+  order_number?: string | null;
   client_name: string;
   venue_address: string;
   venue_lat?: number;
