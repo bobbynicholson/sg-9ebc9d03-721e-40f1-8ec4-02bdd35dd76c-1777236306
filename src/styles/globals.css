@@ -29,9 +29,18 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --brand-primary: 271 91% 65%;
-    --brand-secondary: 338 90% 70%;
-    
+    /* White-label tenant palette. BrandingContext.applyBrandingToDOM
+       overrides these per-tenant on auth. The hex variants drive inline
+       styles (gradients); the -rgb triplet variants drive Tailwind's
+       brand-primary / brand-secondary / brand-accent utilities. Defaults
+       match DEFAULT_BRANDING in src/contexts/BrandingContext.tsx. */
+    --brand-primary: #2563eb;
+    --brand-secondary: #7c3aed;
+    --brand-accent: #f59e0b;
+    --brand-primary-rgb: 37 99 235;
+    --brand-secondary-rgb: 124 58 237;
+    --brand-accent-rgb: 245 158 11;
+
     /* Smooth scroll */
     scroll-behavior: smooth;
   }
@@ -61,8 +70,9 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --brand-primary: 271 91% 65%;
-    --brand-secondary: 338 90% 70%;
+    /* Brand variables intentionally inherit from :root in dark mode --
+       tenant branding is the same colour either way, only the surrounding
+       chrome changes. */
   }
 }
 

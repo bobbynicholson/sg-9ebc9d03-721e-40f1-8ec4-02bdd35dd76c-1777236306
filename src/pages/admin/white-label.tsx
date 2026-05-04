@@ -233,11 +233,11 @@ function WhiteLabelPage() {
           <div className="mb-8">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl shadow-lg">
+                <div className="p-3 bg-gradient-to-br from-brand-primary to-brand-secondary rounded-2xl shadow-lg">
                   <Palette className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent flex items-center gap-2">
                     White Label Branding
                     <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant -- every admin and client logged into your account sees the same branding."} />
                   </h1>
@@ -399,7 +399,7 @@ function WhiteLabelPage() {
                 <Button
                   onClick={handleSave}
                   disabled={saving || loading}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  className="flex-1 bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90"
                 >
                   <Save className="w-4 h-4 mr-2" />
                   {saving ? "Saving..." : "Save Branding"}

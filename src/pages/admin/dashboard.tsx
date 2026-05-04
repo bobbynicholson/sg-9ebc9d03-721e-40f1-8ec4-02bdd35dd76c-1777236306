@@ -285,11 +285,11 @@ function AdminDashboardPage() {
           {/* Header + date range, date controls every metric below */}
           <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg flex-shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-lg flex-shrink-0">
                 <LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
                   Admin Dashboard
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
@@ -508,9 +508,9 @@ function AdminDashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <Link
                   href="/admin/orders"
-                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg hover:shadow-md transition-all"
+                  className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"
                 >
-                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0" />
+                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-brand-primary flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-sm sm:text-base text-slate-900">Manage Orders</div>
                     <div className="text-xs text-slate-600">{stats.activeOrders} active in range</div>

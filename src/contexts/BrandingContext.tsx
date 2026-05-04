@@ -35,12 +35,36 @@ const DEFAULT_BRANDING: WhiteLabelBranding = {
 
 const cacheKey = (companyId: string) => `cms.branding.${companyId}`;
 
+// Convert "#f59e0b" / "#fff" -> "245 158 11". Returns null on bad input so
+// the caller can fall back without poisoning the CSS variable.
+const hexToRgbTriplet = (hex: string): string | null => {
+  if (!hex) return null;
+  let h = hex.trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+};
+
 const applyBrandingToDOM = (b: WhiteLabelBranding) => {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
+  // Hex variables remain the source of truth for inline styles
+  // (e.g. linear-gradient backgrounds in AdminNav).
   root.style.setProperty("--brand-primary", b.colors.primary);
   root.style.setProperty("--brand-secondary", b.colors.secondary);
   root.style.setProperty("--brand-accent", b.colors.accent);
+  // RGB-triplet variants drive the Tailwind alpha-aware utilities
+  // (bg-brand-primary/10, text-brand-secondary/80). Without these every
+  // brand-* class would collapse to nothing once an alpha modifier is added.
+  const primaryRgb   = hexToRgbTriplet(b.colors.primary)   ?? "37 99 235";
+  const secondaryRgb = hexToRgbTriplet(b.colors.secondary) ?? "124 58 237";
+  const accentRgb    = hexToRgbTriplet(b.colors.accent)    ?? "245 158 11";
+  root.style.setProperty("--brand-primary-rgb", primaryRgb);
+  root.style.setProperty("--brand-secondary-rgb", secondaryRgb);
+  root.style.setProperty("--brand-accent-rgb", accentRgb);
 };
 
 const rowToBranding = (row: any): WhiteLabelBranding => ({

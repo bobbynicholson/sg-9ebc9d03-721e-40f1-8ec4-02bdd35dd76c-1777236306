@@ -61,6 +61,13 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // White-label tenant palette. Driven by --brand-*-rgb CSS vars
+        // set in BrandingContext.applyBrandingToDOM. The /<alpha-value>
+        // syntax keeps Tailwind alpha modifiers working
+        // (bg-brand-primary/10, text-brand-accent/80, etc.).
+        "brand-primary":   "rgb(var(--brand-primary-rgb)   / <alpha-value>)",
+        "brand-secondary": "rgb(var(--brand-secondary-rgb) / <alpha-value>)",
+        "brand-accent":    "rgb(var(--brand-accent-rgb)    / <alpha-value>)",
       },
       borderRadius: {
         lg: "var(--radius)",

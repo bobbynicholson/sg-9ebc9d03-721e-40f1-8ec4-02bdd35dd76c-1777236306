@@ -685,7 +685,7 @@ export function AdminNav({ className }: AdminNavProps) {
                     className={cn(
                       "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       active
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                        ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-sm"
                         : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                     )}
                   >
@@ -858,7 +858,7 @@ export function AdminNav({ className }: AdminNavProps) {
                       className={cn(
                         "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                         active
-                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                          ? "bg-gradient-to-r from-brand-primary to-brand-secondary text-white shadow-sm"
                           : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
                         isCollapsed ? "justify-center" : ""
                       )}
