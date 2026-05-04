@@ -307,6 +307,35 @@ function templateForLeadAction(
 
 export default function AdminLeads() {
   const { user, profile } = useAuth() as any;
+  // Email-settings status banner. If the tenant hasn't configured a
+  // Resend or SMTP provider, embed-form / quote-acceptance / lead
+  // notifications silently land in emailService's simulation branch
+  // -- they never actually reach the operator's inbox. Surface this
+  // up-front on /admin/leads so the operator notices BEFORE the
+  // first lead lands in their funnel.
+  const [emailSettingsEnabled, setEmailSettingsEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("email_settings")
+        .select("enabled, provider, smtp_host, resend_api_key_set")
+        .eq("user_id", user.company_id)
+        .maybeSingle();
+      if (cancelled) return;
+      // Treat as enabled when row exists AND .enabled is not false
+      // AND provider is configured (resend key OR smtp host).
+      const provider = (data as any)?.provider;
+      const hasResend = (data as any)?.resend_api_key_set === true;
+      const hasSmtp = !!(data as any)?.smtp_host;
+      const isEnabled = !!data
+        && (data as any).enabled !== false
+        && (provider === "resend" ? hasResend : provider === "smtp" ? hasSmtp : (hasResend || hasSmtp));
+      setEmailSettingsEnabled(isEnabled);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
@@ -630,6 +659,29 @@ export default function AdminLeads() {
               </Button>
             </Link>
           </div>
+
+          {/* Email-settings warning banner. Renders only when we've
+              resolved the email_settings row AND it's not configured.
+              The auditors flagged that without a provider configured,
+              every "we'll email you when..." path silently no-ops. */}
+          {emailSettingsEnabled === false && (
+            <div className="mb-6 p-4 rounded-lg border border-amber-200 bg-amber-50 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-4 h-4 text-amber-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-900">Email notifications are off</p>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  No email provider is configured for your company. New embed-form leads, quote acceptances and lead alerts won't reach your inbox until you set this up. Configure Resend or your own SMTP in <Link href="/admin/email-settings" className="font-medium underline underline-offset-2">Email settings</Link>.
+                </p>
+              </div>
+              <Link href="/admin/email-settings">
+                <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100 flex-shrink-0">
+                  Set up
+                </Button>
+              </Link>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <Card className="border-0 shadow-lg">
