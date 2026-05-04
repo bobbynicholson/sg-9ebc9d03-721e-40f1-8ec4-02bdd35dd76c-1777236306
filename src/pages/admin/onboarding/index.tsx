@@ -1,522 +1,966 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/onboarding -- imports history.
+ * /admin/onboarding -- the step-by-step setup wizard.
  *
- * The team's audit trail for every spreadsheet they've fed into the
- * AI Onboarding Importer. From here they can:
- *   - Resume a job stuck in mapping/preview
- *   - Roll back a completed job within 24h
- *   - Read the per-job summary (counts, AI usage, failures)
- *   - Start a fresh import
+ * Where new caterers land. The middleware redirects any admin/owner
+ * with `companies.onboarding_completed_at IS NULL` here, so this page
+ * is the first thing they see after signing up. Walks them through the
+ * settings that matter most to render quotes / invoices / portals
+ * properly:
+ *
+ *   1. Welcome              -- what's coming + skip option
+ *   2. Company basics       -- name, email, phone, registration
+ *   3. Kitchen / HQ address -- delivery distance source of truth
+ *   4. Branding             -- primary + secondary colour, logo
+ *   5. Banking (optional)   -- enables EFT on the client portal
+ *   6. VAT registration     -- drives "Tax Invoice" doc title
+ *   7. Done                 -- mark complete + go to dashboard
+ *
+ * Per-step persistence: every Save & continue writes the relevant
+ * companies columns immediately. If the user leaves mid-flow,
+ * onboarding_completed_at stays null so middleware brings them
+ * back, and their previously-saved fields are pre-populated.
+ *
+ * Importable spreadsheet flow lives separately at
+ * /admin/onboarding/imports (the audit trail) and /admin/onboarding/import
+ * (the actual importer). The wizard surfaces a "Skip + bulk import"
+ * link for caterers who already have data they want to upload first.
  */
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { UserRole } from "@/types/app";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import Link from "next/link";
 import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Wand2, Upload, RotateCcw, ArrowRight, Clock, CheckCircle2,
-  AlertTriangle, FileSpreadsheet, Loader2, Trash2, BellOff, Bell,
+  ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette,
+  Landmark, Receipt, Sparkles, FileSpreadsheet, RotateCcw, ShieldCheck,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ChatBot } from "@/components/ChatBot";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { onboardingProgressService } from "@/services/onboardingProgressService";
 
-interface ImportJobRow {
-  id: string;
-  source_filename: string | null;
-  source_row_count: number | null;
-  status: string;
-  summary: any | null;
-  created_at: string;
-  completed_at: string | null;
-  failed_reason: string | null;
-  // Quarantine fields. NULL on comms_enabled_at means "still paused
-  // -- the team hasn't reviewed and green-lit this batch yet". Once
-  // stamped, downstream automations are free to fire on these rows.
-  comms_enabled_at: string | null;
-  comms_enabled_by?: string | null;
+interface CompanyForm {
+  // Basics
+  company_name: string;
+  legal_name: string;
+  email: string;
+  phone: string;
+  website: string;
+  registration_number: string;
+  tax_number: string;
+
+  // Address
+  address_line1: string;
+  address_line2: string;
+  city: string;
+  state_province: string;
+  postal_code: string;
+  country: string;
+  headquarters_lat: number | null;
+  headquarters_lng: number | null;
+
+  // Branding
+  primary_color: string;
+  secondary_color: string;
+  logo_url: string;
+
+  // Banking
+  bank_name: string;
+  bank_account_holder: string;
+  bank_account_number: string;
+  bank_branch_code: string;
+  bank_account_type: string;
+  eft_instructions: string;
+
+  // VAT
+  vat_registered: boolean;
+  vat_number: string;
+  vat_rate: number;
 }
 
-const STATUS_META: Record<string, { label: string; tone: string }> = {
-  uploaded:   { label: "Awaiting AI mapping", tone: "bg-amber-100 text-amber-700 border-amber-200" },
-  mapped:     { label: "Mapped",              tone: "bg-blue-100 text-blue-700 border-blue-200" },
-  previewed:  { label: "Preview ready",       tone: "bg-purple-100 text-purple-700 border-purple-200" },
-  committing: { label: "Committing...",       tone: "bg-blue-100 text-blue-700 border-blue-200" },
-  completed:  { label: "Completed",           tone: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  failed:     { label: "Failed",              tone: "bg-rose-100 text-rose-700 border-rose-200" },
-  rolled_back:{ label: "Rolled back",         tone: "bg-slate-100 text-slate-600 border-slate-200" },
+const EMPTY_FORM: CompanyForm = {
+  company_name: "", legal_name: "", email: "", phone: "", website: "",
+  registration_number: "", tax_number: "",
+  address_line1: "", address_line2: "", city: "", state_province: "",
+  postal_code: "", country: "South Africa",
+  headquarters_lat: null, headquarters_lng: null,
+  primary_color: "#9333ea", secondary_color: "#ec4899", logo_url: "",
+  bank_name: "", bank_account_holder: "", bank_account_number: "",
+  bank_branch_code: "", bank_account_type: "", eft_instructions: "",
+  vat_registered: false, vat_number: "", vat_rate: 15,
 };
 
-// Window during which a completed import is reversible. Past this
-// the team has to write fixes by hand -- safer than letting them
-// nuke a week of data with one click.
-const ROLLBACK_HOURS = 24;
+// Step ids in order. Centralised so the progress bar, breadcrumb,
+// and back/next nav all read from the same array.
+const STEPS = [
+  { id: "welcome",  label: "Welcome",   icon: Sparkles },
+  { id: "company",  label: "Business",  icon: Building2 },
+  { id: "address",  label: "Address",   icon: MapPin },
+  { id: "branding", label: "Branding",  icon: Palette },
+  { id: "banking",  label: "Banking",   icon: Landmark },
+  { id: "vat",      label: "VAT",       icon: Receipt },
+  { id: "done",     label: "Finish",    icon: Check },
+] as const;
 
-export default function ProtectedImportsHistory() {
-  return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
-      <ImportsHistoryPage />
-    </ProtectedRoute>
-  );
-}
+type StepId = typeof STEPS[number]["id"];
 
-function ImportsHistoryPage() {
-  const { user } = useAuth() as any;
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
-  const { toast } = useToast();
+function OnboardingWizard() {
   const router = useRouter();
+  const { user, profile, refreshProfile } = useAuth() as any;
+  const { toast } = useToast();
 
-  const [jobs, setJobs] = useState<ImportJobRow[]>([]);
+  const companyId = profile?.company_id || user?.company_id;
+  const slug = (user as any)?.company_slug || (profile as any)?.companies?.slug || "";
+
+  const [step, setStep] = useState<StepId>("welcome");
+  const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const slugPrefix = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
-    return m ? `/${m[1]}` : "";
-  }, []);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/imports");
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Could not load imports");
-      setJobs(json.jobs || []);
-    } catch (e: any) {
-      toast({ title: "Could not load imports", description: e?.message || "", variant: "destructive" });
-    } finally {
+  // Initial load: pre-populate the wizard with whatever's already on
+  // the companies row (signup may have stamped name + email, and a
+  // returning user mid-onboarding gets to pick up where they left off).
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        const r = data as any;
+        setForm({
+          company_name: r.company_name || "",
+          legal_name: r.legal_name || "",
+          email: r.email || "",
+          phone: r.phone || "",
+          website: r.website || "",
+          registration_number: r.registration_number || "",
+          tax_number: r.tax_number || "",
+          address_line1: r.address_line1 || "",
+          address_line2: r.address_line2 || "",
+          city: r.city || "",
+          state_province: r.state_province || "",
+          postal_code: r.postal_code || "",
+          country: r.country || "South Africa",
+          headquarters_lat: r.headquarters_lat,
+          headquarters_lng: r.headquarters_lng,
+          primary_color: r.primary_color || "#9333ea",
+          secondary_color: r.secondary_color || "#ec4899",
+          logo_url: r.logo_url || "",
+          bank_name: r.bank_name || "",
+          bank_account_holder: r.bank_account_holder || "",
+          bank_account_number: r.bank_account_number || "",
+          bank_branch_code: r.bank_branch_code || "",
+          bank_account_type: r.bank_account_type || "",
+          eft_instructions: r.eft_instructions || "",
+          vat_registered: !!r.vat_registered,
+          vat_number: r.vat_number || "",
+          vat_rate: r.vat_rate ?? 15,
+        });
+      }
       setLoading(false);
-    }
-  };
-  useEffect(() => { load(); }, []);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
-  const enableComms = async (job: ImportJobRow) => {
-    if (job.comms_enabled_at) return;
-    const counts = job.summary?.commit;
-    const inserted =
-      (counts?.clients?.inserted || 0) +
-      (counts?.orders?.inserted || 0) +
-      (counts?.leads?.inserted || 0) +
-      (counts?.quotes?.inserted || 0);
-    const msg = inserted > 0
-      ? `Enable automated comms for the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"? After this, welcome emails / after-sales sequences / lead auto-replies can fire against them. There is no undo button -- comms run from the moment you click.`
-      : `Enable automated comms for this batch? After this, welcome emails / after-sales sequences / lead auto-replies can fire against the imported records.`;
-    if (!confirm(msg)) return;
-    setBusyId(job.id);
+  const stepIndex = useMemo(() => STEPS.findIndex((s) => s.id === step), [step]);
+  const totalSteps = STEPS.length;
+  const progressPct = Math.round(((stepIndex + 1) / totalSteps) * 100);
+
+  // Each step's "Save & continue" only persists the slice of fields
+  // it owns. Keeps the round-trip small and means a partial save can't
+  // accidentally clobber a later step's data with stale values.
+  const saveStep = async (patch: Partial<CompanyForm>): Promise<boolean> => {
+    if (!companyId) return false;
+    setSaving(true);
     try {
-      const res = await fetch(`/api/imports/${job.id}/enable-comms`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Could not enable comms");
-      const cleared =
-        (json.clients || 0) + (json.leads || 0) + (json.orders || 0) + (json.quotes || 0);
-      toast({
-        title: "Comms enabled",
-        description: cleared > 0
-          ? `Cleared the pause on ${cleared} record${cleared === 1 ? "" : "s"}.`
-          : "Batch is now green-lit.",
-      });
-      load();
+      // The Supabase types are narrow on `companies` so we cast through
+      // any -- the columns we're writing all exist on the table.
+      const { error } = await (supabase as any)
+        .from("companies")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", companyId);
+      if (error) throw error;
+      refreshProfile?.();
+      return true;
     } catch (e: any) {
-      toast({ title: "Could not enable comms", description: e?.message || "", variant: "destructive" });
+      toast({
+        title: "Couldn't save",
+        description: e?.message || "Try again.",
+        variant: "destructive",
+      });
+      return false;
     } finally {
-      setBusyId(null);
+      setSaving(false);
     }
   };
 
-  const rollback = async (jobId: string) => {
-    if (!confirm("Roll back this import? This deletes the rows it inserted, existing records you had before are untouched.")) return;
-    setBusyId(jobId);
-    try {
-      const res = await fetch(`/api/imports/${jobId}/rollback`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Rollback failed");
-      toast({
-        title: "Rolled back",
-        description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders.`,
-      });
-      load();
-    } catch (e: any) {
-      toast({ title: "Rollback failed", description: e?.message || "", variant: "destructive" });
-    } finally {
-      setBusyId(null);
-    }
+  const goNext = () => {
+    const nextIdx = stepIndex + 1;
+    if (nextIdx < totalSteps) setStep(STEPS[nextIdx].id);
+  };
+  const goBack = () => {
+    const prevIdx = stepIndex - 1;
+    if (prevIdx >= 0) setStep(STEPS[prevIdx].id);
   };
 
-  const discard = async (job: ImportJobRow) => {
-    // Used for test runs the operator never finished mapping. Refuses
-    // for completed jobs (those need rollback first to remove the live
-    // data they inserted).
-    const isCompleted = job.status === "completed";
-    const msg = isCompleted
-      ? "This import is completed and has live data. Run rollback first, then delete."
-      : `Delete this import job? This removes the upload and every preview row associated with it. Existing clients / orders are untouched.`;
-    if (isCompleted) {
+  const finalizeAndExit = async () => {
+    if (!companyId) return;
+    setSaving(true);
+    const { error } = await onboardingProgressService.markComplete(companyId);
+    setSaving(false);
+    if (error) {
       toast({
-        title: "Cannot delete a completed import",
-        description: "Run rollback first, then delete the rolled-back row.",
+        title: "Couldn't finish setup",
+        description: error,
         variant: "destructive",
       });
       return;
     }
-    if (!confirm(msg)) return;
-    setBusyId(job.id);
-    try {
-      const res = await fetch(`/api/imports/${job.id}`, { method: "DELETE" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || "Delete failed");
-      toast({
-        title: "Import deleted",
-        description: `Removed "${job.source_filename || "(unnamed file)"}" from history.`,
-      });
-      load();
-    } catch (e: any) {
-      toast({ title: "Delete failed", description: e?.message || "", variant: "destructive" });
-    } finally {
-      setBusyId(null);
-    }
+    refreshProfile?.();
+    router.push(slug ? `/${slug}/admin/dashboard` : "/admin/dashboard");
   };
 
-  const stats = useMemo(() => {
-    const total = jobs.length;
-    const completed = jobs.filter((j) => j.status === "completed").length;
-    const inFlight = jobs.filter((j) => ["uploaded", "mapped", "previewed", "committing"].includes(j.status)).length;
-    const failed = jobs.filter((j) => j.status === "failed").length;
-    return { total, completed, inFlight, failed };
-  }, [jobs]);
+  if (loading) {
+    return (
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80 flex items-center justify-center">
+        <AdminNav />
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
   return (
     <>
       <NoIndexMeta />
-      <Head>
-        <title>Imports history | CateringMS Admin</title>
-      </Head>
-
+      <Head><title>Set up your business — CateringMS</title></Head>
       <AdminNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-xl mx-auto">
-
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
-                <Wand2 className="w-7 h-7 text-white" />
-              </div>
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-3xl">
+          {/* Progress strip across the top -- step pills + filled bar.
+              On phones the labels collapse to icons only so the row
+              doesn't crush. */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
-                  Onboarding
-                  <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">
-                  Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window.
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Setup wizard
                 </p>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  Step {stepIndex + 1} of {totalSteps} -- {STEPS[stepIndex].label}
+                </h1>
               </div>
+              <p className="text-sm text-slate-500">{progressPct}%</p>
             </div>
-            <Link href={`${slugPrefix}/admin/onboarding/import`}>
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
-                <Upload className="w-4 h-4 mr-1.5" /> New import
-              </Button>
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Stat
-              label="Total imports"
-              value={stats.total}
-              tip={"Every import job ever started for this company, regardless of whether it finished."}
-            />
-            <Stat
-              label="Completed"
-              value={stats.completed}
-              tone="emerald"
-              tip={"Imports that finished cleanly. The data is now live in your clients / orders pages."}
-            />
-            <Stat
-              label="In flight"
-              value={stats.inFlight}
-              tone="amber"
-              tip={"Jobs you started but didn't finish. Click 'Resume' on a row below to pick up where you left off."}
-            />
-            <Stat
-              label="Failed"
-              value={stats.failed}
-              tone="rose"
-              tip={"Imports that hit an error. The summary on each row tells you what went wrong; you can re-run after fixing the file."}
-            />
-          </div>
-
-          {/* Quick lanes. Each tile has its own info tooltip so a brand
-              new tenant can hover and see exactly what each tool does
-              before clicking. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-            <Link
-              href={`${slugPrefix}/admin/onboarding/clients`}
-              className="group rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <Upload className="w-4 h-4" />
-                </span>
-                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
-                  Easy client list
-                  <InfoTooltip content={"The fastest way in. Drop a CSV / XLSX (or paste from Sheets) with four columns: Name, Surname, Email, Phone.\n\nWe auto-detect the headers, dedupe by email and skip rows already on file. Best for the contact list you have in Excel or Gmail today."} />
-                </span>
-              </div>
-              <p className="text-xs text-slate-600">
-                Just Name, Surname, Email and Phone. Drop a CSV or paste from Sheets.
-              </p>
-            </Link>
-            <Link
-              href={`${slugPrefix}/admin/onboarding/import`}
-              className="group rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-                  <Wand2 className="w-4 h-4" />
-                </span>
-                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
-                  AI importer
-                  <InfoTooltip content={"For richer files. Drop a spreadsheet of clients + outstanding orders even if the column headings are weird. Claude maps the columns to our schema, you preview every row, then commit when it looks right.\n\nSupports up to 5,000 rows per upload and gives you a 24-hour rollback if anything looks off after the fact."} />
-                </span>
-              </div>
-              <p className="text-xs text-slate-600">
-                Bigger spreadsheets with mixed columns. Claude maps headers to our schema.
-              </p>
-            </Link>
-            <Link
-              href={`${slugPrefix}/admin/onboarding/receipts`}
-              className="group rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                  <FileSpreadsheet className="w-4 h-4" />
-                </span>
-                <span className="font-semibold text-slate-900 flex items-center gap-1.5">
-                  Receipt scanner
-                  <InfoTooltip content={"Photograph supplier slips with your phone (up to 20 in one go). Claude vision reads each receipt and pulls the supplier, date, line items and totals so we can pre-populate your inventory cost prices.\n\nUseful on day one to seed real costs from your last few weeks of supplier purchases without typing them out."} />
-                </span>
-              </div>
-              <p className="text-xs text-slate-600">
-                Photograph supplier slips. AI pulls suppliers, line items and totals.
-              </p>
-            </Link>
-          </div>
-
-          {/* List */}
-          {loading ? (
-            <Card><CardContent className="py-12 text-center text-slate-500">
-              <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
-              Loading imports...
-            </CardContent></Card>
-          ) : jobs.length === 0 ? (
-            <Card className="border-2 border-dashed">
-              <CardContent className="py-12 text-center space-y-3">
-                <FileSpreadsheet className="w-14 h-14 mx-auto text-slate-300" />
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">No imports yet</h3>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Drop a spreadsheet of your existing clients + orders to get rolling.
-                  </p>
-                </div>
-                <Link href={`${slugPrefix}/admin/onboarding/import`}>
-                  <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
-                    <Upload className="w-4 h-4 mr-1.5" /> Run your first import
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {jobs.map((j) => {
-                const meta = STATUS_META[j.status] || STATUS_META.uploaded;
-                const ageHours =
-                  j.completed_at
-                    ? (Date.now() - new Date(j.completed_at).getTime()) / (1000 * 60 * 60)
-                    : 0;
-                const canRollback = j.status === "completed" && ageHours <= ROLLBACK_HOURS;
-                const commit = j.summary?.commit;
-                const inserted =
-                  (commit?.clients?.inserted || 0) + (commit?.orders?.inserted || 0);
-                const skipped =
-                  (commit?.clients?.skipped || 0) + (commit?.orders?.skipped || 0);
-                const errored =
-                  (commit?.clients?.errored || 0) + (commit?.orders?.errored || 0);
+            <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="hidden sm:flex items-center justify-between mt-3 px-1">
+              {STEPS.map((s, idx) => {
+                const Icon = s.icon;
+                const done = idx < stepIndex;
+                const active = idx === stepIndex;
                 return (
-                  <Card key={j.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-                        <FileSpreadsheet className="w-4 h-4 text-slate-400" />
-                        <Badge className={`border ${meta.tone}`}>{meta.label}</Badge>
-                        {/* Comms quarantine badge. Only meaningful for
-                            completed jobs -- in-flight ones haven't
-                            inserted real rows yet so the pause flag
-                            isn't a useful signal there. */}
-                        {j.status === "completed" && (
-                          j.comms_enabled_at ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1">
-                              <Bell className="w-2.5 h-2.5" />
-                              Comms live
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 text-[10px] gap-1">
-                              <BellOff className="w-2.5 h-2.5" />
-                              Comms paused
-                            </Badge>
-                          )
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-[200px]">
-                        <div className="font-semibold text-slate-900 truncate">
-                          {j.source_filename || "(unnamed file)"}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(j.created_at).toLocaleString("en-ZA", {
-                              day: "numeric", month: "short", year: "numeric",
-                              hour: "2-digit", minute: "2-digit",
-                            })}
-                          </span>
-                          {j.source_row_count != null && (
-                            <span>{j.source_row_count} rows</span>
-                          )}
-                          {commit && (
-                            <>
-                              <span className="text-emerald-700">{inserted} inserted</span>
-                              {skipped > 0 && (
-                                <span className="text-slate-500">{skipped} skipped</span>
-                              )}
-                              {errored > 0 && (
-                                <span className="text-rose-600">{errored} errored</span>
-                              )}
-                            </>
-                          )}
-                          {j.status === "failed" && j.failed_reason && (
-                            <span className="inline-flex items-center gap-1 text-rose-600">
-                              <AlertTriangle className="w-3 h-3" /> {j.failed_reason}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Enable comms button -- shown on completed
-                            batches that haven't been green-lit yet.
-                            One click clears the pause across every
-                            row from the batch via an atomic RPC. */}
-                        {j.status === "completed" && !j.comms_enabled_at && (
-                          <Button
-                            size="sm"
-                            onClick={() => enableComms(j)}
-                            disabled={busyId === j.id}
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                            title="Allow welcome emails / after-sales / lead auto-replies to fire on this batch"
-                          >
-                            {busyId === j.id ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <Bell className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            Enable comms
-                          </Button>
-                        )}
-                        {canRollback && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => rollback(j.id)}
-                            disabled={busyId === j.id}
-                            title={`Rollback window expires ${(ROLLBACK_HOURS - ageHours).toFixed(1)}h from now`}
-                          >
-                            {busyId === j.id ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            Roll back
-                          </Button>
-                        )}
-                        {!["completed", "rolled_back", "failed"].includes(j.status) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => router.push(`${slugPrefix}/admin/onboarding/import?jobId=${j.id}`)}
-                          >
-                            Resume
-                            <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                          </Button>
-                        )}
-                        {j.status === "completed" && (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 px-2">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            {ageHours <= ROLLBACK_HOURS
-                              ? `Rollback ${(ROLLBACK_HOURS - ageHours).toFixed(1)}h left`
-                              : "Locked in"}
-                          </span>
-                        )}
-                        {/* Delete is offered on every job that doesn't have
-                            live data (i.e. anything except 'completed').
-                            Useful for test uploads the operator abandoned
-                            half-way through mapping. */}
-                        {j.status !== "completed" && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Delete this import job"
-                            onClick={() => discard(j)}
-                            disabled={busyId === j.id}
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                          >
-                            {busyId === j.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <button
+                    key={s.id}
+                    type="button"
+                    disabled={idx > stepIndex}
+                    onClick={() => idx <= stepIndex && setStep(s.id)}
+                    className={`flex items-center gap-1 text-[11px] transition ${
+                      active
+                        ? "text-orange-600 font-semibold"
+                        : done
+                          ? "text-emerald-600 hover:text-emerald-700"
+                          : "text-slate-400 cursor-not-allowed"
+                    }`}
+                    title={s.label}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{s.label}</span>
+                  </button>
                 );
               })}
             </div>
-          )}
+          </div>
+
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-5 sm:p-7 space-y-5">
+              {step === "welcome" && (
+                <WelcomeStep
+                  companyName={form.company_name}
+                  onStart={goNext}
+                  onSkipToImports={() =>
+                    router.push(slug ? `/${slug}/admin/onboarding/imports` : "/admin/onboarding/imports")
+                  }
+                  onSkipAll={finalizeAndExit}
+                  saving={saving}
+                />
+              )}
+
+              {step === "company" && (
+                <CompanyStep
+                  form={form}
+                  setForm={setForm}
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async () => {
+                    const ok = await saveStep({
+                      company_name: form.company_name.trim() || null as any,
+                      legal_name: form.legal_name.trim() || null as any,
+                      email: form.email.trim() || null as any,
+                      phone: form.phone.trim() || null as any,
+                      website: form.website.trim() || null as any,
+                      registration_number: form.registration_number.trim() || null as any,
+                      tax_number: form.tax_number.trim() || null as any,
+                    });
+                    if (ok) goNext();
+                  }}
+                />
+              )}
+
+              {step === "address" && (
+                <AddressStep
+                  form={form}
+                  setForm={setForm}
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async () => {
+                    const ok = await saveStep({
+                      address_line1: form.address_line1.trim() || null as any,
+                      address_line2: form.address_line2.trim() || null as any,
+                      city: form.city.trim() || null as any,
+                      state_province: form.state_province.trim() || null as any,
+                      postal_code: form.postal_code.trim() || null as any,
+                      country: form.country.trim() || null as any,
+                      headquarters_lat: form.headquarters_lat,
+                      headquarters_lng: form.headquarters_lng,
+                    });
+                    if (ok) goNext();
+                  }}
+                />
+              )}
+
+              {step === "branding" && (
+                <BrandingStep
+                  form={form}
+                  setForm={setForm}
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async () => {
+                    const ok = await saveStep({
+                      primary_color: form.primary_color || null as any,
+                      secondary_color: form.secondary_color || null as any,
+                      logo_url: form.logo_url.trim() || null as any,
+                    });
+                    if (ok) goNext();
+                  }}
+                />
+              )}
+
+              {step === "banking" && (
+                <BankingStep
+                  form={form}
+                  setForm={setForm}
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async () => {
+                    const ok = await saveStep({
+                      bank_name: form.bank_name.trim() || null as any,
+                      bank_account_holder: form.bank_account_holder.trim() || null as any,
+                      bank_account_number: form.bank_account_number.trim() || null as any,
+                      bank_branch_code: form.bank_branch_code.trim() || null as any,
+                      bank_account_type: form.bank_account_type || null as any,
+                      eft_instructions: form.eft_instructions.trim() || null as any,
+                    });
+                    if (ok) goNext();
+                  }}
+                  onSkip={goNext}
+                />
+              )}
+
+              {step === "vat" && (
+                <VatStep
+                  form={form}
+                  setForm={setForm}
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async () => {
+                    const ok = await saveStep({
+                      vat_registered: form.vat_registered,
+                      vat_number: form.vat_registered ? (form.vat_number.trim() || null as any) : null as any,
+                      vat_rate: form.vat_registered ? (form.vat_rate ?? 15) : null as any,
+                    });
+                    if (ok) goNext();
+                  }}
+                />
+              )}
+
+              {step === "done" && (
+                <DoneStep
+                  form={form}
+                  saving={saving}
+                  onBack={goBack}
+                  onFinish={finalizeAndExit}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-slate-500 mt-4">
+            You can change any of this later under <strong>Settings</strong> in the sidebar.
+          </p>
         </div>
-
-        <Footer />
       </div>
-
-      <ChatBot userRole="admin" companyId={companyId || undefined} />
     </>
   );
 }
 
-function Stat({
-  label, value, tone, tip,
-}: { label: string; value: number; tone?: "emerald" | "amber" | "rose"; tip?: string }) {
-  const valueClass =
-    tone === "emerald" ? "text-emerald-600" :
-    tone === "amber"   ? "text-amber-600"   :
-    tone === "rose"    ? "text-rose-600"    : "text-slate-900";
+// ── Step components ──────────────────────────────────────────────────
+
+function WelcomeStep({
+  companyName, onStart, onSkipToImports, onSkipAll, saving,
+}: {
+  companyName: string;
+  onStart: () => void;
+  onSkipToImports: () => void;
+  onSkipAll: () => void;
+  saving: boolean;
+}) {
   return (
-    <Card className="border-0 shadow-md">
-      <CardContent className="p-4">
-        <p className="text-xs text-slate-600 mb-1 flex items-center gap-1.5">
-          {label}
-          {tip && <InfoTooltip content={tip} />}
+    <div className="space-y-5">
+      <div className="text-center">
+        <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 items-center justify-center shadow-lg mb-4">
+          <Sparkles className="w-8 h-8 text-white" />
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+          Welcome{companyName ? `, ${companyName}` : ""}
+        </h2>
+        <p className="text-slate-600 mt-2 max-w-lg mx-auto">
+          Let&apos;s get your business set up. This takes about 5 minutes -- we&apos;ll cover the
+          basics you need before you can quote, invoice and run your first event.
         </p>
-        <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+          What we&apos;ll cover
+        </p>
+        <ul className="space-y-2 text-sm text-slate-700">
+          {[
+            "Business basics -- name, contact details, registration",
+            "Where you cook from -- drives delivery distance + driver routing",
+            "Branding -- logo + brand colours for your client portal",
+            "Banking (optional) -- enables EFT as a payment option",
+            "VAT registration -- changes your invoice document title",
+          ].map((line) => (
+            <li key={line} className="flex items-start gap-2">
+              <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button onClick={onStart} disabled={saving} className="flex-1 bg-orange-600 hover:bg-orange-700">
+          Let&apos;s go <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onSkipToImports}
+          disabled={saving}
+          className="flex-1"
+        >
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+          I have data to import first
+        </Button>
+      </div>
+
+      <button
+        type="button"
+        onClick={onSkipAll}
+        disabled={saving}
+        className="block mx-auto text-xs text-slate-500 hover:text-slate-700 underline-offset-2 hover:underline"
+      >
+        Skip the wizard -- take me straight to the dashboard
+      </button>
+    </div>
+  );
+}
+
+function CompanyStep({
+  form, setForm, saving, onBack, onNext,
+}: StepProps) {
+  return (
+    <StepShell
+      icon={Building2}
+      title="Tell us about your business"
+      description="The basics that show up on every quote, invoice and email you send."
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field id="company_name" label="Business name" required>
+          <Input
+            id="company_name"
+            value={form.company_name}
+            onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+            placeholder="e.g. Spit Braai Delivery"
+          />
+        </Field>
+        <Field id="legal_name" label="Legal / trading name (optional)">
+          <Input
+            id="legal_name"
+            value={form.legal_name}
+            onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
+          />
+        </Field>
+        <Field id="email" label="Contact email" required>
+          <Input
+            id="email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            placeholder="hello@yourcompany.co.za"
+          />
+        </Field>
+        <Field id="phone" label="Phone">
+          <Input
+            id="phone"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="+27 ..."
+            inputMode="tel"
+          />
+        </Field>
+        <Field id="website" label="Website (optional)">
+          <Input
+            id="website"
+            value={form.website}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+            placeholder="https://..."
+          />
+        </Field>
+        <Field id="registration_number" label="Registration number (optional)">
+          <Input
+            id="registration_number"
+            value={form.registration_number}
+            onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+          />
+        </Field>
+      </div>
+      <NavRow onBack={onBack} onNext={onNext} saving={saving}
+        canNext={!!form.company_name.trim() && !!form.email.trim()} />
+    </StepShell>
+  );
+}
+
+function AddressStep({
+  form, setForm, saving, onBack, onNext,
+}: StepProps) {
+  return (
+    <StepShell
+      icon={MapPin}
+      title="Where do you cook from?"
+      description="Used as the starting point for every delivery distance and route plan. The more accurate, the more accurate your quotes."
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field id="addr1" label="Address line 1">
+          <Input
+            id="addr1"
+            value={form.address_line1}
+            onChange={(e) => setForm({ ...form, address_line1: e.target.value })}
+            placeholder="64 Kitchen Street"
+          />
+        </Field>
+        <Field id="addr2" label="Address line 2 (optional)">
+          <Input
+            id="addr2"
+            value={form.address_line2}
+            onChange={(e) => setForm({ ...form, address_line2: e.target.value })}
+          />
+        </Field>
+        <Field id="city" label="City / suburb">
+          <Input
+            id="city"
+            value={form.city}
+            onChange={(e) => setForm({ ...form, city: e.target.value })}
+          />
+        </Field>
+        <Field id="state" label="Province">
+          <Input
+            id="state"
+            value={form.state_province}
+            onChange={(e) => setForm({ ...form, state_province: e.target.value })}
+          />
+        </Field>
+        <Field id="zip" label="Postal code">
+          <Input
+            id="zip"
+            value={form.postal_code}
+            onChange={(e) => setForm({ ...form, postal_code: e.target.value })}
+          />
+        </Field>
+        <Field id="country" label="Country">
+          <Input
+            id="country"
+            value={form.country}
+            onChange={(e) => setForm({ ...form, country: e.target.value })}
+          />
+        </Field>
+      </div>
+      <p className="text-xs text-slate-500">
+        You can fine-tune the lat/lng later under <strong>Company Profile</strong>. Most caterers
+        leave these blank now and let the address autocomplete fill them in once Google Maps is
+        connected.
+      </p>
+      <NavRow onBack={onBack} onNext={onNext} saving={saving} />
+    </StepShell>
+  );
+}
+
+function BrandingStep({
+  form, setForm, saving, onBack, onNext,
+}: StepProps) {
+  const gradient = `linear-gradient(135deg, ${form.primary_color} 0%, ${form.secondary_color} 100%)`;
+  return (
+    <StepShell
+      icon={Palette}
+      title="How do you want to look?"
+      description="Your brand colours apply to the client portal, quotes, invoices and order tracking. You can change these any time."
+    >
+      {/* Live preview band -- looks exactly like the client portal
+          gradient header so the operator sees real impact, not a
+          colour swatch. */}
+      <div
+        className="rounded-xl p-5 text-white shadow-lg"
+        style={{ background: gradient }}
+      >
+        <p className="text-xs uppercase tracking-wide opacity-80">Preview</p>
+        <h3 className="text-xl font-bold">{form.company_name || "Your business"}</h3>
+        <p className="text-sm opacity-90 mt-1">This is what your clients will see.</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field id="primary_color" label="Primary colour">
+          <div className="flex gap-2">
+            <input
+              type="color"
+              value={form.primary_color}
+              onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+              className="w-12 h-10 rounded border border-slate-200 cursor-pointer"
+            />
+            <Input
+              value={form.primary_color}
+              onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+              className="font-mono"
+            />
+          </div>
+        </Field>
+        <Field id="secondary_color" label="Secondary colour">
+          <div className="flex gap-2">
+            <input
+              type="color"
+              value={form.secondary_color}
+              onChange={(e) => setForm({ ...form, secondary_color: e.target.value })}
+              className="w-12 h-10 rounded border border-slate-200 cursor-pointer"
+            />
+            <Input
+              value={form.secondary_color}
+              onChange={(e) => setForm({ ...form, secondary_color: e.target.value })}
+              className="font-mono"
+            />
+          </div>
+        </Field>
+        <Field id="logo_url" label="Logo URL (optional)" hint="A direct link to your logo image. We'll show it in the client portal header.">
+          <Input
+            id="logo_url"
+            value={form.logo_url}
+            onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+            placeholder="https://..."
+          />
+        </Field>
+      </div>
+      <NavRow onBack={onBack} onNext={onNext} saving={saving} />
+    </StepShell>
+  );
+}
+
+function BankingStep({
+  form, setForm, saving, onBack, onNext, onSkip,
+}: StepProps & { onSkip: () => void }) {
+  return (
+    <StepShell
+      icon={Landmark}
+      title="Bank details for EFT"
+      description="Optional. When set, your client portal shows these details (with the invoice number as a forced reference) for clients who pick EFT. Leave blank to hide EFT entirely."
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field id="bank_name" label="Bank">
+          <Input
+            id="bank_name"
+            value={form.bank_name}
+            onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+            placeholder="e.g. FNB, Standard Bank, Capitec"
+          />
+        </Field>
+        <Field id="bank_account_holder" label="Account holder">
+          <Input
+            id="bank_account_holder"
+            value={form.bank_account_holder}
+            onChange={(e) => setForm({ ...form, bank_account_holder: e.target.value })}
+          />
+        </Field>
+        <Field id="bank_account_number" label="Account number">
+          <Input
+            id="bank_account_number"
+            value={form.bank_account_number}
+            onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+            inputMode="numeric"
+          />
+        </Field>
+        <Field id="bank_branch_code" label="Branch code">
+          <Input
+            id="bank_branch_code"
+            value={form.bank_branch_code}
+            onChange={(e) => setForm({ ...form, bank_branch_code: e.target.value })}
+            placeholder="e.g. 250655"
+            inputMode="numeric"
+          />
+        </Field>
+        <Field id="bank_account_type" label="Account type">
+          <select
+            id="bank_account_type"
+            value={form.bank_account_type}
+            onChange={(e) => setForm({ ...form, bank_account_type: e.target.value })}
+            className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+          >
+            <option value="">Pick one</option>
+            <option value="cheque">Cheque / current</option>
+            <option value="savings">Savings</option>
+            <option value="transmission">Transmission</option>
+          </select>
+        </Field>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+        <Button variant="outline" onClick={onBack} disabled={saving}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button variant="ghost" onClick={onSkip} disabled={saving} className="text-slate-500">
+          Skip for now
+        </Button>
+        <Button onClick={onNext} disabled={saving} className="ml-auto bg-orange-600 hover:bg-orange-700">
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          Save & continue <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+    </StepShell>
+  );
+}
+
+function VatStep({
+  form, setForm, saving, onBack, onNext,
+}: StepProps) {
+  return (
+    <StepShell
+      icon={Receipt}
+      title="VAT registration"
+      description="South African rule: VAT-registered businesses issue 'Tax Invoice' documents with their VAT number. Switching this on changes your quote + invoice templates everywhere."
+    >
+      <label className="flex items-start gap-3 px-3 py-3 rounded-md border border-slate-200 cursor-pointer hover:bg-slate-50">
+        <input
+          type="checkbox"
+          checked={form.vat_registered}
+          onChange={(e) => setForm({ ...form, vat_registered: e.target.checked })}
+          className="mt-0.5 w-4 h-4"
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-slate-900">This business is VAT registered</p>
+          <p className="text-xs text-slate-500">
+            When on, your quotes and invoices will say &quot;Tax Invoice&quot; with your VAT number on them.
+          </p>
+        </div>
+      </label>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field id="vat_number" label="VAT number">
+          <Input
+            id="vat_number"
+            value={form.vat_number}
+            onChange={(e) => setForm({ ...form, vat_number: e.target.value })}
+            placeholder="e.g. 4123456789"
+            disabled={!form.vat_registered}
+          />
+        </Field>
+        <Field id="vat_rate" label="VAT rate (%)">
+          <Input
+            id="vat_rate"
+            type="number"
+            step="0.01"
+            value={form.vat_rate ?? 15}
+            onChange={(e) =>
+              setForm({ ...form, vat_rate: e.target.value === "" ? 15 : Number(e.target.value) })
+            }
+            disabled={!form.vat_registered}
+          />
+        </Field>
+      </div>
+      <NavRow onBack={onBack} onNext={onNext} saving={saving} />
+    </StepShell>
+  );
+}
+
+function DoneStep({
+  form, saving, onBack, onFinish,
+}: {
+  form: CompanyForm;
+  saving: boolean;
+  onBack: () => void;
+  onFinish: () => void;
+}) {
+  // Quick summary of what they entered, so the operator can sanity-
+  // check before they hit the button. We show only the essentials
+  // (business name, address city, brand colours, banking on/off,
+  // VAT status). Specifics are still available via Settings later.
+  const summary = [
+    { label: "Business", value: form.company_name || "(not set)" },
+    { label: "Email", value: form.email || "(not set)" },
+    { label: "Address", value: form.city ? `${form.city}, ${form.country}` : "(not set)" },
+    { label: "Brand", value: `${form.primary_color} / ${form.secondary_color}` },
+    { label: "EFT bank", value: form.bank_name ? form.bank_name : "(skipped)" },
+    { label: "VAT registered", value: form.vat_registered ? "Yes" : "No" },
+  ];
+  return (
+    <StepShell
+      icon={ShieldCheck}
+      title="All set"
+      description="Quick check before we wrap up. You can edit any of this later in Settings."
+    >
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+          {summary.map((s) => (
+            <div key={s.label} className="flex justify-between sm:block">
+              <dt className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                {s.label}
+              </dt>
+              <dd className="text-sm font-medium text-slate-800 sm:mt-0.5 truncate">
+                {s.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-2 pt-2">
+        <Button variant="outline" onClick={onBack} disabled={saving}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button onClick={onFinish} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+          Finish setup & go to dashboard
+        </Button>
+      </div>
+    </StepShell>
+  );
+}
+
+// ── Reusable bits ────────────────────────────────────────────────────
+
+interface StepProps {
+  form: CompanyForm;
+  setForm: React.Dispatch<React.SetStateAction<CompanyForm>>;
+  saving: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}
+
+function StepShell({
+  icon: Icon, title, description, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+          <Icon className="w-5 h-5 text-orange-700" />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900">{title}</h2>
+          <p className="text-sm text-slate-600 mt-0.5">{description}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  id, label, required, hint, children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id} className="text-xs font-semibold text-slate-700">
+        {label}{required ? <span className="text-rose-500"> *</span> : null}
+      </Label>
+      <div className="mt-1">{children}</div>
+      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+function NavRow({
+  onBack, onNext, saving, canNext = true,
+}: {
+  onBack: () => void;
+  onNext: () => void;
+  saving: boolean;
+  canNext?: boolean;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-2 pt-4">
+      <Button variant="outline" onClick={onBack} disabled={saving}>
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back
+      </Button>
+      <Button
+        onClick={onNext}
+        disabled={saving || !canNext}
+        className="ml-auto bg-orange-600 hover:bg-orange-700"
+      >
+        {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+        Save & continue <ArrowRight className="w-4 h-4 ml-2" />
+      </Button>
+    </div>
+  );
+}
+
+export default function ProtectedOnboarding() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <OnboardingWizard />
+    </ProtectedRoute>
   );
 }

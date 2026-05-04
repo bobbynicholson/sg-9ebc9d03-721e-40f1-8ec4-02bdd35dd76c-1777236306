@@ -62,7 +62,7 @@ function ReceiptsImportPage() {
 
           {/* Header */}
           <div className="mb-4">
-            <Link href={`${slugPrefix}/admin/onboarding`}>
+            <Link href={`${slugPrefix}/admin/onboarding/imports`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to imports
               </Button>
@@ -85,7 +85,7 @@ function ReceiptsImportPage() {
           </div>
 
           <ReceiptScanner
-            historyHref={`${slugPrefix}/admin/onboarding`}
+            historyHref={`${slugPrefix}/admin/onboarding/imports`}
             accent="purple"
           />
         </div>

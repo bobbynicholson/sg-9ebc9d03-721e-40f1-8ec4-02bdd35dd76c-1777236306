@@ -296,10 +296,10 @@ function ClientImportPage() {
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50 lg:pl-72 xl:pl-80">
         <div className="px-4 py-6 lg:py-10 max-w-screen-2xl mx-auto">
           <Link
-            href={withSlug("/admin/onboarding")}
+            href={withSlug("/admin/onboarding/imports")}
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 mb-3"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to onboarding
+            <ArrowLeft className="w-4 h-4" /> Back to imports
           </Link>
 
           <div className="flex items-start gap-3 mb-6">
