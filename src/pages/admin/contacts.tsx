@@ -25,8 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
+import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -1049,6 +1049,17 @@ function ClientsCRM() {
   );
 }
 
+/**
+ * ComposeDrawer -- thin wrapper around the shared MessageComposer
+ * (same component Leads and Quotes use). Keeps the messaging UI
+ * identical across all three CRM surfaces: same drawer chrome, same
+ * send-channel buttons, same WhatsApp pivot, same context rail.
+ *
+ * Templates resolve through composeEmail.templateFor() which already
+ * routes through resolveTemplateSync() for company overrides, so a
+ * caterer who customised their "Quote chase" template on the
+ * Messaging Templates page sees that wording here as well.
+ */
 function ComposeDrawer({
   contact, fromName, companyId, onSent, onClose,
 }: {
@@ -1058,138 +1069,70 @@ function ComposeDrawer({
   onSent: () => void;
   onClose: () => void;
 }) {
-  const initial = templateFor(contact.status, {
+  const tpl = templateFor(contact.status, {
     contactName: contact.name,
-    eventDate: contact.nextEventDate ? new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long" }) : undefined,
+    eventDate: contact.nextEventDate
+      ? new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+      : undefined,
     daysSinceLastContact: contact.daysSinceLastTouch ?? undefined,
     fromName,
     companyId: companyId ?? null,
   });
-  const [subject, setSubject] = useState(initial.subject);
-  const [body, setBody] = useState(initial.body);
-  const [copied, setCopied] = useState(false);
 
-  const payload = { to: contact.email || "", subject, body, fromName };
+  // Pick the WhatsApp template that maps closest to the suggested
+  // action. Mirror the lead drawer's logic so the same status nudges
+  // the same default WA template across pages.
+  const defaultWA: ClientWhatsAppKind =
+    contact.status === "quoted" ? "quote_chase"
+    : contact.status === "won" || contact.status === "active" || contact.status === "vip" ? "quote_accepted"
+    : "lead_followup";
 
   return (
-    <>
-      <SheetHeader>
-        <SheetTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5 text-purple-600" />
-          Compose to {contact.name}
-        </SheetTitle>
-        <SheetDescription>
-          Quick personal mail. Sent through your own inbox so it looks like it came from you.
-        </SheetDescription>
-      </SheetHeader>
-
-      <div className="space-y-4 mt-4">
-        {/* Contact summary */}
-        <Card className="border-0 shadow-sm bg-slate-50">
-          <CardContent className="py-3 px-4 text-xs space-y-1">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Email</span>
-              <span className="font-medium text-slate-900">{contact.email || "(none)"}</span>
-            </div>
-            {contact.phone && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Phone</span>
-                <span className="font-medium text-slate-900">{contact.phone}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-slate-500">Status</span>
-              <span className="font-medium text-slate-900">{STATUS_META[contact.status].label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Orders</span>
-              <span className="font-medium text-slate-900">{contact.orderCount} ({fmtMoney.format(contact.totalSpent)})</span>
-            </div>
-            {contact.nextEventDate && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Next event</span>
-                <span className="font-medium text-slate-900">{new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Editable template */}
-        <div>
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Subject</label>
-          <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1" />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Message</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={10}
-            className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-mono"
-          />
-          <p className="text-[11px] text-slate-500 mt-1">
-            Edit freely, the template's just a starting point based on this contact's status.
-          </p>
-        </div>
-
-        {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
-          <Button
-            variant="default"
-            disabled={!contact.email}
-            onClick={() => {
-              window.open(composeEmail.gmailUrl(payload), "_blank", "noopener");
-              onSent();
-            }}
-            className="gap-2"
-          >
-            <ExternalLink className="w-4 h-4" /> Open in Gmail
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!contact.email}
-            onClick={() => {
-              window.open(composeEmail.outlookUrl(payload), "_blank", "noopener");
-              onSent();
-            }}
-            className="gap-2"
-          >
-            <ExternalLink className="w-4 h-4" /> Open in Outlook
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!contact.email}
-            onClick={() => {
-              window.location.href = composeEmail.mailto(payload);
-              onSent();
-            }}
-            className="gap-2"
-          >
-            <Mail className="w-4 h-4" /> Default mail app
-          </Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const ok = await composeEmail.copyToClipboard(payload);
-              if (ok) {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-                onSent();
-              }
-            }}
-            className="gap-2"
-          >
-            <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
-          </Button>
-        </div>
-
-        <p className="text-[11px] text-slate-500 text-center">
-          Direct send via your own SMTP / Gmail OAuth coming soon. Until then these four options keep the email looking like it came from you, not from us.
-        </p>
-
-        <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>
-      </div>
-    </>
+    <MessageComposer
+      title={`Message ${contact.name}`}
+      subtitle={contact.suggestion?.reason || "Personal follow-up. Sent through your own inbox so it looks like it came from you."}
+      contextLabel="This contact"
+      contextRows={[
+        { label: "Email",  value: contact.email || "(none)", title: contact.email || "(none)" },
+        { label: "Phone",  value: contact.phone || "—" },
+        { label: "Status", value: STATUS_META[contact.status]?.label || contact.status },
+        { label: "Orders", value: `${contact.orderCount} (${fmtMoney.format(contact.totalSpent)})` },
+        ...(contact.nextEventDate ? [{
+          label: "Next event",
+          value: new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long" }),
+        }] : []),
+        ...(contact.daysSinceLastTouch != null ? [{
+          label: "Last touch",
+          value: `${contact.daysSinceLastTouch}d ago`,
+          divider: true,
+        }] : []),
+      ]}
+      recipient={{
+        name: contact.name,
+        email: contact.email || null,
+        phone: contact.phone || null,
+        clientId: contact.clientId,
+      }}
+      template={{ subject: tpl.subject, body: tpl.body }}
+      fromName={fromName}
+      footerHint="Edit freely -- the wording is just a starting point based on this contact's status. Drag the left edge of this drawer for more room."
+      onSent={onSent}
+      whatsapp={{
+        kind: "client",
+        ctx: {
+          contactName: contact.name,
+          eventName: null,
+          eventDate: contact.nextEventDate
+            ? new Date(contact.nextEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+            : null,
+          guestCount: null,
+          fromName,
+        },
+        templates: ["lead_followup", "quote_chase", "quote_sent", "quote_accepted"],
+        defaultTemplate: defaultWA,
+      }}
+      onClose={onClose}
+    />
   );
 }
 
