@@ -162,7 +162,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       if (Object.keys(dbPatch).length > 0) {
         const { error } = await supabase
           .from("companies")
-          .update(dbPatch)
+          .update(dbPatch as any)
           .eq("id", companyId);
         if (error) throw error;
       }
