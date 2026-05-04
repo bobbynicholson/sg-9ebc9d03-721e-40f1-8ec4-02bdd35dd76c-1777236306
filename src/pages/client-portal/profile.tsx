@@ -133,11 +133,19 @@ export default function ClientProfilePage() {
           landline = "";
         }
 
+        // WhatsApp opt-in default: when there's a mobile and the
+        // profile has never explicitly stored a value, treat it as
+        // opted-in. This is operational comms (ETAs, day-of changes,
+        // rating prompts), not marketing. If the user has actively
+        // opted out (false stored), respect it.
+        const optInStored = p.whatsapp_opt_in;
+        const optInDefault = !!mobile && optInStored !== false;
+
         setForm({
           full_name: p.full_name || "",
           mobile_number: mobile,
           phone_number: landline,
-          whatsapp_opt_in: !!p.whatsapp_opt_in,
+          whatsapp_opt_in: optInDefault,
           avatar_url: p.avatar_url || "",
           client_name: c.client_name || "",
         });

@@ -34,6 +34,10 @@ export interface ComposerRecipient {
   name: string;
   email: string | null | undefined;
   phone?: string | null;
+  /** clients.id -- threaded into WhatsAppButton so the opt-out gate
+   *  resolves automatically when present. Optional; without it the
+   *  button assumes the client has not opted out. */
+  clientId?: string | null;
 }
 
 /**
@@ -317,6 +321,7 @@ export function MessageComposer({
                 <WhatsAppButton
                   kind="client"
                   phone={recipient.phone}
+                  clientId={recipient.clientId || null}
                   ctx={whatsapp.ctx}
                   templates={whatsapp.templates}
                   defaultTemplate={whatsapp.defaultTemplate}

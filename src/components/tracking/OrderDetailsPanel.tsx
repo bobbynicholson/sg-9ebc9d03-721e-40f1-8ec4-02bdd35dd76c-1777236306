@@ -303,6 +303,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
                 <WhatsAppButton
                   kind="client"
                   phone={order.client_phone}
+                  clientId={order.client_id || null}
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"

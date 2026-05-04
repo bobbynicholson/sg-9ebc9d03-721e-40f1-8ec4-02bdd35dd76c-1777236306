@@ -700,6 +700,7 @@ function ClientsCRM() {
                                 <WhatsAppButton
                                   kind="client"
                                   phone={c.phone}
+                                  clientId={c.clientId}
                                   variant="outline"
                                   size="sm"
                                   label=""

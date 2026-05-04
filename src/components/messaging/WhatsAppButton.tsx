@@ -34,6 +34,7 @@ import { MessageCircle, Send } from "lucide-react";
 import { isLikelyMobile, openWhatsApp } from "@/lib/whatsapp";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTemplateOverrides } from "@/hooks/useTemplateOverrides";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CLIENT_WHATSAPP_LABELS,
   STAFF_WHATSAPP_LABELS,
@@ -63,6 +64,21 @@ interface BaseProps {
   defaultTemplate?: ClientWhatsAppKind | StaffWhatsAppKind;
   /** Called after the chat is opened (analytics / "marked as touched"). */
   onSent?: (templateKey: string) => void;
+  /**
+   * When true, render the button greyed out and replace the popover
+   * with a "Client has opted out of WhatsApp comms" notice. Lets admin
+   * see at a glance that the channel is disabled and why, instead of
+   * silently hiding the button. Has no effect for kind="staff".
+   */
+  optedOut?: boolean;
+  /**
+   * clients.id for the recipient -- when provided (and kind="client"),
+   * the button auto-fetches profiles.whatsapp_opt_in via the
+   * clients.user_id link and respects the opt-out state without the
+   * call site having to thread it through. Pre-signup leads with no
+   * profile row are treated as not-opted-out (default true).
+   */
+  clientId?: string | null;
 }
 
 interface ClientProps extends BaseProps {
@@ -96,9 +112,44 @@ export function WhatsAppButton(props: Props) {
     size = "sm", variant = "outline", className,
     label = "WhatsApp",
     defaultTemplate, onSent,
+    optedOut = false,
+    clientId,
   } = props;
 
   const showButton = !!phone && (forceShow || isLikelyMobile(phone));
+
+  // Auto-resolve opt-out from the recipient's profile when given a
+  // clientId. Two single-row queries; cached in component state for
+  // the lifetime of the mount. Errors / missing rows fall back to
+  // "not opted out" so we don't accidentally hide the button just
+  // because the profile fetch failed.
+  const [autoOptedOut, setAutoOptedOut] = useState(false);
+  useEffect(() => {
+    if (props.kind !== "client" || !clientId) {
+      setAutoOptedOut(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: clientRow } = await supabase
+        .from("clients")
+        .select("user_id")
+        .eq("id", clientId)
+        .maybeSingle();
+      const userId = (clientRow as any)?.user_id;
+      if (cancelled || !userId) return;
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("whatsapp_opt_in")
+        .eq("id", userId)
+        .maybeSingle();
+      if (cancelled) return;
+      setAutoOptedOut((profileRow as any)?.whatsapp_opt_in === false);
+    })();
+    return () => { cancelled = true; };
+  }, [clientId, props.kind]);
+
+  const isOptedOut = props.kind === "client" && (optedOut || autoOptedOut);
 
   // Pull companyId off the auth context so the renderer can layer on
   // the company's customised templates. Prewarm the override cache
@@ -161,6 +212,38 @@ export function WhatsAppButton(props: Props) {
     props.kind === "client" ? CLIENT_WHATSAPP_LABELS : STAFF_WHATSAPP_LABELS;
 
   if (!showButton) return null;
+
+  // Opted-out branch: render the same trigger so the layout doesn't
+  // jump, but visibly grey it out and pop a notice instead of the
+  // composer. Admins see at a glance that the channel is disabled
+  // for this client and why -- silent hiding would just confuse.
+  if (isOptedOut) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            size={size}
+            variant={variant}
+            className={`gap-1.5 opacity-50 cursor-not-allowed ${className ?? ""}`}
+            title="Client has opted out of WhatsApp comms"
+          >
+            <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
+            {label || null}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[300px] p-3">
+          <p className="text-sm font-semibold text-slate-900 mb-1">
+            WhatsApp comms off
+          </p>
+          <p className="text-xs text-slate-600 leading-snug">
+            This client has opted out of WhatsApp updates from their profile page.
+            Reach them by email or phone instead -- or ask them to flip the toggle on.
+          </p>
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={(o) => {
