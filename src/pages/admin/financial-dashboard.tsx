@@ -35,10 +35,16 @@ import { Building2 } from "lucide-react";
 
 interface FinancialMetrics {
   currentCashFlow: number;
+  /** Cash received from paid orders (the positive side of currentCashFlow). */
+  cashReceived: number;
   projectedRevenue30Days: number;
   projectedRevenue90Days: number;
   pendingPayments: number;
   staffPaymentsOwed: number;
+  /** How many unpaid clock-in sessions the staffPaymentsOwed total covers. */
+  unpaidSessionsCount: number;
+  /** Distinct staff with at least one unpaid session. */
+  unpaidStaffCount: number;
   inventoryCosts: number;
   profitMargin: number;
   healthScore: number;
@@ -75,18 +81,21 @@ export default function FinancialDashboardPage() {
       const ordersData = await orderService.getAllOrders(user.company_id);
 
       const [ledgerData, aiPredictions] = await Promise.all([
-        paymentLedgerService.getPaymentLedger(),
+        paymentLedgerService.getPaymentLedger(user.company_id),
         aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
 
       setOrders(ordersData);
 
       // Calculate metrics
-      const currentCashFlow = calculateCurrentCashFlow(ordersData, ledgerData);
+      const cashReceived = calculateCashReceived(ordersData);
+      const staffPaymentsOwed = ledgerData.totalOwed || 0;
+      const currentCashFlow = cashReceived - staffPaymentsOwed;
       const projectedRevenue30Days = calculateProjectedRevenue(ordersData, 30);
       const projectedRevenue90Days = calculateProjectedRevenue(ordersData, 90);
       const pendingPayments = calculatePendingPayments(ordersData);
-      const staffPaymentsOwed = ledgerData.totalOwed || 0;
+      const unpaidSessionsCount = (ledgerData.unpaidSessions || []).length;
+      const unpaidStaffCount = ledgerData.staffCount || 0;
       const inventoryCosts = calculateInventoryCosts(ordersData);
       const profitMargin = calculateProfitMargin(ordersData);
       const healthScore = calculateHealthScore({
@@ -99,10 +108,13 @@ export default function FinancialDashboardPage() {
 
       setMetrics({
         currentCashFlow,
+        cashReceived,
         projectedRevenue30Days,
         projectedRevenue90Days,
         pendingPayments,
         staffPaymentsOwed,
+        unpaidSessionsCount,
+        unpaidStaffCount,
         inventoryCosts,
         profitMargin,
         healthScore
@@ -134,24 +146,25 @@ export default function FinancialDashboardPage() {
     }
   }, [user, loadFinancialData]);
 
-  const calculateCurrentCashFlow = (orders: Order[], ledgerData: any) => {
-    const receivedPayments = orders
+  const calculateCashReceived = (orders: Order[]) => {
+    return orders
       .filter(o => o.payment_status === "paid")
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
-    
-    const staffOwed = ledgerData.totalOwed || 0;
-    
-    return receivedPayments - staffOwed;
   };
 
   const calculateProjectedRevenue = (orders: Order[], days: number) => {
-    const futureDate = new Date();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const futureDate = new Date(now);
     futureDate.setDate(futureDate.getDate() + days);
-    
+
     return orders
       .filter(o => {
+        if (!o.event_date) return false;
         const eventDate = new Date(o.event_date);
-        return eventDate <= futureDate && o.status !== "cancelled";
+        if (isNaN(eventDate.getTime())) return false;
+        // Only count events that haven't happened yet AND fall within the window.
+        return eventDate >= now && eventDate <= futureDate && o.status !== "cancelled";
       })
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   };
@@ -314,7 +327,7 @@ export default function FinancialDashboardPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
                     Current Cash Flow
-                    <InfoTooltip content={"Money already received on paid orders, less wages still owed to staff.\n\nA quick read on cash actually available right now."} />
+                    <InfoTooltip content={"Cash already received on paid orders, less wages still owed to staff.\n\nA quick read on cash actually available right now. The two lines below show the breakdown."} />
                   </CardTitle>
                   <DollarSign className="w-5 h-5 text-green-600" />
                 </div>
@@ -323,12 +336,25 @@ export default function FinancialDashboardPage() {
                 <div className="text-2xl font-bold text-slate-900">
                   {formatCurrency(metrics?.currentCashFlow || 0)}
                 </div>
+                {/* Breakdown so the net number isn't a black box. */}
+                <div className="mt-2 space-y-0.5 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Received</span>
+                    <span className="tabular-nums text-green-700">+{formatCurrency(metrics?.cashReceived || 0)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Wages owed</span>
+                    <span className="tabular-nums text-red-700">-{formatCurrency(metrics?.staffPaymentsOwed || 0)}</span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-1 mt-2">
                   {(metrics?.currentCashFlow || 0) > 0 ? (
                     <>
                       <ArrowUpRight className="w-4 h-4 text-green-600" />
                       <span className="text-sm text-green-600">Healthy</span>
                     </>
+                  ) : (metrics?.currentCashFlow || 0) === 0 ? (
+                    <span className="text-sm text-slate-500">No activity yet</span>
                   ) : (
                     <>
                       <ArrowDownRight className="w-4 h-4 text-red-600" />
@@ -544,7 +570,9 @@ export default function FinancialDashboardPage() {
                       <div>
                         <h4 className="font-semibold">Staff Payments</h4>
                         <p className="text-sm text-slate-600">
-                          {orders.filter(o => o.status === "completed").length} orders completed
+                          {(metrics?.unpaidSessionsCount ?? 0) === 0
+                            ? "All staff sessions paid"
+                            : `${metrics?.unpaidSessionsCount} unpaid session${metrics?.unpaidSessionsCount === 1 ? "" : "s"} across ${metrics?.unpaidStaffCount ?? 0} staff member${(metrics?.unpaidStaffCount ?? 0) === 1 ? "" : "s"}`}
                         </p>
                       </div>
                       <span className="font-bold text-lg">

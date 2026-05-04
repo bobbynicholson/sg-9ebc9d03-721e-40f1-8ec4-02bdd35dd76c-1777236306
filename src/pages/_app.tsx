@@ -15,8 +15,10 @@ export default function App({ Component, pageProps }: AppProps) {
     <>
       <NoIndexMeta />
       <ThemeProvider>
-        <BrandingProvider>
-          <AuthProvider>
+        {/* Auth wraps Branding so the branding context can read user.company_id
+            and load that tenant's branding row. */}
+        <AuthProvider>
+          <BrandingProvider>
             <RegionFilterProvider>
               <Component {...pageProps} />
               <CommandPalette />
@@ -24,8 +26,8 @@ export default function App({ Component, pageProps }: AppProps) {
               <VersionWatcher />
               <Toaster />
             </RegionFilterProvider>
-          </AuthProvider>
-        </BrandingProvider>
+          </BrandingProvider>
+        </AuthProvider>
       </ThemeProvider>
     </>
   );

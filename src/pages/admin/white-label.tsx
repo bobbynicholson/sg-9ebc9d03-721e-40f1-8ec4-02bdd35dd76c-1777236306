@@ -23,6 +23,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedWhiteLabelPage() {
   return (
@@ -33,14 +34,14 @@ export default function ProtectedWhiteLabelPage() {
 }
 
 function WhiteLabelPage() {
-  const { branding, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
-  
+  const { branding, loading, saving, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
+  const { toast } = useToast();
+
   const [organizationName, setOrganizationName] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#2563eb");
   const [secondaryColor, setSecondaryColor] = useState("#7c3aed");
   const [accentColor, setAccentColor] = useState("#f59e0b");
   const [logoUrl, setLogoUrl] = useState("");
-  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     if (branding) {
@@ -52,27 +53,49 @@ function WhiteLabelPage() {
     }
   }, [branding]);
 
-  const handleSave = () => {
-    updateBranding({
-      organizationName,
-      colors: {
-        primary: primaryColor,
-        secondary: secondaryColor,
-        accent: accentColor,
-      },
-      logoUrl,
-    });
-    alert("Branding settings saved successfully!");
+  const handleSave = async () => {
+    try {
+      await updateBranding({
+        organizationName,
+        colors: {
+          primary: primaryColor,
+          secondary: secondaryColor,
+          accent: accentColor,
+        },
+        logoUrl,
+      });
+      toast({
+        title: "Branding saved",
+        description: "Your colours, logo, and organisation name are now live for this tenant.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Save failed",
+        description: e?.message || "Could not write branding to your account. Try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleReset = () => {
-    if (confirm("Are you sure you want to reset to default CateringMS branding?")) {
-      resetBranding();
+  const handleReset = async () => {
+    if (!confirm("Reset to default CateringMS branding? This clears your saved logo + colours.")) return;
+    try {
+      await resetBranding();
       setOrganizationName("CateringMS");
       setPrimaryColor("#2563eb");
       setSecondaryColor("#7c3aed");
       setAccentColor("#f59e0b");
       setLogoUrl("");
+      toast({
+        title: "Branding reset",
+        description: "Defaults are back.",
+      });
+    } catch (e: any) {
+      toast({
+        title: "Reset failed",
+        description: e?.message || "Could not clear branding. Try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -115,7 +138,7 @@ function WhiteLabelPage() {
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                     White Label Branding
-                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved on this device only for now, syncing to your account is coming."} />
+                    <InfoTooltip content={"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\n\nSaved to your tenant -- every admin and client logged into your account sees the same branding."} />
                   </h1>
                   <p className="text-slate-600 mt-1">Customize your platform with your own branding</p>
                 </div>
@@ -271,13 +294,15 @@ function WhiteLabelPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleSave}
+                  disabled={saving || loading}
                   className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Save Branding
+                  {saving ? "Saving..." : "Save Branding"}
                 </Button>
                 <Button
                   onClick={handleReset}
+                  disabled={saving || loading}
                   variant="outline"
                   className="flex-1"
                 >
@@ -344,12 +369,12 @@ function WhiteLabelPage() {
                     </div>
 
                     <div className="p-4 bg-slate-50 rounded-lg text-xs text-slate-600">
-                      <p className="font-medium mb-2">Preview Notes:</p>
+                      <p className="font-medium mb-2">What this changes today:</p>
                       <ul className="space-y-1 list-disc list-inside">
-                        <li>Changes apply to all client-facing areas</li>
-                        <li>Logo will appear in navigation and footers</li>
-                        <li>Colors update buttons, links, and highlights</li>
-                        <li>CateringMS attribution remains in footer</li>
+                        <li>Saved to your tenant in the database -- every admin and client on your account sees the same branding</li>
+                        <li>Logo + organisation name flow into surfaces that read these company fields</li>
+                        <li>Colours expose CSS variables (<code>--brand-primary/secondary/accent</code>) on the page root</li>
+                        <li>CateringMS attribution remains in the footer</li>
                       </ul>
                     </div>
                   </div>

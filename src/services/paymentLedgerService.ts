@@ -8,19 +8,28 @@ type StaffPaymentLedger = Database["public"]["Tables"]["staff_payment_ledger"]["
 
 export const paymentLedgerService = {
   /**
-   * Get payment ledger summary for dashboard
+   * Get payment ledger summary for dashboard.
+   *
+   * MUST be called with the caller's companyId. RLS scopes the table
+   * by tenant, but defence-in-depth: filter explicitly so a regression
+   * or a service-role caller can't surface another tenant's wages.
    */
-  async getPaymentLedger() {
+  async getPaymentLedger(companyId?: string) {
     try {
-      // Get all unpaid work sessions
-      const { data: unpaidSessions, error } = await supabase
+      let query = supabase
         .from("staff_work_sessions")
         .select("*, staff:profiles!staff_work_sessions_staff_id_fkey(id, full_name, role)")
         .eq("payment_status", "unpaid");
 
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+
+      const { data: unpaidSessions, error } = await query;
+
       if (error) {
         console.error("Error fetching unpaid sessions:", error);
-        return { totalOwed: 0, unpaidSessions: [] };
+        return { totalOwed: 0, unpaidSessions: [], staffCount: 0 };
       }
 
       const totalOwed = (unpaidSessions || []).reduce((sum, session) => {
@@ -30,11 +39,11 @@ export const paymentLedgerService = {
       return {
         totalOwed: Math.round(totalOwed * 100) / 100,
         unpaidSessions: unpaidSessions || [],
-        staffCount: new Set((unpaidSessions || []).map(s => s.staff_id)).size
+        staffCount: new Set((unpaidSessions || []).map(s => s.staff_id)).size,
       };
     } catch (error) {
       console.error("Error getting payment ledger:", error);
-      return { totalOwed: 0, unpaidSessions: [] };
+      return { totalOwed: 0, unpaidSessions: [], staffCount: 0 };
     }
   },
 
