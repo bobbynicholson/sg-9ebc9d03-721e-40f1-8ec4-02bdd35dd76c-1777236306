@@ -50,6 +50,11 @@ import {
   aggregateTopProducts,
   type OrderItemForProducts,
 } from "./extractors/aggregateTopProducts";
+import {
+  aggregateBranchSpider,
+  type BranchOption,
+} from "./extractors/aggregateBranchSpider";
+import { aggregateBranchCapacityGrid } from "./extractors/aggregateBranchCapacityGrid";
 import { RevenueTrendChart } from "./charts/RevenueTrendChart";
 import { YoYStripCard } from "./charts/YoYStripCard";
 import { SeasonalityHeatmap } from "./charts/SeasonalityHeatmap";
@@ -63,6 +68,8 @@ import { QuoteAcceptTimeHistogram } from "./charts/QuoteAcceptTimeHistogram";
 import { CancellationReasonsChart } from "./charts/CancellationReasonsChart";
 import { ReceivablesAgingChart } from "./charts/ReceivablesAgingChart";
 import { TopProductsBarChart } from "./charts/TopProductsBarChart";
+import { BranchSpiderChart } from "./charts/BranchSpiderChart";
+import { BranchCapacityHeatmap } from "./charts/BranchCapacityHeatmap";
 
 interface Props {
   companyId: string | null | undefined;
@@ -76,7 +83,7 @@ const STORAGE_KEY = (companyId: string) => `cms.bi.collapsed.${companyId}`;
 const ROW_CAP = 5000;
 
 export function BusinessIntelligence({ companyId, dateRange }: Props) {
-  const { regionFilterId } = useRegionFilter();
+  const { regionFilterId, options: branchOptions, hasMultipleBranches } = useRegionFilter();
 
   // Collapsed state -- per tenant so a new tenant doesn't inherit
   // somebody else's preference.
@@ -293,6 +300,22 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     return aggregateTopProducts(orderItems, cancelledIds);
   }, [orderItems, orders]);
 
+  // Tier 6 -- multi-branch only. branchOptions comes from the global
+  // region filter context: it's already narrowed to "real" regions
+  // visible to this user.
+  const branchList: BranchOption[] = useMemo(
+    () => branchOptions.map((o) => ({ id: o.id, name: o.name })),
+    [branchOptions],
+  );
+  const branchSpider = useMemo(
+    () => aggregateBranchSpider(branchList, orders, quotes, leads),
+    [branchList, orders, quotes, leads],
+  );
+  const branchCapacity = useMemo(
+    () => aggregateBranchCapacityGrid(branchList, orders),
+    [branchList, orders],
+  );
+
   return (
     <section className="mb-6" aria-labelledby="bi-section-heading">
       <div className="flex items-center justify-between mb-3">
@@ -357,6 +380,18 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
             <ReceivablesAgingChart data={receivablesAging} loading={loading} />
           </div>
           <TopProductsBarChart data={topProducts} loading={loading} />
+
+          {/* Tier 6 -- multi-branch comparison. Hidden for single-branch
+              tenants (no value) AND while a single branch is filtered
+              in (the comparison would be against itself, since the
+              region filter has already pruned other branches' rows
+              from the fetch). */}
+          {hasMultipleBranches && !regionFilterId && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <BranchSpiderChart data={branchSpider} loading={loading} />
+              <BranchCapacityHeatmap data={branchCapacity} loading={loading} />
+            </div>
+          )}
         </div>
       )}
     </section>
