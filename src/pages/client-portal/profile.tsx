@@ -24,7 +24,7 @@
  *
  * Email is read-only (auth side).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Loader2, Save, User as UserIcon, Mail, Phone, Smartphone,
-  Image as ImageIcon, Building2, MessageCircle, Info,
+  Building2, MessageCircle, Info, Camera, Trash2,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
@@ -83,6 +83,8 @@ export default function ClientProfilePage() {
     client_name: "",
   });
   const [tenantClientId, setTenantClientId] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const companyName = company?.company_name || "your portal";
   const resolvedSlug =
@@ -159,6 +161,98 @@ export default function ClientProfilePage() {
     [form.mobile_number],
   );
 
+  /**
+   * Avatar upload to the public `avatars` bucket. Path layout enforced
+   * by RLS is `{user_id}/...`; we add a timestamp so the previous avatar
+   * doesn't get cached as the new one (Supabase + browser CDNs both
+   * key off the URL). The new public URL writes straight onto
+   * profiles.avatar_url -- no separate Save click needed for the
+   * avatar to stick.
+   *
+   * Validates: image type only, max 3MB. Anything else and we toast.
+   */
+  const onAvatarPicked = async (file: File | null) => {
+    if (!file || !user?.id) return;
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Pick an image file",
+        description: "PNG, JPG, GIF, WebP -- not a document.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast({
+        title: "Image is too big",
+        description: "Keep it under 3 MB. A profile photo doesn't need to be high-res.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().slice(0, 5);
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type,
+        });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) throw new Error("Could not resolve uploaded image URL");
+
+      // Persist immediately so the avatar doesn't depend on the Save
+      // button. The cast mirrors the same TS-types-out-of-date issue as
+      // in save() above.
+      const { error: persistErr } = await (supabase as any)
+        .from("profiles")
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      if (persistErr) throw persistErr;
+
+      setForm((prev) => ({ ...prev, avatar_url: publicUrl }));
+      refreshProfile?.();
+      toast({ title: "Photo updated" });
+    } catch (e: any) {
+      toast({
+        title: "Couldn't upload photo",
+        description: e?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const onAvatarRemoved = async () => {
+    if (!user?.id) return;
+    setUploadingAvatar(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("profiles")
+        .update({ avatar_url: null, updated_at: new Date().toISOString() })
+        .eq("id", user.id);
+      if (error) throw error;
+      setForm((prev) => ({ ...prev, avatar_url: "" }));
+      refreshProfile?.();
+      toast({ title: "Photo removed" });
+    } catch (e: any) {
+      toast({
+        title: "Couldn't remove photo",
+        description: e?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const save = async () => {
     if (!user?.id) return;
     setSaving(true);
@@ -174,17 +268,23 @@ export default function ClientProfilePage() {
       // last saw on the form.
       const finalOptIn = mobileTrimmed ? form.whatsapp_opt_in : false;
 
-      const { error: profErr } = await supabase
+      // Cast through `any` because the generated Supabase types for
+      // profiles haven't been regenerated since mobile_number /
+      // whatsapp_opt_in landed -- TS narrows the update payload to
+      // `never` until that's done. Functionally fine; the columns
+      // exist server-side and RLS gates writes to id = auth.uid().
+      const profileUpdate = {
+        full_name: form.full_name.trim() || null,
+        phone: landlineTrimmed,
+        phone_number: landlineTrimmed,
+        mobile_number: mobileTrimmed,
+        whatsapp_opt_in: finalOptIn,
+        avatar_url: form.avatar_url.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error: profErr } = await (supabase as any)
         .from("profiles")
-        .update({
-          full_name: form.full_name.trim() || null,
-          phone: landlineTrimmed,
-          phone_number: landlineTrimmed,
-          mobile_number: mobileTrimmed,
-          whatsapp_opt_in: finalOptIn,
-          avatar_url: form.avatar_url.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(profileUpdate)
         .eq("id", user.id);
       if (profErr) throw profErr;
 
@@ -275,26 +375,81 @@ export default function ClientProfilePage() {
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {form.avatar_url ? (
-                        <img
-                          src={form.avatar_url}
-                          alt={form.full_name || "You"}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <UserIcon className="w-7 h-7 text-slate-400" />
-                      )}
+                    {/* Avatar with upload affordance. Click the photo
+                        (or the Change button) to pick a new image; it
+                        uploads + persists immediately so a refresh
+                        doesn't lose it. */}
+                    <div className="relative flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                        className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600 transition group relative"
+                        aria-label="Upload profile photo"
+                      >
+                        {form.avatar_url ? (
+                          <img
+                            src={form.avatar_url}
+                            alt={form.full_name || "You"}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <UserIcon className="w-8 h-8 text-slate-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                          {uploadingAvatar ? (
+                            <Loader2 className="w-6 h-6 text-white animate-spin" />
+                          ) : (
+                            <Camera className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </div>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                        className="hidden"
+                        onChange={(e) => onAvatarPicked(e.target.files?.[0] || null)}
+                      />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                         {form.full_name || "Your details"}
                       </h2>
                       <p className="text-sm text-slate-500 truncate">
                         {user?.email || "Signed in"}
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingAvatar}
+                          className="gap-1.5"
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          {form.avatar_url ? "Change photo" : "Add photo"}
+                        </Button>
+                        {form.avatar_url && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onAvatarRemoved}
+                            disabled={uploadingAvatar}
+                            className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1.5">
+                        PNG, JPG, GIF or WebP. Max 3 MB.
                       </p>
                     </div>
                   </div>
@@ -346,14 +501,6 @@ export default function ClientProfilePage() {
                         onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
                         placeholder="011 123 4567"
                         inputMode="tel"
-                      />
-                    </Field>
-                    <Field id="avatar_url" label="Avatar URL (optional)" icon={ImageIcon}>
-                      <Input
-                        id="avatar_url"
-                        value={form.avatar_url}
-                        onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
-                        placeholder="https://..."
                       />
                     </Field>
                   </div>
