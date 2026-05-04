@@ -3,26 +3,38 @@
  * /client-portal/profile -- the client edits their own contact details.
  *
  * Two layers of identity at play:
- *   1. profiles.full_name / phone / avatar_url -- the global identity
- *      that follows them into every catering tenant they're a client of.
- *      The RLS users_update_own_profile policy lets them edit their own
- *      row; we use it directly without a service role.
+ *   1. profiles.full_name / mobile_number / phone_number / whatsapp_opt_in /
+ *      avatar_url -- the global identity that follows them into every
+ *      catering tenant they're a client of. RLS users_update_own_profile
+ *      lets them edit their own row directly; no service role needed.
  *   2. clients.client_name (per-tenant) -- what the catering team has
  *      them stored as in their books. Editable here for the resolved
- *      tenant only -- changing it on Spit Braai's books doesn't change
- *      it on any other catering tenant they're a client of.
+ *      tenant only.
  *
- * Email is read-only (auth.users.email is the source of truth -- they
- * change it via /client-portal/settings if we expose it later).
+ * The phone story:
+ *   Catering teams in SA use WhatsApp for everything -- driver ETAs,
+ *   last-minute changes, post-event rating prompts. But quote-request
+ *   forms commonly capture a landline (corporate clients especially),
+ *   so the profile shouldn't assume the existing phone is mobile-able.
+ *
+ *   We split mobile_number from phone_number: mobile is the WhatsApp
+ *   line, phone is the landline / general fallback. A banner nudges
+ *   clients with no mobile to add one. Filling the mobile field flips
+ *   whatsapp_opt_in on by default; a checkbox lets them opt out.
+ *
+ * Email is read-only (auth side).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, User as UserIcon, Mail, Phone, Image as ImageIcon, Building2 } from "lucide-react";
+import {
+  Loader2, Save, User as UserIcon, Mail, Phone, Smartphone,
+  Image as ImageIcon, Building2, MessageCircle, Info,
+} from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
@@ -32,9 +44,27 @@ import { useToast } from "@/hooks/use-toast";
 
 interface FormState {
   full_name: string;
-  phone: string;
+  mobile_number: string;
+  phone_number: string;
+  whatsapp_opt_in: boolean;
   avatar_url: string;
   client_name: string;
+}
+
+/**
+ * SA mobile detector. Matches 06/07/08 prefixes (after stripping
+ * non-digits and a leading +27 country code). Used to:
+ *   - decide whether the existing phone_number can be promoted to
+ *     mobile_number on first profile visit;
+ *   - inline-validate the Mobile field as the user types.
+ *
+ * Numbers that look ambiguous (international, malformed) get a softer
+ * "couldn't tell -- you'll still see WhatsApp prompts" treatment
+ * rather than a hard rejection.
+ */
+function looksLikeSAMobile(input: string): boolean {
+  const digits = input.replace(/[^0-9+]/g, "");
+  return /^(?:\+?27|0)?[678][0-9]{8}$/.test(digits);
 }
 
 export default function ClientProfilePage() {
@@ -46,7 +76,9 @@ export default function ClientProfilePage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>({
     full_name: "",
-    phone: "",
+    mobile_number: "",
+    phone_number: "",
+    whatsapp_opt_in: false,
     avatar_url: "",
     client_name: "",
   });
@@ -65,13 +97,10 @@ export default function ClientProfilePage() {
     (async () => {
       setLoading(true);
       try {
-        // Pull the global profile row + the per-tenant client row in
-        // parallel. The clients row may not exist (rare, but possible
-        // if the user signed up before the catering team added them).
         const [profileRes, clientRes] = await Promise.all([
           supabase
             .from("profiles")
-            .select("full_name, phone, phone_number, avatar_url")
+            .select("full_name, phone, phone_number, mobile_number, whatsapp_opt_in, avatar_url")
             .eq("id", user.id)
             .maybeSingle(),
           supabase
@@ -87,9 +116,26 @@ export default function ClientProfilePage() {
 
         const p = (profileRes.data as any) || {};
         const c = (clientRes.data as any) || {};
+
+        // First-visit promotion: if mobile_number is empty but the
+        // existing phone_number / phone looks like a SA mobile,
+        // pre-populate the mobile field. The user still has to save
+        // for this to persist, but it saves them re-typing.
+        const existingPhone = p.phone_number || p.phone || "";
+        let mobile = p.mobile_number || "";
+        let landline = p.phone_number || p.phone || "";
+        if (!mobile && existingPhone && looksLikeSAMobile(existingPhone)) {
+          mobile = existingPhone;
+          // Clear the landline field so we don't end up showing the
+          // same number twice. The user can still re-add a landline.
+          landline = "";
+        }
+
         setForm({
           full_name: p.full_name || "",
-          phone: p.phone_number || p.phone || "",
+          mobile_number: mobile,
+          phone_number: landline,
+          whatsapp_opt_in: !!p.whatsapp_opt_in,
           avatar_url: p.avatar_url || "",
           client_name: c.client_name || "",
         });
@@ -108,30 +154,40 @@ export default function ClientProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, company?.id]);
 
+  const mobileLooksValid = useMemo(
+    () => form.mobile_number.length === 0 || looksLikeSAMobile(form.mobile_number),
+    [form.mobile_number],
+  );
+
   const save = async () => {
     if (!user?.id) return;
     setSaving(true);
     try {
-      // Profile update -- RLS users_update_own_profile gates this to
-      // id = auth.uid(). Both phone columns get written so any existing
-      // call sites that read either keep working.
+      // Mirror landline into both phone columns so legacy call sites
+      // that read either keep working. mobile_number is its own.
+      const landlineTrimmed = form.phone_number.trim() || null;
+      const mobileTrimmed = form.mobile_number.trim() || null;
+      // No mobile -> opt-in must be off, otherwise we'd flag a client
+      // for WhatsApp comms with nowhere to send them. The opt-in toggle
+      // is auto-set to true the first time a mobile is added (see
+      // onMobileChange) so finalOptIn just mirrors whatever the user
+      // last saw on the form.
+      const finalOptIn = mobileTrimmed ? form.whatsapp_opt_in : false;
+
       const { error: profErr } = await supabase
         .from("profiles")
         .update({
           full_name: form.full_name.trim() || null,
-          phone: form.phone.trim() || null,
-          phone_number: form.phone.trim() || null,
+          phone: landlineTrimmed,
+          phone_number: landlineTrimmed,
+          mobile_number: mobileTrimmed,
+          whatsapp_opt_in: finalOptIn,
           avatar_url: form.avatar_url.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
       if (profErr) throw profErr;
 
-      // Tenant-scoped clients.client_name -- only when there's an
-      // existing row. We don't auto-create one here; that's the
-      // caterer's job (or the auto-provision flow). Updating it here
-      // changes how this tenant addresses the client without touching
-      // any other tenant they belong to.
       if (tenantClientId && form.client_name.trim() !== "") {
         const { error: clientErr } = await supabase
           .from("clients")
@@ -142,7 +198,9 @@ export default function ClientProfilePage() {
 
       toast({
         title: "Profile updated",
-        description: "Your details have been saved.",
+        description: mobileTrimmed && finalOptIn
+          ? "Your details have been saved. WhatsApp updates are on."
+          : "Your details have been saved.",
       });
       refreshProfile?.();
     } catch (e: any) {
@@ -154,6 +212,21 @@ export default function ClientProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // When the client first types a mobile, default the WhatsApp toggle
+  // on. They have to actively uncheck to opt out. Doesn't override an
+  // explicit toggle they've already touched.
+  const onMobileChange = (next: string) => {
+    setForm((prev) => {
+      const wasEmpty = prev.mobile_number.trim() === "";
+      const nowFilled = next.trim() !== "";
+      return {
+        ...prev,
+        mobile_number: next,
+        whatsapp_opt_in: wasEmpty && nowFilled ? true : prev.whatsapp_opt_in,
+      };
+    });
   };
 
   return (
@@ -178,7 +251,27 @@ export default function ClientProfilePage() {
             </Card>
           ) : (
             <>
-              {/* Identity card -- avatar preview + global name + phone */}
+              {/* Mobile-missing banner -- the smart nudge for clients
+                  who only gave a landline at quote time. */}
+              {!form.mobile_number.trim() && (
+                <Card className="border-0 shadow-sm bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-emerald-500">
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <MessageCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                        Add your mobile for WhatsApp updates
+                      </p>
+                      <p className="text-xs text-emerald-800 dark:text-emerald-200 mt-1">
+                        {companyName} uses WhatsApp for driver ETAs, last-minute changes and quick
+                        confirmations on the day. Pop your mobile in below and you&apos;ll be sorted.
+                        It&apos;s entirely optional -- they&apos;ll keep using email + phone if you skip it.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Identity card -- avatar preview + global name */}
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-4">
@@ -218,12 +311,40 @@ export default function ClientProfilePage() {
                     <Field id="email" label="Email" icon={Mail} hint="Locked -- this is the address you sign in with.">
                       <Input id="email" value={user?.email || ""} disabled />
                     </Field>
-                    <Field id="phone" label="Phone" icon={Phone} hint="So the team can reach you on the day if anything's up.">
+                    <Field
+                      id="mobile_number"
+                      label="Mobile (for WhatsApp)"
+                      icon={Smartphone}
+                      hint={
+                        form.mobile_number && !mobileLooksValid
+                          ? "That doesn't look like a SA mobile. Format: 082 123 4567 or +27 82 123 4567."
+                          : "Used for WhatsApp comms -- driver ETAs, day-of changes, post-event rating."
+                      }
+                    >
                       <Input
-                        id="phone"
-                        value={form.phone}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        placeholder="+27 ..."
+                        id="mobile_number"
+                        value={form.mobile_number}
+                        onChange={(e) => onMobileChange(e.target.value)}
+                        placeholder="082 123 4567"
+                        inputMode="tel"
+                        className={
+                          form.mobile_number && !mobileLooksValid
+                            ? "border-amber-300 focus-visible:ring-amber-500"
+                            : ""
+                        }
+                      />
+                    </Field>
+                    <Field
+                      id="phone_number"
+                      label="Landline / other phone (optional)"
+                      icon={Phone}
+                      hint="A landline or other contact number. Used as a fallback if WhatsApp doesn't reach you."
+                    >
+                      <Input
+                        id="phone_number"
+                        value={form.phone_number}
+                        onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+                        placeholder="011 123 4567"
                         inputMode="tel"
                       />
                     </Field>
@@ -236,12 +357,51 @@ export default function ClientProfilePage() {
                       />
                     </Field>
                   </div>
+
+                  {/* WhatsApp opt-in -- shown when there's a mobile to
+                      send to. Auto-on when they first add a mobile;
+                      they can flip it off here. */}
+                  {form.mobile_number.trim() && (
+                    <div
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3"
+                    >
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={form.whatsapp_opt_in}
+                          onChange={(e) =>
+                            setForm({ ...form, whatsapp_opt_in: e.target.checked })
+                          }
+                          className="mt-0.5 w-4 h-4"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white inline-flex items-center gap-1.5">
+                            <MessageCircle className="w-4 h-4 text-emerald-600" />
+                            Send me WhatsApp updates from {companyName}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Driver ETA on the day, last-minute changes, a one-tap rating prompt
+                            after the event. No marketing -- just operational stuff. Untick to opt
+                            out; you can change this any time.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Mobile present but opt-in off -- gentle nudge */}
+                  {form.mobile_number.trim() && !form.whatsapp_opt_in && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-900 dark:text-amber-100">
+                        WhatsApp updates are off. {companyName} will reach you on email + phone
+                        instead. Tick the box above if you&apos;d rather get faster updates by WhatsApp.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Per-tenant card -- only render when this user has a
-                  clients row under the resolved tenant. Hides the
-                  card for users who haven't been booked yet. */}
               {tenantClientId && (
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-5 sm:p-6 space-y-4">
