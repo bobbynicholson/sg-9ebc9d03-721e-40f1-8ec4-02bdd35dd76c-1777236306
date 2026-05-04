@@ -46,7 +46,13 @@ interface CreateNotificationParams {
 }
 
 interface BroadcastNotificationParams {
-  userId: string;
+  /**
+   * The tenant whose profiles receive the broadcast. Used to filter
+   * profiles by company_id and stamped onto each notification row.
+   * (Previously misnamed `userId` because the call site used the
+   * caller's user_id as a company_id, which compiled but lied.)
+   */
+  companyId: string;
   type: string;
   title: string;
   message: string;
@@ -180,10 +186,33 @@ export const notificationService = {
   },
 
   async createNotification(notification: CreateNotificationParams): Promise<Notification | null> {
+    // Backfill company_id from the recipient's profile when the caller
+    // didn't supply it. The notifications INSERT RLS policy requires
+    // company_id to match the caller's tenant (or the row to be
+    // self-targeted), so leaving company_id null on cross-user inserts
+    // would silently get rejected. Recipient is always in the same
+    // tenant as the broadcaster in normal flows, so deriving from
+    // recipient is safe and doesn't depend on auth context.
+    let companyId = notification.company_id || null;
+    if (!companyId && notification.recipient_id) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("company_id")
+          .eq("id", notification.recipient_id)
+          .maybeSingle();
+        companyId = (profile as { company_id?: string } | null)?.company_id ?? null;
+      } catch (e) {
+        // Best-effort backfill; if it fails the row may still insert
+        // for self-targeted notifications.
+        console.warn("[createNotification] failed to derive company_id from recipient:", e);
+      }
+    }
+
     const { data, error } = await supabase
       .from("notifications")
       .insert({
-        company_id: notification.company_id || null,
+        company_id: companyId,
         recipient_id: notification.recipient_id,
         user_id: notification.user_id,
         notification_type: notification.type || notification.notification_type || "system_alert",
@@ -278,7 +307,7 @@ export const notificationService = {
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("id, role, region_id, regions_covered")
-        .eq("company_id", params.userId);
+        .eq("company_id", params.companyId);
 
       if (profileError) {
         console.error("Error fetching company profiles:", profileError);
@@ -316,8 +345,9 @@ export const notificationService = {
           return true;
         })
         .map(profile => ({
+          company_id: params.companyId,
           recipient_id: profile.id,
-          user_id: params.userId,
+          user_id: profile.id, // self-originated row -- INSERT RLS allows it
           notification_type: params.type,
           title: params.title,
           message: params.message,

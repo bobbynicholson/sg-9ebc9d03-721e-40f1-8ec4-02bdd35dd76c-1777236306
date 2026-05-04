@@ -395,11 +395,14 @@ class PaymentProcessingService {
           continue;
         }
 
-        // Send in-portal notification
+        // Send in-portal notification. Originator is the admin themselves
+        // (this runs from a scheduled task on their behalf) so user_id =
+        // recipient_id is the safest UUID we have. "system" was a stub
+        // that broke the UUID column.
         await notificationService.createNotification({
           company_id: orderData.company_id,
-          user_id: "system",
-          recipient_id: orderData.user_id, // Admin
+          user_id: orderData.user_id,
+          recipient_id: orderData.user_id,
           title: `Payment Reminder Sent for Order ${orderData.order_number}`,
           message: `A payment reminder was sent to ${orderData.client_email}.`,
           notification_type: "info",
@@ -509,11 +512,13 @@ Your Catering Company`;
             .single();
 
           if (!existingReminder) {
-            // Send in-portal notification
+            // In-portal notification. Originator + recipient = the admin
+            // (scheduled task running on their behalf). "system" was a
+            // stub that broke the UUID column.
             await notificationService.createNotification({
               company_id: orderData.company_id,
-              user_id: "system",
-              recipient_id: orderData.user_id, // Admin
+              user_id: orderData.user_id,
+              recipient_id: orderData.user_id,
               title: "Modification Deadline Reminder Sent",
               message: `A modification deadline reminder for order ${orderData.order_number} was sent to ${orderData.client_email}.`,
               notification_type: "info",

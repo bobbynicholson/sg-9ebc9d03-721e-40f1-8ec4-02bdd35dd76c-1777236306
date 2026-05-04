@@ -22,12 +22,35 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (user?.id) {
-      loadNotifications();
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
-    }
+    if (!user?.id) return;
+    loadNotifications();
+
+    // Realtime: server pushes new rows targeting this recipient.
+    // notificationService.subscribeToNotifications already handles the
+    // role filter, so we just prepend the new row when it arrives.
+    const unsubscribe = notificationService.subscribeToNotifications(
+      user.id,
+      (notification) => {
+        setNotifications((prev) => {
+          // Guard against the realtime channel re-firing the same row
+          // (rare but happens on reconnects).
+          if (prev.some((n) => n.id === notification.id)) return prev;
+          return [notification, ...prev];
+        });
+      },
+      activeRole,
+    );
+
+    // Safety net: if a network blip drops the realtime channel, a slow
+    // poll still catches up. 5 minutes is rare enough not to be costly,
+    // frequent enough that no notification stays hidden for long.
+    const interval = setInterval(loadNotifications, 5 * 60 * 1000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole]);
 
   const loadNotifications = async () => {

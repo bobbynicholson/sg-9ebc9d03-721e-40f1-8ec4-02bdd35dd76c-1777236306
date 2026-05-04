@@ -181,11 +181,14 @@ export const driverConfirmationService = {
 
     if (!driver || !order) return;
 
-    // Send notification to admin (using realtime service)
+    // Notify the admin (recipient_id) that the driver has confirmed.
+    // user_id is the originator; "system" was a stub that broke the
+    // UUID column. Use the driver's id as the originator since they
+    // triggered the notification by confirming.
     await notificationService.createNotification({
-      company_id: order.company_id, // FIX: company_id is required
-      user_id: "system", // FIX: user_id is required
-      recipient_id: order.user_id, // Admin
+      company_id: order.company_id,
+      user_id: driverId,
+      recipient_id: order.user_id,
       title: `Driver Confirmed: ${order.order_number}`,
       message: `${driver.full_name} confirmed the job.`,
       notification_type: "success",
