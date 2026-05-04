@@ -473,8 +473,47 @@ export default function EmbedFormCustomiser() {
                       placeholder="https://yoursite.com/thank-you"
                       className="text-xs mt-1"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">Sent to this URL instead of showing the success message.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Must be https. Sent to this URL instead of showing the success message.</p>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Notifications -- per-form overrides for the email +
+                  auto-reply flags. Defaults to "yes, email me" because
+                  Bobby explicitly called this out as the must-work
+                  behaviour for tenants going live. */}
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-4 space-y-3">
+                  <h3 className="font-bold text-slate-900">Notifications</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-medium">Email me on new submissions</Label>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Goes to your company notification email or the owner's profile email.</p>
+                    </div>
+                    <Switch
+                      checked={form.notify_admin_email !== false}
+                      onCheckedChange={(v) => {
+                        patchLocal({ notify_admin_email: v } as any);
+                        saveForm({ notify_admin_email: v } as any, { silent: true });
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-xs font-medium">Send a thank-you to the visitor</Label>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Auto-reply confirmation email after they submit.</p>
+                    </div>
+                    <Switch
+                      checked={form.auto_reply_enabled === true}
+                      onCheckedChange={(v) => {
+                        patchLocal({ auto_reply_enabled: v } as any);
+                        saveForm({ auto_reply_enabled: v } as any, { silent: true });
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    The in-app notification bell always fires regardless of these toggles.
+                  </p>
                 </CardContent>
               </Card>
 

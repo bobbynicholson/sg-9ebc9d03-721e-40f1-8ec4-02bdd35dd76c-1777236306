@@ -69,10 +69,26 @@ function isEmpty(value: any): boolean {
   return false;
 }
 
-function isVisible(field: EmbedField, payload: Record<string, any>): boolean {
-  if (!field.showIf) return true;
-  // eslint-disable-next-line eqeqeq
-  return payload[field.showIf.field] == field.showIf.equals;
+function isVisible(field: any, payload: Record<string, any>): boolean {
+  // Two conditional shapes are accepted -- the legacy
+  // {conditional: {showIfFieldId, showIfValue}} from the original
+  // migration and the flat {showIf: {field, equals}} the server-side
+  // parser converged on. Normalise here so renderers can store either.
+  const legacy = field?.conditional;
+  if (legacy?.showIfFieldId) {
+    const ref = payload[legacy.showIfFieldId];
+    const want = legacy.showIfValue;
+    if (Array.isArray(want)) {
+      return want.some((w) => String(ref) === String(w));
+    }
+    // eslint-disable-next-line eqeqeq
+    return ref == want;
+  }
+  if (field?.showIf?.field) {
+    // eslint-disable-next-line eqeqeq
+    return payload[field.showIf.field] == field.showIf.equals;
+  }
+  return true;
 }
 
 export function validateField(field: EmbedField, value: any): ValidateResult {

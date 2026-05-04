@@ -19,7 +19,9 @@ export type EmbedFieldType =
   | 'select'
   | 'textarea'
   | 'checkbox'
-  | 'radio';
+  | 'checkboxes'
+  | 'radio'
+  | 'tier';
 
 /**
  * Canonical lead column hint. When present, leadService.createLead will map
@@ -54,11 +56,23 @@ export interface EmbedFieldValidation {
   maxLength?: number;
 }
 
+/**
+ * Conditional visibility on a field. Two shapes are accepted because
+ * the original migration shipped one and lib/embedFormApi.ts converged
+ * on a different one. Renderers should read whichever exists; the
+ * runtime parser at lib/embedFormApi.ts:isVisible normalises both.
+ *   - Legacy: { showIfFieldId, showIfValue }
+ *   - Server (current): { field, equals }
+ */
 export interface EmbedFieldConditional {
-  /** id of another field in the same form. */
-  showIfFieldId: string;
-  /** Show this field only if the referenced field equals one of these values. */
-  showIfValue: string | string[];
+  /** Legacy: id of another field in the same form. */
+  showIfFieldId?: string;
+  /** Legacy: show this field only if the referenced field equals one of these. */
+  showIfValue?: string | string[];
+  /** Current: id of another field in the same form. */
+  field?: string;
+  /** Current: equality target. */
+  equals?: unknown;
 }
 
 export interface EmbedField {
@@ -72,10 +86,12 @@ export interface EmbedField {
   /** Render order, ascending. Ties broken by array index. */
   order: number;
   helpText?: string;
-  /** Required when type is 'select' or 'radio'. */
+  /** Required when type is 'select', 'radio', or 'checkboxes'. */
   options?: EmbedFieldOption[];
   validation?: EmbedFieldValidation;
   conditional?: EmbedFieldConditional;
+  /** Server-side runtime parser also accepts a flat showIf shape. */
+  showIf?: { field: string; equals: unknown };
   /** Hint for lead creation. Lets leadService build a proper lead from arbitrary form fields. */
   mapsTo?: EmbedFieldMapping;
 }
@@ -117,6 +133,19 @@ export interface EmbedFormConfig {
   last_submission_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Soft-delete marker. Filtered out by both the admin list and the
+   *  public config endpoint. Hard-delete only happens after a grace
+   *  period to preserve embed_form_submissions audit rows. */
+  deleted_at?: string | null;
+  /** Optional region/branch this form is scoped to. Stamped onto the
+   *  lead at submit time so multi-branch tenants get region-manager
+   *  notifications. */
+  region_id?: string | null;
+  /** Per-form override of the company-wide
+   *  auto_reply_to_embed_submissions flag. NULL = inherit. */
+  auto_reply_enabled?: boolean | null;
+  /** Whether a new submission emails the company admin. Defaults true. */
+  notify_admin_email?: boolean;
 }
 
 /** Full row shape of `embed_form_submissions`. */
