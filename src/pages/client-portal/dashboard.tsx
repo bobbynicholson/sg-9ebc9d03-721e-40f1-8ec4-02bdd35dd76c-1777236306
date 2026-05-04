@@ -214,6 +214,25 @@ export default function ClientPortalDashboard() {
   const [loading, setLoading] = useState(true);
   const [driverPin, setDriverPin] = useState<DriverPin | null>(null);
 
+  // Quotes the client can act on. We surface pending quotes (status =
+  // sent or viewed) as a hero band above the next-event card so the
+  // "you need to act" prompt comes before everything else. Accepted /
+  // declined / draft quotes don't appear here -- the full list lives
+  // on /client-portal/quotes.
+  type PortalQuote = {
+    id: string;
+    public_token: string;
+    quote_number: string;
+    quote_name: string | null;
+    status: string | null;
+    total: number | null;
+    total_amount: number | null;
+    event_date: string | null;
+    sent_at: string | null;
+    valid_until: string | null;
+  };
+  const [quotes, setQuotes] = useState<PortalQuote[]>([]);
+
   // Rebook dialog state -- when the client taps "Rebook" on a past
   // event we open the RebookDialog component, which presents:
   //   - new event details (date defaulting to ~4 weeks out, guests, venue)
@@ -235,27 +254,54 @@ export default function ClientPortalDashboard() {
   const companyLogo = company?.logo_url || null;
 
   const greeting = useMemo(() => greetingFor(new Date()), []);
-  const firstName = (profile?.full_name || user?.full_name || "").split(" ")[0] || "there";
+
+  // Client-facing greeting: prefer the per-tenant clients.client_name
+  // (what the catering company actually has them stored as in their
+  // books) over profiles.full_name (a global identity that gets
+  // written once on auth signup and never refreshed). Same email
+  // can be "Bobby Nicholson" on Spit Braai's books and "Tollie Le
+  // Roux" on the auth side -- the greeting in this catering company's
+  // portal should say what THIS catering company calls them.
+  const [clientName, setClientName] = useState<string | null>(null);
+  const firstName = (
+    clientName || profile?.full_name || user?.full_name || ""
+  ).split(" ")[0] || "there";
 
   // ── Load orders for this client ─────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
+    // Scope every query to the URL-slug company so a user who happens
+    // to be a client of multiple catering tenants doesn't see merged
+    // data on this tenant's portal.
+    const tenantCompanyId: string | null = company?.id ?? null;
+    if (!tenantCompanyId) return;
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
       try {
-        // Find every clients row this user owns. Catering companies
-        // often create order rows before the user signs up (linked by
-        // email only), and a single user might also have multiple
-        // client rows under the same company through historical data
-        // entry. We collect every candidate id and email so the orders
-        // query catches all of them.
+        // Find every clients row this user owns -- under THIS tenant
+        // only. Catering companies often create order rows before the
+        // user signs up (linked by email only), and a single user might
+        // also have multiple client rows under the same company through
+        // historical data entry. We collect every candidate id and
+        // email so the orders query catches all of them. Tenant scope
+        // is enforced by company_id; user might be a client of several
+        // companies but this portal renders one tenant at a time.
         const { data: clientRowsRaw } = await supabase
           .from("clients")
-          .select("id")
-          .eq("user_id", user.id);
-        const clientIds = ((clientRowsRaw as any[]) || []).map((r) => r.id);
+          .select("id, client_name")
+          .eq("user_id", user.id)
+          .eq("company_id", tenantCompanyId);
+        const clientRows = ((clientRowsRaw as any[]) || []);
+        const clientIds = clientRows.map((r) => r.id);
+        // Pick the most recent clients.client_name as the tenant-scoped
+        // greeting. When there are multiple historical rows for the
+        // same email, the latest one is most likely what the catering
+        // team currently uses.
+        if (clientRows.length > 0 && !cancelled) {
+          setClientName(clientRows[0].client_name || null);
+        }
 
         let q = supabase
           .from("orders")
@@ -311,6 +357,34 @@ export default function ClientPortalDashboard() {
           rating: ratingByOrderId.get(r.id) ?? null,
         }));
         if (!cancelled) setOrders(merged);
+
+        // Quotes for this client. Same union pattern as orders --
+        // catering teams send quotes by email before sign-up so we
+        // need to catch orphan rows (NULL client_id) too. Filtered
+        // to non-deleted, tenant-scoped, ordered newest first.
+        const baseQuotes = supabase
+          .from("quotes")
+          .select(
+            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, sent_at, valid_until",
+          )
+          .eq("company_id", tenantCompanyId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+
+        let quotesQuery = baseQuotes;
+        if (clientIds.length > 0 && user.email) {
+          quotesQuery = quotesQuery.or(
+            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+          );
+        } else if (clientIds.length > 0) {
+          quotesQuery = quotesQuery.in("client_id", clientIds);
+        } else if (user.email) {
+          quotesQuery = quotesQuery.ilike("client_email", user.email);
+        }
+        const { data: quoteRows } = await quotesQuery;
+        if (!cancelled) {
+          setQuotes(((quoteRows as PortalQuote[]) || []));
+        }
       } catch (e) {
         console.error("Client dashboard load failed:", e);
         if (!cancelled) setOrders([]);
@@ -339,7 +413,8 @@ export default function ClientPortalDashboard() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [user?.id, user?.email]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.email, company?.id]);
 
   // ── Live driver tracking polling for the headline event ─────────────
   // Polls every 30 seconds whenever the headline event is out for
@@ -473,6 +548,102 @@ export default function ClientPortalDashboard() {
         </header>
 
         <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
+
+          {/* ── Pending quotes hero band ─────────────────────────────
+              Renders above the next-event card whenever there are
+              quotes the client hasn't acted on. This is the most
+              important "you need to do something" moment so it gets
+              top billing. Accepting / declining lives on the public
+              quote view at /q/[token] -- we just deep-link there. */}
+          {(() => {
+            const pending = quotes.filter(
+              (q) => q.status === "sent" || q.status === "viewed",
+            );
+            if (pending.length === 0) return null;
+            const fmt = new Intl.NumberFormat("en-ZA", {
+              style: "currency", currency: "ZAR", maximumFractionDigits: 0,
+            });
+            return (
+              <Card className="border-0 shadow-lg" style={{ background: brandSoftBg }}>
+                <CardContent className="py-5 px-5 sm:px-6 space-y-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: brandPrimary }}>
+                        {pending.length === 1 ? "Quote ready for you" : `${pending.length} quotes ready for you`}
+                      </p>
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                        {pending.length === 1
+                          ? "Have a look + accept when you're ready"
+                          : "Pick the option that suits and accept"}
+                      </h2>
+                    </div>
+                    {quotes.length > pending.length && (
+                      <Link
+                        href={withSlug("/client-portal/quotes")}
+                        className="text-sm font-medium hover:underline"
+                        style={{ color: brandPrimary }}
+                      >
+                        See all quotes ({quotes.length})
+                      </Link>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2">
+                    {pending.slice(0, 3).map((q) => {
+                      const total = Number(q.total ?? q.total_amount ?? 0);
+                      const eventLabel = q.event_date
+                        ? new Date(q.event_date).toLocaleDateString("en-ZA", {
+                            day: "numeric", month: "short", year: "numeric",
+                          })
+                        : null;
+                      const href = q.public_token
+                        ? `/q/${q.public_token}`
+                        : withSlug("/client-portal/quotes");
+                      return (
+                        <li key={q.id}>
+                          <a
+                            href={href}
+                            target={q.public_token ? "_blank" : undefined}
+                            rel={q.public_token ? "noopener noreferrer" : undefined}
+                            className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                {q.quote_name || `Quote ${q.quote_number}`}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {q.quote_number}
+                                {eventLabel && <span> · event {eventLabel}</span>}
+                              </p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-bold tabular-nums" style={{ color: brandPrimary }}>
+                                {total > 0 ? fmt.format(total) : "TBD"}
+                              </p>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500 mt-0.5">
+                                Open to accept
+                              </p>
+                            </div>
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {pending.length > 3 && (
+                    <Link
+                      href={withSlug("/client-portal/quotes")}
+                      className="block text-center text-sm font-medium pt-1"
+                      style={{ color: brandPrimary }}
+                    >
+                      View {pending.length - 3} more
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* ── Hero: next event ─────────────────────────────────────── */}
           {loading ? (
             <Card className="border-0 shadow-lg">

@@ -12,7 +12,8 @@ import {
   X,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,6 +103,7 @@ export function ClientNav() {
       title: "Orders",
       defaultOpen: true,
       items: [
+        { name: "Quotes", href: "/client-portal/quotes", icon: FileText },
         { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
         { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
         { name: "Billing", href: "/client-portal/billing", icon: Receipt },
