@@ -17,8 +17,14 @@ import {
 import {
   Plus, Search, Phone, Mail, Calendar, DollarSign, TrendingUp,
   ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2,
-  Send, MailQuestion, RefreshCw,
+  Send, MailQuestion, RefreshCw, ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { composeEmail } from "@/lib/composeEmail";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
@@ -42,8 +48,41 @@ import { supabase } from "@/integrations/supabase/client";
 // been spawned from this lead. Surfaced on the row so the catering
 // team sees at a glance whether the lead is still "in the funnel" or
 // already converted downstream.
+/**
+ * Slimmed-down quote shape we keep in memory for each lead. We only
+ * need enough to label the picker (number, name, status, total, date)
+ * and to route on click (id). Caterers routinely send 2+ alternate
+ * quotes to the same lead -- "buffet vs plated", "100 vs 150 guests" --
+ * so the multi-quote picker is the standard case, not the edge case.
+ */
+interface LeadQuoteSummary {
+  id: string;
+  number: string | null;
+  name: string | null;
+  status: string | null;
+  total: number | null;
+  createdAt: string | null;
+}
+
+/**
+ * Format a quote summary into the picker label. We lead with the
+ * quote_number when we have one (operators recognise "Q-0042" faster
+ * than a name), then a status pill and the rand total. Nothing fancy --
+ * just enough to pick the right one when there are 2 or 3 alternates.
+ */
+function formatQuoteLabel(q: LeadQuoteSummary): string {
+  const head = q.number || q.name || "Quote";
+  const total = typeof q.total === "number" && q.total > 0
+    ? `R${Math.round(q.total).toLocaleString()}`
+    : null;
+  const status = q.status ? q.status.replace(/_/g, " ") : null;
+  return [head, status, total].filter(Boolean).join(" · ");
+}
+
 interface LeadLinks {
   quoteCount: number;
+  /** Every quote attached to this lead, newest first. */
+  quotes: LeadQuoteSummary[];
   /** Most recent quote id for this lead -- used for the "View quote" chip. */
   latestQuoteId: string | null;
   latestQuoteStatus: string | null;
@@ -376,6 +415,7 @@ export default function AdminLeads() {
       data.forEach((l: any) => {
         map.set(l.id, {
           quoteCount: 0,
+          quotes: [],
           latestQuoteId: null,
           latestQuoteStatus: null,
           orderId: null,
@@ -385,7 +425,7 @@ export default function AdminLeads() {
       if (leadIds.length > 0) {
         const { data: quoteRows } = await supabase
           .from("quotes")
-          .select("id, lead_id, status, converted_to_order_id, created_at")
+          .select("id, lead_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
           .eq("company_id", user.company_id)
           .in("lead_id", leadIds)
           .order("created_at", { ascending: false });
@@ -394,6 +434,14 @@ export default function AdminLeads() {
           const cur = map.get(q.lead_id);
           if (!cur) continue;
           cur.quoteCount += 1;
+          cur.quotes.push({
+            id: q.id,
+            number: (q as any).quote_number ?? null,
+            name: (q as any).quote_name ?? null,
+            status: q.status ?? null,
+            total: (q as any).total_amount ?? null,
+            createdAt: q.created_at ?? null,
+          });
           if (!cur.latestQuoteId) {
             cur.latestQuoteId = q.id;
             cur.latestQuoteStatus = q.status;
@@ -653,8 +701,9 @@ export default function AdminLeads() {
               ) : (
                 <div className="space-y-3">
                   {filteredLeads.map((lead) => {
-                    const links = linksByLeadId.get(lead.id) || {
+                    const links: LeadLinks = linksByLeadId.get(lead.id) || {
                       quoteCount: 0,
+                      quotes: [],
                       latestQuoteId: null,
                       latestQuoteStatus: null,
                       orderId: null,
@@ -679,15 +728,52 @@ export default function AdminLeads() {
                             <Badge className={getStatusColor(lead.status || "new")}>
                               {lead.status || "new"}
                             </Badge>
-                            {/* Provenance / conversion pills */}
-                            {links.quoteCount > 0 && links.latestQuoteId && (
+                            {/* Provenance / conversion pills.
+                                Single quote -> direct link.
+                                Multiple quotes -> dropdown picker so the
+                                operator can pick the right alternate
+                                (caterers commonly send 2-3 to the same
+                                lead -- buffet vs plated, 100 vs 150 pax). */}
+                            {links.quoteCount === 1 && links.latestQuoteId && (
                               <Link
                                 href={`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`}
                                 className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
                               >
                                 <FileText className="w-3 h-3" />
-                                {links.quoteCount} quote{links.quoteCount === 1 ? "" : "s"}
+                                1 quote
                               </Link>
+                            )}
+                            {links.quoteCount > 1 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 hover:bg-blue-100"
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    {links.quoteCount} quotes
+                                    <ChevronDown className="w-3 h-3" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-72">
+                                  {links.quotes.map((q) => (
+                                    <DropdownMenuItem
+                                      key={q.id}
+                                      onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${q.id}`)}
+                                      className="flex flex-col items-start gap-0.5"
+                                    >
+                                      <span className="text-sm font-medium text-slate-900">
+                                        {formatQuoteLabel(q)}
+                                      </span>
+                                      {q.createdAt && (
+                                        <span className="text-[11px] text-slate-500">
+                                          Created {new Date(q.createdAt).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                             {links.orderId && (
                               <Link
@@ -798,27 +884,80 @@ export default function AdminLeads() {
                                 "send_quote",
                               ].includes(suggestion.kind);
                               if (primaryAlreadyOpensQuote) return null;
+
+                              // 0 quotes -> "New quote" button.
+                              // 1 quote  -> "Edit quote" button (direct).
+                              // 2+ quotes -> dropdown so the operator
+                              //              picks which alternate to edit
+                              //              (or starts a fresh one).
+                              if (links.quoteCount === 0) {
+                                return (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    title={`Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`}
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    New quote
+                                  </Button>
+                                );
+                              }
+                              if (links.quoteCount === 1 && links.latestQuoteId) {
+                                return (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`)}
+                                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    title="Open the existing quote in the editable builder for a quick edit"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Edit quote
+                                  </Button>
+                                );
+                              }
                               return (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    if (links.latestQuoteId) {
-                                      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
-                                    } else {
-                                      router.push(`/admin/quotes/new?leadId=${lead.id}`);
-                                    }
-                                  }}
-                                  className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
-                                  title={
-                                    links.latestQuoteId
-                                      ? "Open the existing quote in the editable builder for a quick edit"
-                                      : `Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`
-                                  }
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  {links.latestQuoteId ? "Edit quote" : "New quote"}
-                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                      title="Pick which of the alternate quotes to edit"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                      Edit quote
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-72">
+                                    {links.quotes.map((q) => (
+                                      <DropdownMenuItem
+                                        key={q.id}
+                                        onClick={() => router.push(`/admin/quotes/new?fromQuoteId=${q.id}`)}
+                                        className="flex flex-col items-start gap-0.5"
+                                      >
+                                        <span className="text-sm font-medium text-slate-900">
+                                          {formatQuoteLabel(q)}
+                                        </span>
+                                        {q.createdAt && (
+                                          <span className="text-[11px] text-slate-500">
+                                            Created {new Date(q.createdAt).toLocaleDateString()}
+                                          </span>
+                                        )}
+                                      </DropdownMenuItem>
+                                    ))}
+                                    <DropdownMenuItem
+                                      onClick={() => router.push(`/admin/quotes/new?leadId=${lead.id}`)}
+                                      className="border-t border-slate-200 mt-1 pt-2 text-blue-700 font-medium"
+                                    >
+                                      <Plus className="w-3.5 h-3.5 mr-1" />
+                                      Start a new quote
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               );
                             })()}
                             <Button
