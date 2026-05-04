@@ -412,10 +412,11 @@ function NotificationsPage() {
                                         word, related-entity link. */}
                                     {isExpanded && (
                                       <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs">
-                                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-slate-700">
+                                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-slate-700">
                                           <div className="flex justify-between sm:block">
-                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold inline-flex items-center gap-1">
                                               Received
+                                              <InfoTooltip content={"When the system created this notification. Shown in your local timezone, so the time matches what your clock said when the event happened."} />
                                             </dt>
                                             <dd className="font-medium sm:mt-0.5">
                                               {notification.created_at
@@ -427,8 +428,9 @@ function NotificationsPage() {
                                             </dd>
                                           </div>
                                           <div className="flex justify-between sm:block">
-                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold inline-flex items-center gap-1">
                                               Priority
+                                              <InfoTooltip content={"How urgent the trigger flagged this when it fired.\n\n• Urgent: drop what you're doing, act now (e.g. driver replacement needed).\n• High: act soon -- a client is waiting for a response.\n• Medium / Normal: informational, no immediate action required.\n• Low: background context.\n\nSet automatically by the rule that created the row -- not manually editable here."} />
                                             </dt>
                                             <dd className="font-medium capitalize sm:mt-0.5">
                                               {notification.priority || "normal"}
@@ -436,8 +438,9 @@ function NotificationsPage() {
                                           </div>
                                           {notification.related_entity_type && (
                                             <div className="flex justify-between sm:block">
-                                              <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                              <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold inline-flex items-center gap-1">
                                                 Related to
+                                                <InfoTooltip content={"The kind of record this notification is about (quote, invoice, order, payment, etc.). Use the action buttons above (Edit quote / Open in list) to jump straight to the source record without searching for it."} />
                                               </dt>
                                               <dd className="font-medium capitalize sm:mt-0.5">
                                                 {notification.related_entity_type}
@@ -445,8 +448,9 @@ function NotificationsPage() {
                                             </div>
                                           )}
                                           <div className="flex justify-between sm:block">
-                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold inline-flex items-center gap-1">
                                               Status
+                                              <InfoTooltip content={"Whether you've marked this notification as read. Read items stay in the list (so you don't lose context) but stop counting toward the bell's unread badge. Use the tick icon on the row, or 'Mark all read' at the top, to clear them."} />
                                             </dt>
                                             <dd className="font-medium sm:mt-0.5">
                                               {notification.is_read ? "Read" : "Unread"}
