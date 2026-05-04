@@ -14,6 +14,8 @@ import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
 export interface CancelledOrder extends RevenueByMonthInput {
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
+  /** Branch ID. Optional because legacy rows may have null. */
+  region_id?: string | null;
 }
 
 export interface CancellationReasonRow {
