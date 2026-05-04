@@ -36,6 +36,8 @@ import {
 } from "./extractors/aggregateTopClients";
 import { aggregateRetentionCohort } from "./extractors/aggregateRetentionCohort";
 import { aggregateNewVsRepeat } from "./extractors/aggregateNewVsRepeat";
+import { aggregateLeadSourceFunnel } from "./extractors/aggregateLeadSourceFunnel";
+import { aggregateQuoteAcceptTime } from "./extractors/aggregateQuoteAcceptTime";
 import { RevenueTrendChart } from "./charts/RevenueTrendChart";
 import { YoYStripCard } from "./charts/YoYStripCard";
 import { SeasonalityHeatmap } from "./charts/SeasonalityHeatmap";
@@ -44,6 +46,8 @@ import { ConversionFunnelChart } from "./charts/ConversionFunnelChart";
 import { TopClientsBarChart } from "./charts/TopClientsBarChart";
 import { RetentionCohortGrid } from "./charts/RetentionCohortGrid";
 import { NewVsRepeatDonut } from "./charts/NewVsRepeatDonut";
+import { LeadSourceFunnelChart } from "./charts/LeadSourceFunnelChart";
+import { QuoteAcceptTimeHistogram } from "./charts/QuoteAcceptTimeHistogram";
 
 interface Props {
   companyId: string | null | undefined;
@@ -123,7 +127,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
         const quotesBase = supabase
           .from("quotes")
-          .select("id, status, total_amount, event_date, created_at, accepted_at, region_id")
+          .select("id, status, total_amount, event_date, created_at, sent_at, accepted_at, region_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)
@@ -131,7 +135,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
         const leadsBase = supabase
           .from("leads")
-          .select("id, status, created_at, region_id")
+          .select("id, status, source, created_at, region_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)
@@ -214,6 +218,14 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     const end = dateRange?.to ?? new Date();
     return aggregateNewVsRepeat(orders as any as OrderForClientLTV[], start, end);
   }, [orders, dateRange]);
+  const leadSourceFunnel = useMemo(
+    () => aggregateLeadSourceFunnel(leads, quotes),
+    [leads, quotes],
+  );
+  const quoteAcceptTime = useMemo(
+    () => aggregateQuoteAcceptTime(quotes),
+    [quotes],
+  );
 
   return (
     <section className="mb-6" aria-labelledby="bi-section-heading">
@@ -266,6 +278,12 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
             <NewVsRepeatDonut data={newVsRepeat} loading={loading} />
           </div>
           <RetentionCohortGrid data={cohort} loading={loading} />
+
+          {/* Tier 4 -- lead intelligence */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <LeadSourceFunnelChart data={leadSourceFunnel} loading={loading} />
+            <QuoteAcceptTimeHistogram data={quoteAcceptTime} loading={loading} />
+          </div>
         </div>
       )}
     </section>

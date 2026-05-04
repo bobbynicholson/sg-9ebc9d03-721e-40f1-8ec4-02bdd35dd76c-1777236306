@@ -20,6 +20,9 @@ export interface QuoteForYoY {
   status: string | null;
   total_amount: number | null;
   created_at: string | null;
+  /** Stamp of the first time the quote left the building. Tier 4
+   *  histogram measures sent_at -> accepted_at. */
+  sent_at?: string | null;
   accepted_at: string | null;
   event_date?: string | null;
 }
@@ -28,6 +31,9 @@ export interface LeadForYoY {
   id: string;
   status: string | null;
   created_at: string | null;
+  /** Source channel -- manual_add / embed / client_portal_rebook /
+   *  ai_import / etc. Tier 4 lead-source funnel groups by this. */
+  source?: string | null;
 }
 
 export interface YoYStripMetric {
