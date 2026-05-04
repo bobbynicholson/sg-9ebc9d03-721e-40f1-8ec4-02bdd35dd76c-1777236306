@@ -17,6 +17,8 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { useBranding } from "@/contexts/BrandingContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -24,6 +26,28 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
+
+const LOGO_BUCKET = "branding-logos";
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/svg+xml": "svg",
+  "image/webp": "webp",
+};
+
+// Strip a public URL down to the storage object path so we can delete it.
+const objectPathFromPublicUrl = (url: string | undefined): string | null => {
+  if (!url) return null;
+  const marker = `/storage/v1/object/public/${LOGO_BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  try {
+    return decodeURIComponent(url.slice(idx + marker.length).split("?")[0]);
+  } catch {
+    return null;
+  }
+};
 
 export default function ProtectedWhiteLabelPage() {
   return (
@@ -35,6 +59,8 @@ export default function ProtectedWhiteLabelPage() {
 
 function WhiteLabelPage() {
   const { branding, loading, saving, updateBranding, resetBranding, isWhiteLabeled } = useBranding();
+  const { user } = useAuth() as any;
+  const companyId: string | undefined = user?.company_id;
   const { toast } = useToast();
 
   const [organizationName, setOrganizationName] = useState("");
@@ -42,6 +68,7 @@ function WhiteLabelPage() {
   const [secondaryColor, setSecondaryColor] = useState("#7c3aed");
   const [accentColor, setAccentColor] = useState("#f59e0b");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (branding) {
@@ -99,14 +126,88 @@ function WhiteLabelPage() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    e.target.value = "";
+    if (!file) return;
+
+    if (!companyId) {
+      toast({
+        title: "No tenant resolved",
+        description: "Sign in again before uploading a logo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const ext = ALLOWED_LOGO_TYPES[file.type];
+    if (!ext) {
+      toast({
+        title: "Unsupported file type",
+        description: "Use PNG, JPG, SVG, or WebP.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      toast({
+        title: "File too large",
+        description: "Logos must be under 2MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `${companyId}/logo-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from(LOGO_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (uploadErr) throw uploadErr;
+
+      const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+      const publicUrl = data?.publicUrl;
+      if (!publicUrl) throw new Error("Could not resolve public URL for the uploaded logo");
+
+      const previousPath = objectPathFromPublicUrl(logoUrl);
+      setLogoUrl(publicUrl);
+      await updateBranding({ logoUrl: publicUrl });
+
+      if (previousPath && previousPath !== path) {
+        supabase.storage.from(LOGO_BUCKET).remove([previousPath]).catch(() => {});
+      }
+
+      toast({
+        title: "Logo uploaded",
+        description: "Your new logo is live for this tenant.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload the logo. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleClearLogo = async () => {
+    const previousPath = objectPathFromPublicUrl(logoUrl);
+    setLogoUrl("");
+    try {
+      await updateBranding({ logoUrl: "" });
+    } catch (err: any) {
+      toast({
+        title: "Could not clear logo",
+        description: err?.message || "Try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (previousPath) {
+      supabase.storage.from(LOGO_BUCKET).remove([previousPath]).catch(() => {});
     }
   };
 
@@ -193,22 +294,25 @@ function WhiteLabelPage() {
                         <Input
                           id="logo"
                           type="file"
-                          accept="image/*"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
                           onChange={handleImageUpload}
+                          disabled={uploading || saving}
                           className="flex-1"
                         />
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => setLogoUrl("")}
-                          disabled={!logoUrl}
+                          onClick={handleClearLogo}
+                          disabled={!logoUrl || uploading || saving}
                         >
                           <RotateCcw className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Upload your company logo (PNG, JPG, or SVG recommended)
+                      {uploading
+                        ? "Uploading…"
+                        : "PNG, JPG, SVG, or WebP. Max 2MB."}
                     </p>
                   </div>
                 </CardContent>
