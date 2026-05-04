@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, FileText, ExternalLink, Calendar, Clock } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -150,16 +151,12 @@ export default function ClientQuotesPage() {
       <NoIndexMeta />
       <Head><title>Quotes | {companyName}</title></Head>
       <ClientNav />
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 lg:pl-64 xl:pl-72 pt-14 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 max-w-4xl mx-auto space-y-6">
-          <header>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-              Your quotes
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-              Every quote {companyName} has sent through. Tap one to open the full quote, accept it, or send back a request for changes.
-            </p>
-          </header>
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <ClientPageHeader
+          title="Your quotes"
+          subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
+        />
+        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 max-w-4xl mx-auto space-y-6">
 
           {loading ? (
             <Card className="border-0 shadow-sm">
@@ -206,7 +203,7 @@ export default function ClientQuotesPage() {
               )}
             </>
           )}
-        </div>
+        </main>
       </div>
     </>
   );

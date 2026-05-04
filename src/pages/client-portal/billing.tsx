@@ -23,15 +23,13 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
-import { Footer } from "@/components/Footer";
+import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceDetailModal } from "@/components/billing/InvoiceDetailModal";
 import { PaymentModal } from "@/components/billing/PaymentModal";
 import { ChatBot } from "@/components/ChatBot";
-import { DynamicNav } from "@/components/DynamicNav";
-import { UserRole } from "@/types/app";
 
 interface Invoice {
   id: string;
@@ -265,23 +263,16 @@ export default function ClientBillingPage() {
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.CLIENT} />
+      <ClientNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-12">
-          {/* Header */}
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <ClientPageHeader
+          title="Billing & invoices"
+          subtitle="Pay outstanding invoices, view payment history, and download receipts."
+        />
+        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
+          {/* Stats */}
           <div className="mb-6 md:mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                <Receipt className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Billing & Invoices</h1>
-                <p className="text-slate-600">Manage your payments and invoices</p>
-              </div>
-            </div>
-
-            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
                 <CardContent className="pt-6">
@@ -460,8 +451,6 @@ export default function ClientBillingPage() {
             </CardContent>
           </Card>
         </div>
-
-        <Footer />
       </div>
 
       {selectedInvoice && (

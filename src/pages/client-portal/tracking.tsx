@@ -8,13 +8,12 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { orderService } from "@/services/orderService";
 import { feedbackService } from "@/services/feedbackService";
-import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { DeliveryFeedbackModal, FeedbackData } from "@/components/DeliveryFeedbackModal";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
-import { DynamicNav } from "@/components/DynamicNav";
-import { UserRole } from "@/types/app";
+import { ClientNav } from "@/components/navigation/ClientNav";
+import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import { supabase } from "@/integrations/supabase/client";
 
 const ClientTrackingMap = dynamic(
@@ -267,17 +266,22 @@ export default function ClientTracking() {
   // Layout shell shared by all three render branches below. Keeps the
   // sidebar offset and responsive padding consistent so cards always
   // sit flush against the menu, and adds the mobile-header gap.
-  const layoutShell = "min-h-screen bg-slate-50 pb-20 lg:pl-64 xl:pl-72 pt-16 lg:pt-0 overflow-x-hidden";
+  const layoutShell = "min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 pb-20 lg:pl-64 xl:pl-72 pt-16 lg:pt-0";
   const innerPadding = "px-4 sm:px-6 md:px-8 lg:px-10";
 
   if (loading) {
     return (
       <>
-        <DynamicNav userRole={UserRole.CLIENT} />
-        <div className={`${layoutShell} flex items-center justify-center`}>
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-            <p className="text-slate-600">Loading your deliveries...</p>
+        <Head><title>Tracking - CateringMS</title></Head>
+        <NoIndexMeta />
+        <ClientNav />
+        <div className={layoutShell}>
+          <ClientPageHeader title="Live tracking" subtitle="Watch your driver as they roll out." />
+          <div className={`${innerPadding} py-12 flex items-center justify-center`}>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+              <p className="text-slate-600">Loading your deliveries...</p>
+            </div>
           </div>
         </div>
       </>
@@ -288,28 +292,30 @@ export default function ClientTracking() {
     return (
       <>
         <Head>
-          <title>Track Your Order - CateringMS</title>
+          <title>Tracking - CateringMS</title>
         </Head>
         <NoIndexMeta />
 
-        <DynamicNav userRole={UserRole.CLIENT} />
+        <ClientNav />
 
         <div className={layoutShell}>
+          <ClientPageHeader
+            title="Live tracking"
+            subtitle="Watch your driver as they roll out -- map, ETA, and the option to call them direct."
+          />
           <div className={`${innerPadding} py-8`}>
-            <Card>
+            <Card className="border-0 shadow-sm">
               <CardContent className="py-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No live deliveries right now</h3>
                 <p className="text-slate-600 max-w-md mx-auto">
                   Live tracking opens up once your next event is being prepared.
-                  Until then you can see all your bookings under "My Orders".
+                  Until then you can see all your bookings under &ldquo;My Orders&rdquo;.
                 </p>
               </CardContent>
             </Card>
           </div>
         </div>
-
-        <Footer />
         <ChatBot userRole="client" />
       </>
     );
@@ -318,32 +324,28 @@ export default function ClientTracking() {
   return (
     <>
       <Head>
-        <title>Track Your Order - CateringMS</title>
+        <title>Tracking - CateringMS</title>
       </Head>
       <NoIndexMeta />
 
-      <DynamicNav userRole={UserRole.CLIENT} />
+      <ClientNav />
 
       <div className={layoutShell}>
-        {/* Header */}
-        <div className="bg-white border-b">
-          <div className={`${innerPadding} py-6`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Track Your Order</h1>
-                <p className="text-slate-600 mt-1">Real-time delivery tracking</p>
-              </div>
-              <Button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                variant="outline"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ClientPageHeader
+          title="Live tracking"
+          subtitle="Real-time delivery tracking with driver pin and ETA."
+          rightSlot={
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              variant="outline"
+              className="bg-white/15 border-white/30 text-white hover:bg-white/25 hover:text-white"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          }
+        />
 
         <div className={`${innerPadding} py-8`}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -550,7 +552,6 @@ export default function ClientTracking() {
         />
       )}
 
-      <Footer />
       <ChatBot userRole="client" />
     </>
   );

@@ -9,8 +9,6 @@ import {
   User,
   LogOut,
   Menu,
-  X,
-  Settings,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -107,6 +105,14 @@ export function ClientNav() {
         { name: "My Orders", href: "/client-portal/my-orders", icon: ShoppingCart },
         { name: "Tracking", href: "/client-portal/tracking", icon: MapPin },
         { name: "Billing", href: "/client-portal/billing", icon: Receipt },
+      ]
+    },
+    {
+      id: "account",
+      title: "Account",
+      defaultOpen: true,
+      items: [
+        { name: "Profile", href: "/client-portal/profile", icon: User },
       ]
     }
   ];

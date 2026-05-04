@@ -4,21 +4,19 @@ import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, DollarSign, Package, Truck, ArrowLeft, Pencil, CalendarX, Receipt, AlertCircle } from "lucide-react";
+import { Calendar, MapPin, Users, DollarSign, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
+import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { DynamicNav } from "@/components/DynamicNav";
-import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
@@ -34,15 +32,12 @@ interface Order {
 export default function MyOrders() {
   const { user, company } = useAuth() as any;
   const router = useRouter();
-  // Slug-aware "Back to Dashboard" link -- keep nav inside the tenant
-  // URL space when the page was reached via /[slug]/client-portal/my-orders.
+  // Slug-aware navigation prefix -- keeps tenant URL space (/{slug}/...)
+  // intact when the page is reached via the slug-form rewrite.
   const resolvedSlug =
     (typeof router.query.company_slug === "string" && router.query.company_slug) ||
     (user as any)?.user_metadata?.last_company_slug ||
     "";
-  const dashboardHref = resolvedSlug
-    ? `/${resolvedSlug}/client-portal/dashboard`
-    : "/client-portal/dashboard";
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
@@ -168,21 +163,14 @@ export default function MyOrders() {
         <title>My Orders - CateringMS</title>
       </Head>
 
-      <DynamicNav userRole={UserRole.CLIENT} />
+      <ClientNav />
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-12">
-          <div className="mb-6">
-            <Link href={dashboardHref}>
-              <Button variant="ghost" size="sm" className="mb-4">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-900">My Orders</h1>
-            <p className="text-slate-600 mt-1">View and manage all your catering orders</p>
-          </div>
-
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-64 xl:pl-72 pt-16 lg:pt-0">
+        <ClientPageHeader
+          title="My orders"
+          subtitle="Every booking, active or done. Tap one to track, request a change, or grab the invoice."
+        />
+        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
           <div className="flex gap-2 mb-6">
             <Button
               variant={filter === "all" ? "default" : "outline"}
@@ -319,8 +307,6 @@ export default function MyOrders() {
             </CardContent>
           </Card>
         </div>
-
-        <Footer />
       </div>
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
