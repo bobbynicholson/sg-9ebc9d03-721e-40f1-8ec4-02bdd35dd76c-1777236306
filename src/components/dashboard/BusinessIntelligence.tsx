@@ -38,6 +38,18 @@ import { aggregateRetentionCohort } from "./extractors/aggregateRetentionCohort"
 import { aggregateNewVsRepeat } from "./extractors/aggregateNewVsRepeat";
 import { aggregateLeadSourceFunnel } from "./extractors/aggregateLeadSourceFunnel";
 import { aggregateQuoteAcceptTime } from "./extractors/aggregateQuoteAcceptTime";
+import {
+  aggregateCancellationReasons,
+  type CancelledOrder,
+} from "./extractors/aggregateCancellationReasons";
+import {
+  aggregateReceivablesAging,
+  type InvoiceForAging,
+} from "./extractors/aggregateReceivablesAging";
+import {
+  aggregateTopProducts,
+  type OrderItemForProducts,
+} from "./extractors/aggregateTopProducts";
 import { RevenueTrendChart } from "./charts/RevenueTrendChart";
 import { YoYStripCard } from "./charts/YoYStripCard";
 import { SeasonalityHeatmap } from "./charts/SeasonalityHeatmap";
@@ -48,6 +60,9 @@ import { RetentionCohortGrid } from "./charts/RetentionCohortGrid";
 import { NewVsRepeatDonut } from "./charts/NewVsRepeatDonut";
 import { LeadSourceFunnelChart } from "./charts/LeadSourceFunnelChart";
 import { QuoteAcceptTimeHistogram } from "./charts/QuoteAcceptTimeHistogram";
+import { CancellationReasonsChart } from "./charts/CancellationReasonsChart";
+import { ReceivablesAgingChart } from "./charts/ReceivablesAgingChart";
+import { TopProductsBarChart } from "./charts/TopProductsBarChart";
 
 interface Props {
   companyId: string | null | undefined;
@@ -92,6 +107,8 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
   const [quotes, setQuotes] = useState<QuoteForYoY[]>([]);
   const [leads, setLeads] = useState<LeadForYoY[]>([]);
   const [clients, setClients] = useState<ClientLookupRow[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceForAging[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItemForProducts[]>([]);
   const [loading, setLoading] = useState(true);
   const [overflow, setOverflow] = useState(false);
 
@@ -118,7 +135,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
       try {
         const ordersBase = supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id")
+          .select("id, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
@@ -152,11 +169,35 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           .is("deleted_at", null)
           .limit(ROW_CAP);
 
-        const [ordersRes, quotesRes, leadsRes, clientsRes] = await Promise.all([
+        // Invoices: open balances drive the receivables-aging chart.
+        // No date floor -- old debts are exactly what we want to surface.
+        const invoicesBase = supabase
+          .from("invoices")
+          .select("id, status, due_date, balance_due, total_amount, client_id")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .neq("status", "paid")
+          .limit(ROW_CAP);
+
+        // Order items: inner join orders for company + region filter.
+        // RLS enforces the relationship server-side; we still pass the
+        // explicit filter for index hits.
+        const orderItemsBase = supabase
+          .from("order_items")
+          .select("id, order_id, menu_item_id, item_name, quantity, line_total, orders!inner(company_id, event_date, region_id, status, deleted_at)")
+          .eq("orders.company_id", companyId)
+          .is("orders.deleted_at", null)
+          .gte("orders.event_date", startISO)
+          .lte("orders.event_date", futureCapISO)
+          .limit(ROW_CAP);
+
+        const [ordersRes, quotesRes, leadsRes, clientsRes, invoicesRes, orderItemsRes] = await Promise.all([
           regionFilterId ? ordersBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : ordersBase,
           regionFilterId ? quotesBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : quotesBase,
           regionFilterId ? leadsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : leadsBase,
           regionFilterId ? clientsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : clientsBase,
+          invoicesBase,
+          regionFilterId ? orderItemsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`, { foreignTable: "orders" }) : orderItemsBase,
         ]);
 
         if (cancelled) return;
@@ -164,8 +205,14 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         const qRows = (quotesRes.data || []) as any as QuoteForYoY[];
         const lRows = (leadsRes.data || []) as any as LeadForYoY[];
         const cRows = (clientsRes.data || []) as any as ClientLookupRow[];
+        const iRows = (invoicesRes.data || []) as any as InvoiceForAging[];
+        const oiRows = (orderItemsRes.data || []) as any as OrderItemForProducts[];
 
-        if (oRows.length >= ROW_CAP || qRows.length >= ROW_CAP || lRows.length >= ROW_CAP || cRows.length >= ROW_CAP) {
+        if (
+          oRows.length >= ROW_CAP || qRows.length >= ROW_CAP ||
+          lRows.length >= ROW_CAP || cRows.length >= ROW_CAP ||
+          iRows.length >= ROW_CAP || oiRows.length >= ROW_CAP
+        ) {
           setOverflow(true);
         }
 
@@ -173,6 +220,8 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         setQuotes(qRows);
         setLeads(lRows);
         setClients(cRows);
+        setInvoices(iRows);
+        setOrderItems(oiRows);
       } catch (e) {
         console.warn("[BusinessIntelligence] fetch failed:", e);
       } finally {
@@ -226,6 +275,23 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     () => aggregateQuoteAcceptTime(quotes),
     [quotes],
   );
+  const cancellationReasons = useMemo(
+    () => aggregateCancellationReasons(orders as any as CancelledOrder[]),
+    [orders],
+  );
+  const receivablesAging = useMemo(
+    () => aggregateReceivablesAging(invoices),
+    [invoices],
+  );
+  const topProducts = useMemo(() => {
+    // Exclude line items from cancelled orders -- those don't represent
+    // realised revenue, only intent.
+    const cancelledIds = new Set<string>();
+    for (const o of orders as any as CancelledOrder[]) {
+      if (o.status === "cancelled" || o.cancelled_at) cancelledIds.add(o.id);
+    }
+    return aggregateTopProducts(orderItems, cancelledIds);
+  }, [orderItems, orders]);
 
   return (
     <section className="mb-6" aria-labelledby="bi-section-heading">
@@ -284,6 +350,13 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
             <LeadSourceFunnelChart data={leadSourceFunnel} loading={loading} />
             <QuoteAcceptTimeHistogram data={quoteAcceptTime} loading={loading} />
           </div>
+
+          {/* Tier 5 -- operations */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CancellationReasonsChart data={cancellationReasons} loading={loading} />
+            <ReceivablesAgingChart data={receivablesAging} loading={loading} />
+          </div>
+          <TopProductsBarChart data={topProducts} loading={loading} />
         </div>
       )}
     </section>
