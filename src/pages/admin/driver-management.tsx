@@ -1246,31 +1246,45 @@ function DriverManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Quick Links */}
+        {/* Quick Links. The driver portal lives at /{slug}/login -- the
+            same staff login as kitchen / shopping / cleaning. We never
+            send drivers to /auth/login (that's the platform-wide page,
+            no tenant branding). Self-signup isn't a route -- drivers
+            are added by an admin and sign in with the credentials they
+            receive by email. */}
         <Card className="border-0 shadow-lg mt-6 bg-gradient-to-br from-blue-50 to-indigo-50">
           <CardHeader>
             <CardTitle className="text-blue-900">Driver Portal Access</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-white rounded-lg p-4 border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Driver Login URL</h4>
-              <p className="text-sm text-blue-700 mb-2">
-                Share this URL with your drivers so they can easily bookmark and access their portal:
-              </p>
-              <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/auth/login` : "/auth/login"}
-              </code>
-            </div>
+            {(() => {
+              const slug = (user as any)?.company_slug || (profile as any)?.company_slug || "";
+              const origin = typeof window !== "undefined" ? window.location.origin : "";
+              const loginPath = slug ? `/${slug}/login` : "/auth/login";
+              const fullUrl = origin ? `${origin}${loginPath}` : loginPath;
+              return (
+                <>
+                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                    <h4 className="font-semibold text-blue-900 mb-2">Driver login URL</h4>
+                    <p className="text-sm text-blue-700 mb-2">
+                      Share this URL with your drivers so they can bookmark and access their portal:
+                    </p>
+                    <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm break-all">
+                      {fullUrl}
+                    </code>
+                  </div>
 
-            <div className="bg-white rounded-lg p-4 border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2">Driver Signup URL</h4>
-              <p className="text-sm text-blue-700 mb-2">
-                Share this URL if you want drivers to self-register:
-              </p>
-              <code className="block bg-blue-100 text-blue-900 px-3 py-2 rounded text-sm">
-                {typeof window !== "undefined" ? `${window.location.origin}/auth/register` : "/auth/register"}
-              </code>
-            </div>
+                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                    <h4 className="font-semibold text-blue-900 mb-2">Adding new drivers</h4>
+                    <p className="text-sm text-blue-700">
+                      Drivers don&apos;t self-register. Tap <strong>Add driver</strong> above to
+                      create the account; they&apos;ll receive their sign-in details by email and
+                      can use them on the URL above.
+                    </p>
+                  </div>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
