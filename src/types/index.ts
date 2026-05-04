@@ -1,9 +1,9 @@
 // This file should only contain re-exports of core Supabase-generated types.
 // All custom application-specific types should be in `app.ts`.
 
-import type { Database as DB } from "@/integrations/supabase/database.types";
+import type { Database as DB } from "@/integrations/supabase/types";
 
-export type { Database, Json } from "@/integrations/supabase/database.types";
+export type { Database, Json } from "@/integrations/supabase/types";
 export type Tables<T extends keyof DB["public"]["Tables"]> = DB["public"]["Tables"][T]["Row"];
 export type Enums<T extends keyof DB["public"]["Enums"]> = DB["public"]["Enums"][T];
 export type Functions<T extends keyof DB["public"]["Functions"]> = DB["public"]["Functions"][T];
