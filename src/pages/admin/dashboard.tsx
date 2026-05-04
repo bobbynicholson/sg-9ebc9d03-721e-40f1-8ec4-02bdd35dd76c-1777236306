@@ -5,7 +5,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LayoutDashboard, TrendingUp, Users, DollarSign, Package, Clock,
-  AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, Plus,
+  AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, Plus, FileText,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -33,6 +33,12 @@ interface Stats {
   averageOrderValue: number;
   completionRate: number;
   pendingQuotes: number;
+  /** Quotes out for client response: sent / viewed / revised. Excludes
+   *  drafts (still internal) and accepted/rejected/expired (closed). */
+  quotesInCirculationCount: number;
+  /** Sum of total_amount on the same in-circulation set. The number
+   *  Bobby cares about: "how much money is sitting in conversion limbo". */
+  quotesInCirculationValue: number;
   lowStockItems: number;
   activeUsers: number;
   cancelledOrdersInRange: number;
@@ -46,7 +52,8 @@ const EMPTY: Stats = {
   bookedOrders: 0, collectedOrders: 0, activeOrders: 0,
   upcomingEvents: 0, totalOrdersInRange: 0, completedOrdersInRange: 0,
   averageOrderValue: 0, completionRate: 0,
-  pendingQuotes: 0, lowStockItems: 0, activeUsers: 0,
+  pendingQuotes: 0, quotesInCirculationCount: 0, quotesInCirculationValue: 0,
+  lowStockItems: 0, activeUsers: 0,
   cancelledOrdersInRange: 0, refundsOutstandingCount: 0,
   refundsOutstandingValue: 0, topCancelReason: "-",
 };
@@ -79,7 +86,7 @@ function AdminDashboardPage() {
 
       // Pull every order whose event falls in the range, plus the always-on
       // counters (low stock, pending quotes, team size) which don't bind to range.
-      const [ordersRes, quotesRes, usersRes, invRes] = await Promise.all([
+      const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes] = await Promise.all([
         supabase
           .from("orders")
           .select("id, status, payment_status, total_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancellation_reason_category")
@@ -91,7 +98,18 @@ function AdminDashboardPage() {
           .from("quotes")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .is("deleted_at", null)
           .in("status", ["draft", "sent"]),
+        // Quotes "in circulation" -- sent / viewed / revised. These are
+        // out for client response: not drafts, not closed. Pulls the
+        // total_amount for each so the dashboard can show both count
+        // and rand value of pipeline awaiting decision.
+        supabase
+          .from("quotes")
+          .select("total_amount")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("status", ["sent", "viewed", "revised"]),
         supabase
           .from("profiles")
           .select("id", { count: "exact", head: true })
@@ -213,6 +231,13 @@ function AdminDashboardPage() {
         0,
       );
 
+      const quotesInCirculationRows = (quotesCirculatingRes.data || []) as any[];
+      const quotesInCirculationCount = quotesInCirculationRows.length;
+      const quotesInCirculationValue = quotesInCirculationRows.reduce(
+        (sum: number, q: any) => sum + (Number(q.total_amount) || 0),
+        0,
+      );
+
       setStats({
         bookedRevenue, collectedRevenue, outstandingRevenue,
         bookedOrders, collectedOrders,
@@ -220,6 +245,8 @@ function AdminDashboardPage() {
         totalOrdersInRange, completedOrdersInRange,
         averageOrderValue, completionRate,
         pendingQuotes: quotesRes.count ?? 0,
+        quotesInCirculationCount,
+        quotesInCirculationValue,
         activeUsers: usersRes.count ?? 0,
         lowStockItems,
         cancelledOrdersInRange, refundsOutstandingCount,
@@ -375,6 +402,25 @@ function AdminDashboardPage() {
               icon={ShoppingCart}
               iconColor="text-purple-600"
               badge={{ text: "In progress", tone: "purple" }}
+              loading={loading}
+            />
+          </div>
+
+          {/* Pipeline tile -- quotes that have been sent but not yet
+              accepted or rejected. Both the count and the rand value
+              matter: count tells the team how many follow-ups are due,
+              value tells the owner how much pipeline is sitting in
+              conversion limbo. Date-range independent (rolls all
+              outstanding quotes, regardless of when they were sent). */}
+          <div className="grid grid-cols-1 mb-6">
+            <MetricCard
+              label="Quotes in circulation"
+              value={fmt.format(stats.quotesInCirculationValue)}
+              hint={`${stats.quotesInCirculationCount} quote${stats.quotesInCirculationCount === 1 ? "" : "s"} sent, awaiting client response`}
+              tooltip={"Total rand value of quotes that have been sent to clients but haven't yet been accepted or declined. Includes 'sent', 'viewed' and 'revised' statuses; excludes drafts and closed quotes.\n\nThis is your live pipeline -- the bigger this is, the more revenue is sitting one client decision away."}
+              icon={FileText}
+              iconColor="text-amber-600"
+              badge={stats.quotesInCirculationCount > 0 ? { text: "In play", tone: "amber" } : undefined}
               loading={loading}
             />
           </div>
