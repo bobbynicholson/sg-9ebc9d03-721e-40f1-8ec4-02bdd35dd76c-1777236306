@@ -1016,6 +1016,25 @@ const productNotesCards: SprintCard[] = [
       { title: "Per-role mini-tours (Phase 2)", detail: "Once the owner tour is shipped, add 3-step mini-tours for kitchen / driver / shopping staff on their first portal load. Kitchen: 'this is your prep list, this is how you mark a task done, this is how you flag a shortage'. Driver: 'this is the route, this is how you start a delivery, this is how you confirm handover'. Shopping: 'this is the demand list, this is how you turn shortfalls into a shopping order'. Each mini-tour is 30 seconds max -- staff tolerate way less than owners do.", status: "todo" },
     ],
   },
+  {
+    id: "multi-branch-e2e-qa",
+    title: "Multi-branch end-to-end QA test (4 may 2026, ready to run)",
+    why: "Stages 0-3 of the multi-branch architecture rebuild + the 7-agent audit fix wave have all shipped. Production deploy is green and the post-deploy DB smoke check passed 8/8. Static audit cannot prove the actual user journeys work -- need a manual run on Spit Braai (currently single-branch) to validate that adding a JHB branch surfaces the right UI, locks RLS correctly, propagates region_id through every artifact, and resolves per-branch overrides on real money flows. Test plan is fully drafted in docs/qa/multi-branch-e2e.md with Pass/Fail tables, copy-paste SQL verification, screenshot capture list, and a cleanup script.",
+    estimate: "30-45 min focused session",
+    risk: "Low",
+    icon: Sparkles,
+    accent: "from-emerald-500 to-teal-600",
+    items: [
+      { title: "Run section 0 -- clean baseline check", detail: "Paste the baseline SQL into Supabase SQL editor for project vsuyzovzqtrngorpqnhy. Expect zero rows on every count except jhb_active_regions. If anything is non-zero, run section 6 cleanup before starting.", status: "todo" },
+      { title: "Run sections 1-2 -- add JHB branch + invite manager", detail: "Add Johannesburg region with delivery_cost_per_km=12, min_delivery_fee=100, all manager-notification toggles on. Invite branch-manager-jhb@example.com as region_admin scoped to JHB only. Confirm DB rows match expected via the verification SELECTs.", status: "todo" },
+      { title: "Run section 3a -- region_admin acceptance map (13 checks)", detail: "Sign in to incognito as JHB region_admin. Walk every row in the table: landing page, region filter scope, sidebar nav, lead create with JHB badge, quote builder showing 'From Johannesburg' + R12/km + R100 floor, save draft + phone persistence on refresh, send quote with all DB column assertions.", status: "todo" },
+      { title: "Run section 3b -- company_admin cross-branch checks (7 checks)", detail: "Fresh incognito as Bobby. Confirm region dropdown now shows All / Cape Town / Johannesburg, switching narrows lists, financial-dashboard Branches tab appears with both branches, regions KPI strip shows Active=2, inventory item form shows Branch picker.", status: "todo" },
+      { title: "Run section 4 -- negative tests (5 checks)", detail: "As region_admin: financial-dashboard locked, platform/dashboard locked, RLS blocks CPT order URL hack. As company_admin: middleware self-test (flip role to region_admin, confirm /admin/* still admits, revert).", status: "todo" },
+      { title: "Run section 5 -- money flow check", detail: "Public-quote acceptance roundtrip. Open the JHB quote's public URL in a private window, accept it, confirm order auto-creates with JHB region_id and the auto-invoice carries the same VAT amount through quote -> order -> invoice. Run the verification SELECT to prove the chain.", status: "todo" },
+      { title: "Capture the 9 screenshots in section 7", detail: "Save to a shared audit-log location: JHB region card with KPI strip, region filter dropdown showing both branches, branch picker on new-lead form, 'From Johannesburg' delivery panel with R12/km, financial-dashboard Branches tab, JHB region badge on a list row, sidebar without Branding & Settings (region_admin), and the two negative-test access-denied screens.", status: "todo" },
+      { title: "Run section 6 -- cleanup", detail: "After a successful pass (or to reset between attempts), execute the cleanup SQL: void invoices, cancel orders, archive quotes + leads, deactivate JHB region, delete the manager profile row. Note: auth.users row must be removed from the Supabase auth dashboard manually.", status: "todo" },
+    ],
+  },
 ];
 
 // =====================================================================
