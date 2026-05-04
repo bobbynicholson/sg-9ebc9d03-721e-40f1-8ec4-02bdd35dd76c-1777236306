@@ -560,15 +560,21 @@ function KitchenStaffPage() {
         <Footer />
       </main>
 
-      {/* Add / Edit dialog */}
+      {/* Add / Edit dialog. The form body is long enough on a phone /
+          short laptop that the Save button slid below the fold, so the
+          dialog is now flex-col with max-h-[90vh]: header pinned at the
+          top, body scrolls in the middle, footer pinned at the bottom.
+          Save is always reachable without scrolling. */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-6 pb-3 flex-shrink-0">
             <DialogTitle>{editTarget ? "Edit staff" : "Add staff"}</DialogTitle>
             <DialogDescription>
               Rates only show on this page and the wage dashboard. The kitchen tablet sees names and on-duty status, never rand values.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto px-6 py-3 space-y-4">
 
           {error && (
             <Alert variant="destructive">
@@ -836,7 +842,9 @@ function KitchenStaffPage() {
             </div>
           )}
 
-          <DialogFooter>
+          </div>
+
+          <DialogFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0 bg-white dark:bg-slate-900 sm:rounded-b-lg">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
               {saving ? "Saving..." : editTarget ? "Save changes" : "Add staff"}
