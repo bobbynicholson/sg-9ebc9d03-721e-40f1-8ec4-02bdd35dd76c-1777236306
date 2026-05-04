@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +117,16 @@ export default function AdminQuotes() {
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<QuoteBucket>("all");
+
+  // Deep-link target from notifications + email links: clicking a
+  // "Client wants changes on a quote" notification lands here with
+  // ?quoteId=<uuid>. We track which quote to focus, switch the bucket
+  // filter to "all" so the row is reachable regardless of state, and
+  // scroll the row into view with a temporary highlight ring after
+  // the load completes. The query param gets stripped after handling
+  // so a refresh doesn't re-trigger the focus indefinitely.
+  const router = useRouter();
+  const [focusedQuoteId, setFocusedQuoteId] = useState<string | null>(null);
 
   // Diary index: every confirmed order + accepted quote pivoted by
   // event_date so each open quote's row can show "wide open day" or
@@ -268,6 +279,45 @@ export default function AdminQuotes() {
     })();
     return () => { cancelled = true; };
   }, [user?.company_id]);
+
+  // Deep-link handler: when ?quoteId=<uuid> is in the URL (typically
+  // from a notification click), find the quote in our loaded list,
+  // switch the bucket filter to "all" so the row is reachable, scroll
+  // it into view, and apply a temporary highlight ring. Strip the
+  // query param from the URL after handling so a refresh doesn't
+  // re-fire and the user can scroll freely.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const target = typeof router.query.quoteId === "string" ? router.query.quoteId : null;
+    if (!target) return;
+    if (loading || quotes.length === 0) return;
+    const exists = quotes.some((q) => q.id === target);
+    if (!exists) return;
+
+    setBucket("all");
+    setSearch("");
+    setFocusedQuoteId(target);
+
+    const t = setTimeout(() => {
+      const el = typeof document !== "undefined" ? document.getElementById(`quote-${target}`) : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+
+    // Clear the focus highlight after a few seconds so the row settles
+    // back into the normal list view.
+    const clearT = setTimeout(() => setFocusedQuoteId(null), 4000);
+
+    // Strip ?quoteId from the URL without reloading. shallow keeps state.
+    const { quoteId: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+
+    return () => { clearTimeout(t); clearTimeout(clearT); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.quoteId, loading, quotes]);
 
   // Realtime subscription -- when a client submits a quote request via
   // their portal (or any other process inserts a quote for our
@@ -654,17 +704,20 @@ export default function AdminQuotes() {
                 return (
                   <Card
                     key={quote.id}
-                    className={`border-0 shadow-lg hover:shadow-xl transition-all ${
-                      // Visual urgency cues: red ring for urgent action
-                      // needed, emerald for client portal requests,
-                      // amber for stale follow-ups.
-                      intel.tone === "urgent"
-                        ? "ring-2 ring-rose-300"
-                        : intel.isClientRequest
-                          ? "ring-2 ring-emerald-300"
-                          : intel.bucket === "stale"
-                            ? "ring-2 ring-amber-300"
-                            : ""
+                    id={`quote-${quote.id}`}
+                    className={`border-0 shadow-lg hover:shadow-xl transition-all scroll-mt-24 ${
+                      // Deep-link focus wins over the urgency rings so
+                      // the user instantly sees which quote they were
+                      // pointed at by the notification.
+                      focusedQuoteId === quote.id
+                        ? "ring-4 ring-blue-400 ring-offset-2"
+                        : intel.tone === "urgent"
+                          ? "ring-2 ring-rose-300"
+                          : intel.isClientRequest
+                            ? "ring-2 ring-emerald-300"
+                            : intel.bucket === "stale"
+                              ? "ring-2 ring-amber-300"
+                              : ""
                     }`}
                   >
                     <CardContent className="p-6">

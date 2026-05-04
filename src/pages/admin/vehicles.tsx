@@ -123,14 +123,23 @@ function VehiclesPage() {
 
   // Pull drivers + admins so the owner / primary picker has names not
   // raw uuids. Tenant-scoped on the profiles table by RLS.
+  // Note: only enum values that actually exist on user_role -- "owner"
+  // was previously in this list but isn't a valid enum label, so the
+  // whole .in() filter threw at Postgres level and the dropdown
+  // silently came back empty. Drivers + admins + company_admins is
+  // the right set: those are the people who can be allocated as a
+  // vehicle's registered driver/owner.
   useEffect(() => {
     if (!companyId) return;
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email, role, active_role")
         .eq("company_id", companyId)
-        .in("role", ["driver", "admin", "company_admin", "owner"]);
+        .in("role", ["driver", "admin", "company_admin"]);
+      if (error) {
+        console.error("Failed to load driver list for vehicles owner picker:", error);
+      }
       setDrivers((data || []) as DriverProfile[]);
     })();
   }, [companyId]);
