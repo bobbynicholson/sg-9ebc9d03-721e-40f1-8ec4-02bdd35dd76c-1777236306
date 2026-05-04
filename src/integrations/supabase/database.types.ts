@@ -822,6 +822,7 @@ export type Database = {
           outstanding_balance: number | null
           payment_terms: number | null
           phone: string
+          region_id: string | null
           tags: string[] | null
           tax_number: string | null
           updated_at: string | null
@@ -849,6 +850,7 @@ export type Database = {
           outstanding_balance?: number | null
           payment_terms?: number | null
           phone: string
+          region_id?: string | null
           tags?: string[] | null
           tax_number?: string | null
           updated_at?: string | null
@@ -876,6 +878,7 @@ export type Database = {
           outstanding_balance?: number | null
           payment_terms?: number | null
           phone?: string
+          region_id?: string | null
           tags?: string[] | null
           tax_number?: string | null
           updated_at?: string | null
@@ -901,6 +904,13 @@ export type Database = {
             columns: ["import_job_id"]
             isOneToOne: false
             referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -963,6 +973,7 @@ export type Database = {
       }
       companies: {
         Row: {
+          accent_color: string | null
           address_line1: string | null
           address_line2: string | null
           amendment_cutoff_days: number
@@ -976,6 +987,7 @@ export type Database = {
           currency: string | null
           custom_domain: string | null
           deleted_at: string | null
+          deposit_percent: number
           dispatch_settings: Json
           email: string
           embed_pricing_tiers: Json
@@ -1017,6 +1029,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          accent_color?: string | null
           address_line1?: string | null
           address_line2?: string | null
           amendment_cutoff_days?: number
@@ -1030,6 +1043,7 @@ export type Database = {
           currency?: string | null
           custom_domain?: string | null
           deleted_at?: string | null
+          deposit_percent?: number
           dispatch_settings?: Json
           email: string
           embed_pricing_tiers?: Json
@@ -1071,6 +1085,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          accent_color?: string | null
           address_line1?: string | null
           address_line2?: string | null
           amendment_cutoff_days?: number
@@ -1084,6 +1099,7 @@ export type Database = {
           currency?: string | null
           custom_domain?: string | null
           deleted_at?: string | null
+          deposit_percent?: number
           dispatch_settings?: Json
           email?: string
           embed_pricing_tiers?: Json
@@ -1519,6 +1535,7 @@ export type Database = {
           id: string
           order_id: string
           read_at: string | null
+          region_id: string | null
           sender_id: string
           sender_role: string
         }
@@ -1529,6 +1546,7 @@ export type Database = {
           id?: string
           order_id: string
           read_at?: string | null
+          region_id?: string | null
           sender_id: string
           sender_role: string
         }
@@ -1539,6 +1557,7 @@ export type Database = {
           id?: string
           order_id?: string
           read_at?: string | null
+          region_id?: string | null
           sender_id?: string
           sender_role?: string
         }
@@ -1562,6 +1581,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_messages_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
           {
@@ -3550,6 +3576,7 @@ export type Database = {
           description: string | null
           id: string
           is_perishable: boolean | null
+          is_shared: boolean
           item_name: string
           maximum_stock: number | null
           minimum_stock: number | null
@@ -3573,6 +3600,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_perishable?: boolean | null
+          is_shared?: boolean
           item_name: string
           maximum_stock?: number | null
           minimum_stock?: number | null
@@ -3596,6 +3624,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_perishable?: boolean | null
+          is_shared?: boolean
           item_name?: string
           maximum_stock?: number | null
           minimum_stock?: number | null
@@ -3747,6 +3776,8 @@ export type Database = {
           order_id: string | null
           paid_at: string | null
           pdf_url: string | null
+          public_token: string
+          region_id: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
@@ -3774,6 +3805,8 @@ export type Database = {
           order_id?: string | null
           paid_at?: string | null
           pdf_url?: string | null
+          public_token?: string
+          region_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal: number
@@ -3801,6 +3834,8 @@ export type Database = {
           order_id?: string | null
           paid_at?: string | null
           pdf_url?: string | null
+          public_token?: string
+          region_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"] | null
           subtotal?: number
@@ -3837,6 +3872,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -3970,6 +4012,7 @@ export type Database = {
           notes: string | null
           order_id: string
           planned_yield: number | null
+          region_id: string | null
           start_at: string
           started_at: string | null
           station_id: string | null
@@ -3995,6 +4038,7 @@ export type Database = {
           notes?: string | null
           order_id: string
           planned_yield?: number | null
+          region_id?: string | null
           start_at: string
           started_at?: string | null
           station_id?: string | null
@@ -4020,6 +4064,7 @@ export type Database = {
           notes?: string | null
           order_id?: string
           planned_yield?: number | null
+          region_id?: string | null
           start_at?: string
           started_at?: string | null
           station_id?: string | null
@@ -4062,6 +4107,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_prep_tasks_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
           {
@@ -4264,6 +4316,7 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          region_id: string | null
           station_type: string
           updated_at: string
         }
@@ -4277,6 +4330,7 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          region_id?: string | null
           station_type?: string
           updated_at?: string
         }
@@ -4290,6 +4344,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          region_id?: string | null
           station_type?: string
           updated_at?: string
         }
@@ -4299,6 +4354,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_stations_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -4393,6 +4455,7 @@ export type Database = {
           imported_at: string | null
           notes: string | null
           phone: string | null
+          region_id: string | null
           requested_items: Json | null
           source: string | null
           source_order_id: string | null
@@ -4429,6 +4492,7 @@ export type Database = {
           imported_at?: string | null
           notes?: string | null
           phone?: string | null
+          region_id?: string | null
           requested_items?: Json | null
           source?: string | null
           source_order_id?: string | null
@@ -4465,6 +4529,7 @@ export type Database = {
           imported_at?: string | null
           notes?: string | null
           phone?: string | null
+          region_id?: string | null
           requested_items?: Json | null
           source?: string | null
           source_order_id?: string | null
@@ -4504,6 +4569,13 @@ export type Database = {
             columns: ["import_job_id"]
             isOneToOne: false
             referencedRelation: "import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
           {
@@ -5142,6 +5214,7 @@ export type Database = {
           prep_started_at: string | null
           quote_id: string | null
           ready_at: string | null
+          region_id: string | null
           requires_refrigeration: boolean
           requires_two_drivers: boolean
           requires_waiter: boolean | null
@@ -5240,6 +5313,7 @@ export type Database = {
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
+          region_id?: string | null
           requires_refrigeration?: boolean
           requires_two_drivers?: boolean
           requires_waiter?: boolean | null
@@ -5338,6 +5412,7 @@ export type Database = {
           prep_started_at?: string | null
           quote_id?: string | null
           ready_at?: string | null
+          region_id?: string | null
           requires_refrigeration?: boolean
           requires_two_drivers?: boolean
           requires_waiter?: boolean | null
@@ -5427,6 +5502,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
           {
@@ -6268,18 +6350,141 @@ export type Database = {
           },
         ]
       }
+      quote_acceptances: {
+        Row: {
+          accepted_at: string
+          acceptor_name: string
+          company_id: string
+          id: string
+          ip_hash: string | null
+          quote_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          accepted_at?: string
+          acceptor_name: string
+          company_id: string
+          id?: string
+          ip_hash?: string | null
+          quote_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          accepted_at?: string
+          acceptor_name?: string
+          company_id?: string
+          id?: string
+          ip_hash?: string | null
+          quote_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_acceptances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_acceptances_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_change_requests: {
+        Row: {
+          addressed_at: string | null
+          addressed_by: string | null
+          admin_notes: string | null
+          company_id: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          message: string
+          quote_id: string
+          requested_changes: Json | null
+          status: string
+          submitter_ip_hash: string | null
+          submitter_name: string | null
+          submitter_user_agent: string | null
+          updated_at: string
+        }
+        Insert: {
+          addressed_at?: string | null
+          addressed_by?: string | null
+          admin_notes?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          message: string
+          quote_id: string
+          requested_changes?: Json | null
+          status?: string
+          submitter_ip_hash?: string | null
+          submitter_name?: string | null
+          submitter_user_agent?: string | null
+          updated_at?: string
+        }
+        Update: {
+          addressed_at?: string | null
+          addressed_by?: string | null
+          admin_notes?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          message?: string
+          quote_id?: string
+          requested_changes?: Json | null
+          status?: string
+          submitter_ip_hash?: string | null
+          submitter_name?: string | null
+          submitter_user_agent?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_change_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_change_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_change_requests_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotes: {
         Row: {
           accepted_at: string | null
           client_email: string | null
           client_id: string | null
           client_name: string | null
+          client_phone: string | null
           comms_paused_until: string | null
           company_id: string
           converted_to_order_id: string | null
           created_at: string | null
           deleted_at: string | null
           delivery_fee: number
+          deposit_percentage: number | null
           discount_amount: number | null
           equipment_items: Json | null
           event_date: string | null
@@ -6295,6 +6500,7 @@ export type Database = {
           public_token: string
           quote_name: string
           quote_number: string
+          region_id: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["quote_status"] | null
           subtotal: number
@@ -6318,12 +6524,14 @@ export type Database = {
           client_email?: string | null
           client_id?: string | null
           client_name?: string | null
+          client_phone?: string | null
           comms_paused_until?: string | null
           company_id: string
           converted_to_order_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           delivery_fee?: number
+          deposit_percentage?: number | null
           discount_amount?: number | null
           equipment_items?: Json | null
           event_date?: string | null
@@ -6339,6 +6547,7 @@ export type Database = {
           public_token?: string
           quote_name: string
           quote_number: string
+          region_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["quote_status"] | null
           subtotal: number
@@ -6362,12 +6571,14 @@ export type Database = {
           client_email?: string | null
           client_id?: string | null
           client_name?: string | null
+          client_phone?: string | null
           comms_paused_until?: string | null
           company_id?: string
           converted_to_order_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           delivery_fee?: number
+          deposit_percentage?: number | null
           discount_amount?: number | null
           equipment_items?: Json | null
           event_date?: string | null
@@ -6383,6 +6594,7 @@ export type Database = {
           public_token?: string
           quote_name?: string
           quote_number?: string
+          region_id?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["quote_status"] | null
           subtotal?: number
@@ -6449,6 +6661,13 @@ export type Database = {
             columns: ["prepared_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
           {
@@ -6638,21 +6857,28 @@ export type Database = {
         Row: {
           address: string | null
           auto_assign_orders: boolean | null
+          cancellation_policy: Json | null
           city: string | null
           code: string
           company_id: string | null
           country: string
           created_at: string | null
           currency: string | null
+          delivery_cost_per_km: number | null
           delivery_radius_km: number | null
+          deposit_percent: number | null
           email: string | null
           id: string
           is_active: boolean | null
           lat: number | null
           lng: number | null
           manager_user_id: string | null
+          min_delivery_fee: number | null
           name: string | null
           notes: string | null
+          notify_manager_on_new_lead: boolean
+          notify_manager_on_new_order: boolean
+          notify_manager_on_prep_alert: boolean
           operating_hours_end: string | null
           operating_hours_start: string | null
           phone: string | null
@@ -6661,25 +6887,34 @@ export type Database = {
           timezone: string | null
           updated_at: string | null
           user_id: string | null
+          vat_rate: number | null
+          vat_registered: boolean | null
         }
         Insert: {
           address?: string | null
           auto_assign_orders?: boolean | null
+          cancellation_policy?: Json | null
           city?: string | null
           code: string
           company_id?: string | null
           country?: string
           created_at?: string | null
           currency?: string | null
+          delivery_cost_per_km?: number | null
           delivery_radius_km?: number | null
+          deposit_percent?: number | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           lat?: number | null
           lng?: number | null
           manager_user_id?: string | null
+          min_delivery_fee?: number | null
           name?: string | null
           notes?: string | null
+          notify_manager_on_new_lead?: boolean
+          notify_manager_on_new_order?: boolean
+          notify_manager_on_prep_alert?: boolean
           operating_hours_end?: string | null
           operating_hours_start?: string | null
           phone?: string | null
@@ -6688,25 +6923,34 @@ export type Database = {
           timezone?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vat_rate?: number | null
+          vat_registered?: boolean | null
         }
         Update: {
           address?: string | null
           auto_assign_orders?: boolean | null
+          cancellation_policy?: Json | null
           city?: string | null
           code?: string
           company_id?: string | null
           country?: string
           created_at?: string | null
           currency?: string | null
+          delivery_cost_per_km?: number | null
           delivery_radius_km?: number | null
+          deposit_percent?: number | null
           email?: string | null
           id?: string
           is_active?: boolean | null
           lat?: number | null
           lng?: number | null
           manager_user_id?: string | null
+          min_delivery_fee?: number | null
           name?: string | null
           notes?: string | null
+          notify_manager_on_new_lead?: boolean
+          notify_manager_on_new_order?: boolean
+          notify_manager_on_prep_alert?: boolean
           operating_hours_end?: string | null
           operating_hours_start?: string | null
           phone?: string | null
@@ -6715,6 +6959,8 @@ export type Database = {
           timezone?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vat_rate?: number | null
+          vat_registered?: boolean | null
         }
         Relationships: [
           {
@@ -7719,6 +7965,7 @@ export type Database = {
           plate: string | null
           primary_driver_id: string | null
           refrigerated: boolean
+          region_id: string | null
           requires_two_people: boolean
           updated_at: string
           vehicle_type: string | null
@@ -7743,6 +7990,7 @@ export type Database = {
           plate?: string | null
           primary_driver_id?: string | null
           refrigerated?: boolean
+          region_id?: string | null
           requires_two_people?: boolean
           updated_at?: string
           vehicle_type?: string | null
@@ -7767,12 +8015,21 @@ export type Database = {
           plate?: string | null
           primary_driver_id?: string | null
           refrigerated?: boolean
+          region_id?: string | null
           requires_two_people?: boolean
           updated_at?: string
           vehicle_type?: string | null
           year?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       waste_logs: {
         Row: {
@@ -8447,6 +8704,7 @@ export type Database = {
       }
       get_refund_for_order: { Args: { p_order_id: string }; Returns: Json }
       get_user_company_id: { Args: { user_id: string }; Returns: string }
+      get_user_region_ids: { Args: { p_user_id?: string }; Returns: string[] }
       gettransactionid: { Args: never; Returns: unknown }
       increment_embed_form_views: {
         Args: { p_form_id: string }
@@ -9111,6 +9369,10 @@ export type Database = {
         }
         Returns: string
       }
+      user_can_access_region: {
+        Args: { p_region_id: string; p_user_id?: string }
+        Returns: boolean
+      }
       user_has_role: {
         Args: {
           required_role: Database["public"]["Enums"]["user_role"]
@@ -9222,6 +9484,8 @@ export type Database = {
         | "shopping_staff"
         | "cleaning_staff"
         | "client"
+        | "region_admin"
+        | "sales_admin"
       vehicle_owner_kind: "company" | "driver"
     }
     CompositeTypes: {
@@ -9470,6 +9734,8 @@ export const Constants = {
         "shopping_staff",
         "cleaning_staff",
         "client",
+        "region_admin",
+        "sales_admin",
       ],
       vehicle_owner_kind: ["company", "driver"],
     },

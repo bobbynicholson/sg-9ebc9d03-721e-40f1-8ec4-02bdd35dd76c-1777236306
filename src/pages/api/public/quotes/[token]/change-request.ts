@@ -7,6 +7,7 @@ import {
   getClientIp,
   hashIp,
   isUuid,
+  verifyTurnstile,
 } from "@/lib/embedFormApi";
 
 /**
@@ -95,6 +96,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.headers["user-agent"] as string).slice(0, 500)
       : null;
 
+  // Turnstile -- only enforced when TURNSTILE_SECRET_KEY is set in the
+  // environment. Mirrors the embed-form pattern so dev / test envs
+  // (without the secret) keep working unchanged. When configured, a
+  // failed challenge returns 200 ok:false rather than 4xx so bots get
+  // no signal about which check tripped them.
+  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+  if (turnstileSecret) {
+    const turnstileToken =
+      typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+    const result = await verifyTurnstile(turnstileToken, turnstileSecret, ip);
+    if (!result.ok) {
+      return res.status(200).json({
+        ok: false,
+        error: "Challenge failed, please refresh and try again.",
+      });
+    }
+  }
+
   // Rate limit -- tighter than view since this fans out to admin
   // notifications.
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
@@ -167,7 +186,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: "✏️ Client wants changes to a quote",
         message: `${submitterName || quote.client_name || "Client"} requested changes (${totalLabel}, ${eventLabel}): "${summary}"`,
         priority: "high",
-        link: `/admin/quotes/${quote.id}`,
+        // #change-requests anchor lands the operator on the Card
+        // directly -- the page's deep-link useEffect scrolls it
+        // into view once the data resolves.
+        link: `/admin/quotes/${quote.id}#change-requests`,
       }]);
     } catch (err) {
       console.warn("[public/quotes/change-request] notification failed", err);

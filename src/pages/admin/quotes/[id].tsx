@@ -151,6 +151,20 @@ export default function AdminQuoteDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // Deep-link: when the URL has #change-requests (e.g. opened from a
+  // change-request notification in the bell), scroll the Card into
+  // view once the data lands. Browser default scroll-to-anchor fires
+  // before the Card mounts since it depends on the async fetch above,
+  // so we re-scroll after changeRequests resolves.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#change-requests") return;
+    if (changeRequests.length === 0) return;
+    const el = document.getElementById("change-requests");
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [changeRequests]);
+
   const updateChangeRequestStatus = async (
     reqId: string,
     nextStatus: "addressed" | "dismissed",
