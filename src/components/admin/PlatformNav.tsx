@@ -41,6 +41,7 @@ import {
   MonitorCheck,
   BarChart3,
   Globe,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -148,6 +149,12 @@ const NAV: NavSection[] = [
         href: "/admin/platform/currency-monitoring",
         icon: ArrowLeftRight,
         sub: "Live FX rates, threshold alerts",
+      },
+      {
+        title: "Tech-stack costs",
+        href: "/admin/platform/tech-costs",
+        icon: Calculator,
+        sub: "COGS calculator, margin per tenant, scale curves",
       },
     ],
   },

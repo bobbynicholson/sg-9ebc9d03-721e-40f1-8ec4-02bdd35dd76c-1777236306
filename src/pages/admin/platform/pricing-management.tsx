@@ -176,18 +176,30 @@ export default function PricingManagementPage() {
       <div className="px-4 py-6 sm:py-8 max-w-full">
         {/* Mobile-Optimized Page Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl w-fit">
-              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl w-fit">
+                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                  CateringMS Package Prices (ADMIN)
+                </h1>
+                <p className="text-sm sm:text-base text-slate-600 mt-1">
+                  Manage pricing for South Africa, United States, and United Kingdom markets
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                CateringMS Package Prices (ADMIN)
-              </h1>
-              <p className="text-sm sm:text-base text-slate-600 mt-1">
-                Manage pricing for South Africa, United States, and United Kingdom markets
-              </p>
-            </div>
+            {/* Cross-link to the COGS calculator -- seeing the input cost
+                next to the output price avoids quietly setting a tier
+                that loses money at scale. */}
+            <a
+              href="/admin/platform/tech-costs"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-medium hover:bg-emerald-100 transition w-fit"
+            >
+              See your COGS at this price
+              <span aria-hidden>→</span>
+            </a>
           </div>
         </div>
 
