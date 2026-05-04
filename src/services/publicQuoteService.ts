@@ -8,14 +8,19 @@
  *      link the catering company sends to the client.
  *
  *   2. Public /q/[token]  -- fetchByToken() to load the quote (and
- *      its company branding), recordView() and recordAccept() to
- *      stamp the lifecycle timestamps.
+ *      its company branding), then recordView() / recordAccept() /
+ *      submitChangeRequest() which now POST to server-side API
+ *      routes (service-role) instead of writing through the anon
+ *      client. Anon writes to quotes / notifications were either
+ *      blocked by RLS (notifications) or dangerously open (quotes
+ *      had USING(deleted_at IS NULL) which let anon update ANY
+ *      quote). The API routes resolve the token server-side and
+ *      handle every write under service role.
  *
- * Authentication: the public route uses the anon Supabase key. The
- * RLS policy on quotes (see migration `quote_public_token`) lets the
- * anon role select / update by the row's public_token. Effectively
- * the token IS the auth token; if you have it, you can view + accept
- * the quote it points at. Tokens are uuids, unguessable.
+ * Authentication: the public route uses the anon Supabase key for
+ * SELECT only -- the token IS the secret, the anon SELECT policy on
+ * quotes / invoices is "non-deleted only", and the app always queries
+ * .eq(public_token, token).
  */
 
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +59,10 @@ export interface PublicQuoteView {
     vat_registered: boolean | null;
     vat_number: string | null;
     vat_rate: number | null;
+    /** Brand colours for the public quote / invoice templates. */
+    primary_color: string | null;
+    secondary_color: string | null;
+    accent_color: string | null;
   } | null;
 }
 
@@ -61,9 +70,6 @@ export interface PublicQuoteView {
  * Build the public URL for a quote.
  *
  *   buildPublicQuoteUrl(token)  ->  https://{host}/q/{token}
- *
- * The host is read off window.location at call time so it follows
- * whichever subdomain / preview URL the operator is on.
  */
 export function buildPublicQuoteUrl(token: string | null | undefined): string | null {
   if (!token) return null;
@@ -73,9 +79,9 @@ export function buildPublicQuoteUrl(token: string | null | undefined): string | 
 
 /**
  * Pull a quote by its public token, including just enough company
- * branding for the public view to feel like the catering company's
- * own page. Returns null when the token is unknown or the quote has
- * been soft-deleted.
+ * branding (incl. brand colours + logo) for the public view to feel
+ * like the catering company's own page. Returns null when the token
+ * is unknown or the quote has been soft-deleted.
  */
 export async function fetchByToken(token: string): Promise<PublicQuoteView | null> {
   const { data, error } = await (supabase as any)
@@ -88,7 +94,8 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
       company:company_id (
         id, company_name, logo_url, email, phone,
         address_line1, address_line2, city,
-        vat_registered, vat_number, vat_rate
+        vat_registered, vat_number, vat_rate,
+        primary_color, secondary_color, accent_color
       )
     `)
     .eq("public_token", token)
@@ -102,58 +109,26 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
 }
 
 /**
- * Stamp viewed_at the first time the public page loads. No-op if
- * the quote already has a viewed_at -- we want the anchor to be
- * the first view, not the latest.
- *
- * Fires a low-priority admin notification on the FIRST view so the
- * catering team knows the client has actually opened the quote and
- * isn't sitting in their spam folder. Closes the audit gap "no quote
- * engagement tracking" -- before this, admins had no signal between
- * send and accept.
+ * Best-effort POST to the server-side view endpoint. Idempotent on
+ * viewed_at, so calling this on every render is fine.
  */
 export async function recordView(token: string, currentViewedAt: string | null): Promise<void> {
   if (currentViewedAt) return;
-  // Update + return the row so we can fire the notification with
-  // its details. maybeSingle so we don't blow up if the token is
-  // already invalid by the time we try.
-  const { data: row } = await (supabase as any)
-    .from("quotes")
-    .update({ viewed_at: new Date().toISOString() })
-    .eq("public_token", token)
-    .is("deleted_at", null)
-    .select("id, company_id, user_id, client_name, total, currency, event_date")
-    .maybeSingle();
-  if (!row) return;
-
-  // Best-effort -- a failed notify mustn't break the public page load.
   try {
-    const { notificationService } = await import("./notificationService");
-    const totalLabel = `${(row as any).currency || "ZAR"} ${Number((row as any).total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
-    const eventLabel = (row as any).event_date
-      ? new Date((row as any).event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
-      : "TBD";
-    await notificationService.createNotification({
-      company_id: (row as any).company_id,
-      user_id: (row as any).user_id,
-      recipient_id: (row as any).user_id,
-      notification_type: "quote_viewed",
-      title: "👀 Client viewed your quote",
-      message: `${(row as any).client_name || "Client"} just opened the quote (${totalLabel}, event ${eventLabel}). They're considering -- a follow-up nudge tomorrow if quiet might help.`,
-      priority: "normal",
-      link: `/admin/quotes/${(row as any).id}`,
-    } as any);
-  } catch (e) {
-    console.warn("[publicQuoteService] view notify failed:", e);
+    await fetch(`/api/public/quotes/${encodeURIComponent(token)}/view`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+  } catch (err) {
+    console.warn("[publicQuoteService] recordView failed", err);
   }
 }
 
 /**
- * Stamp accepted_at when the client clicks Accept. Updates status to
- * 'accepted' too so the admin side picks up the change without a
- * second round-trip. Fires admin notifications (in-app + email +
- * WhatsApp) so the catering team finds out the moment the client
- * commits, not on next page reload.
+ * Server-side acceptance: stamps accepted_at + status on the quote,
+ * writes a quote_acceptances audit row, fans out admin notifications.
+ * The acceptor's name is required and validated server-side too.
  */
 export async function recordAccept(args: {
   token: string;
@@ -161,123 +136,56 @@ export async function recordAccept(args: {
 }): Promise<{ ok: boolean; error?: string }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.acceptedByName?.trim()) return { ok: false, error: "Please enter your name." };
-
-  // We stash the acceptor's name in notes-ish JSON on the quote row
-  // so we don't need a new column. The acceptance audit trail lives
-  // in the row's accepted_at + status change.
-  const nowIso = new Date().toISOString();
-  const { data: updated, error } = await (supabase as any)
-    .from("quotes")
-    .update({
-      accepted_at: nowIso,
-      status: "accepted",
-    })
-    .eq("public_token", args.token)
-    .is("deleted_at", null)
-    .select("id, company_id, user_id, client_name, client_email, total, currency, event_date, guest_count")
-    .maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  if (!updated) return { ok: false, error: "Quote not found." };
-
-  // Fire-and-forget admin alerts. Wrapped in its own try/catch so a
-  // failed notification (Resend down, etc.) never makes the public
-  // accept fail -- the quote IS accepted, the alert is best-effort.
-  notifyAdminOfAcceptance(updated, args.acceptedByName).catch((notifyErr) =>
-    console.warn("[publicQuoteService] admin acceptance alert failed:", notifyErr),
-  );
-
-  return { ok: true };
+  try {
+    const res = await fetch(`/api/public/quotes/${encodeURIComponent(args.token)}/accept`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acceptedByName: args.acceptedByName.trim() }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) {
+      return { ok: false, error: json.error || "Could not accept the quote, please try again." };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Network error" };
+  }
 }
 
 /**
- * Internal: in-app + email + WhatsApp ping to the catering team that
- * this quote was just accepted. Pulled out so recordAccept reads
- * linearly. Best-effort -- every channel is wrapped in its own try
- * so one failure (no admin phone configured, no email provider) does
- * not block the others.
+ * Submit a change request on the public quote. Inserts a
+ * quote_change_requests row + notifies the admin. Server enforces
+ * rate-limits, message minimum, per-quote lifetime cap.
  */
-async function notifyAdminOfAcceptance(
-  quote: any,
-  acceptedByName: string,
-): Promise<void> {
-  const sb: any = supabase;
-
-  // Owner profile drives in-app notification recipient + email + phone.
-  const { data: profile } = await sb
-    .from("profiles")
-    .select("id, full_name, email, phone, phone_number, company_name")
-    .eq("id", quote.user_id)
-    .maybeSingle();
-
-  const companyName = profile?.company_name || profile?.full_name || "Your catering company";
-  const totalLabel = `${quote.currency || "ZAR"} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
-  const eventLabel = quote.event_date
-    ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
-    : "TBD";
-  const acceptorLabel = acceptedByName || quote.client_name || "the client";
-
-  // 1. In-app notification (urgent priority -- admin should act on
-  //    converting to an order today).
+export async function submitChangeRequest(args: {
+  token: string;
+  message: string;
+  submitterName?: string | null;
+  requestedChanges?: {
+    event_date?: string | null;
+    guest_count?: number | null;
+    menu_changes?: string | null;
+  };
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!args.token) return { ok: false, error: "Missing token." };
+  if (!args.message?.trim()) return { ok: false, error: "Please tell us what to change." };
   try {
-    const { notificationService } = await import("./notificationService");
-    await notificationService.createNotification({
-      company_id: quote.company_id,
-      user_id: quote.user_id,
-      recipient_id: quote.user_id,
-      notification_type: "quote_accepted",
-      title: "✅ Quote accepted!",
-      message: `${acceptorLabel} accepted the quote for ${quote.client_name || "this booking"} -- ${totalLabel}, event ${eventLabel}.`,
-      priority: "urgent",
-      link: `/admin/quotes/${quote.id}`,
-    } as any);
-  } catch (e) {
-    console.warn("[publicQuoteService] in-app accept notif failed:", e);
-  }
-
-  // 2. Email to the owner.
-  try {
-    if (profile?.email) {
-      await fetch("/api/send-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId: quote.user_id,
-          to: profile.email,
-          subject: `Quote accepted -- ${quote.client_name || "client"}`,
-          body: `${acceptorLabel} just accepted the quote for ${quote.client_name || "this booking"}.\n\n` +
-                `Total: ${totalLabel}\nEvent date: ${eventLabel}\nGuests: ${quote.guest_count ?? "TBD"}\n\n` +
-                `Open the quote to convert it into an order: ${typeof window !== "undefined" ? window.location.origin : ""}/admin/quotes/${quote.id}`,
-          variables: {
-            clientName: quote.client_name,
-            companyName,
-            totalAmount: totalLabel,
-          },
-        }),
-      });
+    const res = await fetch(`/api/public/quotes/${encodeURIComponent(args.token)}/change-request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: args.message.trim(),
+        submitterName: args.submitterName || null,
+        requestedChanges: args.requestedChanges || {},
+        honeypot: "",
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) {
+      return { ok: false, error: json.error || "Could not send your message, please try again." };
     }
-  } catch (e) {
-    console.warn("[publicQuoteService] accept email to owner failed:", e);
-  }
-
-  // 3. WhatsApp to the owner (if a phone is configured).
-  try {
-    const adminPhone = profile?.phone || profile?.phone_number;
-    if (adminPhone) {
-      const { whatsappIntegrationService } = await import("./whatsappIntegrationService");
-      await whatsappIntegrationService.sendWhatsAppMessage({
-        to: adminPhone,
-        type: "text",
-        text: {
-          body:
-            `✅ Quote accepted!\n\n` +
-            `Client: ${quote.client_name || acceptorLabel}\n` +
-            `Total: ${totalLabel}\n` +
-            `Event: ${eventLabel}\n\n` +
-            `Convert to order in the admin portal.`,
-        },
-      } as any);
-    }
-  } catch (e) {
-    console.warn("[publicQuoteService] accept whatsapp to owner failed:", e);
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || "Network error" };
   }
 }
