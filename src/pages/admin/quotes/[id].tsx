@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, Mail, Users, DollarSign, MapPin, FileText,
   Save, Send, Loader2, Sparkles, AlertTriangle,
+  MessageSquare, CheckCircle2, X as XIcon, Reply,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -83,6 +84,22 @@ export default function AdminQuoteDetail() {
   const [discount, setDiscount] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
 
+  // Client change-requests against this quote. Loaded after the quote
+  // resolves so we can scope by quote_id. Inserts come from the public
+  // /q/[token] view via the service-role API route; this page handles
+  // mark-as-addressed / dismiss / reply.
+  type ChangeReq = {
+    id: string;
+    message: string;
+    requested_changes: any;
+    status: string;
+    submitter_name: string | null;
+    addressed_at: string | null;
+    created_at: string;
+  };
+  const [changeRequests, setChangeRequests] = useState<ChangeReq[]>([]);
+  const [changeReqUpdatingId, setChangeReqUpdatingId] = useState<string | null>(null);
+
   const isDraft = quote?.status === "draft";
 
   // Load + hydrate.
@@ -115,6 +132,86 @@ export default function AdminQuoteDetail() {
     })();
     return () => { cancelled = true; };
   }, [id]);
+
+  // Load change requests once the quote id is known. Fetches everything
+  // (pending + addressed + dismissed) so the operator has the full
+  // history visible. Tiny query, no pagination needed.
+  useEffect(() => {
+    if (!id || typeof id !== "string") return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("quote_change_requests")
+        .select("id, message, requested_changes, status, submitter_name, addressed_at, created_at")
+        .eq("quote_id", id)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      setChangeRequests((data as ChangeReq[]) || []);
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const updateChangeRequestStatus = async (
+    reqId: string,
+    nextStatus: "addressed" | "dismissed",
+  ) => {
+    setChangeReqUpdatingId(reqId);
+    try {
+      const patch: Record<string, any> = { status: nextStatus };
+      if (nextStatus === "addressed") {
+        patch.addressed_at = new Date().toISOString();
+        patch.addressed_by = user?.id ?? null;
+      }
+      const { error } = await (supabase as any)
+        .from("quote_change_requests")
+        .update(patch)
+        .eq("id", reqId);
+      if (error) throw error;
+      setChangeRequests((prev) =>
+        prev.map((r) =>
+          r.id === reqId
+            ? { ...r, status: nextStatus, addressed_at: patch.addressed_at ?? r.addressed_at }
+            : r,
+        ),
+      );
+      toast({
+        title: nextStatus === "addressed" ? "Marked as addressed" : "Dismissed",
+        description: nextStatus === "addressed"
+          ? "The client request is now in your handled pile."
+          : "Request hidden from the active list.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Could not update",
+        description: err?.message || "Try again in a moment.",
+        variant: "destructive",
+      });
+    } finally {
+      setChangeReqUpdatingId(null);
+    }
+  };
+
+  const handleReplyToChangeRequest = (req: ChangeReq) => {
+    if (!quote) return;
+    const clientEmail = (quote as any).client_email || "";
+    if (!clientEmail) {
+      toast({
+        title: "No client email on this quote",
+        description: "Add an email to the client record so you can reply.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const subject = `Re: your changes on quote ${(quote as any).quote_number || ""}`.trim();
+    const body =
+      `Hi ${req.submitter_name || (quote as any).client_name || "there"},\n\n` +
+      `Thanks for sending through the changes -- we've got:\n\n"${req.message}"\n\n` +
+      `Just a quick note to confirm we're looking at it. ` +
+      `We'll send through an updated quote shortly.\n\n` +
+      `Best,`;
+    const href = `mailto:${encodeURIComponent(clientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = href;
+  };
 
   // Live-computed totals from the editor state. Falls back to the
   // saved totals when the quote isn't a draft (we still display them
@@ -558,6 +655,128 @@ export default function AdminQuoteDetail() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Client change requests. Empty state -> card not
+                  rendered, keeps the page tidy when there's nothing to
+                  see. Pending requests sit at the top; addressed /
+                  dismissed are dimmed so the active queue is obvious. */}
+              {changeRequests.length > 0 && (
+                <Card id="change-requests" className="border-0 shadow-lg">
+                  <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-blue-600" />
+                      Client messages
+                      {(() => {
+                        const pending = changeRequests.filter((r) => r.status === "pending").length;
+                        if (pending === 0) return null;
+                        return (
+                          <Badge className="bg-blue-600 text-white border-0">
+                            {pending} new
+                          </Badge>
+                        );
+                      })()}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {changeRequests.map((req) => {
+                      const isPending = req.status === "pending";
+                      const rc = req.requested_changes || {};
+                      return (
+                        <div
+                          key={req.id}
+                          className={`rounded-lg border p-4 ${
+                            isPending
+                              ? "border-blue-200 bg-blue-50/40"
+                              : "border-slate-200 bg-slate-50/60 opacity-80"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-slate-900">
+                                {req.submitter_name || (quote as any).client_name || "Client"}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(req.created_at).toLocaleString("en-ZA", {
+                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                                })}
+                              </span>
+                              <Badge
+                                className={
+                                  req.status === "pending" ? "bg-blue-100 text-blue-700"
+                                  : req.status === "addressed" ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-slate-200 text-slate-600"
+                                }
+                              >
+                                {req.status}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-slate-800 whitespace-pre-wrap mb-3">
+                            {req.message}
+                          </p>
+
+                          {(rc.event_date || rc.guest_count != null || rc.menu_changes) && (
+                            <div className="bg-white border border-slate-200 rounded-md p-3 mb-3 text-xs text-slate-700 space-y-1">
+                              {rc.event_date && (
+                                <div><span className="font-medium text-slate-500">New event date:</span> {rc.event_date}</div>
+                              )}
+                              {rc.guest_count != null && (
+                                <div><span className="font-medium text-slate-500">New guest count:</span> {rc.guest_count}</div>
+                              )}
+                              {rc.menu_changes && (
+                                <div><span className="font-medium text-slate-500">Menu tweak:</span> {rc.menu_changes}</div>
+                              )}
+                            </div>
+                          )}
+
+                          {isPending && (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReplyToChangeRequest(req)}
+                                className="gap-1.5"
+                              >
+                                <Reply className="w-3.5 h-3.5" />
+                                Reply via email
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => updateChangeRequestStatus(req.id, "addressed")}
+                                disabled={changeReqUpdatingId === req.id}
+                                className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                              >
+                                {changeReqUpdatingId === req.id
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                Mark addressed
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => updateChangeRequestStatus(req.id, "dismissed")}
+                                disabled={changeReqUpdatingId === req.id}
+                                className="text-slate-600 gap-1.5"
+                              >
+                                <XIcon className="w-3.5 h-3.5" />
+                                Dismiss
+                              </Button>
+                            </div>
+                          )}
+                          {req.status === "addressed" && req.addressed_at && (
+                            <p className="text-[11px] text-emerald-700">
+                              Addressed {new Date(req.addressed_at).toLocaleString("en-ZA", {
+                                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                              })}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Action bar */}
               <div className="flex flex-wrap gap-3">
