@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
+  escapeHtml,
   getClientIp,
   hashIp,
   isUuid,
@@ -11,6 +12,7 @@ import {
   validateSubmission,
   verifyTurnstile,
 } from "@/lib/embedFormApi";
+import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
 
 /**
  * POST /api/public/embed/[token]/submit
@@ -147,13 +149,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ ok: false, message: "Not found" });
   }
 
+  // Slug strict mode: when the snippet specified a slug we MUST match it
+  // exactly. The previous behaviour silently fell back to the first form.
   let formQuery = (supabase as any)
     .from("embed_form_configs")
     .select(
-      "id, slug, name, fields, success_message, redirect_url, is_active"
+      "id, slug, name, fields, success_message, redirect_url, is_active, region_id, auto_reply_enabled, notify_admin_email"
     )
     .eq("company_id", company.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .is("deleted_at", null);
   if (formSlug) formQuery = formQuery.eq("slug", formSlug);
   formQuery = formQuery.order("created_at", { ascending: true }).limit(1);
 
@@ -184,6 +189,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const leadInsert: Record<string, any> = {
     company_id: company.id,
     user_id: company.owner_id || null,
+    // region_id propagation: the form may be branch-scoped on
+    // embed_form_configs.region_id. Carry it onto the lead so the
+    // multi-branch routing + region-manager notification chain fires
+    // correctly. Null is fine for single-branch tenants.
+    region_id: form.region_id || null,
     contact_name: contactName,
     email: contactEmail,
     client_name: mapped.client_name || mapped.contact_name || null,
@@ -207,7 +217,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (leadErr || !leadRow) {
-    console.error("[embed/submit] lead insert failed", leadErr);
+    // Log only the safe parts of the error -- avoid PII leaking into
+    // Vercel logs from the original payload.
+    console.error("[embed/submit] lead insert failed", {
+      code: (leadErr as any)?.code,
+      message: (leadErr as any)?.message,
+    });
     return res
       .status(500)
       .json({ ok: false, message: "Could not save your enquiry, please try again" });
@@ -239,40 +254,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // trg_embed_form_submissions_after_insert trigger on embed_form_submissions
   // (see migration 20260428120000_embed_forms.sql).
 
-  // 8) Notification fire-and-forget
-  void (async () => {
-    try {
-      await (supabase as any).from("notifications").insert([
-        {
-          company_id: company.id,
-          user_id: company.owner_id,
-          recipient_id: company.owner_id,
-          target_role: "company_admin",
-          notification_type: "quote_sent",
-          title: "New embedded form enquiry",
-          message: `New enquiry from embedded form: ${contactName}`,
-          priority: "high",
-          link: `/leads?leadId=${leadRow.id}`,
-        },
-      ]);
-    } catch (err) {
-      console.warn("[embed/submit] notification dispatch failed", err);
-    }
-  })();
+  // 8) Admin notification chain (in-portal + email + WhatsApp + region
+  //    manager). Replaces the old single-row notifications insert that
+  //    silently dropped the email and WhatsApp legs of the fan-out.
+  //    Per-form `notify_admin_email` lets the tenant turn the email
+  //    leg off for noisy forms (newsletter signups etc.).
+  const appOrigin =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.NEXT_PUBLIC_VERCEL_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+      : "");
+  void notifyAdminOfEmbedLead(supabase, {
+    companyId: company.id,
+    ownerUserId: company.owner_id || null,
+    regionId: form.region_id || null,
+    leadId: leadRow.id,
+    leadInsert,
+    formName: form.name || null,
+    formId: form.id,
+    formNotifyAdminEmail: form.notify_admin_email !== false, // default true
+    appOrigin,
+  });
 
-  // 9) Optional auto-reply to client
-  if (
-    company.auto_reply_to_embed_submissions === true &&
-    (mapped.client_email || mapped.email)
-  ) {
+  // 9) Optional auto-reply to client. Per-form `auto_reply_enabled`
+  //    overrides the company-wide `auto_reply_to_embed_submissions`
+  //    when set; null falls back to the company flag. Visitor's name
+  //    is HTML-escaped before interpolation -- emailService sends as
+  //    html: by default, and the auditors flagged this as a stored-
+  //    XSS amplifier abusing the tenant's own SPF/DKIM domain.
+  const autoReplyResolved =
+    typeof form.auto_reply_enabled === "boolean"
+      ? form.auto_reply_enabled
+      : company.auto_reply_to_embed_submissions === true;
+  if (autoReplyResolved && (mapped.client_email || mapped.email)) {
     void (async () => {
       try {
         const { emailService } = await import("@/services/emailService");
+        const safeName = escapeHtml(contactName);
+        const safeCompany = escapeHtml(company.company_name);
         await (emailService as any).sendEmail({
           companyId: company.id,
           to: mapped.client_email || mapped.email,
           subject: `Thank you for your enquiry, ${contactName}`,
-          body: `Hi ${contactName},\n\nThanks for your enquiry with ${company.company_name}. We've received your details and will be in touch shortly.\n\n-- ${company.company_name}`,
+          body:
+            `Hi ${safeName},\n\n` +
+            `Thanks for your enquiry with ${safeCompany}. We've received your details and will be in touch shortly.\n\n` +
+            `-- ${safeCompany}`,
+          variables: {
+            clientName: safeName,
+            companyName: safeCompany,
+          },
+          _client: supabase,
         });
       } catch (err) {
         console.warn("[embed/submit] auto-reply failed", err);
