@@ -87,7 +87,7 @@ export async function fetchByToken(token: string): Promise<PublicQuoteView | nul
   const { data, error } = await (supabase as any)
     .from("quotes")
     .select(`
-      id, quote_number, quote_name, client_name, event_date, event_time, guest_count,
+      id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, status,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,

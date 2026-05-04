@@ -26,6 +26,7 @@ import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import type { Order, Profile } from "@/types";
 import Head from "next/head";
+import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -481,25 +482,36 @@ export default function FinancialDashboardPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Quick Actions
+                      <InfoTooltip content={"Shortcuts to the pages you'll need next when the cash-flow numbers above flag a problem.\n\nEach button drops you on the relevant working surface -- nothing fires until you take action there."} />
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Button className="w-full justify-start" variant="outline">
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Send Payment Reminders
-                    </Button>
-                    <Button className="w-full justify-start" variant="outline">
-                      <Users className="w-4 h-4 mr-2" />
-                      Process Staff Payments
-                    </Button>
-                    <Button className="w-full justify-start" variant="outline">
-                      <Package className="w-4 h-4 mr-2" />
-                      Review Inventory Costs
-                    </Button>
-                    <Button className="w-full justify-start" variant="outline">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      View Payment Schedule
-                    </Button>
+                    <Link href="/admin/invoices?status=unpaid" className="block">
+                      <Button className="w-full justify-start" variant="outline" title="Open the invoices page filtered to unpaid -- where you can resend reminders to clients with overdue balances.">
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Send Payment Reminders
+                      </Button>
+                    </Link>
+                    <Link href="/admin/wages" className="block">
+                      <Button className="w-full justify-start" variant="outline" title="Open the wages page to review staff hours and process the next pay run.">
+                        <Users className="w-4 h-4 mr-2" />
+                        Process Staff Payments
+                      </Button>
+                    </Link>
+                    <Link href="/admin/inventory" className="block">
+                      <Button className="w-full justify-start" variant="outline" title="Open the inventory page to review on-hand stock value and cost-per-unit, the biggest swing factor on margin.">
+                        <Package className="w-4 h-4 mr-2" />
+                        Review Inventory Costs
+                      </Button>
+                    </Link>
+                    <Link href="/admin/calendar" className="block">
+                      <Button className="w-full justify-start" variant="outline" title="Open the calendar to see upcoming events alongside their deposit / balance due dates -- the next 30 days of cash inflow.">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        View Payment Schedule
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </div>

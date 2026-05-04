@@ -240,11 +240,10 @@ export default function PublicQuotePage() {
   const eventDate = quote.event_date
     ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
-  // Optional start time. Stored as HH:MM on the quote; render as
-  // 5pm / 5:30pm so the client sees a friendly version under the
-  // event date.
-  const eventTime = (() => {
-    const raw = (quote as any).event_time as string | null | undefined;
+  // Optional start time + setup time. Stored as HH:MM on the quote;
+  // render as 5pm / 5:30pm so the client sees a friendly version
+  // under the event date.
+  const friendlyTime = (raw: string | null | undefined): string | null => {
     if (!raw) return null;
     const [hStr, mStr] = String(raw).split(":");
     const h = Number(hStr);
@@ -253,7 +252,9 @@ export default function PublicQuotePage() {
     const period = h >= 12 ? "pm" : "am";
     const h12 = h % 12 === 0 ? 12 : h % 12;
     return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
-  })();
+  };
+  const eventTime = friendlyTime((quote as any).event_time);
+  const setupTime = friendlyTime((quote as any).setup_time);
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -366,6 +367,11 @@ export default function PublicQuotePage() {
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">
                     {eventDate}{eventTime ? ` -- ${eventTime} start` : ""}
                   </p>
+                  {setupTime && setupTime !== eventTime && (
+                    <p className="text-xs text-stone-600 mt-0.5">
+                      Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
+                    </p>
+                  )}
                 </div>
               )}
               {quote.guest_count != null && (

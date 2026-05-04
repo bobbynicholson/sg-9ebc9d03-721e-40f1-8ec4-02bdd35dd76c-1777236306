@@ -367,8 +367,11 @@ export const quoteService = {
       delivery_rate_per_km: (quote as any).delivery_rate_per_km ?? null,
       // event_time on the quote (added in 20260504-quotes-event-time
       // migration) maps 1:1 to orders.event_time so the calendar +
-      // kitchen schedule see the agreed start time.
+      // kitchen schedule see the agreed start time. setup_time is
+      // when the team arrives -- distinct from event_time so morning
+      // setup of evening events flows through to dispatch.
       event_time: (quote as any).event_time ?? null,
+      setup_time: (quote as any).setup_time ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
       whatsapp_notifications_sent: [],

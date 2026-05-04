@@ -440,6 +440,12 @@ export default function AdminQuoteDetail() {
                             ? ` · ${String((quote as any).event_time).slice(0, 5)} start`
                             : ""}
                         </p>
+                        {(quote as any).setup_time
+                          && String((quote as any).setup_time).slice(0, 5) !== String((quote as any).event_time || "").slice(0, 5) && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Setup arrival: {String((quote as any).setup_time).slice(0, 5)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

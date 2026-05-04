@@ -480,6 +480,12 @@ function ReceiptRow({
   const slipTotal = Number(receipt.total ?? 0);
   const drift = slipTotal > 0 ? Math.abs(itemsTotal - slipTotal) : 0;
   const driftBig = drift > slipTotal * 0.05 && drift > 1;
+  // Direction matters for the operator -- "lines over slip" means
+  // they probably need to delete a line; "lines under slip" means
+  // a line was missed. Surface the signed delta so the wording is
+  // unambiguous instead of just saying 'mismatch'.
+  const driftDirection: "over" | "under" | null =
+    !driftBig ? null : itemsTotal > slipTotal ? "over" : "under";
 
   return (
     <Card className="border-0 shadow-sm">
@@ -520,8 +526,8 @@ function ReceiptRow({
                 </Badge>
               )}
               {driftBig && (
-                <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]" title={`Slip total ${fmtR(slipTotal)} vs sum of lines ${fmtR(itemsTotal)}`}>
-                  Lines don't match slip total
+                <Badge className="bg-rose-100 text-rose-800 border-0 text-[10px]">
+                  Lines {driftDirection === "over" ? "exceed" : "under"} slip by {fmtR(drift)}
                 </Badge>
               )}
               {receipt.image_path && (
@@ -558,6 +564,27 @@ function ReceiptRow({
 
         {expanded && (
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+            {/* Mismatch banner -- shown when sum of line items diverges
+                from the slip's grand total. Tells the operator the
+                numbers and what to look for, so they can fix the
+                source data instead of trusting bad totals. */}
+            {driftBig && (
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800 space-y-1">
+                <p className="font-semibold">
+                  Lines {driftDirection === "over" ? "exceed" : "fall short of"} the slip total by {fmtR(drift)}
+                </p>
+                <p className="text-rose-700">
+                  Slip says <span className="font-semibold tabular-nums">{fmtR(slipTotal)}</span>{" "}
+                  but lines below sum to <span className="font-semibold tabular-nums">{fmtR(itemsTotal)}</span>.
+                  Until this matches, the deductible / non-deductible split above is unreliable.
+                </p>
+                <p className="text-rose-700">
+                  {driftDirection === "over"
+                    ? "Likely a duplicate line, VAT counted twice, or a discount recorded as positive. Review the rows below and delete or correct the offender."
+                    : "Likely a missed line. Add what's missing or rescan the slip with AI."}
+                </p>
+              </div>
+            )}
             {receipt.items.length > 0 && (
               <div className="space-y-1.5">
                 {receipt.items.map((it) => (

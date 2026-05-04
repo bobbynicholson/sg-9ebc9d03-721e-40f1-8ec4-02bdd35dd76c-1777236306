@@ -93,6 +93,7 @@ import Head from "next/head";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -213,6 +214,16 @@ function NewQuotePage() {
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
+  // Distinct from event start time: a morning setup for an evening
+  // event is normal at big functions, so the operator gets an
+  // explicit field they can override (defaults to event_time minus
+  // the operations.deliveryBufferMinutes setting -- see
+  // suggestedSetupTime below).
+  const [setupTime, setSetupTime] = useState("");
+  /** Operations buffer in minutes (default 30 if the operator
+   *  hasn't customised settings.operations.deliveryBufferMinutes).
+   *  Drives the suggested setup time shown next to the time input. */
+  const [deliveryBufferMins, setDeliveryBufferMins] = useState(30);
   const [guestCount, setGuestCount] = useState(0);
   const [venueAddress, setVenueAddress] = useState("");
   const [venueLat, setVenueLat] = useState<number | null>(null);
@@ -363,7 +374,7 @@ function NewQuotePage() {
     };
   }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, taxRate]);
 
-  // ── Pre-fill: load company default delivery rate ──────────────────
+  // ── Pre-fill: load company default delivery rate + buffer ─────────
   useEffect(() => {
     try {
       const raw = localStorage.getItem("admin_settings");
@@ -372,10 +383,31 @@ function NewQuotePage() {
       if (s?.operations?.deliveryCostPerKm) {
         setDeliveryCostPerKm(s.operations.deliveryCostPerKm);
       }
+      if (typeof s?.operations?.deliveryBufferMinutes === "number") {
+        setDeliveryBufferMins(s.operations.deliveryBufferMinutes);
+      }
     } catch {
       /* ignore */
     }
   }, []);
+
+  /** Suggested setup time = event_time - delivery buffer, formatted
+   *  HH:MM. Returns null when there's no event time yet. The operator
+   *  sees this as a hint next to the Setup Time input and can either
+   *  use it (one click) or type their own (e.g. morning setup for an
+   *  evening wedding). */
+  const suggestedSetupTime = useMemo(() => {
+    if (!eventTime) return null;
+    const [hStr, mStr] = eventTime.split(":");
+    const h = Number(hStr);
+    const m = Number(mStr || 0);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    const totalMins = h * 60 + m - deliveryBufferMins;
+    if (totalMins < 0) return null; // event is too early in the day for the buffer
+    const sh = Math.floor(totalMins / 60);
+    const sm = totalMins % 60;
+    return `${String(sh).padStart(2, "0")}:${String(sm).padStart(2, "0")}`;
+  }, [eventTime, deliveryBufferMins]);
 
   // ── Pre-fill: load lead when ?leadId=... ──────────────────────────
   // Deps include user.id so the effect re-runs once auth settles.
@@ -463,6 +495,7 @@ function NewQuotePage() {
     // event_time on the quote is HH:MM (or HH:MM:SS); the <input
     // type="time"> only accepts HH:MM so trim seconds if present.
     if (q.event_time) setEventTime(String(q.event_time).slice(0, 5));
+    if (q.setup_time) setSetupTime(String(q.setup_time).slice(0, 5));
     if (q.quote_name) setEventName(q.quote_name);
     if (typeof q.guest_count === "number") setGuestCount(q.guest_count);
     if (q.venue_address) setVenueAddress(q.venue_address);
@@ -838,6 +871,11 @@ function NewQuotePage() {
       quote_name: eventName || "Quote",
       event_date: eventDate || null,
       event_time: eventTime || null,
+      // setup_time defaults to suggestedSetupTime when the operator
+      // hasn't typed an explicit value -- means a quote with a 5pm
+      // start time and a 30 min buffer auto-saves a 16:30 setup
+      // even if the operator never touched the field.
+      setup_time: setupTime || suggestedSetupTime || null,
       guest_count: guestCount || null,
       venue_address: venueAddress || null,
       venue_lat: venueLat,
@@ -864,7 +902,8 @@ function NewQuotePage() {
     } as any;
   }, [
     menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email, phone,
-    selectedKitchen, eventName, eventDate, eventTime, venueAddress, venueLat, venueLng,
+    selectedKitchen, eventName, eventDate, eventTime, setupTime, suggestedSetupTime,
+    venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
@@ -1106,22 +1145,31 @@ function NewQuotePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setPreviewOpen((v) => !v)}>
-                <Eye className="w-4 h-4 mr-2" />
-                {previewOpen ? "Hide preview" : "Preview"}
-              </Button>
-              <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
-                <Save className="w-4 h-4 mr-2" />
-                Save draft
-              </Button>
-              <Button
-                onClick={handleSend}
-                disabled={sending || saving || computed.total <= 0 || !email}
-                className="bg-gradient-to-r from-green-600 to-emerald-600"
-              >
-                {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                Save & Send
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" onClick={() => setPreviewOpen((v) => !v)}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  {previewOpen ? "Hide preview" : "Preview"}
+                </Button>
+                <InfoTooltip content={"Toggle the live preview of what the client will see -- the public quote page, with your branding, totals and setup time.\n\nDoesn't save or send anything. Use this to sanity-check before hitting Save & Send."} />
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" onClick={handleSaveDraft} disabled={saving || !clientName}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save draft
+                </Button>
+                <InfoTooltip content={"Save current state of the quote with status = 'draft'. The client doesn't get an email and the quote doesn't appear on their portal -- it's parked privately for you to come back to.\n\nGreat when you're partway through and need to step away."} />
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  onClick={handleSend}
+                  disabled={sending || saving || computed.total <= 0 || !email}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  Save & Send
+                </Button>
+                <InfoTooltip content={"Save the quote with status = 'sent', generate a public link, and email the client a branded message with a 'View Quote' button.\n\nThe quote shows up on their portal too. Disabled until the client has an email + the total is greater than zero.\n\nResending an already-sent quote sends a fresh email -- the client gets a 'we've updated your quote' message."} />
+              </div>
             </div>
           </div>
 
@@ -1168,8 +1216,37 @@ function NewQuotePage() {
                       <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
                     </div>
                     <div>
-                      <Label className="text-xs">Start time (optional)</Label>
+                      <Label className="text-xs flex items-center gap-1">
+                        Start time (optional)
+                        <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. Setup time below is when the team arrives to set up -- different from start time so morning setup of an evening event is supported."} />
+                      </Label>
                       <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs flex items-center gap-1">
+                        Setup / delivery time
+                        <InfoTooltip content={"When the team arrives at the venue to set up. Defaults to the event start time minus your delivery buffer (settings > Operations > Delivery Buffer, currently " + deliveryBufferMins + " min).\n\nOverride for big events that need a morning setup, or when the venue requires an earlier arrival."} />
+                      </Label>
+                      <Input
+                        type="time"
+                        value={setupTime}
+                        onChange={(e) => setSetupTime(e.target.value)}
+                        placeholder={suggestedSetupTime || "--:--"}
+                      />
+                      {!setupTime && suggestedSetupTime && (
+                        <button
+                          type="button"
+                          onClick={() => setSetupTime(suggestedSetupTime)}
+                          className="text-[11px] text-emerald-700 hover:text-emerald-800 underline mt-1"
+                        >
+                          Use suggested {suggestedSetupTime} ({deliveryBufferMins} min before start)
+                        </button>
+                      )}
+                      {setupTime && eventTime && setupTime !== suggestedSetupTime && (
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Custom setup time -- {setupTime} arrival for {eventTime} start
+                        </p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Users className="w-3 h-3" /> Guest count</Label>

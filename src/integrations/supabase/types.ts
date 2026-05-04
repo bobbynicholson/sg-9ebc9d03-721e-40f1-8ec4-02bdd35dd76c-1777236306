@@ -5143,6 +5143,7 @@ export type Database = {
           requires_waiter: boolean | null
           secondary_driver_id: string | null
           secondary_vehicle_id: string | null
+          setup_time: string | null
           special_instructions: string | null
           status: Database["public"]["Enums"]["order_status"] | null
           subtotal: number
@@ -5242,6 +5243,7 @@ export type Database = {
           requires_waiter?: boolean | null
           secondary_driver_id?: string | null
           secondary_vehicle_id?: string | null
+          setup_time?: string | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           subtotal: number
@@ -5341,6 +5343,7 @@ export type Database = {
           requires_waiter?: boolean | null
           secondary_driver_id?: string | null
           secondary_vehicle_id?: string | null
+          setup_time?: string | null
           special_instructions?: string | null
           status?: Database["public"]["Enums"]["order_status"] | null
           subtotal?: number
@@ -6505,6 +6508,7 @@ export type Database = {
           quote_number: string
           region_id: string | null
           sent_at: string | null
+          setup_time: string | null
           status: Database["public"]["Enums"]["quote_status"] | null
           subtotal: number
           tax: number | null
@@ -6555,6 +6559,7 @@ export type Database = {
           quote_number: string
           region_id?: string | null
           sent_at?: string | null
+          setup_time?: string | null
           status?: Database["public"]["Enums"]["quote_status"] | null
           subtotal: number
           tax?: number | null
@@ -6605,6 +6610,7 @@ export type Database = {
           quote_number?: string
           region_id?: string | null
           sent_at?: string | null
+          setup_time?: string | null
           status?: Database["public"]["Enums"]["quote_status"] | null
           subtotal?: number
           tax?: number | null
