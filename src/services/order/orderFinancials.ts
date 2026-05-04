@@ -5,12 +5,26 @@ import { supabase } from "@/integrations/supabase/client";
  * Handles payments, invoices, and financial calculations
  */
 
-export async function calculateOrderTotal(orderItems: any[]) {
+/**
+ * Sum a list of order items and apply VAT.
+ *
+ * IMPORTANT: callers MUST pass the effective taxRate as a decimal
+ * (0.15 = 15%) -- typically resolved via
+ * `branchSettingsService.resolveBranchSettings(companyId, regionId).vatRate`.
+ *
+ * The 0.15 default is a safety fallback ONLY for ad-hoc test harnesses
+ * and one-off scripts; production paths must always provide an explicit
+ * tenant-aware rate. Audit (Agent 5) flagged that the previous
+ * hard-coded 0.15 ignored per-tenant + per-branch overrides; this
+ * signature change forces the call site to think about it.
+ */
+export async function calculateOrderTotal(orderItems: any[], taxRate: number = 0.15) {
   const subtotal = orderItems.reduce((sum, item) => {
     return sum + (item.unit_price * item.quantity);
   }, 0);
 
-  const tax = subtotal * 0.15; // 15% VAT
+  const safeTaxRate = typeof taxRate === "number" && taxRate >= 0 && taxRate <= 1 ? taxRate : 0.15;
+  const tax = subtotal * safeTaxRate;
   const total = subtotal + tax;
 
   return {

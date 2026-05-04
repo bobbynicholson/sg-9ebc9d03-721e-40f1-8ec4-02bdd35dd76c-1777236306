@@ -36,9 +36,31 @@ async function markArrived(assignmentId: string): Promise<any | null> {
       .single();
 
     if (assignment) {
-      await supabase.from("orders").update({
-        status: "delivered",
-      } as any).eq("id", assignment.order_id);
+      // Best-effort transactional pair: assignment was already moved
+      // to "arrived" above. If the order update fails, revert the
+      // assignment so the two stay in lockstep -- otherwise dispatch
+      // shows an arrived driver against an in_transit order forever
+      // until someone manually reconciles.
+      const { error: orderUpdateErr } = await supabase
+        .from("orders")
+        .update({ status: "delivered" } as any)
+        .eq("id", assignment.order_id);
+
+      if (orderUpdateErr) {
+        console.error(
+          `[markArrived] order update failed for ${assignment.order_id}, reverting driver_assignment ${assignmentId}:`,
+          orderUpdateErr,
+        );
+        try {
+          await supabase
+            .from("driver_assignments")
+            .update({ status: "in_transit" } as any)
+            .eq("id", assignmentId);
+        } catch (revertErr) {
+          console.error(`[markArrived] revert failed -- assignment ${assignmentId} now in inconsistent state:`, revertErr);
+        }
+        throw new Error(`Failed to mark order delivered: ${orderUpdateErr.message}`);
+      }
 
       const { data: orderDetails } = await supabase
         .from("orders")

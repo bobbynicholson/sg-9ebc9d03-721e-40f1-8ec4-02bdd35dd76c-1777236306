@@ -30,23 +30,30 @@ const PUBLIC_ROUTES = [
 
 // Route authorization rules - maps route prefixes to allowed roles.
 // Deny-default: any authenticated route that does not match an entry here is rejected.
+//
+// Multi-branch admin variants (Stage 0-3): region_admin is scoped to one or
+// more branches via profiles.regions_covered; sales_admin is cross-branch
+// but read-only on kitchen / dispatch ops. Both reach /admin/* the same
+// way as company_admin -- RLS narrows their data, not the route.
 const ALL_AUTHENTICATED_ROLES = [
-  "super_admin", "company_admin", "admin", "owner",
+  "super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner",
   "kitchen_staff", "shopping_staff", "driver", "cleaning_staff", "client",
 ];
 
+const ADMIN_PORTAL_ROLES = ["super_admin", "company_admin", "region_admin", "sales_admin", "admin", "owner"];
+
 const ROUTE_GUARDS: Record<string, string[]> = {
   "/admin/platform": ["super_admin"],
-  "/admin": ["super_admin", "company_admin", "admin", "owner"],
-  "/team-portal/kitchen": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff"],
-  "/team-portal/shopping": ["super_admin", "company_admin", "admin", "owner", "shopping_staff"],
-  "/team-portal/driver": ["super_admin", "company_admin", "admin", "owner", "driver"],
-  "/team-portal/cleaning": ["super_admin", "company_admin", "admin", "owner", "cleaning_staff"],
-  "/team-portal/general": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
-  "/team-portal": ["super_admin", "company_admin", "admin", "owner", "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
-  "/client-portal": ["super_admin", "company_admin", "admin", "owner", "client"],
-  "/client": ["super_admin", "company_admin", "admin", "owner", "client"],
-  "/subscription": ["super_admin", "company_admin", "admin", "owner"],
+  "/admin": ADMIN_PORTAL_ROLES,
+  "/team-portal/kitchen": [...ADMIN_PORTAL_ROLES, "kitchen_staff"],
+  "/team-portal/shopping": [...ADMIN_PORTAL_ROLES, "shopping_staff"],
+  "/team-portal/driver": [...ADMIN_PORTAL_ROLES, "driver"],
+  "/team-portal/cleaning": [...ADMIN_PORTAL_ROLES, "cleaning_staff"],
+  "/team-portal/general": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
+  "/team-portal": [...ADMIN_PORTAL_ROLES, "kitchen_staff", "shopping_staff", "driver", "cleaning_staff"],
+  "/client-portal": [...ADMIN_PORTAL_ROLES, "client"],
+  "/client": [...ADMIN_PORTAL_ROLES, "client"],
+  "/subscription": ADMIN_PORTAL_ROLES,
   "/account": ALL_AUTHENTICATED_ROLES,
 };
 

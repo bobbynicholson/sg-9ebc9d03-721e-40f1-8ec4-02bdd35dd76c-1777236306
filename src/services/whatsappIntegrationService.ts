@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
+import { isCommsAllowed } from "@/services/commsGuardService";
 
 export interface WhatsAppConfig {
   phoneNumberId: string;
@@ -80,8 +81,31 @@ export const whatsappIntegrationService = {
       .eq("integration_type", "whatsapp");
   },
 
-  async sendWhatsAppMessage(message: WhatsAppMessage): Promise<boolean> {
+  async sendWhatsAppMessage(
+    message: WhatsAppMessage,
+    meta?: { companyId?: string; bypassPause?: boolean },
+  ): Promise<boolean> {
     try {
+      // Comms guard. Skips the send if the recipient sits on the
+      // company block list, or is in import quarantine. Email path is
+      // gated centrally in pages/api/send-email.ts; WhatsApp used to
+      // skip the gates entirely (Agent 4 audit). Passing `companyId`
+      // is what activates the check -- callers without it (legacy
+      // callers / tests) are not gated, but every production caller
+      // in this file passes it.
+      if (meta?.companyId) {
+        const guard = await isCommsAllowed({
+          companyId: meta.companyId,
+          channel: "whatsapp",
+          phone: message.to,
+          bypassPause: meta.bypassPause,
+        });
+        if (!guard.allowed) {
+          console.log(`[whatsapp] send refused: ${guard.detail || guard.reason}`);
+          return false;
+        }
+      }
+
       const { data: user } = await supabase.auth.getUser();
       if (!user?.user) throw new Error("User not authenticated");
 
@@ -165,7 +189,7 @@ export const whatsappIntegrationService = {
         }
       };
 
-      return await this.sendWhatsAppMessage(message);
+      return await this.sendWhatsAppMessage(message, { companyId: (order as any).company_id });
     } catch (error) {
       console.error("Error sending order confirmation:", error);
       return false;
@@ -214,7 +238,7 @@ export const whatsappIntegrationService = {
         }
       };
 
-      return await this.sendWhatsAppMessage(message);
+      return await this.sendWhatsAppMessage(message, { companyId: (order as any).company_id });
     } catch (error) {
       console.error("Error sending delivery update:", error);
       return false;
@@ -260,7 +284,7 @@ export const whatsappIntegrationService = {
         }
       };
 
-      return await this.sendWhatsAppMessage(message);
+      return await this.sendWhatsAppMessage(message, { companyId: order.company_id });
     } catch (error) {
       console.error("Error sending payment reminder:", error);
       return false;

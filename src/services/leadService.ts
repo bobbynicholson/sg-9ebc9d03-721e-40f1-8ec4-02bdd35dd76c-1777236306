@@ -154,17 +154,20 @@ Guests: ${lead.guest_count}`;
         const adminPhone = adminProfile?.phone || adminProfile?.phone_number;
         if (adminPhone) {
           try {
-            await whatsappIntegrationService.sendWhatsAppMessage({
-              to: adminPhone,
-              type: "text",
-              text: {
-                body: `🎉 New Lead!\n\n` +
-                      `Client: ${lead.client_name || lead.client_email}\n` +
-                      `Event: ${lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "TBD"}\n` +
-                      `Guests: ${lead.guest_count || "TBD"}\n\n` +
-                      `View and respond quickly to win this booking!`
-              }
-            });
+            await whatsappIntegrationService.sendWhatsAppMessage(
+              {
+                to: adminPhone,
+                type: "text",
+                text: {
+                  body: `🎉 New Lead!\n\n` +
+                        `Client: ${lead.client_name || lead.client_email}\n` +
+                        `Event: ${lead.event_date ? new Date(lead.event_date).toLocaleDateString() : "TBD"}\n` +
+                        `Guests: ${lead.guest_count || "TBD"}\n\n` +
+                        `View and respond quickly to win this booking!`
+                }
+              },
+              { companyId: lead.company_id },
+            );
           } catch (whatsappError) {
             console.error("⚠️ WhatsApp admin notification failed (non-blocking):", whatsappError);
           }

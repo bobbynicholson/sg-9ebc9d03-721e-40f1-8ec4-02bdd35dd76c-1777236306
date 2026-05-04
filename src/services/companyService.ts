@@ -13,6 +13,33 @@ export interface CompanyWithOwner extends Company {
   owner_name?: string;
 }
 
+// Map a currency to its ISO 3166 country code. Used by the default
+// region seed so a USD tenant doesn't get country='ZA' (Agent 7
+// audit). Falls back to ZA because the platform's primary tenant
+// pool is South African catering operators.
+function countryFromCurrency(currency: string | null | undefined): string {
+  switch ((currency || "").toUpperCase()) {
+    case "USD": return "US";
+    case "GBP": return "GB";
+    case "EUR": return "EU";
+    case "AUD": return "AU";
+    case "CAD": return "CA";
+    case "ZAR":
+    default: return "ZA";
+  }
+}
+
+// Build a default region code that's collision-resistant per company.
+// regions.code is unique per company; two new tenants both signing up
+// with short slugs that collapse to the same prefix would clash. We
+// suffix the slug-derived prefix with a random 4-char tail so two
+// signups can't race onto the same code.
+function buildDefaultRegionCode(slug: string | null | undefined): string {
+  const base = (slug || "main").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "MAIN";
+  const tail = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${base}-${tail}`.slice(0, 12);
+}
+
 export const companyService = {
   /**
    * Create a new company (used during admin signup)
@@ -78,12 +105,12 @@ export const companyService = {
       // an HQ address; useCompanyKitchens filters regions without
       // coords, so the picker only surfaces real, deliverable origins.
       try {
-        const regionCode = (slug || "main").toUpperCase().slice(0, 12);
+        const regionCode = buildDefaultRegionCode(slug);
         await supabase.from("regions").insert({
           company_id: company.id,
           code: regionCode,
           name: "Main kitchen",
-          country: data.currency === "ZAR" ? "ZA" : "ZA",
+          country: countryFromCurrency(company.currency),
           currency: company.currency,
           timezone: company.timezone,
           is_active: true,
@@ -312,12 +339,12 @@ export const companyService = {
     // Seed the default "Main kitchen" region. See companyService.createCompany
     // for the rationale -- this keeps every tenant region-aware from day one.
     try {
-      const regionCode = (company.slug || "main").toUpperCase().slice(0, 12);
+      const regionCode = buildDefaultRegionCode(company.slug);
       await supabase.from("regions").insert({
         company_id: company.id,
         code: regionCode,
         name: "Main kitchen",
-        country: "ZA",
+        country: countryFromCurrency(company.currency),
         currency: company.currency,
         timezone: company.timezone,
         is_active: true,
@@ -434,12 +461,12 @@ export const companyService = {
 
       // 4. Seed the default "Main kitchen" region.
       try {
-        const regionCode = (data.company_slug || "main").toUpperCase().slice(0, 12);
+        const regionCode = buildDefaultRegionCode(data.company_slug);
         await supabase.from("regions").insert({
           company_id: company.id,
           code: regionCode,
           name: "Main kitchen",
-          country: data.country || "ZA",
+          country: data.country || countryFromCurrency(data.billing_currency || "ZAR"),
           city: data.city || null,
           address: data.address_line1 || null,
           postal_code: data.postal_code || null,

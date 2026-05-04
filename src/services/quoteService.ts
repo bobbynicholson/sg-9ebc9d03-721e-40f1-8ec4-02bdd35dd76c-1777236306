@@ -52,6 +52,34 @@ export const quoteService = {
       throw error;
     }
 
+    // Lead status advancement (Audit Theme E). When this quote came
+    // from a lead, flip the lead to "quoted" so the funnel chips on
+    // /admin/leads reflect reality. Manual quote builder
+    // (admin/quotes/new.tsx:946) already does this -- mirror it here
+    // so API-driven quote creation doesn't leave leads stuck at "new"
+    // until they convert to "won".
+    if (data && (quote as any).lead_id) {
+      try {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("status")
+          .eq("id", (quote as any).lead_id)
+          .maybeSingle();
+        const currentStatus = (lead as any)?.status as string | null;
+        // Only advance from earlier funnel stages -- don't regress a
+        // lead that's already further along (won, lost, converted).
+        const advancable = ["new", "contacted", "qualified"];
+        if (currentStatus && advancable.includes(currentStatus)) {
+          await supabase
+            .from("leads")
+            .update({ status: "quoted" })
+            .eq("id", (quote as any).lead_id);
+        }
+      } catch (e) {
+        console.warn("[quoteService.createQuote] lead status advance failed (non-blocking):", e);
+      }
+    }
+
     // ✅ FIX BUG #16.1: Send quote request confirmation to client
     if (data && quote.client_email) {
       try {
@@ -212,6 +240,27 @@ export const quoteService = {
     if (!quote.client_email) {
       console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} has no client_email`);
       return;
+    }
+
+    // Idempotency guard. Stamp sent_at the FIRST time we fire the
+    // email; if it's already populated, the email already went out and
+    // a second call (rapid double-click, retry, refresh-during-save)
+    // should NOT spam the client. Setting sent_at before the network
+    // call protects against in-flight races -- worst case the email
+    // fails and we still have sent_at, which is recoverable by an
+    // admin "Resend" action that nukes sent_at first.
+    if ((quote as any).sent_at) {
+      console.log(`[quoteService] _fireQuoteSentEmail: ${quoteId} already sent at ${(quote as any).sent_at}, skipping`);
+      return;
+    }
+    try {
+      await supabase
+        .from("quotes")
+        .update({ sent_at: new Date().toISOString() })
+        .eq("id", quoteId)
+        .is("sent_at", null);
+    } catch (e) {
+      console.warn(`[quoteService] _fireQuoteSentEmail: failed to stamp sent_at, proceeding anyway:`, e);
     }
 
     const { data: profile } = await supabase

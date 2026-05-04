@@ -427,8 +427,29 @@ export const notificationService = {
     clientName: string,
     recipientId: string
   ): Promise<void> {
+    // Idempotency guard. The order workflow re-fires "completed" on
+    // retry / manual override, which previously sent a fresh review
+    // request every time -- spammy at best, harassing at worst. Look
+    // for an existing review_request notification on this order and
+    // skip if one already landed (regardless of recipient, since the
+    // intent of the message is one-per-order, not one-per-user).
+    try {
+      const { data: existing } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("notification_type", "review_request")
+        .filter("metadata->>orderId", "eq", orderId)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        return;
+      }
+    } catch (e) {
+      console.warn("[sendReviewRequest] idempotency check failed (proceeding):", e);
+    }
+
     const message = `Thank you for using our catering service! We'd love to hear your feedback about order #${orderId}. Please take a moment to rate your experience.`;
-    
+
     await this.createNotification({
       recipient_id: recipientId,
       type: "review_request",

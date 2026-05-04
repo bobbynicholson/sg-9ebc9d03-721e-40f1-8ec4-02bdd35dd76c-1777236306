@@ -32,12 +32,23 @@ export function ProtectedRoute({
 
   useEffect(() => {
     const checkAuth = async () => {
-      // 🔧 DEV MODE: Skip all auth checks on localhost
-      const isDevEnvironment = 
-        typeof window !== "undefined" && 
-        (window.location.hostname === "localhost" || 
-         window.location.hostname === "127.0.0.1" ||
-         window.location.search.includes("dev=true"));
+      // 🔧 DEV MODE: Skip all auth checks on localhost only.
+      //
+      // CRITICAL: never bypass in production. The middleware version of
+      // this guard checks NODE_ENV (middleware.ts:129-137) but the
+      // client-side copy used to allow ?dev=true in any environment,
+      // which let anyone open a tenant URL with that query param and
+      // skip auth entirely on the client. NODE_ENV check closes that.
+      const isProd = process.env.NODE_ENV === "production";
+      const isLocalhostHost =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+         window.location.hostname === "127.0.0.1");
+      const hasDevQueryFlag =
+        typeof window !== "undefined" &&
+        window.location.search.includes("dev=true");
+
+      const isDevEnvironment = !isProd && (isLocalhostHost || hasDevQueryFlag);
 
       if (isDevEnvironment) {
         console.log("🔧 DEV MODE: Bypassing ProtectedRoute auth check");

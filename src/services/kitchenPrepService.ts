@@ -66,6 +66,7 @@ export interface ScaledRecipe {
 export interface PrepTask {
   id?: string;
   company_id?: string;
+  region_id?: string | null;
   order_id: string;
   menu_item_name: string;
   task_type: "prep" | "cook" | "cool" | "pack" | "plate";
@@ -265,7 +266,7 @@ export const kitchenPrepService = {
 
     const { data: order } = await supabase
       .from("orders")
-      .select("id, company_id, menu_items, guest_count, final_guest_count, event_date, event_time, pickup_time")
+      .select("id, company_id, region_id, menu_items, guest_count, final_guest_count, event_date, event_time, pickup_time")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) return [];
@@ -306,11 +307,21 @@ export const kitchenPrepService = {
       const cookStartsAt = new Date(cookEndsAt.getTime() - cookMin * 60_000);
       const prepStartsAt = new Date(cookStartsAt.getTime() - prepMin * 60_000);
 
-      // Only include cook task if the dish has a non-trivial cook time
+      // Stamp region_id from the order so RLS region-scoped policies
+      // surface this task to the right branch's chefs only. Without
+      // this every task lands NULL and is visible company-wide -- a
+      // cross-branch leak the moment a region_admin signs in.
+      const orderRegionId = (order as any).region_id ?? null;
+
+      // Each line yields a prep + cook task (when the recipe defines
+      // them). Originally the cook task was nested under the prep gate,
+      // so a dish with prep_min=0 and cook_min>0 silently dropped its
+      // cook task. Independent gates now -- audit Agent 6.
       if (prepMin > 0) {
         tasks.push({
           order_id: orderId,
           company_id: companyId,
+          region_id: orderRegionId,
           menu_item_name: name,
           task_type: "prep",
           start_at: prepStartsAt.toISOString(),
@@ -322,6 +333,7 @@ export const kitchenPrepService = {
         tasks.push({
           order_id: orderId,
           company_id: companyId,
+          region_id: orderRegionId,
           menu_item_name: name,
           task_type: "cook",
           start_at: cookStartsAt.toISOString(),
@@ -390,6 +402,9 @@ export const kitchenPrepService = {
     const rows = planned.map(t => ({
       company_id: companyId,
       order_id: orderId,
+      // region_id flows from planTasksForOrder -- defended here too in
+      // case anyone ever calls insert without going through the planner.
+      region_id: (t as any).region_id ?? null,
       menu_item_name: t.menu_item_name,
       task_type: t.task_type,
       start_at: t.start_at,

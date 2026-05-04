@@ -161,11 +161,14 @@ export async function assignDriver(orderId: string, driverId: string) {
           (flagLines.length > 0 ? `\n${flagLines.join("\n")}\n` : "") +
           `\nOpen the driver app to acknowledge.`;
         const { whatsappIntegrationService } = await import("@/services/whatsappIntegrationService");
-        await (whatsappIntegrationService as any).sendWhatsAppMessage({
-          to: driverPhone,
-          type: "text",
-          text: { body: message },
-        });
+        await (whatsappIntegrationService as any).sendWhatsAppMessage(
+          {
+            to: driverPhone,
+            type: "text",
+            text: { body: message },
+          },
+          { companyId: (data as any).company_id },
+        );
       }
     } catch (e) {
       console.warn("[orderWorkflow] driver WhatsApp on assign failed (non-blocking):", e);
@@ -582,11 +585,14 @@ async function sendStatusNotifications(order: any) {
       ? `🚚 ${orderNumber} is on its way${venueShort ? ` to ${venueShort}` : ""}. ${buildEtaSentence(order, true)}`
       : `✅ ${orderNumber} delivered. Hope it goes brilliantly!`;
     try {
-      await whatsappIntegrationService.sendWhatsAppMessage({
-        to: order.client_phone,
-        type: "text",
-        text: { body: wa },
-      } as any);
+      await whatsappIntegrationService.sendWhatsAppMessage(
+        {
+          to: order.client_phone,
+          type: "text",
+          text: { body: wa },
+        } as any,
+        { companyId: (order as any).company_id },
+      );
     } catch (e) {
       console.warn("[sendStatusNotifications] customer whatsapp failed:", e);
     }

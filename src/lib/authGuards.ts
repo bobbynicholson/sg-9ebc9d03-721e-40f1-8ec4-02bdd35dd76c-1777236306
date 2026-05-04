@@ -142,12 +142,19 @@ export const RESTRICTED_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.SALES_ADMIN,
 ];
 
-// Finance-only routes (company_admin, owner, super_admin only)
+// Finance-only routes (company_admin, owner, super_admin only).
+//
+// NOTE: /admin/invoices is intentionally NOT in this list. Invoices are
+// part of the lifecycle (lead -> quote -> order -> invoice) and a
+// branch manager (region_admin) needs to see THEIR branch's invoices to
+// run their branch. RLS narrows the data per-branch automatically.
+// The truly company-wide financial surfaces -- aggregate cashflow,
+// subscription / billing, payment gateway credentials -- stay locked
+// to full-company-access roles.
 export const FINANCE_ROUTES = [
   "/admin/financial-dashboard",
   "/admin/subscription",
   "/admin/payment-gateways",
-  "/admin/invoices",
 ];
 
 // Role display names

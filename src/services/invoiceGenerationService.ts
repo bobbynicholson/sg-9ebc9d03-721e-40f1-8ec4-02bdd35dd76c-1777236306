@@ -154,7 +154,19 @@ export async function generateInvoiceData(
       taxRatePct = branch.vatRegistered ? Number(branch.vatRate) * 100 : 0;
     } catch (e) {
       console.warn("[invoiceGenerationService] branch resolver failed, falling back to company default:", e);
-      taxRatePct = Number(companyData.tax_rate || companyData.tax_percentage || 15);
+      // Unit normalisation: companies.vat_rate is stored as percentage
+      // points (15.00) but companies.tax_rate / tax_percentage are
+      // legacy aliases that may be either decimal (0.15) or % (15).
+      // Detect: any value <= 1 is treated as a decimal and lifted to %
+      // points; otherwise assumed to be % already. Same shape rule the
+      // resolver applies, so we never multiply tax 100x on the catch
+      // path. Honour vat_registered if it's set on the company row.
+      const rawRate = Number(
+        companyData.vat_rate ?? companyData.tax_rate ?? companyData.tax_percentage ?? 15,
+      );
+      const normalisedPct = rawRate <= 1 ? rawRate * 100 : rawRate;
+      const isRegistered = companyData.vat_registered !== false;
+      taxRatePct = isRegistered ? normalisedPct : 0;
     }
     const taxRate = taxRatePct;
     const taxAmount = subtotal * (taxRate / 100);
