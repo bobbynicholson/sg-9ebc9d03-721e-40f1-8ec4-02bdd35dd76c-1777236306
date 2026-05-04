@@ -565,7 +565,7 @@ function AdminDashboardPage() {
               the bottom of the dashboard, collapsible, persists state per
               tenant. Owns its own data fetch (24-month window of orders +
               quotes + leads, narrowed by the global region filter). */}
-          <BusinessIntelligence companyId={companyId} />
+          <BusinessIntelligence companyId={companyId} dateRange={{ from: range.from, to: range.to }} />
         </div>
       </div>
 

@@ -26,17 +26,27 @@ import {
   type LeadForYoY,
   type QuoteForYoY,
 } from "./extractors/aggregateYoYStrip";
+import { aggregateSeasonalityHeatmap } from "./extractors/aggregateSeasonalityHeatmap";
+import { aggregateCapacityLoad } from "./extractors/aggregateCapacityLoad";
+import { aggregateConversionFunnel } from "./extractors/aggregateConversionFunnel";
 import { RevenueTrendChart } from "./charts/RevenueTrendChart";
 import { YoYStripCard } from "./charts/YoYStripCard";
+import { SeasonalityHeatmap } from "./charts/SeasonalityHeatmap";
+import { CapacityLoadCalendar } from "./charts/CapacityLoadCalendar";
+import { ConversionFunnelChart } from "./charts/ConversionFunnelChart";
 
 interface Props {
   companyId: string | null | undefined;
+  /** Date range from the dashboard's preset picker. Drives the
+   *  conversion funnel (and future range-bound charts). The trend +
+   *  seasonality charts run on a fixed 12-month window regardless. */
+  dateRange?: { from: Date; to: Date } | null;
 }
 
 const STORAGE_KEY = (companyId: string) => `cms.bi.collapsed.${companyId}`;
 const ROW_CAP = 5000;
 
-export function BusinessIntelligence({ companyId }: Props) {
+export function BusinessIntelligence({ companyId, dateRange }: Props) {
   const { regionFilterId } = useRegionFilter();
 
   // Collapsed state -- per tenant so a new tenant doesn't inherit
@@ -80,6 +90,13 @@ export function BusinessIntelligence({ companyId }: Props) {
       const d = new Date(now.getFullYear(), now.getMonth() - 23, 1);
       return d.toISOString().slice(0, 10);
     })();
+    // Capacity-load chart needs the next 90 days. Stretch the orders
+    // and quotes windows out so a single fetch covers history + future.
+    const futureCapISO = (() => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 95); // small buffer
+      return d.toISOString().slice(0, 10);
+    })();
 
     (async () => {
       try {
@@ -89,11 +106,12 @@ export function BusinessIntelligence({ companyId }: Props) {
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
+          .lte("event_date", futureCapISO)
           .limit(ROW_CAP);
 
         const quotesBase = supabase
           .from("quotes")
-          .select("id, status, total_amount, created_at, accepted_at, region_id")
+          .select("id, status, total_amount, event_date, created_at, accepted_at, region_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("created_at", startISO)
@@ -144,6 +162,19 @@ export function BusinessIntelligence({ companyId }: Props) {
     () => aggregateYoYStrip(orders, quotes, leads),
     [orders, quotes, leads],
   );
+  const seasonality = useMemo(
+    () => aggregateSeasonalityHeatmap(orders),
+    [orders],
+  );
+  const capacity = useMemo(
+    () => aggregateCapacityLoad(orders, quotes as any),
+    [orders, quotes],
+  );
+  const funnel = useMemo(() => {
+    const start = dateRange?.from ?? new Date(new Date().setDate(new Date().getDate() - 30));
+    const end = dateRange?.to ?? new Date();
+    return aggregateConversionFunnel(leads, quotes, orders, start, end);
+  }, [leads, quotes, orders, dateRange]);
 
   return (
     <section className="mb-6" aria-labelledby="bi-section-heading">
@@ -182,6 +213,13 @@ export function BusinessIntelligence({ companyId }: Props) {
           )}
           <RevenueTrendChart data={revenueByMonth} loading={loading} />
           <YoYStripCard data={loading ? null : yoyStrip} loading={loading} />
+
+          {/* Tier 2 -- pressure */}
+          <SeasonalityHeatmap data={seasonality} loading={loading} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <CapacityLoadCalendar data={capacity} loading={loading} />
+            <ConversionFunnelChart data={funnel} loading={loading} />
+          </div>
         </div>
       )}
     </section>
