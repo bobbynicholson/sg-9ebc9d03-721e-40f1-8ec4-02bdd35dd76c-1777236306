@@ -18,7 +18,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,16 +71,9 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function ClientQuotesPage() {
-  const router = useRouter();
   const { user, company } = useAuth() as any;
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const resolvedSlug =
-    (typeof router.query.company_slug === "string" && router.query.company_slug) ||
-    (user as any)?.user_metadata?.last_company_slug ||
-    company?.slug ||
-    "";
 
   const brandPrimary = company?.primary_color || "#059669";
   const companyName = company?.company_name || "your caterer";
@@ -133,6 +125,9 @@ export default function ClientQuotesPage() {
         if (!cancelled) setLoading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id, user?.email, company?.id]);
 
   const grouped = useMemo(() => {
