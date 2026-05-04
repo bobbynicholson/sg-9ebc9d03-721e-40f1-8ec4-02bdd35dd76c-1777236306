@@ -785,11 +785,16 @@ export default function AdminLeads() {
                                 this). */}
                             {(() => {
                               if (links.orderId) return null;
+                              // Kinds whose primary CTA actually navigates
+                              // straight into the quote builder. chase_quote
+                              // and winback live in the email composer
+                              // branch, so they DON'T belong here -- the
+                              // secondary "Edit quote" button is exactly
+                              // what an operator wants while chasing a
+                              // quote that needs a quick tweak.
                               const primaryAlreadyOpensQuote = [
                                 "open_quote_draft",
-                                "chase_quote",
                                 "convert_to_order",
-                                "winback",
                                 "send_quote",
                               ].includes(suggestion.kind);
                               if (primaryAlreadyOpensQuote) return null;
@@ -807,12 +812,12 @@ export default function AdminLeads() {
                                   className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
                                   title={
                                     links.latestQuoteId
-                                      ? "Skip the touch-base and open the existing quote in the editable builder"
-                                      : `Skip the touch-base and start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`
+                                      ? "Open the existing quote in the editable builder for a quick edit"
+                                      : `Start a fresh quote for ${lead.contact_name || lead.client_name || "this lead"}`
                                   }
                                 >
                                   <FileText className="w-3.5 h-3.5" />
-                                  {links.latestQuoteId ? "Open quote" : "New quote"}
+                                  {links.latestQuoteId ? "Edit quote" : "New quote"}
                                 </Button>
                               );
                             })()}
