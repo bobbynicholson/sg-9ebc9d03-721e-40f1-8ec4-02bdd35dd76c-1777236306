@@ -21,8 +21,9 @@
     '.cms-tier.is-selected{border-color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 6%,transparent)}',
     '.cms-tier-name{font-weight:600;margin-bottom:2px}',
     '.cms-tier-pp{font-size:12px;color:#6B7280}',
-    '.cms-estimate{font-size:24px;font-weight:700;color:var(--brand-primary,#0F172A);margin-top:6px}',
-    '.cms-estimate-sub{font-size:12px;color:#6B7280}'
+    '.cms-estimate-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin-top:6px}',
+    '.cms-estimate{font-size:24px;font-weight:700;color:var(--brand-primary,#0F172A);margin-top:2px;line-height:1.1}',
+    '.cms-estimate-sub{font-size:12px;color:#6B7280;margin-top:6px}'
   ].join('');
 
   function render(host, config, brand, h) {
@@ -80,7 +81,15 @@
     calc.appendChild(tierGroup);
 
     var estimate = h.el('div', { class: 'cms-estimate', text: '...', 'aria-live': 'polite' });
-    var estSub = h.el('div', { class: 'cms-estimate-sub', text: 'Estimated total. Final pricing depends on menu and venue.' });
+    // Honesty disclaimer -- the calculator pulls from companies.embed_pricing_tiers
+    // which is a marketing-only "starting from" indicator, not the
+    // operator's live menu_tiers. Tenants edit menu pricing in
+    // /admin/menu without knowing the embed tiers exist; if we promised
+    // an exact total we'd silently mislead clients. Tagline now says
+    // "indicative starting price" + an explicit final-quote caveat.
+    var estLabel = h.el('div', { class: 'cms-estimate-label', text: 'Indicative starting price' });
+    var estSub = h.el('div', { class: 'cms-estimate-sub', text: 'A guideline based on guest count and menu tier. Your final quote may vary based on menu choices, dietary requirements, venue and travel.' });
+    calc.appendChild(estLabel);
     calc.appendChild(estimate);
     calc.appendChild(estSub);
     form.appendChild(calc);

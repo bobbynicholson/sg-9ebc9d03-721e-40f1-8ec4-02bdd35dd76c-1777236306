@@ -780,7 +780,7 @@ function FieldEditor({
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Pin this field to a specific page. "Auto" falls back to grouping by field id (name/email -> step 1, event_date/guests -> step 2, etc).
+                    {"Pin this field to a specific page. \"Auto\" falls back to grouping by field id (name/email → step 1, event_date/guests → step 2, etc)."}
                   </p>
                 </div>
               )}
