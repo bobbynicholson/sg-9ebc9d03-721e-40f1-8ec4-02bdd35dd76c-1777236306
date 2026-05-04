@@ -398,9 +398,18 @@ export async function extractReceiptViaAI(args: {
   taxRules?: TaxRuleForPrompt[];
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number }> {
   const system = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
+  // 8192 output tokens leaves comfortable headroom for till-roll receipts
+  // (think Pick n Pay / Makro / Spar) where the line_items array can run
+  // 30+ rows -- each carries description + qty + unit + unit_price +
+  // line_total + tax_category_code + is_deductible + match_confidence,
+  // so 30 lines is roughly 1500-2000 tokens just on items. The previous
+  // 2048 cap routinely cut JSON mid-array, which produced 0 line items
+  // back to the UI ("AI couldn't read line items"). Sonnet 4-5 can output
+  // far more than 8k; we cap here to avoid runaway cost on a corrupted
+  // image that loops the model.
   const response: any = await (client().messages.create as any)({
     model: RECEIPT_MODEL,
-    max_tokens: 2048,
+    max_tokens: 8192,
     system,
     tools: [
       {
@@ -475,10 +484,22 @@ export async function extractReceiptViaAI(args: {
 
   const tokensIn = response?.usage?.input_tokens ?? 0;
   const tokensOut = response?.usage?.output_tokens ?? 0;
+  // stop_reason tells us why the model finished. "end_turn" or
+  // "tool_use" = clean. "max_tokens" = we ran out of room mid-output;
+  // any line_items we got back are partial and the JSON might be
+  // malformed. We surface this explicitly in warnings so the UI toast
+  // can tell the operator the real cause instead of "try a clearer
+  // photo" -- the photo is fine, the cap was the problem.
+  const stopReason: string | undefined = response?.stop_reason;
+  const truncated = stopReason === "max_tokens";
+
   let extraction: ReceiptExtraction = {
     supplier_name: null, supplier_vat_number: null, receipt_date: null,
     receipt_number: null, currency: null, subtotal: null, vat: null, total: null,
-    payment_method: null, line_items: [], warnings: ["No structured response from model"],
+    payment_method: null, line_items: [],
+    warnings: truncated
+      ? ["Output was cut off before the model finished -- raise max_tokens or split the receipt."]
+      : ["No structured response from model"],
   };
 
   const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
@@ -520,6 +541,15 @@ export async function extractReceiptViaAI(args: {
       // read totals"). Helpful for debugging zero-line responses.
       if (textCommentary.length > 0) {
         extraction.warnings = [...extraction.warnings, ...textCommentary];
+      }
+      // If the response was truncated mid-output, prepend an explicit
+      // truncation warning -- the operator should know the line list
+      // they're seeing is incomplete, not "the AI couldn't read it".
+      if (truncated) {
+        extraction.warnings = [
+          "Output was cut off mid-receipt (max_tokens hit). Lines below may be incomplete.",
+          ...extraction.warnings,
+        ];
       }
       break;
     }
