@@ -41,6 +41,7 @@ import {
   GripVertical,
   CalendarDays,
   Gift,
+  CheckCircle,
 } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
@@ -448,6 +449,36 @@ export default function AdminQuotes() {
       toast({ title: "Send failed", description: "Something went wrong sending this quote.", variant: "destructive" });
     } finally {
       setSendingId(null);
+    }
+  };
+
+  /** Manual accept on behalf of the client. Use when the client phones
+   *  / WhatsApps to confirm verbally and you want the lifecycle to
+   *  catch up: marks quote 'accepted', creates the order (status
+   *  'confirmed'), generates the deposit invoice, fires the lifecycle
+   *  hooks. Same code path as the public "Accept" button on /q. */
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const handleAcceptOnBehalf = async (quote: Quote) => {
+    if (!confirm(`Mark "${quote.client_name}" as confirmed and convert to a live order?\n\nThis is the same as the client clicking Accept on the quote -- creates the order, fires the deposit invoice, and locks the diary.`)) return;
+    setAcceptingId(quote.id);
+    try {
+      const order = await quoteService.convertQuoteToOrder(quote.id);
+      if (!order) {
+        toast({ title: "Couldn't accept", description: "Conversion failed -- check the quote has a valid client + event date.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Quote accepted, order created",
+        description: `${quote.client_name} is now order ${(order as any).order_number}. Deposit invoice queued.`,
+      });
+      setQuotes((prev) => prev.map((q) =>
+        q.id === quote.id ? { ...q, status: "accepted", accepted_at: new Date().toISOString() } as Quote : q
+      ));
+    } catch (err: any) {
+      console.error("Accept on behalf failed:", err);
+      toast({ title: "Accept failed", description: err?.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -926,7 +957,7 @@ export default function AdminQuotes() {
                               (opens the drawer). */}
                           {quote.status === "draft" ? (
                             <RowPrimaryAction
-                              tone={intelligence.tone}
+                              tone={intel.tone}
                               icon={<Send className="w-4 h-4" />}
                               label={sendingId === quote.id ? "Sending..." : "Send"}
                               tooltip="Send this draft -- emails the client and stamps the quote 'sent'."
@@ -935,7 +966,7 @@ export default function AdminQuotes() {
                             />
                           ) : (
                             <RowPrimaryAction
-                              tone={intelligence.tone}
+                              tone={intel.tone}
                               icon={<Mail className="w-4 h-4" />}
                               label="Compose"
                               tooltip={composeHint}
@@ -945,6 +976,24 @@ export default function AdminQuotes() {
                                 setComposeQuote(quote);
                               }}
                             />
+                          )}
+                          {/* Manual accept -- for when the client confirms
+                              over the phone or WhatsApp. Same downstream
+                              effect as the public Accept button: creates
+                              the order, fires the deposit invoice, locks
+                              the diary. Hidden once accepted/rejected. */}
+                          {quote.status !== "accepted" && quote.status !== "rejected" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAcceptOnBehalf(quote)}
+                              disabled={acceptingId === quote.id}
+                              title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
+                              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {acceptingId === quote.id ? "Accepting..." : "Mark accepted"}
+                            </Button>
                           )}
                           {/* Mark-as-sent / Reset timestamp. Anchors
                               the follow-up timing baseline so the
@@ -1112,6 +1161,76 @@ export default function AdminQuotes() {
             companyId={profile?.company_id ?? null}
             mode={composeMode}
             diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
+            onSweetenerApplied={async (offer) => {
+              // Persist the offer to the quote so the figures the
+              // client sees on /q match the email the operator sent.
+              // Percent / amount apply to the total; perk leaves the
+              // numbers alone but stamps the perk in notes so the
+              // kitchen + driver know about it. Status flips to
+              // 'revised' to mark this is a tweaked version.
+              if (!composeQuote) return;
+              const oldTotal = Number(composeQuote.total ?? composeQuote.total_amount ?? 0);
+              const oldSubtotal = Number(composeQuote.subtotal ?? 0);
+              const oldDiscount = Number((composeQuote as any).discount_amount ?? 0);
+              const oldTax = Number((composeQuote as any).tax_amount ?? composeQuote.tax ?? 0);
+
+              let newDiscount = oldDiscount;
+              let newSubtotal = oldSubtotal;
+              let newTax = oldTax;
+              let newTotal = oldTotal;
+              let perkNote: string | null = null;
+
+              if (offer.discountKind === "percent" && offer.discountPercent > 0) {
+                const discountValue = oldTotal * (offer.discountPercent / 100);
+                newDiscount = oldDiscount + discountValue;
+                newSubtotal = Math.max(0, oldSubtotal - discountValue);
+                // Recompute VAT proportionally to keep the math clean
+                newTax = oldSubtotal > 0 ? oldTax * (newSubtotal / oldSubtotal) : 0;
+                newTotal = newSubtotal + newTax;
+              } else if (offer.discountKind === "amount" && offer.discountAmount > 0) {
+                newDiscount = oldDiscount + offer.discountAmount;
+                newSubtotal = Math.max(0, oldSubtotal - offer.discountAmount);
+                newTax = oldSubtotal > 0 ? oldTax * (newSubtotal / oldSubtotal) : 0;
+                newTotal = newSubtotal + newTax;
+              } else if (offer.discountKind === "perk" && offer.perk.trim()) {
+                perkNote = `Sweetener: ${offer.perk.trim()}`;
+              }
+
+              try {
+                const patch: any = {
+                  status: "revised",
+                  valid_until: offer.validUntil || (composeQuote as any).valid_until,
+                };
+                if (offer.discountKind !== "perk") {
+                  patch.discount_amount = Number(newDiscount.toFixed(2));
+                  patch.subtotal = Number(newSubtotal.toFixed(2));
+                  patch.tax_amount = Number(newTax.toFixed(2));
+                  patch.tax = Number(newTax.toFixed(2));
+                  patch.total = Number(newTotal.toFixed(2));
+                  patch.total_amount = Number(newTotal.toFixed(2));
+                }
+                if (perkNote) {
+                  const existingNotes = (composeQuote as any).notes || "";
+                  patch.notes = existingNotes ? `${existingNotes}\n\n${perkNote}` : perkNote;
+                }
+                await (supabase as any).from("quotes").update(patch).eq("id", composeQuote.id);
+                setQuotes((prev) => prev.map((q) =>
+                  q.id === composeQuote.id ? ({ ...q, ...patch } as Quote) : q,
+                ));
+                toast({
+                  title: "Sweetener applied to the quote",
+                  description: offer.discountKind === "perk"
+                    ? `Perk noted on the quote. Status flipped to revised.`
+                    : `Total dropped from ${fmtMoney.format(oldTotal)} to ${fmtMoney.format(newTotal)}. Status flipped to revised.`,
+                });
+              } catch (err: any) {
+                toast({
+                  title: "Saved email but couldn't update quote",
+                  description: err?.message || "Apply the discount manually on the quote.",
+                  variant: "destructive",
+                });
+              }
+            }}
             onSent={async () => {
               // Auto-anchor sent_at the first time the operator picks
               // any send channel (Gmail / Outlook / mailto / Copy /
@@ -1192,7 +1311,7 @@ export default function AdminQuotes() {
    quotes page stay in lockstep on UX. */
 
 function QuoteComposeDrawer({
-  quote, fromName, companyName, companyId, mode, diary, onSent, onClose,
+  quote, fromName, companyName, companyId, mode, diary, onSent, onSweetenerApplied, onClose,
 }: {
   quote: Quote;
   fromName?: string;
@@ -1201,6 +1320,18 @@ function QuoteComposeDrawer({
   mode: "status" | "sweetener";
   diary: DiarySignal;
   onSent?: (channel: string) => void;
+  /** Fires when the operator hits any send channel WHILE in sweetener
+   *  mode. Carries the offer details so the parent can persist them
+   *  to the quote (apply discount, save valid_until, set status to
+   *  'revised') -- the email needs to match what the quote actually
+   *  shows to the client. */
+  onSweetenerApplied?: (offer: {
+    discountKind: "percent" | "amount" | "perk";
+    discountPercent: number;
+    discountAmount: number;
+    perk: string;
+    validUntil: string;
+  }) => Promise<void> | void;
   onClose: () => void;
 }) {
   const derivedStatus = useMemo(() => deriveQuoteStatus(quote), [quote]);
@@ -1411,7 +1542,14 @@ function QuoteComposeDrawer({
           : "quote_sent",
       }}
       publicLink={(quote as any).public_token ? buildPublicQuoteUrl((quote as any).public_token) : null}
-      onSent={onSent}
+      onSent={async (channel) => {
+        if (mode === "sweetener" && onSweetenerApplied) {
+          await onSweetenerApplied({
+            discountKind, discountPercent, discountAmount, perk, validUntil,
+          });
+        }
+        if (onSent) onSent(channel);
+      }}
       onClose={onClose}
     />
   );
