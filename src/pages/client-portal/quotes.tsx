@@ -244,12 +244,12 @@ function QuoteGroup({
   onRequestEdits?: (q: PortalQuote) => void;
 }) {
   return (
-    <section>
+    <section className="w-full">
       <div className="mb-3">
         <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
         <p className="text-xs text-slate-500 mt-0.5">{description}</p>
       </div>
-      <ul className="space-y-2">
+      <ul className="w-full space-y-2 list-none p-0">
         {items.map((q) => {
           const total = Number(q.total ?? q.total_amount ?? 0);
           const statusKey = q.status || "draft";
@@ -260,8 +260,8 @@ function QuoteGroup({
           const validLabel = fmtDate(q.valid_until);
           const open = q.public_token ? `/q/${q.public_token}` : null;
           return (
-            <li key={q.id}>
-              <Card className="border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+            <li key={q.id} className="w-full">
+              <Card className="w-full border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-4 flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
