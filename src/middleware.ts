@@ -94,6 +94,7 @@ const isPublicRoute = (pathname: string) => {
     pathname.startsWith("/us/") ||
     pathname.startsWith("/page/") ||
     pathname.startsWith("/pay/invoice/") ||
+    pathname.startsWith("/pay/i/") ||
     pathname.startsWith("/features/") ||
     pathname.startsWith("/api/public/") ||
     pathname.startsWith("/api/client-tokens/") ||

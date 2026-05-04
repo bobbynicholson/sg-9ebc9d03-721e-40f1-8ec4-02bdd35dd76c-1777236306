@@ -1,0 +1,470 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * /pay/i/[token] -- public invoice + payment view.
+ *
+ * Token-keyed sibling of /q/[token]. Replaces the older
+ * /pay/invoice/[id] route which used a raw, enumerable invoice UUID
+ * and (after the foundation migration) has no anon SELECT policy.
+ *
+ * The header band, logo slot, brand colours and print CSS mirror
+ * /q/[token] so a quote and the matching invoice feel like one
+ * document family from the client's side.
+ *
+ * PayFast remains the only payment surface. We resolve the invoice by
+ * token but pass invoice.id as custom_str1 so the IPN webhook
+ * (api/webhooks/payment-confirmation) keeps resolving via id without
+ * any change. return_url and cancel_url are token-form so the user
+ * never lands on a UUID URL.
+ */
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import Head from "next/head";
+import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Loader2, CreditCard, CheckCircle2, AlertCircle, FileText,
+  Calendar, Printer,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { PayFastService } from "@/lib/payfastService";
+
+const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 2 });
+
+interface InvoiceView {
+  id: string;
+  public_token: string;
+  invoice_number: string;
+  invoice_date: string;
+  due_date: string;
+  total_amount: number;
+  amount_paid: number;
+  balance_due: number;
+  status: string;
+  invoice_data: any;
+  companies: {
+    id: string;
+    company_name: string;
+    logo_url: string | null;
+    email: string | null;
+    phone_number: string | null;
+    vat_registered: boolean | null;
+    vat_number: string | null;
+    vat_rate: number | null;
+    primary_color: string | null;
+    secondary_color: string | null;
+    accent_color: string | null;
+  };
+}
+
+function hexToRgbTriplet(hex: string | null | undefined): string | null {
+  if (!hex || typeof hex !== "string") return null;
+  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  return `${parseInt(h.slice(0, 2), 16)} ${parseInt(h.slice(2, 4), 16)} ${parseInt(h.slice(4, 6), 16)}`;
+}
+
+function companyInitials(name: string | null | undefined): string {
+  if (!name) return "C";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "C";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+export default function InvoicePaymentPage() {
+  const router = useRouter();
+  const token = typeof router.query.token === "string" ? router.query.token : null;
+
+  const [invoice, setInvoice] = useState<InvoiceView | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  // Apply per-tenant brand colours once the invoice + company resolve.
+  // Same pattern as /q/[token] -- public route, no auth context, so we
+  // set CSS vars on documentElement rather than going through
+  // BrandingContext.
+  useEffect(() => {
+    if (!invoice?.companies) return;
+    const root = document.documentElement;
+    const apply = (key: string, hex: string | null) => {
+      if (!hex) return;
+      const rgb = hexToRgbTriplet(hex);
+      if (!rgb) return;
+      root.style.setProperty(`--brand-${key}`, hex);
+      root.style.setProperty(`--brand-${key}-rgb`, rgb);
+    };
+    apply("primary",   invoice.companies.primary_color);
+    apply("secondary", invoice.companies.secondary_color);
+    apply("accent",    invoice.companies.accent_color);
+  }, [invoice?.companies]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      const { data, error: fetchErr } = await (supabase as any)
+        .from("invoices")
+        .select(`
+          id, public_token, invoice_number, invoice_date, due_date,
+          total_amount, amount_paid, balance_due, status, invoice_data,
+          companies!inner (
+            id, company_name, logo_url, email, phone_number,
+            vat_registered, vat_number, vat_rate,
+            primary_color, secondary_color, accent_color
+          )
+        `)
+        .eq("public_token", token)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (cancelled) return;
+      if (fetchErr || !data) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+      setInvoice(data as InvoiceView);
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [token]);
+
+  async function initiatePayment() {
+    if (!invoice) return;
+    try {
+      setProcessing(true);
+      setError(null);
+
+      const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+      const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
+      const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
+      const testMode = process.env.NODE_ENV !== "production";
+
+      if (!merchantId || !merchantKey) {
+        setError("Payment gateway not configured. Please contact the company to arrange payment.");
+        return;
+      }
+
+      const payFastService = new PayFastService({
+        merchantId,
+        merchantKey,
+        passphrase: passphrase || "",
+        testMode,
+      });
+
+      const invoiceData = invoice.invoice_data || {};
+      const clientName = invoiceData.clientName || "Customer";
+      const [firstName, ...lastNameParts] = clientName.split(" ");
+      const lastName = lastNameParts.join(" ") || "Customer";
+
+      // Token URLs for return / cancel; invoice.id stays in custom_str1
+      // so the IPN webhook (api/webhooks/payment-confirmation) keeps
+      // resolving by id without changes.
+      const paymentParams = {
+        merchant_id: merchantId,
+        merchant_key: merchantKey,
+        return_url: `${window.location.origin}/pay/i/${invoice.public_token}/success`,
+        cancel_url: `${window.location.origin}/pay/i/${invoice.public_token}`,
+        notify_url: `${window.location.origin}/api/webhooks/payment-confirmation`,
+        name_first: firstName,
+        name_last: lastName,
+        email_address: invoiceData.clientEmail || "customer@email.com",
+        amount: invoice.balance_due.toFixed(2),
+        item_name: `Invoice ${invoice.invoice_number}`,
+        item_description: `Payment for ${invoice.companies.company_name} - Invoice ${invoice.invoice_number}`,
+        custom_str1: invoice.id,
+        custom_str2: "invoice",
+        custom_str3: invoice.companies.id,
+        custom_str4: "invoice",
+        email_confirmation: "1",
+        confirmation_address: invoiceData.clientEmail || "",
+      };
+
+      const signature = payFastService.generateSignature(paymentParams);
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = payFastService.getPaymentFormUrl();
+
+      Object.entries({ ...paymentParams, signature }).forEach(([key, value]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = String(value);
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (err) {
+      console.error("Payment initiation error:", err);
+      setError("Failed to initiate payment. Please try again or contact support.");
+      setProcessing(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <Loader2 className="w-6 h-6 animate-spin text-stone-400" />
+      </div>
+    );
+  }
+
+  if (notFound || !invoice) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-6">
+        <Card className="max-w-md">
+          <CardContent className="py-8 px-6 text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+            <h1 className="text-lg font-semibold text-stone-900">Invoice not found</h1>
+            <p className="text-sm text-stone-600">
+              The link looks broken, or the invoice has been removed. Reach out to the company to ask for a fresh link.
+            </p>
+            {error && <p className="text-xs text-rose-600">{error}</p>}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const company = invoice.companies;
+  const companyName = company.company_name || "Your caterer";
+  const isPaid = invoice.balance_due <= 0;
+  const isOverdue = new Date(invoice.due_date) < new Date() && !isPaid;
+  const vatRegistered = !!company.vat_registered;
+  const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
+  const today = format(new Date(), "d MMMM yyyy");
+
+  return (
+    <>
+      <Head>
+        <title>{`${docTitle} ${invoice.invoice_number} from ${companyName}`}</title>
+        <meta name="robots" content="noindex, nofollow" />
+        <style>{`
+          @media print {
+            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: white !important; }
+            .no-print { display: none !important; }
+            .print-shadow-none { box-shadow: none !important; }
+            .print-border-none { border: none !important; }
+            .print-bg-white { background: white !important; }
+            @page { margin: 16mm; }
+          }
+        `}</style>
+      </Head>
+
+      <div className="min-h-screen bg-stone-50 print-bg-white">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+
+          {/* Floating action bar -- screen only */}
+          <div className="no-print flex items-center justify-end gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
+              <Printer className="w-4 h-4" />
+              Save as PDF
+            </Button>
+          </div>
+
+          {/* BRANDED HEADER -- mirrors /q/[token] */}
+          <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4 print-shadow-none">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-3">
+                  {company.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={company.logo_url}
+                      alt={`${companyName} logo`}
+                      className="h-10 w-auto max-w-[180px] object-contain"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm">
+                      {companyInitials(companyName)}
+                    </div>
+                  )}
+                  <p className="text-xs uppercase tracking-[0.2em] text-brand-primary font-bold">
+                    {companyName}
+                  </p>
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
+                  {docTitle} {invoice.invoice_number}
+                </h1>
+                <p className="text-sm text-stone-600 mt-2">
+                  Issued {format(new Date(invoice.invoice_date), "d MMMM yyyy")} · viewed {today}
+                </p>
+                {vatRegistered && company.vat_number && (
+                  <p className="text-xs text-stone-500 mt-1">
+                    VAT Reg No: <span className="font-mono">{company.vat_number}</span>
+                  </p>
+                )}
+              </div>
+              {isPaid ? (
+                <Badge className="bg-emerald-600 text-white border-0 gap-1 px-3 py-1.5 text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Paid
+                </Badge>
+              ) : isOverdue ? (
+                <Badge className="bg-rose-600 text-white border-0 px-3 py-1.5 text-sm">
+                  Overdue
+                </Badge>
+              ) : (
+                <Badge className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
+                  Awaiting payment
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* AMOUNT BREAKDOWN */}
+          <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+            <CardContent className="py-5 px-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Total</p>
+                  <p className="text-xl font-bold text-stone-900 tabular-nums">{fmtMoney.format(invoice.total_amount)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Paid to date</p>
+                  <p className="text-xl font-bold text-emerald-700 tabular-nums">{fmtMoney.format(invoice.amount_paid)}</p>
+                </div>
+              </div>
+
+              <div className="brand-print rounded-lg bg-brand-primary/10 border-2 border-brand-primary p-5 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Balance due</p>
+                  <p className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 tabular-nums">
+                    {fmtMoney.format(invoice.balance_due)}
+                  </p>
+                  {!isPaid && (
+                    <div className="mt-2 flex items-center gap-2 text-xs">
+                      <Calendar className="w-3 h-3 text-stone-500" />
+                      <span className={isOverdue ? "text-rose-600 font-semibold" : "text-stone-500"}>
+                        Due {format(new Date(invoice.due_date), "d MMMM yyyy")}
+                        {isOverdue && " (overdue)"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <FileText className="w-10 h-10 text-brand-primary opacity-30" />
+              </div>
+
+              {/* Event details inherited from quote (when present) */}
+              {invoice.invoice_data?.eventDate && (
+                <div className="rounded-lg bg-stone-50 p-4 text-sm text-stone-700 space-y-1">
+                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Event details</p>
+                  <p>Date: {format(new Date(invoice.invoice_data.eventDate), "d MMMM yyyy")}</p>
+                  {invoice.invoice_data.venue && <p>Venue: {invoice.invoice_data.venue}</p>}
+                  {invoice.invoice_data.guestCount && <p>Guests: {invoice.invoice_data.guestCount}</p>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* PAYMENT SECTION -- screen only */}
+          <div className="no-print">
+            {isPaid ? (
+              <Alert className="border-emerald-200 bg-emerald-50">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-emerald-800">
+                  <strong>Payment received.</strong> Thanks {invoice.invoice_data?.clientName || "for your business"} -- this invoice is settled in full.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Card className="border border-stone-200 shadow-sm">
+                <CardContent className="py-6 px-5 space-y-4">
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div>
+                    <p className="text-sm font-semibold text-stone-900">Pay this invoice</p>
+                    <p className="text-xs text-stone-600 mt-0.5">
+                      Secure payment via PayFast -- card, EFT, instant EFT, SnapScan, Zapper.
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={initiatePayment}
+                    disabled={processing}
+                    size="lg"
+                    className="w-full bg-brand-primary hover:opacity-90 gap-2"
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Redirecting to PayFast...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-5 h-5" />
+                        Pay {fmtMoney.format(invoice.balance_due)} now
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Bank transfer alternative */}
+                  {invoice.invoice_data?.bankDetails && (
+                    <div className="mt-2 p-4 rounded-lg border border-stone-200 bg-stone-50">
+                      <p className="text-sm font-semibold text-stone-900 mb-2">Prefer EFT?</p>
+                      <div className="space-y-1 text-sm">
+                        <div className="grid grid-cols-2 gap-2">
+                          <span className="text-stone-500">Bank:</span>
+                          <span className="font-medium text-stone-900">{invoice.invoice_data.bankDetails.bankName}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <span className="text-stone-500">Account name:</span>
+                          <span className="font-medium text-stone-900">{invoice.invoice_data.bankDetails.accountName}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <span className="text-stone-500">Account #:</span>
+                          <span className="font-medium text-stone-900 tabular-nums">{invoice.invoice_data.bankDetails.accountNumber}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <span className="text-stone-500">Branch code:</span>
+                          <span className="font-medium text-stone-900 tabular-nums">{invoice.invoice_data.bankDetails.branchCode}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-3">
+                        Use invoice number <strong className="text-stone-700">{invoice.invoice_number}</strong> as reference.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* COMPANY FOOTER */}
+          {(company.email || company.phone_number) && (
+            <div className="mt-8 text-center text-xs text-stone-500 space-y-0.5">
+              <p className="font-bold text-stone-700">{companyName}</p>
+              <p>
+                {company.email && (
+                  <a href={`mailto:${company.email}`} className="hover:underline">{company.email}</a>
+                )}
+                {company.email && company.phone_number && <span className="mx-1">·</span>}
+                {company.phone_number && (
+                  <a href={`tel:${company.phone_number}`} className="hover:underline">{company.phone_number}</a>
+                )}
+              </p>
+              <p className="pt-2">Questions? Reach out and they'll come back to you.</p>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </>
+  );
+}

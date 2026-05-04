@@ -401,10 +401,13 @@ export async function generateInvoicePaymentLink(
   companyId: string
 ): Promise<{ success: boolean; paymentUrl?: string; error?: string }> {
   try {
-    // 1. Get invoice with company details
+    // 1. Get invoice with company details. We pull public_token too so
+    //    the customer-facing URL is /pay/i/[token] instead of the old
+    //    /pay/invoice/[id] form (the id route now 308s to the token
+    //    one anyway, but new emails go straight to the canonical URL).
     const { data: invoice, error: invoiceError } = await supabase
       .from("invoices")
-      .select("*, companies!inner(*)")
+      .select("*, public_token, companies!inner(*)")
       .eq("id", invoiceId)
       .single();
 
@@ -413,7 +416,7 @@ export async function generateInvoicePaymentLink(
     }
 
     const invoiceData = invoice as any;
-    
+
     if (invoiceData.balance_due <= 0) {
       return { success: false, error: "Invoice already paid" };
     }
@@ -425,11 +428,13 @@ export async function generateInvoicePaymentLink(
     const testMode = process.env.NODE_ENV !== "production";
 
     // If PayFast not configured, return simple payment page URL
-    const baseUrl = typeof window !== "undefined" 
-      ? window.location.origin 
+    const baseUrl = typeof window !== "undefined"
+      ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
-    
-    const paymentPageUrl = `${baseUrl}/pay/invoice/${invoiceId}`;
+
+    const paymentPageUrl = invoiceData.public_token
+      ? `${baseUrl}/pay/i/${invoiceData.public_token}`
+      : `${baseUrl}/pay/invoice/${invoiceId}`;
 
     if (!merchantId || !merchantKey) {
       console.warn("PayFast credentials not configured - returning payment page URL");
