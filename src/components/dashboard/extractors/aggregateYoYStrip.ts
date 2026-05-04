@@ -25,6 +25,8 @@ export interface QuoteForYoY {
   sent_at?: string | null;
   accepted_at: string | null;
   event_date?: string | null;
+  /** Branch ID. Optional because legacy rows may have null. */
+  region_id?: string | null;
 }
 
 export interface LeadForYoY {
@@ -34,6 +36,8 @@ export interface LeadForYoY {
   /** Source channel -- manual_add / embed / client_portal_rebook /
    *  ai_import / etc. Tier 4 lead-source funnel groups by this. */
   source?: string | null;
+  /** Branch ID. Optional because legacy rows may have null. */
+  region_id?: string | null;
 }
 
 export interface YoYStripMetric {
