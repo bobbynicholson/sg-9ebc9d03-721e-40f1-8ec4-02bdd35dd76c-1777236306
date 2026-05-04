@@ -464,12 +464,22 @@ export const quoteService = {
     try {
       const { ensureInvoiceForOrder } = await import("./invoiceGenerationService");
       const inv = await ensureInvoiceForOrder(newOrder.id, newOrder.company_id);
-      if (inv.success) {
+      if (inv.success && (inv as any).invoiceId) {
+        // Fetch the friendly invoice number + amount so the toast can
+        // surface them. ensureInvoiceForOrder only returns the id.
+        const { data: row } = await supabase
+          .from("invoices")
+          .select("invoice_number, total_amount")
+          .eq("id", (inv as any).invoiceId)
+          .maybeSingle();
         invoiceReceipt = {
           ok: true,
-          number: (inv as any).invoice?.invoice_number || (inv as any).invoiceNumber || null,
-          amount: (inv as any).invoice?.total_amount ?? (inv as any).amount ?? null,
+          number: (row as any)?.invoice_number || null,
+          amount: (row as any)?.total_amount ?? null,
         };
+      } else if (inv.success && (inv as any).skipped) {
+        // Imported / quarantined orders intentionally skip invoicing.
+        invoiceReceipt = { ok: true, error: `Skipped: ${(inv as any).skipped}` };
       } else {
         invoiceReceipt = { ok: false, error: (inv as any).error || "Invoice generation returned failure" };
         console.warn("[quoteService] auto-invoice on convert failed:", invoiceReceipt.error);
@@ -497,7 +507,12 @@ export const quoteService = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            companyId: quote.user_id,
+            // Bug fix: was passing quote.user_id which is the
+            // operator's auth user id, not the tenant id. The
+            // /api/send-email guard then refused with "Cannot
+            // send email for another company" because the
+            // caller's profile.company_id never matches a user_id.
+            companyId: (quote as any).company_id,
             to: quote.client_email,
             subject: `Order Confirmed - #${newOrder.order_number}`,
             template: 'order-confirmation',
