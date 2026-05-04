@@ -99,10 +99,70 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Slip image is missing from storage." });
     }
 
+    // Skip the AI re-extraction entirely if we already have draft
+    // items waiting on this receipt -- e.g. operator scanned, closed
+    // the drawer, came back. We return the persisted drafts as if
+    // the AI just produced them. Saves Anthropic spend + matches
+    // exactly what the operator was last looking at.
+    const { data: existingDrafts } = await supabase
+      .from("purchase_receipt_items")
+      .select(
+        "id, description, amount, is_deductible, category, suggested_rule_id, inventory_item_id, quantity, unit_of_measure, unit_price, is_draft"
+      )
+      .eq("receipt_id", receiptId)
+      .order("created_at", { ascending: true });
+
+    if ((existingDrafts || []).length > 0) {
+      // Return drafts in the same shape extractReceiptViaAI emits,
+      // wrapped in a minimal extraction envelope so the drawer
+      // doesn't care whether it came from AI or DB.
+      const lineItems = (existingDrafts as any[]).map((it) => ({
+        description: it.description || "",
+        quantity: it.quantity ?? null,
+        unit: it.unit_of_measure ?? null,
+        unit_price: it.unit_price ?? null,
+        line_total: it.amount ?? null,
+        tax_category_code: null, // resolved client-side via suggested_rule_id
+        is_deductible: it.is_deductible ?? null,
+        match_confidence: null,
+        // Carryover for the drawer: pre-filled mappings from prior save.
+        existing_item_id: it.id,
+        existing_inventory_item_id: it.inventory_item_id,
+        existing_suggested_rule_id: it.suggested_rule_id,
+        existing_is_draft: !!it.is_draft,
+      }));
+      return res.status(200).json({
+        ok: true,
+        from_cache: true,
+        extraction: {
+          supplier_name: receipt.vendor,
+          supplier_vat_number: null,
+          receipt_date: receipt.receipt_date,
+          receipt_number: null,
+          currency: "ZAR",
+          subtotal: null,
+          vat: null,
+          total: receipt.total,
+          payment_method: null,
+          line_items: lineItems,
+          warnings: [],
+        },
+        receipt: {
+          id: receipt.id,
+          vendor: receipt.vendor,
+          receipt_date: receipt.receipt_date,
+          total: receipt.total,
+          image_path: receipt.image_path,
+        },
+        ai: { tokens_in: 0, tokens_out: 0 },
+        debug: { from_cache: true, line_count: lineItems.length },
+      });
+    }
+
     // Load active SARS rules for the classifier prompt.
     const { data: rulesData } = await supabase
       .from("sa_tax_deductibility_rules")
-      .select("category_code, display_name, group_label, deductibility, match_keywords")
+      .select("id, category_code, display_name, group_label, deductibility, match_keywords")
       .eq("is_active", true)
       .order("display_order", { ascending: true });
     const taxRules = (rulesData || []) as Array<any>;
@@ -111,6 +171,88 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       imageBase64: img.bytes.toString("base64"),
       imageMime: img.mime,
       taxRules,
+    });
+
+    // Memory layer: pre-fill inventory_item_id + suggested_rule_id from
+    // the operator's previous {vendor, description} choices. We
+    // normalise both sides (lower + collapse whitespace) so a casing
+    // drift on the slip doesn't break the lookup. Only applies when
+    // the receipt has a vendor; pre-vendor extractions skip this step.
+    const vendorNorm = normaliseForMemory(receipt.vendor || extraction.supplier_name || "");
+    let memoryByDesc = new Map<string, { inventory_item_id: string | null; suggested_rule_id: string | null; unit_of_measure: string | null }>();
+    if (vendorNorm) {
+      const { data: memoryRows } = await supabase
+        .from("purchase_line_memory")
+        .select("description_norm, inventory_item_id, suggested_rule_id, unit_of_measure")
+        .eq("company_id", companyId)
+        .eq("vendor_norm", vendorNorm);
+      for (const row of (memoryRows as any[]) || []) {
+        memoryByDesc.set(row.description_norm, {
+          inventory_item_id: row.inventory_item_id,
+          suggested_rule_id: row.suggested_rule_id,
+          unit_of_measure: row.unit_of_measure,
+        });
+      }
+    }
+
+    // Resolve tax_category_code -> rule_id using the rules we loaded.
+    const ruleByCode = new Map<string, string>();
+    for (const r of taxRules) {
+      if (r.category_code && r.id) ruleByCode.set(r.category_code, r.id);
+    }
+
+    // Persist drafts immediately so closing the drawer doesn't lose
+    // them. We also fold in memory hints for inventory_item_id and
+    // suggested_rule_id where the operator has previously mapped this
+    // {vendor, description} pair.
+    const draftRows = (extraction.line_items || []).map((li: any) => {
+      const descNorm = normaliseForMemory(li.description || "");
+      const memoryHit = descNorm ? memoryByDesc.get(descNorm) : null;
+      const aiRuleId = li.tax_category_code ? ruleByCode.get(li.tax_category_code) : null;
+      return {
+        receipt_id: receiptId,
+        description: li.description ?? "",
+        amount: typeof li.line_total === "number" ? li.line_total : null,
+        quantity: typeof li.quantity === "number" ? li.quantity : null,
+        unit_of_measure: li.unit ?? memoryHit?.unit_of_measure ?? null,
+        unit_price: typeof li.unit_price === "number" ? li.unit_price : null,
+        is_deductible: typeof li.is_deductible === "boolean" ? li.is_deductible : null,
+        category: li.tax_category_code ?? null,
+        // Memory wins over AI's classifier on the rule pick -- the
+        // operator's repeated choice is the higher-quality signal.
+        suggested_rule_id: memoryHit?.suggested_rule_id ?? aiRuleId ?? null,
+        inventory_item_id: memoryHit?.inventory_item_id ?? null,
+        is_draft: true,
+      };
+    });
+
+    let insertedDrafts: any[] = [];
+    if (draftRows.length > 0) {
+      const { data: ins, error: insErr } = await supabase
+        .from("purchase_receipt_items")
+        .insert(draftRows)
+        .select(
+          "id, description, amount, is_deductible, category, suggested_rule_id, inventory_item_id, quantity, unit_of_measure, unit_price, is_draft"
+        );
+      if (insErr) {
+        console.error("[rescan] draft insert failed", insErr);
+      } else {
+        insertedDrafts = ins || [];
+      }
+    }
+
+    // Re-emit the line_items with the persisted ids + pre-fills folded
+    // in. Drawer renders from this, doesn't need to know the items
+    // were drafted to DB.
+    const lineItemsOut = (extraction.line_items || []).map((li: any, idx: number) => {
+      const draft = insertedDrafts[idx];
+      return {
+        ...li,
+        existing_item_id: draft?.id ?? null,
+        existing_inventory_item_id: draft?.inventory_item_id ?? null,
+        existing_suggested_rule_id: draft?.suggested_rule_id ?? null,
+        existing_is_draft: true,
+      };
     });
 
     // Server-side breadcrumb so a 0-line response is debuggable.
@@ -123,11 +265,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       lines: extraction.line_items.length,
       warnings: extraction.warnings,
       rules_count: taxRules.length,
+      memory_hits: Array.from(memoryByDesc.keys()).length,
+      drafts_persisted: insertedDrafts.length,
     });
 
     return res.status(200).json({
       ok: true,
-      extraction,
+      from_cache: false,
+      extraction: { ...extraction, line_items: lineItemsOut },
       receipt: {
         id: receipt.id,
         vendor: receipt.vendor,
@@ -140,10 +285,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         image_bytes: img.bytes.length,
         image_mime: img.mime,
         rules_count: taxRules.length,
+        memory_hits: Array.from(memoryByDesc.keys()).length,
       },
     });
   } catch (e: any) {
     console.error("/api/receipts/[id]/rescan crashed:", e);
     return res.status(500).json({ error: e?.message || "Rescan failed" });
   }
+}
+
+/**
+ * Normalise a vendor name or line description for memory lookup.
+ * lowercase, trim, collapse internal whitespace, strip punctuation.
+ * Keeps the matcher robust to OCR variance and casing drift.
+ */
+function normaliseForMemory(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

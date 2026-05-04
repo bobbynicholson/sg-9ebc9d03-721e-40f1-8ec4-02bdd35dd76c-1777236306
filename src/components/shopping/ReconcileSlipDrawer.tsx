@@ -157,20 +157,30 @@ export function ReconcileSlipDrawer({
     setReceiptNumber(mappedData.receipt_number || "");
     setTotal(mappedData.total != null ? String(mappedData.total) : "");
     setNotes("");
-    setLines((mappedData.line_items || []).map((li) => ({
-      keep: true,
-      description: li.description || "",
-      amount: Number(li.line_total ?? li.unit_price ?? 0),
-      quantity: Number(li.quantity ?? 1),
-      unit: li.unit || "ea",
-      unit_price: Number(li.unit_price ?? li.line_total ?? 0),
-      tax_rule_id: null,
-      is_deductible: li.is_deductible ?? true,
-      inventory_item_id: null,
-      inventory_query: "",
-      create_new_name: "",
-      add_to_stock: false,
-    })));
+    setLines((mappedData.line_items || []).map((li) => {
+      // The rescan API now returns three optional carryovers per line:
+      //   existing_inventory_item_id, existing_suggested_rule_id,
+      //   existing_is_draft
+      // Populated either from the operator's previous mapping (memory)
+      // or from a draft that was already persisted on a prior visit.
+      // We honour them as the starting point so reopening the drawer
+      // shows exactly what was last on screen.
+      const li2 = li as any;
+      return {
+        keep: true,
+        description: li.description || "",
+        amount: Number(li.line_total ?? li.unit_price ?? 0),
+        quantity: Number(li.quantity ?? 1),
+        unit: li.unit || "ea",
+        unit_price: Number(li.unit_price ?? li.line_total ?? 0),
+        tax_rule_id: li2.existing_suggested_rule_id ?? null,
+        is_deductible: li.is_deductible ?? true,
+        inventory_item_id: li2.existing_inventory_item_id ?? null,
+        inventory_query: "",
+        create_new_name: "",
+        add_to_stock: !!li2.existing_inventory_item_id,
+      };
+    }));
   }, [open, mappedData, manualMode]);
 
   // Load inventory + rules + past-vendor/description memory.
@@ -224,24 +234,55 @@ export function ReconcileSlipDrawer({
       setPastDescriptions(Array.from(descSet).slice(0, 100));
 
       // Resolve AI-suggested tax_category_code -> rule id, and try to
-      // fuzzy-match each line's description to an inventory item.
+      // fuzzy-match each line's description to an inventory item --
+      // but only when the line doesn't already have a tax_rule_id /
+      // inventory_item_id from the rescan API (memory carryover or
+      // existing draft). Honouring the prior choice trumps re-deriving
+      // a fresh fuzzy match every time.
       setLines((prev) => prev.map((ln, i) => {
         const aiLine = mappedData?.line_items?.[i];
-        const ruleByCode = aiLine?.tax_category_code
-          ? rs.find((r) => r.category_code === aiLine.tax_category_code)
-          : null;
         const desc = (ln.description || "").toLowerCase();
-        const invMatch = inv.find((it) =>
-          desc.includes(it.item_name.toLowerCase()) ||
-          it.item_name.toLowerCase().includes(desc.split(" ")[0] || "_____"),
-        );
+
+        let nextRuleId = ln.tax_rule_id;
+        let nextIsDeductible = ln.is_deductible;
+        if (!nextRuleId) {
+          const ruleByCode = aiLine?.tax_category_code
+            ? rs.find((r) => r.category_code === aiLine.tax_category_code)
+            : null;
+          if (ruleByCode) {
+            nextRuleId = ruleByCode.id;
+            nextIsDeductible = ruleByCode.deductibility !== "non_deductible";
+          }
+        }
+
+        let nextInvId = ln.inventory_item_id;
+        let nextInvQuery = ln.inventory_query;
+        let nextAddToStock = ln.add_to_stock;
+        if (!nextInvId) {
+          const invMatch = inv.find((it) =>
+            desc.includes(it.item_name.toLowerCase()) ||
+            it.item_name.toLowerCase().includes(desc.split(" ")[0] || "_____"),
+          );
+          if (invMatch) {
+            nextInvId = invMatch.id;
+            nextInvQuery = invMatch.item_name;
+            nextAddToStock = true;
+          } else {
+            nextInvQuery = nextInvQuery || ln.description;
+          }
+        } else {
+          // Carryover gave us an id -- look up the name for the input.
+          const matched = inv.find((it) => it.id === nextInvId);
+          if (matched) nextInvQuery = matched.item_name;
+        }
+
         return {
           ...ln,
-          tax_rule_id: ruleByCode?.id ?? null,
-          is_deductible: ruleByCode ? ruleByCode.deductibility !== "non_deductible" : ln.is_deductible,
-          inventory_item_id: invMatch?.id ?? null,
-          inventory_query: invMatch?.item_name || ln.description,
-          add_to_stock: !!invMatch,
+          tax_rule_id: nextRuleId,
+          is_deductible: nextIsDeductible,
+          inventory_item_id: nextInvId,
+          inventory_query: nextInvQuery,
+          add_to_stock: nextAddToStock,
         };
       }));
     })();
@@ -418,11 +459,72 @@ export function ReconcileSlipDrawer({
         });
       }
 
-      if (itemsToInsert.length > 0) {
+      // Wipe any draft items the rescan API persisted on this receipt
+      // first -- otherwise saving on top of a draft would leave the
+      // unchecked AI rows and the operator's confirmed rows side by
+      // side. Only purges drafts (is_draft=true), so anything the
+      // operator already saved on a prior session survives.
+      if (existingReceiptId) {
+        await supabase
+          .from("purchase_receipt_items")
+          .delete()
+          .eq("receipt_id", existingReceiptId)
+          .eq("is_draft", true);
+      }
+
+      // All operator-confirmed rows are inserted with is_draft=false
+      // so the next rescan sees them as committed and skips re-running
+      // the AI.
+      const itemsToInsertFinal = itemsToInsert.map((it) => ({ ...it, is_draft: false }));
+      if (itemsToInsertFinal.length > 0) {
         const { error: itemsErr } = await supabase
           .from("purchase_receipt_items")
-          .insert(itemsToInsert);
+          .insert(itemsToInsertFinal);
         if (itemsErr) throw new Error(itemsErr.message);
+      }
+
+      // Memory layer: remember {vendor, line description} -> {inventory
+      // item, tax rule} so the next rescan of the same vendor pre-fills
+      // the operator's choices. Upsert keyed on (company_id, vendor_norm,
+      // description_norm) so we update the latest mapping in place
+      // instead of stacking history rows. Best-effort; failure here
+      // doesn't block the save.
+      try {
+        const vendorNorm = (vendor || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+        if (vendorNorm && itemsToInsertFinal.length > 0) {
+          const memoryRows = itemsToInsertFinal
+            .filter((it) => it.inventory_item_id || it.suggested_rule_id)
+            .map((it) => ({
+              company_id: companyId,
+              vendor_norm: vendorNorm,
+              description_norm: String(it.description || "")
+                .toLowerCase()
+                .replace(/[^a-z0-9\s]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim(),
+              inventory_item_id: it.inventory_item_id || null,
+              suggested_rule_id: it.suggested_rule_id || null,
+              unit_of_measure: it.unit_of_measure || null,
+              last_used_at: new Date().toISOString(),
+            }))
+            .filter((r) => r.description_norm.length > 0);
+
+          if (memoryRows.length > 0) {
+            const { error: memErr } = await (supabase as any)
+              .from("purchase_line_memory")
+              .upsert(memoryRows, {
+                onConflict: "company_id,vendor_norm,description_norm",
+                ignoreDuplicates: false,
+              });
+            if (memErr) console.error("[reconcile] memory upsert failed", memErr);
+          }
+        }
+      } catch (memErr) {
+        console.error("[reconcile] memory write threw", memErr);
       }
 
       // 4) Receive into stock for the flagged lines. Single batched
