@@ -203,6 +203,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     if (!companyId) return;
     setSaving(true);
     try {
+      // accent_color was added via a migration after the codebase's
+      // generated Database types were regenerated, so the typed
+      // .update() narrows it to never. Cast to any as the existing
+      // path does.
       const { error } = await supabase
         .from("companies")
         .update({
@@ -210,7 +214,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
           primary_color: null,
           secondary_color: null,
           accent_color: null,
-        })
+        } as any)
         .eq("id", companyId);
       if (error) throw error;
 
