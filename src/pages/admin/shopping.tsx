@@ -26,6 +26,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ import {
 } from "lucide-react";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 import { ReconcileSlipDrawer } from "@/components/shopping/ReconcileSlipDrawer";
+import { ReceiptsTab } from "@/components/shopping/ReceiptsTab";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -99,10 +101,17 @@ const STATUS_META: Record<string, { label: string; tone: string; rank: number }>
   ok:            { label: "OK",            tone: "bg-emerald-100 text-emerald-700 border-emerald-200", rank: 3 },
 };
 
+const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
+
 function SmartShoppingPage() {
   const { user, profile, company } = useAuth() as any;
   const companyId = profile?.company_id || user?.company_id;
   const { toast } = useToast();
+  const router = useRouter();
+  // Honour ?tab= so the "Manage receipts" CTA on /admin/tax-purchases
+  // can deep-link straight to the receipts tab.
+  const queryTab = typeof router.query.tab === "string" ? router.query.tab : null;
+  const initialTab = queryTab && VALID_TABS.has(queryTab) ? queryTab : "buy_now";
 
   const [outlook, setOutlook] = useState<OutlookRow[]>([]);
   const [details, setDetails] = useState<Record<string, InvDetail>>({});
@@ -420,7 +429,7 @@ function SmartShoppingPage() {
             </button>
             {scannerOpen && (
               <CardContent className="border-t border-slate-100 pt-4 space-y-3">
-                <ReceiptScanner accent="emerald" historyHref="/admin/tax-purchases" />
+                <ReceiptScanner accent="emerald" />
                 <div className="flex items-center justify-center pt-2 border-t border-slate-100">
                   <Button
                     variant="outline"
@@ -461,8 +470,8 @@ function SmartShoppingPage() {
               <p className="text-sm">Add items in <Link href="/admin/inventory" className="text-emerald-600">Inventory</Link>, link them to recipes, and this page lights up.</p>
             </CardContent></Card>
           ) : (
-            <Tabs defaultValue="buy_now">
-              <TabsList className="grid w-full grid-cols-3 max-w-xl mb-4">
+            <Tabs defaultValue={initialTab} key={initialTab}>
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-3xl mb-4">
                 <TabsTrigger value="buy_now" className="gap-1.5">
                   <Flame className="w-3.5 h-3.5" /> Buy now
                   {buyNow.length > 0 && <Badge className="ml-1 bg-red-100 text-red-700 text-[10px]">{buyNow.length}</Badge>}
@@ -472,6 +481,9 @@ function SmartShoppingPage() {
                 </TabsTrigger>
                 <TabsTrigger value="supplier" className="gap-1.5">
                   <Building2 className="w-3.5 h-3.5" /> By supplier
+                </TabsTrigger>
+                <TabsTrigger value="receipts" className="gap-1.5">
+                  <Receipt className="w-3.5 h-3.5" /> Receipts
                 </TabsTrigger>
               </TabsList>
 
@@ -612,6 +624,15 @@ function SmartShoppingPage() {
                     })
                   )}
                 </div>
+              </TabsContent>
+
+              {/* RECEIPTS -- slip log + tax-deductible editor (used to live
+                  on its own /admin/tax-purchases page; merged in here so
+                  shopping is the single place an admin acts). The
+                  read-only mirror at /admin/tax-purchases is kept as an
+                  accountant-facing overview. */}
+              <TabsContent value="receipts">
+                <ReceiptsTab companyId={companyId || ""} userId={user?.id || ""} />
               </TabsContent>
             </Tabs>
           )}

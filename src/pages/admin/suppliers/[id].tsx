@@ -349,7 +349,7 @@ function SupplierDetail() {
                       {receipts.map((r) => (
                         <Link
                           key={r.id}
-                          href={`/admin/tax-purchases?receipt=${r.id}`}
+                          href={`/admin/shopping?tab=receipts&receipt=${r.id}`}
                           className="block px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
                         >
                           <div className="flex items-center justify-between gap-3">

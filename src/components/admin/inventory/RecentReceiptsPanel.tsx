@@ -159,10 +159,10 @@ export function RecentReceiptsPanel({ companyId }: { companyId: string | null | 
                     ))}
                     <div className="pt-1.5 border-t border-slate-100">
                       <Link
-                        href="/admin/tax-purchases"
+                        href="/admin/shopping?tab=receipts"
                         className="text-[11px] text-purple-600 hover:underline inline-flex items-center gap-1"
                       >
-                        View slip in Tax purchases <ExternalLink className="w-3 h-3" />
+                        Manage slips on Shopping <ExternalLink className="w-3 h-3" />
                       </Link>
                     </div>
                   </div>

@@ -404,7 +404,7 @@ export function AdminNav({ className }: AdminNavProps) {
           title: "Shopping Dashboard",
           href: "/admin/shopping",
           icon: ShoppingCart,
-          description: "Procurement overview"
+          description: "Buy now, plan ahead, scan slips, mark deductibles"
         },
         {
           title: "Suppliers",
@@ -413,10 +413,10 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Supplier hub: contacts, products, spend"
         },
         {
-          title: "Tax-Deductible Purchases",
+          title: "Tax overview",
           href: "/admin/tax-purchases",
           icon: Receipt,
-          description: "Slip log + deductible totals for the accountant"
+          description: "Read-only deductible totals + CSV export for the accountant"
         },
         {
           title: "Client Search",
