@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
+import type { GetStaticPaths, GetStaticProps } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, ArrowRight, Loader2, Building2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  getInitialBrandingForSlug,
+  type InitialBranding,
+} from "@/lib/branding/serverBrandingForSlug";
 
 interface CompanyBrand {
   name: string;
@@ -37,7 +42,47 @@ interface CompanyBrand {
 const DEFAULT_PRIMARY = "#9333ea";
 const DEFAULT_SECONDARY = "#ec4899";
 
-export default function CompanyStaffLoginPage() {
+interface PageProps {
+  // Raw branding from getStaticProps. _app.tsx forwards this to
+  // BrandingProvider so pre-auth pages don't flash default colours.
+  // Each page also reads it directly to seed its own local UI.
+  initialBranding: InitialBranding | null;
+  slugNotFound: boolean;
+}
+
+function brandFromInitial(b: InitialBranding | null): CompanyBrand | null {
+  if (!b) return null;
+  return {
+    name: b.companyName,
+    logo: b.logoUrl,
+    primary: b.primaryColor || DEFAULT_PRIMARY,
+    secondary: b.secondaryColor || DEFAULT_SECONDARY,
+  };
+}
+
+export const getStaticPaths: GetStaticPaths = async () => ({
+  paths: [],
+  fallback: "blocking",
+});
+
+export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
+  const slug =
+    typeof ctx.params?.company_slug === "string" ? ctx.params.company_slug : "";
+  const branding = await getInitialBrandingForSlug(slug);
+  return {
+    props: {
+      initialBranding: branding,
+      slugNotFound: !branding,
+    },
+    // Branding rarely changes -- 60s of staleness after a save is fine.
+    revalidate: 60,
+  };
+};
+
+export default function CompanyStaffLoginPage({
+  initialBranding,
+  slugNotFound,
+}: PageProps) {
   const router = useRouter();
   const { company_slug, message } = router.query;
   const { toast } = useToast();
@@ -46,10 +91,18 @@ export default function CompanyStaffLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(null);
-  const [companyLookupFailed, setCompanyLookupFailed] = useState(false);
+  // Seed from getStaticProps so the very first paint already shows the
+  // tenant's logo and palette -- no flash of CateringMS defaults.
+  const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(() =>
+    brandFromInitial(initialBranding),
+  );
+  const [companyLookupFailed, setCompanyLookupFailed] = useState(slugNotFound);
 
-  // Branding lookup via SECURITY DEFINER RPC.
+  // Refresh branding from the SECURITY DEFINER RPC once we're on the
+  // client. Catches the case where the operator has just saved new
+  // colours and we're still serving an ISR-cached page from before the
+  // change. Falls through silently if the call fails -- the SSG seed is
+  // already on the page.
   useEffect(() => {
     if (!company_slug || typeof company_slug !== "string") return;
     let cancelled = false;
@@ -62,7 +115,7 @@ export default function CompanyStaffLoginPage() {
       if (cancelled) return;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) {
-        setCompanyLookupFailed(true);
+        if (!initialBranding) setCompanyLookupFailed(true);
         return;
       }
       setCompanyBrand({
@@ -71,11 +124,12 @@ export default function CompanyStaffLoginPage() {
         primary: (row as any).primary_color || DEFAULT_PRIMARY,
         secondary: (row as any).secondary_color || DEFAULT_SECONDARY,
       });
+      setCompanyLookupFailed(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [company_slug]);
+  }, [company_slug, initialBranding]);
 
   // Toast for redirect messages from middleware.
   useEffect(() => {

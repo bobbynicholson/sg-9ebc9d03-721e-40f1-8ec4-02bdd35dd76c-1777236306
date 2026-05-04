@@ -10,14 +10,18 @@
  * Cache: localStorage keyed by company_id. Read for instant first paint
  * before the database round-trip resolves; never read across tenants.
  *
- * Public/unauth pages (marketing, login screens) get DEFAULT_BRANDING
- * because no company is resolved yet. Theming for those surfaces would
- * need a slug-based server-side fetch, which is a separate task.
+ * Pre-auth tenant pages (e.g. /[company_slug]/login) ship the right
+ * branding via getStaticProps -- _app.tsx forwards the resulting prop
+ * to <BrandingProvider initialBranding={...}> so the very first paint
+ * shows the tenant's logo and palette instead of the CateringMS default.
+ * The marketing root and other unauth pages still fall back to
+ * DEFAULT_BRANDING because they have no tenant context.
  */
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { WhiteLabelBranding, BrandingContextType } from "@/types/whitelabel";
+import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
 
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
@@ -80,20 +84,73 @@ const rowToBranding = (row: any): WhiteLabelBranding => ({
   updatedAt: row?.updated_at || new Date().toISOString(),
 });
 
-export function BrandingProvider({ children }: { children: ReactNode }) {
+// Convert the SSG-fetched shape (InitialBranding from
+// serverBrandingForSlug) to the context's WhiteLabelBranding so pre-auth
+// pages can seed the provider before AuthContext resolves.
+const initialToBranding = (b: InitialBranding): WhiteLabelBranding => {
+  const now = new Date().toISOString();
+  return {
+    id: b.id,
+    organizationName: b.companyName || DEFAULT_BRANDING.organizationName,
+    logoUrl: b.logoUrl || undefined,
+    colors: {
+      primary: b.primaryColor || DEFAULT_BRANDING.colors.primary,
+      secondary: b.secondaryColor || DEFAULT_BRANDING.colors.secondary,
+      accent: b.accentColor || DEFAULT_BRANDING.colors.accent,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+interface BrandingProviderProps {
+  children: ReactNode;
+  /**
+   * Optional seed from getStaticProps on tenant pre-auth pages. When
+   * present we apply it synchronously on first render so the page
+   * doesn't flash CateringMS defaults before auth resolves. Once the
+   * user logs in and `useAuth().user.company_id` populates, the normal
+   * auth-driven fetch takes over.
+   */
+  initialBranding?: InitialBranding | null;
+}
+
+export function BrandingProvider({ children, initialBranding }: BrandingProviderProps) {
   const { user } = useAuth() as any;
   const companyId: string | null = user?.company_id ?? null;
 
-  const [branding, setBranding] = useState<WhiteLabelBranding | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  // Seed synchronously so SSR markup matches the first client paint.
+  // Falls back to null when there's no tenant context -- the auth-path
+  // effect below resolves it to DEFAULT_BRANDING in that case.
+  const seededBranding: WhiteLabelBranding | null = initialBranding
+    ? initialToBranding(initialBranding)
+    : null;
+
+  const [branding, setBranding] = useState<WhiteLabelBranding | null>(seededBranding);
+  const [loading, setLoading] = useState<boolean>(!seededBranding);
   const [saving, setSaving] = useState<boolean>(false);
+
+  // Apply the SSG seed to the DOM on first client render. Inside an
+  // effect because document doesn't exist during SSR.
+  useEffect(() => {
+    if (seededBranding) applyBrandingToDOM(seededBranding);
+    // Run once per mount -- subsequent updates flow through setBranding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Load branding when the user/company changes ─────────────────
   useEffect(() => {
     let cancelled = false;
 
     if (!companyId) {
-      // Unauth or pre-auth state — show defaults, don't touch storage.
+      // No authenticated company. If the page seeded us via
+      // initialBranding (tenant pre-auth pages) keep that paint and
+      // don't reset to defaults. Otherwise it's a true unauth surface
+      // (marketing, etc.) -- show defaults.
+      if (seededBranding) {
+        setLoading(false);
+        return;
+      }
       setBranding(DEFAULT_BRANDING);
       applyBrandingToDOM(DEFAULT_BRANDING);
       setLoading(false);

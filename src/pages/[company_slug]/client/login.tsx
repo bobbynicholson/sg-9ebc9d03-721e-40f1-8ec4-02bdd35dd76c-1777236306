@@ -30,6 +30,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
+import type { GetStaticPaths, GetStaticProps } from "next";
 import {
   Card,
   CardContent,
@@ -47,6 +48,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  getInitialBrandingForSlug,
+  type InitialBranding,
+} from "@/lib/branding/serverBrandingForSlug";
 
 interface CompanyBrand {
   name: string;
@@ -58,6 +63,42 @@ interface CompanyBrand {
 const DEFAULT_PRIMARY = "#9333ea";
 const DEFAULT_SECONDARY = "#ec4899";
 const EMAIL_CACHE_PREFIX = "cateringms.client_email.";
+
+interface PageProps {
+  // Raw branding from getStaticProps. _app.tsx forwards this to
+  // BrandingProvider so pre-auth pages don't flash default colours.
+  // Each page also reads it directly to seed its own local UI.
+  initialBranding: InitialBranding | null;
+  slugNotFound: boolean;
+}
+
+function brandFromInitial(b: InitialBranding | null): CompanyBrand | null {
+  if (!b) return null;
+  return {
+    name: b.companyName,
+    logo: b.logoUrl,
+    primary: b.primaryColor || DEFAULT_PRIMARY,
+    secondary: b.secondaryColor || DEFAULT_SECONDARY,
+  };
+}
+
+export const getStaticPaths: GetStaticPaths = async () => ({
+  paths: [],
+  fallback: "blocking",
+});
+
+export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
+  const slug =
+    typeof ctx.params?.company_slug === "string" ? ctx.params.company_slug : "";
+  const branding = await getInitialBrandingForSlug(slug);
+  return {
+    props: {
+      initialBranding: branding,
+      slugNotFound: !branding,
+    },
+    revalidate: 60,
+  };
+};
 
 function readCachedEmail(slug: string): string {
   if (typeof window === "undefined") return "";
@@ -86,7 +127,10 @@ function clearCachedEmail(slug: string) {
   }
 }
 
-export default function CompanyClientLoginPage() {
+export default function CompanyClientLoginPage({
+  initialBranding,
+  slugNotFound,
+}: PageProps) {
   const router = useRouter();
   const { company_slug, email: emailFromQuery, next, message } = router.query;
 
@@ -94,8 +138,12 @@ export default function CompanyClientLoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(null);
-  const [companyLookupFailed, setCompanyLookupFailed] = useState(false);
+  // Seed from getStaticProps so the very first paint already shows the
+  // tenant's logo and palette -- no flash of CateringMS defaults.
+  const [companyBrand, setCompanyBrand] = useState<CompanyBrand | null>(() =>
+    brandFromInitial(initialBranding),
+  );
+  const [companyLookupFailed, setCompanyLookupFailed] = useState(slugNotFound);
 
   // Resolve initial email value once the slug is available.
   // Priority: URL ?email= > cached email > empty.
@@ -110,7 +158,11 @@ export default function CompanyClientLoginPage() {
     if (cached) setEmail(cached);
   }, [company_slug, emailFromQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Branding lookup via SECURITY DEFINER RPC.
+  // Refresh branding from the SECURITY DEFINER RPC once we're on the
+  // client. Catches the case where the operator has just saved new
+  // colours and we're still serving an ISR-cached page from before the
+  // change. Falls through silently if the call fails -- the SSG seed is
+  // already on the page.
   useEffect(() => {
     if (!company_slug || typeof company_slug !== "string") return;
     let cancelled = false;
@@ -122,7 +174,7 @@ export default function CompanyClientLoginPage() {
       if (cancelled) return;
       const row = Array.isArray(data) ? data[0] : data;
       if (!row) {
-        setCompanyLookupFailed(true);
+        if (!initialBranding) setCompanyLookupFailed(true);
         return;
       }
       setCompanyBrand({
@@ -131,11 +183,12 @@ export default function CompanyClientLoginPage() {
         primary: (row as any).primary_color || DEFAULT_PRIMARY,
         secondary: (row as any).secondary_color || DEFAULT_SECONDARY,
       });
+      setCompanyLookupFailed(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [company_slug]);
+  }, [company_slug, initialBranding]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

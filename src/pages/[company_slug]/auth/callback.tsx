@@ -33,14 +33,42 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
+import type { GetStaticPaths, GetStaticProps } from "next";
 import { Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  getInitialBrandingForSlug,
+  type InitialBranding,
+} from "@/lib/branding/serverBrandingForSlug";
 
 type Status = "working" | "ok" | "error";
 
-export default function ClientAuthCallbackPage() {
+interface PageProps {
+  // Forwarded by _app.tsx into BrandingProvider so the surrounding chrome
+  // keeps the right colours during the magic-link bounce. The callback's
+  // own UI is intentionally generic (loading / success / error) so it
+  // doesn't read this directly.
+  initialBranding: InitialBranding | null;
+}
+
+export const getStaticPaths: GetStaticPaths = async () => ({
+  paths: [],
+  fallback: "blocking",
+});
+
+export const getStaticProps: GetStaticProps<PageProps> = async (ctx) => {
+  const slug =
+    typeof ctx.params?.company_slug === "string" ? ctx.params.company_slug : "";
+  const branding = await getInitialBrandingForSlug(slug);
+  return {
+    props: { initialBranding: branding },
+    revalidate: 60,
+  };
+};
+
+export default function ClientAuthCallbackPage(_props: PageProps) {
   const router = useRouter();
   const { company_slug, next } = router.query;
 
