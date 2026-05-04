@@ -32,12 +32,16 @@ import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
-  Printer,
+  Printer, MessageSquare,
 } from "lucide-react";
-import { fetchByToken, recordView, recordAccept, type PublicQuoteView } from "@/services/publicQuoteService";
+import {
+  fetchByToken, recordView, recordAccept, submitChangeRequest,
+  type PublicQuoteView,
+} from "@/services/publicQuoteService";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
@@ -86,6 +90,20 @@ export default function PublicQuotePage() {
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
+
+  // Request-changes flow. Inline expansion (matches accept-flow
+  // precedent + plays nicely with mobile keyboards) rather than a
+  // Dialog. Caterers commonly receive 1-3 requests per quote --
+  // "drop the dessert", "add 20 guests", "shift to a Saturday".
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [changesName, setChangesName] = useState("");
+  const [changesMessage, setChangesMessage] = useState("");
+  const [changesEventDate, setChangesEventDate] = useState("");
+  const [changesGuestCount, setChangesGuestCount] = useState("");
+  const [changesMenu, setChangesMenu] = useState("");
+  const [changesSubmitting, setChangesSubmitting] = useState(false);
+  const [changesError, setChangesError] = useState<string | null>(null);
+  const [changesSent, setChangesSent] = useState(false);
 
   // Apply per-tenant brand colours. The public page is unauthenticated
   // so BrandingContext (which keys off the logged-in user's company_id)
@@ -153,6 +171,35 @@ export default function PublicQuotePage() {
     if (quote) {
       setQuote({ ...quote, accepted_at: new Date().toISOString(), status: "accepted" });
     }
+  };
+
+  const handleSubmitChanges = async () => {
+    if (!token) return;
+    if (changesMessage.trim().length < 10) {
+      setChangesError("Please give us at least 10 characters so we know what to change.");
+      return;
+    }
+    setChangesSubmitting(true);
+    setChangesError(null);
+    const res = await submitChangeRequest({
+      token,
+      message: changesMessage.trim(),
+      submitterName: changesName.trim() || quote?.client_name || null,
+      requestedChanges: {
+        event_date: changesEventDate || null,
+        guest_count: changesGuestCount.trim()
+          ? Number.parseInt(changesGuestCount, 10)
+          : null,
+        menu_changes: changesMenu.trim() || null,
+      },
+    });
+    setChangesSubmitting(false);
+    if (!res.ok) {
+      setChangesError(res.error || "Could not send your message, please try again.");
+      return;
+    }
+    setChangesSent(true);
+    setChangesOpen(false);
   };
 
   if (loading) {
@@ -495,7 +542,7 @@ export default function PublicQuotePage() {
                     </li>
                   </ol>
 
-                  <div className="pt-2 border-t border-emerald-200">
+                  <div className="pt-2 border-t border-emerald-200 flex flex-wrap items-center justify-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -505,6 +552,22 @@ export default function PublicQuotePage() {
                       <Printer className="w-4 h-4" />
                       Save a copy of this quote
                     </Button>
+                    {/* Post-acceptance, the "tweak something" path is
+                        the primary interaction left -- catering plans
+                        commonly shift in the week or two after sign-off
+                        (final guest count, dietary additions). Surface
+                        it as a peer to "Save a copy". */}
+                    {!changesSent && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setChangesOpen(true); setChangesError(null); }}
+                        className="gap-1.5 text-stone-700"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Need to tweak something?
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -553,12 +616,154 @@ export default function PublicQuotePage() {
                         <CheckCircle2 className="w-5 h-5" />
                         Accept this quote
                       </Button>
+                      {/* Tertiary trigger -- not-yet-accepted clients
+                          who want a tweak before committing. Plain
+                          text-link so it can't compete with Accept. */}
+                      {!changesSent && !changesOpen && (
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => { setChangesOpen(true); setChangesError(null); }}
+                            className="text-xs text-stone-600 underline-offset-2 hover:text-stone-900 hover:underline"
+                          >
+                            Need a tweak first? Send us a message
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
               </Card>
             )}
           </div>
+
+          {/* REQUEST-CHANGES inline form -- screen only.
+              Sits below the accept block so it's reachable both pre-
+              and post-acceptance. Inline expansion (matches accept
+              flow) over a Dialog so mobile keyboards don't crop it. */}
+          {(changesOpen || changesSent) && (
+            <div className="no-print mt-4">
+              {changesSent ? (
+                <Card className="border-0 bg-blue-50 shadow-sm">
+                  <CardContent className="py-6 px-5 text-center space-y-2">
+                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600">
+                      <MessageSquare className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-base font-semibold text-stone-900">
+                      Got it -- {companyName} will be in touch shortly
+                    </h3>
+                    <p className="text-sm text-stone-600 max-w-md mx-auto">
+                      Your message has been sent. They'll usually reply within a working day.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="py-6 px-5 space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-900">Request changes</p>
+                      <p className="text-xs text-stone-600 mt-0.5">
+                        Tell {companyName} what you'd like adjusted. They'll send a fresh quote.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="changes-message" className="text-xs font-medium text-stone-700">
+                          What would you like changed? *
+                        </label>
+                        <Textarea
+                          id="changes-message"
+                          value={changesMessage}
+                          onChange={(e) => setChangesMessage(e.target.value)}
+                          rows={4}
+                          placeholder='e.g. "Could you swap the chicken option for a vegetarian alternative? And see if we can drop guest count to 80."'
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="changes-event-date" className="text-xs font-medium text-stone-700">
+                            New event date (optional)
+                          </label>
+                          <Input
+                            id="changes-event-date"
+                            type="date"
+                            value={changesEventDate}
+                            onChange={(e) => setChangesEventDate(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="changes-guests" className="text-xs font-medium text-stone-700">
+                            New guest count (optional)
+                          </label>
+                          <Input
+                            id="changes-guests"
+                            type="number"
+                            min={0}
+                            value={changesGuestCount}
+                            onChange={(e) => setChangesGuestCount(e.target.value)}
+                            placeholder="e.g. 80"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="changes-menu" className="text-xs font-medium text-stone-700">
+                          Specific menu changes (optional)
+                        </label>
+                        <Input
+                          id="changes-menu"
+                          value={changesMenu}
+                          onChange={(e) => setChangesMenu(e.target.value)}
+                          placeholder="e.g. swap chicken for veg option"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="changes-name" className="text-xs font-medium text-stone-700">
+                          Your name (optional)
+                        </label>
+                        <Input
+                          id="changes-name"
+                          value={changesName}
+                          onChange={(e) => setChangesName(e.target.value)}
+                          placeholder={quote.client_name || "Your name"}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    {changesError && (
+                      <p className="text-xs text-rose-600">{changesError}</p>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button
+                        variant="outline"
+                        onClick={() => { setChangesOpen(false); setChangesError(null); }}
+                        disabled={changesSubmitting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSubmitChanges}
+                        disabled={changesSubmitting || changesMessage.trim().length < 10}
+                        className="bg-brand-primary hover:opacity-90 gap-1.5"
+                      >
+                        {changesSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+                        {changesSubmitting ? "Sending..." : "Send to caterer"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
           {/* COMPANY FOOTER */}
           {company && (company.email || company.phone || companyAddress) && (
