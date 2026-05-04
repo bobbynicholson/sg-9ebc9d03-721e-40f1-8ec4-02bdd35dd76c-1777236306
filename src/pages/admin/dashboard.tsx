@@ -18,6 +18,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashboard/DashboardDateRange";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 
 interface Stats {
@@ -559,6 +560,12 @@ function AdminDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Business Intelligence -- charts + insight cards. Lives at
+              the bottom of the dashboard, collapsible, persists state per
+              tenant. Owns its own data fetch (24-month window of orders +
+              quotes + leads, narrowed by the global region filter). */}
+          <BusinessIntelligence companyId={companyId} />
         </div>
       </div>
 
