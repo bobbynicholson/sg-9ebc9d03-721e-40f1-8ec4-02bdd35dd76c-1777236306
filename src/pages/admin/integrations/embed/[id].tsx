@@ -49,16 +49,18 @@ import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
 import { getTemplateMeta } from "@/lib/embed/templateCatalog";
 
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
-  { value: "text",     label: "Text" },
-  { value: "email",    label: "Email" },
-  { value: "phone",    label: "Phone" },
-  { value: "number",   label: "Number" },
-  { value: "date",     label: "Date" },
-  { value: "time",     label: "Time" },
-  { value: "textarea", label: "Long text" },
-  { value: "select",   label: "Dropdown" },
-  { value: "radio",    label: "Radio" },
-  { value: "checkbox", label: "Checkbox" },
+  { value: "text",       label: "Text" },
+  { value: "email",      label: "Email" },
+  { value: "phone",      label: "Phone" },
+  { value: "number",     label: "Number" },
+  { value: "date",       label: "Date" },
+  { value: "time",       label: "Time" },
+  { value: "textarea",   label: "Long text" },
+  { value: "select",     label: "Dropdown" },
+  { value: "radio",      label: "Radio (single choice)" },
+  { value: "checkbox",   label: "Checkbox (single)" },
+  { value: "checkboxes", label: "Checkbox group (multi)" },
+  { value: "tier",       label: "Pricing tier" },
 ];
 
 const MAP_NONE = "__none__";
@@ -323,6 +325,7 @@ export default function EmbedFormCustomiser() {
                       key={field.id + idx}
                       field={field}
                       otherFields={form.fields.filter((_, i) => i !== idx)}
+                      templateId={form.template_id}
                       isFirst={idx === 0}
                       isLast={idx === form.fields.length - 1}
                       onChange={(patch) => updateField(idx, patch)}
@@ -616,11 +619,12 @@ export default function EmbedFormCustomiser() {
 }
 
 function FieldEditor({
-  field, otherFields, isFirst, isLast,
+  field, otherFields, templateId, isFirst, isLast,
   onChange, onBlurSave, onMoveUp, onMoveDown, onRemove,
 }: {
   field: EmbedField;
   otherFields: EmbedField[];
+  templateId: string;
   isFirst: boolean;
   isLast: boolean;
   onChange: (patch: Partial<EmbedField>) => void;
@@ -630,7 +634,15 @@ function FieldEditor({
   onRemove: () => void;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const needsOptions = field.type === "select" || field.type === "radio";
+  // Single-pick options for select/radio; multi-pick for checkboxes.
+  const needsOptions =
+    field.type === "select" ||
+    field.type === "radio" ||
+    field.type === "checkboxes";
+  // detailed-multi-step puts fields onto numbered pages. We expose
+  // the page selector only there; other templates ignore the value.
+  const supportsSteps = templateId === "detailed-multi-step";
+  const fieldStep = (field as any).step;
 
   return (
     <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/50 space-y-2">
@@ -744,6 +756,32 @@ function FieldEditor({
                       disabled={!field.conditional?.showIfFieldId}
                     />
                   </div>
+                </div>
+              )}
+              {supportsSteps && (
+                <div>
+                  <Label className="text-[10px] uppercase tracking-wide text-slate-500">Step (multi-step forms)</Label>
+                  <Select
+                    value={typeof fieldStep === "number" ? String(fieldStep) : "auto"}
+                    onValueChange={(v) =>
+                      onChange({
+                        ...(v === "auto"
+                          ? ({ step: undefined } as any)
+                          : ({ step: Number(v) } as any)),
+                      } as any)
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Auto (group by field id)</SelectItem>
+                      <SelectItem value="0">Step 1 - Contact</SelectItem>
+                      <SelectItem value="1">Step 2 - Event</SelectItem>
+                      <SelectItem value="2">Step 3 - Preferences</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Pin this field to a specific page. "Auto" falls back to grouping by field id (name/email -> step 1, event_date/guests -> step 2, etc).
+                  </p>
                 </div>
               )}
               <div>

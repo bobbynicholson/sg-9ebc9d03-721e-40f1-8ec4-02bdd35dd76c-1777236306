@@ -238,30 +238,53 @@
   }
 
   // Common reset + brand-aware base styles every template extends.
+  // 2024-tier polish over the original 2021-baseline:
+  // softer drop-shadow on the form card, smoother focus-ring
+  // transitions, animated success icon, radio + checkbox group
+  // layouts (the customiser now exposes these field types).
   var baseCSS = [
     '*,*::before,*::after{box-sizing:border-box}',
     ':host{all:initial;display:block;font-family:var(--brand-font,inherit);color:var(--brand-text,#0F172A);font-size:16px;line-height:1.5}',
-    '.cms-form{background:var(--brand-bg,#fff);border-radius:var(--brand-radius,12px);color:var(--brand-text,#0F172A);font-family:var(--brand-font,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif)}',
+    '.cms-form{background:var(--brand-bg,#fff);border-radius:var(--brand-radius,16px);color:var(--brand-text,#0F172A);font-family:var(--brand-font,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif);box-shadow:0 1px 3px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.06)}',
     '.cms-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}',
     '.cms-label{font-size:14px;font-weight:600;color:var(--brand-text,#0F172A)}',
     '.cms-help{font-size:12px;color:#6B7280}',
-    '.cms-input,.cms-select,.cms-textarea{font:inherit;color:inherit;width:100%;padding:11px 13px;border:1px solid #D1D5DB;border-radius:calc(var(--brand-radius,12px) - 4px);background:#fff;transition:border-color .15s,box-shadow .15s;min-height:44px}',
+    '.cms-input,.cms-select,.cms-textarea{font:inherit;color:inherit;width:100%;padding:11px 13px;border:1px solid #D1D5DB;border-radius:calc(var(--brand-radius,12px) - 4px);background:#fff;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;min-height:44px}',
+    '.cms-input:hover,.cms-select:hover,.cms-textarea:hover{border-color:#9CA3AF}',
     '.cms-textarea{min-height:88px;resize:vertical}',
-    '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand-primary,#0F172A) 25%,transparent)}',
+    '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 22%,transparent)}',
+    '.cms-input[aria-invalid="true"],.cms-select[aria-invalid="true"],.cms-textarea[aria-invalid="true"]{border-color:#DC2626}',
+    '.cms-input[aria-invalid="true"]:focus,.cms-select[aria-invalid="true"]:focus,.cms-textarea[aria-invalid="true"]:focus{box-shadow:0 0 0 4px rgba(220,38,38,.18)}',
     '.cms-error{color:#B91C1C;font-size:13px;min-height:1em}',
-    '.cms-btn{font:inherit;cursor:pointer;border:none;border-radius:calc(var(--brand-radius,12px) - 2px);padding:13px 20px;font-weight:600;background:var(--brand-primary,#0F172A);color:#fff;min-height:48px;transition:transform .12s,filter .12s}',
-    '.cms-btn:hover{filter:brightness(1.08)}',
-    '.cms-btn:active{transform:translateY(1px)}',
-    '.cms-btn:disabled{opacity:.6;cursor:not-allowed}',
-    '.cms-btn-secondary{background:transparent;color:var(--brand-primary,#0F172A);border:1px solid var(--brand-primary,#0F172A)}',
+    '.cms-btn{font:inherit;cursor:pointer;border:none;border-radius:calc(var(--brand-radius,12px) - 2px);padding:13px 22px;font-weight:600;background:var(--brand-primary,#0F172A);color:#fff;min-height:48px;transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.08),0 4px 12px color-mix(in srgb,var(--brand-primary,#0F172A) 20%,transparent)}',
+    '.cms-btn:hover{filter:brightness(1.06);box-shadow:0 2px 4px rgba(15,23,42,.10),0 6px 16px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent)}',
+    '.cms-btn:active{transform:translateY(1px);filter:brightness(.96)}',
+    '.cms-btn:focus-visible{outline:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent),0 6px 16px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent)}',
+    '.cms-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}',
+    '.cms-btn-secondary{background:transparent;color:var(--brand-primary,#0F172A);border:1px solid var(--brand-primary,#0F172A);box-shadow:none}',
     '.cms-honeypot{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}',
-    '.cms-success{padding:24px;text-align:center}',
-    '.cms-success h3{margin:0 0 8px;font-size:20px}',
+    /* Polished success card with animated checkmark. */
+    '.cms-success{padding:32px 24px;text-align:center;animation:cmsSuccessIn .35s ease-out both}',
+    '.cms-success h3{margin:14px 0 8px;font-size:22px;font-weight:700}',
+    '.cms-success p{margin:0;color:#475569;font-size:15px}',
+    '.cms-success-check{display:inline-flex;width:56px;height:56px;border-radius:50%;background:color-mix(in srgb,var(--brand-primary,#10B981) 14%,#fff);align-items:center;justify-content:center;margin-bottom:8px;animation:cmsSuccessPulse .55s ease-out both}',
+    '.cms-success-check svg{width:28px;height:28px;stroke:var(--brand-primary,#10B981);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:48;animation:cmsCheckDraw .45s .12s ease-out forwards}',
+    '@keyframes cmsSuccessIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
+    '@keyframes cmsSuccessPulse{0%{transform:scale(.4)}60%{transform:scale(1.06)}100%{transform:scale(1)}}',
+    '@keyframes cmsCheckDraw{to{stroke-dashoffset:0}}',
     '.cms-alert{background:#FEF2F2;color:#991B1B;padding:10px 12px;border-radius:8px;font-size:14px;margin-bottom:12px}',
     '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}',
     '@media(max-width:480px){.cms-row{grid-template-columns:1fr}}',
     '.cms-brandbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}',
-    '.cms-brandbar img{max-height:28px;max-width:120px;width:auto;height:auto}',
+    '.cms-brandbar img{max-height:32px;max-width:140px;width:auto;height:auto}',
+    /* Radio + checkbox group layouts (used by buildStandardInput). */
+    '.cms-radio-group,.cms-checkbox-group{display:flex;flex-direction:column;gap:8px}',
+    '.cms-radio-option,.cms-checkbox-option{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #E5E7EB;border-radius:calc(var(--brand-radius,12px) - 4px);cursor:pointer;transition:border-color .15s,background-color .15s}',
+    '.cms-radio-option:hover,.cms-checkbox-option:hover{border-color:var(--brand-primary,#9CA3AF);background:color-mix(in srgb,var(--brand-primary,#0F172A) 4%,#fff)}',
+    '.cms-radio-option input,.cms-checkbox-option input{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px;flex-shrink:0}',
+    '.cms-radio-label,.cms-checkbox-label{font-size:14px;color:var(--brand-text,#0F172A)}',
+    /* Standalone single checkbox -- align with adjacent label */
+    '.cms-checkbox{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px}',
     '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}'
   ].join('');
 
@@ -324,13 +347,35 @@
       entries.forEach(function (e) {
         var inp = e.input;
         if (!inp) { p[e.field.id] = e.value; return; }
-        if (e.field.type === 'checkbox') p[e.field.id] = inp.checked;
-        else if (e.field.type === 'multiselect' && inp.selectedOptions) {
-          p[e.field.id] = Array.from(inp.selectedOptions).map(function (o) { return o.value; });
-        } else if (inp.type === 'radio') {
+        // Single-pick radio group (rendered by buildStandardInput as
+        // a wrapping div). buildStandardInput returns the wrapper div
+        // for radio + checkboxes types so we read child <input> states.
+        if (e.field.type === 'radio') {
+          var picked = inp.querySelector
+            ? inp.querySelector('input[type="radio"]:checked')
+            : null;
+          p[e.field.id] = picked ? picked.value : '';
+          return;
+        }
+        if (e.field.type === 'checkboxes' || e.field.type === 'multiselect') {
+          if (inp.selectedOptions) {
+            // Legacy <select multiple> path.
+            p[e.field.id] = Array.from(inp.selectedOptions).map(function (o) { return o.value; });
+          } else if (inp.querySelectorAll) {
+            var picks = inp.querySelectorAll('input[type="checkbox"]:checked');
+            p[e.field.id] = Array.prototype.map.call(picks, function (c) { return c.value; });
+          } else {
+            p[e.field.id] = [];
+          }
+          return;
+        }
+        if (e.field.type === 'checkbox') { p[e.field.id] = inp.checked; return; }
+        if (inp.type === 'radio') {
           var checked = form.querySelector('input[name="' + inp.name + '"]:checked');
           p[e.field.id] = checked ? checked.value : '';
-        } else { p[e.field.id] = inp.value; }
+          return;
+        }
+        p[e.field.id] = inp.value;
       });
       if (opts.extraValues) {
         var extras = opts.extraValues();
@@ -403,12 +448,16 @@
     return { syncVisibility: syncVisibility, validate: validate, readPayload: readPayload, getVisible: function () { return visible; } };
   }
 
-  // Standard input builder used by most templates.
+  // Standard input builder used by most templates. Covers every
+  // EmbedFieldType the customiser exposes, plus a couple of legacy
+  // aliases (tel, guests, multiselect) carried in older configs.
   function buildStandardInput(f, id) {
-    if (f.type === 'select') {
+    if (f.type === 'select' || f.type === 'tier') {
+      // 'tier' renders the same as 'select' visually -- pricing-aware
+      // templates listen for change events and call estimate().
       var sel = el('select', { class: 'cms-select', id: id, name: f.id });
       (f.options || []).forEach(function (o) {
-        sel.appendChild(el('option', { value: o.value, text: o.label }));
+        sel.appendChild(el('option', { value: o.value, text: o.label || o.value }));
       });
       return sel;
     }
@@ -417,6 +466,42 @@
     }
     if (f.type === 'checkbox') {
       return el('input', { class: 'cms-checkbox', type: 'checkbox', id: id, name: f.id });
+    }
+    if (f.type === 'radio') {
+      // A vertical group of labelled radios sharing the field's name.
+      var radioWrap = el('div', { class: 'cms-radio-group', role: 'radiogroup' });
+      (f.options || []).forEach(function (o, i) {
+        var optId = id + '__' + i;
+        var label = el('label', { class: 'cms-radio-option' });
+        var input = el('input', { type: 'radio', id: optId, name: f.id, value: o.value });
+        label.appendChild(input);
+        label.appendChild(el('span', { class: 'cms-radio-label', text: o.label || o.value }));
+        radioWrap.appendChild(label);
+      });
+      return radioWrap;
+    }
+    if (f.type === 'checkboxes' || f.type === 'multiselect') {
+      // Multi-pick checkbox group. The submit collector reads
+      // querySelectorAll(':checked') on these per group.
+      var cbWrap = el('div', { class: 'cms-checkbox-group', role: 'group' });
+      (f.options || []).forEach(function (o, i) {
+        var optId = id + '__' + i;
+        var label = el('label', { class: 'cms-checkbox-option' });
+        var input = el('input', { type: 'checkbox', id: optId, name: f.id, value: o.value });
+        label.appendChild(input);
+        label.appendChild(el('span', { class: 'cms-checkbox-label', text: o.label || o.value }));
+        cbWrap.appendChild(label);
+      });
+      return cbWrap;
+    }
+    if (f.type === 'time') {
+      return el('input', {
+        class: 'cms-input',
+        type: 'time',
+        id: id,
+        name: f.id,
+        placeholder: f.placeholder || ''
+      });
     }
     var typeMap = { phone: 'tel', guests: 'number' };
     return el('input', {

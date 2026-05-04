@@ -236,10 +236,18 @@
     helpers.injectStyles(shadow, '');
     helpers.applyTheme(shadow, config.brand, config.theme);
     var msg = (response && response.message) || config.successMessage || 'Thanks. We will be in touch shortly.';
-    var wrap = helpers.el('div', { class: 'cms-form cms-success', role: 'status', 'aria-live': 'polite' }, [
-      helpers.el('h3', { text: 'Thank you' }),
-      helpers.el('p', { text: msg })
-    ]);
+
+    // Animated check icon -- the .cms-success-check + .cms-success-check svg
+    // CSS in helpers.js handles the pulse-in + line-draw animation.
+    var checkWrap = document.createElement('span');
+    checkWrap.className = 'cms-success-check';
+    checkWrap.setAttribute('aria-hidden', 'true');
+    checkWrap.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="5,12 10,17 19,7"/></svg>';
+
+    var wrap = helpers.el('div', { class: 'cms-form cms-success', role: 'status', 'aria-live': 'polite' });
+    wrap.appendChild(checkWrap);
+    wrap.appendChild(helpers.el('h3', { text: 'Thank you' }));
+    wrap.appendChild(helpers.el('p', { text: msg }));
     shadow.appendChild(wrap);
     helpers.announce(shadow, 'Form submitted successfully.');
   }
