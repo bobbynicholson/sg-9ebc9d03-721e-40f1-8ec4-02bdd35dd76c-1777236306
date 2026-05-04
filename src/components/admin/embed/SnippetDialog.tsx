@@ -6,7 +6,7 @@
  * opens the demo URL in a new tab.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -55,10 +55,15 @@ function resolveLoaderHost(loaderHost: string | undefined): string {
   return "https://cateringms.com";
 }
 
-function buildSnippet(token: string, slug: string, host: string) {
+function buildSnippet(token: string, slug: string, host: string, integrity: string | null) {
+  // SRI attribute locks the loaded script to a specific hash. If the
+  // CDN ever serves a tampered loader.js, the host browser refuses to
+  // execute it. crossorigin="anonymous" is required for the integrity
+  // check to apply to a same-origin response.
+  const sriAttrs = integrity ? ` integrity="${integrity}" crossorigin="anonymous"` : "";
   return `<!-- ${slug}, powered by CateringMS -->
 <div data-embed-form data-token="${token}" data-slug="${slug}"></div>
-<script async src="${host}/embed/loader.js"></script>`;
+<script async src="${host}/embed/loader.js"${sriAttrs}></script>`;
 }
 
 export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, loaderHost, onTokenRotated }: Props) {
@@ -77,10 +82,31 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
 
   const host = useMemo(() => resolveLoaderHost(loaderHost), [loaderHost]);
 
+  // Fetch the SRI integrity for /embed/loader.js once when the dialog
+  // opens. If the endpoint isn't reachable (older deploy without it,
+  // network blip), the snippet just omits the integrity attr and
+  // remains functional -- defence in depth, not a hard requirement.
+  const [integrity, setIntegrity] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch("/api/admin/embed/loader-integrity");
+        if (!resp.ok) return;
+        const json = await resp.json();
+        if (!cancelled && json?.integrity) setIntegrity(json.integrity);
+      } catch {
+        // Silent: the snippet still works without SRI.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
   const snippet = useMemo(() => {
     if (!form || !currentToken) return "";
-    return buildSnippet(currentToken, form.slug, host);
-  }, [form, currentToken, host]);
+    return buildSnippet(currentToken, form.slug, host, integrity);
+  }, [form, currentToken, host, integrity]);
 
   // Preview link includes &template= so the demo page loads the same
   // template the operator is about to embed (helpers.js previously
