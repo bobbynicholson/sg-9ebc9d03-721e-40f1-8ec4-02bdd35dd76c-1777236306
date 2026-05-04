@@ -240,6 +240,20 @@ export default function PublicQuotePage() {
   const eventDate = quote.event_date
     ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  // Optional start time. Stored as HH:MM on the quote; render as
+  // 5pm / 5:30pm so the client sees a friendly version under the
+  // event date.
+  const eventTime = (() => {
+    const raw = (quote as any).event_time as string | null | undefined;
+    if (!raw) return null;
+    const [hStr, mStr] = String(raw).split(":");
+    const h = Number(hStr);
+    const m = Number(mStr || 0);
+    if (!Number.isFinite(h)) return null;
+    const period = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
+  })();
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -349,7 +363,9 @@ export default function PublicQuotePage() {
                   <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
                     <Calendar className="w-3 h-3" /> Event date
                   </p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{eventDate}</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">
+                    {eventDate}{eventTime ? ` -- ${eventTime} start` : ""}
+                  </p>
                 </div>
               )}
               {quote.guest_count != null && (
@@ -445,6 +461,31 @@ export default function PublicQuotePage() {
           {/* TOTALS -- spit-braai accent bar */}
           <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 space-y-2">
+              {/* Show items + delivery as separate lines when there's
+                  a delivery fee, so the client sees how the subtotal
+                  breaks down. quote.subtotal is items_net + delivery,
+                  so items_net = subtotal - delivery_fee. */}
+              {Number((quote as any).delivery_fee || 0) > 0 ? (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-stone-600">Items</span>
+                    <span className="text-stone-900 tabular-nums">
+                      {fmtMoney.format(Number(quote.subtotal || 0) - Number((quote as any).delivery_fee || 0))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-stone-600">
+                      Delivery
+                      {(quote as any).delivery_distance_km
+                        ? ` (${Number((quote as any).delivery_distance_km).toFixed(1)} km)`
+                        : ""}
+                    </span>
+                    <span className="text-stone-900 tabular-nums">
+                      {fmtMoney.format(Number((quote as any).delivery_fee))}
+                    </span>
+                  </div>
+                </>
+              ) : null}
               <div className="flex justify-between text-sm">
                 <span className="text-stone-600">Subtotal</span>
                 <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.subtotal || 0)}</span>

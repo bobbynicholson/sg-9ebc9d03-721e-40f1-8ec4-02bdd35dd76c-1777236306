@@ -669,13 +669,19 @@ function SettingsPage() {
                   <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                     <Clock className="w-4 h-4 md:w-5 md:h-5" />
                     Automation Rules
-                    <InfoTooltip content={"Set how often follow-ups, reminders, and review requests go out.\n\nThe live email engine needs to be connected before any of this actually fires."} />
+                    <InfoTooltip content={"How long the system waits before nudging clients with follow-ups, reminders and review requests after a quote is sent or an event ends.\n\nValues you set here are saved against your company. The email engine reads them when scheduling each automated send."} />
                   </CardTitle>
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                    Heads up: these timings are stored against your company but the live cron-driven sender is still on the engineering backlog. Set them now -- the moment the sender ships, your timings are already live.
+                  </p>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">First Follow-up (days)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        First Follow-up (days)
+                        <InfoTooltip content={"How many days after a quote is sent (and not yet accepted) the first follow-up email goes out.\n\nLeave at 5 to nudge gently a working week later. Lower it for shorter sales cycles."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.automation.autoFollowUpDays}
@@ -685,7 +691,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Second Follow-up (days)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Second Follow-up (days)
+                        <InfoTooltip content={"How many days after the quote was sent the second (final) follow-up goes out.\n\nThis is the email that can carry a small discount to nudge a stalled quote across the line."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.automation.secondFollowUpDays}
@@ -697,7 +706,10 @@ function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Follow-up Discount (%)</Label>
+                    <Label className="text-sm md:text-base flex items-center gap-1">
+                      Follow-up Discount (%)
+                      <InfoTooltip content={"Discount baked into the second follow-up email. The template substitutes {{discount}} with this value, so editing it here updates every queued send.\n\nSet to 0 to disable the discount and keep the second follow-up as a plain reminder."} />
+                    </Label>
                     <Input
                       type="number"
                       value={settings.automation.autoDiscountPercent}
@@ -705,11 +717,14 @@ function SettingsPage() {
                         updateSetting("automation", "autoDiscountPercent", parseInt(e.target.value))
                       }
                     />
-                    <p className="text-xs md:text-sm text-slate-600">Discount offered in second follow-up email</p>
+                    <p className="text-xs md:text-sm text-slate-600">Discount offered in second follow-up email.</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Event Reminder Days</Label>
+                    <Label className="text-sm md:text-base flex items-center gap-1">
+                      Event Reminder Days
+                      <InfoTooltip content={"Comma-separated days BEFORE the event when reminder emails fire to the client.\n\nDefault 14, 7, 3, 1 means: a fortnight out, a week out, three days out and the day before.\n\nLeave blank to disable client-facing reminders."} />
+                    </Label>
                     <Input
                       value={settings.automation.reminderDays.join(", ")}
                       onChange={(e) =>
@@ -720,11 +735,14 @@ function SettingsPage() {
                         )
                       }
                     />
-                    <p className="text-xs md:text-sm text-slate-600">Comma-separated (e.g., 14, 7, 3, 1)</p>
+                    <p className="text-xs md:text-sm text-slate-600">Comma-separated (e.g., 14, 7, 3, 1).</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Review Request (days after)</Label>
+                    <Label className="text-sm md:text-base flex items-center gap-1">
+                      Review Request (days after)
+                      <InfoTooltip content={"How many days AFTER the event date the review-request email goes out.\n\n1 = next morning, while the experience is fresh. Set higher if your post-event communications run later."} />
+                    </Label>
                     <Input
                       type="number"
                       value={settings.automation.reviewRequestDays}
@@ -735,7 +753,10 @@ function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm md:text-base">Complaint Response SLA (hours)</Label>
+                    <Label className="text-sm md:text-base flex items-center gap-1">
+                      Complaint Response SLA (hours)
+                      <InfoTooltip content={"Internal target for how quickly the team responds to a customer complaint.\n\nWhen breached, the complaint surfaces with an amber 'overdue' badge on the dashboard so it stops slipping. Does not auto-reply."} />
+                    </Label>
                     <Input
                       type="number"
                       value={settings.automation.complaintResponseHours}
@@ -760,7 +781,10 @@ function SettingsPage() {
                 <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Weekend Premium (%)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Weekend Premium (%)
+                        <InfoTooltip content={"Extra percentage added to the menu subtotal when the event date falls on a Saturday or Sunday.\n\n0 disables. 10 means a R5,000 base order becomes R5,500 on a Saturday."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.weekendPremium}
@@ -770,7 +794,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Last Minute Surcharge (%)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Last Minute Surcharge (%)
+                        <InfoTooltip content={"Extra percentage when the event is within 7 days of the quote being created.\n\nCovers the rush cost of pulling stock and staff at short notice. 0 disables."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.lastMinuteSurcharge}
@@ -783,7 +810,10 @@ function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Early Bird Discount (%)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Early Bird Discount (%)
+                        <InfoTooltip content={"Discount applied when the event is more than 60 days out. Rewards clients who book early so you can lock in suppliers and staffing.\n\n0 disables."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.earlyBirdDiscount}
@@ -793,7 +823,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Bulk Discount Threshold</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Bulk Discount Threshold (guests)
+                        <InfoTooltip content={"Number of guests at which the bulk discount kicks in.\n\nMeasured against the quote's guest_count, not item totals. 100 means events of 100+ guests get the bulk-discount %."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.bulkDiscountThreshold}
@@ -806,7 +839,10 @@ function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Bulk Discount (%)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Bulk Discount (%)
+                        <InfoTooltip content={"Discount applied when the guest count meets or exceeds the threshold above.\n\nReflects the lower per-head cost of large events. Stacks AFTER weekend / last-minute uplifts."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.bulkDiscountPercent}
@@ -816,7 +852,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Minimum Order Value (R)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Minimum Order Value (R)
+                        <InfoTooltip content={"Quotes whose subtotal falls below this number get a warning at save time so you can decline or upsell.\n\nDoes not auto-block the save -- the quote builder is allowed to go below for special cases."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.pricing.minimumOrderValue}
@@ -842,7 +881,10 @@ function SettingsPage() {
                 <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Equipment Cleaning (hours)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Equipment Cleaning (hours)
+                        <InfoTooltip content={"How many hours of cleaning time the dispatcher reserves between an event ending and the equipment being available again.\n\nKeeps a piece of equipment from being double-booked across two events that finish + start back-to-back."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.operations.equipmentCleaningHours}
@@ -852,7 +894,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Kitchen Prep Lead Time (hours)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Kitchen Prep Lead Time (hours)
+                        <InfoTooltip content={"How many hours before the event starts the kitchen needs to begin prep.\n\nDrives the prep-task scheduler -- a 6 hour lead means a 17:00 event has a 11:00 prep start."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.operations.kitchenPrepHours}
@@ -865,7 +910,10 @@ function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Delivery Buffer (minutes)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Delivery Buffer (minutes)
+                        <InfoTooltip content={"Minutes the driver should arrive at the venue BEFORE the event start time, so setup is done by the time guests arrive.\n\n45 means the driver leaves the kitchen with 45 min spare on top of the Google-Maps route time."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.operations.deliveryBufferMinutes}
@@ -875,7 +923,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Max Concurrent Events</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Max Concurrent Events
+                        <InfoTooltip content={"Hard cap on the number of events your team will accept on the same day.\n\nQuote builder warns when the cap would be exceeded so you don't overbook your kitchen capacity."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.operations.maxConcurrentEvents}
@@ -888,7 +939,10 @@ function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Driver Service Radius (km)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Driver Service Radius (km)
+                        <InfoTooltip content={"How far from the kitchen / HQ you're willing to deliver.\n\nQuotes outside this radius surface a warning at save time. Doesn't block manual override -- you can still take a one-off long-distance booking."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.operations.driverRadius}
@@ -898,7 +952,10 @@ function SettingsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm md:text-base">Delivery Cost Per Kilometer (R)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Delivery Cost Per Kilometer (R)
+                        <InfoTooltip content={"Rand per kilometre used by the quote builder to auto-calculate the delivery fee from kitchen to venue.\n\nThe operator can manually override the fee on the quote -- this is just the default rate."} />
+                      </Label>
                       <Input
                         type="number"
                         step="0.50"
@@ -907,7 +964,7 @@ function SettingsPage() {
                           updateSetting("operations", "deliveryCostPerKm", parseFloat(e.target.value))
                         }
                       />
-                      <p className="text-xs text-slate-600">This rate will be used to automatically calculate delivery fees in quotes</p>
+                      <p className="text-xs text-slate-600">This rate will be used to automatically calculate delivery fees in quotes.</p>
                     </div>
                   </div>
                 </CardContent>
@@ -938,7 +995,10 @@ function SettingsPage() {
                 <CardContent className="space-y-4 px-4 md:px-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm md:text-base">Currency</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        Currency
+                        <InfoTooltip content={"The currency every quote, invoice and refund will be issued in. Default ZAR for South African operators.\n\nAll prices in your menu, equipment list and quotes are interpreted in this currency."} />
+                      </Label>
                       <Select
                         value={settings.financial.currency}
                         onValueChange={(value) => updateSetting("financial", "currency", value)}
@@ -955,7 +1015,10 @@ function SettingsPage() {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-sm md:text-base">VAT/Tax Rate (%)</Label>
+                      <Label className="text-sm md:text-base flex items-center gap-1">
+                        VAT/Tax Rate (%)
+                        <InfoTooltip content={"VAT or sales tax percentage added to the subtotal on every quote and invoice.\n\nFor SA VAT-registered operators this is 15. Set to 0 if you're not VAT-registered -- the public quote will not show a VAT line."} />
+                      </Label>
                       <Input
                         type="number"
                         value={settings.financial.taxRate}
@@ -977,7 +1040,10 @@ function SettingsPage() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-sm md:text-base">Required Deposit (%)</Label>
+                        <Label className="text-sm md:text-base flex items-center gap-1">
+                          Required Deposit (%)
+                          <InfoTooltip content={"How much of the total the client must pay to confirm a booking.\n\nDeposit invoice is generated automatically the moment the quote is accepted. The remaining balance is invoiced separately closer to the event."} />
+                        </Label>
                         <Input
                           type="number"
                           value={settings.financial.depositPercent}
@@ -987,11 +1053,14 @@ function SettingsPage() {
                           min="10"
                           max="100"
                         />
-                        <p className="text-xs text-slate-600 mt-1">Percentage of total to confirm booking (10-100%)</p>
+                        <p className="text-xs text-slate-600 mt-1">Percentage of total to confirm booking (10-100%).</p>
                       </div>
-                      
+
                       <div>
-                        <Label className="text-sm md:text-base">Balance Due Days Before Event</Label>
+                        <Label className="text-sm md:text-base flex items-center gap-1">
+                          Balance Due Days Before Event
+                          <InfoTooltip content={"How many days before the event the remaining balance invoice goes out.\n\n7 means the balance reminder fires a week before. The system also sends an overdue nudge if it's not paid by event day."} />
+                        </Label>
                         <Input
                           type="number"
                           value={settings.financial.balanceDueDays || 7}
@@ -1001,11 +1070,14 @@ function SettingsPage() {
                           min="1"
                           max="30"
                         />
-                        <p className="text-xs text-slate-600 mt-1">When clients must pay remaining balance</p>
+                        <p className="text-xs text-slate-600 mt-1">When clients must pay remaining balance.</p>
                       </div>
 
                       <div>
-                        <Label className="text-sm md:text-base">Final Order Changes (days before event)</Label>
+                        <Label className="text-sm md:text-base flex items-center gap-1">
+                          Final Order Changes (days before event)
+                          <InfoTooltip content={"The last day on which clients can amend guest count, menu items or venue address from their portal.\n\nAfter this point, edits are admin-only -- protects you from same-week swaps that bust kitchen prep."} />
+                        </Label>
                         <Input
                           type="number"
                           value={settings.financial.finalOrderChangeDays || 7}
@@ -1015,11 +1087,14 @@ function SettingsPage() {
                           min="1"
                           max="30"
                         />
-                        <p className="text-xs text-slate-600 mt-1">Last day clients can modify guest count/address</p>
+                        <p className="text-xs text-slate-600 mt-1">Last day clients can modify guest count/address.</p>
                       </div>
 
                       <div>
-                        <Label className="text-sm md:text-base">Cancellation Fee (%)</Label>
+                        <Label className="text-sm md:text-base flex items-center gap-1">
+                          Cancellation Fee (%)
+                          <InfoTooltip content={"Fallback cancellation fee when no tier on the Cancellation tab applies.\n\nThe Cancellation tab lets you set proper notice-based tiers (e.g. 100% within 7 days, 50% within 30 days). This is the catch-all if no tier matches."} />
+                        </Label>
                         <Input
                           type="number"
                           value={settings.financial.cancellationFeePercent}
@@ -1027,7 +1102,7 @@ function SettingsPage() {
                             updateSetting("financial", "cancellationFeePercent", parseInt(e.target.value))
                           }
                         />
-                        <p className="text-xs text-slate-600 mt-1">Fee charged for cancellations</p>
+                        <p className="text-xs text-slate-600 mt-1">Fee charged for cancellations.</p>
                       </div>
                     </div>
 
@@ -1043,7 +1118,10 @@ function SettingsPage() {
                   </div>
 
                   <div className="space-y-2 border-t pt-4">
-                    <Label className="text-sm md:text-base">Refund Processing Time (days)</Label>
+                    <Label className="text-sm md:text-base flex items-center gap-1">
+                      Refund Processing Time (days)
+                      <InfoTooltip content={"Estimated turnaround time you communicate to clients on a refund.\n\nDoesn't gate the refund itself -- it just sets expectations on the client-facing email and the refunds dashboard. 7 = 'allow up to 7 working days for the refund to reflect'."} />
+                    </Label>
                     <Input
                       type="number"
                       value={settings.financial.refundProcessDays}

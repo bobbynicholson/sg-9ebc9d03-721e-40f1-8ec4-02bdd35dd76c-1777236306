@@ -460,6 +460,9 @@ function NewQuotePage() {
     setEmail(q.client_email || "");
     if (q.client_phone) setPhone(q.client_phone);
     if (q.event_date) setEventDate(q.event_date);
+    // event_time on the quote is HH:MM (or HH:MM:SS); the <input
+    // type="time"> only accepts HH:MM so trim seconds if present.
+    if (q.event_time) setEventTime(String(q.event_time).slice(0, 5));
     if (q.quote_name) setEventName(q.quote_name);
     if (typeof q.guest_count === "number") setGuestCount(q.guest_count);
     if (q.venue_address) setVenueAddress(q.venue_address);
@@ -467,6 +470,24 @@ function NewQuotePage() {
     if (q.venue_lng) setVenueLng(safeNum(q.venue_lng));
     if (q.valid_until) setValidUntil(q.valid_until);
     if (q.notes) setInternalNotes(q.notes);
+    // Restore the delivery fee state. We keep three pieces of state
+    // (distance, rate, fee) and a flag for "operator has manually
+    // overridden the auto-calc". On reopen we trust the saved fee
+    // and turn the override flag on so the auto-recalc effect doesn't
+    // silently clobber what the operator (or the client) saw on the
+    // saved quote.
+    if (typeof q.delivery_distance_km === "number") setDeliveryDistance(q.delivery_distance_km);
+    if (typeof q.delivery_rate_per_km === "number") setDeliveryCostPerKm(q.delivery_rate_per_km);
+    if (typeof q.delivery_fee === "number") {
+      setDeliveryFee(q.delivery_fee);
+      // If the saved fee doesn't match distance * rate, treat it as
+      // an explicit override -- otherwise let the auto-calc keep
+      // owning it as distances or rates change.
+      const dist = Number(q.delivery_distance_km) || 0;
+      const rate = Number(q.delivery_rate_per_km) || 0;
+      const computed = dist * rate;
+      if (q.delivery_fee !== computed) setDeliveryFeeOverridden(true);
+    }
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
         q.menu_items.map((m: any, i: number) => ({
@@ -816,12 +837,15 @@ function NewQuotePage() {
       client_phone: phone || null,
       quote_name: eventName || "Quote",
       event_date: eventDate || null,
+      event_time: eventTime || null,
       guest_count: guestCount || null,
       venue_address: venueAddress || null,
       venue_lat: venueLat,
       venue_lng: venueLng,
       menu_items: menuJson,
       equipment_items: equipJson,
+      delivery_distance_km: deliveryDistance || null,
+      delivery_rate_per_km: deliveryCostPerKm || null,
       delivery_fee: deliveryFee,
       subtotal: computed.subtotal,
       discount_amount: computed.pctDiscount + computed.flatDiscount,
@@ -840,7 +864,8 @@ function NewQuotePage() {
     } as any;
   }, [
     menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email, phone,
-    selectedKitchen, eventName, eventDate, venueAddress, venueLat, venueLng, deliveryFee, depositPercent,
+    selectedKitchen, eventName, eventDate, eventTime, venueAddress, venueLat, venueLng,
+    deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
   ]);

@@ -359,7 +359,16 @@ export const quoteService = {
       region_id: quote.region_id,
       status: "confirmed",
       order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
-      delivery_distance_km: null,
+      // Carry the operator's saved distance forward so the order
+      // shows the same delivery breakdown the client agreed to. Was
+      // previously hard-cleared to null on conversion which wiped
+      // the work the operator did on the quote.
+      delivery_distance_km: (quote as any).delivery_distance_km ?? null,
+      delivery_rate_per_km: (quote as any).delivery_rate_per_km ?? null,
+      // event_time on the quote (added in 20260504-quotes-event-time
+      // migration) maps 1:1 to orders.event_time so the calendar +
+      // kitchen schedule see the agreed start time.
+      event_time: (quote as any).event_time ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
       whatsapp_notifications_sent: [],

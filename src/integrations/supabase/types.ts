@@ -6483,11 +6483,14 @@ export type Database = {
           converted_to_order_id: string | null
           created_at: string | null
           deleted_at: string | null
+          delivery_distance_km: number | null
           delivery_fee: number
+          delivery_rate_per_km: number | null
           deposit_percentage: number | null
           discount_amount: number | null
           equipment_items: Json | null
           event_date: string | null
+          event_time: string | null
           external_source: string | null
           guest_count: number | null
           id: string
@@ -6530,11 +6533,14 @@ export type Database = {
           converted_to_order_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          delivery_distance_km?: number | null
           delivery_fee?: number
+          delivery_rate_per_km?: number | null
           deposit_percentage?: number | null
           discount_amount?: number | null
           equipment_items?: Json | null
           event_date?: string | null
+          event_time?: string | null
           external_source?: string | null
           guest_count?: number | null
           id?: string
@@ -6577,11 +6583,14 @@ export type Database = {
           converted_to_order_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          delivery_distance_km?: number | null
           delivery_fee?: number
+          delivery_rate_per_km?: number | null
           deposit_percentage?: number | null
           discount_amount?: number | null
           equipment_items?: Json | null
           event_date?: string | null
+          event_time?: string | null
           external_source?: string | null
           guest_count?: number | null
           id?: string

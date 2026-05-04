@@ -436,6 +436,9 @@ export default function AdminQuoteDetail() {
                         <p className="text-xs text-slate-500 mb-1">Event Date</p>
                         <p className="text-slate-900 font-medium">
                           {quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "—"}
+                          {(quote as any).event_time
+                            ? ` · ${String((quote as any).event_time).slice(0, 5)} start`
+                            : ""}
                         </p>
                       </div>
                     </div>
