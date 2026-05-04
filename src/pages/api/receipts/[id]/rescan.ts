@@ -195,7 +195,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // drift on the slip doesn't break the lookup. Only applies when
     // the receipt has a vendor; pre-vendor extractions skip this step.
     const vendorNorm = normaliseForMemory(receipt.vendor || extraction.supplier_name || "");
-    let memoryByDesc = new Map<string, { inventory_item_id: string | null; suggested_rule_id: string | null; unit_of_measure: string | null }>();
+    const memoryByDesc = new Map<string, { inventory_item_id: string | null; suggested_rule_id: string | null; unit_of_measure: string | null }>();
     if (vendorNorm) {
       const { data: memoryRows } = await supabase
         .from("purchase_line_memory")

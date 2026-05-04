@@ -634,7 +634,7 @@ export async function extractReceiptViaAI(args: {
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string }> {
   const compressed = await compressReceiptImage(args.imageBase64, args.imageMime);
 
-  let result = await callClaudeForReceipt({
+  const result = await callClaudeForReceipt({
     imageBase64: compressed.base64,
     imageMime: compressed.mime,
     taxRules: args.taxRules,
