@@ -454,11 +454,26 @@ function ProfileSettingsPage() {
 
       <PortalLayout maxWidth="4xl">
         <div className="space-y-6">
-          {/* Header */}
+          {/* Header -- matches the admin page convention: icon in a
+              brand-coloured rounded square sat next to the title +
+              subtitle. Uses the standard admin orange so it sits in
+              the same family as Staff & Rates, Calendar, Inventory
+              etc. without bringing in tenant-brand colours (which
+              live on the company profile page itself, not in the
+              user's own account-level settings). */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Account Settings</h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">Manage your personal information and preferences</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <User className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
+                  Account settings
+                </h1>
+                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 mt-1">
+                  Manage your personal information and preferences.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -647,7 +662,7 @@ function ProfileSettingsPage() {
                     <Button
                       onClick={handleSave}
                       disabled={loading}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-orange-600 hover:bg-orange-700"
                     >
                       {loading ? (
                         <>
@@ -734,7 +749,7 @@ function ProfileSettingsPage() {
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <Button onClick={handlePreferencesUpdate} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handlePreferencesUpdate} className="bg-orange-600 hover:bg-orange-700">
                       <Save className="w-4 h-4 mr-2" />
                       Save Preferences
                     </Button>
@@ -849,7 +864,7 @@ function ProfileSettingsPage() {
                   <Button
                     onClick={handlePasswordUpdate}
                     disabled={passwordLoading}
-                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                    className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700"
                   >
                     {passwordLoading ? (
                       <>
@@ -970,7 +985,7 @@ function ProfileSettingsPage() {
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <Button onClick={handleNotificationPrefsUpdate} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handleNotificationPrefsUpdate} className="bg-orange-600 hover:bg-orange-700">
                       <Save className="w-4 h-4 mr-2" />
                       Save Notification Preferences
                     </Button>
@@ -1049,7 +1064,7 @@ function ProfileSettingsPage() {
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <Button onClick={handlePrivacySettingsUpdate} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={handlePrivacySettingsUpdate} className="bg-orange-600 hover:bg-orange-700">
                       <Save className="w-4 h-4 mr-2" />
                       Save Privacy Settings
                     </Button>
