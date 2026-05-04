@@ -124,17 +124,34 @@ export function NotificationBell() {
   const handleViewAll = (e: React.MouseEvent) => {
     e.stopPropagation();
     setOpen(false);
-    
-    // Route to appropriate notifications page based on role
-    if (activeRole === "admin" || activeRole === "super_admin") {
+
+    // Route to the right notifications page based on the actual
+    // user_role enum values, not invented short forms. Previously
+    // every admin variant except literal 'admin' (e.g. company_admin,
+    // region_admin, sales_admin) and every team-portal staff role
+    // (kitchen_staff, shopping_staff, cleaning_staff) fell through
+    // to the client-portal default -- which is why Bobby got bounced
+    // to /client-portal/notifications when he clicked View all from
+    // /admin/quotes. Match the canonical enum values:
+    //   super_admin / company_admin / admin / region_admin / sales_admin → /admin
+    //   kitchen_staff → /team-portal/kitchen
+    //   shopping_staff → /team-portal/shopping
+    //   cleaning_staff → /team-portal/cleaning
+    //   driver        → /team-portal/driver
+    //   anything else (client, undefined) → /client-portal
+    const role = activeRole as string | null | undefined;
+    const ADMIN_ROLES = new Set([
+      "super_admin", "company_admin", "admin", "region_admin", "sales_admin",
+    ]);
+    if (role && ADMIN_ROLES.has(role)) {
       router.push("/admin/notifications");
-    } else if (activeRole === "driver") {
+    } else if (role === "driver") {
       router.push("/team-portal/driver/notifications");
-    } else if (activeRole === "kitchen") {
+    } else if (role === "kitchen_staff") {
       router.push("/team-portal/kitchen/notifications");
-    } else if (activeRole === "shopping") {
+    } else if (role === "shopping_staff") {
       router.push("/team-portal/shopping/notifications");
-    } else if (activeRole === "cleaning") {
+    } else if (role === "cleaning_staff") {
       router.push("/team-portal/cleaning/notifications");
     } else {
       router.push("/client-portal/notifications");
