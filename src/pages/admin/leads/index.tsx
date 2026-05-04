@@ -423,23 +423,59 @@ export default function AdminLeads() {
         });
       });
       if (leadIds.length > 0) {
-        const { data: quoteRows } = await supabase
-          .from("quotes")
-          .select("id, lead_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
-          .eq("company_id", user.company_id)
-          .in("lead_id", leadIds)
-          .order("created_at", { ascending: false });
-        for (const q of quoteRows || []) {
-          if (!q.lead_id) continue;
-          const cur = map.get(q.lead_id);
-          if (!cur) continue;
+        // Build a client_id -> lead_id reverse index for leads that
+        // have already converted to a client. Lets us catch quotes
+        // that were created later off the Quotes page (no lead_id
+        // stamped) but for the same client -- a common flow when the
+        // operator builds a 2nd alternate quote without going back
+        // through the lead row.
+        const clientToLead = new Map<string, string>();
+        const clientIds: string[] = [];
+        data.forEach((l: any) => {
+          if (l.converted_to_client_id) {
+            clientToLead.set(l.converted_to_client_id, l.id);
+            clientIds.push(l.converted_to_client_id);
+          }
+        });
+
+        // Pull quotes linked by lead_id OR by client_id. Two queries
+        // is cleaner than an or() filter and scales the same. Results
+        // get merged into the same map and deduped by quote id below.
+        const [{ data: byLead }, { data: byClient }] = await Promise.all([
+          supabase
+            .from("quotes")
+            .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
+            .eq("company_id", user.company_id)
+            .in("lead_id", leadIds)
+            .order("created_at", { ascending: false }),
+          clientIds.length > 0
+            ? supabase
+                .from("quotes")
+                .select("id, lead_id, client_id, status, converted_to_order_id, created_at, quote_number, quote_name, total_amount")
+                .eq("company_id", user.company_id)
+                .in("client_id", clientIds)
+                .order("created_at", { ascending: false })
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+
+        const seenQuoteIdsByLead = new Map<string, Set<string>>();
+        const attach = (q: any, leadId: string) => {
+          const cur = map.get(leadId);
+          if (!cur) return;
+          let seen = seenQuoteIdsByLead.get(leadId);
+          if (!seen) {
+            seen = new Set();
+            seenQuoteIdsByLead.set(leadId, seen);
+          }
+          if (seen.has(q.id)) return;
+          seen.add(q.id);
           cur.quoteCount += 1;
           cur.quotes.push({
             id: q.id,
-            number: (q as any).quote_number ?? null,
-            name: (q as any).quote_name ?? null,
+            number: q.quote_number ?? null,
+            name: q.quote_name ?? null,
             status: q.status ?? null,
-            total: (q as any).total_amount ?? null,
+            total: q.total_amount ?? null,
             createdAt: q.created_at ?? null,
           });
           if (!cur.latestQuoteId) {
@@ -448,6 +484,36 @@ export default function AdminLeads() {
           }
           if (q.converted_to_order_id && !cur.orderId) {
             cur.orderId = q.converted_to_order_id;
+          }
+        };
+
+        for (const q of byLead || []) {
+          if (!q.lead_id) continue;
+          attach(q, q.lead_id);
+        }
+        for (const q of byClient || []) {
+          if (!q.client_id) continue;
+          // Prefer the quote's own lead_id when stamped (the operator
+          // started from the lead row). Otherwise, pin it to the lead
+          // that converted into this client.
+          const leadId = q.lead_id && map.has(q.lead_id)
+            ? q.lead_id
+            : clientToLead.get(q.client_id);
+          if (!leadId) continue;
+          attach(q, leadId);
+        }
+
+        // Re-sort each lead's quotes newest-first since they may have
+        // arrived from two queries in any order.
+        for (const cur of map.values()) {
+          cur.quotes.sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta;
+          });
+          if (cur.quotes.length > 0) {
+            cur.latestQuoteId = cur.quotes[0].id;
+            cur.latestQuoteStatus = cur.quotes[0].status;
           }
         }
       }
