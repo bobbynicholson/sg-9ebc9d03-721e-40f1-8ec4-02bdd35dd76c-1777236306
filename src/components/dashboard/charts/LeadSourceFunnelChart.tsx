@@ -186,7 +186,7 @@ export function LeadSourceFunnelChart({ data, loading }: Props) {
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <GitBranch className="w-4 h-4 text-sky-600" />
-          Lead source -> outcome
+          {"Lead source -> outcome"}
           <InfoTooltip
             content={
               "Each lead's journey: where it came in (left), whether it got a quote (middle), and how it ended (right). Ribbon thickness = number of leads.\n\n" +
