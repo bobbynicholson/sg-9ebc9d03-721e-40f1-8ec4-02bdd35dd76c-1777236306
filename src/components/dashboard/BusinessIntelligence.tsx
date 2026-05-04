@@ -29,11 +29,21 @@ import {
 import { aggregateSeasonalityHeatmap } from "./extractors/aggregateSeasonalityHeatmap";
 import { aggregateCapacityLoad } from "./extractors/aggregateCapacityLoad";
 import { aggregateConversionFunnel } from "./extractors/aggregateConversionFunnel";
+import {
+  aggregateTopClients,
+  type ClientLookupRow,
+  type OrderForClientLTV,
+} from "./extractors/aggregateTopClients";
+import { aggregateRetentionCohort } from "./extractors/aggregateRetentionCohort";
+import { aggregateNewVsRepeat } from "./extractors/aggregateNewVsRepeat";
 import { RevenueTrendChart } from "./charts/RevenueTrendChart";
 import { YoYStripCard } from "./charts/YoYStripCard";
 import { SeasonalityHeatmap } from "./charts/SeasonalityHeatmap";
 import { CapacityLoadCalendar } from "./charts/CapacityLoadCalendar";
 import { ConversionFunnelChart } from "./charts/ConversionFunnelChart";
+import { TopClientsBarChart } from "./charts/TopClientsBarChart";
+import { RetentionCohortGrid } from "./charts/RetentionCohortGrid";
+import { NewVsRepeatDonut } from "./charts/NewVsRepeatDonut";
 
 interface Props {
   companyId: string | null | undefined;
@@ -72,10 +82,12 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
   // ── Data fetch ──────────────────────────────────────────────────
   // 24-month window so the YoY strip has its prior period. Narrow by
-  // region filter when set.
+  // region filter when set. Tier 3 also fetches clients for the
+  // top-clients bar + retention cohort.
   const [orders, setOrders] = useState<RevenueByMonthInput[]>([]);
   const [quotes, setQuotes] = useState<QuoteForYoY[]>([]);
   const [leads, setLeads] = useState<LeadForYoY[]>([]);
+  const [clients, setClients] = useState<ClientLookupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [overflow, setOverflow] = useState(false);
 
@@ -102,7 +114,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
       try {
         const ordersBase = supabase
           .from("orders")
-          .select("id, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id")
+          .select("id, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
@@ -125,24 +137,38 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
           .gte("created_at", startISO)
           .limit(ROW_CAP);
 
-        const [ordersRes, quotesRes, leadsRes] = await Promise.all([
+        // Clients: ALL of them (no date floor) so the cohort grid can
+        // walk historical signups. region_id filtering applied where
+        // possible -- region_admins only see clients linked to their
+        // branch, but the query doesn't fail-closed for company_admins.
+        const clientsBase = supabase
+          .from("clients")
+          .select("id, client_name, email, outstanding_balance, created_at, region_id")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .limit(ROW_CAP);
+
+        const [ordersRes, quotesRes, leadsRes, clientsRes] = await Promise.all([
           regionFilterId ? ordersBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : ordersBase,
           regionFilterId ? quotesBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : quotesBase,
           regionFilterId ? leadsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : leadsBase,
+          regionFilterId ? clientsBase.or(`region_id.eq.${regionFilterId},region_id.is.null`) : clientsBase,
         ]);
 
         if (cancelled) return;
         const oRows = (ordersRes.data || []) as any as RevenueByMonthInput[];
         const qRows = (quotesRes.data || []) as any as QuoteForYoY[];
         const lRows = (leadsRes.data || []) as any as LeadForYoY[];
+        const cRows = (clientsRes.data || []) as any as ClientLookupRow[];
 
-        if (oRows.length >= ROW_CAP || qRows.length >= ROW_CAP || lRows.length >= ROW_CAP) {
+        if (oRows.length >= ROW_CAP || qRows.length >= ROW_CAP || lRows.length >= ROW_CAP || cRows.length >= ROW_CAP) {
           setOverflow(true);
         }
 
         setOrders(oRows);
         setQuotes(qRows);
         setLeads(lRows);
+        setClients(cRows);
       } catch (e) {
         console.warn("[BusinessIntelligence] fetch failed:", e);
       } finally {
@@ -175,6 +201,19 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
     const end = dateRange?.to ?? new Date();
     return aggregateConversionFunnel(leads, quotes, orders, start, end);
   }, [leads, quotes, orders, dateRange]);
+  const topClients = useMemo(
+    () => aggregateTopClients(orders as any as OrderForClientLTV[], clients),
+    [orders, clients],
+  );
+  const cohort = useMemo(
+    () => aggregateRetentionCohort(clients, orders as any as OrderForClientLTV[]),
+    [clients, orders],
+  );
+  const newVsRepeat = useMemo(() => {
+    const start = dateRange?.from ?? new Date(new Date().setDate(new Date().getDate() - 30));
+    const end = dateRange?.to ?? new Date();
+    return aggregateNewVsRepeat(orders as any as OrderForClientLTV[], start, end);
+  }, [orders, dateRange]);
 
   return (
     <section className="mb-6" aria-labelledby="bi-section-heading">
@@ -220,6 +259,13 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
             <CapacityLoadCalendar data={capacity} loading={loading} />
             <ConversionFunnelChart data={funnel} loading={loading} />
           </div>
+
+          {/* Tier 3 -- customers */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TopClientsBarChart data={topClients} loading={loading} />
+            <NewVsRepeatDonut data={newVsRepeat} loading={loading} />
+          </div>
+          <RetentionCohortGrid data={cohort} loading={loading} />
         </div>
       )}
     </section>
