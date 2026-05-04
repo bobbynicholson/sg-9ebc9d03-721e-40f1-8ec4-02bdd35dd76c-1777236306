@@ -35,11 +35,41 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
-  Flame, Printer,
+  Printer,
 } from "lucide-react";
 import { fetchByToken, recordView, recordAccept, type PublicQuoteView } from "@/services/publicQuoteService";
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+
+/**
+ * Convert "#f59e0b" -> "245 158 11". Tailwind's bg-brand-primary
+ * utility expects the rgb triplet form so it can layer alpha
+ * (bg-brand-primary/10). Returns null on invalid input so we leave
+ * the globals.css default in place.
+ */
+function hexToRgbTriplet(hex: string | null | undefined): string | null {
+  if (!hex || typeof hex !== "string") return null;
+  const m = hex.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `${r} ${g} ${b}`;
+}
+
+/**
+ * Build the company name initials for a logo fallback. "Spit Braai
+ * Delivery" -> "SB". Caps at two letters.
+ */
+function companyInitials(name: string | null | undefined): string {
+  if (!name) return "C";
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "C";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 export default function PublicQuotePage() {
   const router = useRouter();
@@ -56,6 +86,26 @@ export default function PublicQuotePage() {
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
+
+  // Apply per-tenant brand colours. The public page is unauthenticated
+  // so BrandingContext (which keys off the logged-in user's company_id)
+  // is not available -- we set the CSS vars directly on documentElement
+  // once fetchByToken returns. Falls back to the globals.css defaults
+  // when a tenant hasn't picked colours yet.
+  useEffect(() => {
+    if (!quote?.company) return;
+    const root = document.documentElement;
+    const apply = (key: string, hex: string | null) => {
+      if (!hex) return;
+      const rgb = hexToRgbTriplet(hex);
+      if (!rgb) return;
+      root.style.setProperty(`--brand-${key}`, hex);
+      root.style.setProperty(`--brand-${key}-rgb`, rgb);
+    };
+    apply("primary",   quote.company.primary_color);
+    apply("secondary", quote.company.secondary_color);
+    apply("accent",    quote.company.accent_color);
+  }, [quote?.company]);
 
   useEffect(() => {
     if (!token) return;
@@ -157,7 +207,11 @@ export default function PublicQuotePage() {
         {/* Print-friendly styling. Browser-native Save as PDF gives
             us a clean A4-style export with no extra dependencies. */}
         <style>{`
+          /* Force browsers to honour the brand colour on the printed
+             quote -- without this Chrome/Edge default to "background
+             graphics off" and the tenant header prints as plain white. */
           @media print {
+            body, .brand-print { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body { background: white !important; }
             .no-print { display: none !important; }
             .print-shadow-none { box-shadow: none !important; }
@@ -184,18 +238,28 @@ export default function PublicQuotePage() {
             </Button>
           </div>
 
-          {/* SPIT-BRAAI-STYLE HEADER --
-              Warm palette (amber accent on cream), serif headline,
-              flame icon as a wink at the spit-braai aesthetic.
-              Reads like a printed quote, not a generic SaaS page. */}
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-6 sm:p-8 mb-4 print-bg-white print-shadow-none print-border-none">
+          {/* BRANDED HEADER --
+              White-label per tenant: header band tinted with the
+              company's primary colour, logo (or initials fallback),
+              serif headline. Reads like a printed quote on the
+              caterer's letterhead, not a generic SaaS page. */}
+          <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4 print-shadow-none">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-9 h-9 rounded-full bg-orange-600 flex items-center justify-center">
-                    <Flame className="w-4 h-4 text-white" />
-                  </div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-orange-700 font-bold">
+                <div className="flex items-center gap-3 mb-3">
+                  {company?.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={company.logo_url}
+                      alt={`${companyName} logo`}
+                      className="h-10 w-auto max-w-[180px] object-contain"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-bold text-sm">
+                      {companyInitials(companyName)}
+                    </div>
+                  )}
+                  <p className="text-xs uppercase tracking-[0.2em] text-brand-primary font-bold">
                     {companyName}
                   </p>
                 </div>
@@ -217,7 +281,7 @@ export default function PublicQuotePage() {
                   Accepted
                 </Badge>
               ) : (
-                <Badge className="bg-orange-600 text-white border-0 px-3 py-1.5 text-sm">
+                <Badge className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
                   Awaiting your response
                 </Badge>
               )}
@@ -229,13 +293,13 @@ export default function PublicQuotePage() {
             <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {quote.client_name && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold">For</p>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">For</p>
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.client_name}</p>
                 </div>
               )}
               {eventDate && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
                     <Calendar className="w-3 h-3" /> Event date
                   </p>
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">{eventDate}</p>
@@ -243,7 +307,7 @@ export default function PublicQuotePage() {
               )}
               {quote.guest_count != null && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
                     <Users className="w-3 h-3" /> Guests
                   </p>
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.guest_count}</p>
@@ -251,7 +315,7 @@ export default function PublicQuotePage() {
               )}
               {quote.venue_address && (
                 <div className="sm:col-span-3">
-                  <p className="text-[10px] uppercase tracking-[0.15em] text-orange-700 font-bold flex items-center gap-1">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Venue
                   </p>
                   <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.venue_address}</p>
@@ -264,7 +328,7 @@ export default function PublicQuotePage() {
           {Array.isArray(quote.menu_items) && quote.menu_items.length > 0 && (
             <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
-                <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-3">
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
                   From the kitchen
                 </p>
                 <div className="space-y-2">
@@ -302,7 +366,7 @@ export default function PublicQuotePage() {
           {Array.isArray(quote.equipment_items) && quote.equipment_items.length > 0 && (
             <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
-                <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-3">
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
                   Equipment
                 </p>
                 <div className="space-y-2">
@@ -352,11 +416,11 @@ export default function PublicQuotePage() {
                   <span className="text-stone-900 tabular-nums">{fmtMoney.format(quote.tax_amount)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-orange-600">
+              <div className="flex justify-between font-bold text-xl pt-3 border-t-2 border-brand-primary">
                 <span className="text-stone-900 font-serif">
                   Total{vatRegistered ? " incl. VAT" : ""}
                 </span>
-                <span className="text-orange-700 tabular-nums">{fmtMoney.format(total)}</span>
+                <span className="text-brand-primary tabular-nums">{fmtMoney.format(total)}</span>
               </div>
             </CardContent>
           </Card>
@@ -367,13 +431,13 @@ export default function PublicQuotePage() {
               <CardContent className="py-5 px-5 space-y-4">
                 {quote.notes && (
                   <div>
-                    <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-1.5">A note from us</p>
+                    <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">A note from us</p>
                     <p className="text-sm text-stone-700 whitespace-pre-wrap">{quote.notes}</p>
                   </div>
                 )}
                 {quote.terms_and_conditions && (
                   <div>
-                    <p className="text-xs uppercase tracking-[0.15em] text-orange-700 font-bold mb-1.5">Terms</p>
+                    <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">Terms</p>
                     <p className="text-xs text-stone-600 whitespace-pre-wrap">{quote.terms_and_conditions}</p>
                   </div>
                 )}
@@ -387,7 +451,7 @@ export default function PublicQuotePage() {
           {/* ACCEPT -- screen only, hidden in print */}
           <div className="no-print">
             {accepted ? (
-              <Card className="border-0 bg-gradient-to-br from-emerald-50 to-amber-50 shadow-sm">
+              <Card className="border-0 bg-gradient-to-br from-emerald-50 to-brand-primary/10 shadow-sm">
                 <CardContent className="py-8 px-5 text-center space-y-5">
                   <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-600 shadow-lg">
                     <CheckCircle2 className="w-7 h-7 text-white" />
@@ -469,7 +533,7 @@ export default function PublicQuotePage() {
                         <Button
                           onClick={handleAccept}
                           disabled={accepting || !acceptName.trim()}
-                          className="bg-orange-600 hover:bg-orange-700 gap-1.5"
+                          className="bg-brand-primary hover:opacity-90 gap-1.5"
                         >
                           {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                           {accepting ? "Accepting..." : "Accept quote"}
@@ -483,7 +547,7 @@ export default function PublicQuotePage() {
                       </p>
                       <Button
                         onClick={() => setAcceptOpen(true)}
-                        className="bg-orange-600 hover:bg-orange-700 gap-1.5 px-6"
+                        className="bg-brand-primary hover:opacity-90 gap-1.5 px-6"
                         size="lg"
                       >
                         <CheckCircle2 className="w-5 h-5" />
