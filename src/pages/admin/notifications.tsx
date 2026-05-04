@@ -31,6 +31,11 @@ import {
   CheckCircle,
   AlertTriangle,
   Info,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Edit3,
+  ExternalLink,
 } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
@@ -50,6 +55,10 @@ function NotificationsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [tab, setTab] = useState<"all" | "unread">("all");
+  // Tracks which notifications have their detail accordion expanded.
+  // Set rather than single-id so an admin can pin several open at
+  // once while triaging a busy inbox.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user?.id) {
@@ -304,10 +313,17 @@ function NotificationsPage() {
                                   </Button>
                                 </div>
                               </div>
-                              <p className="text-sm text-slate-700 mb-3 leading-relaxed">
+                              {/* Full message, never truncated. The
+                                  message column is text and we store
+                                  the client's full request text on
+                                  request-edits so admin reads what was
+                                  asked without bouncing to the quote
+                                  page first. */}
+                              <p className="text-sm text-slate-700 mb-3 leading-relaxed whitespace-pre-wrap break-words">
                                 {notification.message}
                               </p>
-                              <div className="flex items-center gap-3 text-xs text-slate-500">
+
+                              <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                                 <div className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
                                   {formatDistanceToNow(
@@ -321,18 +337,109 @@ function NotificationsPage() {
                                   </Badge>
                                 )}
                               </div>
-                              {notification.link && (
-                                <Button
-                                  variant="link"
-                                  size="sm"
-                                  className="h-auto p-0 mt-3 text-blue-600"
-                                  onClick={() => {
-                                    window.location.href = notification.link!;
-                                  }}
-                                >
-                                  View Details →
-                                </Button>
-                              )}
+
+                              {/* Action row -- View Details toggles the
+                                  accordion below, primary action button
+                                  varies by related entity. Quote
+                                  notifications get a dedicated Edit
+                                  Quote button that lands directly on
+                                  the editable form. Other entity types
+                                  fall back to the generic link. */}
+                              {(() => {
+                                const isExpanded = expandedIds.has(notification.id);
+                                const isQuote =
+                                  notification.related_entity_type === "quote" &&
+                                  !!notification.related_entity_id;
+                                return (
+                                  <>
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setExpandedIds((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(notification.id)) next.delete(notification.id);
+                                            else next.add(notification.id);
+                                            return next;
+                                          });
+                                        }}
+                                      >
+                                        {isExpanded ? (
+                                          <><ChevronUp className="h-4 w-4 mr-1" /> Hide details</>
+                                        ) : (
+                                          <><ChevronDown className="h-4 w-4 mr-1" /> View details</>
+                                        )}
+                                      </Button>
+                                      {isQuote && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            window.location.href =
+                                              `/admin/quotes/new?fromQuoteId=${encodeURIComponent(notification.related_entity_id!)}`;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          Edit quote
+                                        </Button>
+                                      )}
+                                      {notification.link && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            window.location.href = notification.link!;
+                                          }}
+                                        >
+                                          {isQuote ? (
+                                            <><Eye className="h-4 w-4 mr-1" /> Open in list</>
+                                          ) : (
+                                            <><ExternalLink className="h-4 w-4 mr-1" /> Open</>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+
+                                    {isExpanded && (
+                                      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-2">
+                                        <p className="font-semibold text-slate-700 uppercase tracking-wide text-[10px]">
+                                          Full request
+                                        </p>
+                                        <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                          {notification.message}
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-slate-600">
+                                          <div>
+                                            <span className="text-slate-500">Received:</span>{" "}
+                                            {notification.created_at
+                                              ? new Date(notification.created_at).toLocaleString("en-ZA")
+                                              : "Unknown"}
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-500">Priority:</span>{" "}
+                                            <span className="capitalize">{notification.priority || "normal"}</span>
+                                          </div>
+                                          {notification.related_entity_type && (
+                                            <div>
+                                              <span className="text-slate-500">Related to:</span>{" "}
+                                              {notification.related_entity_type}
+                                            </div>
+                                          )}
+                                          {notification.notification_type && (
+                                            <div>
+                                              <span className="text-slate-500">Type:</span>{" "}
+                                              {notification.notification_type.replace(/_/g, " ")}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>

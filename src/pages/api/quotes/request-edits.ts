@@ -125,15 +125,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
       const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
       if (recipientIds.length > 0) {
-        const snippet = text.length > 140 ? text.slice(0, 137) + "..." : text;
+        // Store the full request text in the notification message so
+        // the admin can read everything without bouncing to the quote
+        // page first. Capped only by the input validation upstream
+        // (1000 chars). The notifications page renders the message
+        // verbatim and exposes Edit Quote / View buttons so the admin
+        // can act without copying the message anywhere.
         const rows = recipientIds.map((rid) => ({
           company_id: quote.company_id,
           recipient_id: rid,
           user_id: rid,
           notification_type: "quote_changes_requested",
           title: "✏ Client wants changes on a quote",
-          message:
-            `${quote.quote_number}: "${snippet}"`,
+          message: `${quote.quote_number}: "${text}"`,
           priority: "high",
           link: `/admin/quotes?quoteId=${encodeURIComponent(quote.id)}`,
           related_entity_type: "quote",
