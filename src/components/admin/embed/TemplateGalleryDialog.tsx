@@ -70,27 +70,27 @@ export function TemplateGalleryDialog({ open, onOpenChange, embedToken, onCreate
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
           {EMBED_TEMPLATE_CATALOG.map((meta) => {
-            const previewSrc = embedToken
-              ? `/embed/demo.html?template=${encodeURIComponent(meta.id)}&token=preview`
-              : "";
+            // Demo URL always works -- the loader falls back to its
+            // built-in fallbackConfig when the API rejects the
+            // 'preview' literal as a non-UUID. We removed the
+            // embedToken gate that was producing broken-image
+            // placeholders when the auth context hadn't populated yet
+            // (the gate was always-falsy on first render and never
+            // recovered cleanly).
+            const previewSrc = `/embed/demo.html?template=${encodeURIComponent(meta.id)}&compact=1`;
             const isCreating = creatingId === meta.id;
             return (
               <Card key={meta.id} className="border-0 shadow-md hover:shadow-xl transition-all overflow-hidden">
                 <CardContent className="p-0">
                   <div className="relative h-44 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                    {previewSrc ? (
-                      <iframe
-                        src={previewSrc}
-                        title={meta.name}
-                        className="absolute inset-0 w-full h-full pointer-events-none"
-                        loading="lazy"
-                        sandbox="allow-scripts allow-same-origin"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-slate-400 text-xs">
-                        Preview will load with your tenant token
-                      </div>
-                    )}
+                    <iframe
+                      src={previewSrc}
+                      title={meta.name}
+                      className="absolute inset-0 w-full h-full pointer-events-none"
+                      loading="lazy"
+                      sandbox="allow-scripts allow-same-origin"
+                      referrerPolicy="no-referrer"
+                    />
                     {meta.usesPricingTiers && (
                       <Badge className="absolute top-2 right-2 bg-amber-500 text-white gap-1">
                         <Calculator className="w-3 h-3" /> Live pricing

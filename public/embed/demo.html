@@ -16,6 +16,11 @@
     .stage { padding: 30px; background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; min-height: 400px; }
     .meta { font-size: 12px; color: #64748B; margin-top: 12px; }
     code { background: #F1F5F9; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    /* Compact mode for the admin gallery iframes: drop the page chrome
+       so only the form renders inside a 176px-tall thumbnail. */
+    body.compact { padding: 0; background: #fff; }
+    body.compact h1, body.compact p.lede, body.compact .controls, body.compact .meta { display: none; }
+    body.compact .stage { padding: 8px; border: none; min-height: 0; border-radius: 0; }
   </style>
 </head>
 <body>
@@ -66,6 +71,13 @@
         var v = params.get(k);
         if (v && form.elements[k]) form.elements[k].value = v;
       });
+
+      // Compact mode -- drops page chrome so only the form is visible.
+      // The admin TemplateGalleryDialog iframes pass ?compact=1 so the
+      // 176px-tall thumbnail isn't dominated by the stage padding.
+      if (params.get('compact') === '1') {
+        document.body.classList.add('compact');
+      }
 
       function mount() {
         var template = form.elements.template.value;

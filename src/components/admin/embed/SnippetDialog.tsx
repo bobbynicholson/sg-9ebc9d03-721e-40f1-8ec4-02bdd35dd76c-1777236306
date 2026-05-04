@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Copy, ExternalLink, Mail, Send, Eye, Code2 } from "lucide-react";
+import { Copy, ExternalLink, Mail, Send, Eye, Code2, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail } from "@/lib/composeEmail";
 
@@ -37,27 +37,86 @@ interface Props {
   form: Form | null;
   embedToken?: string;
   companyName?: string;
+  /** Optional white-label host (e.g. "https://app.acme-catering.co.za").
+   *  Falls back to the current page origin so dev / preview deploys work. */
+  loaderHost?: string;
+  /** Called after a successful token rotation so the parent can refresh
+   *  its cached company.embed_token. Receives the new token string. */
+  onTokenRotated?: (newToken: string) => void;
 }
 
-function buildSnippet(token: string, slug: string) {
+function resolveLoaderHost(loaderHost: string | undefined): string {
+  if (loaderHost && /^https?:\/\//.test(loaderHost)) {
+    return loaderHost.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return "https://cateringms.com";
+}
+
+function buildSnippet(token: string, slug: string, host: string) {
   return `<!-- ${slug}, powered by CateringMS -->
 <div data-embed-form data-token="${token}" data-slug="${slug}"></div>
-<script async src="https://cateringms.com/embed/loader.js"></script>`;
+<script async src="${host}/embed/loader.js"></script>`;
 }
 
-export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName }: Props) {
+export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, loaderHost, onTokenRotated }: Props) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [currentToken, setCurrentToken] = useState<string | undefined>(embedToken);
+
+  // Keep the in-dialog token in sync with the parent prop when the
+  // parent refreshes its company record (e.g. after a rotation
+  // initiated elsewhere). After our own rotation we update both
+  // currentToken and call back to the parent so the form cards keep
+  // showing the new token immediately.
+  useMemo(() => setCurrentToken(embedToken), [embedToken]);
+
+  const host = useMemo(() => resolveLoaderHost(loaderHost), [loaderHost]);
 
   const snippet = useMemo(() => {
-    if (!form || !embedToken) return "";
-    return buildSnippet(embedToken, form.slug);
-  }, [form, embedToken]);
+    if (!form || !currentToken) return "";
+    return buildSnippet(currentToken, form.slug, host);
+  }, [form, currentToken, host]);
 
-  const previewHref = form && embedToken
-    ? `/embed/demo.html?token=${embedToken}&slug=${encodeURIComponent(form.slug)}`
+  // Preview link includes &template= so the demo page loads the same
+  // template the operator is about to embed (helpers.js previously
+  // defaulted to quick-card when template was missing -- the preview
+  // would not match what the visitor would see).
+  const previewHref = form && currentToken
+    ? `/embed/demo.html?token=${currentToken}&slug=${encodeURIComponent(form.slug)}&template=${encodeURIComponent(form.template_id)}`
     : "#";
+
+  async function rotateToken() {
+    if (rotating) return;
+    if (!confirm(
+      "Rotate your embed token?\n\n" +
+        "Every existing snippet will stop working immediately. You'll need to update " +
+        "any websites you've already added the snippet to with the new token. " +
+        "Use this if a token has leaked or you want old snippets to stop receiving leads.",
+    )) return;
+    setRotating(true);
+    try {
+      const resp = await fetch("/api/admin/embed/rotate-token", { method: "POST" });
+      const json = await resp.json();
+      if (!resp.ok || !json.embed_token) {
+        throw new Error(json.error || "Rotation failed");
+      }
+      setCurrentToken(json.embed_token);
+      onTokenRotated?.(json.embed_token);
+      toast({
+        title: "Token rotated",
+        description: "Old snippets will stop working. Copy the new snippet and update your sites.",
+      });
+    } catch (err: any) {
+      toast({ title: "Rotation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setRotating(false);
+    }
+  }
 
   async function copy() {
     if (!snippet) return;
@@ -109,6 +168,35 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
                 <Send className="w-4 h-4" /> Send to my web developer
               </Button>
             </div>
+
+            {/* Danger zone: token rotation. Visually muted so it doesn't
+                compete with the main copy/preview actions, but obvious
+                enough that an operator who knows their token leaked
+                can find it without poking around settings. */}
+            <Card className="border border-amber-200 bg-amber-50/40">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-900">Token leaked or compromised?</p>
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      Rotate your embed token to invalidate every existing snippet on every site.
+                      You'll need to copy the new snippet and update your sites afterwards.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={rotateToken}
+                    disabled={rotating}
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-300 text-amber-900 hover:bg-amber-100 gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${rotating ? "animate-spin" : ""}`} />
+                    {rotating ? "Rotating..." : "Rotate token"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Install guides */}
             <div>
@@ -204,9 +292,8 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
 
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
+  const [to, setTo] = useState("");
   const [copied, setCopied] = useState(false);
-
-  const payload = { to: "", subject, body };
 
   return (
     <>
@@ -225,8 +312,8 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
           <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">To</label>
           <Input
             placeholder="developer@example.com"
-            value={payload.to}
-            onChange={(e) => { (payload as any).to = e.target.value; }}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
             className="mt-1"
             type="email"
           />
@@ -249,7 +336,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
           <Button
             variant="default"
             onClick={() => {
-              window.open(composeEmail.gmailUrl({ to: (payload as any).to || "", subject, body }), "_blank", "noopener");
+              window.open(composeEmail.gmailUrl({ to, subject, body }), "_blank", "noopener");
             }}
             className="gap-2 bg-emerald-600 hover:bg-emerald-700"
           >
@@ -258,7 +345,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
           <Button
             variant="outline"
             onClick={() => {
-              window.open(composeEmail.outlookUrl({ to: (payload as any).to || "", subject, body }), "_blank", "noopener");
+              window.open(composeEmail.outlookUrl({ to, subject, body }), "_blank", "noopener");
             }}
             className="gap-2"
           >
@@ -267,7 +354,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
           <Button
             variant="outline"
             onClick={() => {
-              window.location.href = composeEmail.mailto({ to: (payload as any).to || "", subject, body });
+              window.location.href = composeEmail.mailto({ to, subject, body });
             }}
             className="gap-2"
           >
@@ -276,7 +363,7 @@ Thanks${companyName ? `,\n${companyName}` : ""}`;
           <Button
             variant="outline"
             onClick={async () => {
-              const ok = await composeEmail.copyToClipboard({ to: (payload as any).to || "", subject, body });
+              const ok = await composeEmail.copyToClipboard({ to, subject, body });
               if (ok) {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);

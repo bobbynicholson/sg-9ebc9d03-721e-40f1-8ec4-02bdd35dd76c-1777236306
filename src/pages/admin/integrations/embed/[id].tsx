@@ -232,6 +232,21 @@ export default function EmbedFormCustomiser() {
     return `/embed/demo.html?token=${companyData.embed_token}&slug=${encodeURIComponent(form.slug)}&template=${encodeURIComponent(form.template_id)}&draft=1`;
   }, [form?.slug, form?.template_id, companyData?.embed_token]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Force-reload key. The postMessage path below is the soft option,
+  // but the demo page doesn't always re-render on draft messages
+  // (helpers.js doesn't subscribe). Bumping this key on every config-
+  // affecting change forces a fresh iframe and guarantees the
+  // operator sees their edit reflected. We hash a few fields to keep
+  // re-mounts to actual content changes (not unrelated re-renders).
+  const previewKey = useMemo(() => {
+    if (!form) return "blank";
+    const themeStr = JSON.stringify(form.theme || {});
+    const fieldsStr = (form.fields || [])
+      .map((f: any) => `${f.id}:${f.type}:${f.required ? 1 : 0}:${f.label || ""}`)
+      .join("|");
+    return `${form.template_id}::${themeStr}::${fieldsStr}::${form.success_message || ""}::${form.redirect_url || ""}`;
+  }, [form]);
+
   if (loading || !form) {
     return (
       <>
@@ -340,6 +355,7 @@ export default function EmbedFormCustomiser() {
                   <div className="rounded-lg border border-slate-200 bg-white overflow-hidden h-[640px]">
                     {previewSrc ? (
                       <iframe
+                        key={previewKey}
                         ref={previewIframeRef}
                         src={previewSrc}
                         title="Form preview"
