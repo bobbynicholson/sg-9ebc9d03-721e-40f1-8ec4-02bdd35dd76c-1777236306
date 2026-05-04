@@ -19,6 +19,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
+import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 
 const ALLOWED_CALLER_ROLES = new Set([
   "super_admin", "company_admin", "admin", "owner", "shopping_staff", "shopping",
@@ -156,6 +157,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
         ai: { tokens_in: 0, tokens_out: 0 },
         debug: { from_cache: true, line_count: lineItems.length },
+      });
+    }
+
+    // Quota gate: a fresh AI call counts toward the tenant's monthly
+    // scan budget. Rescans that hit the draft cache (handled above)
+    // are free and don't reach this branch. We surface the remaining
+    // quota in the error so the toast can tell the operator how long
+    // until the cap resets.
+    const quota = await getReceiptScanQuota(supabase, companyId);
+    if (quota.exceeded) {
+      return res.status(429).json({
+        error:
+          `Monthly AI scan limit reached (${quota.used} of ${quota.limit}). ` +
+          `Resets at the start of next calendar month.`,
+        quota,
       });
     }
 

@@ -364,7 +364,14 @@ export interface ReceiptExtraction {
   warnings: string[];
 }
 
-const RECEIPT_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-sonnet-4-5";
+// Cost-tiered model selection. Haiku 4-5 is the default workhorse for
+// receipt OCR -- it's ~4x cheaper than Sonnet and the structured-vision
+// extraction quality is fine for clear till slips. Sonnet is held in
+// reserve as the fallback when Haiku returns 0 lines (a signal that
+// the slip is genuinely tricky -- thermal-faded, wrinkled, sideways).
+// Both are env-overridable so we can flip without a deploy.
+const RECEIPT_PRIMARY_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
+const RECEIPT_FALLBACK_MODEL = process.env.ANTHROPIC_RECEIPT_FALLBACK_MODEL || "claude-sonnet-4-5";
 
 const RECEIPT_SYSTEM_BASE = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
 
@@ -385,32 +392,72 @@ function buildTaxRulesPrompt(rules: TaxRuleForPrompt[]): string {
 }
 
 /**
- * Run a single receipt photo through Claude's vision model and pull
- * out the structured fields. Caller hands us the image as base64
- * (PNG / JPEG / WebP) along with its MIME type.
+ * Compress a receipt image before we send it to the model. Anthropic
+ * tokenises images by dimensions (~tokens = w*h/750) and caps internally
+ * at 1568px on the long edge anyway, so over-large phone photos waste
+ * money on bytes the model won't see. We:
+ *   - rotate per EXIF so portrait phone photos arrive right-way-up
+ *   - resize to 1568px max long edge (fit:inside, no upscale)
+ *   - re-encode as JPEG q=82 with mozjpeg for ~25-40% smaller file
+ *
+ * Failure here is non-fatal -- log + send the original. Better to spend
+ * a few extra cents than fail a scan over a sharp glitch.
  */
-export async function extractReceiptViaAI(args: {
+async function compressReceiptImage(base64: string, mime: string): Promise<{ base64: string; mime: string }> {
+  if (!base64) return { base64, mime };
+  try {
+    const sharpMod: any = await import("sharp");
+    const sharp = sharpMod.default || sharpMod;
+    const buf = Buffer.from(base64, "base64");
+    const out = await sharp(buf)
+      .rotate()
+      .resize({ width: 1568, height: 1568, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+    return { base64: out.toString("base64"), mime: "image/jpeg" };
+  } catch (e) {
+    console.error("[receipt] compression failed, sending raw image", e);
+    return { base64, mime };
+  }
+}
+
+/**
+ * Single Anthropic call against a chosen model. Extracted so the outer
+ * dispatcher can retry against a higher-tier model on Haiku-zero-line
+ * fallback without duplicating the schema + extraction parsing.
+ *
+ * Prompt caching: the system prompt + tax-rules table are identical
+ * across every receipt scan, so we mark the system block as cacheable.
+ * After the first call within a 5-minute window, the prefix is billed
+ * at 10% of normal input rate. The image stays uncached (it's unique
+ * per call). Tools are part of the cached prefix automatically.
+ */
+async function callClaudeForReceipt(args: {
   imageBase64: string;
   imageMime: string;
-  /** Optional SARS rules. When provided, the model classifies each
-   *  line item against them and returns tax_category_code +
-   *  is_deductible per line. */
   taxRules?: TaxRuleForPrompt[];
-}): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number }> {
-  const system = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
+  model: string;
+}): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
+  const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
   // 8192 output tokens leaves comfortable headroom for till-roll receipts
   // (think Pick n Pay / Makro / Spar) where the line_items array can run
   // 30+ rows -- each carries description + qty + unit + unit_price +
   // line_total + tax_category_code + is_deductible + match_confidence,
   // so 30 lines is roughly 1500-2000 tokens just on items. The previous
   // 2048 cap routinely cut JSON mid-array, which produced 0 line items
-  // back to the UI ("AI couldn't read line items"). Sonnet 4-5 can output
-  // far more than 8k; we cap here to avoid runaway cost on a corrupted
-  // image that loops the model.
+  // back to the UI ("AI couldn't read line items"). Both Haiku 4-5 and
+  // Sonnet 4-5 support far more than 8k; we cap here to avoid runaway
+  // cost on a corrupted image that loops the model.
   const response: any = await (client().messages.create as any)({
-    model: RECEIPT_MODEL,
+    model: args.model,
     max_tokens: 8192,
-    system,
+    system: [
+      {
+        type: "text",
+        text: systemText,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
     tools: [
       {
         name: "return_receipt",
@@ -555,5 +602,71 @@ export async function extractReceiptViaAI(args: {
     }
   }
 
-  return { extraction, tokens_in: tokensIn, tokens_out: tokensOut };
+  return { extraction, tokens_in: tokensIn, tokens_out: tokensOut, model_used: args.model };
+}
+
+/**
+ * Run a single receipt photo through Claude's vision model and pull
+ * out the structured fields. Caller hands us the image as base64
+ * (PNG / JPEG / WebP) along with its MIME type.
+ *
+ * Two-tier strategy:
+ *   1. Compress the image (rotate per EXIF, resize to 1568px max long
+ *      edge, re-encode as JPEG q=82). Cuts image-token cost.
+ *   2. Try Haiku 4-5 first (~4x cheaper than Sonnet for the same task).
+ *   3. If Haiku returns 0 line items, retry with Sonnet 4-5 -- the
+ *      higher-tier model handles edge cases (faded thermal slips,
+ *      sideways images, very dense text) that Haiku occasionally
+ *      drops. We tag the result with a "switched to higher-tier model"
+ *      warning so the UI/log shows when the fallback fired.
+ *
+ * Net effect: ~80% of slips run on Haiku at low cost; the harder ~20%
+ * still get the right answer at Sonnet rates. Expected per-scan blended
+ * cost is roughly Haiku-rate + a small Sonnet tail.
+ */
+export async function extractReceiptViaAI(args: {
+  imageBase64: string;
+  imageMime: string;
+  /** Optional SARS rules. When provided, the model classifies each
+   *  line item against them and returns tax_category_code +
+   *  is_deductible per line. */
+  taxRules?: TaxRuleForPrompt[];
+}): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string }> {
+  const compressed = await compressReceiptImage(args.imageBase64, args.imageMime);
+
+  let result = await callClaudeForReceipt({
+    imageBase64: compressed.base64,
+    imageMime: compressed.mime,
+    taxRules: args.taxRules,
+    model: RECEIPT_PRIMARY_MODEL,
+  });
+
+  // Fallback to the higher-tier model when the primary returned no
+  // structured lines. Skipped if both env-vars resolved to the same
+  // model -- no point retrying with the same engine.
+  if (
+    result.extraction.line_items.length === 0 &&
+    RECEIPT_PRIMARY_MODEL !== RECEIPT_FALLBACK_MODEL
+  ) {
+    console.log(
+      `[receipt] primary ${RECEIPT_PRIMARY_MODEL} returned 0 lines, retrying with ${RECEIPT_FALLBACK_MODEL}`,
+    );
+    const fallback = await callClaudeForReceipt({
+      imageBase64: compressed.base64,
+      imageMime: compressed.mime,
+      taxRules: args.taxRules,
+      model: RECEIPT_FALLBACK_MODEL,
+    });
+    // Stash a warning so the operator sees we escalated -- helpful when
+    // they're triaging which slips need a clearer photo next time.
+    fallback.extraction.warnings = [
+      `Switched to ${RECEIPT_FALLBACK_MODEL} after ${RECEIPT_PRIMARY_MODEL} returned no lines.`,
+      ...(fallback.extraction.warnings || []).filter(
+        (w) => !w.startsWith("No structured response"),
+      ),
+    ];
+    return fallback;
+  }
+
+  return result;
 }

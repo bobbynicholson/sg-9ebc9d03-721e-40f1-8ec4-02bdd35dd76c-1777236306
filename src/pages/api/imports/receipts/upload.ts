@@ -23,6 +23,7 @@ import { randomUUID } from "node:crypto";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
+import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 
 export const config = {
   api: {
@@ -109,6 +110,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const supabase: any = getServiceSupabase();
+
+    // Monthly scan quota check. Per-tenant cap on AI receipt scans
+    // (see /admin/platform/tech-costs for unit economics). If this
+    // batch would push them over, refuse the whole batch with a
+    // structured error so the UI can show "X of 60 used" -- partial
+    // processing would surprise the operator.
+    const quota = await getReceiptScanQuota(supabase, companyId);
+    if (quota.remaining < collected.length) {
+      return res.status(429).json({
+        error: quota.exceeded
+          ? `Monthly AI scan limit reached (${quota.used} of ${quota.limit}). Resets at the start of next calendar month.`
+          : `This batch (${collected.length}) would exceed your monthly AI scan limit. ` +
+            `Used ${quota.used} of ${quota.limit}; ${quota.remaining} remaining this month.`,
+        quota,
+      });
+    }
 
     // Load active SARS deductibility rules once per upload so every
     // image in this batch sees the same classifier prompt. The rules

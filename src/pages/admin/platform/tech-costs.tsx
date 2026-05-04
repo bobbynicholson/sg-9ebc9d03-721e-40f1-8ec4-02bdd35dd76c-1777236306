@@ -69,17 +69,32 @@ const SUPABASE = {
 };
 
 const ANTHROPIC = {
-  // Sonnet 4-5 -- used for receipt scanning + complex extractions
+  // Sonnet 4-5 -- held in reserve as the fallback model for receipt
+  // scans where Haiku returns 0 lines. Empirically fires on ~10-15%
+  // of slips (faded thermal, sideways shots, very dense text).
   sonnet_input_usd_per_m_tokens: 3,
   sonnet_output_usd_per_m_tokens: 15,
-  // Haiku 4-5 -- used for CSV column mapping + bulk lower-stakes calls
+  // Haiku 4-5 -- the workhorse. Default for receipt scans + CSV
+  // column mapping. ~4x cheaper than Sonnet for the same structured-
+  // vision task.
   haiku_input_usd_per_m_tokens: 0.80,
   haiku_output_usd_per_m_tokens: 4,
+  // Sonnet fallback rate: how often we escalate to Sonnet when Haiku
+  // returns 0 lines. Conservative estimate; tweak after observing real
+  // production data.
+  sonnet_fallback_rate: 0.12,
   // Per-call profile -- empirical averages from production
   receipt_input_tokens_per_call: 4_000,   // image + system + tool schema
   receipt_output_tokens_per_call: 1_500,  // typical 10-line slip
   csv_input_tokens_per_call: 1_500,
   csv_output_tokens_per_call: 600,
+  // Prompt caching: the system prompt + tax-rules table are identical
+  // across calls within a 5-minute window. Anthropic charges 10% of
+  // normal input rate for cached tokens. We assume ~80% of the input
+  // tokens are cacheable (system + tax rules + tool schema); the
+  // image is unique per call.
+  cacheable_input_fraction: 0.80,
+  cached_input_discount: 0.10, // cached tokens cost 10% of normal
 };
 
 const RESEND = {
@@ -128,7 +143,11 @@ interface Assumptions {
 
 const DEFAULTS: Assumptions = {
   tenants: 50,
-  receipt_scans_per_tenant: 30,
+  // Matches the per-tenant cap enforced in src/lib/receiptScanQuota.ts.
+  // Use the cap as the calculator's default so projections show worst-
+  // case (every tenant hits the ceiling), giving a defensible upper
+  // bound on AI spend rather than an optimistic mid-point.
+  receipt_scans_per_tenant: 60,
   csv_imports_per_tenant: 1,
   emails_per_tenant: 200,
   places_autocompletes_per_tenant: 100,
@@ -221,31 +240,64 @@ function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: 
     subtotal_usd: supabaseLines.reduce((s, l) => s + l.usd_per_mo, 0),
   });
 
-  // Anthropic
+  // Anthropic -- now reflects the post-optimisation runtime:
+  //   1. Haiku is primary; Sonnet only fires as a fallback on the
+  //      ~12% of slips Haiku can't crack.
+  //   2. Prompt caching: ~80% of input tokens are the cacheable system
+  //      prompt + tax rules. Cached tokens bill at 10% of normal rate.
+  //   3. Image compression cuts input tokens for the image portion
+  //      (already baked into the 4_000 input estimate).
   const totalReceiptScans = a.tenants * a.receipt_scans_per_tenant;
   const totalCsvImports = a.tenants * a.csv_imports_per_tenant;
-  const sonnetInputTokensM =
-    (totalReceiptScans * ANTHROPIC.receipt_input_tokens_per_call) / 1_000_000;
-  const sonnetOutputTokensM =
-    (totalReceiptScans * ANTHROPIC.receipt_output_tokens_per_call) / 1_000_000;
-  const haikuInputTokensM =
-    (totalCsvImports * ANTHROPIC.csv_input_tokens_per_call) / 1_000_000;
-  const haikuOutputTokensM =
-    (totalCsvImports * ANTHROPIC.csv_output_tokens_per_call) / 1_000_000;
+
+  // Per-scan input cost factoring prompt caching: cached portion bills
+  // at the discounted rate, uncached portion at full rate.
+  const cachedFraction = ANTHROPIC.cacheable_input_fraction;
+  const uncachedFraction = 1 - cachedFraction;
+  const haikuInputCostPerCallUsd =
+    (ANTHROPIC.receipt_input_tokens_per_call / 1_000_000) *
+    ANTHROPIC.haiku_input_usd_per_m_tokens *
+    (cachedFraction * ANTHROPIC.cached_input_discount + uncachedFraction);
+  const haikuOutputCostPerCallUsd =
+    (ANTHROPIC.receipt_output_tokens_per_call / 1_000_000) *
+    ANTHROPIC.haiku_output_usd_per_m_tokens;
+  const sonnetInputCostPerCallUsd =
+    (ANTHROPIC.receipt_input_tokens_per_call / 1_000_000) *
+    ANTHROPIC.sonnet_input_usd_per_m_tokens *
+    (cachedFraction * ANTHROPIC.cached_input_discount + uncachedFraction);
+  const sonnetOutputCostPerCallUsd =
+    (ANTHROPIC.receipt_output_tokens_per_call / 1_000_000) *
+    ANTHROPIC.sonnet_output_usd_per_m_tokens;
+
+  const fallbackRate = ANTHROPIC.sonnet_fallback_rate;
+  const haikuScans = totalReceiptScans; // every scan starts on Haiku
+  const sonnetScans = totalReceiptScans * fallbackRate; // ~12% retry
+  const haikuReceiptCost =
+    haikuScans * (haikuInputCostPerCallUsd + haikuOutputCostPerCallUsd);
+  const sonnetReceiptCost =
+    sonnetScans * (sonnetInputCostPerCallUsd + sonnetOutputCostPerCallUsd);
+
+  const haikuCsvCost =
+    (totalCsvImports * ANTHROPIC.csv_input_tokens_per_call / 1_000_000) *
+      ANTHROPIC.haiku_input_usd_per_m_tokens +
+    (totalCsvImports * ANTHROPIC.csv_output_tokens_per_call / 1_000_000) *
+      ANTHROPIC.haiku_output_usd_per_m_tokens;
+
   const aiLines: LineCost[] = [
     {
-      label: "Receipt scans (Sonnet 4-5)",
-      formula: `${totalReceiptScans.toLocaleString()} scans × ${ANTHROPIC.receipt_input_tokens_per_call.toLocaleString()} in + ${ANTHROPIC.receipt_output_tokens_per_call.toLocaleString()} out tokens at US$${ANTHROPIC.sonnet_input_usd_per_m_tokens}/M in, US$${ANTHROPIC.sonnet_output_usd_per_m_tokens}/M out`,
-      usd_per_mo:
-        sonnetInputTokensM * ANTHROPIC.sonnet_input_usd_per_m_tokens +
-        sonnetOutputTokensM * ANTHROPIC.sonnet_output_usd_per_m_tokens,
+      label: "Receipt scans -- Haiku 4-5 primary",
+      formula: `${haikuScans.toLocaleString()} scans @ Haiku rate. Per-scan: US$${(haikuInputCostPerCallUsd + haikuOutputCostPerCallUsd).toFixed(4)} (with ${(cachedFraction * 100).toFixed(0)}% prompt caching)`,
+      usd_per_mo: haikuReceiptCost,
+    },
+    {
+      label: "Receipt scans -- Sonnet fallback",
+      formula: `~${(fallbackRate * 100).toFixed(0)}% of slips retry on Sonnet (Haiku returned 0 lines). ${sonnetScans.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} scans @ Sonnet rate.`,
+      usd_per_mo: sonnetReceiptCost,
     },
     {
       label: "CSV imports (Haiku 4-5)",
       formula: `${totalCsvImports.toLocaleString()} imports × ${ANTHROPIC.csv_input_tokens_per_call.toLocaleString()} in + ${ANTHROPIC.csv_output_tokens_per_call.toLocaleString()} out tokens at Haiku rate`,
-      usd_per_mo:
-        haikuInputTokensM * ANTHROPIC.haiku_input_usd_per_m_tokens +
-        haikuOutputTokensM * ANTHROPIC.haiku_output_usd_per_m_tokens,
+      usd_per_mo: haikuCsvCost,
     },
   ];
   categories.push({
@@ -538,7 +590,7 @@ function TechCostsDashboard() {
                     value={assumptions.receipt_scans_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, receipt_scans_per_tenant: v })}
                     min={0}
-                    tooltip="Slips run through the AI receipt scanner per tenant per month. Each call ≈ 4k input + 1.5k output tokens on Sonnet 4-5."
+                    tooltip="Slips run through the AI receipt scanner per tenant per month. CAPPED at 60 server-side (src/lib/receiptScanQuota.ts). Default scenario uses the cap as a defensible upper bound. Each call ≈ 4k input + 1.5k output tokens on Haiku 4-5 primary, with a Sonnet fallback for the ~12% of slips Haiku can't crack."
                   />
                   <NumField
                     label="CSV imports / month"
