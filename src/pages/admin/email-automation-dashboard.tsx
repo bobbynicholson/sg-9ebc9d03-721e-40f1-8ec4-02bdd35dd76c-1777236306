@@ -1,491 +1,235 @@
-﻿import { useState, useEffect } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * /admin/email-automation-dashboard -- repurposed.
+ *
+ * Was a beautiful demo dashboard backed by stub functions. Now a
+ * real, read-only audit log that reads quote_followup_log + the
+ * outgoing_email_queue so the operator can see who sent which
+ * template to whom, when, and via which channel. Source of truth
+ * for "did the FU2 actually go out for the Smith wedding?".
+ *
+ * Nothing here triggers a send -- this surface is observation only,
+ * which matches the product rule that no automated sends fire today.
+ */
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Mail, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  TrendingUp, 
-  Calendar,
-  AlertCircle,
-  RefreshCw,
-  Eye
-} from "lucide-react";
-import {
-  getEmailQueues,
-  getEmailStatistics,
-  getUpcomingEmails,
-  processEmailQueue,
-  type AfterSalesEmailQueue,
-  type ScheduledEmail
-} from "@/lib/afterSalesAutomation";
-import { defaultAfterSalesTemplates } from "@/lib/afterSalesTemplates";
-import { Footer } from "@/components/Footer";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Activity, Mail, MessageSquare, ArrowRight, Filter } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assuming this is where the component is imported
-import {  UserRole  } from "@/types/app"; // Assuming this is where UserRole is imported
-import { EmailFailuresTab } from "@/components/admin/EmailFailuresTab";
 
-export default function ProtectedEmailAutomationDashboard() {
-  return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
-      <EmailAutomationDashboard />
-    </ProtectedRoute>
-  );
+interface AuditRow {
+  id: string;
+  quote_id: string;
+  sequence_position: number;
+  template_key: string;
+  channel: "email" | "whatsapp";
+  status: string;
+  sent_at: string;
+  notes: string | null;
+  // Joined
+  client_name: string | null;
+  client_email: string | null;
+  quote_number: string | null;
 }
 
-function EmailAutomationDashboard() {
-  const [queues, setQueues] = useState<AfterSalesEmailQueue[]>([]);
-  const [statistics, setStatistics] = useState({
-    totalScheduled: 0,
-    totalSent: 0,
-    totalPending: 0,
-    totalFailed: 0,
-    totalCancelled: 0,
-    successRate: 0,
-  });
-  const [upcomingEmails, setUpcomingEmails] = useState<ScheduledEmail[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [lastProcessed, setLastProcessed] = useState<string | null>(null);
+function FollowupAuditDashboard() {
+  const { user } = useAuth() as any;
+  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [channelFilter, setChannelFilter] = useState<"all" | "email" | "whatsapp">("all");
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await (supabase as any)
+          .from("quote_followup_log")
+          .select(`
+            id, quote_id, sequence_position, template_key, channel, status, sent_at, notes,
+            quotes (client_name, client_email, quote_number)
+          `)
+          .eq("company_id", companyId)
+          .order("sent_at", { ascending: false })
+          .limit(200);
+        if (cancelled) return;
+        const flat: AuditRow[] = (data || []).map((r: any) => ({
+          id: r.id,
+          quote_id: r.quote_id,
+          sequence_position: r.sequence_position,
+          template_key: r.template_key,
+          channel: r.channel,
+          status: r.status,
+          sent_at: r.sent_at,
+          notes: r.notes,
+          client_name: r.quotes?.client_name ?? null,
+          client_email: r.quotes?.client_email ?? null,
+          quote_number: r.quotes?.quote_number ?? null,
+        }));
+        setRows(flat);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
-  const loadData = () => {
-    const emailQueues = getEmailQueues();
-    const stats = getEmailStatistics(emailQueues);
-    const upcoming = getUpcomingEmails(emailQueues, 30);
+  const filtered = useMemo(
+    () => channelFilter === "all" ? rows : rows.filter((r) => r.channel === channelFilter),
+    [rows, channelFilter],
+  );
 
-    setQueues(emailQueues);
-    setStatistics(stats);
-    setUpcomingEmails(upcoming);
-  };
-
-  const handleProcessQueue = async () => {
-    setIsProcessing(true);
-    const result = await processEmailQueue(queues);
-    setLastProcessed(new Date().toLocaleString());
-    setIsProcessing(false);
-    loadData();
-  };
-
-  const getTemplateInfo = (templateId: string) => {
-    return defaultAfterSalesTemplates.find(t => t.id === templateId);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "sent":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "pending":
-        return "bg-blue-100 text-blue-700 border-blue-200";
-      case "failed":
-        return "bg-red-100 text-red-700 border-red-200";
-      case "cancelled":
-        return "bg-slate-100 text-slate-700 border-slate-200";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "sent":
-        return <CheckCircle className="h-4 w-4" />;
-      case "pending":
-        return <Clock className="h-4 w-4" />;
-      case "failed":
-        return <XCircle className="h-4 w-4" />;
-      case "cancelled":
-        return <AlertCircle className="h-4 w-4" />;
-      default:
-        return <Mail className="h-4 w-4" />;
-    }
-  };
+  const stats = useMemo(() => ({
+    total: rows.length,
+    email: rows.filter((r) => r.channel === "email").length,
+    whatsapp: rows.filter((r) => r.channel === "whatsapp").length,
+    fu1: rows.filter((r) => r.sequence_position === 1).length,
+    fu2: rows.filter((r) => r.sequence_position === 2).length,
+    fu3: rows.filter((r) => r.sequence_position === 3).length,
+  }), [rows]);
 
   return (
     <>
       <NoIndexMeta />
-      <Head>
-        <meta name="robots" content="noindex, nofollow" />
-        <title>Email Automation Dashboard | Catering Platform</title>
-      </Head>
-
+      <Head><title>Follow-up audit | Admin</title></Head>
       <AdminNav />
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8">
-          <div className="mb-8">
-            <Button
-              variant="outline"
-              onClick={() => window.history.back()}
-              className="mb-4"
-            >
-              ← Back
-            </Button>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-                  Email Automation Dashboard
-                </h1>
-                <p className="text-slate-600">
-                  Monitor and manage your after-sales email sequences
-                </p>
-              </div>
-              <Button
-                onClick={handleProcessQueue}
-                disabled={isProcessing}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isProcessing ? "animate-spin" : ""}`} />
-                {isProcessing ? "Processing..." : "Process Queue"}
-              </Button>
+
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 lg:pl-72 xl:pl-80">
+        <div className="px-3 sm:px-4 md:px-6 pt-20 lg:pt-6 pb-12 max-w-screen-2xl">
+          <div className="mb-6 flex items-center gap-3 flex-wrap">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
+              <Activity className="w-6 h-6 text-white" />
             </div>
-            {lastProcessed && (
-              <p className="text-sm text-slate-500 mt-2">
-                Last processed: {lastProcessed}
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+                Follow-up audit
+                <InfoTooltip content={"Read-only log of every follow-up the team has sent. Each row corresponds to one click on the 'Send FU' button on the Quotes page. Source of truth for 'did FU2 go out?'."} />
+              </h1>
+              <p className="text-sm text-slate-600 mt-1">
+                Every follow-up the team has clicked, with channel and template used. Nothing fires automatically -- this page is observation only.
               </p>
-            )}
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Total Scheduled
-                  <InfoTooltip content={"Every email ever queued across every order.\n\nDemo data shown until live wiring lands."} />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-700">{statistics.totalScheduled}</div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+            <StatTile label="Total sends" value={stats.total} />
+            <StatTile label="Email" value={stats.email} />
+            <StatTile label="WhatsApp" value={stats.whatsapp} />
+            <StatTile label="FU 1" value={stats.fu1} />
+            <StatTile label="FU 2" value={stats.fu2} />
+            <StatTile label="FU 3" value={stats.fu3} />
+          </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Sent
-                  <InfoTooltip content={"Emails that have already gone out successfully."} />
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Mail className="w-4 h-4 text-purple-600" />
+                  Recent follow-up sends
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-green-600">{statistics.totalSent}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Pending
-                  <InfoTooltip content={"Emails sitting in the queue, waiting for their scheduled send date."} />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-blue-600">{statistics.totalPending}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Success Rate
-                  <InfoTooltip content={"The percentage of emails that went out successfully versus the ones that failed."} />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-indigo-600">
-                  {statistics.successRate.toFixed(1)}%
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+                  <Filter className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                  {(["all", "email", "whatsapp"] as const).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setChannelFilter(c)}
+                      className={`px-2.5 py-1 rounded-md capitalize ${
+                        channelFilter === c
+                          ? "bg-purple-600 text-white font-medium"
+                          : "text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Tabs defaultValue="upcoming" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="upcoming">Upcoming Emails</TabsTrigger>
-              <TabsTrigger value="all-queues">All Queues</TabsTrigger>
-              <TabsTrigger value="failures">Failures</TabsTrigger>
-              <TabsTrigger value="statistics">Statistics</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="upcoming">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Next 30 Days
-                  </CardTitle>
-                  <CardDescription>
-                    Emails scheduled to be sent in the next month
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {upcomingEmails.length === 0 ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No emails scheduled for the next 30 days.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <div className="space-y-3">
-                      {upcomingEmails.map((email) => {
-                        const template = getTemplateInfo(email.templateId);
-                        return (
-                          <div
-                            key={email.id}
-                            className="flex items-center gap-4 p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                                <Mail className="h-6 w-6 text-blue-600" />
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold">
-                                  {email.clientName} - {email.eventType}
-                                </h3>
-                                <Badge variant="outline" className="text-xs">
-                                  Email {template?.sequence}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-slate-600 mb-1">{template?.subject}</p>
-                              <div className="flex items-center gap-4 text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(email.scheduledDate).toLocaleDateString()}
-                                </span>
-                                <span>{email.clientEmail}</span>
-                              </div>
-                            </div>
-                            <Badge className={getStatusColor(email.status)}>
-                              {email.status}
-                            </Badge>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="all-queues">
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Email Queues</CardTitle>
-                  <CardDescription>
-                    Complete overview of all scheduled email sequences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {queues.length === 0 ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        No email queues found. Queues are automatically created when events are completed.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <div className="space-y-6">
-                      {queues.map((queue) => (
-                        <div key={queue.orderId} className="border rounded-lg p-4 bg-white">
-                          <div className="mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold text-lg">
-                                {queue.clientName} - {queue.eventType}
-                              </h3>
-                              <Badge variant="outline">{queue.orderId}</Badge>
-                            </div>
-                            <p className="text-sm text-slate-600">
-                              Event Date: {new Date(queue.eventDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            {queue.scheduledEmails.map((email) => {
-                              const template = getTemplateInfo(email.templateId);
-                              return (
-                                <div
-                                  key={email.id}
-                                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
-                                >
-                                  <div className="flex-shrink-0">
-                                    {getStatusIcon(email.status)}
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="text-sm font-medium">
-                                      Email {template?.sequence}: {template?.subject.substring(0, 50)}...
-                                    </p>
-                                    <p className="text-xs text-slate-600">
-                                      Scheduled: {new Date(email.scheduledDate).toLocaleDateString()}
-                                      {email.sentDate && ` | Sent: ${new Date(email.sentDate).toLocaleDateString()}`}
-                                    </p>
-                                  </div>
-                                  <Badge className={getStatusColor(email.status)}>
-                                    {email.status}
-                                  </Badge>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="failures">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5" />
-                    Failures and gated sends
-                    <InfoTooltip content={"Every email send that didn't go through cleanly. Failed = the provider rejected; Blocked = recipient is on your block list; Quarantined = recipient came from an import you haven't green-lit yet; Simulated = no email provider configured. Click Resend on a failed row to retry."} />
-                  </CardTitle>
-                  <CardDescription>
-                    Audit + retry hub for emails that didn't reach the recipient.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <EmailFailuresTab />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="statistics">
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Status Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                          <span className="font-medium">Sent</span>
-                        </div>
-                        <span className="text-2xl font-bold text-green-600">
-                          {statistics.totalSent}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-5 w-5 text-blue-600" />
-                          <span className="font-medium">Pending</span>
-                        </div>
-                        <span className="text-2xl font-bold text-blue-600">
-                          {statistics.totalPending}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <XCircle className="h-5 w-5 text-red-600" />
-                          <span className="font-medium">Failed</span>
-                        </div>
-                        <span className="text-2xl font-bold text-red-600">
-                          {statistics.totalFailed}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="h-5 w-5 text-slate-600" />
-                          <span className="font-medium">Cancelled</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-600">
-                          {statistics.totalCancelled}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Performance Metrics</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Success Rate</span>
-                          <span className="text-sm text-slate-600">
-                            {statistics.successRate.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-3">
-                          <div
-                            className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all"
-                            style={{ width: `${statistics.successRate}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Completion Rate</span>
-                          <span className="text-sm text-slate-600">
-                            {statistics.totalScheduled > 0
-                              ? (((statistics.totalSent + statistics.totalFailed) / statistics.totalScheduled) * 100).toFixed(1)
-                              : 0}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-3">
-                          <div
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all"
-                            style={{
-                              width: `${
-                                statistics.totalScheduled > 0
-                                  ? ((statistics.totalSent + statistics.totalFailed) / statistics.totalScheduled) * 100
-                                  : 0
-                              }%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t">
-                        <div className="grid grid-cols-2 gap-4 text-center">
-                          <div>
-                            <div className="text-2xl font-bold text-slate-700">
-                              {queues.length}
-                            </div>
-                            <div className="text-xs text-slate-600">Active Queues</div>
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold text-slate-700">
-                              {statistics.totalScheduled > 0
-                                ? (statistics.totalScheduled / queues.length).toFixed(1)
-                                : 0}
-                            </div>
-                            <div className="text-xs text-slate-600">Avg Emails/Queue</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <p className="text-center text-sm text-slate-500 py-12">Loading...</p>
+              ) : filtered.length === 0 ? (
+                <div className="py-12 text-center text-sm text-slate-500 px-4">
+                  <p className="mb-2">Nothing logged yet.</p>
+                  <p className="text-xs">Send a follow-up from the Quotes page and it'll appear here.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filtered.map((r) => (
+                    <Link key={r.id} href={`/admin/quotes?focus=${r.quote_id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                        {r.channel === "whatsapp"
+                          ? <MessageSquare className="w-4 h-4 text-emerald-600" />
+                          : <Mail className="w-4 h-4 text-blue-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm text-slate-900 truncate">
+                            {r.client_name || "Quote"} {r.quote_number && <span className="font-normal text-slate-500">· {r.quote_number}</span>}
+                          </p>
+                          <Badge variant="outline" className="text-[10px] capitalize border-slate-200">
+                            FU {r.sequence_position}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] capitalize border-slate-200">
+                            {r.channel}
+                          </Badge>
+                          {r.status !== "sent" && (
+                            <Badge variant="outline" className="text-[10px] capitalize bg-rose-50 text-rose-700 border-rose-200">
+                              {r.status}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate">
+                          {r.template_key} · {new Date(r.sent_at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}
+                          {r.client_email ? ` · ${r.client_email}` : ""}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        <Footer />
+          <p className="text-[11px] text-slate-500 text-center mt-6">
+            Read-only. Send actions live on{" "}
+            <Link href="/admin/quotes" className="underline hover:text-slate-700">/admin/quotes</Link>.
+            Templates live on{" "}
+            <Link href="/admin/messaging-templates" className="underline hover:text-slate-700">/admin/messaging-templates</Link>.
+          </p>
+        </div>
       </div>
     </>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardContent className="py-3 px-3">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{label}</p>
+        <p className="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function ProtectedFollowupAudit() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <FollowupAuditDashboard />
+    </ProtectedRoute>
   );
 }

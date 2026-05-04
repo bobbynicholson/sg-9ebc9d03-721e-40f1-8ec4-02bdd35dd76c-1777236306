@@ -54,6 +54,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const body = (typeof req.body === "string" ? JSON.parse(req.body) : req.body) || {};
 
+  // Email is mandatory at every lead entry point. The follow-up
+  // engine, invoice flow and lifecycle hooks all assume an
+  // addressable client. Reject up front so the embed form / Zapier
+  // / direct API caller gets a clear 400 instead of a downstream
+  // NOT NULL constraint violation.
+  const submittedEmail = String(body?.email || body?.client_email || "").trim();
+  if (!submittedEmail) {
+    return res.status(400).json({
+      error: "email_required",
+      message: "Every lead must include a contact email. No deal without one.",
+    });
+  }
+
   const { data, error } = await client.rpc("api_create_lead", {
     p_key_hash: keyHash,
     p_payload: body,

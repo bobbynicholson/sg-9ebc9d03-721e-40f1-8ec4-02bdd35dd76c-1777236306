@@ -45,12 +45,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabase: any = getServiceSupabase();
   const nowIso = new Date().toISOString();
 
-  // Pull the next batch of due-and-pending rows. The partial index
-  // (oeq_pending_due_idx) keeps this cheap.
+  // Per-tenant gate. Default policy is "operator drives every send"
+  // -- companies.auto_followups_enabled is FALSE on every row until
+  // the operator explicitly opts in. Pull the allow-list once and
+  // filter the queue read so we never auto-send for a tenant that
+  // hasn't asked for it. Keeps the queue infrastructure in place for
+  // the day they flip the flag.
+  const { data: optedIn } = await supabase
+    .from("companies")
+    .select("id")
+    .eq("auto_followups_enabled", true);
+  const allowList = ((optedIn || []) as any[]).map((c) => c.id);
+  if (allowList.length === 0) {
+    return res.status(200).json({
+      ok: true,
+      sent: 0, failed: 0, skipped: 0,
+      note: "No tenants have auto_followups_enabled. Nothing to send.",
+    });
+  }
+
+  // Pull the next batch of due-and-pending rows for opted-in tenants.
   const { data: due, error: readErr } = await supabase
     .from("outgoing_email_queue")
     .select("id, company_id, to_email, to_name, subject, body, template_type, variables, attempts, trigger_event, trigger_ref_id")
     .eq("status", "pending")
+    .in("company_id", allowList)
     .lt("attempts", MAX_ATTEMPTS)
     .or(`scheduled_for.is.null,scheduled_for.lte.${nowIso}`)
     .order("scheduled_for", { ascending: true, nullsFirst: true })

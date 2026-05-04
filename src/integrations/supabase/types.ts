@@ -956,6 +956,7 @@ export type Database = {
           address_line1: string | null
           address_line2: string | null
           amendment_cutoff_days: number
+          auto_followups_enabled: boolean
           auto_reply_to_embed_submissions: boolean
           bank_account_holder: string | null
           bank_account_number: string | null
@@ -1019,6 +1020,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           amendment_cutoff_days?: number
+          auto_followups_enabled?: boolean
           auto_reply_to_embed_submissions?: boolean
           bank_account_holder?: string | null
           bank_account_number?: string | null
@@ -1082,6 +1084,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           amendment_cutoff_days?: number
+          auto_followups_enabled?: boolean
           auto_reply_to_embed_submissions?: boolean
           bank_account_holder?: string | null
           bank_account_number?: string | null
@@ -6467,6 +6470,63 @@ export type Database = {
           },
           {
             foreignKeyName: "quote_change_requests_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_followup_log: {
+        Row: {
+          channel: string
+          company_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          quote_id: string
+          sent_at: string
+          sent_by_user_id: string | null
+          sequence_position: number
+          status: string
+          template_key: string
+        }
+        Insert: {
+          channel: string
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quote_id: string
+          sent_at?: string
+          sent_by_user_id?: string | null
+          sequence_position: number
+          status?: string
+          template_key: string
+        }
+        Update: {
+          channel?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quote_id?: string
+          sent_at?: string
+          sent_by_user_id?: string | null
+          sequence_position?: number
+          status?: string
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_followup_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quote_followup_log_quote_id_fkey"
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"

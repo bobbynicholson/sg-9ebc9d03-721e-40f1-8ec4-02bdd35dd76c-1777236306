@@ -1053,13 +1053,29 @@ function NewQuotePage() {
   }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, validUntil, eventName, eventDate, venueAddress, email, persistQuote]);
 
   const handleSaveDraft = async () => {
+    // No deal without email -- the follow-up engine, invoice flow,
+    // amendment + cancellation workflows all assume an addressable
+    // client. Gate Save draft on it too so we never persist a row
+    // that fails the DB NOT NULL the moment it goes out.
+    if (!email || !email.trim()) {
+      toast({
+        title: "Client email required",
+        description: "Every quote needs a client email -- the follow-up + invoice flows depend on it. No deal without one.",
+        variant: "destructive",
+      });
+      return;
+    }
     const id = await persistQuote({ status: "draft" });
     if (id) toast({ title: "Saved as draft" });
   };
 
   const handleSend = async () => {
-    if (!email) {
-      toast({ title: "Add a client email first", variant: "destructive" });
+    if (!email || !email.trim()) {
+      toast({
+        title: "Client email required",
+        description: "No deal without an email -- the follow-up + invoice + reminder flows depend on it.",
+        variant: "destructive",
+      });
       return;
     }
     if (computed.total <= 0) {

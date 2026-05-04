@@ -49,6 +49,16 @@ import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
+import {
+  computeFollowupState,
+  loadFollowupLogsForQuotes,
+  readCadenceFromAdminSettings,
+  recordFollowupSent,
+  templateKeyFor,
+  TRAFFIC_LIGHT_CLASS,
+  type FollowupLogRow,
+  type FollowupState,
+} from "@/services/quoteFollowupService";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -109,6 +119,7 @@ export default function AdminQuotes() {
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [autoEmailRows, setAutoEmailRows] = useState<any[]>([]);
+  const [followupLogs, setFollowupLogs] = useState<Record<string, FollowupLogRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
@@ -138,6 +149,15 @@ export default function AdminQuotes() {
   // Roll quotes + auto-email queue into a single per-row state object
   // with derived intelligence (status bucket, suggested action, last
   // touch, auto-email summary). Sort urgent + old to the top.
+  const cadence = useMemo(() => readCadenceFromAdminSettings(), []);
+  const followupByQuote = useMemo<Record<string, FollowupState>>(() => {
+    const out: Record<string, FollowupState> = {};
+    for (const q of quotes) {
+      out[q.id] = computeFollowupState(q as any, followupLogs[q.id] || [], cadence);
+    }
+    return out;
+  }, [quotes, followupLogs, cadence]);
+
   const rowStates = useMemo<QuoteRowState[]>(() => {
     const autoMap = summariseAutoEmailsByQuote(autoEmailRows as any);
     return quotes
@@ -219,6 +239,17 @@ export default function AdminQuotes() {
         // visibility, just without the "Auto follow-up sent 2d ago"
         // line on each row.
         console.warn("[quotes] auto-email queue fetch failed", err);
+      }
+
+      // Follow-up log -- per-quote audit trail of FU1 / FU2 / FU3
+      // sends. Drives the traffic-light pill on the row + decides
+      // which sequence position the Send-follow-up button is for.
+      try {
+        const ids = fetched.map((q) => q.id);
+        const byQuote = await loadFollowupLogsForQuotes(ids);
+        if (!cancelled) setFollowupLogs(byQuote);
+      } catch (err) {
+        console.warn("[quotes] followup log fetch failed", err);
       }
 
       // Diary lookup -- every confirmed order + accepted quote in the
@@ -450,6 +481,22 @@ export default function AdminQuotes() {
     } finally {
       setSendingId(null);
     }
+  };
+
+  /** Open the compose drawer in follow-up mode. We re-use the
+   *  existing QuoteComposeDrawer's "status" path since it already
+   *  picks the registry template by quote.status -- the operator
+   *  edits as needed and on send we log the position.
+   *
+   *  The button only appears when computeFollowupState returns a
+   *  non-null nextPosition. Sequence advances ONLY on actual send
+   *  (handled in the drawer's onSent callback below). */
+  const handleSendFollowup = (quote: Quote) => {
+    setComposeMode("status");
+    setComposeQuote(quote);
+    // The actual log-row insert happens in the drawer's onSent
+    // callback so we don't double-log if the operator opens then
+    // closes without sending.
   };
 
   /** Manual accept on behalf of the client. Use when the client phones
@@ -772,6 +819,7 @@ export default function AdminQuotes() {
                   ["sent", "revised", "viewed", "pending"].includes((quote.status || "").toLowerCase()) &&
                   intel.bucket !== "won" &&
                   intel.bucket !== "lost";
+                const followup = followupByQuote[quote.id];
                 return (
                   <Card
                     key={quote.id}
@@ -853,7 +901,7 @@ export default function AdminQuotes() {
                             urgency of the action: red urgent, amber
                             warm, slate neutral.
                           */}
-                          <div className={`mb-3 flex items-center gap-2 text-sm font-semibold ${
+                          <div className={`mb-3 flex items-center gap-2 text-sm font-semibold flex-wrap ${
                             intel.tone === "urgent"
                               ? "text-rose-600"
                               : intel.tone === "warm"
@@ -865,6 +913,14 @@ export default function AdminQuotes() {
                             <span className="font-normal text-xs text-slate-500">
                              , {intel.reason}
                             </span>
+                            {followup && followup.label !== "—" && (
+                              <span
+                                title={followup.reason}
+                                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${TRAFFIC_LIGHT_CLASS[followup.light]}`}
+                              >
+                                {followup.label}
+                              </span>
+                            )}
                           </div>
 
                           {/*
@@ -1015,6 +1071,27 @@ export default function AdminQuotes() {
                                 setComposeQuote(quote);
                               }}
                             />
+                          )}
+                          {/* Send next follow-up -- visible only when
+                              the sequence has a position ready or
+                              overdue. Opens the compose drawer; the
+                              log row is inserted only when the
+                              operator actually picks a send channel. */}
+                          {followup?.nextPosition && (followup.light === "amber" || followup.light === "rose") && canCompose && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendFollowup(quote)}
+                              className={
+                                followup.light === "rose"
+                                  ? "border-rose-300 text-rose-700 hover:bg-rose-50"
+                                  : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                              }
+                              title={followup.reason}
+                            >
+                              <ArrowRight className="w-4 h-4 mr-2" />
+                              Send FU {followup.nextPosition}
+                            </Button>
                           )}
                           {/* Manual accept -- for when the client confirms
                               over the phone or WhatsApp. Same downstream
@@ -1270,30 +1347,76 @@ export default function AdminQuotes() {
                 });
               }
             }}
-            onSent={async () => {
-              // Auto-anchor sent_at the first time the operator picks
-              // any send channel (Gmail / Outlook / mailto / Copy /
-              // WhatsApp). We only stamp when there's no existing
-              // sent_at -- otherwise the original baseline is the
-              // right anchor for follow-up timing, not the latest
-              // touch. Reset is the explicit Mark-sent button.
-              if (!composeQuote || (composeQuote as any).sent_at) return;
-              const nowIso = new Date().toISOString();
-              const nextStatus = composeQuote.status === "draft" ? "sent" : composeQuote.status;
-              try {
-                await (supabase as any)
-                  .from("quotes")
-                  .update({ sent_at: nowIso, status: nextStatus })
-                  .eq("id", composeQuote.id);
-                setQuotes((prev) => prev.map((q) =>
-                  q.id === composeQuote.id
-                    ? ({ ...q, sent_at: nowIso, status: nextStatus } as Quote)
-                    : q,
-                ));
-              } catch (err) {
-                // Non-fatal -- the operator can still hit Mark sent
-                // manually if the auto-stamp fails.
-                console.warn("Auto sent_at stamp failed:", err);
+            onSent={async (channel) => {
+              if (!composeQuote) return;
+
+              // Step 1: Anchor sent_at on the first send channel pick
+              // for a draft. Otherwise the original baseline is the
+              // right anchor for follow-up timing.
+              if (!(composeQuote as any).sent_at) {
+                const nowIso = new Date().toISOString();
+                const nextStatus = composeQuote.status === "draft" ? "sent" : composeQuote.status;
+                try {
+                  await (supabase as any)
+                    .from("quotes")
+                    .update({ sent_at: nowIso, status: nextStatus })
+                    .eq("id", composeQuote.id);
+                  setQuotes((prev) => prev.map((q) =>
+                    q.id === composeQuote.id
+                      ? ({ ...q, sent_at: nowIso, status: nextStatus } as Quote)
+                      : q,
+                  ));
+                } catch (err) {
+                  // Non-fatal.
+                  console.warn("Auto sent_at stamp failed:", err);
+                }
+              }
+
+              // Step 2: If there's a follow-up due for this quote and
+              // this isn't the first send (sent_at was already set),
+              // log a row in quote_followup_log so the traffic light
+              // flips green. Channel mapped from the MessageComposer
+              // signal: gmail/outlook/mailto/clipboard -> email,
+              // whatsapp -> whatsapp.
+              if ((composeQuote as any).sent_at && composeMode === "status") {
+                const fu = followupByQuote[composeQuote.id];
+                if (fu?.nextPosition && (fu.light === "amber" || fu.light === "rose")) {
+                  const ch: "email" | "whatsapp" = channel === "whatsapp" ? "whatsapp" : "email";
+                  const tplKey = templateKeyFor(fu.nextPosition, ch);
+                  try {
+                    await recordFollowupSent({
+                      companyId: (composeQuote as any).company_id,
+                      quoteId: composeQuote.id,
+                      position: fu.nextPosition,
+                      templateKey: tplKey,
+                      channel: ch,
+                      sentByUserId: user?.id ?? null,
+                    });
+                    // Optimistic local update so the pill flips
+                    // immediately without re-fetching.
+                    setFollowupLogs((prev) => ({
+                      ...prev,
+                      [composeQuote.id]: [
+                        ...(prev[composeQuote.id] || []),
+                        {
+                          id: `local-${Date.now()}`,
+                          quote_id: composeQuote.id,
+                          sequence_position: fu.nextPosition,
+                          template_key: tplKey,
+                          channel: ch,
+                          status: "sent",
+                          sent_at: new Date().toISOString(),
+                        } as FollowupLogRow,
+                      ],
+                    }));
+                    toast({
+                      title: `FU ${fu.nextPosition} logged (${ch})`,
+                      description: `Pill flipped green. Next follow-up due in your standard cadence.`,
+                    });
+                  } catch (logErr) {
+                    console.warn("[quotes] follow-up log insert failed:", logErr);
+                  }
+                }
               }
             }}
             onClose={() => setComposeQuote(null)}
