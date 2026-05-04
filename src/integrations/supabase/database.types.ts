@@ -1000,6 +1000,7 @@ export type Database = {
           kitchen_settings: Json
           legal_name: string | null
           logo_url: string | null
+          notification_email: string | null
           onboarding_completed_at: string | null
           onboarding_dismissed_at: string | null
           owner_id: string | null
@@ -1056,6 +1057,7 @@ export type Database = {
           kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
+          notification_email?: string | null
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null
@@ -1112,6 +1114,7 @@ export type Database = {
           kitchen_settings?: Json
           legal_name?: string | null
           logo_url?: string | null
+          notification_email?: string | null
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null
@@ -2134,14 +2137,18 @@ export type Database = {
       }
       embed_form_configs: {
         Row: {
+          auto_reply_enabled: boolean | null
           company_id: string
           created_at: string
+          deleted_at: string | null
           fields: Json
           id: string
           is_active: boolean
           last_submission_at: string | null
           name: string
+          notify_admin_email: boolean
           redirect_url: string | null
+          region_id: string | null
           slug: string
           submissions_count: number
           success_message: string | null
@@ -2151,14 +2158,18 @@ export type Database = {
           views_count: number
         }
         Insert: {
+          auto_reply_enabled?: boolean | null
           company_id: string
           created_at?: string
+          deleted_at?: string | null
           fields?: Json
           id?: string
           is_active?: boolean
           last_submission_at?: string | null
           name: string
+          notify_admin_email?: boolean
           redirect_url?: string | null
+          region_id?: string | null
           slug: string
           submissions_count?: number
           success_message?: string | null
@@ -2168,14 +2179,18 @@ export type Database = {
           views_count?: number
         }
         Update: {
+          auto_reply_enabled?: boolean | null
           company_id?: string
           created_at?: string
+          deleted_at?: string | null
           fields?: Json
           id?: string
           is_active?: boolean
           last_submission_at?: string | null
           name?: string
+          notify_admin_email?: boolean
           redirect_url?: string | null
+          region_id?: string | null
           slug?: string
           submissions_count?: number
           success_message?: string | null
@@ -2190,6 +2205,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embed_form_configs_region_id_fkey"
+            columns: ["region_id"]
+            isOneToOne: false
+            referencedRelation: "regions"
             referencedColumns: ["id"]
           },
         ]
@@ -8710,6 +8732,15 @@ export type Database = {
         Args: { p_form_id: string }
         Returns: undefined
       }
+      increment_embed_rate_limit: {
+        Args: {
+          p_ip_hash: string
+          p_limit: number
+          p_token: string
+          p_window_start: string
+        }
+        Returns: Json
+      }
       is_comms_paused_for_email: {
         Args: { p_company_id: string; p_email: string }
         Returns: boolean
@@ -8776,6 +8807,10 @@ export type Database = {
       postgis_wagyu_version: { Args: never; Returns: string }
       prune_embed_rate_limits: { Args: never; Returns: number }
       public_origin: { Args: never; Returns: string }
+      rotate_company_embed_token: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
