@@ -125,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "POST") {
       const body = (req.body || {}) as any;
       const sanitised = sanitiseInput(body);
-      if (!sanitised.ok) return res.status(400).json({ error: sanitised.error });
+      if (sanitised.ok === false) return res.status(400).json({ error: sanitised.error });
       const input = sanitised.out;
 
       if (!input.slug || !SLUG_RE.test(input.slug)) {
@@ -189,7 +189,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const body = (req.body || {}) as any;
       const sanitised = sanitiseInput(body);
-      if (!sanitised.ok) return res.status(400).json({ error: sanitised.error });
+      if (sanitised.ok === false) return res.status(400).json({ error: sanitised.error });
       const input = sanitised.out;
       if (input.slug && !SLUG_RE.test(input.slug)) {
         return res.status(400).json({ error: "Invalid slug" });
