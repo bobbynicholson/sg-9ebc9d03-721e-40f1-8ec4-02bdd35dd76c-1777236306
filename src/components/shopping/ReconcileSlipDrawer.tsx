@@ -464,8 +464,12 @@ export function ReconcileSlipDrawer({
       // unchecked AI rows and the operator's confirmed rows side by
       // side. Only purges drafts (is_draft=true), so anything the
       // operator already saved on a prior session survives.
+      // is_draft column was added in migration 20260504230000 but the
+      // generated Supabase types haven't been regenerated yet, so cast
+      // through any to bypass the column-name typing.
+      const sb = supabase as any;
       if (existingReceiptId) {
-        await supabase
+        await sb
           .from("purchase_receipt_items")
           .delete()
           .eq("receipt_id", existingReceiptId)
@@ -477,7 +481,7 @@ export function ReconcileSlipDrawer({
       // the AI.
       const itemsToInsertFinal = itemsToInsert.map((it) => ({ ...it, is_draft: false }));
       if (itemsToInsertFinal.length > 0) {
-        const { error: itemsErr } = await supabase
+        const { error: itemsErr } = await sb
           .from("purchase_receipt_items")
           .insert(itemsToInsertFinal);
         if (itemsErr) throw new Error(itemsErr.message);
