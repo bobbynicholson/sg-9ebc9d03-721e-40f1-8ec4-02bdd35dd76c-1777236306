@@ -81,6 +81,7 @@ interface InventoryItem {
   storageInstructions: string;
   isPerishable: boolean;
   shelfLifeDays: number | null;
+  allergenCodes: string[];
   lastUpdated: string;
 }
 
@@ -128,6 +129,15 @@ const STOCK_REASONS: StockReason[] = [
   { key: "return",       label: "Return to supplier",      helper: "Sent back. Removes stock.",                 direction: "out",      transactionType: "return"     },
 ];
 
+// Allergens we track on inventory_items so the menu-item save can
+// cross-check ingredients against dietary_tags / allergen_codes.
+// Mirrors the menuService.ts ALLERGEN_CODES list -- kept duplicated
+// here to avoid a circular import.
+const INVENTORY_ALLERGEN_CODES = [
+  "gluten", "dairy", "egg", "peanut", "tree_nut", "soy",
+  "fish", "shellfish", "sesame", "celery", "mustard", "sulphite",
+];
+
 const emptyForm = {
   item_name: "",
   category: "Other",
@@ -144,6 +154,10 @@ const emptyForm = {
   // Stored as a string here so the UI can use a single Select with
   // a sentinel value; on save we translate to (region_id, is_shared).
   branch_scope: "shared",
+  // Allergens this ingredient contains. Empty = not flagged. Used by
+  // the menu-item save cross-check ("contains gluten but item is
+  // tagged gluten free").
+  allergen_codes: [] as string[],
 };
 
 interface SupplierOption {
@@ -378,6 +392,7 @@ export default function AdminInventory() {
         storageInstructions: row.storage_instructions ?? "",
         isPerishable: Boolean(row.is_perishable),
         shelfLifeDays: row.shelf_life_days ?? null,
+        allergenCodes: Array.isArray(row.allergen_codes) ? row.allergen_codes : [],
         lastUpdated: row.updated_at ?? "",
       }));
       setInventory(mapped);
@@ -468,6 +483,7 @@ export default function AdminInventory() {
         sku: addForm.sku.trim() || null,
         storage_location: addForm.storage_location.trim() || null,
         preferred_supplier_id: addForm.preferred_supplier_id || null,
+        allergen_codes: addForm.allergen_codes.length ? addForm.allergen_codes : null,
         // Schema CHECK constraint: items pinned to a region cannot
         // also be flagged shared. Translate the single-select picker
         // into the (region_id, is_shared) pair the DB expects.
@@ -501,6 +517,7 @@ export default function AdminInventory() {
       branch_scope: (item as any).region_id
         ? String((item as any).region_id)
         : "shared",
+      allergen_codes: item.allergenCodes || [],
     });
     setEditError("");
     setEditOpen(true);
@@ -524,6 +541,7 @@ export default function AdminInventory() {
         sku: editForm.sku.trim() || null,
         storage_location: editForm.storage_location.trim() || null,
         preferred_supplier_id: editForm.preferred_supplier_id || null,
+        allergen_codes: editForm.allergen_codes.length ? editForm.allergen_codes : null,
         region_id: branchPick === "shared" ? null : branchPick,
         is_shared: branchPick === "shared",
       } as any);
@@ -2036,6 +2054,37 @@ function ItemForm({
             No suppliers yet, add them in Shopping &gt; Suppliers, then come back here to link.
           </p>
         )}
+      </div>
+      {/* Allergen flags. Read by the menu-item save cross-check so the
+          system warns when an ingredient contains an allergen the menu
+          item is tagged free-of (e.g. gluten-free dish using flour). */}
+      <div>
+        <Label className="flex items-center gap-1">
+          Contains allergens
+          <span className="text-[11px] font-normal text-slate-500">(used by menu item warnings)</span>
+        </Label>
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {INVENTORY_ALLERGEN_CODES.map(a => {
+            const on = (form.allergen_codes || []).includes(a);
+            return (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setForm({
+                  ...form,
+                  allergen_codes: on
+                    ? form.allergen_codes.filter(c => c !== a)
+                    : [...form.allergen_codes, a],
+                })}
+                className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${
+                  on
+                    ? "bg-red-100 text-red-700 border-red-300"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+              >{a.replace(/_/g, " ")}</button>
+            );
+          })}
+        </div>
       </div>
       <BranchScopePicker form={form} setForm={setForm} />
       {error && <p className="text-sm text-red-600">{error}</p>}

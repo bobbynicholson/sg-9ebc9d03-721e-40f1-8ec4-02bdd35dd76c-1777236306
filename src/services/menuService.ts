@@ -40,6 +40,8 @@ export interface MenuItem {
   requires_advance_notice_hours: number | null;
   is_available: boolean | null;
   active: boolean | null;
+  is_buy_and_sell: boolean | null;
+  linked_inventory_item_id: string | null;
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
@@ -430,10 +432,11 @@ export const menuService = {
     category: string | null;
     cost_per_unit: number | null;
     current_stock: number | null;
+    allergen_codes: string[] | null;
   }>> {
     const { data, error } = await supabase
       .from("inventory_items")
-      .select("id, item_name, unit_of_measure, category, cost_per_unit, current_stock")
+      .select("id, item_name, unit_of_measure, category, cost_per_unit, current_stock, allergen_codes")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("item_name", { ascending: true });

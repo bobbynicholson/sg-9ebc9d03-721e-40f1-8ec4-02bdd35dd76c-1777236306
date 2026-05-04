@@ -533,13 +533,6 @@ export type Database = {
             foreignKeyName: "cancellation_requests_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "cancellation_requests_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -713,13 +706,6 @@ export type Database = {
             foreignKeyName: "client_access_log_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "client_access_log_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -782,13 +768,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "client_access_tokens_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "client_access_tokens_order_id_fkey"
@@ -1282,13 +1261,6 @@ export type Database = {
             foreignKeyName: "deliveries_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "deliveries_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -1391,13 +1363,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "delivery_feedback_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "delivery_feedback_order_id_fkey"
@@ -1594,13 +1559,6 @@ export type Database = {
             foreignKeyName: "dispatch_messages_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "dispatch_messages_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -1719,13 +1677,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "driver_assignments_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "driver_assignments_order_id_fkey"
@@ -1867,13 +1818,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "email_automation_log_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
           {
             foreignKeyName: "email_automation_log_order_id_fkey"
             columns: ["order_id"]
@@ -2554,13 +2498,6 @@ export type Database = {
             foreignKeyName: "equipment_handovers_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "equipment_handovers_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -2671,13 +2608,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "equipment"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "equipment_hire_orders_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "equipment_hire_orders_order_id_fkey"
@@ -3079,13 +3009,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "gps_tracking_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "gps_tracking_order_id_fkey"
@@ -3607,6 +3530,7 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          allergen_codes: string[] | null
           category: string | null
           company_id: string
           cost_per_unit: number | null
@@ -3631,6 +3555,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          allergen_codes?: string[] | null
           category?: string | null
           company_id: string
           cost_per_unit?: number | null
@@ -3655,6 +3580,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          allergen_codes?: string[] | null
           category?: string | null
           company_id?: string
           cost_per_unit?: number | null
@@ -3766,13 +3692,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_items"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_transactions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "inventory_transactions_order_id_fkey"
@@ -3899,13 +3818,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoices_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "invoices_order_id_fkey"
@@ -4134,13 +4046,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kitchen_prep_tasks_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "kitchen_prep_tasks_order_id_fkey"
@@ -4451,13 +4356,6 @@ export type Database = {
             foreignKeyName: "kitchen_task_completions_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "kitchen_task_completions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -4622,13 +4520,6 @@ export type Database = {
             foreignKeyName: "leads_source_order_id_fkey"
             columns: ["source_order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "leads_source_order_id_fkey"
-            columns: ["source_order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -4726,7 +4617,9 @@ export type Database = {
           image_url: string | null
           instructions: string | null
           is_available: boolean | null
+          is_buy_and_sell: boolean
           item_name: string
+          linked_inventory_item_id: string | null
           prep_time_minutes: number | null
           recipe_name: string | null
           requires_advance_notice_hours: number | null
@@ -4750,7 +4643,9 @@ export type Database = {
           image_url?: string | null
           instructions?: string | null
           is_available?: boolean | null
+          is_buy_and_sell?: boolean
           item_name: string
+          linked_inventory_item_id?: string | null
           prep_time_minutes?: number | null
           recipe_name?: string | null
           requires_advance_notice_hours?: number | null
@@ -4774,7 +4669,9 @@ export type Database = {
           image_url?: string | null
           instructions?: string | null
           is_available?: boolean | null
+          is_buy_and_sell?: boolean
           item_name?: string
+          linked_inventory_item_id?: string | null
           prep_time_minutes?: number | null
           recipe_name?: string | null
           requires_advance_notice_hours?: number | null
@@ -4786,6 +4683,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_linked_inventory_item_id_fkey"
+            columns: ["linked_inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_demand_outlook"
+            referencedColumns: ["inventory_item_id"]
+          },
+          {
+            foreignKeyName: "menu_items_linked_inventory_item_id_fkey"
+            columns: ["linked_inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
             referencedColumns: ["id"]
           },
         ]
@@ -4978,13 +4889,6 @@ export type Database = {
             foreignKeyName: "order_amendment_requests_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "order_amendment_requests_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -5038,13 +4942,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_assignment_audit_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "order_assignment_audit_order_id_fkey"
@@ -5121,13 +5018,6 @@ export type Database = {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -5165,13 +5055,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_status_history_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "order_status_history_order_id_fkey"
@@ -5952,13 +5835,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "payments_order_id_fkey"
@@ -6756,13 +6632,6 @@ export type Database = {
             foreignKeyName: "quotes_converted_to_order_id_fkey"
             columns: ["converted_to_order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "quotes_converted_to_order_id_fkey"
-            columns: ["converted_to_order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -6856,13 +6725,6 @@ export type Database = {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
             columns: ["recipe_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["recipe_id"]
-          },
-          {
-            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
-            columns: ["recipe_id"]
-            isOneToOne: false
             referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
@@ -6906,13 +6768,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recipe_scaling_history_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
           },
           {
             foreignKeyName: "recipe_scaling_history_order_id_fkey"
@@ -8050,13 +7905,6 @@ export type Database = {
             foreignKeyName: "vehicle_bookings_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "order_ingredient_demand"
-            referencedColumns: ["order_id"]
-          },
-          {
-            foreignKeyName: "vehicle_bookings_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -8480,36 +8328,7 @@ export type Database = {
           recipe_id: string | null
           unit: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "order_items_menu_item_id_fkey"
-            columns: ["menu_item_id"]
-            isOneToOne: false
-            referencedRelation: "menu_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recipe_ingredients_inventory_item_id_fkey"
-            columns: ["inventory_item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_demand_outlook"
-            referencedColumns: ["inventory_item_id"]
-          },
-          {
-            foreignKeyName: "recipe_ingredients_inventory_item_id_fkey"
-            columns: ["inventory_item_id"]
-            isOneToOne: false
-            referencedRelation: "inventory_items"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {

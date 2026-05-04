@@ -22,7 +22,9 @@ import {
 import {
   BookOpen, Plus, Pencil, Archive, ArchiveRestore, Search, Image as ImageIcon,
   ChefHat, Trash2, AlertTriangle, ChevronDown, ChevronUp, Package, Loader2,
+  Upload, X, ShoppingBag,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -53,7 +55,16 @@ interface ItemDraft {
   allergen_codes: string[];
   requires_advance_notice_hours: string;
   is_available: boolean;
+  // Buy-and-sell: when true, this menu item is bought-in (no recipe).
+  // 1 portion = 1 unit of linked_inventory_item_id, so the shopping
+  // dashboard counts menu-item units instead of recipe ingredients.
+  is_buy_and_sell: boolean;
+  linked_inventory_item_id: string | null;
 }
+
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
+const IMAGE_BUCKET = "menu-images";
+const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 interface RecipeDraft {
   enabled: boolean;
@@ -74,6 +85,8 @@ const EMPTY_ITEM: ItemDraft = {
   allergen_codes: [],
   requires_advance_notice_hours: "0",
   is_available: true,
+  is_buy_and_sell: false,
+  linked_inventory_item_id: null,
 };
 
 const EMPTY_RECIPE: RecipeDraft = {
@@ -112,6 +125,7 @@ function MenuPage() {
   const [inventoryPool, setInventoryPool] = useState<Array<{
     id: string; item_name: string; unit_of_measure: string;
     category: string | null; cost_per_unit: number | null; current_stock: number | null;
+    allergen_codes: string[] | null;
   }>>([]);
 
   const load = async () => {
@@ -245,6 +259,8 @@ function MenuPage() {
       requires_advance_notice_hours: it.requires_advance_notice_hours != null
         ? String(it.requires_advance_notice_hours) : "0",
       is_available: it.is_available !== false,
+      is_buy_and_sell: !!(it as any).is_buy_and_sell,
+      linked_inventory_item_id: (it as any).linked_inventory_item_id ?? null,
     });
     setRecipeDraft({ ...EMPTY_RECIPE, ingredients: [] });
     const full = await menuService.getFull(it.id);
@@ -268,6 +284,99 @@ function MenuPage() {
     setError("");
   };
 
+  // ── Image upload (3 MB cap, JPEG / PNG / WebP) ───────────────────────
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (file: File) => {
+    if (!companyId) return;
+    if (!ALLOWED_IMAGE_MIMES.has(file.type)) {
+      toast({
+        title: "Unsupported image type",
+        description: "JPEG, PNG and WebP only.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast({
+        title: "Image too large",
+        description: `${(file.size / 1024 / 1024).toFixed(1)} MB. Cap is 3 MB per image.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const ext = (file.type.split("/")[1] || "jpg").toLowerCase();
+      const path = `${companyId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(IMAGE_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      setItemDraft((d) => ({ ...d, image_url: pub.publicUrl }));
+      toast({ title: "Image uploaded" });
+    } catch (err: any) {
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload the image.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const clearImage = () => setItemDraft((d) => ({ ...d, image_url: "" }));
+
+  // ── Allergen / dietary cross-check ────────────────────────────────────
+  // Builds a list of human-readable conflicts between the menu item's
+  // dietary_tags / allergen_codes and the allergen_codes on its
+  // linked-to-inventory ingredients. Empty array = no conflicts.
+  const allergenConflicts = useMemo(() => {
+    if (!recipeDraft.enabled || recipeDraft.ingredients.length === 0) return [];
+    const tags = new Set(itemDraft.dietary_tags);
+    const declaredAllergens = new Set(itemDraft.allergen_codes);
+    // Map dietary tag -> allergen code that would contradict it.
+    const tagConflicts: Array<{ tag: string; allergen: string }> = [
+      { tag: "gluten_free", allergen: "gluten" },
+      { tag: "dairy_free", allergen: "dairy" },
+      { tag: "nut_free", allergen: "peanut" },
+      { tag: "nut_free", allergen: "tree_nut" },
+      { tag: "vegan", allergen: "dairy" },
+      { tag: "vegan", allergen: "egg" },
+      { tag: "vegan", allergen: "fish" },
+      { tag: "vegan", allergen: "shellfish" },
+      { tag: "vegetarian", allergen: "fish" },
+      { tag: "vegetarian", allergen: "shellfish" },
+    ];
+    const issues: string[] = [];
+    for (const ing of recipeDraft.ingredients) {
+      if (!ing.inventory_item_id) continue;
+      const inv = inventoryPool.find((i) => i.id === ing.inventory_item_id);
+      const invAllergens = inv?.allergen_codes || [];
+      if (invAllergens.length === 0) continue;
+      for (const a of invAllergens) {
+        // 1. Dietary-tag contradictions ("gluten_free" + ingredient with gluten)
+        for (const c of tagConflicts) {
+          if (tags.has(c.tag) && c.allergen === a) {
+            issues.push(`"${ing.ingredient_name}" contains ${a} but the menu item is tagged ${c.tag.replace(/_/g, " ")}`);
+          }
+        }
+        // 2. Undeclared allergens (ingredient has gluten but the item
+        //    isn't tagged "gluten" in allergen_codes)
+        if (!declaredAllergens.has(a)) {
+          issues.push(`"${ing.ingredient_name}" contains ${a} -- add ${a} to the allergen codes so the kitchen warns customers`);
+        }
+      }
+    }
+    // Dedup -- the same warning can fire on multiple ingredients
+    return Array.from(new Set(issues));
+  }, [itemDraft.dietary_tags, itemDraft.allergen_codes, recipeDraft.enabled, recipeDraft.ingredients, inventoryPool]);
+
+  const [allergenConfirmOpen, setAllergenConfirmOpen] = useState(false);
+
   // ── Save ─────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
@@ -289,7 +398,14 @@ function MenuPage() {
       return;
     }
 
-    if (recipeDraft.enabled) {
+    if (itemDraft.is_buy_and_sell) {
+      if (!itemDraft.linked_inventory_item_id) {
+        setError("Buy-and-sell items need a linked inventory item so shopping forecasts know what to count.");
+        return;
+      }
+      // Buy-and-sell items don't have a recipe -- the recipe block is
+      // hidden when the toggle is on, but be defensive.
+    } else if (recipeDraft.enabled) {
       const baseS = Number(recipeDraft.base_servings);
       if (isNaN(baseS) || baseS < 1) {
         setError("Recipe needs a base serving count of at least 1");
@@ -311,6 +427,17 @@ function MenuPage() {
       }
     }
 
+    // Allergen cross-check -- ask the operator to confirm before saving
+    // when the recipe ingredients contradict the menu item's dietary
+    // tags or carry undeclared allergens. Operator can still proceed
+    // (false positives happen, e.g. a "may contain" flag), but they
+    // see the warning first.
+    if (!allergenConfirmOpen && allergenConflicts.length > 0) {
+      setAllergenConfirmOpen(true);
+      return;
+    }
+    setAllergenConfirmOpen(false);
+
     setSaving(true);
     try {
       // 1. Upsert the menu item
@@ -326,12 +453,16 @@ function MenuPage() {
         requires_advance_notice_hours: noticeH,
         is_available: itemDraft.is_available,
         active: itemDraft.is_available,
+        is_buy_and_sell: itemDraft.is_buy_and_sell,
+        linked_inventory_item_id: itemDraft.is_buy_and_sell
+          ? itemDraft.linked_inventory_item_id
+          : null,
       };
       if (editTargetId) itemPayload.id = editTargetId;
       // Mirror useful recipe fields onto menu_items so the kitchen menu
       // page (which reads menu_items only for prep/cook times) keeps
-      // working without a join.
-      if (recipeDraft.enabled) {
+      // working without a join. Skipped for buy-and-sell items.
+      if (!itemDraft.is_buy_and_sell && recipeDraft.enabled) {
         itemPayload.base_servings = Number(recipeDraft.base_servings);
         if (recipeDraft.prep_time_minutes) itemPayload.prep_time_minutes = Number(recipeDraft.prep_time_minutes);
         if (recipeDraft.cook_time_minutes) itemPayload.cook_time_minutes = Number(recipeDraft.cook_time_minutes);
@@ -339,8 +470,8 @@ function MenuPage() {
       }
       const saved = await menuService.upsertMenuItem(itemPayload);
 
-      // 2. Save the recipe + ingredients (or wipe if disabled)
-      if (recipeDraft.enabled) {
+      // 2. Save the recipe + ingredients (or wipe if disabled / buy-and-sell)
+      if (!itemDraft.is_buy_and_sell && recipeDraft.enabled) {
         await menuService.saveRecipe({
           companyId,
           menuItemId: saved.id,
@@ -778,15 +909,64 @@ function MenuPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label>
-                  Image URL
-                  <InfoTooltip content="Paste a public image URL. Hosted upload is on the backlog, for now use a public link from your storage or website." />
+                <Label className="flex items-center gap-1">
+                  Photo
+                  <InfoTooltip content="JPEG, PNG or WebP. 3 MB cap. Stored on the menu-images bucket and served via a public URL." />
                 </Label>
-                <Input
-                  value={itemDraft.image_url}
-                  onChange={(e) => setItemDraft({ ...itemDraft, image_url: e.target.value })}
-                  placeholder="https://..."
-                />
+                {itemDraft.image_url ? (
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={itemDraft.image_url}
+                      alt="Menu item"
+                      className="w-14 h-14 object-cover rounded border border-slate-200"
+                    />
+                    <label className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      Replace
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleImageUpload(f);
+                          e.target.value = "";
+                        }}
+                        disabled={uploadingImage}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearImage}
+                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 gap-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 px-3 py-3 rounded-md border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs text-slate-600">
+                    {uploadingImage ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</>
+                    ) : (
+                      <><Upload className="w-4 h-4" /> Click to upload (JPEG / PNG / WebP, max 3 MB)</>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleImageUpload(f);
+                        e.target.value = "";
+                      }}
+                      disabled={uploadingImage}
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -858,7 +1038,71 @@ function MenuPage() {
             </div>
           </div>
 
-          {/* Recipe block, collapsed by default */}
+          {/* Buy-and-sell block. When enabled, the menu item is bought-in
+              (no recipe) and 1 portion = 1 unit of the linked inventory
+              item -- shopping forecasts count menu-item units instead of
+              recipe ingredients. Mutually exclusive with the recipe block. */}
+          <div className="space-y-3 border-t pt-4">
+            <button
+              type="button"
+              onClick={() => setItemDraft({ ...itemDraft, is_buy_and_sell: !itemDraft.is_buy_and_sell })}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  Buy-and-sell item
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {itemDraft.is_buy_and_sell
+                    ? "Bought-in, no recipe. Shopping counts menu-item units instead of ingredients."
+                    : "Toggle on if this is a bought-in item (e.g. canned drink, off-the-shelf dessert)."}
+                </p>
+              </div>
+              <Switch
+                checked={itemDraft.is_buy_and_sell}
+                onCheckedChange={(v) => setItemDraft({ ...itemDraft, is_buy_and_sell: v })}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </button>
+
+            {itemDraft.is_buy_and_sell && (
+              <div className="space-y-1.5 pl-1">
+                <Label className="flex items-center gap-1">
+                  Linked inventory item *
+                  <InfoTooltip content="The inventory item that 1 portion of this menu item consumes. Shopping forecasts use this to count menu-item units against on-hand stock." />
+                </Label>
+                <Input
+                  list="buy-sell-inventory-list"
+                  value={
+                    itemDraft.linked_inventory_item_id
+                      ? inventoryPool.find(i => i.id === itemDraft.linked_inventory_item_id)?.item_name || ""
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const match = inventoryPool.find(i => i.item_name === e.target.value);
+                    setItemDraft({ ...itemDraft, linked_inventory_item_id: match?.id ?? null });
+                  }}
+                  placeholder="Type to search inventory..."
+                />
+                <datalist id="buy-sell-inventory-list">
+                  {inventoryPool.map(i => (
+                    <option key={i.id} value={i.item_name}>
+                      {i.unit_of_measure} {i.cost_per_unit ? `· R${i.cost_per_unit}` : ""}
+                    </option>
+                  ))}
+                </datalist>
+                {itemDraft.linked_inventory_item_id ? (
+                  <p className="text-[11px] text-emerald-700">Linked. 1 portion will count as 1 unit on shopping.</p>
+                ) : (
+                  <p className="text-[11px] text-amber-700">Pick an inventory item or save will fail.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Recipe block, hidden for buy-and-sell items */}
+          {!itemDraft.is_buy_and_sell && (
           <div className="space-y-3 border-t pt-4">
             <button
               type="button"
@@ -1075,6 +1319,7 @@ function MenuPage() {
               </div>
             )}
           </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} disabled={saving}>Cancel</Button>
@@ -1084,6 +1329,38 @@ function MenuPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Allergen / dietary cross-check confirm. Fires when ingredient
+          inventory carries an allergen the menu item either contradicts
+          (e.g. tagged "gluten free" but contains gluten) or hasn't
+          declared on its allergen_codes. Operator can still proceed --
+          some flags are intentional ("may contain") -- but they see the
+          warnings first. */}
+      <AlertDialog open={allergenConfirmOpen} onOpenChange={setAllergenConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+              Allergen check
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-700">The recipe ingredients carry allergen flags that may conflict with this menu item:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-slate-700 max-h-60 overflow-auto bg-amber-50 border border-amber-200 rounded-md p-3">
+                  {allergenConflicts.map((msg, i) => <li key={i}>{msg}</li>)}
+                </ul>
+                <p className="text-xs text-slate-500">Save anyway if these are intentional (e.g. "may contain" precautions).</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAllergenConfirmOpen(false)}>Go back and fix</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAllergenConfirmOpen(false); handleSave(); }} className="bg-amber-600 hover:bg-amber-700">
+              Save anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Archive confirm */}
       <AlertDialog open={!!archiveTarget} onOpenChange={(open) => { if (!open) setArchiveTarget(null); }}>
