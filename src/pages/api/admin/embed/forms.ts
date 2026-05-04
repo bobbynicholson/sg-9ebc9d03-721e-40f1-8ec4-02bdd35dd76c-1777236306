@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { validateRedirectUrl } from "@/lib/embedFormApi";
 
 /**
  * Admin CRUD for embed_form_configs.
@@ -27,7 +28,7 @@ const CALLER_ROLES_ALLOWED = new Set([
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/;
 
-function sanitiseInput(body: any) {
+function sanitiseInput(body: any): { ok: true; out: Record<string, any> } | { ok: false; error: string } {
   const out: Record<string, any> = {};
   if (typeof body.slug === "string") out.slug = body.slug.trim().toLowerCase();
   if (typeof body.name === "string") out.name = body.name.trim().slice(0, 200);
@@ -37,10 +38,24 @@ function sanitiseInput(body: any) {
   if (body.theme && typeof body.theme === "object") out.theme = body.theme;
   if (typeof body.success_message === "string")
     out.success_message = body.success_message.slice(0, 1000);
-  if (typeof body.redirect_url === "string")
-    out.redirect_url = body.redirect_url.slice(0, 2000);
+  if ("redirect_url" in body) {
+    // Lock down redirect URL strictly. The loader follows this on success
+    // via window.location.href; an unvalidated input is a script-injection
+    // vector against every host site embedding the form.
+    const v = validateRedirectUrl(body.redirect_url);
+    if (!v.ok) return { ok: false, error: v.error };
+    out.redirect_url =
+      typeof body.redirect_url === "string"
+        ? body.redirect_url.trim().slice(0, 2000) || null
+        : null;
+  }
   if (typeof body.is_active === "boolean") out.is_active = body.is_active;
-  return out;
+  if (typeof body.notify_admin_email === "boolean") out.notify_admin_email = body.notify_admin_email;
+  if (typeof body.auto_reply_enabled === "boolean" || body.auto_reply_enabled === null)
+    out.auto_reply_enabled = body.auto_reply_enabled;
+  if (typeof body.region_id === "string" || body.region_id === null)
+    out.region_id = body.region_id || null;
+  return { ok: true, out };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -98,6 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from("embed_form_configs")
         .select("*")
         .eq("company_id", operatingCompanyId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (error) return res.status(500).json({ error: error.message });
@@ -106,7 +122,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === "POST") {
       const body = (req.body || {}) as any;
-      const input = sanitiseInput(body);
+      const sanitised = sanitiseInput(body);
+      if (!sanitised.ok) return res.status(400).json({ error: sanitised.error });
+      const input = sanitised.out;
 
       if (!input.slug || !SLUG_RE.test(input.slug)) {
         return res
@@ -168,7 +186,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const body = (req.body || {}) as any;
-      const input = sanitiseInput(body);
+      const sanitised = sanitiseInput(body);
+      if (!sanitised.ok) return res.status(400).json({ error: sanitised.error });
+      const input = sanitised.out;
       if (input.slug && !SLUG_RE.test(input.slug)) {
         return res.status(400).json({ error: "Invalid slug" });
       }
@@ -205,9 +225,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .json({ error: "Cannot delete another tenant's form" });
       }
 
+      // Soft-delete so the embed_form_submissions audit row keeps its
+      // FK target. The list endpoint filters deleted_at IS NULL; the
+      // public config endpoint should mirror that. Hard-delete is left
+      // for a future grace-period cleanup job.
       const { error } = await (db as any)
         .from("embed_form_configs")
-        .delete()
+        .update({ deleted_at: new Date().toISOString(), is_active: false })
         .eq("id", id);
 
       if (error) return res.status(500).json({ error: error.message });

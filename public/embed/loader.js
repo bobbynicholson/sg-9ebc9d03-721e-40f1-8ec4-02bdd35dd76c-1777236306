@@ -169,11 +169,19 @@
         helpers.applyTheme(shadow, config.brand, config.theme);
 
         // Wrap submission so the loader controls success/redirect uniformly.
+        // Demo-mode short-circuits: a leaked /embed/demo.html?token=victim
+        // URL must NOT actually post to the live API.
         var renderHelpers = Object.assign({}, helpers, {
           submit: function (payload, turnstileToken, honeypot) {
+            if (demoMode) {
+              return Promise.resolve({ ok: true, message: '[demo] form submission was skipped' });
+            }
             return helpers.submitForm(API_BASE, token, slug, payload, turnstileToken, honeypot);
           },
           estimate: function (guests, tierId) {
+            if (demoMode) {
+              return Promise.resolve({ ok: true, total: 0, perPerson: 0 });
+            }
             return helpers.fetchEstimate(API_BASE, token, guests, tierId);
           },
           onSuccess: function (response) {
@@ -181,7 +189,8 @@
           },
           apiBase: API_BASE,
           token: token,
-          slug: slug
+          slug: slug,
+          demoMode: demoMode
         });
 
         tpl.render(shadow, config, config.brand || {}, renderHelpers);
@@ -198,9 +207,26 @@
     });
   }
 
+  function isSafeRedirect(url) {
+    // Defence in depth -- admin-write side validates too, but a stale
+    // config from before the validator landed could still carry a
+    // javascript:/data: payload that runs on the embedding host.
+    if (typeof url !== 'string' || !url) return false;
+    var trimmed = url.trim();
+    if (trimmed.length > 2000) return false;
+    try {
+      var u = new URL(trimmed);
+      if (u.protocol !== 'https:') return false;
+      if (u.username || u.password) return false;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function handleSuccess(shadow, config, response, helpers) {
     var redirect = (response && response.redirect_url) || config.redirectUrl;
-    if (redirect) {
+    if (redirect && isSafeRedirect(redirect)) {
       try { window.top.location.href = redirect; return; } catch (e) {
         window.location.href = redirect;
         return;

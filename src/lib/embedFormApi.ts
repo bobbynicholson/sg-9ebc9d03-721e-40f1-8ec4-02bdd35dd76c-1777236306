@@ -299,11 +299,89 @@ export function mapPayloadToLead(
 
 // ---------- IP hashing ----------
 
+let warnedAboutMissingSalt = false;
+
 export function hashIp(ip: string): string {
-  // Salt with a stable per-deployment secret if provided so the hash isn't
-  // trivially reversible. Falls back to a fixed string -- still one-way.
-  const salt = process.env.EMBED_IP_HASH_SALT || "cateringms-embed-v1";
-  return createHash("sha256").update(`${salt}::${ip}`).digest("hex");
+  // Salt with a per-deployment secret so the hash isn't trivially
+  // reversible against a candidate IP set. We still allow a fallback
+  // because (a) IP hashing is bucket-keying, not credential storage,
+  // and (b) failing closed in dev would block every embed call. But
+  // we warn loudly once per process so prod misconfig is visible.
+  const salt = process.env.EMBED_IP_HASH_SALT;
+  if (!salt && !warnedAboutMissingSalt) {
+    warnedAboutMissingSalt = true;
+    console.warn(
+      "[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way " +
+        "but a determined attacker with the public source can rainbow them. " +
+        "Set this env var in production."
+    );
+  }
+  return createHash("sha256")
+    .update(`${salt || "cateringms-embed-v1"}::${ip}`)
+    .digest("hex");
+}
+
+// ---------- Redirect URL validation ----------
+
+/**
+ * Validate a tenant-supplied redirect URL. Locks the scheme to https,
+ * blocks credentials in URL, and enforces a sane host. Used both at
+ * admin write time (so a malicious or compromised tenant admin can't
+ * stash a javascript: payload that would later run on every host site
+ * embedding the form) and in the loader as a defence in depth.
+ *
+ * Returns null when valid (caller can use the URL as-is). Returns a
+ * human-readable error otherwise.
+ */
+export function validateRedirectUrl(input: unknown): { ok: true } | { ok: false; error: string } {
+  if (input === null || input === undefined || input === "") {
+    return { ok: true }; // empty / null is fine -- means "render success card"
+  }
+  if (typeof input !== "string") {
+    return { ok: false, error: "Redirect URL must be a string." };
+  }
+  const trimmed = input.trim();
+  if (trimmed.length === 0) return { ok: true };
+  if (trimmed.length > 2000) {
+    return { ok: false, error: "Redirect URL is too long." };
+  }
+  // Protocol-relative or scheme-less is ambiguous in browsers -- reject.
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return { ok: false, error: "Redirect URL is not a valid absolute URL." };
+  }
+  // Block javascript:, data:, vbscript:, file:, etc. Only https is allowed.
+  if (url.protocol !== "https:") {
+    return { ok: false, error: "Redirect URL must use https." };
+  }
+  // Reject embedded credentials -- they're a phishing tell and most browsers
+  // strip them anyway.
+  if (url.username || url.password) {
+    return { ok: false, error: "Redirect URL may not contain credentials." };
+  }
+  return { ok: true };
+}
+
+// ---------- HTML escaping (for plain-text-rendered email & notification text) ----------
+
+/**
+ * Minimal HTML entity escaper for user-supplied strings that flow into
+ * email bodies (sent as html: by Resend) or in-app notification messages
+ * (rendered into the bell dropdown). The auditors found that visitor
+ * names were interpolated raw, opening a stored-XSS vector against the
+ * tenant's own admins. Pre-escape every untrusted string before string
+ * concat.
+ */
+export function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 // ---------- Turnstile ----------
@@ -357,8 +435,13 @@ export interface RateLimitResult {
 }
 
 /**
- * Sliding hourly window. Buckets by current hour (UTC) so we never rotate
- * a counter mid-burst. Caller passes a service-role supabase client.
+ * Atomic rate limit -- delegates to the increment_embed_rate_limit
+ * Postgres function (see migration embed_forms_hardening_foundation).
+ * The previous select-then-update implementation had a race the
+ * security audit flagged: two concurrent requests both read count=N,
+ * both wrote N+1, and either bypassed the limit or hit the unique-key
+ * conflict and silently fail-opened. The RPC does the conflict check
+ * and counter bump in a single statement.
  */
 export async function checkAndIncrementRateLimit(
   embedToken: string,
@@ -379,45 +462,26 @@ export async function checkAndIncrementRateLimit(
   const windowStartIso = windowStart.toISOString();
 
   try {
-    // Look up existing row.
-    const { data: existing } = await supabase
-      .from("embed_rate_limits")
-      .select("id, count")
-      .eq("embed_token", embedToken)
-      .eq("ip_hash", ipHash)
-      .eq("window_start", windowStartIso)
-      .maybeSingle();
-
-    const currentCount = existing?.count ?? 0;
-
-    if (currentCount >= limit) {
+    const { data, error } = await supabase.rpc("increment_embed_rate_limit", {
+      p_token: embedToken,
+      p_ip_hash: ipHash,
+      p_window_start: windowStartIso,
+      p_limit: limit,
+    });
+    if (error) throw error;
+    const allowed = !!(data && data.allowed);
+    const count = typeof data?.count === "number" ? data.count : limit;
+    if (!allowed) {
       const resetAt = new Date(windowStart);
       if (bucket === "hour") resetAt.setUTCHours(resetAt.getUTCHours() + 1);
       else resetAt.setUTCMinutes(resetAt.getUTCMinutes() + 1);
       return { allowed: false, remaining: 0, resetAt: resetAt.toISOString() };
     }
-
-    if (existing) {
-      await supabase
-        .from("embed_rate_limits")
-        .update({ count: currentCount + 1 })
-        .eq("id", existing.id);
-    } else {
-      await supabase.from("embed_rate_limits").insert([
-        {
-          embed_token: embedToken,
-          ip_hash: ipHash,
-          window_start: windowStartIso,
-          count: 1,
-        },
-      ]);
-    }
-
-    return { allowed: true, remaining: Math.max(0, limit - (currentCount + 1)) };
+    return { allowed: true, remaining: Math.max(0, limit - count) };
   } catch (err) {
-    // Fail-open on infra error -- better to accept a submission than to
+    // Fail-open on infra error -- better to accept a submission than
     // black-hole a customer enquiry. Log and move on.
-    console.warn("[embed] rate limit check failed", err);
+    console.warn("[embed] rate limit RPC failed", err);
     return { allowed: true, remaining: limit };
   }
 }

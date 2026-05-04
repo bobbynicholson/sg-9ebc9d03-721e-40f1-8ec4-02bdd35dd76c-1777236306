@@ -68,14 +68,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ ok: false, message: "Not found" });
   }
 
-  // Resolve form: slug if provided, else first active form for the tenant.
+  // Resolve form. When the snippet specifies a slug we MUST match it
+  // exactly -- the previous behaviour silently fell back to the first
+  // active form, which leaked Form B to a visitor expecting Form A. A
+  // null/empty slug still maps to the tenant's first active form (the
+  // shorthand "default" snippet).
   let formQuery = (supabase as any)
     .from("embed_form_configs")
     .select(
       "id, slug, name, template_id, fields, theme, success_message, redirect_url"
     )
     .eq("company_id", company.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .is("deleted_at", null);
 
   if (slug) {
     formQuery = formQuery.eq("slug", slug);
