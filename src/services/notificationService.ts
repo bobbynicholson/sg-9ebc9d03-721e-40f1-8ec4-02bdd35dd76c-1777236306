@@ -276,8 +276,15 @@ export const notificationService = {
     callback: (notification: Notification) => void,
     activeRole?: string
   ) {
+    // Unique suffix per subscription instance. Supabase reuses an
+    // existing channel object when the name collides, so a remount
+    // (route nav, StrictMode) would land on an already-subscribed
+    // channel and throw "cannot add postgres_changes callbacks after
+    // subscribe()" -- which crashed the whole admin layout. A random
+    // suffix guarantees a fresh channel every time.
+    const channelKey = `notifications:${userId}:${activeRole || "all"}:${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
-      .channel(`notifications:${userId}:${activeRole || "all"}`)
+      .channel(channelKey)
       .on(
         "postgres_changes",
         {
