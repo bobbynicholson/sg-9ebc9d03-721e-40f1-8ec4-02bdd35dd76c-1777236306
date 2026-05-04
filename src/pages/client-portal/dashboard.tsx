@@ -124,7 +124,12 @@ function greetingFor(date: Date): string {
  * Priority:
  *   1. Currently in transit / ready (active, not delivered)
  *   2. Earliest upcoming non-cancelled event
- *   3. null if there's nothing live
+ *   3. A very recent past event (event_date within the last 3 days) that
+ *      the caterer hasn't yet marked completed/delivered. This closes the
+ *      gap where the kitchen finishes service but doesn't transition the
+ *      status straight away -- the client still wants the portal to show
+ *      "your event was on Sunday" rather than going blank.
+ *   4. null if there's nothing live
  */
 function pickHeadlineEvent(orders: Order[]): Order | null {
   const live = orders.find((o) =>
@@ -135,7 +140,24 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
   const upcoming = orders
     .filter((o) => o.event_date >= todayISO && !["cancelled", "completed"].includes(o.status))
     .sort((a, b) => a.event_date.localeCompare(b.event_date));
-  return upcoming[0] || null;
+  if (upcoming[0]) return upcoming[0];
+
+  // Recent-past fallback. We only care about confirmed/in-flight bookings
+  // whose date has just passed -- not draft, not cancelled. 3 days is the
+  // window the admin team has to mark completion before the portal stops
+  // surfacing it as the headline.
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  const cutoffISO = threeDaysAgo.toISOString().slice(0, 10);
+  const recent = orders
+    .filter(
+      (o) =>
+        o.event_date < todayISO &&
+        o.event_date >= cutoffISO &&
+        !["cancelled", "draft", "completed", "delivered"].includes(o.status),
+    )
+    .sort((a, b) => b.event_date.localeCompare(a.event_date));
+  return recent[0] || null;
 }
 
 /** Days/hours from now to the event (negative if past). */
@@ -170,7 +192,17 @@ function smartStatusCopy(order: Order): { headline: string; sub: string } {
     return { headline: "Delivered", sub: "We hope it was lekker. Tap to leave a quick rating." };
   }
   if (t.isPast) {
-    return { headline: "Event in progress", sub: "Hope it's going brilliantly." };
+    // Same-day past timestamp: event is happening or just happened today.
+    if (t.days === 0) {
+      return { headline: "Event in progress", sub: "Hope it's going brilliantly." };
+    }
+    // Headline is a recent-past confirmed booking that hasn't been
+    // marked complete yet (see pickHeadlineEvent's 3-day fallback).
+    const ago = t.days === 1 ? "yesterday" : `${t.days} days ago`;
+    return {
+      headline: `Your event ${ago}`,
+      sub: "Hope it landed brilliantly. We'll close it out shortly.",
+    };
   }
   if (t.days === 0) {
     return { headline: "Today's the day", sub: `${t.hours} hour${t.hours === 1 ? "" : "s"} until kick-off.` };
@@ -267,6 +299,12 @@ export default function ClientPortalDashboard() {
     clientName || profile?.full_name || user?.full_name || ""
   ).split(" ")[0] || "there";
 
+  // Canonical clients.id for THIS tenant. Used as the FK target when the
+  // client submits an inline rating from a past-event tile -- the
+  // delivery_feedback row needs both order_id and client_id and we'd
+  // rather resolve it once at load than every star-click.
+  const [tenantClientId, setTenantClientId] = useState<string | null>(null);
+
   // ── Load orders for this client ─────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
@@ -301,6 +339,7 @@ export default function ClientPortalDashboard() {
         // team currently uses.
         if (clientRows.length > 0 && !cancelled) {
           setClientName(clientRows[0].client_name || null);
+          setTenantClientId(clientRows[0].id || null);
         }
 
         let q = supabase
@@ -539,9 +578,18 @@ export default function ClientPortalDashboard() {
                 </Badge>
               )}
               {pastOrders.filter((o) => o.rating == null).length > 0 && (
-                <Badge variant="outline" className="bg-white/15 border-white/30 text-white text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = typeof document !== "undefined"
+                      ? document.getElementById("past-events")
+                      : null;
+                    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="inline-flex items-center rounded-full border border-white/30 bg-white/15 hover:bg-white/25 transition px-3 py-1 text-xs font-medium text-white"
+                >
                   Rate a recent event
-                </Badge>
+                </button>
               )}
             </div>
           </div>
@@ -709,7 +757,7 @@ export default function ClientPortalDashboard() {
 
           {/* ── Past events strip ───────────────────────────────────── */}
           {pastOrders.length > 0 && (
-            <section className="space-y-3 pt-2">
+            <section id="past-events" className="space-y-3 pt-2 scroll-mt-20">
               <div className="flex items-center justify-between">
                 <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                   Past events
@@ -729,6 +777,49 @@ export default function ClientPortalDashboard() {
                       // Open the RebookDialog -- it manages its own
                       // form state internally now (date, items, notes).
                       setRebookOrder(target);
+                    }}
+                    onRate={async (target, rating) => {
+                      // Inline rating insert. RLS on delivery_feedback
+                      // gates this to client_id rows the user owns,
+                      // and the unique-ish (order_id) constraint isn't
+                      // enforced at the DB so we guard at the call
+                      // site by only showing the prompt when
+                      // order.rating is null.
+                      if (!company?.id || !tenantClientId) {
+                        toast({
+                          title: "Could not save rating",
+                          description: "Please refresh and try again.",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      const { error } = await supabase
+                        .from("delivery_feedback")
+                        .insert({
+                          company_id: company.id,
+                          order_id: target.id,
+                          client_id: tenantClientId,
+                          overall_rating: rating,
+                        });
+                      if (error) {
+                        toast({
+                          title: "Could not save rating",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      // Optimistic local update so the stars fill
+                      // immediately without a full refetch.
+                      setOrders((prev) =>
+                        prev.map((r) =>
+                          r.id === target.id ? { ...r, rating } : r,
+                        ),
+                      );
+                      toast({
+                        title: "Thanks for the rating",
+                        description: "We've shared this with the team.",
+                      });
                     }}
                   />
                 ))}
@@ -1017,13 +1108,17 @@ function PastEventTile({
   order,
   brandPrimary,
   onRebook,
+  onRate,
   slugPrefix,
 }: {
   order: Order;
   brandPrimary: string;
   onRebook: (o: Order) => void;
+  onRate: (o: Order, rating: number) => Promise<void> | void;
   slugPrefix: string;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
   const myOrdersHref = `${slugPrefix}/client-portal/my-orders?focus=${order.id}`;
   return (
@@ -1064,7 +1159,43 @@ function PastEventTile({
             ))}
           </div>
         ) : (
-          <span className="text-xs text-slate-400">Not yet rated</span>
+          // Inline rating: each star is its own click target. We track
+          // a hover index for the fill preview, and disable the row
+          // mid-submit so a double-click doesn't insert two rows.
+          <div
+            className="flex items-center gap-0.5"
+            onMouseLeave={() => setHover(null)}
+            title="Tap a star to rate this event"
+          >
+            {[1, 2, 3, 4, 5].map((n) => {
+              const filled = (hover ?? 0) >= n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  disabled={submitting}
+                  onMouseEnter={() => setHover(n)}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (submitting) return;
+                    setSubmitting(true);
+                    try {
+                      await onRate(order, n);
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  className="p-0.5 -m-0.5 disabled:opacity-50"
+                  aria-label={`Rate ${n} out of 5`}
+                >
+                  <Star
+                    className={`w-3.5 h-3.5 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300"}`}
+                  />
+                </button>
+              );
+            })}
+          </div>
         )}
         <button
           type="button"
