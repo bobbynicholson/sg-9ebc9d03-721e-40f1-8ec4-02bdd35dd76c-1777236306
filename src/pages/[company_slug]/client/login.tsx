@@ -318,8 +318,19 @@ export default function CompanyClientLoginPage({
             {!sent ? (
               <form onSubmit={handleSubmit} className="space-y-5">
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  Enter your email and we'll send you a secure sign-in link. No password needed.
+                  Enter your email and we&apos;ll send you a secure sign-in link. No password needed.
                 </p>
+
+                {/* The single most common support ticket on a magic-link
+                    portal is "I can't sign in" -- usually because the
+                    client tried a different email than the one they
+                    used to request the quote. Surface this rule loud
+                    and clear before they type. */}
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
+                  <strong className="font-semibold">Use the same email</strong> you gave when you
+                  requested your quote. We can&apos;t link a different address to your bookings, so a
+                  link sent to anywhere else won&apos;t work.
+                </div>
 
                 {message === "session_expired" && (
                   <Alert className="text-sm border-amber-200 bg-amber-50 text-amber-900">
