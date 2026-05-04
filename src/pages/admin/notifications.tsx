@@ -403,38 +403,56 @@ function NotificationsPage() {
                                       )}
                                     </div>
 
+                                    {/* Accordion intentionally does NOT
+                                        repeat the message or the type --
+                                        both are already visible above.
+                                        It only surfaces the precise
+                                        meta the inline header omits:
+                                        full timestamp, full priority
+                                        word, related-entity link. */}
                                     {isExpanded && (
-                                      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs space-y-2">
-                                        <p className="font-semibold text-slate-700 uppercase tracking-wide text-[10px]">
-                                          Full request
-                                        </p>
-                                        <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
-                                          {notification.message}
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-slate-600">
-                                          <div>
-                                            <span className="text-slate-500">Received:</span>{" "}
-                                            {notification.created_at
-                                              ? new Date(notification.created_at).toLocaleString("en-ZA")
-                                              : "Unknown"}
+                                      <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-xs">
+                                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-slate-700">
+                                          <div className="flex justify-between sm:block">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                              Received
+                                            </dt>
+                                            <dd className="font-medium sm:mt-0.5">
+                                              {notification.created_at
+                                                ? new Date(notification.created_at).toLocaleString("en-ZA", {
+                                                    day: "2-digit", month: "short", year: "numeric",
+                                                    hour: "2-digit", minute: "2-digit",
+                                                  })
+                                                : "Unknown"}
+                                            </dd>
                                           </div>
-                                          <div>
-                                            <span className="text-slate-500">Priority:</span>{" "}
-                                            <span className="capitalize">{notification.priority || "normal"}</span>
+                                          <div className="flex justify-between sm:block">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                              Priority
+                                            </dt>
+                                            <dd className="font-medium capitalize sm:mt-0.5">
+                                              {notification.priority || "normal"}
+                                            </dd>
                                           </div>
                                           {notification.related_entity_type && (
-                                            <div>
-                                              <span className="text-slate-500">Related to:</span>{" "}
-                                              {notification.related_entity_type}
+                                            <div className="flex justify-between sm:block">
+                                              <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                                Related to
+                                              </dt>
+                                              <dd className="font-medium capitalize sm:mt-0.5">
+                                                {notification.related_entity_type}
+                                              </dd>
                                             </div>
                                           )}
-                                          {notification.notification_type && (
-                                            <div>
-                                              <span className="text-slate-500">Type:</span>{" "}
-                                              {notification.notification_type.replace(/_/g, " ")}
-                                            </div>
-                                          )}
-                                        </div>
+                                          <div className="flex justify-between sm:block">
+                                            <dt className="text-slate-500 sm:text-[10px] sm:uppercase sm:tracking-wide sm:font-semibold">
+                                              Status
+                                            </dt>
+                                            <dd className="font-medium sm:mt-0.5">
+                                              {notification.is_read ? "Read" : "Unread"}
+                                            </dd>
+                                          </div>
+                                        </dl>
                                       </div>
                                     )}
                                   </>
