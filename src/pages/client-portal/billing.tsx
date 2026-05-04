@@ -104,108 +104,104 @@ export default function ClientBillingPage() {
     try {
       setLoading(true);
 
-      // Tenant scope: a user might be a client of multiple companies.
-      // We render only the URL-resolved tenant's billing here.
+      // Tenant scope: a user might be a client of multiple catering
+      // companies. The portal renders one tenant at a time -- the slug
+      // in the URL resolves company.id, and we only ever load invoices
+      // under that company.
       const tenantCompanyId: string | null = company?.id ?? null;
-      let ordersQuery = supabase
-        .from("orders")
-        .select(`*, payment_schedules(*)`)
-        .order("created_at", { ascending: false });
-      if (tenantCompanyId) ordersQuery = ordersQuery.eq("company_id", tenantCompanyId);
-
-      if (user?.id && tenantCompanyId) {
-        // Multiple historical clients rows per (user, company) are
-        // possible. Collect every id rather than maybeSingle().
-        const { data: clientRows } = await supabase
-          .from("clients")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("company_id", tenantCompanyId);
-        const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
-        if (clientIds.length > 0 && user.email) {
-          ordersQuery = ordersQuery.or(
-            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
-          );
-        } else if (clientIds.length > 0) {
-          ordersQuery = ordersQuery.in("client_id", clientIds);
-        } else if (user.email) {
-          ordersQuery = ordersQuery.ilike("client_email", user.email);
-        }
+      if (!tenantCompanyId || !user?.id) {
+        setInvoices([]);
+        return;
       }
 
-      const { data: orders, error } = await ordersQuery;
+      // Resolve every clients.id this user owns under this tenant.
+      // Invoices have a NOT NULL client_id and no client_email column
+      // so we have to go through clients -- the magic-link relink in
+      // client-provision-profile.ts is what guarantees clients.user_id
+      // is populated for any orphan rows the caterer added before the
+      // user signed up.
+      const { data: clientRows } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("company_id", tenantCompanyId);
+      const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
+      if (clientIds.length === 0) {
+        setInvoices([]);
+        return;
+      }
+
+      // Read from the canonical invoices table -- the same one admin
+      // creates from / the auto-completion trigger populates. Embeds
+      // the order via the FK so we get order_number, event_date and
+      // venue_* without a second round-trip. Drafts and written-off
+      // are hidden from the client surface (caterer-internal states).
+      const { data: rows, error } = await supabase
+        .from("invoices")
+        .select(
+          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, orders:order_id ( order_number, event_date, venue_name, venue_address )",
+        )
+        .eq("company_id", tenantCompanyId)
+        .in("client_id", clientIds)
+        .is("deleted_at", null)
+        .not("status", "in", "(draft,written_off)")
+        .order("invoice_date", { ascending: false });
+
       if (error) throw error;
 
-      // Transform orders into invoice records
-      const invoiceData: Invoice[] = [];
-      
-      orders?.forEach((order: any) => {
-        // payment_schedules is an array on a left join; pick the first row.
-        const scheduleRaw = order.payment_schedules;
-        const schedule = Array.isArray(scheduleRaw) ? scheduleRaw[0] : scheduleRaw;
-        if (!schedule) return;
+      // Map the canonical invoice_status enum to the portal's four-bucket
+      // display state. partially_paid still rolls up as "pending" because
+      // the client experience is the same -- something is still owed.
+      // Overdue is reinforced client-side too, so an admin who forgot to
+      // transition a sent invoice past its due_date still surfaces red.
+      const todayMS = Date.now();
+      const mapped: Invoice[] = ((rows as any[]) || []).map((r) => {
+        const totalAmount = Number(r.total_amount || 0);
+        const balanceDue = Number(r.balance_due ?? totalAmount);
+        const dueMS = r.due_date ? new Date(r.due_date).getTime() : null;
 
-        // Create deposit invoice if not paid
-        if (!schedule.deposit_paid) {
-          invoiceData.push({
-            id: `${order.id}-deposit`,
-            invoice_number: `INV-${order.order_number}-DEP`,
-            order_id: order.id,
-            order_number: order.order_number,
-            invoice_date: order.created_at,
-            due_date: order.created_at,
-            amount: schedule.deposit_amount,
-            currency: schedule.currency || "R",
-            status: "pending",
-            event_date: order.event_date,
-            event_location: order.event_location,
-          });
-        } else {
-          // Paid deposit invoice
-          invoiceData.push({
-            id: `${order.id}-deposit`,
-            invoice_number: `INV-${order.order_number}-DEP`,
-            order_id: order.id,
-            order_number: order.order_number,
-            invoice_date: order.created_at,
-            due_date: order.created_at,
-            amount: schedule.deposit_amount,
-            currency: schedule.currency || "R",
-            status: "paid",
-            paid_at: schedule.deposit_paid_at,
-            event_date: order.event_date,
-            event_location: order.event_location,
-          });
+        let status: Invoice["status"];
+        switch (r.status) {
+          case "paid":
+            status = "paid";
+            break;
+          case "overdue":
+            status = "overdue";
+            break;
+          case "partially_paid":
+          case "sent":
+          default:
+            status = "pending";
+            break;
+        }
+        if (status === "pending" && dueMS != null && dueMS < todayMS && balanceDue > 0) {
+          status = "overdue";
         }
 
-        // Create balance invoice
-        const balanceDueDate = new Date(schedule.balance_due_date);
-        const today = new Date();
-        let balanceStatus: Invoice["status"] = "pending";
+        // Display amount: balance_due when something is still owed,
+        // total_amount once the invoice is paid in full. Keeps the
+        // Outstanding stat correct and the per-row figure honest.
+        const displayAmount = status === "paid" ? totalAmount : balanceDue;
+        const orderEmbed = (r as any).orders || {};
 
-        if (schedule.balance_paid) {
-          balanceStatus = "paid";
-        } else if (balanceDueDate < today) {
-          balanceStatus = "overdue";
-        }
-
-        invoiceData.push({
-          id: `${order.id}-balance`,
-          invoice_number: `INV-${order.order_number}-BAL`,
-          order_id: order.id,
-          order_number: order.order_number,
-          invoice_date: order.created_at,
-          due_date: schedule.balance_due_date,
-          amount: schedule.balance_amount,
-          currency: schedule.currency || "R",
-          status: balanceStatus,
-          paid_at: schedule.balance_paid_at,
-          event_date: order.event_date,
-          event_location: order.event_location,
-        });
+        return {
+          id: r.id,
+          invoice_number: r.invoice_number,
+          order_id: r.order_id,
+          order_number: orderEmbed.order_number || "",
+          invoice_date: r.invoice_date,
+          due_date: r.due_date,
+          amount: displayAmount,
+          currency: "R",
+          status,
+          paid_at: r.paid_at || undefined,
+          event_date: orderEmbed.event_date || r.invoice_date,
+          event_location:
+            orderEmbed.venue_name || orderEmbed.venue_address || "",
+        };
       });
 
-      setInvoices(invoiceData);
+      setInvoices(mapped);
     } catch (error) {
       console.error("Error loading invoices:", error);
       toast({
