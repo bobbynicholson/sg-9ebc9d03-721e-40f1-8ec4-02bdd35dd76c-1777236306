@@ -47,6 +47,7 @@ import {
   getIntegrationStatus 
 } from "@/services/accountingIntegrationService";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -364,6 +365,9 @@ export default function InvoicesPage() {
             Generate, manage, and send invoices to clients
           </p>
         </div>
+
+        {/* Pending EFT claims (clients who tapped "I've made the EFT payment") */}
+        <PendingClaimsBanner onAfterAction={loadInvoices} />
 
         {/* Stats Cards */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">

@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import {
   Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette,
   Save, Loader2, ShieldCheck, ExternalLink, Sparkles, ArrowRight,
+  Landmark,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -59,6 +60,12 @@ interface CompanyRow {
   vat_registered: boolean | null;
   vat_number: string | null;
   vat_rate: number | null;
+  bank_name: string | null;
+  bank_account_holder: string | null;
+  bank_account_number: string | null;
+  bank_branch_code: string | null;
+  bank_account_type: string | null;
+  eft_instructions: string | null;
 }
 
 function CompanyProfilePage() {
@@ -145,6 +152,12 @@ function CompanyProfilePage() {
         vat_registered: row.vat_registered ?? false,
         vat_number: row.vat_number,
         vat_rate: row.vat_rate ?? 15,
+        bank_name: row.bank_name,
+        bank_account_holder: row.bank_account_holder,
+        bank_account_number: row.bank_account_number,
+        bank_branch_code: row.bank_branch_code,
+        bank_account_type: row.bank_account_type,
+        eft_instructions: row.eft_instructions,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabase
@@ -303,6 +316,97 @@ function CompanyProfilePage() {
                   disabled={!row.vat_registered}
                 />
               </Field>
+            </CardContent>
+          </Card>
+
+          {/* Banking details. These are what clients see when they
+              choose EFT on the portal billing page or the public
+              invoice. The reference clients use is the invoice
+              number, hard-coded in the EFT flow -- the only
+              reconciliation rule that needs to hold. */}
+          <Card className="border-0 shadow-lg mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-blue-600" />
+                Banking details
+                <InfoTooltip content={"Shown to your clients when they pick EFT on their portal or on a public invoice link. The reference they use is always the invoice number -- that's what your bank reconciliation will match against.\n\nLeave the whole section blank if you don't want EFT as an option."} />
+              </CardTitle>
+              <CardDescription>
+                Clients see these on their billing page when they choose EFT. Leave blank to hide the EFT option entirely.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Field id="bank_name" label="Bank">
+                <Input
+                  id="bank_name"
+                  value={row.bank_name || ""}
+                  onChange={(e) => setRow({ ...row, bank_name: e.target.value })}
+                  placeholder="e.g. FNB, Standard Bank, Capitec"
+                />
+              </Field>
+              <Field id="bank_account_holder" label="Account holder">
+                <Input
+                  id="bank_account_holder"
+                  value={row.bank_account_holder || ""}
+                  onChange={(e) => setRow({ ...row, bank_account_holder: e.target.value })}
+                  placeholder="The exact name on the bank account"
+                />
+              </Field>
+              <Field id="bank_account_number" label="Account number">
+                <Input
+                  id="bank_account_number"
+                  value={row.bank_account_number || ""}
+                  onChange={(e) => setRow({ ...row, bank_account_number: e.target.value })}
+                  placeholder="e.g. 62123456789"
+                  inputMode="numeric"
+                />
+              </Field>
+              <Field id="bank_branch_code" label="Branch code" hint="Most SA banks accept the universal branch code, e.g. 250655 (FNB), 051001 (Standard Bank).">
+                <Input
+                  id="bank_branch_code"
+                  value={row.bank_branch_code || ""}
+                  onChange={(e) => setRow({ ...row, bank_branch_code: e.target.value })}
+                  placeholder="e.g. 250655"
+                  inputMode="numeric"
+                />
+              </Field>
+              <Field id="bank_account_type" label="Account type">
+                <select
+                  id="bank_account_type"
+                  value={row.bank_account_type || ""}
+                  onChange={(e) => setRow({ ...row, bank_account_type: e.target.value || null })}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                >
+                  <option value="">Pick one</option>
+                  <option value="cheque">Cheque / current</option>
+                  <option value="savings">Savings</option>
+                  <option value="transmission">Transmission</option>
+                </select>
+              </Field>
+              <Field
+                id="eft_instructions"
+                label="Note for clients (optional)"
+                hint="Shown under the bank details on the EFT screen. Use it for things like 'Payments take 1-2 business days to reflect' or 'Send proof of payment to ...'."
+              >
+                <Input
+                  id="eft_instructions"
+                  value={row.eft_instructions || ""}
+                  onChange={(e) => setRow({ ...row, eft_instructions: e.target.value })}
+                  placeholder="Allow 1-2 business days for payment to reflect"
+                />
+              </Field>
+              <div className="md:col-span-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 space-y-1">
+                <p className="font-semibold">How EFT confirmation works</p>
+                <p>
+                  Your client sees these details with the invoice number as a copyable reference. After they pay,
+                  they tap &quot;I&apos;ve made the EFT payment&quot;, which:
+                </p>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  <li>logs a pending payment row against the invoice;</li>
+                  <li>fires you an in-app notification with the amount, reference and any note from them;</li>
+                  <li>flags the invoice as &quot;Payment claimed&quot; so you can reconcile against your bank statement and confirm.</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
 
