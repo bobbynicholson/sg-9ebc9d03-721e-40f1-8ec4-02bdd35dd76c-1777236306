@@ -160,7 +160,7 @@ export default function ClientQuotesPage() {
           title="Your quotes"
           subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
         />
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 max-w-4xl mx-auto space-y-6">
+        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
 
           {loading ? (
             <Card className="border-0 shadow-sm">

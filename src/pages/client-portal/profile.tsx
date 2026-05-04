@@ -168,7 +168,7 @@ export default function ClientProfilePage() {
           subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
         />
 
-        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 max-w-3xl mx-auto space-y-6">
+        <main className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 space-y-6">
           {loading ? (
             <Card className="border-0 shadow-sm">
               <CardContent className="py-12 text-center">
