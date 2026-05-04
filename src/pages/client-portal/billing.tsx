@@ -50,7 +50,7 @@ interface Invoice {
 }
 
 export default function ClientBillingPage() {
-  const { user } = useAuth();
+  const { user, company } = useAuth() as any;
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +65,8 @@ export default function ClientBillingPage() {
     if (user) {
       loadInvoices();
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, company?.id]);
 
   // Status filter + sort happen first; the fuzzy hook ranks the rest.
   const statusSortedInvoices = useMemo(() => {
@@ -103,24 +104,32 @@ export default function ClientBillingPage() {
     try {
       setLoading(true);
 
-      // user.id is the auth/profile id; clients.id is a separate row keyed by user_id.
-      // Look up the matching client row first, then filter orders by that client_id
-      // (or by client_email when there is no clients row yet).
+      // Tenant scope: a user might be a client of multiple companies.
+      // We render only the URL-resolved tenant's billing here.
+      const tenantCompanyId: string | null = company?.id ?? null;
       let ordersQuery = supabase
         .from("orders")
         .select(`*, payment_schedules(*)`)
         .order("created_at", { ascending: false });
+      if (tenantCompanyId) ordersQuery = ordersQuery.eq("company_id", tenantCompanyId);
 
-      if (user?.id) {
-        const { data: clientRow } = await supabase
+      if (user?.id && tenantCompanyId) {
+        // Multiple historical clients rows per (user, company) are
+        // possible. Collect every id rather than maybeSingle().
+        const { data: clientRows } = await supabase
           .from("clients")
           .select("id")
           .eq("user_id", user.id)
-          .maybeSingle();
-        if (clientRow?.id) {
-          ordersQuery = ordersQuery.eq("client_id", clientRow.id);
+          .eq("company_id", tenantCompanyId);
+        const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
+        if (clientIds.length > 0 && user.email) {
+          ordersQuery = ordersQuery.or(
+            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+          );
+        } else if (clientIds.length > 0) {
+          ordersQuery = ordersQuery.in("client_id", clientIds);
         } else if (user.email) {
-          ordersQuery = ordersQuery.eq("client_email", user.email);
+          ordersQuery = ordersQuery.ilike("client_email", user.email);
         }
       }
 

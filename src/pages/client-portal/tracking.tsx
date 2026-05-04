@@ -47,7 +47,7 @@ interface DriverLocation {
 }
 
 export default function ClientTracking() {
-  const { user } = useAuth();
+  const { user, company } = useAuth() as any;
   const { toast } = useToast();
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
@@ -68,7 +68,8 @@ export default function ClientTracking() {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, company?.id]);
 
   // Check for newly delivered orders and prompt feedback
   useEffect(() => {
@@ -92,24 +93,41 @@ export default function ClientTracking() {
   const loadOrders = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // Get client's details
-      const { data: clientData } = await supabase
+      // Tenant scope: only this catering company's orders.
+      const tenantCompanyId: string | null = company?.id ?? null;
+      if (!user?.id || !tenantCompanyId) {
+        setLoading(false);
+        return;
+      }
+      // Multiple historical clients rows are possible -- collect all.
+      const { data: clientRows } = await supabase
         .from("clients")
         .select("id")
-        .eq("user_id", user?.id)
-        .single();
-
-      if (!clientData) {
+        .eq("user_id", user.id)
+        .eq("company_id", tenantCompanyId);
+      const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
+      if (clientIds.length === 0 && !user?.email) {
         setLoading(false);
         return;
       }
 
-      // Get active orders for this client
-      const { data: fetchedOrders } = await supabase
+      // Get active orders for this client. Union pattern catches
+      // orphan rows linked by email when client_id is NULL.
+      let q = supabase
         .from("orders")
         .select(`*, assigned_driver:profiles!orders_assigned_driver_id_fkey(id, full_name, phone)`)
-        .eq("client_id", clientData.id)
+        .eq("company_id", tenantCompanyId)
         .order("event_date", { ascending: false });
+      if (clientIds.length > 0 && user.email) {
+        q = q.or(
+          `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+        );
+      } else if (clientIds.length > 0) {
+        q = q.in("client_id", clientIds);
+      } else if (user.email) {
+        q = q.ilike("client_email", user.email);
+      }
+      const { data: fetchedOrders } = await q;
       
       // Filter to show orders that are active or recently delivered.
       // We expose driver_id on the mapped order so that loadDriverLocation

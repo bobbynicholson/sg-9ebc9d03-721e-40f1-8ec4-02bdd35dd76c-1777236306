@@ -62,6 +62,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Company not found" });
     }
 
+    // Idempotent backfill helper: link any orphan clients + quotes
+    // under this tenant to the signed-in user. Safe to run on every
+    // sign-in -- the predicates only touch rows where user_id is null
+    // OR client_id is null AND the email matches under this company.
+    // This closes a footgun: a profile already existing meant the
+    // clients/quotes link step never ran, so caterers who added a
+    // clients row LATER (after the user had signed up earlier under
+    // a different tenant) saw broken portals because clients.user_id
+    // was still null.
+    const runEmailRelink = async () => {
+      try {
+        await admin
+          .from("clients")
+          .update({ user_id: user.id })
+          .eq("company_id", company.id)
+          .ilike("email", user.email || "")
+          .is("user_id", null);
+      } catch {
+        /* non-fatal */
+      }
+      try {
+        // Resolve every clients row this user owns under THIS company,
+        // then attach orphan quotes (NULL client_id) by email match.
+        // The .or() is guarded by company_id so we never link a quote
+        // from another tenant by accident.
+        const { data: clientRowsResolved } = await admin
+          .from("clients")
+          .select("id")
+          .eq("company_id", company.id)
+          .eq("user_id", user.id);
+        const ids = ((clientRowsResolved as any[]) || []).map((r) => r.id);
+        if (ids.length > 0 && user.email) {
+          // Pick the most recent clients row as the canonical id to
+          // attach orphan quotes to. With one client_id this is
+          // simply that id.
+          const canonicalClientId = ids[0];
+          await admin
+            .from("quotes")
+            .update({ client_id: canonicalClientId })
+            .eq("company_id", company.id)
+            .ilike("client_email", user.email)
+            .is("client_id", null);
+        }
+      } catch {
+        /* non-fatal */
+      }
+    };
+
     // If the user already has a profile, return it -- never overwrite.
     // This handles the case where the same email is also a client of
     // another catering company, or in some other role entirely.
@@ -72,6 +120,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .maybeSingle();
 
     if (existing) {
+      // Still run the email-relink for the existing-profile path --
+      // the clients row may have been added AFTER first signup, so
+      // clients.user_id needs catching up.
+      await runEmailRelink();
       return res.status(200).json({
         ok: true,
         profile: existing,
@@ -123,20 +175,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: `Could not create profile: ${insErr.message}` });
     }
 
-    // Best-effort: link any existing clients row(s) under this company
-    // that match the email to this user_id. Lets the dashboard surface
-    // their existing orders without each one needing a manual user_id
-    // backfill.
-    try {
-      await admin
-        .from("clients")
-        .update({ user_id: user.id })
-        .eq("company_id", company.id)
-        .ilike("email", user.email || "")
-        .is("user_id", null);
-    } catch {
-      /* non-fatal -- some installs don't have clients.user_id yet */
-    }
+    // Same email-relink logic as the existing-profile path. Lets the
+    // dashboard surface their existing orders + quotes without each
+    // one needing a manual user_id / client_id backfill.
+    await runEmailRelink();
 
     return res.status(201).json({
       ok: true,

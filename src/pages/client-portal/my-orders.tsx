@@ -32,7 +32,7 @@ interface Order {
 }
 
 export default function MyOrders() {
-  const { user } = useAuth();
+  const { user, company } = useAuth() as any;
   const router = useRouter();
   // Slug-aware "Back to Dashboard" link -- keep nav inside the tenant
   // URL space when the page was reached via /[slug]/client-portal/my-orders.
@@ -84,25 +84,49 @@ export default function MyOrders() {
 
   useEffect(() => {
     if (!user?.id) return;
+    // Tenant-scope: a user might be a client of multiple catering
+    // companies. The portal renders one tenant at a time -- always
+    // the company resolved from the URL slug (which the auth context
+    // already loads). Without this filter, we'd merge cross-tenant
+    // orders into one list.
+    const tenantCompanyId: string | null = company?.id ?? null;
+    if (!tenantCompanyId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const { data: clientRow } = await supabase
+        // Multiple historical clients rows per (email, company) are
+        // possible -- collect every id rather than maybeSingle().
+        const { data: clientRows } = await supabase
           .from("clients")
           .select("id")
           .eq("user_id", user.id)
-          .maybeSingle();
+          .eq("company_id", tenantCompanyId);
+        const clientIds = ((clientRows as any[]) || []).map((r) => r.id);
 
         let ordersQuery = supabase
           .from("orders")
           .select("id, event_date, venue_address, guest_count, status, total_amount, payment_status")
+          .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
-        if (clientRow?.id) {
-          ordersQuery = ordersQuery.eq("client_id", clientRow.id);
+        if (clientIds.length > 0 && user.email) {
+          // Same union pattern as the dashboard: client_id match OR
+          // email match (catches orphan rows created by email before
+          // the user signed up).
+          ordersQuery = ordersQuery.or(
+            `client_id.in.(${clientIds.join(",")}),client_email.ilike.${user.email}`,
+          );
+        } else if (clientIds.length > 0) {
+          ordersQuery = ordersQuery.in("client_id", clientIds);
+        } else if (user.email) {
+          ordersQuery = ordersQuery.ilike("client_email", user.email);
         } else {
-          ordersQuery = ordersQuery.eq("client_email", user.email ?? "");
+          if (!cancelled) {
+            setOrders([]);
+            setLoading(false);
+          }
+          return;
         }
 
         const { data, error } = await ordersQuery;
@@ -117,7 +141,7 @@ export default function MyOrders() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, company?.id]);
 
   const filteredOrders = orders.filter((o) => {
     if (filter === "active") return o.status !== "completed" && o.status !== "cancelled";
