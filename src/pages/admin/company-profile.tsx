@@ -17,13 +17,14 @@
  */
 import { useEffect, useState } from "react";
 import Head from "next/head";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Building2, MapPin, Mail, Phone, Globe, Image as ImageIcon, Palette,
-  Save, Loader2, ShieldCheck, ExternalLink, Sparkles,
+  Save, Loader2, ShieldCheck, ExternalLink, Sparkles, ArrowRight,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -59,15 +60,6 @@ interface CompanyRow {
   vat_number: string | null;
   vat_rate: number | null;
 }
-
-const PRESET_PALETTES = [
-  { name: "Purple / Pink",  primary: "#9333ea", secondary: "#ec4899" },
-  { name: "Amber / Orange", primary: "#f59e0b", secondary: "#ea580c" },
-  { name: "Emerald / Teal", primary: "#10b981", secondary: "#14b8a6" },
-  { name: "Blue / Indigo",  primary: "#3b82f6", secondary: "#6366f1" },
-  { name: "Rose / Red",     primary: "#f43f5e", secondary: "#dc2626" },
-  { name: "Slate",          primary: "#475569", secondary: "#1e293b" },
-];
 
 function CompanyProfilePage() {
   const { profile, user, refreshProfile } = useAuth() as any;
@@ -200,7 +192,7 @@ function CompanyProfilePage() {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, HQ location and brand colours all live here.\n\nThis is what feeds the sidebar branding, the client-facing pages, route planning, and delivery fees."} /></h1>
+                <h1 className="text-2xl md:text-3xl xl:text-4xl font-bold text-slate-900 flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} /></h1>
                 <p className="text-sm sm:text-base text-slate-600 mt-1">
                   This drives the sidebar branding, client-facing pages, route planning and delivery fees.
                 </p>
@@ -388,57 +380,32 @@ function CompanyProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Branding colours */}
+          {/* Brand colours -- managed on the dedicated White Label page so
+              there's a single source of truth for logo + palette. */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-pink-600" />
-                Brand colours
-                <InfoTooltip content={"These colours appear on the sidebar, your client-facing order pages, and any branded email we send out.\n\nPick one of the presets or paste your own hex codes."} />
+                Brand colours + logo
               </CardTitle>
-              <CardDescription>Used everywhere we render your brand.</CardDescription>
+              <CardDescription>
+                Manage these on the White Label page so logo, organisation name, and the full colour palette stay in sync.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {PRESET_PALETTES.map((p) => (
-                  <button
-                    key={p.name}
-                    onClick={() => setRow({ ...row, primary_color: p.primary, secondary_color: p.secondary })}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
-                      row.primary_color === p.primary && row.secondary_color === p.secondary
-                        ? "border-slate-900"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div
-                      className="h-6 rounded mb-2"
-                      style={{ background: `linear-gradient(135deg, ${p.primary} 0%, ${p.secondary} 100%)` }}
-                    />
-                    <p className="text-xs font-medium text-slate-900">{p.name}</p>
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field id="primary" label="Primary hex">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={row.primary_color || "#9333ea"} onChange={(e) => setRow({ ...row, primary_color: e.target.value })} className="w-10 h-10 rounded border border-slate-200" />
-                    <Input id="primary" value={row.primary_color || ""} onChange={(e) => setRow({ ...row, primary_color: e.target.value })} placeholder="#9333ea" />
-                  </div>
-                </Field>
-                <Field id="secondary" label="Secondary hex">
-                  <div className="flex items-center gap-2">
-                    <input type="color" value={row.secondary_color || "#ec4899"} onChange={(e) => setRow({ ...row, secondary_color: e.target.value })} className="w-10 h-10 rounded border border-slate-200" />
-                    <Input id="secondary" value={row.secondary_color || ""} onChange={(e) => setRow({ ...row, secondary_color: e.target.value })} placeholder="#ec4899" />
-                  </div>
-                </Field>
-              </div>
+            <CardContent>
               <div
-                className="rounded-lg p-4 text-white"
+                className="rounded-lg p-4 text-white mb-4"
                 style={{ background: `linear-gradient(135deg, ${row.primary_color || "#9333ea"} 0%, ${row.secondary_color || "#ec4899"} 100%)` }}
               >
-                <p className="text-xs uppercase tracking-wide opacity-80">Live preview</p>
-                <p className="text-lg font-bold">{row.company_name}</p>
+                <p className="text-xs uppercase tracking-wide opacity-80">Current branding</p>
+                <p className="text-lg font-bold">{row.company_name || "Your company"}</p>
               </div>
+              <Link href="/admin/white-label">
+                <Button variant="outline" className="w-full gap-2">
+                  Open White Label settings
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 

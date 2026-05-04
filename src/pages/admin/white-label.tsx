@@ -345,7 +345,7 @@ function WhiteLabelPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Main brand color for buttons and highlights
+                      Your dominant brand colour. Drives the primary action buttons (Save, Confirm, Pay), the active sidebar item, and the left side of the brand gradient on the page header and email banners.
                     </p>
                   </div>
 
@@ -367,7 +367,7 @@ function WhiteLabelPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Secondary color for accents and gradients
+                      The complementary colour. Forms the right side of the brand gradient (sidebar logo tile, page hero, email header) and is used on secondary buttons and link hover states. Pick something that pairs with your primary.
                     </p>
                   </div>
 
@@ -389,8 +389,13 @@ function WhiteLabelPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Accent color for highlights and attention
+                      A bolder pop colour for things that need to grab attention -- &quot;New&quot; badges, alert highlights, the active stage on a progress bar. Keep this distinct from your primary so it actually stands out.
                     </p>
+                  </div>
+
+                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                    <p className="font-semibold text-slate-700 mb-1">Where you&apos;ll see these</p>
+                    <p>Sidebar logo tile, primary CTAs, the page header gradient on tenant-scoped pages, the left rail accent on email templates, and the highlight colour on buttons throughout the admin and client portals. Status colours (success green, warning amber, error red) stay fixed so they remain readable.</p>
                   </div>
                 </CardContent>
               </Card>
