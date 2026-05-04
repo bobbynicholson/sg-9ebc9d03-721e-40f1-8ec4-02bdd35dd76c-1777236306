@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, FileText, ExternalLink, Calendar, Clock } from "lucide-react";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
+import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -59,6 +60,7 @@ const STATUS_TONE: Record<string, string> = {
   accepted: "bg-emerald-100 text-emerald-800 border-emerald-200",
   rejected: "bg-rose-100 text-rose-800 border-rose-200",
   expired: "bg-slate-200 text-slate-700 border-slate-300",
+  revised: "bg-violet-100 text-violet-800 border-violet-200",
   draft: "bg-amber-100 text-amber-800 border-amber-200",
 };
 
@@ -68,6 +70,7 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted",
   rejected: "Declined",
   expired: "Expired",
+  revised: "Changes requested",
   draft: "Draft",
 };
 
@@ -75,6 +78,7 @@ export default function ClientQuotesPage() {
   const { user, company } = useAuth() as any;
   const [quotes, setQuotes] = useState<PortalQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
 
   const brandPrimary = company?.primary_color || "#059669";
   const companyName = company?.company_name || "your caterer";
@@ -180,9 +184,10 @@ export default function ClientQuotesPage() {
               {grouped.pending.length > 0 && (
                 <QuoteGroup
                   title="Awaiting your response"
-                  description="Tap to open. You can accept or request changes from the quote page."
+                  description="Open to accept, or push back with the changes you'd like before signing off."
                   items={grouped.pending}
                   brandPrimary={brandPrimary}
+                  onRequestEdits={(q) => setEditsQuote({ id: q.id, quote_number: q.quote_number })}
                 />
               )}
               {grouped.accepted.length > 0 && (
@@ -196,7 +201,7 @@ export default function ClientQuotesPage() {
               {grouped.historical.length > 0 && (
                 <QuoteGroup
                   title="History"
-                  description="Drafts, declined, expired."
+                  description="Drafts, declined, expired, and quotes the team is revising."
                   items={grouped.historical}
                   brandPrimary={brandPrimary}
                 />
@@ -205,6 +210,22 @@ export default function ClientQuotesPage() {
           )}
         </main>
       </div>
+
+      <RequestEditsDialog
+        open={!!editsQuote}
+        onOpenChange={(o) => { if (!o) setEditsQuote(null); }}
+        quoteId={editsQuote?.id || null}
+        quoteNumber={editsQuote?.quote_number || null}
+        onSuccess={() => {
+          // Mark the quote as 'revised' locally so it drops out of
+          // the pending bucket and shows up under History without a
+          // refetch.
+          setQuotes((prev) =>
+            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "revised" } : q)),
+          );
+          setEditsQuote(null);
+        }}
+      />
     </>
   );
 }
@@ -214,11 +235,13 @@ function QuoteGroup({
   description,
   items,
   brandPrimary,
+  onRequestEdits,
 }: {
   title: string;
   description: string;
   items: PortalQuote[];
   brandPrimary: string;
+  onRequestEdits?: (q: PortalQuote) => void;
 }) {
   return (
     <section>
@@ -270,18 +293,29 @@ function QuoteGroup({
                     <p className="text-base sm:text-lg font-bold tabular-nums" style={{ color: brandPrimary }}>
                       {total > 0 ? fmtMoney.format(total) : "TBD"}
                     </p>
-                    {open && (
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5"
-                      >
-                        <a href={open} target="_blank" rel="noopener noreferrer">
-                          Open <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      </Button>
-                    )}
+                    <div className="flex gap-2 flex-wrap justify-end">
+                      {open && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                        >
+                          <a href={open} target="_blank" rel="noopener noreferrer">
+                            Open <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </Button>
+                      )}
+                      {onRequestEdits && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onRequestEdits(q)}
+                        >
+                          Request changes
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

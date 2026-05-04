@@ -42,6 +42,7 @@ import { ClientNav } from "@/components/navigation/ClientNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ChatBot } from "@/components/ChatBot";
 import { RebookDialog } from "@/components/client-portal/RebookDialog";
+import { RequestEditsDialog } from "@/components/client-portal/RequestEditsDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
@@ -275,6 +276,9 @@ export default function ClientPortalDashboard() {
   // `requested_items` JSONB and a source_order_id pointing back to the
   // past event for context.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
+  // Quote-edits dialog state -- the client opens this from the
+  // dashboard hero band when they want changes before accepting.
+  const [editsQuote, setEditsQuote] = useState<{ id: string; quote_number: string } | null>(null);
 
   // Branding tones -- fall back to a calm emerald so unbranded companies
   // still look polished.
@@ -611,83 +615,111 @@ export default function ClientPortalDashboard() {
             const fmt = new Intl.NumberFormat("en-ZA", {
               style: "currency", currency: "ZAR", maximumFractionDigits: 0,
             });
+            // Brand-coloured accent strip on the left + plain white card.
+            // The previous 10%-opacity gradient washed out to pinkish on
+            // most brand colours; this reads as the brand instead.
             return (
-              <Card className="border-0 shadow-lg" style={{ background: brandSoftBg }}>
-                <CardContent className="py-5 px-5 sm:px-6 space-y-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: brandPrimary }}>
-                        {pending.length === 1 ? "Quote ready for you" : `${pending.length} quotes ready for you`}
-                      </p>
-                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
-                        {pending.length === 1
-                          ? "Have a look + accept when you're ready"
-                          : "Pick the option that suits and accept"}
-                      </h2>
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <div className="flex">
+                  <div
+                    className="w-1.5 flex-shrink-0"
+                    style={{ background: brandGradient }}
+                    aria-hidden
+                  />
+                  <CardContent className="flex-1 py-5 px-5 sm:px-6 space-y-4 bg-white dark:bg-slate-900">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: brandPrimary }}>
+                          {pending.length === 1 ? "Quote ready for you" : `${pending.length} quotes ready for you`}
+                        </p>
+                        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                          {pending.length === 1
+                            ? "Have a look, accept, or push back for changes"
+                            : "Pick the option that suits, accept, or request changes"}
+                        </h2>
+                      </div>
+                      {quotes.length > pending.length && (
+                        <Link
+                          href={withSlug("/client-portal/quotes")}
+                          className="text-sm font-medium hover:underline"
+                          style={{ color: brandPrimary }}
+                        >
+                          See all quotes ({quotes.length})
+                        </Link>
+                      )}
                     </div>
-                    {quotes.length > pending.length && (
-                      <Link
-                        href={withSlug("/client-portal/quotes")}
-                        className="text-sm font-medium hover:underline"
-                        style={{ color: brandPrimary }}
-                      >
-                        See all quotes ({quotes.length})
-                      </Link>
-                    )}
-                  </div>
 
-                  <ul className="space-y-2">
-                    {pending.slice(0, 3).map((q) => {
-                      const total = Number(q.total ?? q.total_amount ?? 0);
-                      const eventLabel = q.event_date
-                        ? new Date(q.event_date).toLocaleDateString("en-ZA", {
-                            day: "numeric", month: "short", year: "numeric",
-                          })
-                        : null;
-                      const href = q.public_token
-                        ? `/q/${q.public_token}`
-                        : withSlug("/client-portal/quotes");
-                      return (
-                        <li key={q.id}>
-                          <a
-                            href={href}
-                            target={q.public_token ? "_blank" : undefined}
-                            rel={q.public_token ? "noopener noreferrer" : undefined}
-                            className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-colors"
+                    <ul className="space-y-2">
+                      {pending.slice(0, 3).map((q) => {
+                        const total = Number(q.total ?? q.total_amount ?? 0);
+                        const eventLabel = q.event_date
+                          ? new Date(q.event_date).toLocaleDateString("en-ZA", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })
+                          : null;
+                        const acceptHref = q.public_token
+                          ? `/q/${q.public_token}`
+                          : withSlug("/client-portal/quotes");
+                        return (
+                          <li
+                            key={q.id}
+                            className="rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-colors p-4"
                           >
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                {q.quote_name || `Quote ${q.quote_number}`}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-0.5">
-                                {q.quote_number}
-                                {eventLabel && <span> · event {eventLabel}</span>}
-                              </p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <p className="text-sm font-bold tabular-nums" style={{ color: brandPrimary }}>
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                  {q.quote_name || `Quote ${q.quote_number}`}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {q.quote_number}
+                                  {eventLabel && <span> · event {eventLabel}</span>}
+                                </p>
+                              </div>
+                              <p className="text-base font-bold tabular-nums text-slate-900 dark:text-white">
                                 {total > 0 ? fmt.format(total) : "TBD"}
                               </p>
-                              <p className="text-[10px] uppercase tracking-wide text-slate-500 mt-0.5">
-                                Open to accept
-                              </p>
                             </div>
-                          </a>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                            <div className="flex gap-2 flex-wrap mt-3">
+                              <Button
+                                asChild
+                                size="sm"
+                                className="text-white hover:opacity-90"
+                                style={{ background: brandPrimary }}
+                              >
+                                <a
+                                  href={acceptHref}
+                                  target={q.public_token ? "_blank" : undefined}
+                                  rel={q.public_token ? "noopener noreferrer" : undefined}
+                                >
+                                  Open + accept
+                                </a>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setEditsQuote({ id: q.id, quote_number: q.quote_number })
+                                }
+                              >
+                                Request changes
+                              </Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
 
-                  {pending.length > 3 && (
-                    <Link
-                      href={withSlug("/client-portal/quotes")}
-                      className="block text-center text-sm font-medium pt-1"
-                      style={{ color: brandPrimary }}
-                    >
-                      View {pending.length - 3} more
-                    </Link>
-                  )}
-                </CardContent>
+                    {pending.length > 3 && (
+                      <Link
+                        href={withSlug("/client-portal/quotes")}
+                        className="block text-center text-sm font-medium pt-1"
+                        style={{ color: brandPrimary }}
+                      >
+                        View {pending.length - 3} more
+                      </Link>
+                    )}
+                  </CardContent>
+                </div>
               </Card>
             );
           })()}
@@ -860,6 +892,22 @@ export default function ClientPortalDashboard() {
         user={user ? { id: user.id, email: user.email } : null}
         profileFullName={profile?.full_name || (user as any)?.full_name || null}
         profilePhone={(profile as any)?.phone_number || null}
+      />
+
+      <RequestEditsDialog
+        open={!!editsQuote}
+        onOpenChange={(o) => { if (!o) setEditsQuote(null); }}
+        quoteId={editsQuote?.id || null}
+        quoteNumber={editsQuote?.quote_number || null}
+        onSuccess={() => {
+          // Drop the quote out of the pending bucket locally so the
+          // hero band updates without a full refetch -- the server
+          // already flipped it to 'revised'.
+          setQuotes((prev) =>
+            prev.map((q) => (q.id === editsQuote?.id ? { ...q, status: "revised" } : q)),
+          );
+          setEditsQuote(null);
+        }}
       />
 
       <ChatBot userRole="client" companyId={company?.id} />
