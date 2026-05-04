@@ -316,11 +316,26 @@ export const quoteService = {
    * but the operator gets told what fired and what didn't via the
    * returned object.
    */
-  async convertQuoteToOrder(quoteId: string): Promise<{
+  async convertQuoteToOrder(
+    quoteId: string,
+    options?: {
+      /** Optional deposit payment captured at accept time. When
+       *  provided, the order is stamped with deposit_paid=true +
+       *  amount_paid + method + reference, and the deposit invoice
+       *  is marked paid (or partial) on insert so the operator
+       *  doesn't have to chase the payment in two places. */
+      depositPaid?: {
+        amount: number;
+        method: "cash" | "eft" | "card" | "other";
+        reference?: string | null;
+      };
+    },
+  ): Promise<{
     order: AppOrder | null;
     invoice: { ok: boolean; number?: string | null; amount?: number | null; error?: string };
     email:   { sent: boolean; skipped: boolean; reason?: string };
     kitchen: { ok: boolean; tasksCreated: number; reason?: string };
+    deposit: { recorded: boolean; amount?: number; method?: string };
     error?: string;
   }> {
     const quote = await this.getQuote(quoteId);
@@ -330,6 +345,7 @@ export const quoteService = {
         invoice: { ok: false, error: "Quote not found" },
         email: { sent: false, skipped: true, reason: "no_quote" },
         kitchen: { ok: false, tasksCreated: 0, reason: "no_quote" },
+        deposit: { recorded: false },
         error: "Quote not found",
       };
     }
@@ -427,6 +443,23 @@ export const quoteService = {
       xero_synced_at: null,
     };
 
+    // If the operator captured a deposit at accept time, stamp it on
+    // the order so the order record matches what the bank shows. The
+    // invoice gets the same treatment after generation (below).
+    if (options?.depositPaid && options.depositPaid.amount > 0) {
+      const totalAmt = Number(orderData.total_amount) || 0;
+      const paid = Number(options.depositPaid.amount);
+      orderData.amount_paid = paid;
+      orderData.deposit_paid = true;
+      orderData.deposit_paid_at = new Date().toISOString();
+      orderData.deposit_amount = paid;
+      orderData.payment_method = options.depositPaid.method;
+      orderData.payment_reference = options.depositPaid.reference || null;
+      // payment_status: 'deposit_paid' if partial, 'paid' if full.
+      orderData.payment_status = paid >= totalAmt - 0.01 ? "paid" : "deposit_paid";
+      orderData.balance_amount = Math.max(0, totalAmt - paid);
+    }
+
     const { data: newOrder, error: orderError } = await supabase
       .from("orders")
       .insert(orderData)
@@ -440,6 +473,7 @@ export const quoteService = {
         invoice: { ok: false, error: orderError.message },
         email: { sent: false, skipped: true, reason: "order_insert_failed" },
         kitchen: { ok: false, tasksCreated: 0, reason: "order_insert_failed" },
+        deposit: { recorded: false },
         error: orderError.message || "Could not insert the order row.",
       };
     }
@@ -472,6 +506,24 @@ export const quoteService = {
           .select("invoice_number, total_amount")
           .eq("id", (inv as any).invoiceId)
           .maybeSingle();
+        // If the operator captured a deposit, stamp the invoice paid
+        // (or partially paid) so the invoice record matches the order
+        // and the public payment page doesn't ask the client to pay
+        // what they already paid.
+        if (options?.depositPaid && options.depositPaid.amount > 0 && row) {
+          const total = Number((row as any).total_amount) || 0;
+          const paid = Number(options.depositPaid.amount);
+          const balance = Math.max(0, total - paid);
+          await (supabase as any)
+            .from("invoices")
+            .update({
+              amount_paid: paid,
+              balance_due: balance,
+              paid_at: balance < 0.01 ? new Date().toISOString() : null,
+              status: balance < 0.01 ? "paid" : "sent",
+            })
+            .eq("id", (inv as any).invoiceId);
+        }
         invoiceReceipt = {
           ok: true,
           number: (row as any)?.invoice_number || null,
@@ -564,6 +616,9 @@ export const quoteService = {
       invoice: invoiceReceipt,
       email: emailReceipt,
       kitchen: kitchenReceipt,
+      deposit: options?.depositPaid && options.depositPaid.amount > 0
+        ? { recorded: true, amount: options.depositPaid.amount, method: options.depositPaid.method }
+        : { recorded: false },
     };
   },
 

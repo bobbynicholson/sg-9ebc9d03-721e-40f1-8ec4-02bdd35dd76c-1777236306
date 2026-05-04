@@ -511,12 +511,43 @@ export default function AdminQuotes() {
    *  succeeded vs what they may need to chase manually. */
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptPreflight, setAcceptPreflight] = useState<Quote | null>(null);
+  // Deposit captured at accept time. The operator toggles 'paid?'
+  // on the pre-flight; if yes they confirm the amount + method +
+  // reference and the order + invoice get stamped paid in one shot.
+  const [depositPaid, setDepositPaid] = useState<boolean>(false);
+  const [depositAmount, setDepositAmount] = useState<string>("");
+  const [depositMethod, setDepositMethod] = useState<"cash" | "eft" | "card" | "other">("eft");
+  const [depositReference, setDepositReference] = useState<string>("");
+
+  // When the pre-flight opens, prefill the deposit amount with the
+  // expected deposit (companies.deposit_percentage of total, default
+  // 30%) so the operator just toggles paid + tweaks if needed.
+  useEffect(() => {
+    if (acceptPreflight) {
+      const total = Number((acceptPreflight as any).total ?? (acceptPreflight as any).total_amount ?? 0);
+      const pct = Number((acceptPreflight as any).deposit_percentage ?? 30);
+      const expected = total > 0 ? Math.round((total * pct / 100) * 100) / 100 : 0;
+      setDepositPaid(false);
+      setDepositAmount(expected ? expected.toFixed(2) : "");
+      setDepositMethod("eft");
+      setDepositReference("");
+    }
+  }, [acceptPreflight]);
 
   const runAcceptOnBehalf = async (quote: Quote) => {
     setAcceptingId(quote.id);
     setAcceptPreflight(null);
     try {
-      const receipt = await quoteService.convertQuoteToOrder(quote.id);
+      const depositPayload = depositPaid && Number(depositAmount) > 0
+        ? {
+            amount: Number(depositAmount),
+            method: depositMethod,
+            reference: depositReference.trim() || null,
+          }
+        : undefined;
+      const receipt = await quoteService.convertQuoteToOrder(quote.id, {
+        depositPaid: depositPayload,
+      });
       if (!receipt.order) {
         toast({
           title: "Accept failed",
@@ -530,9 +561,12 @@ export default function AdminQuotes() {
       // landed and what didn't. Each step reports back independently.
       const orderNum = (receipt.order as any).order_number;
       const lines: string[] = [`Order ${orderNum} created.`];
+      if (receipt.deposit.recorded) {
+        lines.push(`Deposit ${fmtMoney.format(receipt.deposit.amount || 0)} recorded as paid via ${receipt.deposit.method}. Order + invoice marked paid.`);
+      }
       if (receipt.invoice.ok) {
         lines.push(receipt.invoice.number
-          ? `Deposit invoice ${receipt.invoice.number} queued.`
+          ? (receipt.deposit.recorded ? `Deposit invoice ${receipt.invoice.number} stamped paid.` : `Deposit invoice ${receipt.invoice.number} queued.`)
           : `Deposit invoice queued.`);
       } else {
         lines.push(`Invoice did NOT generate -- ${receipt.invoice.error || "unknown error"}. Generate it manually on the order.`);
@@ -1468,6 +1502,74 @@ export default function AdminQuotes() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-500">If any sub-step fails, the order still gets created and the toast tells you what to chase manually.</p>
+
+                {/* Deposit capture. Operator confirms whether the
+                    client has already paid the deposit (cash on
+                    handover, EFT cleared, card swiped). When yes,
+                    the order + invoice both get stamped paid in one
+                    go so the records match the bank. */}
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/50 px-3 py-3 space-y-2.5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={depositPaid}
+                      onChange={(e) => setDepositPaid(e.target.checked)}
+                      className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-semibold text-emerald-900">
+                      Client has already paid the deposit
+                    </span>
+                  </label>
+                  {depositPaid ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Amount paid (R)</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={depositAmount}
+                            onChange={(e) => setDepositAmount(e.target.value)}
+                            className="mt-1 h-8 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Method</label>
+                          <select
+                            value={depositMethod}
+                            onChange={(e) => setDepositMethod(e.target.value as any)}
+                            className="mt-1 h-8 text-sm w-full border border-slate-200 rounded-md px-2 bg-white"
+                          >
+                            <option value="eft">EFT / Bank transfer</option>
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wide">Reference (optional)</label>
+                        <Input
+                          value={depositReference}
+                          onChange={(e) => setDepositReference(e.target.value)}
+                          placeholder="EFT reference, receipt number, etc."
+                          className="mt-1 h-8 text-sm"
+                        />
+                      </div>
+                      <p className="text-[11px] text-emerald-800">
+                        Order + deposit invoice will be marked paid for {depositAmount ? fmtMoney.format(Number(depositAmount)) : "R 0"}
+                        {Number(depositAmount) > 0 && acceptPreflight?.total && Number(depositAmount) < Number(acceptPreflight.total)
+                          ? `. Balance ${fmtMoney.format(Number(acceptPreflight.total) - Number(depositAmount))} stays open.`
+                          : "."}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-600">
+                      Leave unticked if you're accepting before the deposit lands. Invoice will be generated as outstanding -- the client can pay via the public link, and you can record the payment manually on the invoice once it clears.
+                    </p>
+                  )}
+                </div>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
