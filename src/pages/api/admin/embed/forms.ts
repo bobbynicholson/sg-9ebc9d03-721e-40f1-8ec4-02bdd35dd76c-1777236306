@@ -42,8 +42,10 @@ function sanitiseInput(body: any): { ok: true; out: Record<string, any> } | { ok
     // Lock down redirect URL strictly. The loader follows this on success
     // via window.location.href; an unvalidated input is a script-injection
     // vector against every host site embedding the form.
-    const v = validateRedirectUrl(body.redirect_url);
-    if (!v.ok) return { ok: false, error: v.error };
+    const validation = validateRedirectUrl(body.redirect_url);
+    if (validation.ok === false) {
+      return { ok: false, error: validation.error };
+    }
     out.redirect_url =
       typeof body.redirect_url === "string"
         ? body.redirect_url.trim().slice(0, 2000) || null

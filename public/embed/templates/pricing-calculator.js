@@ -65,6 +65,10 @@
       lbl.appendChild(input);
       lbl.appendChild(h.el('div', { class: 'cms-tier-name', text: t.name }));
       lbl.appendChild(h.el('div', { class: 'cms-tier-pp', text: 'From ' + h.formatCurrency(t.perPerson, config.currency) + ' pp' }));
+      // 'From' wording is intentional -- the figure is an indicative
+      // starting price, not a binding quote. The disclaimer below
+      // (cms-estimate-sub) reinforces this so the visitor doesn't
+      // expect parity with the final tailored quote.
       input.addEventListener('change', function () {
         selectedTier = t.id;
         Array.from(tierGroup.children).forEach(function (el) { el.classList.remove('is-selected'); });
