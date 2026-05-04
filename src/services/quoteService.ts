@@ -309,9 +309,30 @@ export const quoteService = {
     return true;
   },
 
-  async convertQuoteToOrder(quoteId: string): Promise<AppOrder | null> {
+  /**
+   * Receipt for an admin-driven accept. Each step is wrapped in its
+   * own try/catch so a failed sub-step (invoice generation,
+   * confirmation email, kitchen prep) doesn't block the acceptance --
+   * but the operator gets told what fired and what didn't via the
+   * returned object.
+   */
+  async convertQuoteToOrder(quoteId: string): Promise<{
+    order: AppOrder | null;
+    invoice: { ok: boolean; number?: string | null; amount?: number | null; error?: string };
+    email:   { sent: boolean; skipped: boolean; reason?: string };
+    kitchen: { ok: boolean; tasksCreated: number; reason?: string };
+    error?: string;
+  }> {
     const quote = await this.getQuote(quoteId);
-    if (!quote) return null;
+    if (!quote) {
+      return {
+        order: null,
+        invoice: { ok: false, error: "Quote not found" },
+        email: { sent: false, skipped: true, reason: "no_quote" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "no_quote" },
+        error: "Quote not found",
+      };
+    }
 
     // Lifecycle backbone: orders.client_id is NOT NULL on the schema,
     // so we MUST have a client_id before inserting. If this quote came
@@ -351,38 +372,60 @@ export const quoteService = {
     // continues through preparing -> ready -> in_transit ->
     // delivered -> completed. Amendments live alongside, not in
     // line, with the order itself.
-    const orderData = {
-      ...quote,
+    // Whitelist build (was: ...quote spread + delete unwanted, which
+    // accidentally shipped quote-only columns -- accepted_at,
+    // valid_until, viewed_at, public_token, etc. -- into the orders
+    // insert and PostgREST blew up with "Could not find the
+    // 'accepted_at' column of 'orders' in the schema cache"). Listing
+    // the columns explicitly here = no surprises when quotes gains a
+    // new column the orders table doesn't have.
+    const q = quote as any;
+    const orderData: any = {
+      // Identity / scoping
       quote_id: quote.id,
       user_id: quote.user_id,
       client_id: resolvedClientId,
-      region_id: quote.region_id,
-      status: "confirmed",
-      order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
-      // Carry the operator's saved distance forward so the order
-      // shows the same delivery breakdown the client agreed to. Was
-      // previously hard-cleared to null on conversion which wiped
-      // the work the operator did on the quote.
-      delivery_distance_km: (quote as any).delivery_distance_km ?? null,
-      delivery_rate_per_km: (quote as any).delivery_rate_per_km ?? null,
-      // event_time on the quote (added in 20260504-quotes-event-time
-      // migration) maps 1:1 to orders.event_time so the calendar +
-      // kitchen schedule see the agreed start time. setup_time is
-      // when the team arrives -- distinct from event_time so morning
-      // setup of evening events flows through to dispatch.
-      event_time: (quote as any).event_time ?? null,
-      setup_time: (quote as any).setup_time ?? null,
+      company_id: q.company_id,
+      region_id: q.region_id,
+      // Customer snapshot
+      client_name: q.client_name,
+      client_email: q.client_email,
+      client_phone: q.client_phone,
+      // Event details
+      event_name: q.event_name ?? q.quote_name ?? null,
+      event_date: q.event_date,
+      event_time: q.event_time ?? null,
+      setup_time: q.setup_time ?? null,
+      guest_count: q.guest_count ?? null,
+      venue_address: q.venue_address ?? null,
+      venue_lat: q.venue_lat ?? null,
+      venue_lng: q.venue_lng ?? null,
+      // Line-level data (JSON)
+      // (orders has no menu_items/equipment_items columns -- they live
+      //  in order_items / order_equipment. Skipped here.)
+      // Money. Quote uses `total`; orders only stores `total_amount`.
+      subtotal: q.subtotal ?? null,
+      discount_amount: q.discount_amount ?? null,
+      tax_amount: q.tax_amount ?? q.tax ?? null,
+      tax: q.tax ?? q.tax_amount ?? null,
+      total_amount: q.total ?? q.total_amount ?? null,
+      currency: q.currency ?? "ZAR",
+      deposit_percentage: q.deposit_percentage ?? null,
+      // Delivery -- carried forward so the agreed breakdown survives
+      delivery_fee: q.delivery_fee ?? null,
+      delivery_distance_km: q.delivery_distance_km ?? null,
+      delivery_rate_per_km: q.delivery_rate_per_km ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
+      // Notes -- quote.notes maps to internal_notes on orders
+      internal_notes: q.notes ?? null,
+      // Lifecycle
+      status: "confirmed",
+      order_number: `ORD-${quote.id.substring(0, 8).toUpperCase()}`,
       whatsapp_notifications_sent: [],
       xero_invoice_id: null,
       xero_synced_at: null,
     };
-
-    delete (orderData as any).id;
-    delete (orderData as any).created_at;
-    delete (orderData as any).updated_at;
-    delete (orderData as any).quotes;
 
     const { data: newOrder, error: orderError } = await supabase
       .from("orders")
@@ -392,7 +435,13 @@ export const quoteService = {
 
     if (orderError) {
       console.error("Error converting quote to order:", orderError);
-      throw orderError;
+      return {
+        order: null,
+        invoice: { ok: false, error: orderError.message },
+        email: { sent: false, skipped: true, reason: "order_insert_failed" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "order_insert_failed" },
+        error: orderError.message || "Could not insert the order row.",
+      };
     }
 
     // Mark quote accepted + back-link to the order so future audits can
@@ -404,35 +453,47 @@ export const quoteService = {
       converted_to_order_id: newOrder.id,
     } as any);
 
-    // Auto-invoice. The order was just inserted with status='confirmed'
-    // so updateOrderStatus's hook never fired -- trigger explicitly
-    // here. Idempotent + skips imported orders.
+    // ── Step 2: Auto-invoice ────────────────────────────────────────
+    // The order was just inserted with status='confirmed' so
+    // updateOrderStatus's hook never fired -- trigger explicitly here.
+    // Non-blocking: a failure here doesn't undo the acceptance, but
+    // the receipt tells the operator what happened so they can
+    // generate the invoice manually.
+    let invoiceReceipt: { ok: boolean; number?: string | null; amount?: number | null; error?: string } =
+      { ok: false, error: "Invoice step did not run" };
     try {
       const { ensureInvoiceForOrder } = await import("./invoiceGenerationService");
       const inv = await ensureInvoiceForOrder(newOrder.id, newOrder.company_id);
-      if (!inv.success) {
-        console.warn("[quoteService] auto-invoice on convert failed:", inv.error);
+      if (inv.success) {
+        invoiceReceipt = {
+          ok: true,
+          number: (inv as any).invoice?.invoice_number || (inv as any).invoiceNumber || null,
+          amount: (inv as any).invoice?.total_amount ?? (inv as any).amount ?? null,
+        };
+      } else {
+        invoiceReceipt = { ok: false, error: (inv as any).error || "Invoice generation returned failure" };
+        console.warn("[quoteService] auto-invoice on convert failed:", invoiceReceipt.error);
       }
-    } catch (e) {
+    } catch (e: any) {
+      invoiceReceipt = { ok: false, error: e?.message || "Invoice generation crashed" };
       console.warn("[quoteService] auto-invoice on convert crashed (non-blocking):", e);
     }
 
-    // ✅ FIX BUG #16.2: Send order confirmation after quote acceptance
-    if (quote.client_email) {
+    // ── Step 3: Confirmation email ─────────────────────────────────
+    let emailReceipt: { sent: boolean; skipped: boolean; reason?: string } =
+      { sent: false, skipped: true, reason: "not_attempted" };
+    if (!quote.client_email) {
+      emailReceipt = { sent: false, skipped: true, reason: "no_client_email" };
+    } else {
       try {
-        const paymentUrl = `${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/checkout?orderId=${newOrder.id}`;
-        
-        // Get company name
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, company_name")
           .eq("id", quote.user_id)
           .single();
-
         const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
 
-        // ✅ Use API route instead of emailService directly
-        await fetch('/api/send-email', {
+        const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -441,24 +502,53 @@ export const quoteService = {
             subject: `Order Confirmed - #${newOrder.order_number}`,
             template: 'order-confirmation',
             variables: {
-                clientName: quote.client_name,
-                orderNumber: newOrder.order_number || newOrder.id,
-                eventDate: new Date(quote.event_date).toLocaleDateString(),
-                totalAmount: `${quote.currency} ${quote.total.toFixed(2)}`,
+              clientName: quote.client_name,
+              orderNumber: newOrder.order_number || newOrder.id,
+              eventDate: quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "TBD",
+              totalAmount: `${quote.currency || "ZAR"} ${(quote.total ?? 0).toFixed(2)}`,
+              companyName,
             }
           })
         });
-        console.log("✅ Order confirmation email sent after quote acceptance to:", quote.client_email);
-      } catch (emailError) {
+        if (res.ok) {
+          emailReceipt = { sent: true, skipped: false };
+        } else {
+          const errBody = await res.json().catch(() => ({}));
+          emailReceipt = { sent: false, skipped: false, reason: errBody?.error || `HTTP ${res.status}` };
+        }
+      } catch (emailError: any) {
+        emailReceipt = { sent: false, skipped: false, reason: emailError?.message || "send-email crashed" };
         console.error("⚠️ Failed to send order confirmation email (non-blocking):", emailError);
       }
     }
 
+    // ── Step 4: Kitchen prep tasks ─────────────────────────────────
+    // The kitchen flywheel auto-plans prep + cook tasks for the new
+    // order based on its recipes. Skipped automatically for past-date
+    // or imported orders (handled inside ensurePrepTasksForOrder).
+    let kitchenReceipt: { ok: boolean; tasksCreated: number; reason?: string } =
+      { ok: false, tasksCreated: 0, reason: "not_attempted" };
+    try {
+      const { kitchenPrepService } = await import("./kitchenPrepService");
+      const result = await kitchenPrepService.ensurePrepTasksForOrder(newOrder.company_id, newOrder.id);
+      kitchenReceipt = { ok: true, tasksCreated: result.created };
+    } catch (kpErr: any) {
+      kitchenReceipt = { ok: false, tasksCreated: 0, reason: kpErr?.message || "kitchen prep crashed" };
+      console.warn("[quoteService] kitchen prep regen on convert failed (non-blocking):", kpErr);
+    }
+
     // Transform to fix type issues before returning
+    const finalOrder = {
+      ...newOrder,
+      menu_items: typeof newOrder.menu_items === 'string' ? JSON.parse(newOrder.menu_items) : (newOrder.menu_items || []),
+      equipment_items: typeof newOrder.equipment_items === 'string' ? JSON.parse(newOrder.equipment_items) : (newOrder.equipment_items || []),
+    } as any;
+
     return {
-        ...newOrder,
-        menu_items: typeof newOrder.menu_items === 'string' ? JSON.parse(newOrder.menu_items) : (newOrder.menu_items || []),
-        equipment_items: typeof newOrder.equipment_items === 'string' ? JSON.parse(newOrder.equipment_items) : (newOrder.equipment_items || []),
+      order: finalOrder,
+      invoice: invoiceReceipt,
+      email: emailReceipt,
+      kitchen: kitchenReceipt,
     };
   },
 

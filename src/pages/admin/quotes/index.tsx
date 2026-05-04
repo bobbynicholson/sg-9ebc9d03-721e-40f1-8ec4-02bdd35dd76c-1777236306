@@ -454,23 +454,62 @@ export default function AdminQuotes() {
 
   /** Manual accept on behalf of the client. Use when the client phones
    *  / WhatsApps to confirm verbally and you want the lifecycle to
-   *  catch up: marks quote 'accepted', creates the order (status
-   *  'confirmed'), generates the deposit invoice, fires the lifecycle
-   *  hooks. Same code path as the public "Accept" button on /q. */
+   *  catch up: marks quote 'accepted', creates the order, fires the
+   *  deposit invoice + confirmation email + kitchen prep tasks.
+   *
+   *  Two-step UX: pre-flight dialog (acceptPreflight) shows what's
+   *  about to fire so the operator can sanity-check the email
+   *  destination before it goes; on confirm, runs the convert and
+   *  surfaces a multi-line receipt toast so they know exactly what
+   *  succeeded vs what they may need to chase manually. */
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const handleAcceptOnBehalf = async (quote: Quote) => {
-    if (!confirm(`Mark "${quote.client_name}" as confirmed and convert to a live order?\n\nThis is the same as the client clicking Accept on the quote -- creates the order, fires the deposit invoice, and locks the diary.`)) return;
+  const [acceptPreflight, setAcceptPreflight] = useState<Quote | null>(null);
+
+  const runAcceptOnBehalf = async (quote: Quote) => {
     setAcceptingId(quote.id);
+    setAcceptPreflight(null);
     try {
-      const order = await quoteService.convertQuoteToOrder(quote.id);
-      if (!order) {
-        toast({ title: "Couldn't accept", description: "Conversion failed -- check the quote has a valid client + event date.", variant: "destructive" });
+      const receipt = await quoteService.convertQuoteToOrder(quote.id);
+      if (!receipt.order) {
+        toast({
+          title: "Accept failed",
+          description: receipt.error || "Conversion failed -- check the quote has a valid client + event date.",
+          variant: "destructive",
+        });
         return;
       }
+
+      // Build a multi-line summary so the operator knows exactly what
+      // landed and what didn't. Each step reports back independently.
+      const orderNum = (receipt.order as any).order_number;
+      const lines: string[] = [`Order ${orderNum} created.`];
+      if (receipt.invoice.ok) {
+        lines.push(receipt.invoice.number
+          ? `Deposit invoice ${receipt.invoice.number} queued.`
+          : `Deposit invoice queued.`);
+      } else {
+        lines.push(`Invoice did NOT generate -- ${receipt.invoice.error || "unknown error"}. Generate it manually on the order.`);
+      }
+      if (receipt.email.sent) {
+        lines.push(`Confirmation email sent to ${quote.client_email}.`);
+      } else if (receipt.email.skipped && receipt.email.reason === "no_client_email") {
+        lines.push(`No email on file -- client wasn't notified by email. Phone / WhatsApp them.`);
+      } else if (!receipt.email.sent) {
+        lines.push(`Email did NOT send -- ${receipt.email.reason || "unknown"}. Send the confirmation manually.`);
+      }
+      if (receipt.kitchen.ok && receipt.kitchen.tasksCreated > 0) {
+        lines.push(`${receipt.kitchen.tasksCreated} kitchen prep tasks planned.`);
+      } else if (!receipt.kitchen.ok) {
+        lines.push(`Kitchen prep tasks NOT generated -- ${receipt.kitchen.reason || "unknown"}.`);
+      }
+
+      const allOk = receipt.invoice.ok && (receipt.email.sent || receipt.email.reason === "no_client_email") && receipt.kitchen.ok;
       toast({
-        title: "Quote accepted, order created",
-        description: `${quote.client_name} is now order ${(order as any).order_number}. Deposit invoice queued.`,
+        title: allOk ? "Quote accepted, full handoff complete" : "Quote accepted, with caveats",
+        description: lines.join(" "),
+        variant: allOk ? "default" : "destructive",
       });
+
       setQuotes((prev) => prev.map((q) =>
         q.id === quote.id ? { ...q, status: "accepted", accepted_at: new Date().toISOString() } as Quote : q
       ));
@@ -986,7 +1025,7 @@ export default function AdminQuotes() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleAcceptOnBehalf(quote)}
+                              onClick={() => setAcceptPreflight(quote)}
                               disabled={acceptingId === quote.id}
                               title="Client confirmed verbally? Mark accepted and convert to a live order in one click."
                               className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
@@ -1261,6 +1300,65 @@ export default function AdminQuotes() {
           />
         )}
       </ComposeDrawerHost>
+
+      {/* Pre-flight: shows the operator exactly what's about to fire
+          when they manually accept on behalf of the client. Lets them
+          eyeball the email destination before it goes out. */}
+      <AlertDialog
+        open={!!acceptPreflight}
+        onOpenChange={(o) => { if (!o) setAcceptPreflight(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              Accept on behalf of {acceptPreflight?.client_name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2 text-sm text-slate-700">
+                <p>This converts the quote into a confirmed order and fires the standard accept handoff. The quote stays in the system as audit history.</p>
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 space-y-1.5 text-xs">
+                  <p className="font-semibold uppercase tracking-wide text-slate-600">What happens on confirm</p>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span>Order created, status <span className="font-mono">confirmed</span></span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span>Deposit invoice generated{acceptPreflight?.total ? ` (~${fmtMoney.format(Number(acceptPreflight.total) * 0.3)} at 30%)` : ""}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className={acceptPreflight?.client_email ? "text-emerald-600 shrink-0" : "text-amber-600 shrink-0"}>•</span>
+                    <span>
+                      {acceptPreflight?.client_email
+                        ? <>Confirmation email to <span className="font-mono">{acceptPreflight.client_email}</span></>
+                        : <span className="text-amber-700">No client email on file -- the client won't get an automated email. Phone or WhatsApp them after.</span>}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span>Kitchen prep tasks planned (skipped for past-date events)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-600 shrink-0">•</span>
+                    <span>Day shows as Booked on the calendar gap finder</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">If any sub-step fails, the order still gets created and the toast tells you what to chase manually.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => acceptPreflight && runAcceptOnBehalf(acceptPreflight)}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              Confirm and convert
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={!!deleteTarget}
