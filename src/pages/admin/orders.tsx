@@ -36,6 +36,8 @@ import {
   X,
   FileText,
   Receipt,
+  Pause,
+  Play,
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -43,6 +45,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CancelOrderDialog } from "@/components/admin/orders/CancelOrderDialog";
+import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
@@ -194,6 +197,7 @@ function OrderProcessDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -1334,7 +1338,7 @@ function OrderProcessDashboard() {
                   <Select
                     value={editedOrder.status}
                     onValueChange={(value) => setEditedOrder({ ...editedOrder, status: value as any })}
-                    disabled={!editMode}
+                    disabled={!editMode || editedOrder.status === "paused"}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1349,6 +1353,55 @@ function OrderProcessDashboard() {
                       <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
+                  {/* Pause / Resume routed through dedicated handlers
+                      so the cascades (email queue suspend, prep tasks
+                      hide, audit log) actually fire. The dropdown
+                      itself doesn't carry 'paused' to keep operators
+                      out of the silent-bypass trap. */}
+                  <div className="flex gap-2 pt-1">
+                    {editedOrder.status === "paused" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!confirm("Resume this order? Pre-event reminders + kitchen prep tasks will be restored.")) return;
+                          try {
+                            const res = await fetch(`/api/orders/${editedOrder.id}/resume`, { method: "POST" });
+                            const json = await res.json().catch(() => ({}));
+                            if (!res.ok) { toast({ title: "Resume failed", description: json?.error, variant: "destructive" }); return; }
+                            toast({ title: "Order resumed", description: `Back to ${json.order?.status}. Reminders + prep restored.` });
+                            await loadOrders();
+                            setSelectedOrder(json.order);
+                            setEditedOrder(json.order);
+                          } catch (e: any) {
+                            toast({ title: "Resume failed", description: e?.message, variant: "destructive" });
+                          }
+                        }}
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1.5"
+                      >
+                        <Play className="w-3.5 h-3.5" /> Resume order
+                      </Button>
+                    ) : (
+                      ["confirmed", "preparing", "ready"].includes(String(editedOrder.status)) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPauseDialogOrderId(editedOrder.id)}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-1.5"
+                          title="Client called to hold? Pauses reminders + prep without losing them."
+                        >
+                          <Pause className="w-3.5 h-3.5" /> Pause order
+                        </Button>
+                      )
+                    )}
+                  </div>
+                  {editedOrder.status === "paused" && (
+                    <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5 mt-1">
+                      Paused{(editedOrder as any).paused_reason_category ? ` -- ${String((editedOrder as any).paused_reason_category).replace(/_/g, " ")}` : ""}
+                      {(editedOrder as any).paused_reason ? `: ${(editedOrder as any).paused_reason}` : ""}
+                      {(editedOrder as any).paused_expected_resume_date ? ` (expected resume: ${(editedOrder as any).paused_expected_resume_date})` : ""}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2 col-span-2">
@@ -2184,6 +2237,21 @@ function OrderProcessDashboard() {
               orderId={selectedOrder?.id || null}
               orderNumber={(selectedOrder as any)?.order_number || null}
               onCancelled={() => {
+                setIsModalOpen(false);
+                loadOrders();
+              }}
+            />
+
+            {/* Pause dialog -- captures reason + expected resume date,
+                runs the pauseOrder cascade (status -> 'paused', email
+                queue suspend, prep tasks soft-delete, audit log). */}
+            <PauseOrderDialog
+              open={!!pauseDialogOrderId}
+              onOpenChange={(o) => { if (!o) setPauseDialogOrderId(null); }}
+              orderId={pauseDialogOrderId}
+              orderNumber={(selectedOrder as any)?.order_number || null}
+              clientName={(selectedOrder as any)?.client_name || null}
+              onPaused={() => {
                 setIsModalOpen(false);
                 loadOrders();
               }}

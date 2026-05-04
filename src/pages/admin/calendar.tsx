@@ -48,6 +48,11 @@ const STATUS_TONES: Record<string, string> = {
   delivered:  "bg-emerald-100 text-emerald-800 border-emerald-200",
   completed:  "bg-slate-100 text-slate-800 border-slate-200",
   cancelled:  "bg-rose-100 text-rose-700 border-rose-200",
+  // Paused stays blue (still booked, capacity counted) but with a
+  // dashed border treatment in the cell so the at-risk read is
+  // visible at a glance. Pill itself uses blue so the team doesn't
+  // confuse it with cancelled (rose) or unconfirmed (amber).
+  paused:     "bg-blue-100 text-blue-800 border-blue-300 border-dashed",
 };
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
@@ -371,9 +376,17 @@ function AdminCalendar() {
                       // can't be filled retroactively.
                       const atCapacity = events.length >= maxConcurrent;
                       const hasQuotes = !isPast && quotes.length > 0;
-                      const cellState: "selected" | "capacity" | "booked_with_quotes" | "booked" | "winnable" | "empty" =
+                      // A day with ANY paused order surfaces as "paused"
+                      // (dashed blue) so the operator can spot at-risk
+                      // bookings at a glance. Capacity still counts the
+                      // paused orders -- they're holding the slot.
+                      const pausedCount = events.filter((e: any) => String(e.status).toLowerCase() === "paused").length;
+                      const hasPaused = pausedCount > 0;
+                      const allPaused = events.length > 0 && pausedCount === events.length;
+                      const cellState: "selected" | "capacity" | "booked_with_quotes" | "booked" | "paused" | "winnable" | "empty" =
                         isSelected ? "selected"
                         : atCapacity ? "capacity"
+                        : allPaused ? "paused"
                         : (events.length > 0 && hasQuotes) ? "booked_with_quotes"
                         : events.length > 0 ? "booked"
                         : hasQuotes ? "winnable"
@@ -391,13 +404,16 @@ function AdminCalendar() {
                             isToday  && "ring-2 ring-purple-500 ring-offset-1",
                             cellState === "selected"          && "bg-purple-50 border-purple-500",
                             cellState === "capacity"          && "bg-rose-50 border-rose-300",
+                            cellState === "paused"            && "bg-blue-50/40 border-blue-300 border-dashed",
                             cellState === "booked_with_quotes"&& "bg-blue-50/60 border-amber-300",
                             cellState === "booked"            && "bg-blue-50/60 border-blue-200",
                             cellState === "winnable"          && "bg-amber-50/60 border-amber-300",
                             cellState === "empty"             && "bg-white border-slate-200",
+                            // Mixed-status flag: some confirmed + some paused on the same day.
+                            !allPaused && hasPaused && cellState !== "selected" && "ring-1 ring-blue-300",
                             isFocused && !isSelected && "ring-1 ring-slate-300",
                           )}
-                          aria-label={`${day} ${monthNames[month]}, ${events.length} event${events.length === 1 ? "" : "s"}, ${quotes.length} quote${quotes.length === 1 ? "" : "s"} pending`}
+                          aria-label={`${day} ${monthNames[month]}, ${events.length} event${events.length === 1 ? "" : "s"}${pausedCount > 0 ? `, ${pausedCount} paused` : ""}, ${quotes.length} quote${quotes.length === 1 ? "" : "s"} pending`}
                         >
                           <div className="flex items-center justify-between">
                             <span className={cn(
@@ -476,6 +492,7 @@ function AdminCalendar() {
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-amber-50/60">Quotes out (winnable)</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-blue-50/60">Booked + extra quotes</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 px-2 py-0.5 rounded border-2 border-rose-300 bg-rose-50">Full ({maxConcurrent} cap)</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-blue-800 px-2 py-0.5 rounded border-2 border-blue-300 border-dashed bg-blue-50/40">Paused (at risk)</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 px-2 py-0.5 rounded border-2 border-slate-200 bg-white">Open</span>
               </div>
             </div>

@@ -358,6 +358,237 @@ export async function cancelOrder(
 }
 
 /**
+ * Pause an active order. Triggered when the client phones to say
+ * "we might still go ahead, hold tight" -- distinct from cancel
+ * because the trajectory is still alive. Mirrors cancelOrder's
+ * discipline (atomic status flip + cascades + audit + notifications)
+ * but everything is reversible via resumeOrder.
+ *
+ * Side effects:
+ *   - orders.status = 'paused', paused_at, paused_by_user_id,
+ *     paused_reason, paused_reason_category, paused_from_status,
+ *     paused_expected_resume_date stamped on the order
+ *   - outgoing_email_queue: pending sends for this order flipped to
+ *     'paused' so the cron skips them. Restored on resume.
+ *   - kitchen_prep_tasks: pending/in_progress tasks soft-deleted
+ *     (deleted_at = NOW). Kitchen views filter on deleted_at IS NULL
+ *     so chefs don't see ghost tasks. Restored on resume.
+ *   - order_status_history row written inline
+ *   - sendStatusNotifications runs so the team's dashboards refresh
+ *
+ * Deposit handling: invoice is left as-is. If no payment had been
+ * made the operator can void manually; if a deposit was paid we
+ * preserve it. Pause is reversible -- voiding eagerly would be
+ * destructive.
+ */
+export async function pauseOrder(
+  orderId: string,
+  opts: {
+    reason?: string;
+    reason_category?: string;
+    paused_by_user_id?: string;
+    expected_resume_date?: string | null;
+    /** SSR Supabase client for API-route callers, see cancelOrder. */
+    client?: any;
+  } = {},
+) {
+  try {
+    const sb = opts.client || supabase;
+    const nowIso = new Date().toISOString();
+
+    // Snapshot the current status so resume returns to exactly the
+    // state we paused from. Without this, resume would have to guess
+    // (back to confirmed? to preparing? to ready?).
+    const { data: existing, error: readErr } = await sb
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .single();
+    if (readErr) throw readErr;
+    if ((existing as any).status === "paused") {
+      return { success: false, error: "Order is already paused." };
+    }
+    if ((existing as any).status === "cancelled" || (existing as any).status === "completed") {
+      return { success: false, error: "Cannot pause a cancelled or completed order." };
+    }
+    const fromStatus = (existing as any).status;
+
+    const { data, error } = await sb
+      .from("orders")
+      .update({
+        status: "paused",
+        paused_at: nowIso,
+        paused_by_user_id: opts.paused_by_user_id || null,
+        paused_reason: opts.reason || null,
+        paused_reason_category: opts.reason_category || null,
+        paused_from_status: fromStatus,
+        paused_expected_resume_date: opts.expected_resume_date || null,
+      } as any)
+      .eq("id", orderId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    // Pause the email queue. Cron filters on status='pending' so a
+    // 'paused' row is inert until we flip it back. paused_at lets
+    // us audit how long sends sat on hold.
+    void (async () => {
+      try {
+        await sb
+          .from("outgoing_email_queue")
+          .update({ status: "paused", paused_at: nowIso } as any)
+          .eq("trigger_ref_id", orderId)
+          .eq("status", "pending")
+          .in("trigger_event", ["aftersales", "pre_event"]);
+      } catch (e) {
+        console.warn("[pauseOrder] email queue pause failed:", e);
+      }
+    })();
+
+    // Soft-delete kitchen prep tasks. The kitchen page already
+    // filters `deleted_at IS NULL` so paused tasks vanish from
+    // chef views. Resume sets deleted_at back to NULL.
+    void (async () => {
+      try {
+        await sb
+          .from("kitchen_prep_tasks")
+          .update({ deleted_at: nowIso } as any)
+          .eq("order_id", orderId)
+          .in("status", ["pending", "in_progress"])
+          .is("deleted_at", null);
+      } catch (e) {
+        console.warn("[pauseOrder] kitchen prep pause failed:", e);
+      }
+    })();
+
+    // Inline audit log -- mirrors cancelOrder's pattern.
+    try {
+      await sb.from("order_status_history").insert({
+        order_id: orderId,
+        status: "paused",
+        changed_by: opts.paused_by_user_id || null,
+        notes: opts.reason
+          ? `Paused from ${fromStatus}: ${opts.reason_category || "other"} -- ${opts.reason}`
+          : `Paused from ${fromStatus}: ${opts.reason_category || "other"}`,
+      } as any);
+    } catch (e) {
+      console.warn("[pauseOrder] status history insert failed:", e);
+    }
+
+    try {
+      await sendStatusNotifications(data);
+    } catch (e) {
+      console.warn("[pauseOrder] notifications failed:", e);
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error pausing order:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Resume a paused order. Reverses the pauseOrder cascades:
+ * un-pauses the email queue, restores soft-deleted prep tasks,
+ * stamps an audit log row, and returns the order to whichever
+ * status it was paused from (typically 'confirmed').
+ */
+export async function resumeOrder(
+  orderId: string,
+  opts: {
+    resumed_by_user_id?: string;
+    client?: any;
+  } = {},
+) {
+  try {
+    const sb = opts.client || supabase;
+    const nowIso = new Date().toISOString();
+
+    const { data: existing, error: readErr } = await sb
+      .from("orders")
+      .select("status, paused_from_status")
+      .eq("id", orderId)
+      .single();
+    if (readErr) throw readErr;
+    if ((existing as any).status !== "paused") {
+      return { success: false, error: "Order is not paused." };
+    }
+    // Default back to 'confirmed' if paused_from_status is somehow
+    // missing (legacy paused orders pre-this-migration).
+    const restoreTo = (existing as any).paused_from_status || "confirmed";
+
+    const { data, error } = await sb
+      .from("orders")
+      .update({
+        status: restoreTo,
+        paused_at: null,
+        paused_by_user_id: null,
+        paused_reason: null,
+        paused_reason_category: null,
+        paused_from_status: null,
+        paused_expected_resume_date: null,
+      } as any)
+      .eq("id", orderId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    // Un-pause the email queue. Anything still scheduled for the
+    // future fires when its scheduled_for time arrives.
+    void (async () => {
+      try {
+        await sb
+          .from("outgoing_email_queue")
+          .update({ status: "pending", paused_at: null } as any)
+          .eq("trigger_ref_id", orderId)
+          .eq("status", "paused");
+      } catch (e) {
+        console.warn("[resumeOrder] email queue resume failed:", e);
+      }
+    })();
+
+    // Restore prep tasks. Only un-soft-deletes tasks that were
+    // pending/in_progress -- completed and cancelled stay where
+    // they are (history is sacred).
+    void (async () => {
+      try {
+        await sb
+          .from("kitchen_prep_tasks")
+          .update({ deleted_at: null } as any)
+          .eq("order_id", orderId)
+          .in("status", ["pending", "in_progress"])
+          .not("deleted_at", "is", null);
+      } catch (e) {
+        console.warn("[resumeOrder] kitchen prep resume failed:", e);
+      }
+    })();
+
+    try {
+      await sb.from("order_status_history").insert({
+        order_id: orderId,
+        status: restoreTo,
+        changed_by: opts.resumed_by_user_id || null,
+        notes: `Resumed from paused -- back to ${restoreTo}`,
+      } as any);
+    } catch (e) {
+      console.warn("[resumeOrder] status history insert failed:", e);
+    }
+
+    try {
+      await sendStatusNotifications(data);
+    } catch (e) {
+      console.warn("[resumeOrder] notifications failed:", e);
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error resuming order:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Status notification fan-out. Audit (May 2026) flagged that we only
  * pinged on confirmed / ready / delivered, leaving four blind spots
  * (preparing, in_transit, completed, cancelled) where the client and

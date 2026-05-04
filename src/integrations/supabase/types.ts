@@ -3731,6 +3731,7 @@ export type Database = {
           external_id: string | null
           external_invoice_number: string | null
           id: string
+          invoice_data: Json | null
           invoice_date: string
           invoice_number: string
           last_synced_at: string | null
@@ -3760,6 +3761,7 @@ export type Database = {
           external_id?: string | null
           external_invoice_number?: string | null
           id?: string
+          invoice_data?: Json | null
           invoice_date?: string
           invoice_number: string
           last_synced_at?: string | null
@@ -3789,6 +3791,7 @@ export type Database = {
           external_id?: string | null
           external_invoice_number?: string | null
           id?: string
+          invoice_data?: Json | null
           invoice_date?: string
           invoice_number?: string
           last_synced_at?: string | null
@@ -4376,7 +4379,7 @@ export type Database = {
           assigned_to: string | null
           budget: number | null
           budget_range: string | null
-          client_email: string | null
+          client_email: string
           client_name: string | null
           client_phone: string | null
           comms_paused_until: string | null
@@ -4413,7 +4416,7 @@ export type Database = {
           assigned_to?: string | null
           budget?: number | null
           budget_range?: string | null
-          client_email?: string | null
+          client_email: string
           client_name?: string | null
           client_phone?: string | null
           comms_paused_until?: string | null
@@ -4450,7 +4453,7 @@ export type Database = {
           assigned_to?: string | null
           budget?: number | null
           budget_range?: string | null
-          client_email?: string | null
+          client_email?: string
           client_name?: string | null
           client_phone?: string | null
           comms_paused_until?: string | null
@@ -5126,6 +5129,12 @@ export type Database = {
           internal_notes: string | null
           kitchen_instructions: string | null
           order_number: string
+          paused_at: string | null
+          paused_by_user_id: string | null
+          paused_expected_resume_date: string | null
+          paused_from_status: Database["public"]["Enums"]["order_status"] | null
+          paused_reason: string | null
+          paused_reason_category: string | null
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           payment_reference: string | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
@@ -5226,6 +5235,14 @@ export type Database = {
           internal_notes?: string | null
           kitchen_instructions?: string | null
           order_number: string
+          paused_at?: string | null
+          paused_by_user_id?: string | null
+          paused_expected_resume_date?: string | null
+          paused_from_status?:
+            | Database["public"]["Enums"]["order_status"]
+            | null
+          paused_reason?: string | null
+          paused_reason_category?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
@@ -5326,6 +5343,14 @@ export type Database = {
           internal_notes?: string | null
           kitchen_instructions?: string | null
           order_number?: string
+          paused_at?: string | null
+          paused_by_user_id?: string | null
+          paused_expected_resume_date?: string | null
+          paused_from_status?:
+            | Database["public"]["Enums"]["order_status"]
+            | null
+          paused_reason?: string | null
+          paused_reason_category?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
@@ -5510,6 +5535,7 @@ export type Database = {
           error_message: string | null
           id: string
           magic_link: string | null
+          paused_at: string | null
           scheduled_for: string | null
           sent_at: string | null
           status: string
@@ -5530,6 +5556,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           magic_link?: string | null
+          paused_at?: string | null
           scheduled_for?: string | null
           sent_at?: string | null
           status?: string
@@ -5550,6 +5577,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           magic_link?: string | null
+          paused_at?: string | null
           scheduled_for?: string | null
           sent_at?: string | null
           status?: string
@@ -6537,7 +6565,7 @@ export type Database = {
       quotes: {
         Row: {
           accepted_at: string | null
-          client_email: string | null
+          client_email: string
           client_id: string | null
           client_name: string | null
           client_phone: string | null
@@ -6588,7 +6616,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
-          client_email?: string | null
+          client_email: string
           client_id?: string | null
           client_name?: string | null
           client_phone?: string | null
@@ -6639,7 +6667,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
-          client_email?: string | null
+          client_email?: string
           client_id?: string | null
           client_name?: string | null
           client_phone?: string | null
@@ -9473,6 +9501,7 @@ export type Database = {
         | "cancelled"
         | "preparing"
         | "in_transit"
+        | "paused"
       payment_method: "cash" | "eft" | "card" | "credit_account"
       payment_status:
         | "pending"
@@ -9719,6 +9748,7 @@ export const Constants = {
         "cancelled",
         "preparing",
         "in_transit",
+        "paused",
       ],
       payment_method: ["cash", "eft", "card", "credit_account"],
       payment_status: [
