@@ -15,7 +15,7 @@ export default async function handler(
   }
 
   try {
-    const { companyId, to, subject, template, body, variables, orderId, quoteId, emailType } = req.body;
+    const { companyId, to, subject, template, body, variables, orderId, quoteId, emailType, bypassQuarantine } = req.body;
 
     if (!companyId || !to) {
       return res.status(400).json({
@@ -83,16 +83,26 @@ export default async function handler(
         // run it per recipient so one paused email in a multi-recipient
         // send blocks the whole call -- safer default than partial
         // delivery.
-        for (const recip of recipientLower) {
-          const { data: paused } = await ssr.rpc("is_comms_paused_for_email", {
-            p_company_id: companyId,
-            p_email: recip,
-          });
-          if (paused === true) {
-            return res.status(409).json({
-              error: "Recipient is in import quarantine -- comms paused until the owner reviews the batch",
-              quarantined: recip,
+        //
+        // bypassQuarantine carve-out: legal / critical comms (refund
+        // receipts, cancellation notices, postponement confirmations)
+        // must reach the client even when their record is in import
+        // quarantine. Block list above still applies in either mode.
+        // The server-side emailService already supports this; we now
+        // forward it through this API endpoint so browser-initiated
+        // critical comms aren't silently 409'd.
+        if (!bypassQuarantine) {
+          for (const recip of recipientLower) {
+            const { data: paused } = await ssr.rpc("is_comms_paused_for_email", {
+              p_company_id: companyId,
+              p_email: recip,
             });
+            if (paused === true) {
+              return res.status(409).json({
+                error: "Recipient is in import quarantine -- comms paused until the owner reviews the batch",
+                quarantined: recip,
+              });
+            }
           }
         }
       }

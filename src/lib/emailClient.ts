@@ -13,6 +13,17 @@ export interface SendEmailParams {
   variables?: Record<string, any>;
   orderId?: string;
   quoteId?: string;
+  /**
+   * Critical-comm carve-out. When true, the time-bounded import
+   * quarantine pause is ignored (comms_paused_until). The block list
+   * is ALWAYS honoured -- being blocked is a final decision, not a
+   * temporary pause. Use ONLY for legally-required notices like
+   * refund / cancellation receipts. The server-side emailService
+   * already supports this; without forwarding it through the API
+   * endpoint, browser-initiated critical comms would be silently
+   * blocked by quarantine.
+   */
+  bypassQuarantine?: boolean;
 }
 
 /**
