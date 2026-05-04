@@ -47,6 +47,7 @@ import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -918,29 +919,33 @@ export default function AdminQuotes() {
                         </div>
 
                         <div className="flex flex-col gap-2 ml-4 items-end">
-                          {quote.status === "draft" && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleSend(quote.id)}
+                          {/* Primary CTA -- tone-driven so the urgency
+                              colour matches Contacts and Leads. For
+                              drafts the action is Send (fires the
+                              email); for everything else it's Compose
+                              (opens the drawer). */}
+                          {quote.status === "draft" ? (
+                            <RowPrimaryAction
+                              tone={intelligence.tone}
+                              icon={<Send className="w-4 h-4" />}
+                              label={sendingId === quote.id ? "Sending..." : "Send"}
+                              tooltip="Send this draft -- emails the client and stamps the quote 'sent'."
                               disabled={sendingId === quote.id}
-                            >
-                              <Send className="w-4 h-4 mr-2" />
-                              {sendingId === quote.id ? "Sending..." : "Send"}
-                            </Button>
+                              onClick={() => handleSend(quote.id)}
+                            />
+                          ) : (
+                            <RowPrimaryAction
+                              tone={intelligence.tone}
+                              icon={<Mail className="w-4 h-4" />}
+                              label="Compose"
+                              tooltip={composeHint}
+                              disabled={!canCompose}
+                              onClick={() => {
+                                setComposeMode("status");
+                                setComposeQuote(quote);
+                              }}
+                            />
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!canCompose}
-                            title={composeHint}
-                            onClick={() => {
-                              setComposeMode("status");
-                              setComposeQuote(quote);
-                            }}
-                          >
-                            <Mail className="w-4 h-4 mr-2" />
-                            Compose
-                          </Button>
                           {/* Mark-as-sent / Reset timestamp. Anchors
                               the follow-up timing baseline so the
                               suggester knows when to nudge. Use this

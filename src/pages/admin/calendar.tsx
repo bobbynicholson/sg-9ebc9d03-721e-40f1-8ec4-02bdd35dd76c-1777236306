@@ -22,6 +22,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { orderService } from "@/services/orderService";
+import { supabase } from "@/integrations/supabase/client";
 import type { AppOrder } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -51,9 +52,27 @@ const STATUS_TONES: Record<string, string> = {
 
 const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
 
+// Quote statuses that count as "still open" for the diary gap-finder.
+// Anything past these (accepted -> already an order, rejected -> dead,
+// expired -> dead unless re-quoted) is excluded so the calendar only
+// shows quotes that could still convert to a booking.
+const OPEN_QUOTE_STATUSES = ["draft", "sent", "viewed", "pending", "revised"];
+
+interface OpenQuote {
+  id: string;
+  client_name: string | null;
+  event_date: string;
+  event_time: string | null;
+  total: number | null;
+  status: string;
+  valid_until: string | null;
+  sent_at: string | null;
+}
+
 function AdminCalendar() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<AppOrder[]>([]);
+  const [openQuotes, setOpenQuotes] = useState<OpenQuote[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +80,10 @@ function AdminCalendar() {
   const [focusedISO, setFocusedISO] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.company_id) loadOrders();
+    if (user?.company_id) {
+      loadOrders();
+      loadOpenQuotes();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
@@ -74,6 +96,24 @@ function AdminCalendar() {
       console.error("Calendar load failed:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Open quotes drive the gap-finder. Pulled separately from orders so
+  // the calendar can highlight days with floating quotes (operator can
+  // chase to fill the diary) and days with quotes-only-no-orders
+  // ("winnable diary").
+  const loadOpenQuotes = async () => {
+    try {
+      const { data } = await supabase
+        .from("quotes")
+        .select("id, client_name, event_date, event_time, total, status, valid_until, sent_at")
+        .eq("company_id", user.company_id)
+        .in("status", OPEN_QUOTE_STATUSES)
+        .not("event_date", "is", null);
+      setOpenQuotes((data || []) as OpenQuote[]);
+    } catch (e) {
+      console.error("Calendar open-quotes load failed:", e);
     }
   };
 
@@ -97,6 +137,8 @@ function AdminCalendar() {
   const ordersByDay = useMemo(() => {
     const map: Record<string, AppOrder[]> = {};
     orders.forEach((o) => {
+      // Skip cancelled orders so they don't visually fill the diary.
+      if (String((o as any).status || "").toLowerCase() === "cancelled") return;
       const k = (o.event_date as any)?.split?.("T")?.[0] || (o as any).event_date;
       if (!k) return;
       (map[k] = map[k] || []).push(o);
@@ -108,6 +150,31 @@ function AdminCalendar() {
     );
     return map;
   }, [orders]);
+
+  const quotesByDay = useMemo(() => {
+    const map: Record<string, OpenQuote[]> = {};
+    openQuotes.forEach((q) => {
+      const k = (q.event_date as any)?.split?.("T")?.[0] || q.event_date;
+      if (!k) return;
+      (map[k] = map[k] || []).push(q);
+    });
+    return map;
+  }, [openQuotes]);
+
+  /** maxConcurrentEvents from operations settings. Read from
+   *  localStorage where the settings page persists it; default 5
+   *  matches the settings tab default. Used to flag days at / over
+   *  capacity. */
+  const maxConcurrent = useMemo(() => {
+    try {
+      const raw = typeof window !== "undefined"
+        ? window.localStorage.getItem("admin_settings")
+        : null;
+      if (!raw) return 5;
+      const s = JSON.parse(raw);
+      return Number(s?.operations?.maxConcurrentEvents) || 5;
+    } catch { return 5; }
+  }, []);
 
   const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const monthNames = [
@@ -183,8 +250,38 @@ function AdminCalendar() {
       .slice(0, 5),
   [orders, todayISO]);
 
+  /** Next-30-day diary stats. Drives the gap-finder strip + sidebar:
+   *  the operator sees at a glance how many days are booked, how many
+   *  have floating quotes that could fill them, and how many days are
+   *  empty in the working horizon. */
+  const horizonStats = useMemo(() => {
+    const horizon = 30;
+    const today = new Date(todayISO);
+    let booked = 0;
+    let winnable = 0;
+    let empty = 0;
+    let conflicts = 0;
+    const winnableDays: Array<{ iso: string; quotes: OpenQuote[] }> = [];
+    for (let i = 0; i < horizon; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+      const ev = ordersByDay[iso] || [];
+      const qu = quotesByDay[iso] || [];
+      if (ev.length > 0) booked += 1;
+      else if (qu.length > 0) winnable += 1;
+      else empty += 1;
+      if (qu.length > 1 && ev.length === 0) conflicts += 1; // multiple quotes for same empty day
+      if (qu.length > 0 && ev.length === 0) winnableDays.push({ iso, quotes: qu });
+    }
+    return { booked, winnable, empty, conflicts, winnableDays };
+  }, [ordersByDay, quotesByDay, todayISO]);
+
   const dayEvents = selectedDate
     ? ordersByDay[selectedDate.toISOString().slice(0, 10)] || []
+    : [];
+  const dayQuotes = selectedDate
+    ? quotesByDay[selectedDate.toISOString().slice(0, 10)] || []
     : [];
 
   return (
@@ -260,13 +357,27 @@ function AdminCalendar() {
                       const date = new Date(year, month, day);
                       const iso = date.toISOString().slice(0, 10);
                       const events = ordersByDay[iso] || [];
+                      const quotes = quotesByDay[iso] || [];
                       const isToday = iso === todayISO;
+                      const isPast = iso < todayISO;
                       const isSelected = selectedDate && selectedDate.toISOString().slice(0, 10) === iso;
                       const isFocused = focusedISO === iso;
                       const eventTotal = events.reduce(
                         (s: number, e: any) => s + Number(e.total_amount || 0),
                         0,
                       );
+                      // Diary state -- drives the cell border colour. Past
+                      // days are excluded from the gap-finder logic; they
+                      // can't be filled retroactively.
+                      const atCapacity = events.length >= maxConcurrent;
+                      const hasQuotes = !isPast && quotes.length > 0;
+                      const cellState: "selected" | "capacity" | "booked_with_quotes" | "booked" | "winnable" | "empty" =
+                        isSelected ? "selected"
+                        : atCapacity ? "capacity"
+                        : (events.length > 0 && hasQuotes) ? "booked_with_quotes"
+                        : events.length > 0 ? "booked"
+                        : hasQuotes ? "winnable"
+                        : "empty";
 
                       return (
                         <button
@@ -278,12 +389,15 @@ function AdminCalendar() {
                             "relative min-h-[88px] p-2 rounded-lg border-2 text-left transition-all",
                             "hover:shadow-md hover:scale-[1.02] focus:outline-none",
                             isToday  && "ring-2 ring-purple-500 ring-offset-1",
-                            isSelected ? "bg-purple-50 border-purple-500" :
-                              events.length > 0 ? "bg-blue-50/60 border-blue-200" :
-                              "bg-white border-slate-200",
+                            cellState === "selected"          && "bg-purple-50 border-purple-500",
+                            cellState === "capacity"          && "bg-rose-50 border-rose-300",
+                            cellState === "booked_with_quotes"&& "bg-blue-50/60 border-amber-300",
+                            cellState === "booked"            && "bg-blue-50/60 border-blue-200",
+                            cellState === "winnable"          && "bg-amber-50/60 border-amber-300",
+                            cellState === "empty"             && "bg-white border-slate-200",
                             isFocused && !isSelected && "ring-1 ring-slate-300",
                           )}
-                          aria-label={`${day} ${monthNames[month]}, ${events.length} event${events.length === 1 ? "" : "s"}`}
+                          aria-label={`${day} ${monthNames[month]}, ${events.length} event${events.length === 1 ? "" : "s"}, ${quotes.length} quote${quotes.length === 1 ? "" : "s"} pending`}
                         >
                           <div className="flex items-center justify-between">
                             <span className={cn(
@@ -328,6 +442,17 @@ function AdminCalendar() {
                                 {fmtMoney.format(eventTotal)}
                               </div>
                             )}
+                            {hasQuotes && (
+                              <div className="text-[10px] font-semibold text-amber-700 flex items-center gap-1">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                {quotes.length} quote{quotes.length === 1 ? "" : "s"} out
+                              </div>
+                            )}
+                            {atCapacity && (
+                              <div className="text-[10px] font-semibold text-rose-700">
+                                Full ({events.length} of {maxConcurrent})
+                              </div>
+                            )}
                           </div>
                         </button>
                       );
@@ -336,14 +461,22 @@ function AdminCalendar() {
                 </CardContent>
               </Card>
 
-              {/* Status legend */}
+              {/* Status legend + diary-state legend */}
               <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Legend:</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order status:</span>
                 {Object.entries(STATUS_TONES).slice(0, 7).map(([k, tone]) => (
                   <Badge key={k} variant="outline" className={`${tone} border text-[10px] capitalize`}>
                     {k.replace("_", " ")}
                   </Badge>
                 ))}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 px-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Diary state:</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 px-2 py-0.5 rounded border-2 border-blue-200 bg-blue-50/60">Booked</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-amber-50/60">Quotes out (winnable)</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 px-2 py-0.5 rounded border-2 border-amber-300 bg-blue-50/60">Booked + extra quotes</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 px-2 py-0.5 rounded border-2 border-rose-300 bg-rose-50">Full ({maxConcurrent} cap)</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 px-2 py-0.5 rounded border-2 border-slate-200 bg-white">Open</span>
               </div>
             </div>
 
@@ -390,6 +523,78 @@ function AdminCalendar() {
                 </CardContent>
               </Card>
 
+              {/* Gap finder -- the diary opportunity panel. Lists days
+                  in the next 30 with quotes out but nothing booked, so
+                  the operator can pick which quote to chase. */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    Gap finder
+                    <InfoTooltip content={"Days in the next 30 with floating quotes (sent / viewed / pending) but nothing booked yet. Each one is a sales opportunity -- chase the quote to lock the diary."} />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="px-4 pb-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-md bg-blue-50 border border-blue-200 px-2 py-1.5">
+                      <p className="text-blue-800 text-[10px] uppercase font-semibold">Booked (30d)</p>
+                      <p className="text-lg font-bold text-blue-900 tabular-nums">{horizonStats.booked}</p>
+                    </div>
+                    <div className="rounded-md bg-amber-50 border border-amber-200 px-2 py-1.5">
+                      <p className="text-amber-800 text-[10px] uppercase font-semibold">Winnable</p>
+                      <p className="text-lg font-bold text-amber-900 tabular-nums">{horizonStats.winnable}</p>
+                    </div>
+                    <div className="rounded-md bg-slate-50 border border-slate-200 px-2 py-1.5">
+                      <p className="text-slate-700 text-[10px] uppercase font-semibold">Empty days</p>
+                      <p className="text-lg font-bold text-slate-900 tabular-nums">{horizonStats.empty}</p>
+                    </div>
+                    <div className="rounded-md bg-rose-50 border border-rose-200 px-2 py-1.5">
+                      <p className="text-rose-800 text-[10px] uppercase font-semibold">Conflicts</p>
+                      <p className="text-lg font-bold text-rose-900 tabular-nums" title="Days with multiple quotes competing for the same slot">{horizonStats.conflicts}</p>
+                    </div>
+                  </div>
+                  {horizonStats.winnableDays.length === 0 ? (
+                    <p className="text-center text-slate-500 text-xs px-4 pb-4">
+                      No quotes-without-bookings in the next 30 days.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                      {horizonStats.winnableDays.slice(0, 8).map(({ iso, quotes }) => {
+                        const d = new Date(iso);
+                        const daysOut = Math.floor((d.getTime() - new Date(todayISO).getTime()) / 86400000);
+                        return (
+                          <div key={iso} className="px-4 py-3">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                              </p>
+                              <span className="text-[10px] text-slate-500">in {daysOut}d</span>
+                            </div>
+                            <div className="space-y-1">
+                              {quotes.slice(0, 3).map((q) => (
+                                <Link
+                                  key={q.id}
+                                  href={`/admin/quotes?focus=${q.id}`}
+                                  className="flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-amber-50 -mx-1 px-1 py-0.5 rounded"
+                                >
+                                  <span className="truncate">{q.client_name || "Quote"}</span>
+                                  <span className="text-[11px] text-slate-500 tabular-nums shrink-0">
+                                    {q.total ? fmtMoney.format(Number(q.total)) : "—"}
+                                  </span>
+                                </Link>
+                              ))}
+                              {quotes.length > 3 && (
+                                <p className="text-[10px] text-slate-500">+{quotes.length - 3} more on this day</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                 <CardContent className="pt-6 space-y-3">
                   <div className="flex items-center justify-between">
@@ -426,14 +631,55 @@ function AdminCalendar() {
                   {selectedDate.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </SheetTitle>
                 <SheetDescription>
-                  {dayEvents.length === 0
-                    ? "Nothing booked for this date yet."
-                    : `${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"} on this day.`}
+                  {dayEvents.length === 0 && dayQuotes.length === 0
+                    ? "Nothing booked or quoted for this date yet."
+                    : [
+                        dayEvents.length > 0 && `${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}`,
+                        dayQuotes.length > 0 && `${dayQuotes.length} quote${dayQuotes.length === 1 ? "" : "s"} pending`,
+                      ].filter(Boolean).join(" - ")}
                 </SheetDescription>
               </SheetHeader>
 
               <div className="mt-4 space-y-3">
-                {dayEvents.length === 0 ? (
+                {/* Floating quotes for this day -- listed before events so
+                    the operator sees the opportunity first when the day
+                    is empty. Each links to the quote on /admin/quotes. */}
+                {dayQuotes.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-700 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Quotes pending for this date
+                    </h4>
+                    {dayQuotes.map((q) => (
+                      <Link key={q.id} href={`/admin/quotes?focus=${q.id}`} className="block">
+                        <Card className="border border-amber-200 bg-amber-50/50 hover:bg-amber-50 transition-colors">
+                          <CardContent className="py-3 px-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-sm text-slate-900 truncate">
+                                  {q.client_name || "Quote"}
+                                </p>
+                                <p className="text-xs text-slate-600 mt-0.5 capitalize">
+                                  Status: {q.status} {q.event_time ? `· ${q.event_time.slice(0, 5)} start` : ""}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-bold text-slate-900 tabular-nums">
+                                  {q.total ? fmtMoney.format(Number(q.total)) : "—"}
+                                </p>
+                                <p className="text-[10px] text-amber-700 font-medium flex items-center justify-end gap-0.5">
+                                  Chase <ArrowRight className="w-3 h-3" />
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {dayEvents.length === 0 && dayQuotes.length === 0 ? (
                   <Link href="/admin/order-assignments" className="block">
                     <Card className="border-2 border-dashed border-slate-200 hover:border-purple-300 transition-colors">
                       <CardContent className="py-8 text-center">
@@ -443,7 +689,7 @@ function AdminCalendar() {
                       </CardContent>
                     </Card>
                   </Link>
-                ) : (
+                ) : dayEvents.length === 0 ? null : (
                   dayEvents.map((e: any) => {
                     const tone = STATUS_TONES[String(e.status || "").toLowerCase()] || STATUS_TONES.confirmed;
                     return (

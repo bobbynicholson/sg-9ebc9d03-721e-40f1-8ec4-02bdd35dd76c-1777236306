@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
+import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -719,15 +720,18 @@ function ClientsCRM() {
                                     companyName: profile?.company_name,
                                   }}
                                 />
-                                <Button
-                                  size="sm"
+                                <RowPrimaryAction
+                                  tone={c.suggestion?.tone || "neutral"}
+                                  icon={<Send className="w-3.5 h-3.5" />}
+                                  label={c.suggestion?.label
+                                    ? (c.suggestion.label.length > 18
+                                        ? c.suggestion.label.slice(0, 18) + "…"
+                                        : c.suggestion.label)
+                                    : "Compose"}
+                                  tooltip={c.suggestion?.reason || "Send a personal email to this contact"}
                                   disabled={!c.email}
                                   onClick={() => setActive(c)}
-                                  className="gap-1.5"
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                  Compose
-                                </Button>
+                                />
                                 {/* One-click "phone rang, sort the quote".
                                     If the contact already has a quote,
                                     open the latest one in the editable

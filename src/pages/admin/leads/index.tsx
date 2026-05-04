@@ -31,6 +31,7 @@ import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
@@ -957,22 +958,16 @@ export default function AdminLeads() {
                           </div>
                         </div>
                         <div className="flex flex-col items-stretch gap-2 flex-shrink-0 min-w-[180px]">
-                          {/* Primary CTA, always the suggested next step. */}
-                          <Button
-                            size="sm"
+                          {/* Primary CTA, always the suggested next step.
+                              Uses the shared RowPrimaryAction so the colour
+                              scheme matches Contacts and Quotes. */}
+                          <RowPrimaryAction
+                            tone={suggestion.tone}
+                            icon={suggestionCtaIcon(suggestion.kind)}
+                            label={suggestionCtaText(suggestion.kind)}
+                            tooltip={suggestionCtaTooltip(suggestion.kind)}
                             onClick={() => runSuggestionAction(lead, links, suggestion.kind)}
-                            title={suggestionCtaTooltip(suggestion.kind)}
-                            className={
-                              suggestion.tone === "urgent"
-                                ? "bg-rose-600 hover:bg-rose-700"
-                                : suggestion.tone === "warm"
-                                  ? "bg-amber-600 hover:bg-amber-700"
-                                  : ""
-                            }
-                          >
-                            {suggestionCtaIcon(suggestion.kind)}
-                            {suggestionCtaText(suggestion.kind)}
-                          </Button>
+                          />
                           <div className="flex items-center gap-1.5 justify-end flex-wrap">
                             <Button
                               variant="outline"
