@@ -25,7 +25,8 @@ import { randomUUID } from "node:crypto";
 import * as XLSX from "xlsx";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { createImportJob } from "@/services/importService";
+import { createImportJob, setJobStatus } from "@/services/importService";
+import { recogniseHeaders, buildMappingFromTemplate } from "@/lib/importTemplates";
 
 export const config = {
   api: {
@@ -34,7 +35,42 @@ export const config = {
 };
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const MAX_ROWS = 5000;
+
+// Default fallback when app_config.import_row_cap is unreadable. Bobby
+// configured 200 in SaaS settings; this is here only so the importer
+// never accepts an unbounded file if the config table is unreachable.
+const FALLBACK_ROW_CAP = 200;
+
+/** Read the configurable row cap from app_config. Falls back to 200. */
+async function getImportRowCap(): Promise<number> {
+  try {
+    const supabase: any = getServiceSupabase();
+    const { data } = await supabase
+      .from("app_config")
+      .select("value")
+      .eq("key", "import_row_cap")
+      .maybeSingle();
+    const n = parseInt(String((data as any)?.value || ""), 10);
+    if (Number.isFinite(n) && n > 0 && n <= 100000) return n;
+  } catch {
+    // swallow -- fall through to default
+  }
+  return FALLBACK_ROW_CAP;
+}
+
+/**
+ * Strip leading characters that some spreadsheet apps interpret as
+ * formula starts (=, +, -, @). Defensive against operators uploading
+ * a CSV that, if later re-exported, would let an attacker inject a
+ * payload. Only applied to string values; numbers / dates pass
+ * through untouched.
+ */
+function sanitiseCell(value: any): any {
+  if (typeof value !== "string") return value;
+  if (value.length === 0) return value;
+  if (/^[=+\-@]/.test(value)) return "'" + value;
+  return value;
+}
 const ALLOWED_MIMES = new Set([
   "text/csv",
   "application/vnd.ms-excel",
@@ -74,7 +110,16 @@ function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
       headers.forEach((h, idx) => {
         if (!h) return;
         const v = r[idx];
-        data[h] = v == null ? null : typeof v === "string" ? v.trim() : v;
+        if (v == null) {
+          data[h] = null;
+        } else if (typeof v === "string") {
+          // Sanitise then trim. Order matters -- the formula-prefix
+          // check works on the raw value; trimming after preserves
+          // the leading apostrophe escape we may have added.
+          data[h] = sanitiseCell(v.trim());
+        } else {
+          data[h] = v;
+        }
       });
       rows.push({ rowIndex: i + 1, data });
     }
@@ -187,9 +232,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (totalRows === 0) {
       return res.status(400).json({ error: "No data rows found in the file." });
     }
-    if (totalRows > MAX_ROWS) {
+    const rowCap = await getImportRowCap();
+    if (totalRows > rowCap) {
       return res.status(413).json({
-        error: `Too many rows, ${totalRows.toLocaleString("en-ZA")}. Cap is ${MAX_ROWS.toLocaleString("en-ZA")} per import. Split the file and run multiple imports.`,
+        error: `Too many rows, ${totalRows.toLocaleString("en-ZA")}. Current cap is ${rowCap.toLocaleString("en-ZA")} per import. Split the file and run multiple imports, or ask the platform team to lift the cap in SaaS settings.`,
       });
     }
 
@@ -235,9 +281,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: e?.message || "Could not save the import" });
     }
 
+    // Auto-mapping shortcut. If every sheet's headers match a known
+    // template (Clients, Leads), or the caller explicitly named a
+    // template via ?template=clients|leads, synthesise the mapping
+    // here and flip the job to "mapped" so the wizard can skip the
+    // AI step and jump straight to Preview. Falls through silently
+    // for messy uploads -- the AI mapping step will pick them up.
+    let autoMappedTo: string | null = null;
+    try {
+      const overrideTemplate = String(req.query.template || "").toLowerCase();
+      const fullMapping: Record<string, any> = {};
+      let allRecognised = true;
+
+      for (const sh of sheets) {
+        const headers = sh.rows[0]
+          ? Object.keys(sh.rows[0].data)
+          : [];
+        let def = recogniseHeaders(headers);
+        if (!def && (overrideTemplate === "clients" || overrideTemplate === "leads")) {
+          // Caller forced the target. Use it as long as at least the
+          // required columns are present -- prevents an empty file
+          // from inserting the wrong target_table.
+          const { getTemplateDefinition } = await import("@/lib/importTemplates");
+          def = getTemplateDefinition(overrideTemplate);
+        }
+        if (!def) {
+          allRecognised = false;
+          break;
+        }
+        const sheetMapping = buildMappingFromTemplate(def, sh.name, headers);
+        Object.assign(fullMapping, sheetMapping);
+        autoMappedTo = def.targetTable;
+      }
+
+      if (allRecognised && Object.keys(fullMapping).length > 0) {
+        const sb: any = getServiceSupabase();
+        await sb
+          .from("import_jobs")
+          .update({ mapping: fullMapping, status: "mapped" })
+          .eq("id", jobId);
+        await setJobStatus(jobId, "mapped", { mapping: fullMapping });
+      } else {
+        autoMappedTo = null;
+      }
+    } catch (e) {
+      console.warn("auto-mapping shortcut failed, falling back to AI map step:", e);
+      autoMappedTo = null;
+    }
+
     return res.status(200).json({
       ok: true,
       jobId,
+      autoMappedTo,
+      rowCap,
       summary: {
         sheets: sheets.map((s) => ({ name: s.name, rows: s.rows.length })),
         totalRows,

@@ -127,10 +127,22 @@ export function normaliseBool(raw: any): NormaliseResult<boolean> {
   return { value: null, warnings: [`"${raw}" isn't a clear yes/no`] };
 }
 
+/** "VIP, corporate" -> ["VIP", "corporate"]. Trims + de-dupes. */
+export function normaliseTagList(raw: any): NormaliseResult<string[]> {
+  if (raw == null || raw === "") return { value: null, warnings: [] };
+  const tags = String(raw)
+    .split(/[,;]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  if (tags.length === 0) return { value: null, warnings: [] };
+  const unique = Array.from(new Set(tags));
+  return { value: unique, warnings: [] };
+}
+
 // ── Field-key dispatch ─────────────────────────────────────────────────
 
 /** What kind of normaliser to apply for a given target field key. */
-const FIELD_TYPE: Record<string, "email" | "phone" | "date" | "amount" | "int" | "bool" | "text"> = {
+const FIELD_TYPE: Record<string, "email" | "phone" | "date" | "amount" | "int" | "bool" | "tags" | "text"> = {
   email: "email",
   client_email: "email",
   phone: "phone",
@@ -138,8 +150,12 @@ const FIELD_TYPE: Record<string, "email" | "phone" | "date" | "amount" | "int" |
   event_date: "date",
   created_at: "date",
   total_amount: "amount",
+  budget: "amount",
+  credit_limit: "amount",
   guest_count: "int",
+  payment_terms: "int",
   deposit_paid: "bool",
+  tags: "tags",
 };
 
 /**
@@ -158,6 +174,7 @@ export function normaliseFieldValue(
     case "amount": return normaliseAmount(raw);
     case "int":    return normaliseInt(raw);
     case "bool":   return normaliseBool(raw);
+    case "tags":   return normaliseTagList(raw);
     case "text":
     default:       return normaliseText(raw);
   }

@@ -223,14 +223,21 @@ export async function logEvent(jobId: string, eventType: string, payload: any): 
 export interface RollbackResult {
   clientsDeleted: number;
   ordersDeleted: number;
+  leadsDeleted: number;
 }
 
 /**
- * Reverse a completed import: delete every clients + orders row that
- * was stamped with this import_job_id, then mark the job as
- * rolled_back. Reservations of equipment / past orders linked to
- * those clients survive only if the FK is ON DELETE SET NULL --
- * orders.client_id is, so we don't accidentally cascade further.
+ * Reverse a completed import: delete every clients + orders + leads
+ * row that was stamped with this import_job_id, then mark the job as
+ * rolled_back. Equipment reservations and past orders linked to those
+ * clients survive only if the FK is ON DELETE SET NULL.
+ *
+ * Leads that have already been converted to a client
+ * (converted_to_client_id IS NOT NULL) are deliberately spared --
+ * the operator promoted them, the lead tied to the import is
+ * effectively a real customer now and a rollback shouldn't wipe
+ * downstream business work. The skipped count surfaces in the
+ * summary so the operator knows.
  */
 export async function rollbackImportJob(
   jobId: string,
@@ -241,7 +248,7 @@ export async function rollbackImportJob(
   // Verify ownership before mutating anything.
   const job = await getImportJob(jobId, companyId);
   if (!job) throw new Error("Import job not found");
-  if (job.status === "rolled_back") return { clientsDeleted: 0, ordersDeleted: 0 };
+  if (job.status === "rolled_back") return { clientsDeleted: 0, ordersDeleted: 0, leadsDeleted: 0 };
   if (job.status !== "completed") {
     throw new Error(`Cannot roll back a job in status '${job.status}', only 'completed'`);
   }
@@ -258,17 +265,38 @@ export async function rollbackImportJob(
     .eq("import_job_id", jobId)
     .eq("company_id", companyId);
 
+  // Leads: skip ones already converted to clients.
+  let leadsDeleted = 0;
+  let leadsSkipped = 0;
+  const { data: leadCandidates } = await supabase
+    .from("leads")
+    .select("id, converted_to_client_id")
+    .eq("import_job_id", jobId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null);
+  for (const l of (leadCandidates || []) as any[]) {
+    if (l.converted_to_client_id) {
+      leadsSkipped += 1;
+      continue;
+    }
+    const { error } = await supabase.from("leads").delete().eq("id", l.id);
+    if (!error) leadsDeleted += 1;
+  }
+
   await setJobStatus(jobId, "rolled_back", {
     summary: {
       ...(job.summary || {}),
       rolled_back_at: new Date().toISOString(),
       rolled_back_clients: clientsDeleted ?? 0,
       rolled_back_orders: ordersDeleted ?? 0,
+      rolled_back_leads: leadsDeleted,
+      rolled_back_leads_skipped_converted: leadsSkipped,
     },
   });
 
   return {
     clientsDeleted: clientsDeleted ?? 0,
     ordersDeleted: ordersDeleted ?? 0,
+    leadsDeleted,
   };
 }

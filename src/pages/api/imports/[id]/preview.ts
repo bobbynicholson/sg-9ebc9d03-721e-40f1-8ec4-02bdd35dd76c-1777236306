@@ -72,8 +72,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const r of rows) {
       const sheetMapping = (job.mapping as any)[r.sheet] || {};
       const schemaMeta = sheetMapping.__schema__;
-      const targetTable: "clients" | "orders" =
-        schemaMeta?.target === "orders" ? "orders" : "clients";
+      const declared = schemaMeta?.target as string | undefined;
+      const targetTable: "clients" | "orders" | "leads" =
+        declared === "orders" ? "orders"
+        : declared === "leads" ? "leads"
+        : "clients";
 
       const mapped: Record<string, any> = {};
       const warnings: string[] = [];
@@ -87,9 +90,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      // leads has dual columns -- both `email` + `client_email` are
+      // NOT NULL, same for `contact_name` + `client_name`. Templates
+      // collect one field; mirror to the other before insert so the
+      // commit step doesn't fail on the constraint.
+      if (targetTable === "leads") {
+        if (mapped.client_email && !mapped.email) mapped.email = mapped.client_email;
+        if (mapped.email && !mapped.client_email) mapped.client_email = mapped.email;
+        if (mapped.contact_name && !mapped.client_name) mapped.client_name = mapped.contact_name;
+        if (mapped.client_name && !mapped.contact_name) mapped.contact_name = mapped.client_name;
+      }
+
       // Per-row validation. Hard rules:
       //   clients: must have at least client_name OR email OR phone
       //   orders : must have client_name and event_date
+      //   leads  : must have contact_name AND email
       let status: "pending" | "skipped" | "error" = "pending";
       let errorMessage: string | null = null;
       if (targetTable === "clients") {
@@ -107,6 +122,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else if (!mapped.event_date) {
           status = "error";
           errorMessage = "Order is missing an event date";
+        }
+      } else if (targetTable === "leads") {
+        if (!(mapped.contact_name as string)?.trim()) {
+          status = "error";
+          errorMessage = "Lead is missing a contact name";
+        } else if (!mapped.email) {
+          status = "error";
+          errorMessage = "Lead is missing an email";
         }
       }
 

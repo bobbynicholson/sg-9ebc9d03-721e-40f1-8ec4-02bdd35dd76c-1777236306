@@ -29,6 +29,27 @@ const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "
 interface CommitSummary {
   clients: { inserted: number; skipped: number; errored: number };
   orders:  { inserted: number; skipped: number; errored: number };
+  leads:   { inserted: number; skipped: number; errored: number };
+}
+
+async function findExistingLead(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  companyId: string,
+  mapped: any,
+): Promise<string | null> {
+  // Email is the canonical de-dupe key for leads -- a tenant typing
+  // the same prospect twice should hit a skip.
+  const email = mapped.email || mapped.client_email;
+  if (!email) return null;
+  const { data } = await supabase
+    .from("leads")
+    .select("id")
+    .eq("company_id", companyId)
+    .or(`email.ilike.${String(email).trim()},client_email.ilike.${String(email).trim()}`)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  return data ? (data as any).id : null;
 }
 
 async function findExistingClient(
@@ -138,11 +159,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const summary: CommitSummary = {
       clients: { inserted: 0, skipped: 0, errored: 0 },
       orders:  { inserted: 0, skipped: 0, errored: 0 },
+      leads:   { inserted: 0, skipped: 0, errored: 0 },
     };
 
-    // Two passes: clients first so orders can resolve client_id.
+    // Three passes: clients first so orders can resolve client_id;
+    // leads runs independently (no FK to clients/orders).
     const clientRows = rows.filter((r) => r.target_table === "clients" && r.status !== "error");
     const orderRows  = rows.filter((r) => r.target_table === "orders"  && r.status !== "error");
+    const leadRows   = rows.filter((r) => r.target_table === "leads"   && r.status !== "error");
 
     // Track newly-inserted clients keyed by name/email so an order
     // row in the same import can resolve them without a fresh query.
@@ -287,6 +311,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } as any).eq("id", r.id);
       } catch (e: any) {
         summary.orders.errored += 1;
+        await supabase.from("import_rows").update({
+          status: "error",
+          error_message: e?.message || "insert failed",
+        } as any).eq("id", r.id);
+      }
+    }
+
+    // Leads pass. Independent of clients / orders.
+    for (const r of leadRows) {
+      try {
+        const mapped = r.mapped_data || {};
+        const existing = await findExistingLead(supabase, companyId, mapped);
+        if (existing) {
+          summary.leads.skipped += 1;
+          await supabase.from("import_rows").update({
+            status: "skipped",
+            target_id: existing,
+            error_message: "Already on file (matching email)",
+          } as any).eq("id", r.id);
+          continue;
+        }
+
+        // leads requires email + client_email + contact_name. Preview
+        // already mirrored email <-> client_email and contact_name <->
+        // client_name; defensive: do it again.
+        const email = mapped.email || mapped.client_email;
+        const contact = mapped.contact_name || mapped.client_name;
+        const insertPayload: any = {
+          company_id: companyId,
+          region_id: targetRegionId,
+          contact_name: contact,
+          client_name: mapped.client_name || contact,
+          email: email,
+          client_email: email,
+          phone: mapped.phone || mapped.client_phone || null,
+          client_phone: mapped.client_phone || mapped.phone || null,
+          company_name: mapped.company_name || null,
+          event_type: mapped.event_type || null,
+          event_date: mapped.event_date || null,
+          guest_count: mapped.guest_count ?? null,
+          venue_address: mapped.venue_address || null,
+          budget: mapped.budget ?? null,
+          source: mapped.source || null,
+          special_requests: mapped.special_requests || null,
+          notes: mapped.notes || null,
+          tags: mapped.tags || null,
+          import_job_id: jobId,
+        };
+
+        const { data: inserted, error } = await supabase
+          .from("leads")
+          .insert(insertPayload)
+          .select("id")
+          .single();
+        if (error) throw new Error(error.message);
+
+        summary.leads.inserted += 1;
+        await supabase.from("import_rows").update({
+          status: "inserted",
+          target_id: (inserted as any).id,
+        } as any).eq("id", r.id);
+      } catch (e: any) {
+        summary.leads.errored += 1;
         await supabase.from("import_rows").update({
           status: "error",
           error_message: e?.message || "insert failed",
