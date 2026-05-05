@@ -90,7 +90,11 @@ function OfferingPage() {
         supabase
           .from("equipment")
           .select("id, rental_price, image_url")
-          .eq("company_id", companyId),
+          .eq("company_id", companyId)
+          // Equipment uses is_available as the soft-delete signal (no
+          // deleted_at column on this table). Without this filter the
+          // tile counts retired stock too.
+          .eq("is_available", true),
       ]);
 
       const lastEdited = (menuLatestRes.data?.[0] as any)?.updated_at || null;

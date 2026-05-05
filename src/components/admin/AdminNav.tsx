@@ -480,9 +480,15 @@ export function AdminNav({ className }: AdminNavProps) {
             <MobileQuickActions
               onNavigate={() => setOpen(false)}
               actions={[
-                { href: withSlug("/admin/calendar"),  label: "Today's events", sub: "Calendar",       icon: Calendar,     accent: "from-purple-500 to-pink-500" },
-                { href: withSlug("/admin/leads"),     label: "New leads",      sub: "Quotes inbox",   icon: UserPlus,     accent: "from-blue-500 to-indigo-500" },
-                { href: withSlug("/admin/inventory"), label: "Stock outlook",  sub: "Demand vs hand", icon: Package,      accent: "from-emerald-500 to-teal-500" },
+                { href: withSlug("/admin/calendar"), label: "Today's events", sub: "Calendar",                icon: Calendar, accent: "from-purple-500 to-pink-500" },
+                { href: withSlug("/admin/leads"),    label: "New leads",      sub: "Quotes inbox",            icon: UserPlus, accent: "from-blue-500 to-indigo-500" },
+                // Repointed from /admin/inventory to /admin/stock as
+                // part of the Stage-3 cleanup. The new Stock hub mixes
+                // ingredients + equipment commitments + hire-in pending,
+                // which matches operator intent of "what needs my
+                // attention right now" better than the food-only
+                // inventory page did.
+                { href: withSlug("/admin/stock"),    label: "Stock outlook",  sub: "Pressure across the board", icon: Package, accent: "from-emerald-500 to-teal-500" },
               ]}
             />
           </div>

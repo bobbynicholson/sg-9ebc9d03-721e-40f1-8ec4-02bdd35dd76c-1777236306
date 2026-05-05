@@ -118,16 +118,21 @@ function StockPage() {
       setEquipPressure({ count: bRows.length, peakDate });
 
       // ---- Hire-in pending receipts --------------------------------------
-      // Pending purchase_history rows -- treated as "shopper went out, hasn't
-      // logged the receipt yet". Status filter: not 'received' / not 'completed'.
+      // Equipment hire-in flow: when an order overcommits a piece of
+      // equipment, admin places a hire-in to top up via a third-party
+      // supplier. We surface the open ones (anything that hasn't been
+      // returned yet) and oldest-pending so the operator can chase
+      // suppliers who haven't delivered. Earlier draft of this page
+      // pointed at `purchase_history` -- that table only has 4 metadata
+      // columns and isn't where hire-ins live, so the query crashed.
       const { data: hireRows } = await supabase
-        .from("purchase_history")
-        .select("id, purchase_date, status, total_cost, supplier_name")
+        .from("equipment_hire_orders")
+        .select("id, expected_pickup_date, expected_return_date, status, total_cost, supplier_name, equipment_name, quantity")
         .eq("company_id", companyId)
-        .in("status", ["pending", "ordered", "draft"])
-        .order("purchase_date", { ascending: true });
+        .in("status", ["draft", "ordered", "confirmed", "in-transit"])
+        .order("expected_pickup_date", { ascending: true, nullsFirst: false });
       const hRows = (hireRows || []) as any[];
-      const oldest = hRows[0]?.purchase_date || null;
+      const oldest = hRows[0]?.expected_pickup_date || null;
       setHireIn({ count: hRows.length, oldest });
 
       // ---- Unified feed --------------------------------------------------
@@ -163,14 +168,20 @@ function StockPage() {
       }
 
       for (const h of hRows) {
+        const pickup = (h.expected_pickup_date || "").slice(0, 10);
+        const itemLabel = h.equipment_name
+          ? `${h.equipment_name}${h.quantity ? ` x ${h.quantity}` : ""}`
+          : "Hire-in";
         feed.push({
           key: `h:${h.id}`,
           kind: "hire-in",
-          title: h.supplier_name || "Hire-in receipt",
-          subtitle: `Awaiting receipt -- ordered ${dateFmt((h.purchase_date || "").slice(0, 10))}`,
-          date: (h.purchase_date || "").slice(0, 10),
+          title: h.supplier_name ? `${itemLabel} -- ${h.supplier_name}` : itemLabel,
+          subtitle: pickup
+            ? `Pickup expected ${dateFmt(pickup)} (${h.status})`
+            : `Status: ${h.status}`,
+          date: pickup,
           severity: "amber",
-          href: "/admin/shopping",
+          href: "/admin/equipment?tab=hire-in",
         });
       }
 
