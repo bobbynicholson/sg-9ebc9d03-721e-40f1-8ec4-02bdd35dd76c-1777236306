@@ -43,25 +43,12 @@ import {
   BarChart3,
   Globe,
   Calculator,
-  Truck,
-  ChefHat,
-  DollarSign,
-  Clock,
-  ClipboardList,
-  MapPin,
-  Route,
-  Package,
-  ShoppingCart,
-  Receipt,
-  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
-import { ActiveTenantPicker } from "@/components/admin/ActiveTenantPicker";
-import { useActiveTenant } from "@/contexts/ActiveTenantContext";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -170,51 +157,6 @@ const NAV: NavSection[] = [
         icon: Calculator,
         sub: "COGS calculator, margin per tenant, scale curves",
       },
-    ],
-  },
-  // Tenant Operations -- catering operational dashboards exposed to
-  // super_admin. These all live at the existing /admin/* tenant
-  // routes; super_admin reads them through ActiveTenantContext (the
-  // picker at the top of this nav scopes every page to one catering
-  // company at a time). Each page must read scope via
-  // useScopedCompanyId() rather than profile.company_id. Pages still
-  // pending that wiring will render empty until they're updated.
-  {
-    id: "tenant-ops-team",
-    title: "Tenant Team",
-    defaultOpen: false,
-    items: [
-      { title: "Full team", href: "/admin/users", icon: Users, sub: "Owners, admins, staff with logins" },
-      { title: "Drivers", href: "/admin/driver-management", icon: Truck, sub: "Manage delivery drivers" },
-      { title: "Staff & rates", href: "/admin/staff", icon: ChefHat, sub: "Hourly / monthly / per-shift pay" },
-      { title: "Public holidays", href: "/admin/public-holidays", icon: Calendar, sub: "Drives 2x BCEA rate" },
-      { title: "Wage Dashboard", href: "/admin/wages", icon: DollarSign, sub: "Hours x rates roll-up" },
-      { title: "Staff Hours", href: "/admin/staff-hours", icon: Clock, sub: "Working-hours timesheet" },
-    ],
-  },
-  {
-    id: "tenant-ops-operations",
-    title: "Tenant Operations",
-    defaultOpen: false,
-    items: [
-      { title: "Dispatch Queue", href: "/admin/order-assignments", icon: ClipboardList, sub: "Assign every order to a driver" },
-      { title: "Live Operations", href: "/admin/tracking", icon: MapPin, sub: "Today's jobs in flight" },
-      { title: "Plan Routes", href: "/admin/route-planning", icon: Route, sub: "Auto-assign + optimise" },
-      { title: "Vehicles", href: "/admin/vehicles", icon: Truck, sub: "Fleet roster + cold-chain" },
-      { title: "Equipment Shortages", href: "/admin/equipment-shortages", icon: Package, sub: "Inventory issues" },
-      { title: "Regions", href: "/admin/regions", icon: MapPin, sub: "Service regions" },
-      { title: "Shopping Dashboard", href: "/admin/shopping", icon: ShoppingCart, sub: "Buy now, plan ahead, scan slips" },
-      { title: "Suppliers", href: "/admin/suppliers", icon: Building2, sub: "Contacts, products, spend" },
-      { title: "Tax overview", href: "/admin/tax-purchases", icon: Receipt, sub: "Deductible totals + CSV export" },
-      { title: "Client Search", href: "/admin/client-search", icon: Search, sub: "Search and filter clients" },
-    ],
-  },
-  {
-    id: "tenant-ops-finance",
-    title: "Tenant Finance",
-    defaultOpen: false,
-    items: [
-      { title: "Tenant Financial Dashboard", href: "/admin/financial-dashboard", icon: BarChart3, sub: "Revenue, profitability, cashflow per tenant" },
     ],
   },
   {
@@ -504,15 +446,6 @@ export function PlatformNav({ className }: PlatformNavProps) {
             <UserStrip collapsed={false} profile={profile} />
           </div>
         )}
-
-        {/* Active tenant picker -- super_admin only. Renders nothing
-            for tenant admins. Drives every tenant-scoped page below. */}
-        {!collapsed && (
-          <div className="-mx-2 mb-3">
-            <ActiveTenantPicker />
-          </div>
-        )}
-        {collapsed && <ActiveTenantPicker collapsed />}
 
         {mobile && (
           <div className="space-y-3 mb-4">
