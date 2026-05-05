@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           UserRole.SUPER_ADMIN,
           UserRole.COMPANY_ADMIN,
           UserRole.ADMIN,
-          "owner" as UserRole,
+          "owner" as unknown as UserRole,
         ],
       });
     } catch (e) {
