@@ -116,11 +116,27 @@ export async function syncOrderArtifacts(
       total_amount,
     } as any).eq("id", orderId);
 
-    // 5. Mirror to the source quote, if any. We mirror header fields
-    //    (so a venue change on the order shows up on the customer's
-    //    quote view) plus menu_items / equipment_items jsonb.
+    // 5. Mirror to the source quote, if any -- but only while the
+    //    quote is still in flight. Once the client accepts, the quote
+    //    becomes the contract snapshot of what was signed; subsequent
+    //    operator edits live on the order + invoice only. Without this
+    //    guard, partial writes (e.g. totals landing but a stale
+    //    menu_items snapshot getting overwritten on the next sync)
+    //    can desync the public /q/[token] view. Treating the accepted
+    //    quote as immutable removes that whole class of bug.
     const quote_id: string | null = (order as any).quote_id || null;
+    let quoteIsAccepted = false;
     if (quote_id) {
+      const { data: quoteRow } = await sb
+        .from("quotes")
+        .select("status, accepted_at")
+        .eq("id", quote_id)
+        .maybeSingle();
+      quoteIsAccepted =
+        ((quoteRow as any)?.status === "accepted") ||
+        !!(quoteRow as any)?.accepted_at;
+    }
+    if (quote_id && !quoteIsAccepted) {
       const menuItemsJsonb = (items || []).map((it: any) => ({
         id: it.id,
         name: it.item_name,
