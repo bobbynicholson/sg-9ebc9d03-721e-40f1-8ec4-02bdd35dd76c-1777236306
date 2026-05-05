@@ -44,9 +44,11 @@ export default function PlatformCurrencyMonitoringPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentRate, setCurrentRate] = useState<number>(0);
+  const [currentRateDate, setCurrentRateDate] = useState<string | null>(null);
   const [historicalRates, setHistoricalRates] = useState<ExchangeRate[]>([]);
   const [alerts, setAlerts] = useState<FluctuationAlert[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -57,16 +59,20 @@ export default function PlatformCurrencyMonitoringPage() {
     loadData();
   }, [authLoading, user, router]);
 
+  // Tile 1, the history list and the 90-day calculation now all read
+  // from the same exchange_rates table -- so "Current Rate" matches
+  // the most recent history row instead of disagreeing with it.
   const loadData = async () => {
     try {
       setLoading(true);
-      const [rate, rates, unresolvedAlerts] = await Promise.all([
-        currencyMonitoringService.getCurrentExchangeRate(),
+      const [latest, rates, unresolvedAlerts] = await Promise.all([
+        currencyMonitoringService.getLatestStoredRate(),
         currencyMonitoringService.getHistoricalRates(90),
-        currencyMonitoringService.getUnresolvedAlerts()
+        currencyMonitoringService.getUnresolvedAlerts(),
       ]);
 
-      setCurrentRate(rate);
+      setCurrentRate(latest?.rate ?? 0);
+      setCurrentRateDate(latest?.date ?? null);
       setHistoricalRates(rates);
       setAlerts(unresolvedAlerts);
     } catch (error) {
@@ -76,11 +82,22 @@ export default function PlatformCurrencyMonitoringPage() {
     }
   };
 
+  // "Run Check Now" hits the same endpoint Vercel cron uses, so the
+  // path that runs daily and the path the admin triggers are
+  // identical. No more browser-side runDailyCheck.
   const handleRefresh = async () => {
     setRefreshing(true);
-    await currencyMonitoringService.runDailyCheck();
-    await loadData();
-    setRefreshing(false);
+    setRefreshError(null);
+    try {
+      const r = await fetch("/api/cron/currency-check", { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      await loadData();
+    } catch (e: any) {
+      setRefreshError(e?.message || "Currency check failed");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleResolveAlert = async (alertId: string) => {
@@ -131,7 +148,7 @@ export default function PlatformCurrencyMonitoringPage() {
               Currency Monitoring
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Track USD/ZAR exchange rates and manage pricing adjustments
+              Track USD/ZAR rates. Alerts here are a manual review trigger -- pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them.
             </p>
           </div>
           <Button
@@ -143,6 +160,18 @@ export default function PlatformCurrencyMonitoringPage() {
             Run Check Now
           </Button>
         </div>
+
+        {refreshError && (
+          <Alert className="border-rose-300 bg-rose-50 dark:bg-rose-950">
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
+            <AlertTitle className="text-rose-900 dark:text-rose-100 font-semibold">
+              Run Check Now failed
+            </AlertTitle>
+            <AlertDescription className="text-rose-800 dark:text-rose-200">
+              {refreshError}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {hasSignificantFluctuation && (
           <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
@@ -162,7 +191,7 @@ export default function PlatformCurrencyMonitoringPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 Current Rate
-                <InfoTooltip content="Today's USD to ZAR exchange rate.\n\nPulled from the latest stored rate, refreshed by the daily check." />
+                <InfoTooltip content="Latest USD to ZAR rate stored in exchange_rates.\n\nRefreshed daily by the currency-check cron (04:00 UTC) and on-demand via Run Check Now." />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -171,7 +200,10 @@ export default function PlatformCurrencyMonitoringPage() {
                   <div className="text-3xl font-bold text-slate-900 dark:text-white">
                     R{currentRate.toFixed(2)}
                   </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">per USD</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    per USD
+                    {currentRateDate ? ` -- as of ${new Date(currentRateDate).toLocaleDateString()}` : " -- no rate stored yet"}
+                  </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                   <DollarSign className="h-6 w-6 text-white" />
@@ -368,10 +400,15 @@ export default function PlatformCurrencyMonitoringPage() {
             <div className="bg-white dark:bg-slate-900 rounded-lg p-4">
               <h4 className="font-semibold mb-2">USD-Pegged Pricing:</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR 
-                prices to maintain USD equivalency if significant currency fluctuations occur 
-                (exceeding 15% over 90 days). Customers will receive 30 days advance notice 
+                Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR
+                prices to maintain USD equivalency if significant currency fluctuations occur
+                (exceeding 15% over 90 days). Customers will receive 30 days advance notice
                 of any price changes.
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+                The 15% threshold is a <strong>manual review trigger</strong>, not an automated re-peg.
+                Pricing in /admin/platform/pricing-management uses fixed conversion rates and only
+                changes when an admin updates them.
               </p>
             </div>
           </CardContent>

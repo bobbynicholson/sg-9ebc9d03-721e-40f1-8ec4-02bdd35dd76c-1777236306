@@ -1,15 +1,36 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-import { supabase } from "@/integrations/supabase/client";
+/**
+ * Currency monitoring service.
+ *
+ * Owns the read side of the platform-level USD/ZAR watch:
+ *
+ *   - getLatestStoredRate / getHistoricalRates pull from the
+ *     exchange_rates table populated by the daily cron.
+ *   - getUnresolvedAlerts / resolveAlert manage rows in
+ *     currency_fluctuation_alerts.
+ *   - runDailyCheck is the one-shot routine: fetch live rate from
+ *     exchangerate-api.com, upsert today's row, and if the 90-day
+ *     rolling change crosses 15% raise an alert (de-duped to one
+ *     per 7 days). Called server-side from /api/cron/currency-check
+ *     (Vercel cron + admin "Run Check Now" button); never invoked
+ *     from browser code now that the cron path exists.
+ *
+ * Note on the 15% threshold: it's a *review trigger*, not an
+ * automated re-peg. Pricing in /admin/platform/pricing-management
+ * uses fixed conversion rates (18.5 / 23.5 / 20.0). When this
+ * service raises an alert, an admin manually decides whether to
+ * adjust the ZAR-pegged tier prices -- pricing policy then sends
+ * 30 days advance notice to existing customers.
+ */
+import { supabase as defaultClient } from "@/integrations/supabase/client";
 
-interface ExchangeRate {
+export interface ExchangeRateRow {
   id: string;
   date: string;
   usd_to_zar_rate: number;
   created_at: string;
 }
 
-interface FluctuationAlert {
+export interface FluctuationAlertRow {
   id: string;
   check_date: string;
   start_rate: number;
@@ -21,328 +42,286 @@ interface FluctuationAlert {
   created_at: string;
 }
 
+/** Caller can inject a service-role client when invoked from a cron route. */
+type SbLike = typeof defaultClient | any;
+
+const FALLBACK_RATE = 18.5;
+const DEFAULT_HISTORY_DAYS = 90;
+const FLUCTUATION_THRESHOLD_PCT = 15;
+const ALERT_DEDUPE_DAYS = 7;
+const EXCHANGE_API_URL = "https://api.exchangerate-api.com/v4/latest/USD";
+
 export const currencyMonitoringService = {
   /**
-   * Fetch current USD to ZAR exchange rate from external API
+   * Live USD->ZAR fetch. Used inside runDailyCheck so today's row
+   * always reflects the live API. Falls back to FALLBACK_RATE on
+   * network failure so the cron never crashes.
    */
-  async getCurrentExchangeRate(): Promise<number> {
+  async fetchLiveRate(): Promise<number> {
     try {
-      const response = await fetch(
-        "https://api.exchangerate-api.com/v4/latest/USD"
-      );
-      const data = await response.json();
-      return data.rates.ZAR || 18.50;
-    } catch (error) {
-      console.error("Error fetching exchange rate:", error);
-      return 18.50;
+      const r = await fetch(EXCHANGE_API_URL);
+      const j = await r.json();
+      const rate = Number(j?.rates?.ZAR);
+      return Number.isFinite(rate) && rate > 0 ? rate : FALLBACK_RATE;
+    } catch (e) {
+      console.error("[currency] fetchLiveRate failed:", e);
+      return FALLBACK_RATE;
     }
   },
 
   /**
-   * Store exchange rate in database for historical tracking
+   * Latest stored rate (from exchange_rates), used by the dashboard
+   * "Current Rate" tile so it agrees with the history list. Returns
+   * null if no rates have ever been stored.
    */
-  async storeExchangeRate(rate: number): Promise<void> {
+  async getLatestStoredRate(client: SbLike = defaultClient): Promise<{ rate: number; date: string } | null> {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      
-      const { data: existing, error: checkError } = await supabase
+      const { data, error } = await client
         .from("exchange_rates")
-        .select("*")
+        .select("date, usd_to_zar_rate")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) return null;
+      return { rate: Number(data.usd_to_zar_rate), date: data.date };
+    } catch (e) {
+      console.error("[currency] getLatestStoredRate failed:", e);
+      return null;
+    }
+  },
+
+  /**
+   * Upsert today's rate row. Used by runDailyCheck.
+   */
+  async storeRate(rate: number, client: SbLike = defaultClient): Promise<void> {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const { data: existing, error: readErr } = await client
+        .from("exchange_rates")
+        .select("id")
         .eq("date", today)
-        .single();
+        .maybeSingle();
+      if (readErr) throw readErr;
 
-      if (checkError && checkError.code !== "PGRST116") {
-        throw checkError;
-      }
-
-      if (existing) {
-        await supabase
+      if (existing?.id) {
+        await client
           .from("exchange_rates")
           .update({ usd_to_zar_rate: rate })
-          .eq("date", today);
+          .eq("id", existing.id);
       } else {
-        await supabase
+        await client
           .from("exchange_rates")
-          .insert([{ date: today, usd_to_zar_rate: rate }]);
+          .insert({ date: today, usd_to_zar_rate: rate });
       }
-    } catch (error) {
-      console.error("Error storing exchange rate:", error);
+    } catch (e) {
+      console.error("[currency] storeRate failed:", e);
     }
   },
 
-  /**
-   * Get exchange rates for the last N days
-   */
-  async getHistoricalRates(days: number = 90): Promise<ExchangeRate[]> {
+  async getHistoricalRates(days = DEFAULT_HISTORY_DAYS, client: SbLike = defaultClient): Promise<ExchangeRateRow[]> {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
-
-      const { data, error } = await supabase
+      const startIso = startDate.toISOString().slice(0, 10);
+      const { data, error } = await client
         .from("exchange_rates")
         .select("*")
-        .gte("date", startDate.toISOString().split("T")[0])
+        .gte("date", startIso)
         .order("date", { ascending: true });
-
       if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error("Error fetching historical rates:", error);
+      return (data || []) as ExchangeRateRow[];
+    } catch (e) {
+      console.error("[currency] getHistoricalRates failed:", e);
       return [];
     }
   },
 
-  /**
-   * Calculate percentage change between two rates
-   */
   calculatePercentageChange(startRate: number, endRate: number): number {
+    if (!startRate) return 0;
     return ((endRate - startRate) / startRate) * 100;
   },
 
   /**
-   * Check for 15% fluctuation over any 90-day rolling period
+   * Look at the 90-day window: oldest stored row vs newest. Returns
+   * the rolling change and a flag for whether it crosses the 15%
+   * review trigger.
    */
-  async checkForSignificantFluctuation(): Promise<{
-    hasFluctuation: boolean;
-    percentageChange: number;
-    startRate: number;
-    endRate: number;
-    startDate: string;
-    endDate: string;
-  }> {
-    try {
-      const rates = await this.getHistoricalRates(90);
-
-      if (rates.length < 2) {
-        return {
-          hasFluctuation: false,
-          percentageChange: 0,
-          startRate: 0,
-          endRate: 0,
-          startDate: "",
-          endDate: ""
-        };
-      }
-
-      const oldestRate = rates[0];
-      const latestRate = rates[rates.length - 1];
-      const percentageChange = this.calculatePercentageChange(
-        oldestRate.usd_to_zar_rate,
-        latestRate.usd_to_zar_rate
-      );
-
-      const hasFluctuation = Math.abs(percentageChange) >= 15;
-
-      return {
-        hasFluctuation,
-        percentageChange,
-        startRate: oldestRate.usd_to_zar_rate,
-        endRate: latestRate.usd_to_zar_rate,
-        startDate: oldestRate.date,
-        endDate: latestRate.date
-      };
-    } catch (error) {
-      console.error("Error checking fluctuation:", error);
+  async checkForSignificantFluctuation(client: SbLike = defaultClient) {
+    const rates = await this.getHistoricalRates(DEFAULT_HISTORY_DAYS, client);
+    if (rates.length < 2) {
       return {
         hasFluctuation: false,
         percentageChange: 0,
         startRate: 0,
         endRate: 0,
         startDate: "",
-        endDate: ""
+        endDate: "",
       };
     }
+    const oldest = rates[0];
+    const latest = rates[rates.length - 1];
+    const percentageChange = this.calculatePercentageChange(
+      Number(oldest.usd_to_zar_rate),
+      Number(latest.usd_to_zar_rate),
+    );
+    return {
+      hasFluctuation: Math.abs(percentageChange) >= FLUCTUATION_THRESHOLD_PCT,
+      percentageChange,
+      startRate: Number(oldest.usd_to_zar_rate),
+      endRate: Number(latest.usd_to_zar_rate),
+      startDate: oldest.date,
+      endDate: latest.date,
+    };
   },
 
-  /**
-   * Create fluctuation alert in database
-   */
-  async createFluctuationAlert(fluctuation: {
+  async createFluctuationAlert(f: {
     startRate: number;
     endRate: number;
     percentageChange: number;
     startDate: string;
     endDate: string;
-  }): Promise<void> {
+  }, client: SbLike = defaultClient): Promise<void> {
     try {
-      const daysPeriod = Math.floor(
-        (new Date(fluctuation.endDate).getTime() - 
-         new Date(fluctuation.startDate).getTime()) / 
-        (1000 * 60 * 60 * 24)
+      const daysPeriod = Math.max(
+        1,
+        Math.floor(
+          (new Date(f.endDate).getTime() - new Date(f.startDate).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
       );
-
-      await supabase.from("currency_fluctuation_alerts").insert([
-        {
-          check_date: new Date().toISOString().split("T")[0],
-          start_rate: fluctuation.startRate,
-          end_rate: fluctuation.endRate,
-          percentage_change: fluctuation.percentageChange,
-          days_period: daysPeriod,
-          alert_sent: false,
-          resolved: false
-        }
-      ]);
-    } catch (error) {
-      console.error("Error creating fluctuation alert:", error);
+      await client.from("currency_fluctuation_alerts").insert({
+        check_date: new Date().toISOString().slice(0, 10),
+        start_rate: f.startRate,
+        end_rate: f.endRate,
+        percentage_change: f.percentageChange,
+        days_period: daysPeriod,
+        alert_sent: false,
+        resolved: false,
+      });
+    } catch (e) {
+      console.error("[currency] createFluctuationAlert failed:", e);
     }
   },
 
-  /**
-   * Get unresolved fluctuation alerts
-   */
-  async getUnresolvedAlerts(): Promise<FluctuationAlert[]> {
+  async getUnresolvedAlerts(client: SbLike = defaultClient): Promise<FluctuationAlertRow[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from("currency_fluctuation_alerts")
         .select("*")
         .eq("resolved", false)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error("Error fetching unresolved alerts:", error);
+      return (data || []) as FluctuationAlertRow[];
+    } catch (e) {
+      console.error("[currency] getUnresolvedAlerts failed:", e);
       return [];
     }
   },
 
-  /**
-   * Mark alert as resolved
-   */
-  async resolveAlert(alertId: string): Promise<void> {
+  async resolveAlert(alertId: string, client: SbLike = defaultClient): Promise<void> {
     try {
-      await supabase
+      await client
         .from("currency_fluctuation_alerts")
         .update({ resolved: true, resolved_at: new Date().toISOString() })
         .eq("id", alertId);
-    } catch (error) {
-      console.error("Error resolving alert:", error);
+    } catch (e) {
+      console.error("[currency] resolveAlert failed:", e);
     }
   },
 
   /**
-   * Send notification to admin about currency fluctuation
+   * Drop a high-priority admin notification when a new fluctuation
+   * alert is raised. Body links to /admin/platform/dashboard (the
+   * old /admin/catering-ms-dashboard route never existed).
    */
-  async notifyAdminOfFluctuation(fluctuation: {
+  async notifyAdminOfFluctuation(f: {
     percentageChange: number;
     startRate: number;
     endRate: number;
     startDate: string;
     endDate: string;
-  }): Promise<void> {
+  }, client: SbLike = defaultClient): Promise<void> {
+    const sign = f.percentageChange > 0 ? "+" : "";
+    const message = [
+      "CURRENCY FLUCTUATION ALERT",
+      "",
+      `The ZAR has moved by ${f.percentageChange.toFixed(2)}% over the last 90 days.`,
+      "",
+      "Details:",
+      `- Start Date: ${f.startDate}`,
+      `- Start Rate: 1 USD = ${f.startRate.toFixed(2)} ZAR`,
+      `- End Date: ${f.endDate}`,
+      `- Current Rate: 1 USD = ${f.endRate.toFixed(2)} ZAR`,
+      `- Change: ${sign}${f.percentageChange.toFixed(2)}%`,
+      "",
+      "ACTION REQUIRED:",
+      "Review ZAR pricing in /admin/platform/pricing-management. The 15% threshold is a manual review trigger -- pricing pegs are fixed and only change when an admin updates them.",
+      "",
+      "Policy reminder:",
+      "Our ZAR pricing is pegged to USD. We may adjust ZAR prices when the rolling 90-day move exceeds 15%, with 30 days notice to customers.",
+      "",
+      "Open the platform dashboard: /admin/platform/dashboard",
+    ].join("\n");
+
     try {
-      const message = `
-🚨 CURRENCY FLUCTUATION ALERT 🚨
-
-The ZAR has fluctuated by ${fluctuation.percentageChange.toFixed(2)}% over the last 90 days.
-
-Details:
-- Start Date: ${fluctuation.startDate}
-- Start Rate: 1 USD = ${fluctuation.startRate.toFixed(2)} ZAR
-- End Date: ${fluctuation.endDate}
-- Current Rate: 1 USD = ${fluctuation.endRate.toFixed(2)} ZAR
-- Change: ${fluctuation.percentageChange > 0 ? "+" : ""}${fluctuation.percentageChange.toFixed(2)}%
-
-ACTION REQUIRED:
-Please review and adjust ZAR pricing to maintain USD equivalency as per our pricing policy.
-
-Reminder of Policy:
-"Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices to maintain USD equivalency if significant currency fluctuations occur (exceeding 15% over 90 days). Customers will receive 30 days advance notice of any price changes."
-
-Log in to the admin dashboard to review pricing: /admin/catering-ms-dashboard
-      `;
-
-      await supabase.from("admin_notifications").insert([
-        {
-          type: "currency_fluctuation",
-          title: "Currency Fluctuation Alert: Review Pricing",
-          message,
-          priority: "high",
-          read: false
-        }
-      ]);
-
-      console.log("Admin notification sent for currency fluctuation");
-    } catch (error) {
-      console.error("Error sending admin notification:", error);
+      await client.from("admin_notifications").insert({
+        type: "currency_fluctuation",
+        title: "Currency Fluctuation Alert: Review Pricing",
+        message,
+        priority: "high",
+        read: false,
+      });
+    } catch (e) {
+      console.error("[currency] notifyAdminOfFluctuation failed:", e);
     }
   },
 
   /**
-   * Run daily currency check (should be called via cron job or scheduled task)
+   * One-shot daily check. Pulls live rate, stores it, and if the
+   * 90-day move crosses 15% (and we haven't already alerted in the
+   * last 7 days) raises an alert + admin notification.
+   *
+   * Server-only now -- called by /api/cron/currency-check.
    */
-  async runDailyCheck(): Promise<void> {
-    try {
-      const currentRate = await this.getCurrentExchangeRate();
-      await this.storeExchangeRate(currentRate);
+  async runDailyCheck(client: SbLike = defaultClient): Promise<{
+    rate: number;
+    fluctuation: number;
+    alertCreated: boolean;
+  }> {
+    const rate = await this.fetchLiveRate();
+    await this.storeRate(rate, client);
 
-      const fluctuation = await this.checkForSignificantFluctuation();
+    const fluctuation = await this.checkForSignificantFluctuation(client);
+    let alertCreated = false;
 
-      if (fluctuation.hasFluctuation) {
-        const unresolvedAlerts = await this.getUnresolvedAlerts();
-        
-        const recentAlert = unresolvedAlerts.find(alert => {
-          const alertDate = new Date(alert.created_at);
-          const daysSinceAlert = Math.floor(
-            (Date.now() - alertDate.getTime()) / (1000 * 60 * 60 * 24)
-          );
-          return daysSinceAlert < 7;
-        });
-
-        if (!recentAlert) {
-          await this.createFluctuationAlert(fluctuation);
-          await this.notifyAdminOfFluctuation(fluctuation);
-        }
+    if (fluctuation.hasFluctuation) {
+      const unresolved = await this.getUnresolvedAlerts(client);
+      const recent = unresolved.find((a) => {
+        const days = Math.floor(
+          (Date.now() - new Date(a.created_at).getTime()) / (1000 * 60 * 60 * 24),
+        );
+        return days < ALERT_DEDUPE_DAYS;
+      });
+      if (!recent) {
+        await this.createFluctuationAlert(fluctuation, client);
+        await this.notifyAdminOfFluctuation(fluctuation, client);
+        alertCreated = true;
       }
-    } catch (error) {
-      console.error("Error running daily currency check:", error);
     }
-  },
 
-  /**
-   * Format currency policy text for display
-   */
-  getCurrencyPolicyText(): {
-    short: string;
-    full: string;
-  } {
     return {
-      short: "Prices in ZAR. USD, GBP, and EUR are approximate. All payments processed in ZAR.",
-      full: `Currency Display: Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate conversions for reference only. All payments are processed in ZAR.
-
-USD-Pegged Pricing: Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR prices to maintain USD equivalency if significant currency fluctuations occur (exceeding 15% over 90 days). You will receive 30 days advance notice of any price changes.`
+      rate,
+      fluctuation: fluctuation.percentageChange,
+      alertCreated,
     };
   },
 
-  /**
-   * Get current conversion rates for display
-   */
-  async getDisplayConversions(zarAmount: number): Promise<{
-    zar: string;
-    usd: string;
-    gbp: string;
-    eur: string;
-  }> {
-    try {
-      const response = await fetch(
-        "https://api.exchangerate-api.com/v4/latest/ZAR"
-      );
-      const data = await response.json();
-
-      return {
-        zar: `R${zarAmount.toFixed(0)}`,
-        usd: `$${(zarAmount * data.rates.USD).toFixed(0)}`,
-        gbp: `£${(zarAmount * data.rates.GBP).toFixed(0)}`,
-        eur: `€${(zarAmount * data.rates.EUR).toFixed(0)}`
-      };
-    } catch (error) {
-      console.error("Error getting display conversions:", error);
-      return {
-        zar: `R${zarAmount.toFixed(0)}`,
-        usd: `$${(zarAmount * 0.054).toFixed(0)}`,
-        gbp: `£${(zarAmount * 0.043).toFixed(0)}`,
-        eur: `€${(zarAmount * 0.050).toFixed(0)}`
-      };
-    }
-  }
+  getCurrencyPolicyText() {
+    return {
+      short: "Prices in ZAR. USD, GBP, EUR are approximate. All payments processed in ZAR.",
+      full:
+        "Currency Display: Prices shown in ZAR (South African Rand). USD, GBP and EUR are approximate conversions for reference only. All payments are processed in ZAR.\n\n" +
+        "USD-Pegged Pricing: Our ZAR pricing is pegged to USD. We reserve the right to adjust ZAR prices to maintain USD equivalency when the rolling 90-day rate move exceeds 15%. Customers receive 30 days advance notice of any price change. The 15% threshold is a manual review trigger, not an automated re-peg.",
+    };
+  },
 };
