@@ -158,19 +158,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
     if (error) return res.status(500).json({ error: error.message });
 
-    // Notify the catering team. Best-effort, non-blocking.
+    // Notify the catering team. Broadcast to admin / owner roles for
+    // the company so every operator who can act on the request sees
+    // it. Previously this was a single createNotification with
+    // recipient_id set to the COMPANY uuid -- which matches no actual
+    // user, so the row landed in the table but never appeared in any
+    // operator's bell. Best-effort, non-blocking.
     try {
       const { notificationService } = await import("@/services/notificationService");
-      await notificationService.createNotification({
-        company_id: (order as any).company_id,
-        user_id: (order as any).company_id,
-        recipient_id: (order as any).company_id,
-        notification_type: "amendment_requested",
+      const { UserRole } = await import("@/types/app");
+      await notificationService.broadcastNotification({
+        companyId: (order as any).company_id,
+        type: "amendment_requested",
         title: "Amendment requested",
         message: `A client wants to change their confirmed order. Review and approve.`,
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&amendment=${(inserted as any).id}`,
-      } as any);
+        // Operator-facing roles. "owner" exists as a string in
+        // profiles.role but isn't on the UserRole enum, so cast to
+        // pass it through.
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          "owner" as UserRole,
+        ],
+      });
     } catch (e) {
       console.warn("[amendment-request] notify failed:", e);
     }

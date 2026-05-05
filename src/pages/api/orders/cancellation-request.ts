@@ -143,15 +143,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
     if (error) return res.status(500).json({ error: error.message });
 
-    // Notify the catering team.
+    // Notify the catering team. Broadcast to admin/owner roles --
+    // previous code used company_id as recipient_id which never
+    // matched any actual user, so the notification was invisible.
     try {
       const { notificationService } = await import("@/services/notificationService");
-      await notificationService.createNotification({
-        company_id: (order as any).company_id,
-        user_id: (order as any).company_id,
-        recipient_id: (order as any).company_id,
-        notification_type:
-          request_type === "cancel" ? "cancellation_requested" : "postponement_requested",
+      const { UserRole } = await import("@/types/app");
+      await notificationService.broadcastNotification({
+        companyId: (order as any).company_id,
+        type: request_type === "cancel" ? "cancellation_requested" : "postponement_requested",
         title: request_type === "cancel" ? "Cancellation requested" : "Postponement requested",
         message:
           request_type === "cancel"
@@ -159,7 +159,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : `A client wants to postpone a confirmed order to ${requested_postpone_date}. Review and approve.`,
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&cancellation=${(inserted as any).id}`,
-      } as any);
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          "owner" as UserRole,
+        ],
+      });
     } catch (e) {
       console.warn("[cancellation-request] notify failed:", e);
     }
