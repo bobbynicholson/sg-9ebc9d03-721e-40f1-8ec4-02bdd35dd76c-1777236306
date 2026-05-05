@@ -70,21 +70,17 @@ interface RoleSwitcherProps {
 }
 
 export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwitcherProps) {
-  const { userRoles, activeRole, switchRole, user } = useAuth();
+  const { userRoles, activeRole, switchRole } = useAuth();
   const [switching, setSwitching] = useState(false);
 
-  const isGodMode = user?.role === UserRole.SUPER_ADMIN || activeRole === UserRole.SUPER_ADMIN;
+  // The picker only ever offers roles the user has actually been
+  // granted. Super_admin used to get a "god mode" path that let them
+  // act as any role on the platform -- that's a tenant-isolation
+  // violation and got pulled. Now super_admin sees nothing here
+  // unless their profile genuinely holds multiple roles.
+  const displayRoles = userRoles;
 
-  const displayRoles = isGodMode 
-    ? Object.values(UserRole).map(role => ({
-        id: role,
-        department: role,
-        is_primary: role === UserRole.SUPER_ADMIN
-      }))
-    : userRoles;
-
-  // Don't show if user only has one role and isn't super admin
-  if (!isGodMode && displayRoles.length <= 1) {
+  if (displayRoles.length <= 1) {
     return null;
   }
 
