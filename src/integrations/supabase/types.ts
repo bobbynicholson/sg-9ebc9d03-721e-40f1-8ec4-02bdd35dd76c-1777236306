@@ -5617,29 +5617,110 @@ export type Database = {
         }
         Relationships: []
       }
-      payment_gateways: {
+      payment_gateway_credentials: {
         Row: {
-          company_id: string | null
-          created_at: string | null
+          created_at: string
+          credentials: Json
+          gateway_id: string
           id: string
-          is_active: boolean | null
-          user_id: string | null
+          updated_at: string
         }
         Insert: {
-          company_id?: string | null
-          created_at?: string | null
+          created_at?: string
+          credentials?: Json
+          gateway_id: string
           id?: string
-          is_active?: boolean | null
-          user_id?: string | null
+          updated_at?: string
         }
         Update: {
-          company_id?: string | null
-          created_at?: string | null
+          created_at?: string
+          credentials?: Json
+          gateway_id?: string
           id?: string
-          is_active?: boolean | null
-          user_id?: string | null
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_gateway_credentials_gateway_id_fkey"
+            columns: ["gateway_id"]
+            isOneToOne: true
+            referencedRelation: "payment_gateways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_gateways: {
+        Row: {
+          cancel_url: string | null
+          company_id: string
+          created_at: string
+          created_by_user_id: string | null
+          deleted_at: string | null
+          id: string
+          is_active: boolean
+          is_test: boolean
+          last_verified_at: string | null
+          notify_url: string | null
+          provider: string
+          success_url: string | null
+          updated_at: string
+          updated_by_user_id: string | null
+        }
+        Insert: {
+          cancel_url?: string | null
+          company_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_test?: boolean
+          last_verified_at?: string | null
+          notify_url?: string | null
+          provider: string
+          success_url?: string | null
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          cancel_url?: string | null
+          company_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_test?: boolean
+          last_verified_at?: string | null
+          notify_url?: string | null
+          provider?: string
+          success_url?: string | null
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_gateways_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_gateways_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_gateways_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_reminders: {
         Row: {

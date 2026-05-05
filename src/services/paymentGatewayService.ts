@@ -1,155 +1,320 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-
-import { supabase } from "@/integrations/supabase/client";
+/**
+ * Payment gateway service (tenant-scoped).
+ *
+ * Owns the per-company payment gateway configuration -- which provider
+ * (PayFast / Yoco / Peach) is wired up for receiving event-client
+ * payments, whether it's in test or live mode, the success / cancel /
+ * notify URLs, and the secret credentials for signing requests.
+ *
+ * Hard rule: this service NEVER reads credential JSON via the
+ * authenticated browser client. The metadata table is RLS-scoped so
+ * company_admin can read/write metadata; the credentials sibling
+ * table has RLS enabled with no permissive policy, so only
+ * service-role server code can ever touch it. The browser's "edit"
+ * dialog blanks credential fields on every open -- write-once,
+ * full re-entry on update.
+ *
+ * The actual payment-routing handler (deferred phase 2 work) reads
+ * credentials via /lib/supabase/service.ts (service-role client),
+ * never via this module on the browser.
+ *
+ * One-active-per-tenant is enforced at the DB level via a partial
+ * unique index, not in app code.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-type PaymentGateway = Database["public"]["Tables"]["payment_gateways"]["Row"];
-type PaymentGatewayInsert = Database["public"]["Tables"]["payment_gateways"]["Insert"];
+export type PaymentGatewayProvider = "payfast" | "yoco" | "peach";
+
+export const PAYMENT_GATEWAY_PROVIDERS: ReadonlyArray<PaymentGatewayProvider> =
+  Object.freeze(["payfast", "yoco", "peach"] as const);
+
+export type PaymentGatewayMetadata =
+  Database["public"]["Tables"]["payment_gateways"]["Row"];
+
+/** What we send back to browser callers -- credentials never appear here. */
+export interface PaymentGatewayConfigDTO {
+  id: string;
+  company_id: string;
+  provider: PaymentGatewayProvider;
+  is_active: boolean;
+  is_test: boolean;
+  success_url: string | null;
+  cancel_url: string | null;
+  notify_url: string | null;
+  last_verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentGatewayUpsertInput {
+  provider: PaymentGatewayProvider;
+  is_test: boolean;
+  success_url?: string | null;
+  cancel_url?: string | null;
+  notify_url?: string | null;
+  /** Whole credential bundle, written to the credentials sibling table. */
+  credentials: Record<string, string>;
+}
+
+type SbAny = SupabaseClient<Database> | any;
+
+const TABLE = "payment_gateways";
+const CREDS_TABLE = "payment_gateway_credentials";
+
+function toDTO(row: PaymentGatewayMetadata): PaymentGatewayConfigDTO {
+  return {
+    id: row.id,
+    company_id: row.company_id,
+    provider: row.provider as PaymentGatewayProvider,
+    is_active: row.is_active,
+    is_test: row.is_test,
+    success_url: row.success_url,
+    cancel_url: row.cancel_url,
+    notify_url: row.notify_url,
+    last_verified_at: row.last_verified_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
 
 export const paymentGatewayService = {
-  async getPaymentGateways(companyId: string): Promise<PaymentGateway[]> {
-    const { data, error } = await supabase
-      .from("payment_gateways")
+  /**
+   * List every non-deleted gateway row for the company. Browser-safe:
+   * RLS on payment_gateways scopes by company_id, and the credentials
+   * sibling table is never selected.
+   */
+  async list(companyId: string, client: SbAny = defaultClient): Promise<PaymentGatewayConfigDTO[]> {
+    const { data, error } = await client
+      .from(TABLE)
       .select("*")
       .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-
+      .is("deleted_at", null)
+      .order("provider", { ascending: true });
     if (error) {
-      console.error("Error fetching payment gateways:", error);
+      console.error("[paymentGatewayService.list]", error);
       return [];
     }
-
-    return data || [];
+    return (data || []).map((r: PaymentGatewayMetadata) => toDTO(r));
   },
 
-  async getActiveGateways(companyId: string): Promise<PaymentGateway[]> {
-    const { data, error } = await supabase
-      .from("payment_gateways")
-      .select("*")
+  /**
+   * Server-only. Upsert the metadata row + credentials row for a
+   * (company, provider) pair. Caller must pass a service-role client.
+   *
+   * Strategy: try insert first (most common path); on the
+   * payment_gateways_company_provider_unique constraint we update
+   * the existing row. Either way, the credentials row gets upserted
+   * by gateway_id.
+   */
+  async upsertWithCredentials(
+    companyId: string,
+    actorUserId: string | null,
+    input: PaymentGatewayUpsertInput,
+    serviceClient: SbAny,
+  ): Promise<{ ok: true; gateway: PaymentGatewayConfigDTO } | { ok: false; error: string }> {
+    if (!PAYMENT_GATEWAY_PROVIDERS.includes(input.provider)) {
+      return { ok: false, error: `Unsupported provider: ${input.provider}` };
+    }
+
+    // Look up an existing non-deleted row for (company, provider).
+    const { data: existing, error: readErr } = await serviceClient
+      .from(TABLE)
+      .select("id")
       .eq("company_id", companyId)
-      .eq("is_active", true)
-      .order("gateway_name");
-
-    if (error) {
-      console.error("Error fetching active payment gateways:", error);
-      return [];
+      .eq("provider", input.provider)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (readErr) {
+      return { ok: false, error: readErr.message };
     }
 
-    return data || [];
-  },
+    let gatewayRow: PaymentGatewayMetadata | null = null;
 
-  async createPaymentGateway(gateway: PaymentGatewayInsert): Promise<PaymentGateway | null> {
-    const { data, error } = await supabase
-      .from("payment_gateways")
-      .insert([gateway])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating payment gateway:", error);
-      throw error;
+    if (existing?.id) {
+      const { data, error } = await serviceClient
+        .from(TABLE)
+        .update({
+          is_test: input.is_test,
+          success_url: input.success_url ?? null,
+          cancel_url: input.cancel_url ?? null,
+          notify_url: input.notify_url ?? null,
+          updated_by_user_id: actorUserId,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      gatewayRow = data;
+    } else {
+      const { data, error } = await serviceClient
+        .from(TABLE)
+        .insert({
+          company_id: companyId,
+          provider: input.provider,
+          is_active: false,
+          is_test: input.is_test,
+          success_url: input.success_url ?? null,
+          cancel_url: input.cancel_url ?? null,
+          notify_url: input.notify_url ?? null,
+          created_by_user_id: actorUserId,
+          updated_by_user_id: actorUserId,
+        })
+        .select()
+        .single();
+      if (error) return { ok: false, error: error.message };
+      gatewayRow = data;
     }
 
-    return data;
+    if (!gatewayRow) {
+      return { ok: false, error: "Upsert returned no row" };
+    }
+
+    // Credentials -- one row per gateway_id (UNIQUE constraint).
+    const { data: existingCreds, error: credReadErr } = await serviceClient
+      .from(CREDS_TABLE)
+      .select("id")
+      .eq("gateway_id", gatewayRow.id)
+      .maybeSingle();
+    if (credReadErr) return { ok: false, error: credReadErr.message };
+
+    if (existingCreds?.id) {
+      const { error: credErr } = await serviceClient
+        .from(CREDS_TABLE)
+        .update({ credentials: input.credentials })
+        .eq("id", existingCreds.id);
+      if (credErr) return { ok: false, error: credErr.message };
+    } else {
+      const { error: credErr } = await serviceClient
+        .from(CREDS_TABLE)
+        .insert({ gateway_id: gatewayRow.id, credentials: input.credentials });
+      if (credErr) return { ok: false, error: credErr.message };
+    }
+
+    return { ok: true, gateway: toDTO(gatewayRow) };
   },
 
-  async updatePaymentGateway(gatewayId: string, updates: Partial<PaymentGateway>): Promise<PaymentGateway | null> {
-    const { data, error } = await supabase
-      .from("payment_gateways")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+  /**
+   * Atomically flip this gateway active and all sibling rows for the
+   * same company inactive. The DB partial unique index would reject
+   * a duplicate active row, so we deactivate first then activate.
+   * Server-only -- accepts a service-role client.
+   */
+  async activate(
+    companyId: string,
+    gatewayId: string,
+    actorUserId: string | null,
+    serviceClient: SbAny,
+  ): Promise<{ ok: true; gateway: PaymentGatewayConfigDTO } | { ok: false; error: string }> {
+    // 1) Belt-and-braces: confirm this gateway belongs to the company.
+    const { data: row, error: lookupErr } = await serviceClient
+      .from(TABLE)
+      .select("id, company_id, deleted_at")
+      .eq("id", gatewayId)
+      .maybeSingle();
+    if (lookupErr) return { ok: false, error: lookupErr.message };
+    if (!row || row.company_id !== companyId || row.deleted_at) {
+      return { ok: false, error: "Gateway not found for this company" };
+    }
+
+    // 2) Deactivate everything else first to clear the partial unique
+    //    index, otherwise the activation update could fail.
+    const { error: deactErr } = await serviceClient
+      .from(TABLE)
+      .update({ is_active: false, updated_by_user_id: actorUserId })
+      .eq("company_id", companyId)
+      .neq("id", gatewayId)
+      .eq("is_active", true);
+    if (deactErr) return { ok: false, error: deactErr.message };
+
+    // 3) Activate the chosen one.
+    const { data, error } = await serviceClient
+      .from(TABLE)
+      .update({ is_active: true, updated_by_user_id: actorUserId })
       .eq("id", gatewayId)
       .select()
       .single();
+    if (error) return { ok: false, error: error.message };
 
-    if (error) {
-      console.error("Error updating payment gateway:", error);
-      throw error;
-    }
-
-    return data;
+    return { ok: true, gateway: toDTO(data) };
   },
 
-  async toggleGatewayStatus(gatewayId: string, isActive: boolean): Promise<PaymentGateway | null> {
-    const { data, error } = await supabase
-      .from("payment_gateways")
-      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+  /**
+   * Soft-delete via deleted_at. Frees the (company, provider) slot
+   * so the operator can re-configure that provider from scratch.
+   * If the deleted gateway was active, no other row activates --
+   * the operator must explicitly pick a replacement.
+   */
+  async softDelete(
+    companyId: string,
+    gatewayId: string,
+    actorUserId: string | null,
+    serviceClient: SbAny,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const { data: row, error: lookupErr } = await serviceClient
+      .from(TABLE)
+      .select("id, company_id, deleted_at")
       .eq("id", gatewayId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error toggling gateway status:", error);
-      throw error;
+      .maybeSingle();
+    if (lookupErr) return { ok: false, error: lookupErr.message };
+    if (!row || row.company_id !== companyId || row.deleted_at) {
+      return { ok: false, error: "Gateway not found for this company" };
     }
 
-    return data;
-  },
-
-  async deletePaymentGateway(gatewayId: string): Promise<boolean> {
-    const { error } = await supabase
-      .from("payment_gateways")
-      .delete()
+    const { error } = await serviceClient
+      .from(TABLE)
+      .update({
+        is_active: false,
+        deleted_at: new Date().toISOString(),
+        updated_by_user_id: actorUserId,
+      })
       .eq("id", gatewayId);
+    if (error) return { ok: false, error: error.message };
 
-    if (error) {
-      console.error("Error deleting payment gateway:", error);
-      throw error;
-    }
-
-    return true;
+    return { ok: true };
   },
 
-  getSupportedGateways() {
+  /**
+   * Provider catalogue -- the field shape every provider needs the
+   * operator to enter. Drives the configure dialog. Single source of
+   * truth: page imports this rather than hard-coding its own list.
+   */
+  getProviderCatalogue(): Array<{
+    provider: PaymentGatewayProvider;
+    name: string;
+    description: string;
+    fields: Array<{ key: string; label: string; type: "text" | "password"; required: boolean }>;
+  }> {
     return [
       {
-        id: "payfast",
+        provider: "payfast",
         name: "PayFast",
-        type: "south_africa",
-        description: "South African payment gateway supporting credit cards, EFT, and instant EFT",
-        currencies: ["ZAR"],
-        testMode: true
+        description: "South Africa's leading payment gateway",
+        fields: [
+          { key: "merchantId", label: "Merchant ID", type: "text", required: true },
+          { key: "merchantKey", label: "Merchant Key", type: "password", required: true },
+          { key: "passphrase", label: "Passphrase", type: "password", required: true },
+        ],
       },
       {
-        id: "paygate",
-        name: "PayGate",
-        type: "south_africa",
-        description: "Leading South African payment gateway with multiple payment options",
-        currencies: ["ZAR"],
-        testMode: true
+        provider: "yoco",
+        name: "Yoco",
+        description: "Simple, affordable payments for South African businesses",
+        fields: [
+          { key: "secretKey", label: "Secret Key", type: "password", required: true },
+          { key: "publicKey", label: "Public Key", type: "text", required: true },
+        ],
       },
       {
-        id: "ozow",
-        name: "Ozow",
-        type: "south_africa",
-        description: "Instant EFT payments in South Africa",
-        currencies: ["ZAR"],
-        testMode: true
+        provider: "peach",
+        name: "Peach Payments",
+        description: "Enterprise payment solutions for Africa",
+        fields: [
+          { key: "apiKey", label: "API Key", type: "password", required: true },
+          { key: "merchantId", label: "Entity ID", type: "text", required: true },
+        ],
       },
-      {
-        id: "stripe",
-        name: "Stripe",
-        type: "international",
-        description: "Global payment platform supporting 135+ currencies",
-        currencies: ["USD", "EUR", "GBP", "ZAR", "AUD", "CAD"],
-        testMode: true
-      },
-      {
-        id: "paypal",
-        name: "PayPal",
-        type: "international",
-        description: "Trusted global payment solution",
-        currencies: ["USD", "EUR", "GBP", "ZAR", "AUD", "CAD"],
-        testMode: true
-      },
-      {
-        id: "square",
-        name: "Square",
-        type: "international",
-        description: "Payment processing for businesses worldwide",
-        currencies: ["USD", "CAD", "AUD", "GBP", "EUR"],
-        testMode: true
-      }
     ];
-  }
+  },
 };
