@@ -87,17 +87,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Ownership: either the authenticated user is the linked client,
     // or they're admin/owner in the same company. Anything else
     // shouldn't be making this call.
+    //
+    // orders.client_id is a FK to clients.id (NOT auth.users.id), so
+    // resolving "is this user the client on this order?" needs a join
+    // through the clients table -- match either clients.user_id =
+    // auth.uid() OR clients.email = auth.email() (the second is a
+    // fallback for clients who own the order via portal token but
+    // haven't been linked to an auth user yet).
     const { data: profile } = await ssr
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, email")
       .eq("id", user.id)
       .maybeSingle();
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     const isAdminInCompany =
       ["super_admin", "company_admin", "admin", "owner"].includes(role) &&
       (profile as any)?.company_id === (order as any).company_id;
-    const isLinkedClient = (order as any).client_id === user.id;
+
+    let isLinkedClient = false;
+    if (!isAdminInCompany && (order as any).client_id) {
+      const { data: clientRow } = await ssr
+        .from("clients")
+        .select("id, user_id, email")
+        .eq("id", (order as any).client_id)
+        .maybeSingle();
+      if (clientRow) {
+        const cr = clientRow as any;
+        const userEmail = (user.email || (profile as any)?.email || "").toLowerCase().trim();
+        const clientEmail = (cr.email || "").toLowerCase().trim();
+        isLinkedClient =
+          (cr.user_id && cr.user_id === user.id) ||
+          (!!userEmail && !!clientEmail && userEmail === clientEmail);
+      }
+    }
+
     if (!isAdminInCompany && !isLinkedClient) {
+      console.warn("[amendment-request] ownership denied", {
+        order_id,
+        user_id: user.id,
+        order_client_id: (order as any).client_id,
+      });
       return res.status(403).json({ error: "Not allowed to amend this order" });
     }
 

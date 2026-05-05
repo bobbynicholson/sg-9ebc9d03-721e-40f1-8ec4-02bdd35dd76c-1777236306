@@ -57,15 +57,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: profile } = await ssr
       .from("profiles")
-      .select("role, active_role, company_id")
+      .select("role, active_role, company_id, email")
       .eq("id", user.id)
       .maybeSingle();
     const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
     const isAdminInCompany =
       ["super_admin", "company_admin", "admin", "owner"].includes(role) &&
       (profile as any)?.company_id === (order as any).company_id;
-    const isLinkedClient = (order as any).client_id === user.id;
+
+    // orders.client_id is a FK to clients.id (NOT auth.users.id), so
+    // resolve ownership through the clients table -- match either
+    // clients.user_id = auth.uid() OR clients.email = auth.email().
+    let isLinkedClient = false;
+    if (!isAdminInCompany && (order as any).client_id) {
+      const { data: clientRow } = await ssr
+        .from("clients")
+        .select("id, user_id, email")
+        .eq("id", (order as any).client_id)
+        .maybeSingle();
+      if (clientRow) {
+        const cr = clientRow as any;
+        const userEmail = (user.email || (profile as any)?.email || "").toLowerCase().trim();
+        const clientEmail = (cr.email || "").toLowerCase().trim();
+        isLinkedClient =
+          (cr.user_id && cr.user_id === user.id) ||
+          (!!userEmail && !!clientEmail && userEmail === clientEmail);
+      }
+    }
+
     if (!isAdminInCompany && !isLinkedClient) {
+      console.warn("[cancellation-request] ownership denied", {
+        order_id,
+        user_id: user.id,
+        order_client_id: (order as any).client_id,
+      });
       return res.status(403).json({ error: "Not allowed to request cancellation on this order" });
     }
 
