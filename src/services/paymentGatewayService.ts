@@ -113,7 +113,7 @@ export const paymentGatewayService = {
     actorUserId: string | null,
     input: PaymentGatewayUpsertInput,
     serviceClient: SbAny,
-  ): Promise<{ ok: true; gateway: PaymentGatewayConfigDTO } | { ok: false; error: string }> {
+  ): Promise<{ ok: boolean; gateway?: PaymentGatewayConfigDTO; error?: string }> {
     if (!PAYMENT_GATEWAY_PROVIDERS.includes(input.provider)) {
       return { ok: false, error: `Unsupported provider: ${input.provider}` };
     }
@@ -206,7 +206,7 @@ export const paymentGatewayService = {
     gatewayId: string,
     actorUserId: string | null,
     serviceClient: SbAny,
-  ): Promise<{ ok: true; gateway: PaymentGatewayConfigDTO } | { ok: false; error: string }> {
+  ): Promise<{ ok: boolean; gateway?: PaymentGatewayConfigDTO; error?: string }> {
     // 1) Belt-and-braces: confirm this gateway belongs to the company.
     const { data: row, error: lookupErr } = await serviceClient
       .from(TABLE)
@@ -251,7 +251,7 @@ export const paymentGatewayService = {
     gatewayId: string,
     actorUserId: string | null,
     serviceClient: SbAny,
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
+  ): Promise<{ ok: boolean; error?: string }> {
     const { data: row, error: lookupErr } = await serviceClient
       .from(TABLE)
       .select("id, company_id, deleted_at")
