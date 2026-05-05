@@ -205,7 +205,11 @@ function DriverManagementPage() {
     try {
       setLoading(true);
       const allUsers = await userManagementService.getAllUsers(user.company_id);
-      const driverUsers = allUsers.filter(u => u.role === "driver") as Driver[];
+      // userManagementService selects * from profiles so the new rate
+      // columns flow through at runtime, but the static type
+      // (UserWithDepartments) doesn't include them. Cast via unknown
+      // because the shapes don't structurally overlap on the TS side.
+      const driverUsers = allUsers.filter(u => u.role === "driver") as unknown as Driver[];
       setDrivers(driverUsers);
 
       const driverIds = driverUsers.map(d => d.id);
