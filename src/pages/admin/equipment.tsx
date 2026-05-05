@@ -1,35 +1,36 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * /admin/equipment -- the catering company's equipment catalog.
+ * /admin/equipment -- equipment hub.
  *
- * The owner adds chafing dishes, tables, chairs, gas burners, urns,
- * lighting -- whatever they hire out. Each row carries a
- * `rental_price` so the quote builder's EquipmentTypeahead can
- * pre-fill prices when a row is picked. `is_available` lets the
- * owner toggle a row out of the typeahead without deleting it
- * (out for repair, seasonal item, etc).
+ * Four tabs: Catalog (the catering company's hire-out items),
+ * Availability (per-date free/committed lookup), Shortages (extracted
+ * panel from /admin/equipment-shortages) and Hire-in orders (extracted
+ * panel from /admin/equipment/hire-orders).
  *
- * RLS already restricts every write to the caller's company. No
- * extra guards needed at the page level beyond the ProtectedRoute.
+ * Tab state is mirrored to ?tab=... so deep-links land on the right
+ * surface (catalog by default).
  */
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+  SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import {
@@ -38,10 +39,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, Package, Edit, Trash2, AlertTriangle, CheckCircle2, ToggleLeft,
-  Calendar as CalendarIcon, ExternalLink,
+  Calendar as CalendarIcon, ExternalLink, Loader2,
 } from "lucide-react";
-import Link from "next/link";
-import { listUpcomingReservations, type EquipmentReservationRow } from "@/services/equipmentAvailabilityService";
+import {
+  listUpcomingReservations, getEquipmentAvailability,
+  type EquipmentReservationRow,
+} from "@/services/equipmentAvailabilityService";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -49,6 +52,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { equipmentManagementService } from "@/services/equipmentManagementService";
+import { ShortagesPanel } from "@/components/admin/equipment/ShortagesPanel";
+import { HireInPanel } from "@/components/admin/equipment/HireInPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -59,8 +64,6 @@ interface EquipmentRow {
   category: string | null;
   description?: string | null;
   rental_price?: number | null;
-  /** Cost the company themselves pay per unit when they hire-in
-   *  extra to fulfil an order. */
   hire_in_cost?: number | null;
   quantity?: number | null;
   available_quantity?: number | null;
@@ -75,6 +78,9 @@ const SUGGESTED_CATEGORIES = [
   "chafing", "tables", "chairs", "linen", "crockery", "cutlery",
   "glassware", "lighting", "gas", "serving", "decor", "other",
 ];
+
+const TABS = ["catalog", "availability", "shortages", "hire-in"] as const;
+type TabKey = typeof TABS[number];
 
 const safeNum = (v: any) => {
   const n = typeof v === "string" ? parseFloat(v) : Number(v);
@@ -100,8 +106,87 @@ export default function ProtectedEquipmentPage() {
 function EquipmentPage() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  const router = useRouter();
+  const companyId = (user?.user_metadata?.company_id as string | undefined) || (user?.company_id as string | undefined) || null;
 
+  // Tab state mirrored to URL.
+  const initialTab = useMemo<TabKey>(() => {
+    const t = (router.query.tab as string | undefined) || "";
+    return (TABS as readonly string[]).includes(t) ? (t as TabKey) : "catalog";
+  }, [router.query.tab]);
+  const [tab, setTab] = useState<TabKey>(initialTab);
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
+
+  const handleTabChange = (next: string) => {
+    const t = (TABS as readonly string[]).includes(next) ? (next as TabKey) : "catalog";
+    setTab(t);
+    const query = { ...router.query, tab: t };
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  };
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head>
+        <title>Equipment | CateringMS Admin</title>
+      </Head>
+
+      <AdminNav />
+
+      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
+        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
+              <Package className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                Equipment
+              </h1>
+              <p className="text-sm text-slate-600 mt-0.5">
+                Catalog, availability, shortages and hire-in procurement -- one hub.
+              </p>
+            </div>
+          </div>
+
+          <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full md:w-auto h-auto">
+              <TabsTrigger value="catalog" className="text-xs md:text-sm">Catalog</TabsTrigger>
+              <TabsTrigger value="availability" className="text-xs md:text-sm">Availability</TabsTrigger>
+              <TabsTrigger value="shortages" className="text-xs md:text-sm">Shortages</TabsTrigger>
+              <TabsTrigger value="hire-in" className="text-xs md:text-sm">Hire-in orders</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="catalog" className="mt-6">
+              <CatalogTab companyId={companyId} />
+            </TabsContent>
+
+            <TabsContent value="availability" className="mt-6">
+              <AvailabilityTab companyId={companyId} />
+            </TabsContent>
+
+            <TabsContent value="shortages" className="mt-6">
+              <ShortagesPanel />
+            </TabsContent>
+
+            <TabsContent value="hire-in" className="mt-6">
+              <HireInPanel />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <Footer />
+      </div>
+
+      <ChatBot userRole="admin" companyId={companyId || undefined} />
+    </>
+  );
+}
+
+// ── Catalog tab (the existing catalog UI, now a tab pane) ──────────
+
+function CatalogTab({ companyId }: { companyId: string | null }) {
+  const { toast } = useToast();
   const [rows, setRows] = useState<EquipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,25 +196,16 @@ function EquipmentPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Reservation calendar drawer state -- one row at a time. The drawer
-  // pulls every active booking against this equipment row in the next
-  // 90 days so the team can see the calendar at a glance.
   const [reservationsFor, setReservationsFor] = useState<EquipmentRow | null>(null);
   const [reservations, setReservations] = useState<EquipmentReservationRow[]>([]);
   const [reservationsLoading, setReservationsLoading] = useState(false);
 
-  // Slug-aware link prefix so deep-links from the drawer to specific
-  // orders stay inside /spit-braai-delivery/admin/orders, never the
-  // bare path.
   const slugPrefix = useMemo(() => {
-    // resolvedSlug isn't available here without a hook -- read the
-    // first segment of the current path. Falls back to no prefix.
     if (typeof window === "undefined") return "";
     const m = window.location.pathname.match(/^\/([^/]+)\/admin\//);
     return m ? `/${m[1]}` : "";
   }, []);
 
-  // ── Load + reload ────────────────────────────────────────────────
   const loadRows = async () => {
     if (!companyId) {
       setLoading(false);
@@ -147,16 +223,14 @@ function EquipmentPage() {
   };
   useEffect(() => { loadRows(); /* eslint-disable-next-line */ }, [companyId]);
 
-  // When the user opens the Reservations drawer for an item, fetch
-  // its forward 90-day booking calendar.
   useEffect(() => {
     if (!reservationsFor || !companyId) return;
     let cancelled = false;
     (async () => {
       setReservationsLoading(true);
       try {
-        const rows = await listUpcomingReservations(companyId, reservationsFor.id, { days: 90 });
-        if (!cancelled) setReservations(rows);
+        const list = await listUpcomingReservations(companyId, reservationsFor.id, { days: 90 });
+        if (!cancelled) setReservations(list);
       } finally {
         if (!cancelled) setReservationsLoading(false);
       }
@@ -164,7 +238,6 @@ function EquipmentPage() {
     return () => { cancelled = true; };
   }, [reservationsFor, companyId]);
 
-  // ── Filter + group by category ───────────────────────────────────
   const filteredRaw = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
@@ -179,14 +252,12 @@ function EquipmentPage() {
     });
   }, [rows, search, filterAvailable]);
 
-  // Sort layered on top of filter. Card-grid pages get a Sort menu
-  // (no headers to click), so we expose every meaningful axis.
   const equipmentSortColumns: ColumnDef<EquipmentRow>[] = useMemo(() => [
-    { key: "name",      accessor: (r) => r.name,                                          type: "string" },
-    { key: "category",  accessor: (r) => r.category || "",                                type: "string" },
-    { key: "rate",      accessor: (r) => Number(r.rental_price || 0),                    type: "number" },
-    { key: "free",      accessor: (r) => Number(r.available_quantity || 0),              type: "number" },
-    { key: "qty",       accessor: (r) => Number(r.quantity || 0),                        type: "number" },
+    { key: "name",     accessor: (r) => r.name,                             type: "string" },
+    { key: "category", accessor: (r) => r.category || "",                   type: "string" },
+    { key: "rate",     accessor: (r) => Number(r.rental_price || 0),        type: "number" },
+    { key: "free",     accessor: (r) => Number(r.available_quantity || 0),  type: "number" },
+    { key: "qty",      accessor: (r) => Number(r.quantity || 0),            type: "number" },
   ], []);
   const equipmentSort = useSortable<EquipmentRow>(filteredRaw, equipmentSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filtered = equipmentSort.rows;
@@ -201,7 +272,6 @@ function EquipmentPage() {
     return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [filtered]);
 
-  // ── Save ──────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!editing || !companyId) return;
     if (!(editing.name || "").trim()) {
@@ -264,44 +334,99 @@ function EquipmentPage() {
     }
   };
 
-  // ── Stats ────────────────────────────────────────────────────────
   const totalItems = rows.length;
   const totalUnits = rows.reduce((s, r) => s + safeNum(r.quantity), 0);
   const offlineItems = rows.filter((r) => r.is_available === false).length;
   const lowStock = rows.filter(
-    (r) =>
-      r.is_available !== false &&
-      safeNum(r.available_quantity) === 0 &&
-      safeNum(r.quantity) > 0,
+    (r) => r.is_available !== false && safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0,
   ).length;
 
-  // ── Render ───────────────────────────────────────────────────────
   return (
     <>
-      <NoIndexMeta />
-      <Head>
-        <title>Equipment | CateringMS Admin</title>
-      </Head>
+      <div className="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div className="text-sm text-slate-600">
+          Chafing dishes, tables, chairs, hire add-ons. The catalog feeds the quote builder, kitchen pack list and driver load list.
+        </div>
+        <Button
+          onClick={() =>
+            setEditing({
+              id: "",
+              company_id: companyId,
+              name: "",
+              category: "",
+              description: "",
+              rental_price: 0,
+              quantity: 0,
+              available_quantity: 0,
+              condition: "good",
+              is_available: true,
+            })
+          }
+          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add equipment
+        </Button>
+      </div>
 
-      <AdminNav />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
+        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
+        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
+        <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Hidden from quotes</p><p className="text-2xl font-bold text-slate-500">{offlineItems}</p></CardContent></Card>
+      </div>
 
-      <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 lg:pl-72 xl:pl-80">
-        <div className="px-4 py-8 max-w-screen-2xl mx-auto">
-          {/* Header */}
-          <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
-                <Package className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Equipment catalog
-                </h1>
-                <p className="text-sm text-slate-600 mt-0.5">
-                  Chafing dishes, tables, chairs, hire add-ons. What's in your catalog feeds the quote builder, kitchen pack list and driver load list.
-                </p>
-              </div>
-            </div>
+      <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, category, description..."
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
+          {(["all", "available", "hidden"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setFilterAvailable(k)}
+              className={`px-3 py-1.5 rounded-md ${
+                filterAvailable === k
+                  ? "bg-blue-100 text-blue-700 font-medium"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {k === "all" ? "All" : k === "available" ? "In catalog" : "Hidden"}
+            </button>
+          ))}
+        </div>
+        <SortMenu
+          activeKey={equipmentSort.sortKey}
+          activeDir={equipmentSort.sortDir}
+          onPick={equipmentSort.setSort}
+          options={[
+            { key: "name",     dir: "asc",  label: "Name (A to Z)" },
+            { key: "name",     dir: "desc", label: "Name (Z to A)" },
+            { key: "category", dir: "asc",  label: "Category (A to Z)" },
+            { key: "rate",     dir: "desc", label: "Rate (high to low)" },
+            { key: "rate",     dir: "asc",  label: "Rate (low to high)" },
+            { key: "free",     dir: "desc", label: "Most free units" },
+            { key: "free",     dir: "asc",  label: "Fewest free units" },
+            { key: "qty",      dir: "desc", label: "Largest catalog qty" },
+          ]}
+        />
+      </div>
+
+      {loading ? (
+        <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
+      ) : rows.length === 0 ? (
+        <Card className="border-2 border-dashed">
+          <CardContent className="p-12 text-center">
+            <Package className="w-14 h-14 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">No equipment yet</h3>
+            <p className="text-sm text-slate-600 mb-4">Add the items you typically hire out so they show up automatically when you build a quote.</p>
             <Button
               onClick={() =>
                 setEditing({
@@ -317,167 +442,80 @@ function EquipmentPage() {
                   is_available: true,
                 })
               }
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add equipment
+              Add your first item
             </Button>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
-            <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Total units</p><p className="text-2xl font-bold text-blue-600">{totalUnits}</p></CardContent></Card>
-            <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">No stock free</p><p className="text-2xl font-bold text-amber-600">{lowStock}</p></CardContent></Card>
-            <Card className="border-0 shadow-md"><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Hidden from quotes</p><p className="text-2xl font-bold text-slate-500">{offlineItems}</p></CardContent></Card>
-          </div>
-
-          {/* Toolbar */}
-          <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, category, description..."
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
-              {(["all", "available", "hidden"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setFilterAvailable(k)}
-                  className={`px-3 py-1.5 rounded-md ${
-                    filterAvailable === k
-                      ? "bg-blue-100 text-blue-700 font-medium"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {k === "all" ? "All" : k === "available" ? "In catalog" : "Hidden"}
-                </button>
-              ))}
-            </div>
-            <SortMenu
-              activeKey={equipmentSort.sortKey}
-              activeDir={equipmentSort.sortDir}
-              onPick={equipmentSort.setSort}
-              options={[
-                { key: "name",     dir: "asc",  label: "Name (A to Z)" },
-                { key: "name",     dir: "desc", label: "Name (Z to A)" },
-                { key: "category", dir: "asc",  label: "Category (A to Z)" },
-                { key: "rate",     dir: "desc", label: "Rate (high to low)" },
-                { key: "rate",     dir: "asc",  label: "Rate (low to high)" },
-                { key: "free",     dir: "desc", label: "Most free units" },
-                { key: "free",     dir: "asc",  label: "Fewest free units" },
-                { key: "qty",      dir: "desc", label: "Largest catalog qty" },
-              ]}
-            />
-          </div>
-
-          {/* List */}
-          {loading ? (
-            <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">Loading...</CardContent></Card>
-          ) : rows.length === 0 ? (
-            <Card className="border-2 border-dashed">
-              <CardContent className="p-12 text-center">
-                <Package className="w-14 h-14 mx-auto text-slate-300 mb-3" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">No equipment yet</h3>
-                <p className="text-sm text-slate-600 mb-4">Add the items you typically hire out so they show up automatically when you build a quote.</p>
-                <Button
-                  onClick={() =>
-                    setEditing({
-                      id: "",
-                      company_id: companyId,
-                      name: "",
-                      category: "",
-                      description: "",
-                      rental_price: 0,
-                      quantity: 0,
-                      available_quantity: 0,
-                      condition: "good",
-                      is_available: true,
-                    })
-                  }
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add your first item
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {grouped.map(([cat, items]) => (
-                <div key={cat}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
-                    <span className="text-xs text-slate-400">{items.length} item{items.length === 1 ? "" : "s"}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {items.map((r) => {
-                      const offline = r.is_available === false;
-                      const noFree = safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0;
-                      return (
-                        <Card key={r.id} className={`border-0 shadow-md ${offline ? "opacity-60" : ""}`}>
-                          <CardContent className="p-4 flex flex-wrap items-center gap-3">
-                            <div className="flex-1 min-w-[200px]">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-slate-900">{r.name || "(unnamed)"}</span>
-                                {offline ? (
-                                  <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">hidden</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">in catalog</Badge>
-                                )}
-                                {noFree && (
-                                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                                    <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> none free
-                                  </Badge>
-                                )}
-                                {r.condition && r.condition !== "good" && (
-                                  <Badge variant="outline" className="text-[10px]">{r.condition}</Badge>
-                                )}
-                              </div>
-                              {r.description && (
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-1">{r.description}</p>
-                              )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(([cat, items]) => (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
+                <span className="text-xs text-slate-400">{items.length} item{items.length === 1 ? "" : "s"}</span>
+              </div>
+              <div className="space-y-2">
+                {items.map((r) => {
+                  const offline = r.is_available === false;
+                  const noFree = safeNum(r.available_quantity) === 0 && safeNum(r.quantity) > 0;
+                  return (
+                    <Card key={r.id} className={`border-0 shadow-md ${offline ? "opacity-60" : ""}`}>
+                      <CardContent className="p-4 flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-[200px]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-slate-900">{r.name || "(unnamed)"}</span>
+                            {offline ? (
+                              <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">hidden</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">in catalog</Badge>
+                            )}
+                            {noFree && (
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                                <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> none free
+                              </Badge>
+                            )}
+                            {r.condition && r.condition !== "good" && (
+                              <Badge variant="outline" className="text-[10px]">{r.condition}</Badge>
+                            )}
+                          </div>
+                          {r.description && (
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-1">{r.description}</p>
+                          )}
+                        </div>
+                        <div className="text-right text-xs text-slate-500">
+                          <div>{safeNum(r.available_quantity)} / {safeNum(r.quantity)} free</div>
+                          <div className="text-base font-semibold text-blue-700 mt-0.5">{fmtR(safeNum(r.rental_price))}</div>
+                          {safeNum(r.hire_in_cost) > 0 && (
+                            <div className="text-[10px] text-amber-700 mt-0.5">
+                              hire-in {fmtR(safeNum(r.hire_in_cost))}
                             </div>
-                            <div className="text-right text-xs text-slate-500">
-                              <div>{safeNum(r.available_quantity)} / {safeNum(r.quantity)} free</div>
-                              <div className="text-base font-semibold text-blue-700 mt-0.5">{fmtR(safeNum(r.rental_price))}</div>
-                              {safeNum(r.hire_in_cost) > 0 && (
-                                <div className="text-[10px] text-amber-700 mt-0.5">
-                                  hire-in {fmtR(safeNum(r.hire_in_cost))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
-                                <CalendarIcon className="w-4 h-4 text-blue-600" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
-                                {offline ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(r)}>
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingId(r.id)}>
-                                <Trash2 className="w-4 h-4 text-rose-600" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="View upcoming bookings" onClick={() => setReservationsFor(r)}>
+                            <CalendarIcon className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title={offline ? "Show in quote builder" : "Hide from quote builder"} onClick={() => toggleAvailable(r)}>
+                            {offline ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-slate-500" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(r)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeletingId(r.id)}>
+                            <Trash2 className="w-4 h-4 text-rose-600" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
-          )}
+          ))}
         </div>
-
-        <Footer />
-      </div>
+      )}
 
       {/* Edit / add dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
@@ -535,7 +573,7 @@ function EquipmentPage() {
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   When the quote builder sees you've committed more units than you own on a given date,
-                  it surfaces (shortfall × this cost) as a margin signal so you don't quote at a loss.
+                  it surfaces (shortfall x this cost) as a margin signal so you don't quote at a loss.
                 </p>
               </div>
               <div>
@@ -559,7 +597,6 @@ function EquipmentPage() {
                       setEditing({
                         ...editing,
                         quantity: q,
-                        // Keep available <= total when bumping the total down.
                         available_quantity: Math.min(safeNum(editing.available_quantity ?? q), q),
                       });
                     }}
@@ -623,7 +660,6 @@ function EquipmentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
       <AlertDialog open={!!deletingId} onOpenChange={(o) => { if (!o) setDeletingId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -643,91 +679,311 @@ function EquipmentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reservations drawer -- shared resizable host (drag the left edge) */}
       <ComposeDrawerHost
         open={!!reservationsFor}
         onClose={() => { setReservationsFor(null); setReservations([]); }}
       >
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-blue-600" />
-              {reservationsFor?.name || "Equipment"}
-            </SheetTitle>
-            <SheetDescription>
-              Upcoming bookings against this item over the next 90 days.
-              Cancelled and completed orders are excluded.
-            </SheetDescription>
-          </SheetHeader>
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <CalendarIcon className="w-5 h-5 text-blue-600" />
+            {reservationsFor?.name || "Equipment"}
+          </SheetTitle>
+          <SheetDescription>
+            Upcoming bookings against this item over the next 90 days.
+            Cancelled and completed orders are excluded.
+          </SheetDescription>
+        </SheetHeader>
 
-          {reservationsFor && (
-            <div className="mt-6 space-y-4">
-              {/* Summary chip strip */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">
-                  <strong className="text-slate-900">{safeNum(reservationsFor.quantity)}</strong> owned
+        {reservationsFor && (
+          <div className="mt-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700">
+                <strong className="text-slate-900">{safeNum(reservationsFor.quantity)}</strong> owned
+              </span>
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
+                <strong>{reservations.reduce((s, r) => s + r.quantity, 0)}</strong> committed across {reservations.length} booking{reservations.length === 1 ? "" : "s"}
+              </span>
+              {reservations.some((r) => r.from_hire_qty > 0) && (
+                <span className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-orange-800">
+                  {reservations.reduce((s, r) => s + r.from_hire_qty, 0)} units hire-in across the period
                 </span>
-                <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
-                  <strong>{reservations.reduce((s, r) => s + r.quantity, 0)}</strong> committed across {reservations.length} booking{reservations.length === 1 ? "" : "s"}
-                </span>
-                {reservations.some((r) => r.from_hire_qty > 0) && (
-                  <span className="rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-orange-800">
-                    {reservations.reduce((s, r) => s + r.from_hire_qty, 0)} units hire-in across the period
-                  </span>
-                )}
-              </div>
-
-              {reservationsLoading ? (
-                <div className="py-12 text-center text-sm text-slate-500">Loading bookings...</div>
-              ) : reservations.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-500">
-                  Nothing on the calendar for this item.
-                </div>
-              ) : (
-                <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                  {reservations.map((r) => {
-                    const d = new Date(r.event_date);
-                    const dayLabel = d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-                    return (
-                      <li key={`${r.order_id}_${r.event_date}`} className="px-3 py-2.5 flex flex-wrap items-center gap-2">
-                        <div className="text-xs text-slate-500 w-32 flex-shrink-0">{dayLabel}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-slate-900 truncate">
-                            {r.client_name || "Order"}
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
-                            <span className="capitalize">{r.status.replace(/_/g, " ")}</span>
-                            {r.from_stock_qty > 0 && (
-                              <span className="rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5">
-                                {r.from_stock_qty} owned
-                              </span>
-                            )}
-                            {r.from_hire_qty > 0 && (
-                              <span className="rounded bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5">
-                                {r.from_hire_qty} hire-in
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-sm font-bold text-slate-900">× {r.quantity}</span>
-                          <Link
-                            href={`${slugPrefix}/admin/orders?orderId=${r.order_id}`}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700"
-                            title="Open order"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </Link>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
               )}
             </div>
-          )}
-      </ComposeDrawerHost>
 
-      <ChatBot userRole="admin" companyId={companyId || undefined} />
+            {reservationsLoading ? (
+              <div className="py-12 text-center text-sm text-slate-500">Loading bookings...</div>
+            ) : reservations.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">
+                Nothing on the calendar for this item.
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                {reservations.map((r) => {
+                  const d = new Date(r.event_date);
+                  const dayLabel = d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+                  return (
+                    <li key={`${r.order_id}_${r.event_date}`} className="px-3 py-2.5 flex flex-wrap items-center gap-2">
+                      <div className="text-xs text-slate-500 w-32 flex-shrink-0">{dayLabel}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">
+                          {r.client_name || "Order"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+                          <span className="capitalize">{r.status.replace(/_/g, " ")}</span>
+                          {r.from_stock_qty > 0 && (
+                            <span className="rounded bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5">
+                              {r.from_stock_qty} owned
+                            </span>
+                          )}
+                          {r.from_hire_qty > 0 && (
+                            <span className="rounded bg-amber-50 text-amber-800 border border-amber-300 px-1.5 py-0.5">
+                              {r.from_hire_qty} hire-in
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-sm font-bold text-slate-900">x {r.quantity}</span>
+                        <Link
+                          href={`${slugPrefix}/admin/orders?orderId=${r.order_id}`}
+                          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700"
+                          title="Open order"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </ComposeDrawerHost>
+    </>
+  );
+}
+
+// ── Availability tab ────────────────────────────────────────────────
+
+interface AvailabilityRow {
+  id: string;
+  name: string;
+  category: string;
+  owned: number;
+  reserved: number;
+  available: number;
+  loading: boolean;
+}
+
+function AvailabilityTab({ companyId }: { companyId: string | null }) {
+  const { toast } = useToast();
+  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [items, setItems] = useState<EquipmentRow[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<AvailabilityRow[]>([]);
+  const [computing, setComputing] = useState(false);
+
+  // Fetch the catalog once.
+  useEffect(() => {
+    if (!companyId) { setLoadingItems(false); return; }
+    let cancelled = false;
+    (async () => {
+      setLoadingItems(true);
+      try {
+        const data = await equipmentManagementService.getAllEquipment(companyId);
+        if (!cancelled) setItems((data as any) || []);
+      } catch (e: any) {
+        if (!cancelled) toast({ title: "Could not load equipment", description: e?.message ?? "", variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoadingItems(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, toast]);
+
+  // Recompute availability whenever the date or catalog changes.
+  useEffect(() => {
+    if (!companyId || items.length === 0 || !date) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setComputing(true);
+      try {
+        // Seed pending rows so the table fills in progressively rather
+        // than blocking on the slowest call.
+        if (!cancelled) {
+          setResults(items.map((it) => ({
+            id: it.id,
+            name: it.name || "(unnamed)",
+            category: it.category || "Uncategorised",
+            owned: safeNum(it.quantity),
+            reserved: 0,
+            available: safeNum(it.quantity),
+            loading: true,
+          })));
+        }
+        const rows = await Promise.all(items.map(async (it) => {
+          try {
+            const a = await getEquipmentAvailability(companyId, it.id, date, { windowDays: 0 });
+            return {
+              id: it.id,
+              name: it.name || "(unnamed)",
+              category: it.category || "Uncategorised",
+              owned: a.owned,
+              reserved: a.reserved,
+              available: a.available,
+              loading: false,
+            } as AvailabilityRow;
+          } catch {
+            return {
+              id: it.id,
+              name: it.name || "(unnamed)",
+              category: it.category || "Uncategorised",
+              owned: safeNum(it.quantity),
+              reserved: 0,
+              available: safeNum(it.quantity),
+              loading: false,
+            } as AvailabilityRow;
+          }
+        }));
+        if (!cancelled) setResults(rows);
+      } finally {
+        if (!cancelled) setComputing(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, items, date]);
+
+  const filteredResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return results;
+    return results.filter((r) =>
+      r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q),
+    );
+  }, [results, search]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, AvailabilityRow[]>();
+    for (const r of filteredResults) {
+      const k = r.category;
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(r);
+    }
+    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filteredResults]);
+
+  const friendlyDate = useMemo(() => {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return date;
+    return d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }, [date]);
+
+  return (
+    <>
+      <Card className="border-0 shadow-md mb-5">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Pick a date</Label>
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
+            <div className="space-y-1 flex-1">
+              <Label className="text-xs">Filter items</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or category..."
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="text-xs text-slate-500 inline-flex items-center gap-1">
+              <CalendarIcon className="w-3 h-3" />
+              {friendlyDate}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {loadingItems ? (
+        <Card className="border-0 shadow-md"><CardContent className="p-12 text-center text-slate-500">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          Loading catalog...
+        </CardContent></Card>
+      ) : items.length === 0 ? (
+        <Card className="border-2 border-dashed">
+          <CardContent className="p-12 text-center">
+            <Package className="w-14 h-14 mx-auto text-slate-300 mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Nothing in the catalog yet</h3>
+            <p className="text-sm text-slate-600">Add items in the Catalog tab first, then come back to check availability.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(([cat, rows]) => (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{cat}</h2>
+                <span className="text-xs text-slate-400">{rows.length} item{rows.length === 1 ? "" : "s"}</span>
+              </div>
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 bg-slate-50/50">
+                          <th className="px-4 py-2.5 font-medium">Item</th>
+                          <th className="px-3 py-2.5 font-medium text-right">Owned</th>
+                          <th className="px-3 py-2.5 font-medium text-right">Committed</th>
+                          <th className="px-3 py-2.5 font-medium text-right">Free on date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((r) => {
+                          const tight = !r.loading && r.available === 0 && r.owned > 0;
+                          const over  = !r.loading && r.reserved > r.owned;
+                          return (
+                            <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                              <td className="px-4 py-2.5">
+                                <div className="font-medium text-slate-900">{r.name}</div>
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums">{r.owned}</td>
+                              <td className={`px-3 py-2.5 text-right tabular-nums ${over ? "text-rose-700 font-semibold" : "text-slate-700"}`}>
+                                {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.reserved}
+                              </td>
+                              <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${
+                                tight ? "text-amber-700" : over ? "text-rose-700" : "text-emerald-700"
+                              }`}>
+                                {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.available}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+          {!computing && filteredResults.length === 0 && (
+            <Card className="border-0 shadow-sm"><CardContent className="p-8 text-center text-sm text-slate-500">
+              No items match the filter.
+            </CardContent></Card>
+          )}
+        </div>
+      )}
     </>
   );
 }

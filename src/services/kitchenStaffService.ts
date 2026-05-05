@@ -293,9 +293,10 @@ export const kitchenStaffService = {
     return (data || []) as KitchenShift[];
   },
 
-  /** Closed shifts within a window -- feeds the wage roll-up. */
-  async listShiftsInRange(companyId: string, fromISO: string, toISO: string): Promise<KitchenShift[]> {
-    const { data, error } = await supabase
+  /** Closed shifts within a window -- feeds the wage roll-up. Optional
+   *  `department` narrows to one duty board (kitchen / cleaning / etc). */
+  async listShiftsInRange(companyId: string, fromISO: string, toISO: string, opts: { department?: string } = {}): Promise<KitchenShift[]> {
+    let q = supabase
       .from("kitchen_staff_shifts")
       .select("*")
       .eq("company_id", companyId)
@@ -303,6 +304,8 @@ export const kitchenStaffService = {
       .lt("shift_start", toISO)
       .is("deleted_at", null)
       .order("shift_start", { ascending: false });
+    if (opts.department) q = q.eq("department", opts.department);
+    const { data, error } = await q;
     if (error) {
       console.error("listShiftsInRange failed:", error);
       return [];
@@ -550,10 +553,19 @@ export const kitchenStaffService = {
    * shifts surface as `open_shift: true` but contribute zero wage so live
    * estimates don't overstate the bill.
    */
-  async getWageSummary(companyId: string, fromISO: string, toISO: string): Promise<StaffWageSummary[]> {
+  async getWageSummary(
+    companyId: string,
+    fromISO: string,
+    toISO: string,
+    opts: { department?: string; region_id?: string | null } = {},
+  ): Promise<StaffWageSummary[]> {
+    // region_id is accepted for forward-compat with multi-branch dashboards
+    // but kitchen_staff_members rows aren't region-tagged today, so it's
+    // a no-op at the data layer. Caller still uses it to badge the UI.
+    void opts.region_id;
     const [staff, shifts] = await Promise.all([
-      this.listStaffWithRates(companyId, { includeArchived: true }),
-      this.listShiftsInRange(companyId, fromISO, toISO),
+      this.listStaffWithRates(companyId, { includeArchived: true, department: opts.department }),
+      this.listShiftsInRange(companyId, fromISO, toISO, { department: opts.department }),
     ]);
     const staffMap = new Map<string, KitchenStaffMember>(staff.map(s => [s.id, s] as const));
 

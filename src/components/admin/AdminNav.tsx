@@ -223,9 +223,11 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Offering",
       defaultOpen: false,
       items: [
-        { title: "Menu", href: "/admin/menu", icon: BookOpen, description: "Build menu items + recipes" },
-        // Equipment lives in Stock now (operational concern). The
-        // Offering Hub (catalog overview) lands in Stage 2.
+        { title: "Offering Hub", href: "/admin/offering", icon: Sparkles, description: "Menu + Equipment health at a glance" },
+        { title: "Menu",         href: "/admin/menu",     icon: BookOpen, description: "Build menu items + recipes" },
+        // Equipment moved to Stock as a hub-with-tabs (Catalog /
+        // Availability / Shortages / Hire-in). Reachable from the
+        // Offering Hub tile and from Stock.
       ],
     },
     {
@@ -233,10 +235,13 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Stock",
       defaultOpen: true, // Daily-use: kitchen + shopping check stock several times a day.
       items: [
+        { title: "Stock Overview",     href: "/admin/stock",                 icon: BarChart3,    description: "Pressure feed: low ingredients, equipment commitments, hire-in due" },
         { title: "Food & Ingredients", href: "/admin/inventory",             icon: Package,      description: "Pantry + chiller stock outlook" },
-        { title: "Equipment",          href: "/admin/equipment",             icon: Layers,       description: "Chafing dishes, tables, chairs, hire add-ons" },
-        { title: "Hire-in Orders",     href: "/admin/equipment/hire-orders", icon: ShoppingCart, description: "Procurement when you overcommit stock" },
+        { title: "Equipment",          href: "/admin/equipment",             icon: Layers,       description: "Catalog, availability, shortages and hire-in -- all tabs" },
         { title: "Suppliers",          href: "/admin/suppliers",             icon: Building2,    description: "Supplier hub: contacts, products, spend" },
+        // Hire-in lives as a tab inside /admin/equipment now. The
+        // standalone /admin/equipment/hire-orders URL still resolves
+        // for old bookmarks + notification deep-links.
       ],
     },
     {
@@ -244,9 +249,11 @@ export function AdminNav({ className }: AdminNavProps) {
       title: "Teams",
       defaultOpen: false,
       items: [
-        { title: "Drivers",  href: "/admin/driver-management", icon: Truck,       description: "Manage delivery drivers" },
-        { title: "Shopping", href: "/admin/shopping",          icon: ShoppingBag, description: "Procurement: buy now, plan ahead, scan slips" },
-        // Kitchen + Cleaning per-team indexes ship in Stage 2.
+        { title: "Teams Hub", href: "/admin/teams",           icon: Briefcase,   description: "Monday-morning glance across every team" },
+        { title: "Kitchen",   href: "/admin/teams/kitchen",   icon: ChefHat,     description: "Kitchen staff, duties, recipes" },
+        { title: "Drivers",   href: "/admin/teams/drivers",   icon: Truck,       description: "Driver roster, settlement, routes, vehicles" },
+        { title: "Shopping",  href: "/admin/shopping",        icon: ShoppingBag, description: "Procurement: buy now, plan ahead, scan slips" },
+        { title: "Cleaning",  href: "/admin/teams/cleaning",  icon: Sparkles,    description: "Cleaning roster + workflows" },
       ],
     },
     {

@@ -317,6 +317,16 @@ export function CommandPalette() {
     { id: "go-email-life",  label: "Lifecycle Emails",    icon: Sparkles,     href: "/admin/email-templates",     group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["after-sales","automation","template"] },
     { id: "go-templates",   label: "Messaging Templates", icon: Sparkles,     href: "/admin/messaging-templates", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["whatsapp","email","template"] },
     { id: "go-notifs",      label: "Notification Settings", icon: Settings,   href: "/admin/notification-settings", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["alert","push"] },
+    // Stage-2 hubs and team indexes.
+    { id: "go-offering",    label: "Offering Hub",        icon: Sparkles,     href: "/admin/offering",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["menu","equipment","catalog","what we sell"] },
+    { id: "go-stock",       label: "Stock Overview",      icon: Package,      href: "/admin/stock",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["stock","low","pressure","ingredients"] },
+    { id: "go-teams-hub",   label: "Teams Hub",           icon: Users,        href: "/admin/teams",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["teams","departments","monday"] },
+    { id: "go-teams-kit",   label: "Kitchen Team",        icon: ChefHat,      href: "/admin/teams/kitchen",       group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["kitchen","chef","duties"] },
+    { id: "go-teams-drv",   label: "Drivers Team",        icon: Truck,        href: "/admin/teams/drivers",       group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["drivers","fleet"] },
+    { id: "go-teams-cln",   label: "Cleaning Team",       icon: Sparkles,     href: "/admin/teams/cleaning",      group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["cleaning","clean","damage"] },
+    { id: "go-eq-tab-avl",  label: "Equipment availability", icon: Package,   href: "/admin/equipment?tab=availability", group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["available","free","date"] },
+    { id: "go-eq-tab-sho",  label: "Equipment shortages",   icon: Package,    href: "/admin/equipment?tab=shortages",    group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["short","missing"] },
+    { id: "go-eq-tab-hir",  label: "Hire-in equipment",     icon: ShoppingCart, href: "/admin/equipment?tab=hire-in",   group: "Quick actions", roles: ["admin","company_admin","owner"], keywords: ["hire","procurement","rent"] },
 
     // ---- Quick actions ----
     { id: "act-new-lead", label: "Create new lead", icon: Plus, href: "/admin/leads/new", group: "Quick actions", roles: ["admin","company_admin","owner"] },
