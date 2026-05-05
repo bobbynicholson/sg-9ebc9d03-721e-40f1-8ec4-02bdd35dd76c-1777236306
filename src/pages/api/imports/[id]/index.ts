@@ -85,8 +85,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ ok: true });
     }
 
+    // Fetch up to 11k rows so the wizard's drilldown sees the full
+    // import, not just the first 1000. listImportRows pages internally
+    // so this no longer hits the PostgREST 1000-row cap.
     const includeRows = req.query.rows === "1";
-    const rows = includeRows ? await listImportRows(jobId, { limit: 1000 }) : [];
+    const rows = includeRows ? await listImportRows(jobId, { limit: 11000 }) : [];
 
     return res.status(200).json({ ok: true, job, rows });
   } catch (outer: any) {

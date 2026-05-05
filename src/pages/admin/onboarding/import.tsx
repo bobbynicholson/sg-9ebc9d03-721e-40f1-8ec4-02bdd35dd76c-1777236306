@@ -609,15 +609,47 @@ function ImportPage() {
                   const p = job?.summary?.preview;
                   if (!p) return <p className="text-sm text-slate-500">No preview yet.</p>;
 
+                  // Defensive parse for preview_warnings -- supabase-js
+                  // sometimes returns text[] as a Postgres-array string
+                  // ('{"a","b"}') rather than a JS array. Coerce both
+                  // shapes to a real array so the filter and the
+                  // per-row notes never silently miss rows.
+                  const warningsList = (r: RowShape): string[] => {
+                    const w = r.preview_warnings as unknown;
+                    if (Array.isArray(w)) return w as string[];
+                    if (typeof w === "string" && w.length > 0 && w !== "[]" && w !== "{}") {
+                      try {
+                        const parsed = JSON.parse(w);
+                        if (Array.isArray(parsed)) return parsed as string[];
+                      } catch {
+                        // Fallback: Postgres array literal '{"a","b"}'
+                        const inner = w.replace(/^\{|\}$/g, "");
+                        if (inner.length > 0) return inner.split(",").map((s) => s.replace(/^"|"$/g, ""));
+                      }
+                    }
+                    return [];
+                  };
+                  const hasWarnings = (r: RowShape) => warningsList(r).length > 0;
+
                   // Filter rows for the drilldown table.
                   const filtered = rows.filter((r) => {
                     if (rowFilter === "all") return true;
                     if (rowFilter === "errors") return r.status === "error";
                     if (rowFilter === "skipped") return r.status === "skipped";
-                    if (rowFilter === "warnings") return Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0;
+                    if (rowFilter === "warnings") return hasWarnings(r);
                     if (rowFilter === "duplicates") return !!r.dedup_match_id;
                     return true;
                   });
+
+                  // Sample warning messages so the stat tile shows
+                  // *what* the warnings say, not just a count -- when
+                  // the row table has 1000 cap and the warning row is
+                  // outside, the operator still gets the message.
+                  const warningSamples = rows
+                    .map(warningsList)
+                    .filter((arr) => arr.length > 0)
+                    .flat()
+                    .slice(0, 5);
 
                   const dupeRows = rows.filter((r) => r.dedup_match_id);
                   const dupeSkip = dupeRows.filter((r) => (r.dedup_decision || "skip") === "skip").length;
@@ -695,6 +727,32 @@ function ImportPage() {
                         Mapped to: {Object.entries(p.by_target_table || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                       </div>
 
+                      {/* Warning sample strip. When count says "1 warning"
+                          but the row's outside the visible 50, the
+                          operator otherwise sees a dead-end "no rows".
+                          Show actual warning text up front so they
+                          have context to decide. */}
+                      {warningSamples.length > 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-amber-900 mb-1">
+                                {p.warnings} warning{p.warnings === 1 ? "" : "s"} flagged
+                              </p>
+                              <ul className="text-xs text-amber-800/90 space-y-0.5">
+                                {warningSamples.map((w, i) => (
+                                  <li key={i}>• {w}</li>
+                                ))}
+                              </ul>
+                              <p className="text-[10px] text-amber-700/70 mt-1.5">
+                                Warnings don't block import -- the row still commits, just flagged for review afterwards. Click "Warnings" below to see which rows.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Drilldown filter pills */}
                       <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs w-fit">
                         {(["all", "duplicates", "errors", "warnings", "skipped"] as const).map((k) => {
@@ -703,7 +761,7 @@ function ImportPage() {
                             k === "duplicates" ? dupeRows.length :
                             k === "errors" ? rows.filter((r) => r.status === "error").length :
                             k === "skipped" ? rows.filter((r) => r.status === "skipped").length :
-                            rows.filter((r) => Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0).length;
+                            rows.filter(hasWarnings).length;
                           return (
                             <button
                               key={k}
@@ -787,18 +845,21 @@ function ImportPage() {
                                     </td>
                                     <td className="py-1.5 px-3 text-slate-600">{r.target_table || "—"}</td>
                                     <td className="py-1.5 px-3 text-slate-600">
-                                      {r.error_message ? (
-                                        <span className="text-rose-600">{r.error_message}</span>
-                                      ) : (r.preview_warnings?.length || 0) > 0 ? (
-                                        <span className="text-amber-700">
-                                          {r.preview_warnings!.slice(0, 2).join(" · ")}
-                                          {r.preview_warnings!.length > 2 && ` +${r.preview_warnings!.length - 2}`}
-                                        </span>
-                                      ) : r.mapped_data ? (
+                                      {(() => {
+                                        const ws = warningsList(r);
+                                        return r.error_message ? (
+                                          <span className="text-rose-600">{r.error_message}</span>
+                                        ) : ws.length > 0 ? (
+                                          <span className="text-amber-700">
+                                            {ws.slice(0, 2).join(" · ")}
+                                            {ws.length > 2 && ` +${ws.length - 2}`}
+                                          </span>
+                                        ) : r.mapped_data ? (
                                         <span className="text-slate-500">
                                           {Object.entries(r.mapped_data).slice(0, 3).map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(" · ")}
                                         </span>
-                                      ) : "—"}
+                                      ) : "—";
+                                      })()}
                                       {r.dedup_match_id && (
                                         <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
                                           <AlertTriangle className="w-3 h-3" />

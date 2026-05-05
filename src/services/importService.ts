@@ -170,25 +170,48 @@ export async function listImportJobs(companyId: string, limit = 25): Promise<Imp
   return (data || []) as ImportJob[];
 }
 
+/**
+ * List import rows for a job. Pages through Supabase via .range() so a
+ * 3.8k-row import doesn't get silently truncated -- PostgREST caps a
+ * single SELECT at 1000 rows by default regardless of .limit(N), which
+ * was burning the back ~75% of every big import (status stayed
+ * 'pending', mapped_data stayed null).
+ *
+ * Pulls 1000 at a time until the requested limit (or no more rows).
+ */
 export async function listImportRows(
   jobId: string,
   opts: { sheet?: string; status?: string; limit?: number } = {},
 ): Promise<ImportRow[]> {
   const supabase = sb();
-  let q = supabase
-    .from("import_rows")
-    .select("*")
-    .eq("job_id", jobId)
-    .order("source_row_index", { ascending: true });
-  if (opts.sheet) q = q.eq("sheet", opts.sheet);
-  if (opts.status) q = q.eq("status", opts.status);
-  if (opts.limit) q = q.limit(opts.limit);
-  const { data, error } = await q;
-  if (error) {
-    console.warn("listImportRows failed", error);
-    return [];
+  const PAGE = 1000;
+  const cap = opts.limit ?? Infinity;
+  const out: ImportRow[] = [];
+  let from = 0;
+
+  while (out.length < cap) {
+    const remaining = cap - out.length;
+    const to = from + Math.min(PAGE, remaining) - 1;
+    let q = supabase
+      .from("import_rows")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("source_row_index", { ascending: true })
+      .range(from, to);
+    if (opts.sheet) q = q.eq("sheet", opts.sheet);
+    if (opts.status) q = q.eq("status", opts.status);
+    const { data, error } = await q;
+    if (error) {
+      console.warn("listImportRows failed", error);
+      return out;
+    }
+    const batch = (data || []) as ImportRow[];
+    out.push(...batch);
+    if (batch.length < PAGE) break; // no more rows
+    from += PAGE;
   }
-  return (data || []) as ImportRow[];
+
+  return out;
 }
 
 export async function setJobStatus(
