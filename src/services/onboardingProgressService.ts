@@ -177,7 +177,7 @@ export const onboardingProgressService = {
         required: false,
         completed: clientCount > 0,
         count: clientCount,
-        href: `${tenantPath}/admin/clients`,
+        href: `${tenantPath}/admin/contacts`,
         estimatedMinutes: 10,
         icon: "👥",
       },

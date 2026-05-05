@@ -67,7 +67,7 @@ export function TopClientsBarChart({ data, loading }: Props) {
               return (
                 <Link
                   key={row.clientId}
-                  href={`/admin/clients?clientId=${row.clientId}`}
+                  href={`/admin/contacts?clientId=${row.clientId}`}
                   className="block group"
                   aria-label={`${row.name}: ${fmtR(row.lifetimeRevenue)} lifetime, ${row.orderCount} orders`}
                 >

@@ -114,7 +114,7 @@ function ClientSearchPage() {
   };
 
   const handleViewProfile = (clientId: string) => {
-    router.push(`/admin/clients/${clientId}`);
+    router.push(`/admin/contacts?clientId=${clientId}`);
   };
 
   return (

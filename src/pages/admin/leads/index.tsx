@@ -650,8 +650,8 @@ export default function AdminLeads() {
                 <h1 className="text-3xl font-bold text-slate-900">Leads</h1>
                 <p className="text-slate-600">
                   Active enquiry pipeline. Once a quote is paid the lead becomes a{" "}
-                  <Link href="/admin/clients" className="text-indigo-600 hover:underline font-medium">
-                    client
+                  <Link href="/admin/contacts" className="text-indigo-600 hover:underline font-medium">
+                    contact
                   </Link>
                   .
                 </p>

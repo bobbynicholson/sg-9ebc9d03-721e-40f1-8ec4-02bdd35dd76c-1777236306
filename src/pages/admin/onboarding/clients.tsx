@@ -514,9 +514,9 @@ function ClientImportPage() {
                     </p>
                   </div>
                 </div>
-                <Link href={withSlug("/admin/clients")}>
+                <Link href={withSlug("/admin/contacts")}>
                   <Button variant="outline" className="border-emerald-300 bg-white">
-                    Open client list
+                    Open contacts
                   </Button>
                 </Link>
               </CardContent>

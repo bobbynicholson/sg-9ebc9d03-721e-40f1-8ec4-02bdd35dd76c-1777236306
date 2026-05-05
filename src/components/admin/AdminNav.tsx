@@ -231,12 +231,6 @@ export function AdminNav({ className }: AdminNavProps) {
           description: "Cancellation refunds, mark as paid"
         },
         {
-          title: "Clients",
-          href: "/admin/clients",
-          icon: User,
-          description: "Paid customers -- order history and lifetime value"
-        },
-        {
           title: "Calendar",
           href: "/admin/calendar",
           icon: Calendar,

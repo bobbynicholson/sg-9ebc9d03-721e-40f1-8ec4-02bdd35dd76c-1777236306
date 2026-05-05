@@ -209,7 +209,7 @@ export function CommandPalette() {
             label,
             sublabel,
             badge: "Client",
-            href: `/admin/clients?clientId=${c.id}`,
+            href: `/admin/contacts?clientId=${c.id}`,
             haystack: [c.full_name, c.email, c.phone_number, c.company_name].filter(Boolean).join(" "),
           });
         });
