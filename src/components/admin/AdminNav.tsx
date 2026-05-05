@@ -585,9 +585,25 @@ export function AdminNav({ className }: AdminNavProps) {
     // Compare against both the bare path (router.pathname is the file
     // path, always /admin/<page>) and the slug-prefixed asPath the user
     // sees in their URL bar.
-    if (router.pathname === href) return true;
-    if (router.asPath === href) return true;
-    if (router.asPath === withSlug(href)) return true;
+    //
+    // Also matches sub-paths so /admin/onboarding/imports highlights
+    // the Onboarding entry. Boundary check (next char is "/" or "?"
+    // or end of string) keeps /admin/orders from matching
+    // /admin/order-assignments.
+    const matches = (path: string) => {
+      // Strip query string before comparing.
+      const bare = path.split("?")[0];
+      if (bare === href) return true;
+      if (bare.startsWith(href + "/")) return true;
+      return false;
+    };
+    if (matches(router.pathname)) return true;
+    if (matches(router.asPath)) return true;
+    if (matches(withSlug(href).split("?")[0])) return true; // unlikely but cheap
+    // Slug-prefixed asPath against slug-prefixed href.
+    const slugHref = withSlug(href);
+    const asPathBare = router.asPath.split("?")[0];
+    if (asPathBare === slugHref || asPathBare.startsWith(slugHref + "/")) return true;
     return false;
   };
 
