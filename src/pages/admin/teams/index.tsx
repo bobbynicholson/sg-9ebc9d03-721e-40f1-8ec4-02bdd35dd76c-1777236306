@@ -104,22 +104,29 @@ function TeamsIndexPage() {
         if (s.is_active && start && start < stale) kitchenMissingClockOut += 1;
       }
 
-      // Today's orders for kitchen jobs
-      const { count: kitchenJobs } = await supabase
+      // Today's orders for kitchen jobs. Region filter respected --
+      // the orders table is the only one in this hub that carries
+      // region_id natively; the rest are scoped indirectly via order.
+      let kitchenJobsQ = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .eq("event_date", todayISO)
         .not("status", "in", "(cancelled,completed)");
+      if (regionFilterId) kitchenJobsQ = kitchenJobsQ.eq("region_id", regionFilterId);
+      const { count: kitchenJobs } = await kitchenJobsQ;
 
-      // Driver assignments today + anomalies (rejected / no-show)
-      const { data: drvAssn } = await supabase
+      // Driver assignments today + anomalies. Region filter applied
+      // via the joined orders.region_id when active.
+      let drvAssnQ = supabase
         .from("driver_assignments")
-        .select("id, status, assigned_at, accepted_at, completed_at, orders!inner(event_date, company_id, deleted_at)")
+        .select("id, status, assigned_at, accepted_at, completed_at, orders!inner(event_date, company_id, deleted_at, region_id)")
         .eq("company_id", companyId)
         .is("orders.deleted_at", null)
         .eq("orders.event_date", todayISO);
+      if (regionFilterId) drvAssnQ = drvAssnQ.eq("orders.region_id", regionFilterId);
+      const { data: drvAssn } = await drvAssnQ;
 
       const drvRows = (drvAssn || []) as any[];
       const driverJobs = drvRows.length;
@@ -161,13 +168,15 @@ function TeamsIndexPage() {
 
       // Cleaning: no first-class table -- use cleaning staff count and the
       // overall completed-events count today as a proxy for "jobs".
-      const { count: cleaningJobs } = await supabase
+      let cleaningJobsQ = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .eq("event_date", todayISO)
         .in("status", ["completed", "ready", "in_transit"]);
+      if (regionFilterId) cleaningJobsQ = cleaningJobsQ.eq("region_id", regionFilterId);
+      const { count: cleaningJobs } = await cleaningJobsQ;
 
       const teamRows: TeamRow[] = [
         {

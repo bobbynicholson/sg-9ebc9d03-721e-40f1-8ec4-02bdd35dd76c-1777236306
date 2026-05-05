@@ -479,8 +479,12 @@ function WageDashboardPage() {
 
   const publicHolidayShiftCount = publicHolidayLines.length;
 
+  // Tightened from ADMIN -> COMPANY_ADMIN-only because UserRole.ADMIN
+  // in isAdmin() includes region_admin + sales_admin, which would
+  // otherwise see every staff member's pay rate. Matches the
+  // canAccessFinance gate the AdminNav now wraps the Wages section in.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
       <NoIndexMeta />
       <Head><title>Wage dashboard | CateringMS Admin</title></Head>
       <AdminNav />

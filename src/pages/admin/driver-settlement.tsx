@@ -82,8 +82,10 @@ interface SettlementRow {
 }
 
 export default function ProtectedDriverSettlementPage() {
+  // Pay-data privacy: tightened to COMPANY_ADMIN+ to match the
+  // canAccessFinance gate on the Wages section in AdminNav.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN]}>
       <DriverSettlementPage />
     </ProtectedRoute>
   );

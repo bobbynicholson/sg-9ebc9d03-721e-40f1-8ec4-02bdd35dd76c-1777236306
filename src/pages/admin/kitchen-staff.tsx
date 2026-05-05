@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import Head from "next/head";
@@ -88,6 +89,7 @@ const EMPTY_DRAFT: DraftStaff = {
 function KitchenStaffPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [staff, setStaff] = useState<KitchenStaffMember[]>([]);
@@ -95,7 +97,15 @@ function KitchenStaffPage() {
   const [search, setSearch] = useState("");
   // Department filter -- 'all' shows the company-wide hub view, picking
   // a department narrows to people whose departments[] includes it.
+  // Seeded from `?department=` so deep-links from the per-team admin
+  // pages (e.g. Cleaning team page -> "Cleaning staff" tile) land on
+  // the right filter without an extra click.
   const [filterDept, setFilterDept] = useState<"all" | string>("all");
+  useEffect(() => {
+    if (!router.isReady) return;
+    const dept = String(router.query.department || "").toLowerCase();
+    if (dept && dept !== "all") setFilterDept(dept);
+  }, [router.isReady, router.query.department]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<KitchenStaffMember | null>(null);

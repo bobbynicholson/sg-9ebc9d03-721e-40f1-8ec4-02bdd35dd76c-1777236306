@@ -95,16 +95,27 @@ function StockPage() {
       setLowStock({ count: filteredLow.length, top5: top5Low });
 
       // ---- Equipment commitments next 14d --------------------------------
-      // equipment_bookings.booked_from is the start; we look at bookings
-      // where the start sits in the 14-day window.
-      const { data: bookingRows } = await supabase
+      // equipment_bookings.booked_from is the start; bookings whose
+      // start sits in the 14-day window count as commitments. Region
+      // filter narrows via the linked order (the bookings table has no
+      // region_id of its own; orders does), so when a region is active
+      // we use orders!inner with a region match.
+      let bookingsQ = supabase
         .from("equipment_bookings")
-        .select("id, booked_from, quantity, status, equipment:equipment_id(name)")
+        .select(
+          regionFilterId
+            ? "id, booked_from, quantity, status, equipment:equipment_id(name), orders!inner(region_id)"
+            : "id, booked_from, quantity, status, equipment:equipment_id(name)",
+        )
         .eq("company_id", companyId)
         .gte("booked_from", todayISO)
         .lte("booked_from", in14ISO)
         .neq("status", "cancelled")
         .order("booked_from", { ascending: true });
+      if (regionFilterId) {
+        bookingsQ = bookingsQ.eq("orders.region_id", regionFilterId);
+      }
+      const { data: bookingRows } = await bookingsQ;
 
       const bRows = (bookingRows || []) as any[];
       // Highest-pressure date = the date with the most line items
@@ -125,12 +136,20 @@ function StockPage() {
       // suppliers who haven't delivered. Earlier draft of this page
       // pointed at `purchase_history` -- that table only has 4 metadata
       // columns and isn't where hire-ins live, so the query crashed.
-      const { data: hireRows } = await supabase
+      let hireQ = supabase
         .from("equipment_hire_orders")
-        .select("id, expected_pickup_date, expected_return_date, status, total_cost, supplier_name, equipment_name, quantity")
+        .select(
+          regionFilterId
+            ? "id, expected_pickup_date, expected_return_date, status, total_cost, supplier_name, equipment_name, quantity, orders!inner(region_id)"
+            : "id, expected_pickup_date, expected_return_date, status, total_cost, supplier_name, equipment_name, quantity",
+        )
         .eq("company_id", companyId)
         .in("status", ["draft", "ordered", "confirmed", "in-transit"])
         .order("expected_pickup_date", { ascending: true, nullsFirst: false });
+      if (regionFilterId) {
+        hireQ = hireQ.eq("orders.region_id", regionFilterId);
+      }
+      const { data: hireRows } = await hireQ;
       const hRows = (hireRows || []) as any[];
       const oldest = hRows[0]?.expected_pickup_date || null;
       setHireIn({ count: hRows.length, oldest });

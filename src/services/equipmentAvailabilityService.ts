@@ -2,26 +2,30 @@
 /**
  * Equipment availability calculator.
  *
- * Source of truth: equipment.quantity (units the company owns) and
- * orders.equipment_items (jsonb arrays of bookings against that
- * stock). We compute reserved counts on-the-fly rather than
- * maintaining a separate `equipment_reservations` table -- keeps the
- * data model tight and there's no second source to drift.
+ * Source of truth: `equipment.quantity` (units the company owns) and
+ * `equipment_bookings` (one row per equipment line on an order, with
+ * booked_from / booked_until / quantity / status / order_id). The
+ * older "orders.equipment_items jsonb" path was abandoned when that
+ * column was dropped -- the previous implementation here selected
+ * `orders.equipment_items` and silently caught the resulting Postgres
+ * error, returning `reserved=0` for every query. The page therefore
+ * showed "everything is free" no matter what was actually committed.
+ * This rewrite reads `equipment_bookings` directly, which is the
+ * authoritative reservation table going forward.
  *
- * Reservation window: each event holds equipment for ~24h around the
- * event_date by default. The catering team can widen this on a per-
- * lookup basis (e.g. multi-day weddings).
+ * Reservation window: each booking holds equipment from booked_from
+ * to booked_until. We treat any booking that overlaps the target date
+ * (after expanding by `windowDays`) as a competitor. Multi-day events
+ * can override the default window.
  *
- * Cancelled / completed orders don't count toward reserved stock.
- * "delivered" still counts because the equipment is still off-site
- * until the team collects it.
+ * Cancelled bookings don't count. Returned bookings honour
+ * `returned_quantity` so partial returns release stock correctly.
  */
 import { supabase } from "@/integrations/supabase/client";
 
-// Cast to any so .in("status", ACTIVE_STATUSES) doesn't fight with
-// the orders.status enum union type Supabase generates -- the values
-// here are all real members, but TS expects a tuple of literals.
-const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "in_transit", "delivered"] as any;
+// Active booking statuses -- anything not in this set is either
+// cancelled, fully returned, or not yet committed.
+const ACTIVE_BOOKING_STATUSES = ["confirmed", "in_use", "delivered", "out", "pending"] as const;
 
 export interface EquipmentAvailability {
   /** Total units the company owns. */
@@ -64,52 +68,53 @@ export async function getEquipmentAvailability(
     .maybeSingle();
   const owned = Number((eq as any)?.quantity ?? 0);
 
-  // Window: we treat any active order whose event_date is within
-  // ±windowDays of the target date as a competitor. Multi-day events
-  // can override this.
+  // Window: any booking whose [booked_from, booked_until] interval
+  // overlaps [target-windowDays, target+windowDays] is a competitor.
   const target = new Date(eventDate);
   if (Number.isNaN(target.getTime())) return { ...empty, owned };
-  const start = new Date(target);
-  start.setDate(target.getDate() - windowDays);
-  const end = new Date(target);
-  end.setDate(target.getDate() + windowDays);
-  const startISO = start.toISOString().slice(0, 10);
-  const endISO = end.toISOString().slice(0, 10);
+  const winStart = new Date(target);
+  winStart.setDate(target.getDate() - windowDays);
+  const winEnd = new Date(target);
+  winEnd.setDate(target.getDate() + windowDays);
+  const winStartISO = winStart.toISOString().slice(0, 10);
+  const winEndISO = winEnd.toISOString().slice(0, 10);
 
+  // Postgres interval-overlap rule: A.start <= B.end AND A.end >= B.start.
+  // We pull bookings whose booked_from <= winEnd AND booked_until >= winStart.
   let q = supabase
-    .from("orders")
-    .select("id, client_name, event_date, status, equipment_items")
+    .from("equipment_bookings")
+    .select(
+      "id, equipment_id, quantity, returned_quantity, status, booked_from, booked_until, order_id, orders!equipment_bookings_order_id_fkey(client_name, event_date, status)",
+    )
     .eq("company_id", companyId)
-    .gte("event_date", startISO)
-    .lte("event_date", endISO)
-    .in("status", ACTIVE_STATUSES);
-  if (exclude) q = q.neq("id", exclude);
+    .eq("equipment_id", equipmentId)
+    .lte("booked_from", winEndISO)
+    .gte("booked_until", winStartISO)
+    .in("status", ACTIVE_BOOKING_STATUSES as unknown as string[]);
+  if (exclude) q = q.neq("order_id", exclude);
 
-  const { data: orders, error } = await q;
+  const { data: bookings, error } = await q;
   if (error) {
-    console.warn("equipmentAvailabilityService.getEquipmentAvailability orders fetch failed", error);
+    console.warn("equipmentAvailabilityService.getEquipmentAvailability bookings fetch failed", error);
     return { ...empty, owned };
   }
 
   let reserved = 0;
   const conflicts: EquipmentAvailability["conflicts"] = [];
-  for (const o of (orders || []) as any[]) {
-    const items = Array.isArray(o.equipment_items) ? o.equipment_items : [];
-    let perOrderQty = 0;
-    for (const it of items) {
-      if (it && it.equipment_id === equipmentId) {
-        perOrderQty += Number(it.quantity) || 0;
-      }
-    }
-    if (perOrderQty > 0) {
-      reserved += perOrderQty;
-      conflicts.push({
-        order_id: o.id,
-        client_name: o.client_name,
-        event_date: o.event_date,
-        quantity: perOrderQty,
-      });
-    }
+  for (const b of (bookings || []) as any[]) {
+    const qty = Math.max(0, Number(b.quantity || 0) - Number(b.returned_quantity || 0));
+    if (qty <= 0) continue;
+    // Skip bookings whose order is cancelled / completed -- the
+    // booking row may live on but it shouldn't compete for stock.
+    const orderStatus = String(b.orders?.status || "").toLowerCase();
+    if (orderStatus === "cancelled" || orderStatus === "completed") continue;
+    reserved += qty;
+    conflicts.push({
+      order_id: b.order_id,
+      client_name: b.orders?.client_name || null,
+      event_date: b.orders?.event_date || (b.booked_from || "").slice(0, 10),
+      quantity: qty,
+    });
   }
 
   return {
@@ -192,14 +197,20 @@ export async function listUpcomingReservations(
   to.setDate(to.getDate() + days);
   const toISO = to.toISOString().slice(0, 10);
 
+  // Read directly from `equipment_bookings` -- the older path that
+  // pulled `orders.equipment_items` always failed silently because
+  // that column was dropped, so the drawer was permanently empty.
   const { data, error } = await supabase
-    .from("orders")
-    .select("id, client_name, event_date, status, equipment_items")
+    .from("equipment_bookings")
+    .select(
+      "id, quantity, returned_quantity, status, booked_from, booked_until, order_id, orders!equipment_bookings_order_id_fkey(client_name, event_date, status)",
+    )
     .eq("company_id", companyId)
-    .gte("event_date", fromDate)
-    .lte("event_date", toISO)
-    .in("status", ACTIVE_STATUSES)
-    .order("event_date", { ascending: true });
+    .eq("equipment_id", equipmentId)
+    .gte("booked_from", fromDate)
+    .lte("booked_from", toISO)
+    .in("status", ACTIVE_BOOKING_STATUSES as unknown as string[])
+    .order("booked_from", { ascending: true });
   if (error) {
     console.warn("listUpcomingReservations failed", error);
     return [];
@@ -215,23 +226,27 @@ export async function listUpcomingReservations(
   const owned = Number((eq as any)?.quantity ?? 0);
 
   const out: EquipmentReservationRow[] = [];
-  for (const o of (data || []) as any[]) {
-    const items = Array.isArray(o.equipment_items) ? o.equipment_items : [];
-    for (const it of items) {
-      if (!it || it.equipment_id !== equipmentId) continue;
-      const qty = Number(it.quantity) || 0;
-      if (qty <= 0) continue;
-      out.push({
-        order_id: o.id,
-        client_name: o.client_name,
-        event_date: o.event_date,
-        status: o.status,
-        quantity: qty,
-        from_stock_qty: Number(it.from_stock_qty) || 0,
-        from_hire_qty: Number(it.from_hire_qty) || 0,
-        isShortfall: qty > owned,
-      });
-    }
+  for (const b of (data || []) as any[]) {
+    const qty = Math.max(0, Number(b.quantity || 0) - Number(b.returned_quantity || 0));
+    if (qty <= 0) continue;
+    const orderStatus = String(b.orders?.status || "").toLowerCase();
+    if (orderStatus === "cancelled" || orderStatus === "completed") continue;
+    // booked_from is the canonical date for sorting; fall back to the
+    // joined order's event_date for display when present.
+    const evDate = b.orders?.event_date || (b.booked_from || "").slice(0, 10);
+    out.push({
+      order_id: b.order_id,
+      client_name: b.orders?.client_name || null,
+      event_date: evDate,
+      status: String(b.status || ""),
+      quantity: qty,
+      // equipment_bookings doesn't track stock-vs-hire split today
+      // -- full qty is treated as stock-side, shortfall flag picks up
+      // the over-capacity case if any.
+      from_stock_qty: qty,
+      from_hire_qty: 0,
+      isShortfall: qty > owned,
+    });
   }
   return out;
 }

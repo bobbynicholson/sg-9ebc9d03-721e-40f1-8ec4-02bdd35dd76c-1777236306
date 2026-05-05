@@ -127,13 +127,16 @@ function OfferingPage() {
       setMenuTile({ active: menuCountRes.count ?? 0, lastEdited, topQuoted });
       setEquipTile({ total: equipRows.length, missingPrice, missingPhoto });
 
-      // Recently quoted: last 30 days, accepted orders, distinct items
+      // Recently quoted: last 90 days, accepted orders, distinct items.
+      // 30d was too tight for tenants doing weekly events -- the strip
+      // would empty out for 6+ days of every month. 90d catches the
+      // last quarter without pretending stale data is fresh.
       const { data: acceptedItems } = await supabase
         .from("order_items")
         .select("menu_item_id, item_name, orders!inner(company_id, event_date, status, deleted_at)")
         .eq("orders.company_id", companyId)
         .is("orders.deleted_at", null)
-        .gte("orders.event_date", since30)
+        .gte("orders.event_date", since90)
         .in("orders.status", ["confirmed", "completed", "preparing", "ready", "in_transit"])
         .not("menu_item_id", "is", null)
         .order("event_date", { foreignTable: "orders", ascending: false })
@@ -159,7 +162,7 @@ function OfferingPage() {
         .from("equipment_bookings")
         .select("equipment_id, booked_from, equipment:equipment_id(name)")
         .eq("company_id", companyId)
-        .gte("booked_from", since30)
+        .gte("booked_from", since90)
         .not("equipment_id", "is", null)
         .order("booked_from", { ascending: false })
         .limit(2000);
@@ -349,7 +352,7 @@ function OfferingPage() {
           {/* Recently quoted strip */}
           <Card className="border-0 shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg">Recently quoted (30 days)</CardTitle>
+              <CardTitle className="text-lg">Recently quoted (90 days)</CardTitle>
               <p className="text-xs text-slate-600 mt-0.5">What clients accepted onto orders most recently.</p>
             </CardHeader>
             <CardContent>
@@ -358,7 +361,7 @@ function OfferingPage() {
                   <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                 </div>
               ) : recent.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4">Nothing in the last 30 days. Once an order goes confirmed, it lands here.</p>
+                <p className="text-sm text-slate-500 py-4">Nothing in the last 90 days. Once an order goes confirmed, it lands here.</p>
               ) : (
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {recent.map((r) => (

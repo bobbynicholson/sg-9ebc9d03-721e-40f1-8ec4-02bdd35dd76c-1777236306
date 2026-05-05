@@ -283,9 +283,9 @@ export function CommandPalette() {
     { id: "go-quotes", label: "Quotes", icon: FileText, href: "/admin/quotes", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-leads", label: "Leads", icon: TrendingUp, href: "/admin/leads", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-calendar", label: "Calendar", icon: Calendar, href: "/admin/calendar", group: "Navigate", roles: ["admin","company_admin","owner"] },
-    { id: "go-inventory", label: "Inventory", icon: Package, href: "/admin/inventory", group: "Navigate", roles: ["admin","company_admin","owner"] },
+    { id: "go-inventory", label: "Food & Ingredients", icon: Package, href: "/admin/inventory", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["inventory","ingredients","food","stock","pantry"] },
     { id: "go-users", label: "Team / Users", icon: Users, href: "/admin/users", group: "Navigate", roles: ["admin","company_admin","owner"] },
-    { id: "go-drivers", label: "Drivers", icon: Truck, href: "/admin/driver-management", group: "Navigate", roles: ["admin","company_admin","owner"] },
+    { id: "go-drivers", label: "Drivers (manage)", icon: Truck, href: "/admin/driver-management", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["driver","manage","add","invite"] },
     { id: "go-regions", label: "Regions", icon: Globe, href: "/admin/regions", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-financial", label: "Financial Dashboard", icon: DollarSign, href: "/admin/financial-dashboard", group: "Navigate", roles: ["company_admin","owner","super_admin"] },
     { id: "go-invoices", label: "Invoices", icon: CreditCard, href: "/admin/invoices", group: "Navigate", roles: ["admin","company_admin","owner"] },
@@ -300,7 +300,10 @@ export function CommandPalette() {
     { id: "go-client-srch", label: "Client Search",       icon: Users,        href: "/admin/client-search",       group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["find","search","client"] },
     { id: "go-menu",        label: "Menu",                icon: FileText,     href: "/admin/menu",                group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["recipe","food","catalog"] },
     { id: "go-equipment",   label: "Equipment",           icon: Package,      href: "/admin/equipment",           group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["catalog","chair","table","chafing"] },
-    { id: "go-hire-in",     label: "Hire-in Orders",      icon: ShoppingCart, href: "/admin/equipment/hire-orders", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["procurement","rent"] },
+    // Hire-in is reachable as both /admin/equipment/hire-orders (legacy
+    // bookmark) and /admin/equipment?tab=hire-in (the canonical hub).
+    // We surface only the hub-tabbed entry in the palette below as a
+    // Quick action -- the standalone URL still resolves for old links.
     { id: "go-suppliers",   label: "Suppliers",           icon: Building2,    href: "/admin/suppliers",           group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["vendor","supplier"] },
     { id: "go-shopping",    label: "Shopping Dashboard",  icon: ShoppingCart, href: "/admin/shopping",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["buy","procurement","shopping"] },
     { id: "go-vehicles",    label: "Vehicles",            icon: Truck,        href: "/admin/vehicles",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["fleet","cold-chain"] },

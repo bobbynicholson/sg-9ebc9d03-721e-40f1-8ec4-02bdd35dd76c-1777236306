@@ -731,8 +731,18 @@ export const inventoryService = {
       return [];
     }
 
-    return (data || []).filter(
-      (i: any) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0),
-    );
+    // Tightened rule: only rows that have a non-zero minimum and are
+    // at-or-under that minimum count as low. The earlier rule
+    // (`current <= minimum`) flagged every 0/0 seed row -- on a fresh
+    // tenant 47% of items came back "low" simply because they hadn't
+    // been topped up yet. Operators tuned the alert out as crying
+    // wolf. Now we require a meaningful minimum, OR a real negative
+    // balance (current_stock < 0 -- legitimately low).
+    return (data || []).filter((i: any) => {
+      const cur = Number(i.current_stock || 0);
+      const min = Number(i.minimum_stock || 0);
+      if (min > 0) return cur <= min;
+      return cur < 0;
+    });
   },
 };

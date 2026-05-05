@@ -34,20 +34,14 @@ import {
   Truck,
   Layers,
   Calendar,
-  ShoppingCart,
   UserPlus,
   FileSpreadsheet,
-  Plug,
   Route,
   User,
-  X,
   ShoppingBag,
   Zap,
   BarChart3,
-  Shield,
   LogOut,
-  ChevronDown,
-  Target,
   ChefHat,
   BookOpen,
   Wand2,
@@ -56,7 +50,7 @@ import {
   Code2,
   Sparkles,
   Receipt,
-  Wallet
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -256,18 +250,22 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Cleaning",  href: "/admin/teams/cleaning",  icon: Sparkles,    description: "Cleaning roster + workflows" },
       ],
     },
-    {
+    // Wages exposes pay rates + R amounts -- gated behind the same
+    // canAccessFinance check as Financial. region_admin / sales_admin
+    // shouldn't be browsing what their colleagues earn. Public holidays
+    // is config (operational), so it stays visible for everyone -- it
+    // moves into Operations rather than Wages.
+    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
       id: "wages",
       title: "Wages",
-      defaultOpen: true, // Daily/weekly use, especially around payday + month-close.
+      defaultOpen: true, // Daily/weekly use around payday + month-close.
       items: [
         { title: "All Wages Dashboard", href: "/admin/wages",             icon: Wallet,     description: "Hours x rates roll-up with overtime split" },
-        { title: "Staff & Rates",       href: "/admin/staff",             icon: ChefHat,    description: "Every staff member across kitchen, cleaning, shopping. Hourly / monthly / per-shift pay." },
+        { title: "Staff & Rates",       href: "/admin/staff",             icon: ChefHat,    description: "Pay rates per staff member" },
         { title: "Staff Hours",         href: "/admin/staff-hours",       icon: Clock,      description: "Track staff working hours" },
         { title: "Driver Settlement",   href: "/admin/driver-settlement", icon: DollarSign, description: "Per-driver pay summary -- hourly + distance + callout" },
-        { title: "Public Holidays",     href: "/admin/public-holidays",   icon: Calendar,   description: "SA gazetted dates + your company customs. Drives the 2x BCEA rate." },
       ],
-    },
+    }] : []),
     {
       id: "operations",
       title: "Operations",
@@ -280,6 +278,7 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Regions",             href: "/admin/regions",               icon: MapPin,        description: "Manage service regions" },
         { title: "Equipment Shortages", href: "/admin/equipment-shortages",   icon: Bell,          description: "Track inventory issues" },
         { title: "Job Progress",        href: "/admin/job-progress-overview", icon: BarChart3,     description: "Cross-team progress on today's jobs" },
+        { title: "Public Holidays",     href: "/admin/public-holidays",       icon: Calendar,      description: "SA gazetted dates + company customs. Drives the 2x BCEA rate." },
       ],
     },
     // Finance is role-gated: only owner / company_admin / super_admin
@@ -314,12 +313,11 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Zapier & Webhooks",     href: "/admin/integrations",        icon: Zap,            description: "Pipe leads + orders into 5,000+ apps" },
         { title: "Lead Capture Forms",    href: "/admin/integrations/embed",  icon: Code2,          description: "Public embeddable forms" },
         { title: "Messaging Templates",   href: "/admin/messaging-templates", icon: Sparkles,       description: "Edit every email + WhatsApp template" },
-        // Lifecycle Emails folds: After-Sales templates, After-Sales
-        // emails, Email Automation dashboard, Automation Settings.
-        // For Stage 1 the link points at the templates page -- the
-        // hub-with-tabs that ties all four routes together lands in
-        // Stage 2. The original URLs still resolve in the meantime.
-        { title: "Lifecycle Emails",      href: "/admin/email-templates",     icon: MessageSquare, description: "After-sales follow-ups + automation" },
+        // The four-route Lifecycle Emails hub didn't ship in Stage 2 --
+        // we keep the link pointing at the templates page and label it
+        // honestly until the hub-with-tabs lands. The After-Sales /
+        // Automation URLs still resolve directly for old bookmarks.
+        { title: "Email Templates",       href: "/admin/email-templates",     icon: MessageSquare, description: "After-sales follow-ups + automation templates" },
         { title: "Notification Settings", href: "/admin/notification-settings", icon: Bell,         description: "Configure notifications" },
       ],
     },
