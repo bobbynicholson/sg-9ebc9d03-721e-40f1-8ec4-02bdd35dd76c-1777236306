@@ -92,10 +92,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
         sb,
       );
-      if (!result.ok) {
-        return res.status(500).json({ error: result.error });
+      if (result.ok) {
+        return res.status(200).json({ ok: true, gateway: result.gateway });
       }
-      return res.status(200).json({ ok: true, gateway: result.gateway });
+      return res.status(500).json({ error: result.error });
     }
 
     res.setHeader("Allow", "GET, POST");

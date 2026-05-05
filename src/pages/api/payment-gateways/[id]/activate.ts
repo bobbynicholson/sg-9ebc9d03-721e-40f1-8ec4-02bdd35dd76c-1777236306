@@ -46,10 +46,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const sb = getServiceSupabase();
     const result = await paymentGatewayService.activate(companyId, gatewayId, user.id, sb);
-    if (!result.ok) {
-      return res.status(400).json({ error: result.error });
+    // Invert the check so TS narrows result on the failure branch.
+    // `if (!result.ok)` doesn't always narrow when the union is read
+    // through the service module boundary -- early-return on success
+    // and the rest of the function sees the failure shape cleanly.
+    if (result.ok) {
+      return res.status(200).json({ ok: true, gateway: result.gateway });
     }
-    return res.status(200).json({ ok: true, gateway: result.gateway });
+    return res.status(400).json({ error: result.error });
   } catch (e: any) {
     console.error("/api/payment-gateways/[id]/activate crashed:", e);
     return res.status(500).json({ error: e?.message || "Activate failed" });

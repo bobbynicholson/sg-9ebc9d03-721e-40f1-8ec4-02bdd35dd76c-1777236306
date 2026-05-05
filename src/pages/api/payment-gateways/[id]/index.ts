@@ -43,10 +43,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const sb = getServiceSupabase();
     const result = await paymentGatewayService.softDelete(companyId, gatewayId, user.id, sb);
-    if (!result.ok) {
-      return res.status(400).json({ error: result.error });
+    if (result.ok) {
+      return res.status(200).json({ ok: true });
     }
-    return res.status(200).json({ ok: true });
+    return res.status(400).json({ error: result.error });
   } catch (e: any) {
     console.error("/api/payment-gateways/[id] DELETE crashed:", e);
     return res.status(500).json({ error: e?.message || "Delete failed" });
