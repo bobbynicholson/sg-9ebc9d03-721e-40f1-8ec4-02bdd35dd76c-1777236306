@@ -58,6 +58,11 @@ interface RowShape {
   status: string;
   error_message: string | null;
   preview_warnings: string[] | null;
+  // Phase 3a dedup fields. Stamped by the preview API when the row's
+  // email matches an existing client / lead.
+  dedup_match_id: string | null;
+  dedup_match_table: string | null;
+  dedup_decision: "skip" | "update" | "create_new" | null;
 }
 
 export default function ProtectedImportPage() {
@@ -99,7 +104,61 @@ function ImportPage() {
   const [editedMapping, setEditedMapping] = useState<any>(null);
 
   // Drilldown filter for the preview step row table.
-  const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped">("all");
+  const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped" | "duplicates">("all");
+  const [bulkDedupBusy, setBulkDedupBusy] = useState(false);
+
+  // Per-row dedup decision setter -- writes through the API so
+  // commit picks up the choice. Optimistic UI: state flips first,
+  // server call patches the persisted record.
+  const setRowDecision = async (rowId: string, decision: "skip" | "update" | "create_new") => {
+    if (!jobId) return;
+    setRows((prev) => prev.map((r) => r.id === rowId ? { ...r, dedup_decision: decision } : r));
+    try {
+      const res = await fetch(`/api/imports/${jobId}/rows/${rowId}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || `Server returned ${res.status}`);
+      }
+    } catch (e: any) {
+      toast({ title: "Couldn't save decision", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  // Bulk apply -- skip all dupes, update all dupes, or create new for
+  // all dupes. Fires decision calls in parallel batches of 50.
+  const setAllDuplicateDecisions = async (decision: "skip" | "update" | "create_new") => {
+    if (!jobId) return;
+    const targets = rows.filter((r) => r.dedup_match_id);
+    if (targets.length === 0) {
+      toast({ title: "No duplicates to update" });
+      return;
+    }
+    setBulkDedupBusy(true);
+    setRows((prev) => prev.map((r) => r.dedup_match_id ? { ...r, dedup_decision: decision } : r));
+    try {
+      const BATCH = 50;
+      for (let i = 0; i < targets.length; i += BATCH) {
+        const batch = targets.slice(i, i + BATCH);
+        await Promise.all(batch.map((r) =>
+          fetch(`/api/imports/${jobId}/rows/${r.id}/decision`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision }),
+          }),
+        ));
+      }
+      const label = decision === "skip" ? "Skip all" : decision === "update" ? "Update existing" : "Create new";
+      toast({ title: `${label} applied to ${targets.length} duplicates` });
+    } catch (e: any) {
+      toast({ title: "Bulk update failed", description: e?.message, variant: "destructive" });
+    } finally {
+      setBulkDedupBusy(false);
+    }
+  };
 
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -556,26 +615,92 @@ function ImportPage() {
                     if (rowFilter === "errors") return r.status === "error";
                     if (rowFilter === "skipped") return r.status === "skipped";
                     if (rowFilter === "warnings") return Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0;
+                    if (rowFilter === "duplicates") return !!r.dedup_match_id;
                     return true;
                   });
 
+                  const dupeRows = rows.filter((r) => r.dedup_match_id);
+                  const dupeSkip = dupeRows.filter((r) => (r.dedup_decision || "skip") === "skip").length;
+                  const dupeUpdate = dupeRows.filter((r) => r.dedup_decision === "update").length;
+                  const dupeCreate = dupeRows.filter((r) => r.dedup_decision === "create_new").length;
+
                   return (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                         <Stat label="Total rows" value={p.total} />
                         <Stat label="OK" value={p.ok} tone="emerald" />
+                        <Stat label="Duplicates" value={p.duplicates ?? dupeRows.length} tone="amber" />
                         <Stat label="Warnings" value={p.warnings} tone="amber" />
                         <Stat label="Errors" value={p.errors} tone="rose" />
                       </div>
+
+                      {/* Duplicates banner -- shown only when matches exist.
+                          Default decision is 'skip' so the import is safe
+                          if the operator does nothing. Bulk actions let
+                          them flip the whole set in one go. */}
+                      {dupeRows.length > 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-amber-900">
+                                {dupeRows.length} {dupeRows.length === 1 ? "row matches an existing record" : "rows match existing records"}
+                              </p>
+                              <p className="text-xs text-amber-800/80 mt-0.5">
+                                Default is to skip these on commit. Switch any row to "update existing" to overwrite the saved record's fields, or "create new" to keep both side by side.
+                                {" "}Currently: <strong>{dupeSkip}</strong> skip · <strong>{dupeUpdate}</strong> update · <strong>{dupeCreate}</strong> create new.
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 pl-6">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={bulkDedupBusy}
+                              onClick={() => setAllDuplicateDecisions("skip")}
+                              className="h-7 text-[11px] bg-white"
+                            >
+                              Skip all duplicates
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={bulkDedupBusy}
+                              onClick={() => setAllDuplicateDecisions("update")}
+                              className="h-7 text-[11px] bg-white"
+                            >
+                              Update all existing records
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={bulkDedupBusy}
+                              onClick={() => setAllDuplicateDecisions("create_new")}
+                              className="h-7 text-[11px] bg-white"
+                            >
+                              Create new for all
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setRowFilter("duplicates")}
+                              className="h-7 text-[11px] ml-auto"
+                            >
+                              Review duplicates →
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       <div className="text-xs text-slate-500">
                         Mapped to: {Object.entries(p.by_target_table || {}).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                       </div>
 
                       {/* Drilldown filter pills */}
                       <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs w-fit">
-                        {(["all", "errors", "warnings", "skipped"] as const).map((k) => {
+                        {(["all", "duplicates", "errors", "warnings", "skipped"] as const).map((k) => {
                           const count =
                             k === "all" ? rows.length :
+                            k === "duplicates" ? dupeRows.length :
                             k === "errors" ? rows.filter((r) => r.status === "error").length :
                             k === "skipped" ? rows.filter((r) => r.status === "skipped").length :
                             rows.filter((r) => Array.isArray(r.preview_warnings) && r.preview_warnings.length > 0).length;
@@ -636,19 +761,29 @@ function ImportPage() {
                                     </td>
                                     <td className="py-1.5 px-3 text-slate-700">{r.sheet}</td>
                                     <td className="py-1.5 px-3">
-                                      <span
-                                        className={`text-[10px] px-1.5 py-0.5 rounded ${
-                                          r.status === "error"   ? "bg-rose-100 text-rose-700 border border-rose-200" :
-                                          r.status === "skipped" ? "bg-slate-100 text-slate-700 border border-slate-200" :
-                                          (r.preview_warnings?.length || 0) > 0
-                                            ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                            : "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                                        }`}
-                                      >
-                                        {r.status === "error" ? "error" :
-                                         r.status === "skipped" ? "skipped" :
-                                         (r.preview_warnings?.length || 0) > 0 ? "warn" : "ok"}
-                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <span
+                                          className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                            r.status === "error"   ? "bg-rose-100 text-rose-700 border border-rose-200" :
+                                            r.status === "skipped" ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                                            (r.preview_warnings?.length || 0) > 0
+                                              ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                              : "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                                          }`}
+                                        >
+                                          {r.status === "error" ? "error" :
+                                           r.status === "skipped" ? "skipped" :
+                                           (r.preview_warnings?.length || 0) > 0 ? "warn" : "ok"}
+                                        </span>
+                                        {r.dedup_match_id && (
+                                          <span
+                                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200"
+                                            title="Email matches an existing record"
+                                          >
+                                            dupe
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                     <td className="py-1.5 px-3 text-slate-600">{r.target_table || "—"}</td>
                                     <td className="py-1.5 px-3 text-slate-600">
@@ -664,6 +799,12 @@ function ImportPage() {
                                           {Object.entries(r.mapped_data).slice(0, 3).map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(" · ")}
                                         </span>
                                       ) : "—"}
+                                      {r.dedup_match_id && (
+                                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                                          <AlertTriangle className="w-3 h-3" />
+                                          On file as {r.dedup_match_table}: {(r.mapped_data?.email || r.mapped_data?.client_email || "").toString().slice(0, 40)}
+                                        </div>
+                                      )}
                                       {aiRepairNote && (
                                         <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
                                           <Bot className="w-3 h-3" />
@@ -672,7 +813,18 @@ function ImportPage() {
                                       )}
                                     </td>
                                     <td className="py-1.5 px-3">
-                                      {hasIssue ? (
+                                      {r.dedup_match_id ? (
+                                        <select
+                                          value={(r.dedup_decision || "skip") as string}
+                                          onChange={(e) => setRowDecision(r.id, e.target.value as "skip" | "update" | "create_new")}
+                                          className="h-7 text-[11px] border border-amber-300 bg-amber-50 rounded px-1.5"
+                                          title="How to handle this duplicate at commit time"
+                                        >
+                                          <option value="skip">Skip</option>
+                                          <option value="update">Update existing</option>
+                                          <option value="create_new">Create new</option>
+                                        </select>
+                                      ) : hasIssue ? (
                                         <Button
                                           size="sm"
                                           variant="outline"
