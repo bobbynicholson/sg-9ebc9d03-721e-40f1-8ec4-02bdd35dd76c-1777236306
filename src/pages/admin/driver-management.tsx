@@ -324,11 +324,15 @@ function DriverManagementPage() {
         toast({ title: "Invalid capacity", description: "Max jobs per shift must be a positive number.", variant: "destructive" });
         return;
       }
-      const parseRate = (raw: string, label: string): { ok: true; value: number | null } | { ok: false; msg: string } => {
+      // Flat shape (ok / value / msg) -- discriminated union narrows
+      // fine inside this function but can't be relied on if the type
+      // is referenced anywhere else, and TS lint catches it as unsafe
+      // when the shape escapes. Flat is safer.
+      const parseRate = (raw: string, label: string): { ok: boolean; value: number | null; msg?: string } => {
         const trimmed = raw.trim();
         if (trimmed === "") return { ok: true, value: null };
         const n = Number(trimmed);
-        if (isNaN(n) || n < 0) return { ok: false, msg: `${label} must be a positive number.` };
+        if (isNaN(n) || n < 0) return { ok: false, value: null, msg: `${label} must be a positive number.` };
         return { ok: true, value: n };
       };
       const hourly = parseRate(editHourlyRate, "Hourly rate");
