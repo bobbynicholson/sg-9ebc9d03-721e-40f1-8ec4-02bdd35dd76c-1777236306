@@ -197,8 +197,12 @@ function ImportPage() {
         });
         try {
           const pr = await fetch(`/api/imports/${json.jobId}/preview`, { method: "POST" });
-          const pj = await pr.json();
-          if (!pr.ok) throw new Error(pj?.error || "Preview failed");
+          const raw = await pr.text();
+          let pj: any = {};
+          try { pj = raw ? JSON.parse(raw) : {}; } catch {
+            pj = { error: raw.slice(0, 280) || `Server returned ${pr.status}` };
+          }
+          if (!pr.ok) throw new Error(pj?.error || `Preview failed (${pr.status})`);
           await refreshJob(json.jobId, true);
           setStep("preview");
         } catch (e: any) {
@@ -250,8 +254,21 @@ function ImportPage() {
         }).catch(() => undefined);
       }
       const res = await fetch(`/api/imports/${jobId}/preview`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Preview failed");
+      // Defensive parse -- if the function timed out or hit an infra
+      // error, the body may be plain text ("An error occurred...")
+      // and res.json() throws an unhelpful "Unexpected token A".
+      const raw = await res.text();
+      let json: any = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch {
+        // Non-JSON response. Treat the body as the error message.
+        json = { error: raw.slice(0, 280) || `Server returned ${res.status}` };
+      }
+      if (!res.ok) {
+        throw new Error(
+          json?.error
+          || (res.status === 504 ? "Preview took too long. Try splitting the file into smaller batches." : `Preview failed (${res.status})`)
+        );
+      }
       // Pull rows alongside the job so the drilldown table can
       // render without an extra round trip.
       await refreshJob(jobId, true);

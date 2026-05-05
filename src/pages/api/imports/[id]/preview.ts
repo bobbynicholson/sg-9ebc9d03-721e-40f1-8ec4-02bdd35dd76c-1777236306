@@ -33,44 +33,67 @@ interface PreviewSummary {
 }
 
 /**
- * Look up an existing clients / leads row that this import row would
- * collide with at commit time. Email is the canonical key. Returns
- * null when there's no match (fresh row).
+ * Bulk-fetch existing clients + leads for a list of emails. One round
+ * trip per target table instead of one per import row -- drops a 3821-
+ * row preview from 7600 DB calls down to 2. Returns a lower-cased
+ * email -> id map per table.
+ *
+ * RLS scopes by company_id; the service-role client used here ignores
+ * RLS but we still pin company_id on the WHERE clause.
  */
-async function findDuplicate(
+async function buildExistingEmailIndex(
   supabase: any,
   companyId: string,
-  targetTable: "clients" | "leads",
-  mapped: Record<string, any>,
-): Promise<{ id: string; table: "clients" | "leads" } | null> {
-  const email = (mapped.email || mapped.client_email || "").toString().trim();
-  if (!email) return null;
+  clientEmails: Set<string>,
+  leadEmails: Set<string>,
+): Promise<{
+  clientByEmail: Map<string, string>;
+  leadByEmail: Map<string, string>;
+}> {
+  const clientByEmail = new Map<string, string>();
+  const leadByEmail = new Map<string, string>();
 
-  if (targetTable === "clients") {
+  if (clientEmails.size > 0) {
+    // Postgres `in.()` filter, lowercased emails. Supabase returns
+    // null for empty arrays so guard.
+    const list = Array.from(clientEmails);
     const { data } = await supabase
       .from("clients")
-      .select("id")
+      .select("id, email")
       .eq("company_id", companyId)
-      .ilike("email", email)
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    return data ? { id: (data as any).id, table: "clients" } : null;
+      .in("email", list)
+      .is("deleted_at", null);
+    for (const row of (data || []) as Array<{ id: string; email: string | null }>) {
+      if (row.email) clientByEmail.set(row.email.toLowerCase().trim(), row.id);
+    }
   }
 
-  if (targetTable === "leads") {
-    const { data } = await supabase
+  if (leadEmails.size > 0) {
+    const list = Array.from(leadEmails);
+    // leads has both email + client_email -- match on either.
+    const { data: a } = await supabase
       .from("leads")
-      .select("id")
+      .select("id, email")
       .eq("company_id", companyId)
-      .or(`email.ilike.${email},client_email.ilike.${email}`)
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    return data ? { id: (data as any).id, table: "leads" } : null;
+      .in("email", list)
+      .is("deleted_at", null);
+    for (const row of (a || []) as Array<{ id: string; email: string | null }>) {
+      if (row.email) leadByEmail.set(row.email.toLowerCase().trim(), row.id);
+    }
+    const { data: b } = await supabase
+      .from("leads")
+      .select("id, client_email")
+      .eq("company_id", companyId)
+      .in("client_email", list)
+      .is("deleted_at", null);
+    for (const row of (b || []) as Array<{ id: string; client_email: string | null }>) {
+      if (row.client_email && !leadByEmail.has(row.client_email.toLowerCase().trim())) {
+        leadByEmail.set(row.client_email.toLowerCase().trim(), row.id);
+      }
+    }
   }
 
-  return null;
+  return { clientByEmail, leadByEmail };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -115,8 +138,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       total: rows.length, ok: 0, warnings: 0, errors: 0, duplicates: 0, by_target_table: {},
     };
 
-    // Update each import_rows row in place with mapped_data + status +
-    // warnings. Done one by one for clarity; 5k rows is small enough.
+    // ── Phase 1: derive mapped_data + validation status for every row,
+    // collect emails for the bulk dedup lookup. No DB writes yet. ──
+    type Computed = {
+      id: string;
+      mapped: Record<string, any>;
+      target: "clients" | "orders" | "leads";
+      status: "pending" | "skipped" | "error";
+      errorMessage: string | null;
+      warnings: string[];
+    };
+    const computed: Computed[] = [];
+    const clientEmailSet = new Set<string>();
+    const leadEmailSet = new Set<string>();
+
     for (const r of rows) {
       const sheetMapping = (job.mapping as any)[r.sheet] || {};
       const schemaMeta = sheetMapping.__schema__;
@@ -181,41 +216,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Inline dedup. Only relevant for clients + leads (orders dedup
-      // by client + date and is decided at commit time). When a match
-      // exists we stamp it on the row with a default decision of
-      // 'skip' -- the wizard then exposes the choice to the operator.
+      // Stash for phase 2. Collect emails for the bulk dedup index.
+      computed.push({
+        id: r.id,
+        mapped,
+        target: targetTable,
+        status,
+        errorMessage,
+        warnings,
+      });
+
+      if (status !== "error" && (targetTable === "clients" || targetTable === "leads")) {
+        const email = ((mapped.email || mapped.client_email) ?? "").toString().trim().toLowerCase();
+        if (email) {
+          if (targetTable === "clients") clientEmailSet.add(email);
+          else leadEmailSet.add(email);
+        }
+      }
+    }
+
+    // ── Phase 2: bulk dedup lookup. Two queries total. ──
+    const { clientByEmail, leadByEmail } = await buildExistingEmailIndex(
+      supabase, companyId, clientEmailSet, leadEmailSet,
+    );
+
+    // ── Phase 3: parallel row updates in batches of 50. Was one
+    // serial update per row; for a 3821-row import that's 3821 round
+    // trips and was the timeout cause. ──
+    const updates = computed.map((c) => {
+      const email = ((c.mapped.email || c.mapped.client_email) ?? "").toString().trim().toLowerCase();
       let dedupMatchId: string | null = null;
       let dedupMatchTable: "clients" | "leads" | null = null;
       let dedupDecision: "skip" | "update" | "create_new" | null = null;
-      if (status !== "error" && (targetTable === "clients" || targetTable === "leads")) {
-        const match = await findDuplicate(supabase, companyId, targetTable, mapped);
+
+      if (c.status !== "error" && (c.target === "clients" || c.target === "leads") && email) {
+        const lookup = c.target === "clients" ? clientByEmail : leadByEmail;
+        const match = lookup.get(email);
         if (match) {
-          dedupMatchId = match.id;
-          dedupMatchTable = match.table;
+          dedupMatchId = match;
+          dedupMatchTable = c.target;
           dedupDecision = "skip";
           summary.duplicates += 1;
         }
       }
 
-      if (status === "error") summary.errors += 1;
-      else if (warnings.length > 0) summary.warnings += 1;
+      if (c.status === "error") summary.errors += 1;
+      else if (c.warnings.length > 0) summary.warnings += 1;
       else summary.ok += 1;
-      summary.by_target_table[targetTable] = (summary.by_target_table[targetTable] || 0) + 1;
+      summary.by_target_table[c.target] = (summary.by_target_table[c.target] || 0) + 1;
 
-      await supabase
-        .from("import_rows")
-        .update({
-          mapped_data: mapped,
-          target_table: targetTable,
-          status,
-          error_message: errorMessage,
-          preview_warnings: warnings,
+      return {
+        id: c.id,
+        patch: {
+          mapped_data: c.mapped,
+          target_table: c.target,
+          status: c.status,
+          error_message: c.errorMessage,
+          preview_warnings: c.warnings,
           dedup_match_id: dedupMatchId,
           dedup_match_table: dedupMatchTable,
           dedup_decision: dedupDecision,
-        } as any)
-        .eq("id", r.id);
+        },
+      };
+    });
+
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+      const batch = updates.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map((u) =>
+        supabase.from("import_rows").update(u.patch as any).eq("id", u.id),
+      ));
     }
 
     await setJobStatus(jobId, "previewed", {
