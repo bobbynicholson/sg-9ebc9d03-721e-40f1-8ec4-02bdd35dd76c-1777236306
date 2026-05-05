@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, UserPlus, Mail, Phone, CheckCircle, XCircle, Search, MoreVertical, Activity, Clock, Settings, MapPin, Calendar, Snowflake, Flame, Users, User, Building2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { LogDriverShiftModal } from "@/components/admin/LogDriverShiftModal";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -186,6 +187,9 @@ function DriverManagementPage() {
 
   // Shift schedule dialog
   const [scheduleTarget, setScheduleTarget] = useState<Driver | null>(null);
+
+  // Log-shift dialog (manual hours entry for hourly-rate pay).
+  const [logShiftTarget, setLogShiftTarget] = useState<Driver | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -1362,6 +1366,15 @@ function DriverManagementPage() {
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
+                              onClick={() => setLogShiftTarget(driver)}
+                              title="Log hours worked (for hourly-rate pay)"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
                               onClick={() => openEditDriver(driver)}
                               title="Edit capacity + vehicle"
                             >
@@ -1578,6 +1591,19 @@ function DriverManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Log shift (manual hours entry for hourly-rate pay) */}
+      {logShiftTarget && user?.company_id && (
+        <LogDriverShiftModal
+          open={!!logShiftTarget}
+          onOpenChange={(o) => { if (!o) setLogShiftTarget(null); }}
+          companyId={user.company_id}
+          driverId={logShiftTarget.id}
+          driverName={logShiftTarget.full_name || logShiftTarget.email}
+          actorUserId={user?.id ?? null}
+          onCreated={() => { /* shifts list refresh handled when settlement view ships in Stage 3 */ }}
+        />
+      )}
 
       {/* Remove driver confirm */}
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => { if (!open && !removeSaving) setRemoveTarget(null); }}>
