@@ -17,8 +17,9 @@ import {
 import {
   Plus, Search, Phone, Mail, Calendar, DollarSign, TrendingUp,
   ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2,
-  Send, MailQuestion, RefreshCw, ChevronDown,
+  Send, MailQuestion, RefreshCw, ChevronDown, Upload,
 } from "lucide-react";
+import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -353,6 +354,9 @@ export default function AdminLeads() {
   const [expandedLeadId, setExpandedLeadId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Bulk-import modal state. Same engine as Contacts and the
+  // onboarding wizard, scoped to the leads target.
+  const [importOpen, setImportOpen] = useState(false);
 
   // Compose drawer state -- mirrors the Quotes page so both surfaces
   // give the team the same rich follow-up flow (subject, body, four
@@ -653,12 +657,22 @@ export default function AdminLeads() {
                 </p>
               </div>
             </div>
-            <Link href="/admin/leads/new">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Lead
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                title="Bulk upload leads from an Excel or CSV file"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import leads
               </Button>
-            </Link>
+              <Link href="/admin/leads/new">
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Lead
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Email-settings warning banner. Renders only when we've
@@ -1269,6 +1283,17 @@ export default function AdminLeads() {
       </AlertDialog>
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+
+      {/* Bulk-import modal -- shared with the Contacts page, scoped
+          to leads via the template prop. After commit we reload. */}
+      <ImportRecordsModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        template="leads"
+        recordLabel="lead"
+        recordLabelPlural="leads"
+        onComplete={() => loadLeads()}
+      />
     </>
   );
 }

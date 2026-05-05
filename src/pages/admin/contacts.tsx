@@ -39,7 +39,9 @@ import {
   Snowflake, Crown, ArrowRight, Send, Copy, ExternalLink, Inbox,
   Calendar as CalendarIcon, MapPin, ShoppingCart, MessageSquare,
   CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText,
+  Upload,
 } from "lucide-react";
+import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -142,6 +144,9 @@ function ClientsCRM() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null);
+  // Bulk-import modal -- "Import clients" button feeds the same engine
+  // the onboarding wizard uses. After commit we reload the contact list.
+  const [importOpen, setImportOpen] = useState(false);
   // Block-list opt-in stamped at delete time. Default off so a quick
   // bin-click doesn't quietly cut off a real client; the operator has
   // to tick "Block from future comms" deliberately.
@@ -523,6 +528,14 @@ function ClientsCRM() {
                   className="pl-9 w-64 sm:w-80"
                 />
               </div>
+              <Button
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                className="gap-1.5"
+                title="Bulk upload clients from an Excel or CSV file"
+              >
+                <Upload className="w-4 h-4" /> Import clients
+              </Button>
               <Button
                 onClick={() => { setEditing(null); setFormOpen(true); }}
                 className="gap-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
@@ -1049,6 +1062,19 @@ function ClientsCRM() {
           />
         )}
       </ComposeDrawerHost>
+
+      {/* Bulk-import modal. Drives the same /api/imports/* engine the
+          onboarding wizard uses; pre-scoped to clients via the
+          template prop so the auto-mapping shortcut fires and the
+          AI mapping step is skipped. */}
+      <ImportRecordsModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        template="clients"
+        recordLabel="client"
+        recordLabelPlural="clients"
+        onComplete={() => loadContacts()}
+      />
     </>
   );
 }

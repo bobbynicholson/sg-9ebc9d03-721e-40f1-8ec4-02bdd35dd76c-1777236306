@@ -184,6 +184,29 @@ function ImportPage() {
       if (!res.ok) throw new Error(json?.error || "Upload failed");
       setJobId(json.jobId);
       await refreshJob(json.jobId);
+
+      // Auto-mapping shortcut. If the upload endpoint recognised the
+      // headers as a known template, it already wrote the mapping and
+      // flipped the job to "mapped". Run preview inline and jump
+      // straight to the preview step -- saves the operator the
+      // mapping ceremony when their file is template-clean.
+      if (json.autoMappedTo) {
+        toast({
+          title: "Template recognised",
+          description: `Headers matched the ${json.autoMappedTo} template -- skipping the mapping step.`,
+        });
+        try {
+          const pr = await fetch(`/api/imports/${json.jobId}/preview`, { method: "POST" });
+          const pj = await pr.json();
+          if (!pr.ok) throw new Error(pj?.error || "Preview failed");
+          await refreshJob(json.jobId, true);
+          setStep("preview");
+        } catch (e: any) {
+          toast({ title: "Preview failed", description: e?.message || "", variant: "destructive" });
+        }
+        return;
+      }
+
       setStep("mapping");
       // Kick the AI mapping immediately -- the team usually waits
       // ~2-3 s and pressing the button manually feels redundant.
@@ -366,6 +389,30 @@ function ImportPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  {/* Template download buttons. Using one of these
+                      auto-recognises every column on the upload step
+                      and skips the AI mapping step entirely -- the
+                      wizard jumps straight to Preview. */}
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { window.location.href = "/api/imports/templates/clients"; }}
+                      className="gap-1.5"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Download clients template
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { window.location.href = "/api/imports/templates/leads"; }}
+                      className="gap-1.5"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Download leads template
+                    </Button>
+                  </div>
                   <Input
                     ref={fileInput as any}
                     type="file"
@@ -377,7 +424,7 @@ function ImportPage() {
                     disabled={busy}
                   />
                   <p className="text-xs text-slate-500">
-                    5 MB max · 5,000 rows max · existing rows are de-duped, not duplicated
+                    5 MB max. Row cap is set in SaaS settings (currently 200 by default). Existing rows are de-duped, not duplicated.
                   </p>
                 </div>
               </CardContent>

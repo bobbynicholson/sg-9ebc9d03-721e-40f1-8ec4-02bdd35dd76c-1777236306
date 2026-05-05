@@ -43,6 +43,7 @@ import {
   BarChart3,
   Globe,
   Calculator,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -183,6 +184,12 @@ const NAV: NavSection[] = [
     title: "System",
     defaultOpen: false,
     items: [
+      {
+        title: "Platform Settings",
+        href: "/admin/platform/settings",
+        icon: Settings,
+        sub: "Tunables: import row cap, public origin",
+      },
       {
         title: "Payment Gateways",
         href: "/admin/payment-gateways",
