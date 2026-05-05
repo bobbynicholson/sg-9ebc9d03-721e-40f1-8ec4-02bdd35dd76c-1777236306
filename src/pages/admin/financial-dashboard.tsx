@@ -19,6 +19,7 @@ import {
   Trophy
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useScopedCompanyId, useActiveTenant } from "@/contexts/ActiveTenantContext";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
 import { analyticsService } from "@/services/analyticsService";
@@ -30,6 +31,7 @@ import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { GetServerSideProps } from "next";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { PlatformNav } from "@/components/admin/PlatformNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
@@ -60,6 +62,13 @@ interface CashFlowAlert {
 
 export default function FinancialDashboardPage() {
   const { user } = useAuth();
+  // Tenant scope: tenant admins read their own profile.company_id,
+  // super_admin reads whichever tenant they've picked in the platform
+  // nav's ActiveTenantPicker. Both routes return null when there's no
+  // tenant to scope to (super_admin without a pick); the page renders
+  // an empty state below.
+  const scopedCompanyId = useScopedCompanyId();
+  const { isSuperAdmin } = useActiveTenant();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [alerts, setAlerts] = useState<CashFlowAlert[]>([]);
@@ -69,20 +78,28 @@ export default function FinancialDashboardPage() {
   // Per-branch P&L sources from useCompanyKitchens. Cross-branch
   // operators see a "Branches" tab; single-branch tenants don't get
   // it (one row would just duplicate the Overview).
-  const { kitchens } = useCompanyKitchens(user?.company_id ?? null);
+  const { kitchens } = useCompanyKitchens(scopedCompanyId);
   const branches = kitchens.filter((k) => k.source === "region");
   const showBranchesTab = branches.length > 1;
 
   const loadFinancialData = useCallback(async () => {
     if (!user) return;
+    if (!scopedCompanyId) {
+      // super_admin without a tenant pick -- render empty state
+      setLoading(false);
+      setMetrics(null);
+      setAlerts([]);
+      setOrders([]);
+      return;
+    }
     try {
       setLoading(true);
 
-      // Load all financial data
-      const ordersData = await orderService.getAllOrders(user.company_id);
+      // Load all financial data scoped to the active tenant.
+      const ordersData = await orderService.getAllOrders(scopedCompanyId);
 
       const [ledgerData, aiPredictions] = await Promise.all([
-        paymentLedgerService.getPaymentLedger(user.company_id),
+        paymentLedgerService.getPaymentLedger(scopedCompanyId),
         aiFinancialService.getPredictiveAnalytics(ordersData),
       ]);
 
@@ -139,7 +156,7 @@ export default function FinancialDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, scopedCompanyId]);
 
   useEffect(() => {
     if (user) {
@@ -231,7 +248,10 @@ export default function FinancialDashboardPage() {
       </Head>
       <NoIndexMeta />
 
-      <AdminNav />
+      {/* Render the platform nav for super_admin (so they stay in
+          their context with the tenant picker) and the tenant nav for
+          everyone else. */}
+      {isSuperAdmin ? <PlatformNav /> : <AdminNav />}
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 md:p-8 lg:ml-64 xl:ml-72">
         <div className="max-w-full">
           {/* Header with Health Score */}

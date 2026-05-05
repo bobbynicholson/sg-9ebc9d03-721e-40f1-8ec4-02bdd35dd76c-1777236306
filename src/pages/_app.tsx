@@ -3,6 +3,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
 import { RegionFilterProvider } from "@/contexts/RegionFilterContext";
+import { ActiveTenantProvider } from "@/contexts/ActiveTenantContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -27,13 +28,15 @@ export default function App({ Component, pageProps }: AppProps) {
             and load that tenant's branding row. */}
         <AuthProvider>
           <BrandingProvider initialBranding={initialBranding}>
-            <RegionFilterProvider>
-              <Component {...pageProps} />
-              <CommandPalette />
-              <MiddlewareErrorToast />
-              <VersionWatcher />
-              <Toaster />
-            </RegionFilterProvider>
+            <ActiveTenantProvider>
+              <RegionFilterProvider>
+                <Component {...pageProps} />
+                <CommandPalette />
+                <MiddlewareErrorToast />
+                <VersionWatcher />
+                <Toaster />
+              </RegionFilterProvider>
+            </ActiveTenantProvider>
           </BrandingProvider>
         </AuthProvider>
       </ThemeProvider>
