@@ -171,333 +171,164 @@ export function AdminNav({ className }: AdminNavProps) {
     localStorage.setItem("adminNav-collapsed", JSON.stringify(newState));
   };
 
+  // Stage-1 restructure (signed off May 2026). Restructure decisions:
+  //   - Refunds stays in Core (kept ungated; not moved behind the
+  //     canAccessFinance gate Financial uses).
+  //   - Inventory + Menu + Equipment + Hire-in pulled out of Core into
+  //     dedicated Offering and Stock sections so Core daily-use stays
+  //     scannable (was 12 items, now 8).
+  //   - Departments renamed to "Teams" to match existing role naming.
+  //   - Suppliers moves from Operations to Stock (operator tool, not
+  //     a finance ledger).
+  //   - Tax Overview moves from Operations to Financial. Shopping
+  //     Dashboard moves from Operations to Teams (it's the shopping
+  //     team's home).
+  //   - Job Progress and HR Solutions surfaced for the first time in
+  //     the nav (existing pages, were unreachable from sidebar).
+  //   - Communications collapses 4 lifecycle / automation entries into
+  //     a single "Lifecycle Emails" link (the sub-pages still resolve
+  //     by URL; Stage 2 builds the hub-with-tabs).
+  //   - Duplicate /admin/integrations link removed from Branding (sole
+  //     copy now under Communications as "Zapier & Webhooks").
+  //   - Stock + Wages flipped to defaultOpen:true (daily-use).
+  //   - Sections marked NEW (Offering / Stock / Teams / Wages) are
+  //     just regroupings of existing pages -- no Stage-2 dashboards
+  //     yet. Those land in a follow-up commit.
   const adminNavSections: NavSection[] = [
-    // Smart defaults: daily-use sections open, quarterly ones closed.
-    // Single-item "Dashboard" group is rendered flat above the accordions.
     {
       id: "dashboard",
       title: "Dashboard",
       defaultOpen: true,
       items: [
-        {
-          title: "Analytics Dashboard",
-          href: "/admin/dashboard",
-          icon: LayoutDashboard,
-          description: "Business insights and metrics"
-        },
-        // Notifications hidden 28 Apr 2026 -- mobile drawer overlay bug
-        // surfaces on click. Re-enable once the sidebar overlay is fixed
-        // and the notifications page audit lands.
-      ]
+        { title: "Analytics Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, description: "Business insights and metrics" },
+      ],
     },
     {
       id: "core",
       title: "Core Management",
       defaultOpen: true,
       items: [
-        {
-          title: "Contacts",
-          href: "/admin/contacts",
-          icon: MessageSquare,
-          description: "CRM inbox -- everyone you've touched, sorted by next action"
-        },
-        {
-          title: "Leads",
-          href: "/admin/leads",
-          icon: UserPlus,
-          description: "Active enquiry pipeline (haven't paid yet)"
-        },
-        {
-          title: "Quotes",
-          href: "/admin/quotes",
-          icon: FileSpreadsheet,
-          description: "Create and manage quotes"
-        },
-        {
-          title: "Orders",
-          href: "/admin/orders",
-          icon: ClipboardList,
-          description: "View and manage orders"
-        },
-        {
-          title: "Invoices",
-          href: "/admin/invoices",
-          icon: Receipt,
-          description: "Invoices issued for orders"
-        },
-        {
-          title: "Refunds",
-          href: "/admin/refunds",
-          icon: Receipt,
-          description: "Cancellation refunds, mark as paid"
-        },
-        {
-          title: "Calendar",
-          href: "/admin/calendar",
-          icon: Calendar,
-          description: "Event scheduling"
-        },
-        {
-          title: "Inventory",
-          href: "/admin/inventory",
-          icon: Package,
-          description: "Stock management"
-        },
-        {
-          title: "Menu",
-          href: "/admin/menu",
-          icon: BookOpen,
-          description: "Build menu items + recipes"
-        },
-        {
-          title: "Equipment",
-          href: "/admin/equipment",
-          icon: Package,
-          description: "Chafing, tables, chairs, hire add-ons"
-        },
-        {
-          title: "Onboarding",
-          href: "/admin/onboarding",
-          icon: Wand2,
-          // Single entry-point for every onboarding tool (easy client list,
-          // AI importer, receipt scanner) plus the imports history below.
-          // Was two separate menu items which confused new tenants.
-          description: "Bring your clients, orders and supplier slips on board"
-        },
-        {
-          title: "Hire-in orders",
-          href: "/admin/equipment/hire-orders",
-          icon: Truck,
-          description: "Procurement when you overcommit stock"
-        }
-      ]
+        { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "CRM inbox -- everyone you've touched, sorted by next action" },
+        { title: "Leads",         href: "/admin/leads",         icon: UserPlus,         description: "Active enquiry pipeline" },
+        { title: "Quotes",        href: "/admin/quotes",        icon: FileSpreadsheet,  description: "Create and manage quotes" },
+        { title: "Orders",        href: "/admin/orders",        icon: ClipboardList,    description: "View and manage orders" },
+        { title: "Invoices",      href: "/admin/invoices",      icon: Receipt,          description: "Invoices issued for orders" },
+        { title: "Refunds",       href: "/admin/refunds",       icon: CreditCard,       description: "Cancellation refunds, mark as paid" },
+        { title: "Calendar",      href: "/admin/calendar",      icon: Calendar,         description: "Event scheduling" },
+        { title: "Client Search", href: "/admin/client-search", icon: Search,           description: "Search and filter clients" },
+      ],
     },
     {
-      id: "team",
-      title: "Team Management",
-      defaultOpen: true,
+      id: "offering",
+      title: "Offering",
+      defaultOpen: false,
       items: [
-        {
-          title: "Full team",
-          href: "/admin/users",
-          icon: Users,
-          description: "Everyone with a login -- owners, admins, staff"
-        },
-        {
-          title: "Drivers",
-          href: "/admin/driver-management",
-          icon: Truck,
-          description: "Manage delivery drivers"
-        },
-        {
-          title: "Driver Settlement",
-          href: "/admin/driver-settlement",
-          icon: Wallet,
-          description: "Per-driver pay summary -- hourly + distance + callout"
-        },
-        {
-          title: "Staff & rates",
-          href: "/admin/staff",
-          icon: ChefHat,
-          description: "Every staff member across kitchen, cleaning, shopping. Hourly / monthly / per-shift pay."
-        },
-        {
-          title: "Public holidays",
-          href: "/admin/public-holidays",
-          icon: Calendar,
-          description: "SA gazetted dates + your company customs. Drives the 2x BCEA rate."
-        },
-        {
-          title: "Wage Dashboard",
-          href: "/admin/wages",
-          icon: DollarSign,
-          description: "Hours x rates roll-up with overtime split"
-        },
-        {
-          title: "Staff Hours",
-          href: "/admin/staff-hours",
-          icon: Clock,
-          description: "Track staff working hours"
-        }
-      ]
+        { title: "Menu", href: "/admin/menu", icon: BookOpen, description: "Build menu items + recipes" },
+        // Equipment lives in Stock now (operational concern). The
+        // Offering Hub (catalog overview) lands in Stage 2.
+      ],
+    },
+    {
+      id: "stock",
+      title: "Stock",
+      defaultOpen: true, // Daily-use: kitchen + shopping check stock several times a day.
+      items: [
+        { title: "Food & Ingredients", href: "/admin/inventory",             icon: Package,      description: "Pantry + chiller stock outlook" },
+        { title: "Equipment",          href: "/admin/equipment",             icon: Layers,       description: "Chafing dishes, tables, chairs, hire add-ons" },
+        { title: "Hire-in Orders",     href: "/admin/equipment/hire-orders", icon: ShoppingCart, description: "Procurement when you overcommit stock" },
+        { title: "Suppliers",          href: "/admin/suppliers",             icon: Building2,    description: "Supplier hub: contacts, products, spend" },
+      ],
+    },
+    {
+      id: "teams",
+      title: "Teams",
+      defaultOpen: false,
+      items: [
+        { title: "Drivers",  href: "/admin/driver-management", icon: Truck,       description: "Manage delivery drivers" },
+        { title: "Shopping", href: "/admin/shopping",          icon: ShoppingBag, description: "Procurement: buy now, plan ahead, scan slips" },
+        // Kitchen + Cleaning per-team indexes ship in Stage 2.
+      ],
+    },
+    {
+      id: "wages",
+      title: "Wages",
+      defaultOpen: true, // Daily/weekly use, especially around payday + month-close.
+      items: [
+        { title: "All Wages Dashboard", href: "/admin/wages",             icon: Wallet,     description: "Hours x rates roll-up with overtime split" },
+        { title: "Staff & Rates",       href: "/admin/staff",             icon: ChefHat,    description: "Every staff member across kitchen, cleaning, shopping. Hourly / monthly / per-shift pay." },
+        { title: "Staff Hours",         href: "/admin/staff-hours",       icon: Clock,      description: "Track staff working hours" },
+        { title: "Driver Settlement",   href: "/admin/driver-settlement", icon: DollarSign, description: "Per-driver pay summary -- hourly + distance + callout" },
+        { title: "Public Holidays",     href: "/admin/public-holidays",   icon: Calendar,   description: "SA gazetted dates + your company customs. Drives the 2x BCEA rate." },
+      ],
     },
     {
       id: "operations",
       title: "Operations",
-      defaultOpen: true,
-      items: [
-        {
-          title: "Dispatch Queue",
-          href: "/admin/order-assignments",
-          icon: ClipboardList,
-          description: "Get every order to a driver, fast"
-        },
-        {
-          title: "Live Operations",
-          href: "/admin/tracking",
-          icon: MapPin,
-          description: "Today's jobs in flight"
-        },
-        {
-          title: "Plan Routes",
-          href: "/admin/route-planning",
-          icon: Route,
-          description: "Auto-assign + optimise tomorrow"
-        },
-        {
-          title: "Vehicles",
-          href: "/admin/vehicles",
-          icon: Truck,
-          description: "Fleet roster + cold-chain"
-        },
-        {
-          title: "Equipment Shortages",
-          href: "/admin/equipment-shortages",
-          icon: Package,
-          description: "Track inventory issues"
-        },
-        {
-          title: "Regions",
-          href: "/admin/regions",
-          icon: MapPin,
-          description: "Manage service regions"
-        },
-        {
-          title: "Shopping Dashboard",
-          href: "/admin/shopping",
-          icon: ShoppingCart,
-          description: "Buy now, plan ahead, scan slips, mark deductibles"
-        },
-        {
-          title: "Suppliers",
-          href: "/admin/suppliers",
-          icon: Building2,
-          description: "Supplier hub: contacts, products, spend"
-        },
-        {
-          title: "Tax overview",
-          href: "/admin/tax-purchases",
-          icon: Receipt,
-          description: "Read-only deductible totals + CSV export for the accountant"
-        },
-        {
-          title: "Client Search",
-          href: "/admin/client-search",
-          icon: Search,
-          description: "Search and filter clients"
-        }
-      ]
-    },
-    // Finance is role-gated: only owner/admin/super-admin see it. Hides
-    // invoiced totals + cashflow from staff who only need ops visibility.
-    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
-      id: "finance",
-      title: "Finance",
       defaultOpen: false,
       items: [
-        {
-          title: "Financial Dashboard",
-          href: "/admin/financial-dashboard",
-          icon: BarChart3,
-          description: "Revenue, profitability, cashflow"
-        }
-      ]
+        { title: "Dispatch Queue",      href: "/admin/order-assignments",     icon: ClipboardList, description: "Get every order to a driver, fast" },
+        { title: "Live Operations",     href: "/admin/tracking",              icon: MapPin,        description: "Today's jobs in flight" },
+        { title: "Plan Routes",         href: "/admin/route-planning",        icon: Route,         description: "Auto-assign + optimise tomorrow" },
+        { title: "Vehicles",            href: "/admin/vehicles",              icon: Truck,         description: "Fleet roster + cold-chain" },
+        { title: "Regions",             href: "/admin/regions",               icon: MapPin,        description: "Manage service regions" },
+        { title: "Equipment Shortages", href: "/admin/equipment-shortages",   icon: Bell,          description: "Track inventory issues" },
+        { title: "Job Progress",        href: "/admin/job-progress-overview", icon: BarChart3,     description: "Cross-team progress on today's jobs" },
+      ],
+    },
+    // Finance is role-gated: only owner / company_admin / super_admin
+    // see it. Hides invoiced totals + cashflow from staff who only need
+    // ops visibility. Refunds was deliberately NOT moved here -- the
+    // gating would lock restricted admins out of refund processing.
+    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
+      id: "finance",
+      title: "Financial",
+      defaultOpen: false,
+      items: [
+        { title: "Financial Dashboard", href: "/admin/financial-dashboard", icon: BarChart3, description: "Revenue, profitability, cashflow" },
+        { title: "Tax Overview",        href: "/admin/tax-purchases",       icon: Receipt,   description: "Deductible totals + CSV export for the accountant" },
+      ],
     }] : []),
+    {
+      id: "team",
+      title: "Team Management",
+      defaultOpen: false,
+      items: [
+        { title: "Full team",    href: "/admin/users",        icon: Users,     description: "Everyone with a login -- owners, admins, staff" },
+        { title: "Onboarding",   href: "/admin/onboarding",   icon: Wand2,     description: "Bring your clients, orders and supplier slips on board" },
+        { title: "HR Solutions", href: "/admin/hr-solutions", icon: Briefcase, description: "Compliance, contracts, day-to-day HR" },
+      ],
+    },
     {
       id: "comms",
       title: "Communications",
       defaultOpen: false,
       items: [
-        {
-          title: "Email & Integrations",
-          href: "/admin/email-settings",
-          icon: Mail,
-          description: "Connect Gmail, Outlook, SMTP, Mailchimp"
-        },
-        {
-          title: "Zapier & Webhooks",
-          href: "/admin/integrations",
-          icon: Zap,
-          description: "Pipe leads + orders into 5,000+ apps"
-        },
-        {
-          title: "Lead Capture Forms",
-          href: "/admin/integrations/embed",
-          icon: Code2,
-          description: "Public embeddable forms"
-        },
-        {
-          title: "Messaging Templates",
-          href: "/admin/messaging-templates",
-          icon: Sparkles,
-          description: "Edit every email + WhatsApp template"
-        },
-        {
-          title: "After-Sales Email Templates",
-          href: "/admin/email-templates",
-          icon: Mail,
-          description: "Lifecycle automation templates"
-        },
-        {
-          title: "After-Sales Emails",
-          href: "/admin/after-sales-emails",
-          icon: MessageSquare,
-          description: "Follow-up communications"
-        },
-        {
-          title: "Email Automation",
-          href: "/admin/email-automation-dashboard",
-          icon: Mail,
-          description: "Automated email campaigns"
-        },
-        {
-          title: "Automation Settings",
-          href: "/admin/email-automation-settings",
-          icon: Settings,
-          description: "Configure automation"
-        },
-        {
-          title: "Notification Settings",
-          href: "/admin/notification-settings",
-          icon: Bell,
-          description: "Configure notifications"
-        }
-      ]
+        { title: "Email Settings",        href: "/admin/email-settings",      icon: Mail,           description: "Connect Gmail, Outlook, SMTP, Mailchimp" },
+        { title: "Zapier & Webhooks",     href: "/admin/integrations",        icon: Zap,            description: "Pipe leads + orders into 5,000+ apps" },
+        { title: "Lead Capture Forms",    href: "/admin/integrations/embed",  icon: Code2,          description: "Public embeddable forms" },
+        { title: "Messaging Templates",   href: "/admin/messaging-templates", icon: Sparkles,       description: "Edit every email + WhatsApp template" },
+        // Lifecycle Emails folds: After-Sales templates, After-Sales
+        // emails, Email Automation dashboard, Automation Settings.
+        // For Stage 1 the link points at the templates page -- the
+        // hub-with-tabs that ties all four routes together lands in
+        // Stage 2. The original URLs still resolve in the meantime.
+        { title: "Lifecycle Emails",      href: "/admin/email-templates",     icon: MessageSquare, description: "After-sales follow-ups + automation" },
+        { title: "Notification Settings", href: "/admin/notification-settings", icon: Bell,         description: "Configure notifications" },
+      ],
     },
     // Branding + system settings are company-wide -- only company-level
     // admins should reach them. region_admin / sales_admin lose this
-    // section, which keeps a branch manager from accidentally
-    // re-skinning the whole tenant.
+    // section. Duplicate Integrations link removed -- sole copy lives
+    // under Communications now.
     ...(profile && isCompanyAdmin(profile.role as UserRole) ? [{
       id: "branding",
       title: "Branding & Settings",
       defaultOpen: false,
       items: [
-        {
-          title: "Company Profile",
-          href: "/admin/company-profile",
-          icon: Building2,
-          description: "Address, branding, lat/lng for routing"
-        },
-        {
-          title: "White Label",
-          href: "/admin/white-label",
-          icon: Palette,
-          description: "Branding customization"
-        },
-        {
-          title: "Integrations",
-          href: "/admin/integrations",
-          icon: Plug,
-          description: "Connect third-party tools"
-        },
-        {
-          title: "System Settings",
-          href: "/admin/settings",
-          icon: Settings,
-          description: "General configuration"
-        }
-      ]
+        { title: "Company Profile", href: "/admin/company-profile", icon: Building2, description: "Address, branding, lat/lng for routing" },
+        { title: "White Label",     href: "/admin/white-label",     icon: Palette,   description: "Branding customization" },
+        { title: "System Settings", href: "/admin/settings",        icon: Settings,  description: "General configuration" },
+      ],
     }] : []),
     ...(profile && profile.role === "super_admin" ? [{
       id: "platform",
@@ -581,31 +412,41 @@ export function AdminNav({ className }: AdminNavProps) {
     }
   ];
 
-  const isActive = (href: string) => {
-    // Compare against both the bare path (router.pathname is the file
-    // path, always /admin/<page>) and the slug-prefixed asPath the user
-    // sees in their URL bar.
-    //
-    // Also matches sub-paths so /admin/onboarding/imports highlights
-    // the Onboarding entry. Boundary check (next char is "/" or "?"
-    // or end of string) keeps /admin/orders from matching
-    // /admin/order-assignments.
-    const matches = (path: string) => {
-      // Strip query string before comparing.
-      const bare = path.split("?")[0];
-      if (bare === href) return true;
-      if (bare.startsWith(href + "/")) return true;
-      return false;
-    };
-    if (matches(router.pathname)) return true;
-    if (matches(router.asPath)) return true;
-    if (matches(withSlug(href).split("?")[0])) return true; // unlikely but cheap
-    // Slug-prefixed asPath against slug-prefixed href.
+  // Pure path-vs-href matcher used by both the highlight logic and the
+  // section-auto-expand logic below. Matches sub-paths so
+  // /admin/onboarding/imports highlights the Onboarding entry; boundary
+  // check on the trailing "/" keeps /admin/orders from matching
+  // /admin/order-assignments.
+  const matchesHref = (href: string) => {
+    const bare = (path: string) => path.split("?")[0];
     const slugHref = withSlug(href);
-    const asPathBare = router.asPath.split("?")[0];
-    if (asPathBare === slugHref || asPathBare.startsWith(slugHref + "/")) return true;
+    const candidates = [
+      bare(router.pathname),
+      bare(router.asPath),
+      bare(slugHref),
+    ];
+    for (const c of candidates) {
+      if (c === href || c === slugHref) return true;
+      if (c.startsWith(href + "/")) return true;
+      if (c.startsWith(slugHref + "/")) return true;
+    }
     return false;
   };
+
+  // Longest-match resolution. When the active route is /admin/equipment/
+  // hire-orders, BOTH Equipment (`/admin/equipment`) and Hire-in Orders
+  // (`/admin/equipment/hire-orders`) match via the prefix rule -- but only
+  // the more specific one should visually highlight. We resolve once per
+  // render: collect every nav href that matches, sort by length desc,
+  // pick the longest. `isActive` then becomes equality against that
+  // single winner.
+  const activeHref = (() => {
+    const all = adminNavSections.flatMap((s) => s.items.map((i) => i.href));
+    const matching = all.filter(matchesHref);
+    if (matching.length === 0) return null;
+    return matching.sort((a, b) => b.length - a.length)[0];
+  })();
+  const isActive = (href: string) => href === activeHref;
 
   const SignOutBlock = ({ collapsed = false }: { collapsed?: boolean }) => (
     <Button
