@@ -61,8 +61,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const [k, v] of Object.entries(proposed_changes)) {
       if (ALLOWED_FIELDS.has(k)) sanitized[k] = v;
     }
-    if (Object.keys(sanitized).length === 0) {
-      return res.status(400).json({ error: "No amendable fields in proposed_changes" });
+
+    // Allow notes-only amendments. The dialog already lets the client
+    // submit just a note (e.g. "please confirm dietaries before Friday")
+    // without any field change, but the API used to reject these. The
+    // amendment record still gets created so the catering team sees
+    // the question in their review queue.
+    const notesProvided = typeof client_notes === "string" && client_notes.trim().length > 0;
+    if (Object.keys(sanitized).length === 0 && !notesProvided) {
+      return res.status(400).json({
+        error: "Add at least one field change or include a note for the team",
+      });
     }
 
     // Look up the order + verify ownership + amendable window.
