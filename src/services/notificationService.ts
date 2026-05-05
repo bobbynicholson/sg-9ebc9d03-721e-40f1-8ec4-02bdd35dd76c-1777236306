@@ -86,6 +86,24 @@ interface NotificationFilters {
   endDate?: string;
 }
 
+/**
+ * Postgres enum values for `notifications.type`. When a broadcast's
+ * type string matches one of these, we set both the text column
+ * (`notification_type`) and the enum column (`type`) so reports that
+ * group by `type` see the row. Anything not on this list leaves
+ * `type` NULL -- safer than failing the broadcast on an enum cast
+ * error when a new type ships before its enum migration.
+ */
+const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
+  "order_confirmed", "order_ready", "driver_assigned", "out_for_delivery",
+  "delivered", "payment_received", "payment_reminder",
+  "driver_replacement_needed", "equipment_shortage", "stock_low",
+  "quote_expiring", "trial_expiring", "subscription_renewed",
+  "payment_claimed",
+  // Added in 20260505160000_notification_type_enum_amendments.
+  "amendment_requested", "cancellation_requested", "postponement_requested",
+]);
+
 export const notificationService = {
   // ==================== CORE CRUD OPERATIONS ====================
   
@@ -209,20 +227,28 @@ export const notificationService = {
       }
     }
 
+    const resolvedType = notification.type || notification.notification_type || "system_alert";
+    const insertRow: Record<string, any> = {
+      company_id: companyId,
+      recipient_id: notification.recipient_id,
+      user_id: notification.user_id,
+      notification_type: resolvedType,
+      title: notification.title,
+      message: notification.message,
+      link: notification.link || null,
+      priority: notification.priority || "normal",
+      target_role: notification.target_role || null,
+      metadata: (notification.metadata || {}) as unknown as never,
+    };
+    // Mirror to the enum column when the value is recognised. Reports
+    // that group by `type` rely on this; rows whose type is off-enum
+    // still insert (text column unchanged).
+    if (NOTIFICATION_TYPE_ENUM_VALUES.has(resolvedType)) {
+      insertRow.type = resolvedType;
+    }
     const { data, error } = await supabase
       .from("notifications")
-      .insert({
-        company_id: companyId,
-        recipient_id: notification.recipient_id,
-        user_id: notification.user_id,
-        notification_type: notification.type || notification.notification_type || "system_alert",
-        title: notification.title,
-        message: notification.message,
-        link: notification.link || null,
-        priority: notification.priority || "normal",
-        target_role: notification.target_role || null,
-        metadata: (notification.metadata || {}) as unknown as never
-      })
+      .insert(insertRow as any)
       .select()
       .single();
 
@@ -351,18 +377,26 @@ export const notificationService = {
           // silently miss notifications.
           return true;
         })
-        .map(profile => ({
-          company_id: params.companyId,
-          recipient_id: profile.id,
-          user_id: profile.id, // self-originated row -- INSERT RLS allows it
-          notification_type: params.type,
-          title: params.title,
-          message: params.message,
-          link: params.link || null,
-          priority: params.priority || "normal",
-          target_role: profile.role as UserRole,
-          is_read: false
-        }));
+        .map(profile => {
+          const row: Record<string, any> = {
+            company_id: params.companyId,
+            recipient_id: profile.id,
+            user_id: profile.id, // self-originated row -- INSERT RLS allows it
+            notification_type: params.type,
+            title: params.title,
+            message: params.message,
+            link: params.link || null,
+            priority: params.priority || "normal",
+            target_role: profile.role as UserRole,
+            is_read: false,
+          };
+          // Populate the enum column when the type matches a known
+          // value. Reports that group by `type` need this.
+          if (NOTIFICATION_TYPE_ENUM_VALUES.has(params.type)) {
+            row.type = params.type;
+          }
+          return row;
+        });
 
       if (notifications.length === 0) {
         return 0;
