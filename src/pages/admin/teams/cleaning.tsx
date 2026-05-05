@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Cleaning team landing -- hero + quick stats + tile shortcuts.
  * No first-class cleaning task table yet; we route to /admin/staff with a
@@ -26,10 +24,7 @@ function CleaningTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, jobsToday: 0 });
 
-  const heroBg = useMemo(
-    () => "bg-[url('/images/teams/cleaning.jpg')] bg-cover bg-center",
-    [],
-  );
+  // Pure gradient hero -- see kitchen.tsx for rationale.
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +75,7 @@ function CleaningTeamPage() {
             <ArrowLeft className="w-4 h-4" /> All teams
           </Link>
 
-          <div className={`relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-500 ${heroBg}`}>
+          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-500">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">
               <div className="flex items-center gap-3">

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Stock-pressure triage. Three tiles + a unified "Needs attention" feed
  * mixing low ingredients, equipment commitments in the next 14 days,
@@ -75,7 +73,7 @@ function StockPage() {
 
   const regionLabel = useMemo(() => {
     if (!regionFilterId) return null;
-    return regionOptions.find((r: any) => r.id === regionFilterId)?.label || null;
+    return (regionOptions.find((r: any) => r.id === regionFilterId) as any)?.label || null;
   }, [regionFilterId, regionOptions]);
 
   const load = async () => {

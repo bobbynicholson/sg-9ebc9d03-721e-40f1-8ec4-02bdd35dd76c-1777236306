@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Drivers team landing -- hero + quick stats + tile shortcuts.
  */
@@ -34,10 +32,7 @@ function DriversTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, hoursWeek: 0, jobsToday: 0 });
 
-  const heroBg = useMemo(
-    () => "bg-[url('/images/teams/drivers.jpg')] bg-cover bg-center",
-    [],
-  );
+  // Pure gradient hero -- see kitchen.tsx for rationale.
 
   useEffect(() => {
     let cancelled = false;
@@ -103,7 +98,7 @@ function DriversTeamPage() {
             <ArrowLeft className="w-4 h-4" /> All teams
           </Link>
 
-          <div className={`relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600 ${heroBg}`}>
+          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-sky-500 via-blue-500 to-indigo-600">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">
               <div className="flex items-center gap-3">

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Kitchen team landing -- hero + quick stats + tile shortcuts.
  */
@@ -33,10 +31,10 @@ function KitchenTeamPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ active: 0, hoursWeek: 0, jobsToday: 0 });
 
-  const heroBg = useMemo(
-    () => "bg-[url('/images/teams/kitchen.jpg')] bg-cover bg-center",
-    [],
-  );
+  // Pure gradient hero -- intentionally no /images/teams/kitchen.jpg.
+  // Keeping the look simple and shippable rather than chasing a stock
+  // photo that has to clear licensing and brand fit. If a tenant wants
+  // a real banner, we'll add a per-company override later.
 
   useEffect(() => {
     let cancelled = false;
@@ -47,11 +45,19 @@ function KitchenTeamPage() {
         const todayISO = new Date().toISOString().slice(0, 10);
         const weekStartISO = startOfWeek().toISOString();
 
+        // Hours-this-week reads kitchen_staff_shifts (the canonical wage
+        // record with standard / overtime / sunday-holiday breakdowns)
+        // so the number agrees with what /admin/wages reports for the
+        // same period. The duty-board table (kitchen_duty_shifts) is a
+        // live-now signal, not a payroll source.
         const [staffRes, shiftsRes, jobsRes] = await Promise.all([
           supabase.from("profiles").select("id", { count: "exact", head: true })
             .eq("company_id", companyId).eq("role", "kitchen_staff"),
-          supabase.from("kitchen_duty_shifts").select("shift_start, shift_end")
-            .eq("company_id", companyId).gte("shift_start", weekStartISO),
+          supabase.from("kitchen_staff_shifts")
+            .select("standard_min, overtime_min, sunday_holiday_min")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("shift_start", weekStartISO),
           supabase.from("orders").select("id", { count: "exact", head: true })
             .eq("company_id", companyId).is("deleted_at", null)
             .eq("event_date", todayISO)
@@ -60,9 +66,11 @@ function KitchenTeamPage() {
 
         let hours = 0;
         for (const s of (shiftsRes.data || []) as any[]) {
-          const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
-          const end = s.shift_end ? new Date(s.shift_end).getTime() : 0;
-          if (start && end && end > start) hours += (end - start) / 3600000;
+          const mins =
+            Number(s.standard_min || 0) +
+            Number(s.overtime_min || 0) +
+            Number(s.sunday_holiday_min || 0);
+          if (mins > 0) hours += mins / 60;
         }
         if (!cancelled) {
           setStats({
@@ -101,7 +109,7 @@ function KitchenTeamPage() {
           </Link>
 
           {/* Hero -- gradient fallback if no /public/images/teams/kitchen.jpg */}
-          <div className={`relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 ${heroBg}`}>
+          <div className="relative h-[200px] rounded-xl overflow-hidden mb-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500">
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
             <div className="relative h-full flex items-end p-5 sm:p-6">
               <div className="flex items-center gap-3">

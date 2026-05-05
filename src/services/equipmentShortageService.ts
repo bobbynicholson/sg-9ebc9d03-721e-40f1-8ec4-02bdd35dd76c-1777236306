@@ -64,7 +64,10 @@ export const equipmentShortageService = {
         notification_type: "equipment_shortage",
         title: "Equipment Shortage Detected",
         message: `${flag.client_name} returned ${flag.returned_quantity} of ${flag.expected_quantity} ${flag.equipment_name}. Shortage: ${flag.shortage_quantity} items.`,
-        link: `/admin/equipment-shortages/${flag.id}`,
+        // Equipment hub-with-tabs is the canonical home now. The
+        // standalone /admin/equipment-shortages URL still resolves
+        // for old bookmarks, but new notifications land in the tab.
+        link: `/admin/equipment?tab=shortages&flag=${flag.id}`,
         priority: flag.priority === "urgent" || flag.priority === "high" ? "high" : "normal",
         metadata: {
           flagId: flag.id,

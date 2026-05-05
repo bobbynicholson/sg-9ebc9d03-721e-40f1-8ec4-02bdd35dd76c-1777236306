@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 /**
  * Teams glance -- one row per operational team. Manager Monday-morning
  * view: head count, hours logged this week, jobs today, anomalies.
@@ -59,7 +57,7 @@ function TeamsIndexPage() {
 
   const regionLabel = useMemo(() => {
     if (!regionFilterId) return null;
-    return regionOptions.find((r: any) => r.id === regionFilterId)?.label || null;
+    return (regionOptions.find((r: any) => r.id === regionFilterId) as any)?.label || null;
   }, [regionFilterId, regionOptions]);
 
   const todayLabel = useMemo(
@@ -86,22 +84,45 @@ function TeamsIndexPage() {
         staffByRole[r] = (staffByRole[r] || 0) + 1;
       }
 
-      // Kitchen duty shifts this week (for hours + anomalies)
-      const { data: kdShifts } = await supabase
-        .from("kitchen_duty_shifts")
-        .select("id, shift_start, shift_end, is_active")
-        .eq("company_id", companyId)
-        .gte("shift_start", weekStartISO);
+      // Two shift tables, two purposes:
+      //   * kitchen_duty_shifts -- the live duty board (per-order,
+      //     `is_active`, who's currently clocked in). Used here only
+      //     for missing-clock-out anomaly detection.
+      //   * kitchen_staff_shifts -- the canonical wage record. Carries
+      //     standard / overtime / sunday-holiday breakdowns the Wages
+      //     dashboard reads. We use it for "Hours logged this week"
+      //     so the Teams Hub number always agrees with what Wages
+      //     reports for the same period.
+      const stale = Date.now() - 16 * 3600 * 1000;
+
+      const [activeDuty, staffShiftsThisWeek] = await Promise.all([
+        supabase
+          .from("kitchen_duty_shifts")
+          .select("id, shift_start, is_active")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .gte("shift_start", weekStartISO),
+        supabase
+          .from("kitchen_staff_shifts")
+          .select("standard_min, overtime_min, sunday_holiday_min, shift_start")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("shift_start", weekStartISO),
+      ]);
+
+      let kitchenMissingClockOut = 0;
+      for (const s of (activeDuty.data || []) as any[]) {
+        const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
+        if (start && start < stale) kitchenMissingClockOut += 1;
+      }
 
       let kitchenHours = 0;
-      let kitchenMissingClockOut = 0;
-      const stale = Date.now() - 16 * 3600 * 1000;
-      for (const s of (kdShifts || []) as any[]) {
-        const start = s.shift_start ? new Date(s.shift_start).getTime() : 0;
-        const end = s.shift_end ? new Date(s.shift_end).getTime() : 0;
-        if (start && end && end > start) kitchenHours += (end - start) / 3600000;
-        // Missing clock-out: still active and started > 16h ago
-        if (s.is_active && start && start < stale) kitchenMissingClockOut += 1;
+      for (const s of (staffShiftsThisWeek.data || []) as any[]) {
+        const mins =
+          Number(s.standard_min || 0) +
+          Number(s.overtime_min || 0) +
+          Number(s.sunday_holiday_min || 0);
+        if (mins > 0) kitchenHours += mins / 60;
       }
 
       // Today's orders for kitchen jobs. Region filter respected --
