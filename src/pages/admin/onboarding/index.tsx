@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import {
   ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette,
   Landmark, Receipt, Sparkles, FileSpreadsheet, RotateCcw, ShieldCheck,
+  Users, Upload,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -45,6 +46,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
+import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 
 interface CompanyForm {
   // Basics
@@ -106,6 +108,7 @@ const STEPS = [
   { id: "branding", label: "Branding",  icon: Palette },
   { id: "banking",  label: "Banking",   icon: Landmark },
   { id: "vat",      label: "VAT",       icon: Receipt },
+  { id: "clients",  label: "Clients",   icon: Users },
   { id: "done",     label: "Finish",    icon: Check },
 ] as const;
 
@@ -411,6 +414,10 @@ function OnboardingWizard() {
                 />
               )}
 
+              {step === "clients" && (
+                <ClientsStep onBack={goBack} onNext={goNext} />
+              )}
+
               {step === "done" && (
                 <DoneStep
                   form={form}
@@ -468,6 +475,7 @@ function WelcomeStep({
             "Branding -- logo + brand colours for your client portal",
             "Banking (optional) -- enables EFT as a payment option",
             "VAT registration -- changes your invoice document title",
+            "Import existing clients (optional) -- bulk upload your contact list",
           ].map((line) => (
             <li key={line} className="flex items-start gap-2">
               <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
@@ -820,6 +828,84 @@ function VatStep({
         </Field>
       </div>
       <NavRow onBack={onBack} onNext={onNext} saving={saving} />
+    </StepShell>
+  );
+}
+
+function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  // Tightly-scoped wrapper around ImportRecordsModal -- the modal does
+  // the heavy lifting (template download, upload, preview, dedup
+  // decisions, commit). Step shell just frames it with onboarding
+  // context and a clear "Skip" path for caterers starting fresh.
+  const [open, setOpen] = useState(false);
+  const [imported, setImported] = useState<number | null>(null);
+
+  return (
+    <StepShell
+      icon={Users}
+      title="Bring your existing clients across"
+      description="Upload your customer list now so quotes, invoices and the client portal see them from day one. This is optional -- skip if you're starting fresh."
+    >
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <p className="text-sm text-slate-700 leading-relaxed">
+          Download the template, fill in your existing customer list (up to 10,000 rows),
+          and upload. We'll preview every row, flag duplicates and only save what you confirm.
+        </p>
+        <ul className="text-xs text-slate-600 space-y-1">
+          <li className="flex items-start gap-2">
+            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <span>Required: client name, email or phone</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <span>Existing customers (matched by email) are skipped automatically</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <Check className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <span>Test run option lets you preview before anything saves</span>
+          </li>
+        </ul>
+      </div>
+
+      {imported !== null && imported > 0 && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2">
+          <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-emerald-900">
+            Clients imported. You can run another import later from the Contacts page.
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button
+          onClick={() => setOpen(true)}
+          className="flex-1 bg-orange-600 hover:bg-orange-700"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          {imported !== null ? "Import another file" : "Import clients"}
+        </Button>
+        <Button variant="ghost" onClick={onNext}>
+          {imported !== null ? "Continue" : "Skip for now"} <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+
+      <ImportRecordsModal
+        open={open}
+        onOpenChange={setOpen}
+        template="clients"
+        recordLabel="client"
+        recordLabelPlural="clients"
+        onComplete={() => {
+          // The modal exposes a granular summary; for the wizard we just
+          // need to flip the "imported" flag so the CTA copy and skip
+          // button update. If they want the count they can re-run from
+          // Contacts.
+          setImported((n) => (n ?? 0) + 1);
+        }}
+      />
     </StepShell>
   );
 }
