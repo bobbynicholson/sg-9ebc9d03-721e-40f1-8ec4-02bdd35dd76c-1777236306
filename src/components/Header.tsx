@@ -113,7 +113,7 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8">
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
               CateringMS
             </span>
           </Link>
@@ -152,7 +152,7 @@ export function Header() {
           {user ? (
             <>
               <Link href={dashboardPath}>
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
                   Dashboard →
                 </Button>
               </Link>
@@ -185,7 +185,7 @@ export function Header() {
                 <Button variant="ghost">Sign In</Button>
               </Link>
               <Link href="/company-signup">
-                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                <Button className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
                   Get Started
                 </Button>
               </Link>
@@ -202,7 +202,7 @@ export function Header() {
             {user ? (
               <Link
                 href={dashboardPath}
-                className="flex items-center justify-between rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-3.5 text-base font-semibold text-white shadow-md"
+                className="flex items-center justify-between rounded-xl bg-gradient-to-r from-brand-primary to-brand-secondary px-4 py-3.5 text-base font-semibold text-white shadow-md"
               >
                 <span>Open my dashboard</span>
                 <ChevronDown className="h-4 w-4 -rotate-90" />
@@ -211,7 +211,7 @@ export function Header() {
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   href="/company-signup"
-                  className="flex flex-col items-start rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 px-4 py-3 text-white shadow-md"
+                  className="flex flex-col items-start rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary px-4 py-3 text-white shadow-md"
                 >
                   <span className="text-[11px] uppercase tracking-wide opacity-80">Free 14-day trial</span>
                   <span className="text-base font-semibold">Start now</span>

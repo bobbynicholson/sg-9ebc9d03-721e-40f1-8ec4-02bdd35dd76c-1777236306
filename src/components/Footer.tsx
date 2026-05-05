@@ -117,7 +117,7 @@ export function Footer() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/auth/login">
-                    <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-90">
+                    <Button size="sm" className="bg-gradient-to-r from-brand-primary to-brand-secondary text-white hover:opacity-90">
                       Sign in
                       <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
                     </Button>
@@ -159,7 +159,7 @@ export function Footer() {
                 className="h-12 object-contain mb-4"
               />
             ) : (
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent mb-4">
                 {displayName}
               </h3>
             )}
