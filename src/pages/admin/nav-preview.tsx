@@ -39,14 +39,25 @@ interface PreviewSection {
   items: PreviewItem[];
 }
 
-// ── Proposed structure ──────────────────────────────────────────────
-// Mirrors the synthesised plan:
-//   Dashboard / Core / Offering / Stock / Departments / Wages /
-//   Operations / Financial / Team / Comms / Planning Admin /
-//   Branding / Platform / Account
-// New sections + new items flagged. Everything links to a real route
-// where one exists; new dashboards link to a TBD anchor so the
-// operator sees the shape without needing the page to exist yet.
+// ── Proposed structure (v2 -- after Bobby's 9 decisions) ────────────
+// Decisions applied:
+//   1. Refunds stays UNGATED -- kept in Core, not Financial.
+//   2. Drop Branding's duplicate Integrations link; keep Comms copy.
+//   3. Fold After-Sales templates + Automation into a single Lifecycle
+//      Emails sub-page.
+//   4. Kill the "Planning Admin" section. Distribute its items:
+//      Client Search -> Core, Job Progress -> Operations, HR Solutions
+//      -> Team Management.
+//   5. Rename "Departments" -> "Teams" (matches the existing role
+//      naming + Team Management heading).
+//   6. Suppliers moves to Stock (operator tool, not finance ledger).
+//   7. Equipment becomes ONE hub page with internal tabs (Catalog /
+//      Availability / Shortages / Hire-in). Single nav entry under
+//      Stock. Offering shrinks to Menu + Offering Hub.
+//   8. Stock + Wages defaultOpen: true (daily-use sections).
+//   9. Teams Hub renders all 4 team rows always (no auto-hide).
+// Plus peer-review fix: Job Progress + HR Solutions are EXISTING
+// pages -- mark MOVED, not NEW.
 const PROPOSED_SECTIONS: PreviewSection[] = [
   {
     id: "dashboard",
@@ -61,12 +72,14 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     title: "Core Management",
     defaultOpen: true,
     items: [
-      { title: "Contacts",  href: "/admin/contacts",       icon: Users },
-      { title: "Leads",     href: "/admin/leads",          icon: UserPlus },
-      { title: "Quotes",    href: "/admin/quotes",         icon: FileText },
-      { title: "Orders",    href: "/admin/orders",         icon: ClipboardList },
-      { title: "Invoices",  href: "/admin/invoices",       icon: Receipt },
-      { title: "Calendar",  href: "/admin/calendar",       icon: Calendar },
+      { title: "Contacts",       href: "/admin/contacts",       icon: Users },
+      { title: "Leads",          href: "/admin/leads",          icon: UserPlus },
+      { title: "Quotes",         href: "/admin/quotes",         icon: FileText },
+      { title: "Orders",         href: "/admin/orders",         icon: ClipboardList },
+      { title: "Invoices",       href: "/admin/invoices",       icon: Receipt },
+      { title: "Refunds",        href: "/admin/refunds",        icon: CreditCard },
+      { title: "Calendar",       href: "/admin/calendar",       icon: Calendar },
+      { title: "Client Search",  href: "/admin/client-search",  icon: Search,    movedFrom: "Operations" },
     ],
   },
   {
@@ -75,41 +88,40 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     defaultOpen: false,
     isNewSection: true,
     items: [
-      { title: "Offering Hub",      icon: Sparkles, isNew: true },
-      { title: "Menu",              href: "/admin/menu",       icon: BookOpen, movedFrom: "Core" },
-      { title: "Equipment Catalog", href: "/admin/equipment",  icon: Package,  movedFrom: "Core" },
+      { title: "Offering Hub", icon: Sparkles, isNew: true },
+      { title: "Menu",         href: "/admin/menu", icon: BookOpen, movedFrom: "Core" },
     ],
   },
   {
     id: "stock",
     title: "Stock",
-    defaultOpen: false,
+    defaultOpen: true,                    // ← decision #8: daily-use, open
     isNewSection: true,
     items: [
-      { title: "Stock Overview",         icon: BarChart3, isNew: true },
-      { title: "Food & Ingredients",     href: "/admin/inventory",            icon: Package,       movedFrom: "Core" },
-      { title: "Equipment Availability", icon: Layers,        isNew: true },
-      { title: "Hire-in Orders",         href: "/admin/equipment/hire-orders", icon: ShoppingCart,  movedFrom: "Core" },
-      { title: "Equipment Shortages",    href: "/admin/equipment-shortages",  icon: Bell,          movedFrom: "Operations" },
+      { title: "Stock Overview",     icon: BarChart3, isNew: true },
+      { title: "Food & Ingredients", href: "/admin/inventory", icon: Package, movedFrom: "Core" },
+      { title: "Equipment",          href: "/admin/equipment", icon: Layers, movedFrom: "Core" },
+      { title: "Hire-in Orders",     href: "/admin/equipment/hire-orders", icon: ShoppingCart, movedFrom: "Core" },
+      { title: "Suppliers",          href: "/admin/suppliers", icon: Building2, movedFrom: "Operations" },
     ],
   },
   {
-    id: "departments",
-    title: "Departments",
+    id: "teams",                          // ← renamed from "departments" (#5)
+    title: "Teams",
     defaultOpen: false,
     isNewSection: true,
     items: [
-      { title: "Departments Hub", icon: Briefcase, isNew: true },
-      { title: "Kitchen",         icon: ChefHat,   isNew: true },
-      { title: "Drivers",         icon: Truck,     isNew: true },
-      { title: "Shopping",        href: "/admin/shopping",  icon: ShoppingBag, movedFrom: "Operations" },
-      { title: "Cleaning",        icon: Sparkles,  isNew: true },
+      { title: "Teams Hub", icon: Briefcase, isNew: true },
+      { title: "Kitchen",   icon: ChefHat,   isNew: true },
+      { title: "Drivers",   icon: Truck,     isNew: true },
+      { title: "Shopping",  href: "/admin/shopping", icon: ShoppingBag, movedFrom: "Operations" },
+      { title: "Cleaning",  icon: Sparkles,  isNew: true },
     ],
   },
   {
     id: "wages",
     title: "Wages",
-    defaultOpen: false,
+    defaultOpen: true,                    // ← decision #8: daily-use, open
     isNewSection: true,
     items: [
       { title: "All Wages Dashboard", href: "/admin/wages",             icon: Wallet,    isNew: true },
@@ -124,11 +136,13 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     title: "Operations",
     defaultOpen: false,
     items: [
-      { title: "Dispatch Queue",   href: "/admin/order-assignments", icon: Target },
-      { title: "Live Operations",  href: "/admin/tracking",          icon: MapPin },
-      { title: "Plan Routes",      href: "/admin/route-planning",    icon: Route },
-      { title: "Vehicles",         href: "/admin/vehicles",          icon: Truck },
-      { title: "Regions",          href: "/admin/regions",           icon: Globe2 },
+      { title: "Dispatch Queue",  href: "/admin/order-assignments", icon: Target },
+      { title: "Live Operations", href: "/admin/tracking",          icon: MapPin },
+      { title: "Plan Routes",     href: "/admin/route-planning",    icon: Route },
+      { title: "Vehicles",        href: "/admin/vehicles",          icon: Truck },
+      { title: "Regions",         href: "/admin/regions",           icon: Globe2 },
+      { title: "Job Progress",    href: "/admin/job-progress-overview", icon: BarChart3, movedFrom: "(unlinked)" },
+      { title: "Equipment Shortages", href: "/admin/equipment-shortages", icon: Bell },
     ],
   },
   {
@@ -137,9 +151,7 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     defaultOpen: false,
     items: [
       { title: "Financial Dashboard", href: "/admin/financial-dashboard", icon: TrendingUp },
-      { title: "Refunds",             href: "/admin/refunds",             icon: CreditCard, movedFrom: "Core" },
       { title: "Tax Overview",        href: "/admin/tax-purchases",       icon: FileSpreadsheet, movedFrom: "Operations" },
-      { title: "Suppliers",           href: "/admin/suppliers",           icon: Building2, movedFrom: "Operations" },
     ],
   },
   {
@@ -147,8 +159,9 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     title: "Team Management",
     defaultOpen: false,
     items: [
-      { title: "Full Team",  href: "/admin/users",      icon: Users },
-      { title: "Onboarding", href: "/admin/onboarding", icon: Wand2, movedFrom: "Core" },
+      { title: "Full Team",     href: "/admin/users",         icon: Users },
+      { title: "Onboarding",    href: "/admin/onboarding",    icon: Wand2,   movedFrom: "Core" },
+      { title: "HR Solutions",  href: "/admin/hr-solutions",  icon: Briefcase, movedFrom: "(unlinked)" },
     ],
   },
   {
@@ -156,23 +169,12 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
     title: "Communications",
     defaultOpen: false,
     items: [
-      { title: "Email & Integrations", href: "/admin/email-settings",      icon: Mail },
+      { title: "Email Settings",       href: "/admin/email-settings",      icon: Mail },
       { title: "Zapier & Webhooks",    href: "/admin/integrations",        icon: Plug },
       { title: "Lead Capture Forms",   href: "/admin/integrations/embed",  icon: Code2 },
       { title: "Messaging Templates",  href: "/admin/messaging-templates", icon: MessageSquare },
-      { title: "Email Automation",     href: "/admin/email-automation-dashboard", icon: Zap },
+      { title: "Lifecycle Emails",     href: "/admin/email-templates",     icon: Zap, isNew: true },
       { title: "Notification Settings", href: "/admin/notification-settings", icon: Bell },
-    ],
-  },
-  {
-    id: "planning-admin",
-    title: "Planning Admin",
-    defaultOpen: false,
-    isNewSection: true,
-    items: [
-      { title: "Client Search",  href: "/admin/client-search", icon: Search, movedFrom: "Operations" },
-      { title: "Job Progress",   icon: BarChart3, isNew: true },
-      { title: "HR Solutions",   icon: Users,     isNew: true },
     ],
   },
   {
@@ -183,6 +185,8 @@ const PROPOSED_SECTIONS: PreviewSection[] = [
       { title: "Company Profile", href: "/admin/company-profile", icon: Building2 },
       { title: "White Label",     href: "/admin/white-label",     icon: Palette },
       { title: "System Settings", href: "/admin/settings",        icon: SettingsIcon },
+      // NB: duplicate /admin/integrations link removed -- now lives
+      // only in Communications (decision #2).
     ],
   },
 ];
@@ -408,23 +412,28 @@ export default function NavPreviewPage() {
             </div>
           </div>
 
-          {/* Quick-react buttons. Prompts the operator with the open
-              questions still gating Stage 1, surfaced inline so they
-              don't need to dig back into chat. */}
-          <div className="mt-8 bg-amber-50 border border-amber-200 rounded-xl p-5">
-            <h3 className="text-sm font-bold text-amber-900 mb-2">
-              Six questions still gating execution
+          {/* Decisions log -- reflects what's already locked in vs.
+              what's still being shaped. Useful when Bobby comes back
+              after sleep / brings Callum into the conversation. */}
+          <div className="mt-8 bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+            <h3 className="text-sm font-bold text-emerald-900 mb-3">
+              Decisions locked in (round 1)
             </h3>
-            <ol className="text-sm text-amber-900 space-y-1.5 list-decimal pl-5">
-              <li>Refunds in Financial only, but keep "Issue refund" inline on Order detail?</li>
-              <li>Equipment split: Catalog (Offering) vs. Availability (Stock) -- two routes?</li>
-              <li>Stock: food + equipment as siblings under Stock, or one tab with sub-tabs?</li>
-              <li>Calendar: stay in Core, or promote to top-level?</li>
-              <li>Departments: meta-section containing each team, or each as top-level peer?</li>
-              <li>Driver pages: merge into Departments / Drivers and 301 the legacy URLs, or keep aliases?</li>
-            </ol>
-            <p className="text-xs text-amber-800 mt-3">
-              Reply in chat with answers (1-6) + greenlight, and Stage 1 ships.
+            <ul className="text-sm text-emerald-900 space-y-1.5 list-disc pl-5">
+              <li>Refunds stays under Core, ungated -- not moved to Financial.</li>
+              <li>Drop Branding's duplicate Integrations link (kept under Communications).</li>
+              <li>Fold After-Sales templates / Automation into a single "Lifecycle Emails" sub-page.</li>
+              <li>Kill the "Planning Admin" section -- Client Search to Core, Job Progress to Operations, HR Solutions to Team Management.</li>
+              <li>Rename "Departments" to "Teams".</li>
+              <li>Suppliers moves to Stock (operator tool, not finance).</li>
+              <li>Equipment becomes one hub page with internal tabs (Catalog / Availability / Shortages / Hire-in).</li>
+              <li>Stock + Wages default-open (daily-use sections).</li>
+              <li>Teams Hub renders all 4 team rows always.</li>
+            </ul>
+            <p className="text-xs text-emerald-800 mt-3">
+              Look at the right column. If the new shape feels right, reply
+              "ship Stage 1" and the regroup goes live behind a feature
+              flag for the 24h watch window.
             </p>
           </div>
         </div>
