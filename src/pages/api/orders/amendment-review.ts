@@ -21,6 +21,30 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 
+// Resolve the auth.users.id of the client behind an order. orders.client_id
+// is a FK to clients.id (NOT auth.users.id), so we go through the clients
+// table -- prefer the explicit user_id link, fall back to the email match
+// (for clients who own the order via portal token but haven't been linked
+// to an auth user yet). Returns null when neither is available.
+async function resolveClientUserId(ssr: any, orderClientId: string | null): Promise<string | null> {
+  if (!orderClientId) return null;
+  const { data: clientRow } = await ssr
+    .from("clients")
+    .select("user_id, email")
+    .eq("id", orderClientId)
+    .maybeSingle();
+  if (!clientRow) return null;
+  if (clientRow.user_id) return clientRow.user_id as string;
+  const email = (clientRow.email || "").toLowerCase().trim();
+  if (!email) return null;
+  const { data: profileMatch } = await ssr
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  return (profileMatch as any)?.id || null;
+}
+
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const ALLOWED_FIELDS = new Set([
   "guest_count",
@@ -56,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: request } = await ssr
       .from("order_amendment_requests")
-      .select("id, order_id, company_id, proposed_changes, status")
+      .select("id, order_id, company_id, proposed_changes, status, requested_by_user_id")
       .eq("id", request_id)
       .maybeSingle();
     if (!request) return res.status(404).json({ error: "Amendment request not found" });
@@ -79,6 +103,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         reviewed_at: nowIso,
         review_notes: review_notes || null,
       } as any).eq("id", request_id);
+
+      // Notify the client that their change request was declined.
+      // Best-effort -- a notification failure must not roll back the
+      // review. requested_by_user_id is the client's auth uid, fall
+      // back to the orders->clients lookup if it's missing.
+      try {
+        const { data: orderRow } = await ssr
+          .from("orders")
+          .select("client_id, order_number")
+          .eq("id", (request as any).order_id)
+          .maybeSingle();
+        const recipientId =
+          (request as any).requested_by_user_id ||
+          (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
+        if (recipientId) {
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.createNotification({
+            company_id: (request as any).company_id,
+            recipient_id: recipientId,
+            user_id: user.id,
+            notification_type: "amendment_rejected",
+            title: "Change request declined",
+            message: review_notes
+              ? `We couldn't apply your change request. Reason from the team: ${review_notes}`
+              : "We couldn't apply your change request. Please get in touch and we'll work it out.",
+            priority: "high",
+            link: `/client-portal/my-orders`,
+            related_entity_type: "order",
+            related_entity_id: (request as any).order_id,
+          });
+        }
+      } catch (e) {
+        console.warn("[amendment-review] reject notify failed:", e);
+      }
+
       return res.status(200).json({ ok: true, applied: 0 });
     }
 
@@ -182,6 +241,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           console.warn("[amendment-review] inventory recalc crashed:", e);
         }
       })();
+    }
+
+    // Notify the client that their change went through. Best-effort
+    // -- a notification failure must not roll back the amendment.
+    try {
+      const { data: orderRow } = await ssr
+        .from("orders")
+        .select("client_id, order_number")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const recipientId =
+        (request as any).requested_by_user_id ||
+        (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
+      if (recipientId) {
+        const partial = action === "approve_partial";
+        const appliedList = Object.keys(toApply)
+          .map((k) => k.replace(/_/g, " "))
+          .join(", ");
+        const { notificationService } = await import("@/services/notificationService");
+        await notificationService.createNotification({
+          company_id: (request as any).company_id,
+          recipient_id: recipientId,
+          user_id: user.id,
+          notification_type: partial ? "amendment_partial_approved" : "amendment_approved",
+          title: partial ? "Change request partly applied" : "Change request approved",
+          message: partial
+            ? `We applied part of your change request: ${appliedList}. Open your order to see the latest details.`
+            : `Your change request was applied: ${appliedList}. Open your order to see the latest details.`,
+          priority: "normal",
+          link: `/client-portal/my-orders`,
+          related_entity_type: "order",
+          related_entity_id: (request as any).order_id,
+        });
+      }
+    } catch (e) {
+      console.warn("[amendment-review] approve notify failed:", e);
     }
 
     return res.status(200).json({

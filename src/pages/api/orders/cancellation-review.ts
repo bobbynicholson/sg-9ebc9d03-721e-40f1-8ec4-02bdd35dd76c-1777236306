@@ -18,6 +18,70 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services/email/cancellationEmails";
 
+// Resolve the auth.users.id of the client behind an order. orders.client_id
+// is a FK to clients.id, not auth.users.id, so we go through the clients
+// table -- prefer the explicit user_id link, fall back to the email match.
+async function resolveClientUserId(ssr: any, orderClientId: string | null): Promise<string | null> {
+  if (!orderClientId) return null;
+  const { data: clientRow } = await ssr
+    .from("clients")
+    .select("user_id, email")
+    .eq("id", orderClientId)
+    .maybeSingle();
+  if (!clientRow) return null;
+  if (clientRow.user_id) return clientRow.user_id as string;
+  const email = (clientRow.email || "").toLowerCase().trim();
+  if (!email) return null;
+  const { data: profileMatch } = await ssr
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  return (profileMatch as any)?.id || null;
+}
+
+// Send a client-portal notification. Best-effort -- failures are
+// logged but never block the review action that called us.
+async function notifyClient(
+  ssr: any,
+  params: {
+    companyId: string;
+    orderId: string;
+    requestedByUserId: string | null;
+    actorUserId: string;
+    notificationType: string;
+    title: string;
+    message: string;
+    priority?: string;
+  },
+) {
+  try {
+    const { data: orderRow } = await ssr
+      .from("orders")
+      .select("client_id")
+      .eq("id", params.orderId)
+      .maybeSingle();
+    const recipientId =
+      params.requestedByUserId || (await resolveClientUserId(ssr, (orderRow as any)?.client_id));
+    if (!recipientId) return;
+    const { notificationService } = await import("@/services/notificationService");
+    await notificationService.createNotification({
+      company_id: params.companyId,
+      recipient_id: recipientId,
+      user_id: params.actorUserId,
+      notification_type: params.notificationType,
+      title: params.title,
+      message: params.message,
+      priority: params.priority || "normal",
+      link: `/client-portal/my-orders`,
+      related_entity_type: "order",
+      related_entity_id: params.orderId,
+    });
+  } catch (e) {
+    console.warn("[cancellation-review] notify failed:", e);
+  }
+}
+
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -51,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: request } = await ssr
       .from("cancellation_requests")
-      .select("id, order_id, company_id, request_type, requested_postpone_date, status, refund_amount_calculated, reason")
+      .select("id, order_id, company_id, request_type, requested_postpone_date, status, refund_amount_calculated, reason, requested_by_user_id")
       .eq("id", request_id)
       .maybeSingle();
     if (!request) return res.status(404).json({ error: "Request not found" });
@@ -74,6 +138,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         reviewed_at: nowIso,
         review_notes,
       } as any).eq("id", request_id);
+
+      const isPostpone = (request as any).request_type === "postpone";
+      await notifyClient(ssr, {
+        companyId: (request as any).company_id,
+        orderId: (request as any).order_id,
+        requestedByUserId: (request as any).requested_by_user_id || null,
+        actorUserId: user.id,
+        notificationType: isPostpone ? "postponement_rejected" : "cancellation_rejected",
+        title: isPostpone ? "Postponement declined" : "Cancellation declined",
+        message: review_notes
+          ? `We couldn't approve the request. Reason from the team: ${review_notes}`
+          : "We couldn't approve the request. Please get in touch and we'll work it out.",
+        priority: "high",
+      });
+
       return res.status(200).json({ ok: true, action: "rejected" });
     }
 
@@ -111,6 +190,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } as any).eq("id", request_id);
 
       void sendPostponementApprovedEmail((request as any).order_id, updates.event_date || null);
+
+      await notifyClient(ssr, {
+        companyId: (request as any).company_id,
+        orderId: (request as any).order_id,
+        requestedByUserId: (request as any).requested_by_user_id || null,
+        actorUserId: user.id,
+        notificationType: "postponement_approved",
+        title: "Postponement approved",
+        message: updates.event_date
+          ? `Your event has been moved to ${updates.event_date}. Open your order to confirm the details.`
+          : "Your postponement was approved. We'll be in touch to lock in the new date.",
+      });
 
       return res.status(200).json({
         ok: true,
@@ -174,6 +265,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     void sendCancellationEmail((request as any).order_id, refund_final);
+
+    await notifyClient(ssr, {
+      companyId: (request as any).company_id,
+      orderId: (request as any).order_id,
+      requestedByUserId: (request as any).requested_by_user_id || null,
+      actorUserId: user.id,
+      notificationType: "cancellation_approved",
+      title: "Cancellation approved",
+      message: refund_final > 0
+        ? `Your order is cancelled. A refund of R${refund_final.toFixed(2)} is on the way.`
+        : "Your order is cancelled. No refund applies under our cancellation policy.",
+    });
 
     return res.status(200).json({
       ok: true,

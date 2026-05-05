@@ -109,11 +109,18 @@ const STATUS_META: Record<ClientStatus, {
   lost:      { label: "Lost",         tone: "bg-rose-100 text-rose-700 border-rose-200",      icon: AlertTriangle },
 };
 
+// Every status in STATUS_META gets a pill so the segment counts add up to the
+// "All" total. Previously "won" and "returning" were defined as statuses but
+// not rendered, so imported clients with no leads/orders (which fall through
+// to status="won") were invisible to every filter -- making "All=604" while
+// the visible pills summed to 2.
 const FILTERS: Array<{ id: "all" | ClientStatus; label: string }> = [
   { id: "all",       label: "All" },
   { id: "hot_lead",  label: "Hot leads" },
   { id: "quoted",    label: "Quoted" },
+  { id: "won",       label: "Won" },
   { id: "active",    label: "Active" },
+  { id: "returning", label: "Returning" },
   { id: "vip",       label: "VIP" },
   { id: "quiet",     label: "Quiet" },
   { id: "cold",      label: "Cold" },
@@ -175,12 +182,32 @@ function ClientsCRM() {
   const loadContacts = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
+    // Page through clients in 1000-row chunks. PostgREST silently caps a
+    // single response at 1000 rows, so a customer who imports 5,000
+    // contacts would otherwise only ever see the first 1000 here.
+    const fetchAllClients = async () => {
+      const out: any[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const to = from + PAGE - 1;
+        const { data, error } = await supabase
+          .from("clients")
+          .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .range(from, to);
+        if (error) return { data: out, error };
+        const rows = data || [];
+        out.push(...rows);
+        if (rows.length < PAGE) break;
+        // Hard cap so a runaway query can't DOS the page. 50k contacts
+        // is far above any reasonable single-tenant book.
+        if (out.length >= 50000) break;
+      }
+      return { data: out, error: null };
+    };
     const [clientsRes, leadsRes, ordersRes, quotesRes, invoicesRes] = await Promise.all([
-      supabase
-        .from("clients")
-        .select("id, client_name, email, phone, client_type, is_active, outstanding_balance, created_at")
-        .eq("company_id", companyId)
-        .is("deleted_at", null),
+      fetchAllClients(),
       supabase
         .from("leads")
         .select("id, contact_name, email, phone, status, source, event_date, created_at")
@@ -380,7 +407,12 @@ function ClientsCRM() {
         } else if (c.leadStatus) {
           c.status = "hot_lead";
         } else {
-          c.status = "won";
+          // Fallthrough: imported contacts with no orders, no quotes, no
+          // leads. Previously fell to "won" which was wrong (a contact
+          // that's never bought anything isn't a won deal) and meant
+          // bulk-imported lists landed under a pill that wasn't even
+          // rendered. "cold" is the honest label.
+          c.status = "cold";
         }
 
         // Suggestion based on status + recency

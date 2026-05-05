@@ -43,6 +43,12 @@ interface CreateNotificationParams {
   target_role?: UserRole;
   metadata?: Record<string, unknown>;
   order_id?: string;
+  // Source-record pointer so the client / admin notification UIs can
+  // render contextual CTAs ("Open order", "View quote") that deep-link
+  // to the underlying record. Optional -- omit and the row falls back
+  // to the generic `link` button.
+  related_entity_type?: string;
+  related_entity_id?: string;
 }
 
 interface BroadcastNotificationParams {
@@ -70,6 +76,14 @@ interface BroadcastNotificationParams {
    * Leave undefined for company-wide broadcasts (existing behaviour).
    */
   regionId?: string | null;
+  /**
+   * Optional source-record pointer. Stamped onto notifications.related_entity_*
+   * so the bell / notifications page can render a contextual "Edit X" /
+   * "Review request" CTA that jumps straight to the underlying record.
+   * Skip these and the row falls back to the generic `link` button only.
+   */
+  relatedEntityType?: string;
+  relatedEntityId?: string;
 }
 
 interface CleanupOptions {
@@ -102,6 +116,10 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "payment_claimed",
   // Added in 20260505160000_notification_type_enum_amendments.
   "amendment_requested", "cancellation_requested", "postponement_requested",
+  // Added in 20260505170000_notification_type_enum_review_outcomes.
+  "amendment_approved", "amendment_partial_approved", "amendment_rejected",
+  "cancellation_approved", "cancellation_rejected",
+  "postponement_approved", "postponement_rejected",
 ]);
 
 export const notificationService = {
@@ -245,6 +263,12 @@ export const notificationService = {
     // still insert (text column unchanged).
     if (NOTIFICATION_TYPE_ENUM_VALUES.has(resolvedType)) {
       insertRow.type = resolvedType;
+    }
+    if (notification.related_entity_type) {
+      insertRow.related_entity_type = notification.related_entity_type;
+    }
+    if (notification.related_entity_id) {
+      insertRow.related_entity_id = notification.related_entity_id;
     }
     const { data, error } = await supabase
       .from("notifications")
@@ -395,6 +419,10 @@ export const notificationService = {
           if (NOTIFICATION_TYPE_ENUM_VALUES.has(params.type)) {
             row.type = params.type;
           }
+          // Source-record pointer for contextual CTAs in the bell /
+          // notifications page.
+          if (params.relatedEntityType) row.related_entity_type = params.relatedEntityType;
+          if (params.relatedEntityId) row.related_entity_id = params.relatedEntityId;
           return row;
         });
 

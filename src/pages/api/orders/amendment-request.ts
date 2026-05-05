@@ -28,6 +28,12 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+// Static type import so we can name UserRole in casts at the call
+// site. The runtime VALUE comes from a dynamic import inside the
+// handler (kept that way to avoid loading types/app's full surface
+// on cold-start). Aliased to avoid a name collision with the local
+// `const { UserRole }` from the dynamic import.
+import type { UserRole as UserRoleType } from "@/types/app";
 
 const ALLOWED_FIELDS = new Set([
   "guest_count",
@@ -174,6 +180,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         message: `A client wants to change their confirmed order. Review and approve.`,
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&amendment=${(inserted as any).id}`,
+        // Source pointer powers the contextual CTA on the
+        // notifications page (Review request / Edit order) -- without
+        // these, the row only got a generic "Open" button.
+        relatedEntityType: "order",
+        relatedEntityId: order_id,
         // Operator-facing roles. "owner" exists as a string in
         // profiles.role but isn't on the UserRole enum, so cast to
         // pass it through.
@@ -181,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           UserRole.SUPER_ADMIN,
           UserRole.COMPANY_ADMIN,
           UserRole.ADMIN,
-          "owner" as unknown as UserRole,
+          "owner" as unknown as UserRoleType,
         ],
       });
     } catch (e) {

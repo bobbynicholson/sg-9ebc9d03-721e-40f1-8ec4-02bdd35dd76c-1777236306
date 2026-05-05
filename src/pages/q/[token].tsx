@@ -261,6 +261,14 @@ export default function PublicQuotePage() {
   const total = Number(quote.total ?? quote.total_amount ?? 0);
   const today = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
 
+  // The quote is the trusted source for the public view. While in
+  // flight, syncOrderArtifacts mirrors order edits across header,
+  // menu_items and totals atomically. Once accepted, the quote is
+  // frozen (orderSyncService skips the quote mirror), so what the
+  // client sees stays equal to what they signed. No reconciliation
+  // needed here -- read values directly.
+  const displayGuestCount = quote.guest_count;
+
   return (
     <>
       <Head>
@@ -374,12 +382,12 @@ export default function PublicQuotePage() {
                   )}
                 </div>
               )}
-              {quote.guest_count != null && (
+              {displayGuestCount != null && (
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold flex items-center gap-1">
                     <Users className="w-3 h-3" /> Guests
                   </p>
-                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.guest_count}</p>
+                  <p className="text-sm font-semibold text-stone-900 mt-0.5">{displayGuestCount}</p>
                 </div>
               )}
               {quote.venue_address && (
@@ -404,8 +412,8 @@ export default function PublicQuotePage() {
                   {quote.menu_items.map((item: any, i: number) => {
                     const name = item?.name || item?.menu_item_name || `Item ${i + 1}`;
                     const description = item?.description || item?.notes || null;
-                    const qty = item?.quantity ?? item?.qty ?? 1;
                     const unitPrice = Number(item?.unit_price ?? item?.price ?? 0);
+                    const qty = Number(item?.quantity ?? item?.qty ?? 1);
                     const lineTotal = Number(item?.total ?? unitPrice * qty);
                     return (
                       <div key={i} className="flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
@@ -519,16 +527,13 @@ export default function PublicQuotePage() {
             </CardContent>
           </Card>
 
-          {/* NOTES + T&Cs */}
-          {(quote.notes || quote.terms_and_conditions) && (
+          {/* TERMS + valid-until -- kept above the accept block so the
+              client reads the legal context before signing. The free-form
+              "A note from us" message moved below the footer (per Bobby's
+              call) so it doesn't compete with the totals + accept CTA. */}
+          {(quote.terms_and_conditions || validUntil) && (
             <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5 space-y-4">
-                {quote.notes && (
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">A note from us</p>
-                    <p className="text-sm text-stone-700 whitespace-pre-wrap">{quote.notes}</p>
-                  </div>
-                )}
                 {quote.terms_and_conditions && (
                   <div>
                     <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">Terms</p>
@@ -820,6 +825,20 @@ export default function PublicQuotePage() {
               {company.phone && <p>{company.phone}</p>}
               {companyAddress && <p>{companyAddress}</p>}
             </div>
+          )}
+
+          {/* A NOTE FROM US -- sits below the address footer so it
+              reads like a personal sign-off rather than competing with
+              the totals + accept CTA above. */}
+          {quote.notes && (
+            <Card className="mt-6 border border-stone-200 shadow-sm print-shadow-none">
+              <CardContent className="py-5 px-5">
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
+                  A note from us
+                </p>
+                <p className="text-sm text-stone-700 whitespace-pre-wrap">{quote.notes}</p>
+              </CardContent>
+            </Card>
           )}
 
         </div>

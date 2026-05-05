@@ -16,6 +16,10 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
+// Static type-only import so we can cite UserRole in casts. The
+// runtime value still comes from the dynamic import inside the
+// handler. Aliased to avoid clashing with the local const below.
+import type { UserRole as UserRoleType } from "@/types/app";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -159,11 +163,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             : `A client wants to postpone a confirmed order to ${requested_postpone_date}. Review and approve.`,
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&cancellation=${(inserted as any).id}`,
+        // Source pointer for contextual CTA on notifications page.
+        relatedEntityType: "order",
+        relatedEntityId: order_id,
         targetRoles: [
           UserRole.SUPER_ADMIN,
           UserRole.COMPANY_ADMIN,
           UserRole.ADMIN,
-          "owner" as unknown as UserRole,
+          "owner" as unknown as UserRoleType,
         ],
       });
     } catch (e) {

@@ -350,6 +350,32 @@ function NotificationsPage() {
                                 const isQuote =
                                   notification.related_entity_type === "quote" &&
                                   !!notification.related_entity_id;
+                                // Order-type notifications (amendment /
+                                // cancellation / postponement requests) get
+                                // their own primary CTA. Without this, the
+                                // amendment_requested row only shows a
+                                // generic "Open" -- yesterday's quote-edit
+                                // notifications had a coloured "Edit quote"
+                                // button and Bobby noticed the regression.
+                                //
+                                // Fallback path: rows inserted before
+                                // related_entity_* was wired up still match
+                                // by notification_type so the CTA shows on
+                                // historical amendment/cancellation rows.
+                                const orderType = (notification.notification_type || "").toString();
+                                const isOrderType =
+                                  orderType === "amendment_requested" ||
+                                  orderType === "cancellation_requested" ||
+                                  orderType === "postponement_requested";
+                                const isOrder =
+                                  (notification.related_entity_type === "order" &&
+                                    !!notification.related_entity_id) ||
+                                  (isOrderType && !!notification.link);
+                                const orderCtaLabel =
+                                  orderType === "amendment_requested" ? "Review change" :
+                                  orderType === "cancellation_requested" ? "Review cancellation" :
+                                  orderType === "postponement_requested" ? "Review postponement" :
+                                  "Open order";
                                 return (
                                   <>
                                     <div className="flex flex-wrap gap-2 mt-3">
@@ -385,6 +411,28 @@ function NotificationsPage() {
                                           Edit quote
                                         </Button>
                                       )}
+                                      {isOrder && (
+                                        <Button
+                                          size="sm"
+                                          className="bg-orange-600 hover:bg-orange-700"
+                                          onClick={() => {
+                                            if (!notification.is_read) handleMarkAsRead(notification.id);
+                                            // Prefer the deep link on the
+                                            // notification (it carries the
+                                            // amendment / cancellation
+                                            // request id), fall back to the
+                                            // bare order page when we only
+                                            // have the related_entity_id.
+                                            const fallback = notification.related_entity_id
+                                              ? `/admin/orders?orderId=${encodeURIComponent(notification.related_entity_id)}`
+                                              : "/admin/orders";
+                                            window.location.href = notification.link || fallback;
+                                          }}
+                                        >
+                                          <Edit3 className="h-4 w-4 mr-1" />
+                                          {orderCtaLabel}
+                                        </Button>
+                                      )}
                                       {notification.link && (
                                         <Button
                                           variant="ghost"
@@ -395,6 +443,8 @@ function NotificationsPage() {
                                           }}
                                         >
                                           {isQuote ? (
+                                            <><Eye className="h-4 w-4 mr-1" /> Open in list</>
+                                          ) : isOrder ? (
                                             <><Eye className="h-4 w-4 mr-1" /> Open in list</>
                                           ) : (
                                             <><ExternalLink className="h-4 w-4 mr-1" /> Open</>
