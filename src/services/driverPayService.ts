@@ -350,6 +350,132 @@ export const driverPayService = {
   },
 
   /**
+   * Auto clock-in -- called from the dispatch flow when a driver
+   * marks an order as picked up. Idempotent: if an open shift
+   * already exists for this driver + order, do nothing.
+   *
+   * Stage 4 wiring point. The shift gets:
+   *   source     = 'auto'
+   *   status     = 'active'
+   *   actual_start = now
+   *   order_id   = the picked-up order
+   * The matching auto clock-out closes it.
+   */
+  async autoClockIn(
+    opts: { companyId: string; driverId: string; orderId: string },
+    client: Sb = defaultClient,
+  ): Promise<{ ok: boolean; shiftId?: string; error?: string }> {
+    try {
+      // Check for an existing open shift on this order. Avoids dupe
+      // rows when the driver hits "picked up" twice or the API
+      // double-fires.
+      const { data: existing } = await (client as any)
+        .from("driver_shifts")
+        .select("id")
+        .eq("company_id", opts.companyId)
+        .eq("driver_id", opts.driverId)
+        .eq("order_id", opts.orderId)
+        .is("actual_end", null)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (existing) return { ok: true, shiftId: (existing as any).id };
+
+      const nowIso = new Date().toISOString();
+      const { data, error } = await (client as any)
+        .from("driver_shifts")
+        .insert({
+          company_id: opts.companyId,
+          driver_id: opts.driverId,
+          shift_date: nowIso.slice(0, 10),
+          actual_start: nowIso,
+          status: "active",
+          source: "auto",
+          order_id: opts.orderId,
+        })
+        .select("id")
+        .single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, shiftId: (data as any).id };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || "autoClockIn failed" };
+    }
+  },
+
+  /**
+   * Auto clock-out -- called when an order transitions to delivered.
+   * Closes the open auto-shift for this order, computes BCEA
+   * rate_multiplier based on the day of week + public_holidays
+   * table.
+   *
+   * BCEA s16: ordinary work on Sundays + public holidays = 2x.
+   * Anything else = 1x (NULL in our schema, treated as 1 by the
+   * pay calc).
+   */
+  async autoClockOut(
+    opts: { companyId: string; driverId: string; orderId: string },
+    client: Sb = defaultClient,
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const { data: openShift } = await (client as any)
+        .from("driver_shifts")
+        .select("id, actual_start")
+        .eq("company_id", opts.companyId)
+        .eq("driver_id", opts.driverId)
+        .eq("order_id", opts.orderId)
+        .is("actual_end", null)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!openShift) return { ok: true }; // nothing to close, fine
+
+      const nowIso = new Date().toISOString();
+      const today = nowIso.slice(0, 10);
+      const isSunday = new Date(nowIso).getDay() === 0;
+
+      // Public holiday lookup -- match either a one-off date for this
+      // company OR a recurring one (matched on month-day, year-agnostic).
+      let isHoliday = false;
+      const { data: oneOffs } = await (client as any)
+        .from("public_holidays")
+        .select("date, is_recurring")
+        .eq("company_id", opts.companyId)
+        .eq("date", today)
+        .limit(1);
+      if (oneOffs && (oneOffs as any[]).length > 0) {
+        isHoliday = true;
+      } else {
+        // Recurring: we stored the original date but the holiday
+        // recurs annually -- match month + day.
+        const md = today.slice(5); // 'MM-DD'
+        const { data: recurring } = await (client as any)
+          .from("public_holidays")
+          .select("date")
+          .eq("company_id", opts.companyId)
+          .eq("is_recurring", true);
+        if (recurring) {
+          for (const r of recurring as Array<{ date: string }>) {
+            if (r.date && r.date.slice(5) === md) { isHoliday = true; break; }
+          }
+        }
+      }
+
+      const multiplier = (isSunday || isHoliday) ? 2 : null;
+
+      const { error } = await (client as any)
+        .from("driver_shifts")
+        .update({
+          actual_end: nowIso,
+          status: "completed",
+          rate_multiplier: multiplier,
+        })
+        .eq("id", (openShift as any).id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || "autoClockOut failed" };
+    }
+  },
+
+  /**
    * Internal: deliveries this driver completed in the range. Uses
    * orders.assigned_driver_id + status='delivered' (the existing
    * source of truth). delivery_distance_km already lives on orders.

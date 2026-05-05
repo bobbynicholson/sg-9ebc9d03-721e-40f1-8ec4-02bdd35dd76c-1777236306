@@ -1,9 +1,31 @@
 import { supabase } from "@/integrations/supabase/client";
+import { driverPayService } from "@/services/driverPayService";
 
 /**
  * Driver Delivery Management Module
- * Handles delivery status updates, confirmations, and tracking
+ * Handles delivery status updates, confirmations, and tracking.
+ *
+ * Stage 4 of the driver hourly-rate build wires auto clock-in /
+ * clock-out into this file -- markOrderPickedUp opens a driver shift,
+ * confirmDelivery / updateDeliveryStatus(delivered) closes it. BCEA
+ * Sunday / public-holiday detection happens server-side in
+ * driverPayService.autoClockOut, so no caller logic needed here.
  */
+
+/**
+ * Look up the company_id for an order. Auto clock-in / clock-out need
+ * it to scope the driver_shifts insert correctly. We don't expose
+ * company_id to the driver UI flow, so a quick read here keeps the
+ * dispatch surface clean.
+ */
+async function companyIdForOrder(orderId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("orders")
+    .select("company_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  return (data as any)?.company_id ?? null;
+}
 
 export interface DeliveryUpdate {
   orderId: string;
@@ -42,6 +64,22 @@ export async function updateDeliveryStatus(
       notes,
     });
 
+    // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
+    // out_for_delivery -> open shift. delivered/completed -> close it.
+    // Failures here don't block the status change -- the shift is
+    // bookkeeping, not the truth of the delivery.
+    if (status === "out_for_delivery") {
+      const companyId = await companyIdForOrder(orderId);
+      if (companyId) {
+        await driverPayService.autoClockIn({ companyId, driverId, orderId });
+      }
+    } else if (status === "delivered" || status === "completed") {
+      const companyId = await companyIdForOrder(orderId);
+      if (companyId) {
+        await driverPayService.autoClockOut({ companyId, driverId, orderId });
+      }
+    }
+
     return { success: true };
   } catch (error: any) {
     console.error("Error updating delivery status:", error);
@@ -69,6 +107,13 @@ export async function confirmDelivery(
       .eq("assigned_driver_id", driverId);
 
     if (error) throw error;
+
+    // Close the auto-shift opened on pickup (Stage 4). Soft-fails so a
+    // missing shift doesn't roll back the delivery confirmation.
+    const companyId = await companyIdForOrder(orderId);
+    if (companyId) {
+      await driverPayService.autoClockOut({ companyId, driverId, orderId });
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -133,6 +178,13 @@ export async function markOrderPickedUp(
       .eq("assigned_driver_id", driverId);
 
     if (error) throw error;
+
+    // Open the auto-shift for hourly-pay tracking (Stage 4). Idempotent
+    // -- service skips if a shift already exists for this driver+order.
+    const companyId = await companyIdForOrder(orderId);
+    if (companyId) {
+      await driverPayService.autoClockIn({ companyId, driverId, orderId });
+    }
 
     return { success: true };
   } catch (error: any) {
