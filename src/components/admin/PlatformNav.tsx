@@ -17,6 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
+import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -426,6 +427,10 @@ export function PlatformNav({ className }: PlatformNavProps) {
   // Core nav content (shared mobile + desktop)
   // -------------------------------------------------------------------------
 
+  // Desktop-only scroll restore. Sheet drawer (mobile) closes on
+  // every navigation, so persistence there has no value.
+  const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("platform-nav");
+
   const NavContent = ({
     collapsed = false,
     mobile = false,
@@ -433,7 +438,7 @@ export function PlatformNav({ className }: PlatformNavProps) {
     collapsed?: boolean;
     mobile?: boolean;
   }) => (
-    <ScrollArea className="flex-1">
+    <ScrollArea ref={mobile ? undefined : desktopScrollRef} className="flex-1">
       <div className={cn(collapsed ? "px-3 py-4 space-y-1" : "px-2 py-3")}>
         {/* User strip (desktop only, mobile has it in header) */}
         {!mobile && !collapsed && (

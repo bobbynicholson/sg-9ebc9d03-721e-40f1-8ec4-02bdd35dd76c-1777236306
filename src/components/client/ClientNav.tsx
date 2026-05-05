@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCloseOnDesktop } from "@/lib/useCloseOnDesktop";
+import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
 import {
   Home,
   FileText,
@@ -103,8 +104,10 @@ export function ClientNav({ className }: ClientNavProps) {
     return router.pathname === href;
   };
 
-  const NavContent = () => (
-    <ScrollArea className="h-full py-6 px-4">
+  const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("client-nav");
+
+  const NavContent = ({ mobile = false }: { mobile?: boolean } = {}) => (
+    <ScrollArea ref={mobile ? undefined : desktopScrollRef} className="h-full py-6 px-4">
       <div className="space-y-6">
         {clientNavSections.map((section) => (
           <div key={section.title}>
@@ -164,7 +167,7 @@ export function ClientNav({ className }: ClientNavProps) {
               <h2 className="text-xl font-bold text-white">Client Portal</h2>
               <p className="text-sm text-sky-100 mt-1">Your Catering Hub</p>
             </div>
-            <NavContent />
+            <NavContent mobile />
           </SheetContent>
         </Sheet>
       </div>

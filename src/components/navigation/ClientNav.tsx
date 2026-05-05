@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
 import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
+import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -42,6 +43,9 @@ export function ClientNav() {
   const { profile, user } = useAuth() as any;
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
+  // Desktop sidebar scroll persistence (mobile sheet resets on close,
+  // so we don't bother with a ref there).
+  const desktopScrollRef = useNavScrollRestore<HTMLElement>("client-portal-nav");
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
 
@@ -258,7 +262,7 @@ export function ClientNav() {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+          <nav ref={desktopScrollRef} className="flex-1 p-4 space-y-4 overflow-y-auto">
             {clientNavSections.map((section) => {
               const containsActive = section.items.some((i) => isActive(i.href));
               const linkRows = section.items.map((item) => {

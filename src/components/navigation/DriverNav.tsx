@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useNavScrollRestore } from "@/hooks/useNavScrollRestore";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -168,8 +169,10 @@ export function DriverNav({ className, companySlug }: DriverNavProps) {
     return false;
   };
 
+  const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("driver-nav");
+
   const NavContent = ({ mobile = false, hideSignOut = false }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
-    <ScrollArea className="h-full py-6 px-4">
+    <ScrollArea ref={mobile ? undefined : desktopScrollRef} className="h-full py-6 px-4">
       <div className="space-y-6">
         {mobile && (
           <div className="space-y-3">
