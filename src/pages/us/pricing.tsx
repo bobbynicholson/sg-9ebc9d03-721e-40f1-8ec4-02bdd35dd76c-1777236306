@@ -21,7 +21,7 @@ export default function USPricingPage() {
         <title>US Pricing - CateringMS Catering Management Software</title>
         <meta 
           name="description" 
-          content="Affordable pricing for US caterers. Start at $65/month. 14-day free trial. No credit card required."
+          content="Affordable pricing for US caterers. Plans from $162/month. 14-day free trial. No credit card required."
         />
         
         {/* Hreflang tags */}

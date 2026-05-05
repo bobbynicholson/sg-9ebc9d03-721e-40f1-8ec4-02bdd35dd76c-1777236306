@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { detectUserRegion, getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
+import { getRegionFromPath, getRegionCurrency, type MarketRegion } from "@/lib/geoLocation";
 import { getAllPricingOptions, calculateAnnualSavings, formatPrice, applyLivePlans, type LivePlan } from "@/lib/pricingCalculator";
 import Link from "next/link";
 import { Header } from "@/components/Header";
@@ -10,108 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, ArrowRight, Info } from "lucide-react";
 
-const PRICING_PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    monthlyPriceZAR: 399,
-    annualPriceZAR: 3990,
-    recommended: false,
-    limits: {
-      activeClients: 50,
-      ordersPerQuarter: 150
-    },
-    features: [
-      "Up to 50 active clients OR 150 orders/quarter",
-      "Unlimited client database storage",
-      "Lead & quote management",
-      "Order processing & calendar",
-      "Basic inventory tracking",
-      "Email automation (quotes & follow-ups)",
-      "Driver management & GPS tracking",
-      "Client portal",
-      "Kitchen & shopping lists",
-      "Email support"
-    ]
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    monthlyPriceZAR: 699,
-    annualPriceZAR: 6990,
-    recommended: true,
-    limits: {
-      activeClients: 200,
-      ordersPerQuarter: 600
-    },
-    features: [
-      "Up to 200 active clients OR 600 orders/quarter",
-      "Everything in Starter, plus:",
-      "Multi-region support",
-      "Advanced inventory with expiry alerts",
-      "Receipt scanning & price tracking",
-      "Equipment shortage management",
-      "After-sales email automation (6 campaigns)",
-      "Priority email support",
-      "Custom branding (logo & colors)",
-      "Advanced analytics dashboard"
-    ]
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthlyPriceZAR: null,
-    annualPriceZAR: null,
-    recommended: false,
-    limits: {
-      activeClients: "Unlimited",
-      ordersPerQuarter: "Unlimited"
-    },
-    features: [
-      "Unlimited active clients & orders",
-      "Everything in Professional, plus:",
-      "White-label branding (remove CateringMS)",
-      "Dedicated account manager",
-      "Priority phone & email support",
-      "Custom integrations",
-      "API access",
-      "Custom training sessions",
-      "SLA guarantee"
-    ]
-  }
-];
-
-const convertCurrency = (zarAmount: number | null) => {
-  if (zarAmount === null) return null;
-  
-  // Formula: (SA Price × 3) ÷ Exchange Rate
-  const multipliedAmount = zarAmount * 3;
-  
-  // Current exchange rates (as of Oct 2025)
-  const ZAR_TO_USD = 18.5;
-  const ZAR_TO_GBP = 23.5;
-  const ZAR_TO_EUR = 20.0;
-  
-  return {
-    zar: zarAmount,
-    usd: Math.round(multipliedAmount / ZAR_TO_USD),
-    gbp: Math.round(multipliedAmount / ZAR_TO_GBP),
-    eur: Math.round(multipliedAmount / ZAR_TO_EUR)
-  };
-};
-
-const formatCurrency = (amount: number | null, currency: string = "ZAR") => {
-  if (amount === null) return "Custom";
-  
-  const symbols = {
-    ZAR: "R",
-    USD: "$",
-    GBP: "£",
-    EUR: "€"
-  };
-  
-  return `${symbols[currency as keyof typeof symbols]}${amount.toLocaleString()}`;
-};
+// Pricing rendering is driven by getAllPricingOptions() + applyLivePlans()
+// pulling from /api/platform/pricing-plans (single source of truth in
+// platform_pricing_plans). The hard-coded PRICING_PLANS / convertCurrency /
+// formatCurrency that used to live here have been removed -- they were
+// stale copies of the same data and never wired into the JSX.
 
 export default function PricingPage() {
   const [region, setRegion] = useState<MarketRegion>("za");

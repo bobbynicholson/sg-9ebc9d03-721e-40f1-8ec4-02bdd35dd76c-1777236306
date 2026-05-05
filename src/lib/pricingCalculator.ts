@@ -11,13 +11,20 @@ export interface PricingTier {
 }
 
 /**
- * Base pricing in South African Rand (ZAR)
- * All other markets calculate from this base using the formula: (ZAR Price × 3) ÷ Exchange Rate
+ * Base pricing in South African Rand (ZAR).
+ * All other markets calculate from this base using the formula: (ZAR Price × 3) ÷ Exchange Rate.
+ *
+ * These are FALLBACKS only. Live pricing is read from
+ * platform_pricing_plans via /api/platform/pricing-plans and
+ * overlaid by applyLivePlans(). When the API is reachable (which is
+ * almost always) these numbers are never shown. Kept in sync with
+ * the live values so a fallback render doesn't quietly display stale
+ * pricing.
  */
 const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   starter: {
     name: "Starter",
-    basePrice: 399,
+    basePrice: 999,
     features: [
       "Complete Order Management",
       "Lead & Quote System",
@@ -37,7 +44,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   },
   pro: {
     name: "Pro",
-    basePrice: 699,
+    basePrice: 1799,
     features: [
       "Everything in Starter",
       "Advanced Inventory with Expiry Alerts",
@@ -58,7 +65,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   },
   enterprise: {
     name: "Enterprise",
-    basePrice: 1299,
+    basePrice: 2999,
     features: [
       "Everything in Pro",
       "Unlimited Active Clients",
