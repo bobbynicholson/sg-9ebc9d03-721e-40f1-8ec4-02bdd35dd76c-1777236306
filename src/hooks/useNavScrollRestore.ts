@@ -44,26 +44,52 @@ export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key:
       root.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]") || root;
 
     const storageKey = STORAGE_PREFIX + key;
+    const savedRaw = sessionStorage.getItem(storageKey);
+    const target = savedRaw !== null && Number.isFinite(Number(savedRaw)) ? Number(savedRaw) : 0;
 
-    // Restore in next frame so the layout has settled before we set
-    // scrollTop -- otherwise the assignment can be no-op'd by Radix
-    // when its content hasn't measured yet.
-    const raf = requestAnimationFrame(() => {
-      const saved = sessionStorage.getItem(storageKey);
-      if (saved !== null) {
-        const n = Number(saved);
-        if (Number.isFinite(n) && n >= 0) viewport.scrollTop = n;
+    // Browsers clamp scrollTop to (scrollHeight - clientHeight). On a
+    // fresh remount, the Radix viewport's children may not have laid
+    // out yet, so scrollHeight is still small and our restore silently
+    // clamps to 0. Retry across a handful of frames until either the
+    // scroll position takes or we've waited long enough that the page
+    // is clearly settled at the top. Six frames is roughly 100ms at
+    // 60fps -- imperceptible, plenty of time for layout to flush.
+    let frames = 0;
+    const MAX_FRAMES = 6;
+    let raf = 0;
+    const tryRestore = () => {
+      if (target === 0) return; // nothing to do
+      const max = viewport.scrollHeight - viewport.clientHeight;
+      const desired = Math.min(target, Math.max(0, max));
+      viewport.scrollTop = desired;
+      // If we couldn't reach the target yet (content too short),
+      // schedule another attempt. If desired === 0 because saved was
+      // 0, we're done.
+      if (viewport.scrollTop < target && frames < MAX_FRAMES) {
+        frames += 1;
+        raf = requestAnimationFrame(tryRestore);
       }
-    });
+    };
+    raf = requestAnimationFrame(tryRestore);
+
+    // Suppress the listener for the first ~150ms after a navigation
+    // so any browser-driven scroll resets during mount don't overwrite
+    // the saved position with 0. After that window, real user scrolls
+    // are persisted as normal.
+    let listenerArmed = false;
+    const armTimer = window.setTimeout(() => {
+      listenerArmed = true;
+    }, 150);
 
     const onScroll = () => {
-      // sessionStorage writes are cheap; no need to throttle.
+      if (!listenerArmed) return;
       sessionStorage.setItem(storageKey, String(viewport.scrollTop));
     };
     viewport.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(armTimer);
       viewport.removeEventListener("scroll", onScroll);
     };
     // Re-run on path change so the restore fires after every navigation.
