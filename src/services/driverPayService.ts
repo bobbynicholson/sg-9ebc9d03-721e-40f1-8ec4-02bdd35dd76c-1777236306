@@ -237,6 +237,12 @@ export const driverPayService = {
   /**
    * Manual shift entry from the admin UI. Required: company_id,
    * driver_id, actual_start, actual_end. All else optional.
+   *
+   * Returns a flat shape (`{ ok, shift?, error? }`) rather than a
+   * discriminated union -- TS narrowing across the module boundary
+   * can't track the union into the consumer's reachability check, so
+   * `if (!result.ok) throw new Error(result.error)` fails the
+   * compiler. Flat is plain.
    */
   async createManualShift(
     payload: {
@@ -249,7 +255,7 @@ export const driverPayService = {
       rate_multiplier?: number | null;
     },
     client: Sb = defaultClient,
-  ): Promise<{ ok: true; shift: DriverShift } | { ok: false; error: string }> {
+  ): Promise<{ ok: boolean; shift?: DriverShift; error?: string }> {
     const start = new Date(payload.actual_start);
     const end = new Date(payload.actual_end);
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
@@ -326,7 +332,26 @@ export const driverPayService = {
     const shiftLines = shifts
       .filter((s) => s.status === "completed" && s.hours_worked != null)
       .map((s) => calculateShiftPay(s, rates));
-    const deliveryLines = orders.map((o) => calculateDeliveryPay(o, rates));
+    // Prefer the rate-locked snapshot when present (stamped on
+    // delivery completion via autoClockOut). Falls back to a live
+    // calc for legacy orders that closed before snapshotting shipped.
+    const deliveryLines = orders.map((o) => {
+      if (o.locked_total != null) {
+        return {
+          order_id: o.id,
+          distance_km: Number(o.delivery_distance_km || 0),
+          // Snapshot doesn't keep the per-km rate; synthesise it
+          // from the stored values so the UI can still show /km.
+          distance_rate: o.delivery_distance_km && o.locked_distance_fee != null && Number(o.delivery_distance_km) > 0
+            ? +(Number(o.locked_distance_fee) / Number(o.delivery_distance_km)).toFixed(2)
+            : rates.distance_rate_per_km,
+          distance_pay: +Number(o.locked_distance_fee || 0).toFixed(2),
+          callout_fee: +Number(o.locked_base_fee || 0).toFixed(2),
+          total: +Number(o.locked_total || 0).toFixed(2),
+        };
+      }
+      return calculateDeliveryPay(o, rates);
+    });
 
     const hoursTotal = +shiftLines.reduce((sum, s) => sum + s.hours, 0).toFixed(2);
     const hourlyPay = +shiftLines.reduce((sum, s) => sum + s.pay, 0).toFixed(2);
@@ -364,7 +389,7 @@ export const driverPayService = {
   async autoClockIn(
     opts: { companyId: string; driverId: string; orderId: string },
     client: Sb = defaultClient,
-  ): Promise<{ ok: boolean; shiftId?: string; error?: string }> {
+  ): Promise<{ ok: boolean; shiftId?: string | null; error?: string }> {
     try {
       // Check for an existing open shift on this order. Avoids dupe
       // rows when the driver hits "picked up" twice or the API
@@ -469,6 +494,19 @@ export const driverPayService = {
         })
         .eq("id", (openShift as any).id);
       if (error) return { ok: false, error: error.message };
+
+      // Rate-locking. Snapshot the distance + callout pay onto
+      // driver_assignments now that the delivery is closing. Once
+      // stamped, getPaySummary prefers these values over the live
+      // calc -- so changing a driver's rates next week doesn't
+      // retroactively shift this delivery's pay.
+      try {
+        await snapshotDriverAssignmentForOrder(client, opts);
+      } catch (snapshotErr) {
+        // Snapshot is bookkeeping; never block the clock-out on it.
+        console.warn("[autoClockOut] snapshot failed (non-fatal):", snapshotErr);
+      }
+
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message || "autoClockOut failed" };
@@ -479,12 +517,27 @@ export const driverPayService = {
    * Internal: deliveries this driver completed in the range. Uses
    * orders.assigned_driver_id + status='delivered' (the existing
    * source of truth). delivery_distance_km already lives on orders.
+   *
+   * Returns shape includes optional locked snapshot from
+   * driver_assignments. When `locked_total` is set, the calc layer
+   * uses the snapshot instead of recomputing, so old deliveries
+   * don't shift when a driver's rates change going forward.
    */
   async _listCompletedDeliveries(
     opts: { companyId: string; driverId: string; range: DateRange },
     client: Sb = defaultClient,
-  ): Promise<Array<{ id: string; delivery_distance_km: number | null }>> {
-    const { data, error } = await (client as any)
+  ): Promise<Array<{
+    id: string;
+    delivery_distance_km: number | null;
+    locked_distance_fee?: number | null;
+    locked_base_fee?: number | null;
+    locked_total?: number | null;
+  }>> {
+    // Pull orders + assignment snapshot in parallel. The join goes
+    // through driver_assignments by (order_id, driver_id) so each
+    // order gets its own snapshot, even if the same order was
+    // re-assigned to another driver later.
+    const { data: orderRows, error: orderErr } = await (client as any)
       .from("orders")
       .select("id, delivery_distance_km")
       .eq("company_id", opts.companyId)
@@ -493,10 +546,110 @@ export const driverPayService = {
       .eq("status", "delivered")
       .gte("event_date", opts.range.from)
       .lte("event_date", opts.range.to);
-    if (error) {
-      console.warn("[driverPayService._listCompletedDeliveries]", error);
+    if (orderErr) {
+      console.warn("[driverPayService._listCompletedDeliveries]", orderErr);
       return [];
     }
-    return (data || []) as Array<{ id: string; delivery_distance_km: number | null }>;
+    const orders = (orderRows || []) as Array<{ id: string; delivery_distance_km: number | null }>;
+    if (orders.length === 0) return [];
+
+    const orderIds = orders.map((o) => o.id);
+    const { data: assignmentRows } = await (client as any)
+      .from("driver_assignments")
+      .select("order_id, base_fee, distance_fee, total_earnings")
+      .eq("driver_id", opts.driverId)
+      .in("order_id", orderIds);
+    const lockedByOrder = new Map<string, { base: number | null; distance: number | null; total: number | null }>();
+    for (const a of (assignmentRows || []) as Array<{
+      order_id: string;
+      base_fee: number | null;
+      distance_fee: number | null;
+      total_earnings: number | null;
+    }>) {
+      lockedByOrder.set(a.order_id, {
+        base: a.base_fee,
+        distance: a.distance_fee,
+        total: a.total_earnings,
+      });
+    }
+
+    return orders.map((o) => {
+      const locked = lockedByOrder.get(o.id);
+      return {
+        id: o.id,
+        delivery_distance_km: o.delivery_distance_km,
+        locked_distance_fee: locked?.distance ?? null,
+        locked_base_fee: locked?.base ?? null,
+        locked_total: locked?.total ?? null,
+      };
+    });
   },
 };
+
+/**
+ * Snapshot the calculated distance + callout pay onto
+ * driver_assignments for a given (driver, order). Idempotent: looks
+ * for an existing assignment row first, updates it; if absent,
+ * inserts a fresh one.
+ *
+ * Called from autoClockOut on delivery completion so the values get
+ * locked at the rates in force at that moment. Future getPaySummary
+ * calls prefer these locked values over the live calc.
+ */
+async function snapshotDriverAssignmentForOrder(
+  client: Sb,
+  opts: { companyId: string; driverId: string; orderId: string },
+): Promise<void> {
+  // Pull the order's distance + the driver's effective rates.
+  const { data: orderRow } = await (client as any)
+    .from("orders")
+    .select("id, delivery_distance_km")
+    .eq("id", opts.orderId)
+    .maybeSingle();
+  if (!orderRow) return;
+
+  const [defaults, profile] = await Promise.all([
+    driverPayService.getCompanyDefaults(opts.companyId, client),
+    driverPayService.getDriverProfile(opts.driverId, client),
+  ]);
+  const rates = resolveEffectiveRates(profile, defaults);
+  const line = calculateDeliveryPay(
+    { id: opts.orderId, delivery_distance_km: (orderRow as any).delivery_distance_km },
+    rates,
+  );
+
+  // Upsert by (order_id, driver_id). driver_assignments has no
+  // composite unique constraint we can rely on across all tenants,
+  // so do a check-then-write: safer with mixed-history rows.
+  const { data: existing } = await (client as any)
+    .from("driver_assignments")
+    .select("id")
+    .eq("order_id", opts.orderId)
+    .eq("driver_id", opts.driverId)
+    .maybeSingle();
+
+  const payload = {
+    base_fee: line.callout_fee,
+    distance_fee: line.distance_pay,
+    total_earnings: line.total,
+    calculated_distance: line.distance_km,
+    delivered_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    await (client as any)
+      .from("driver_assignments")
+      .update(payload)
+      .eq("id", (existing as any).id);
+  } else {
+    await (client as any)
+      .from("driver_assignments")
+      .insert({
+        company_id: opts.companyId,
+        driver_id: opts.driverId,
+        order_id: opts.orderId,
+        status: "completed",
+        ...payload,
+      });
+  }
+}

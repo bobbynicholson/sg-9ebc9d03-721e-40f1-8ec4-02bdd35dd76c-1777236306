@@ -1162,6 +1162,16 @@ function DriverManagementPage() {
           })()}
         </div>
 
+        {/* Pay defaults -- company-level fallback rates. Each driver's
+            profile can override these; left blank, drivers fall back to
+            whatever the operator sets here. Stage 1 of the driver
+            hourly-rate build laid the columns; this card is the UI. */}
+        <CompanyPayDefaultsCard
+          companyId={user?.company_id}
+          defaults={companyPayDefaults}
+          onSaved={(next) => setCompanyPayDefaults(next)}
+        />
+
         {/* Search + sort */}
         <div className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
           <div className="relative flex-1">
@@ -1632,5 +1642,155 @@ function DriverManagementPage() {
         <Footer />
       </div>
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// CompanyPayDefaultsCard
+//
+// Company-level fallback rates for driver pay. Editable inline. When a
+// driver's per-profile rate is NULL the calculator uses these. Sits at
+// the top of the driver-management page so the operator sees the
+// fallbacks before drilling into individual drivers.
+// -----------------------------------------------------------------------------
+function CompanyPayDefaultsCard({
+  companyId,
+  defaults,
+  onSaved,
+}: {
+  companyId: string | undefined;
+  defaults: CompanyPayDefaults;
+  onSaved: (next: CompanyPayDefaults) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hourly, setHourly] = useState("");
+  const [perKm, setPerKm] = useState("");
+  const [callout, setCallout] = useState("");
+  const { toast } = useToast();
+
+  const openEdit = () => {
+    setHourly(defaults.default_driver_hourly_rate != null ? String(defaults.default_driver_hourly_rate) : "");
+    setPerKm(defaults.default_distance_rate_per_km != null ? String(defaults.default_distance_rate_per_km) : "");
+    setCallout(defaults.default_base_callout_fee != null ? String(defaults.default_base_callout_fee) : "");
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (!companyId) return;
+    const parse = (raw: string, label: string): number | null | "invalid" => {
+      const t = raw.trim();
+      if (!t) return null;
+      const n = Number(t);
+      if (isNaN(n) || n < 0) {
+        toast({ title: "Invalid rate", description: `${label} must be a positive number.`, variant: "destructive" });
+        return "invalid";
+      }
+      return n;
+    };
+    const h = parse(hourly, "Hourly rate");
+    if (h === "invalid") return;
+    const k = parse(perKm, "Per-km rate");
+    if (k === "invalid") return;
+    const c = parse(callout, "Callout fee");
+    if (c === "invalid") return;
+
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("companies")
+        .update({
+          default_driver_hourly_rate: h,
+          default_distance_rate_per_km: k,
+          default_base_callout_fee: c,
+        })
+        .eq("id", companyId);
+      if (error) throw error;
+      onSaved({
+        default_driver_hourly_rate: h ?? null,
+        default_distance_rate_per_km: k ?? null,
+        default_base_callout_fee: c ?? null,
+      });
+      toast({ title: "Pay defaults saved" });
+      setEditing(false);
+    } catch (e: any) {
+      toast({ title: "Could not save", description: e?.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fmt = (v: number | null) =>
+    v == null ? <span className="text-slate-400">Not set</span> : `R ${v.toFixed(2)}`;
+
+  return (
+    <Card className="mb-6 border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+      <CardContent className="p-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-4 h-4 text-orange-600" />
+              <h3 className="text-sm font-semibold text-slate-900">Company pay defaults</h3>
+            </div>
+            <p className="text-xs text-slate-600 mb-3">
+              Fallback rates used when a driver's profile has no override. Drivers with their own rates set keep those.
+            </p>
+
+            {editing ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label htmlFor="def_hourly" className="text-xs">Hourly (R / hr)</Label>
+                  <Input id="def_hourly" type="number" min="0" step="0.01" value={hourly}
+                    onChange={(e) => setHourly(e.target.value)} className="mt-1 bg-white" />
+                </div>
+                <div>
+                  <Label htmlFor="def_perkm" className="text-xs">Per-km (R / km)</Label>
+                  <Input id="def_perkm" type="number" min="0" step="0.01" value={perKm}
+                    onChange={(e) => setPerKm(e.target.value)} className="mt-1 bg-white" />
+                </div>
+                <div>
+                  <Label htmlFor="def_callout" className="text-xs">Callout (R)</Label>
+                  <Input id="def_callout" type="number" min="0" step="0.01" value={callout}
+                    onChange={(e) => setCallout(e.target.value)} className="mt-1 bg-white" />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Hourly</div>
+                  <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_driver_hourly_rate)}</div>
+                </div>
+                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Per km</div>
+                  <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_distance_rate_per_km)}</div>
+                </div>
+                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Callout</div>
+                  <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_base_callout_fee)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 sm:flex-col sm:items-end">
+            {editing ? (
+              <>
+                <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={save} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+                  {saving ? "Saving..." : "Save defaults"}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="outline" onClick={openEdit} className="bg-white">
+                <Settings className="w-3.5 h-3.5 mr-1.5" />
+                Edit defaults
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
