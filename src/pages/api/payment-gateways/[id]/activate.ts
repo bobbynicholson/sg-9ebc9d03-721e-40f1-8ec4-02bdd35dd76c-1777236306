@@ -41,8 +41,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Admin or owner only" });
     }
-    const companyId = (profile as any)?.company_id as string | null;
-    if (!companyId) return res.status(403).json({ error: "No company assigned" });
+
+    // Super_admin may target any tenant via ?company_id=... or body.company_id;
+    // tenant admins are pinned to their profile.company_id.
+    let companyId = (profile as any)?.company_id as string | null;
+    if (role === "super_admin") {
+      const override = String(
+        req.query.company_id || (req.body as any)?.company_id || "",
+      ).trim();
+      if (override) companyId = override;
+    }
+    if (!companyId) {
+      const msg = role === "super_admin"
+        ? "company_id is required for super_admin"
+        : "No company assigned to your profile";
+      return res.status(400).json({ error: msg });
+    }
 
     const sb = getServiceSupabase();
     const result = await paymentGatewayService.activate(companyId, gatewayId, user.id, sb);

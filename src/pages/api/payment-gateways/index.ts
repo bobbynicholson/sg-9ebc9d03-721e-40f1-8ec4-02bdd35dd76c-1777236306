@@ -46,9 +46,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Admin or owner only" });
     }
-    const companyId = (profile as any)?.company_id as string | null;
+
+    // Resolve which company we're acting on. Tenant admins are scoped
+    // to their own profile.company_id. Super_admin has no company on
+    // their profile -- they pass company_id via ?company_id=... (GET)
+    // or body.company_id (POST) to act on a specific tenant.
+    let companyId = (profile as any)?.company_id as string | null;
+    if (role === "super_admin") {
+      const override = String(
+        (req.method === "GET" ? req.query.company_id : (req.body as any)?.company_id) || "",
+      ).trim();
+      if (override) companyId = override;
+    }
     if (!companyId) {
-      return res.status(403).json({ error: "No company assigned" });
+      const msg = role === "super_admin"
+        ? "company_id is required for super_admin"
+        : "No company assigned to your profile";
+      return res.status(400).json({ error: msg });
     }
 
     if (req.method === "GET") {

@@ -19,12 +19,13 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, Check, AlertCircle, Settings, Trash2, Power } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -41,7 +43,6 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
   paymentGatewayService,
   type PaymentGatewayConfigDTO,
-  type PaymentGatewayProvider,
 } from "@/services/paymentGatewayService";
 
 type ProviderEntry = ReturnType<typeof paymentGatewayService.getProviderCatalogue>[number];
@@ -68,11 +69,22 @@ function ToneBadge({ label, tone }: { label: string; tone: "muted" | "info" | "s
 }
 
 function PaymentGatewaysPage() {
+  const { profile } = useAuth() as any;
+  const role: string = profile?.active_role || profile?.role || "";
+  const isSuperAdmin = role === "super_admin";
+  const profileCompanyId: string | null = profile?.company_id ?? null;
+
   const catalogue = useMemo(() => paymentGatewayService.getProviderCatalogue(), []);
   const [configs, setConfigs] = useState<PaymentGatewayConfigDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState<string | null>(null);
+
+  // Super_admin: pick which tenant we're configuring. Tenant admins
+  // ignore this -- their company comes from profile.company_id.
+  const [companies, setCompanies] = useState<Array<{ id: string; company_name: string }>>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const activeCompanyId = isSuperAdmin ? selectedCompanyId : profileCompanyId;
 
   // Configure dialog state
   const [editProvider, setEditProvider] = useState<ProviderEntry | null>(null);
@@ -84,11 +96,27 @@ function PaymentGatewaysPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
+  // Build a query string with ?company_id= when super_admin has picked
+  // a tenant. Returns empty string for tenant admins (server uses their
+  // profile.company_id).
+  const companyQuery = (extra: Record<string, string> = {}): string => {
+    const params = new URLSearchParams(extra);
+    if (isSuperAdmin && activeCompanyId) params.set("company_id", activeCompanyId);
+    const s = params.toString();
+    return s ? `?${s}` : "";
+  };
+
   const load = async () => {
+    if (isSuperAdmin && !activeCompanyId) {
+      // Don't hit the API until super_admin has picked a tenant.
+      setConfigs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setPageError(null);
     try {
-      const r = await fetch("/api/payment-gateways");
+      const r = await fetch(`/api/payment-gateways${companyQuery()}`);
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Could not load gateways");
       setConfigs((j.gateways || []) as PaymentGatewayConfigDTO[]);
@@ -99,9 +127,29 @@ function PaymentGatewaysPage() {
     }
   };
 
+  // Super_admin picker source. Pulls every non-deleted company so the
+  // platform user can manage gateways for any tenant. Tenant admins
+  // skip this entirely.
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, company_name")
+        .is("deleted_at", null)
+        .order("company_name", { ascending: true });
+      if (error) {
+        setPageError(error.message);
+        return;
+      }
+      setCompanies((data || []) as Array<{ id: string; company_name: string }>);
+    })();
+  }, [isSuperAdmin]);
+
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId, isSuperAdmin]);
 
   const activeConfig = configs.find((c) => c.is_active);
 
@@ -151,6 +199,9 @@ function PaymentGatewaysPage() {
           cancel_url: editCancelUrl.trim() || null,
           notify_url: editNotifyUrl.trim() || null,
           credentials: editCredentials,
+          // Super_admin: include the picked tenant. Server ignores
+          // for tenant admins (their company is on the profile).
+          ...(isSuperAdmin && activeCompanyId ? { company_id: activeCompanyId } : {}),
         }),
       });
       const j = await r.json().catch(() => ({}));
@@ -168,7 +219,7 @@ function PaymentGatewaysPage() {
 
   const handleActivate = async (gatewayId: string) => {
     try {
-      const r = await fetch(`/api/payment-gateways/${gatewayId}/activate`, { method: "POST" });
+      const r = await fetch(`/api/payment-gateways/${gatewayId}/activate${companyQuery()}`, { method: "POST" });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       setSavedToast("Active gateway switched.");
@@ -182,7 +233,7 @@ function PaymentGatewaysPage() {
   const handleDelete = async (gatewayId: string, providerName: string) => {
     if (!confirm(`Remove the ${providerName} configuration? You'll need to re-enter credentials to use it again.`)) return;
     try {
-      const r = await fetch(`/api/payment-gateways/${gatewayId}`, { method: "DELETE" });
+      const r = await fetch(`/api/payment-gateways/${gatewayId}${companyQuery()}`, { method: "DELETE" });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       setSavedToast(`${providerName} removed.`);
@@ -212,8 +263,49 @@ function PaymentGatewaysPage() {
             <p className="text-muted-foreground">Configure a payment processor to take card and EFT payments from your clients.</p>
           </div>
 
+          {/* Super_admin tenant picker. Tenant admins never see this --
+              their company comes from profile.company_id. */}
+          {isSuperAdmin && (
+            <Card className="border-purple-200 bg-purple-50">
+              <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1">
+                  <Label className="text-sm font-semibold text-purple-900">
+                    Managing gateways for
+                  </Label>
+                  <p className="text-xs text-purple-700 mt-0.5">
+                    You're signed in as super_admin. Pick the catering company whose payment gateways you want to configure.
+                  </p>
+                </div>
+                <div className="w-full sm:w-72">
+                  <Select
+                    value={selectedCompanyId || ""}
+                    onValueChange={(v) => setSelectedCompanyId(v || null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a tenant..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.company_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {isSuperAdmin && !activeCompanyId && (
+            <Alert className="border-slate-200 bg-slate-50">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Pick a tenant above to view and configure their payment gateways.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Status banner -- replaces the old "stored locally" warning. */}
-          {!loading && (
+          {!loading && activeCompanyId && (
             <Alert
               className={
                 activeConfig
@@ -255,6 +347,7 @@ function PaymentGatewaysPage() {
             </Alert>
           )}
 
+          {activeCompanyId && (
           <div className="grid md:grid-cols-3 gap-6">
             {catalogue.map((entry) => {
               const config = configs.find((c) => c.provider === entry.provider);
@@ -307,6 +400,7 @@ function PaymentGatewaysPage() {
               );
             })}
           </div>
+          )}
 
           <Card>
             <CardHeader>
