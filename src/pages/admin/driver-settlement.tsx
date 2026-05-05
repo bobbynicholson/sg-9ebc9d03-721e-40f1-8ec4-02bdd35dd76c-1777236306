@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Loader2, Download, Clock, Route, MapPin, ChevronDown, ChevronRight, RefreshCw,
 } from "lucide-react";
-import { userManagementService } from "@/services/userManagementService";
+import { supabase } from "@/integrations/supabase/client";
 import {
   driverPayService,
   type DriverPaySummary,
@@ -69,6 +69,10 @@ interface DriverRow {
   full_name: string;
   email: string;
   is_active: boolean;
+  /** Soft-deleted via /admin/driver-management remove. We still show
+   *  them in settlement because their historical pay is real and the
+   *  operator may need to pay it out. Surfaced with a "Removed" badge. */
+  is_removed: boolean;
 }
 
 interface SettlementRow {
@@ -104,21 +108,30 @@ function DriverSettlementPage() {
   }, [preset]);
 
   // Load the driver list for the company on mount.
+  //
+  // Includes soft-deleted drivers (deleted_at IS NOT NULL) so the
+  // operator can still pay out hours / deliveries that closed before
+  // the driver was removed. We mark them with is_removed = true and
+  // hide the row in the UI when their period totals are zero.
   useEffect(() => {
     if (!user?.company_id) { setLoadingDrivers(false); return; }
     let cancelled = false;
     (async () => {
       setLoadingDrivers(true);
       try {
-        const all = await userManagementService.getAllUsers(user.company_id);
-        const drivers = all
-          .filter((u: any) => u.role === "driver")
-          .map((d: any) => ({
-            id: d.id,
-            full_name: d.full_name || d.email || "Unnamed",
-            email: d.email || "",
-            is_active: !!d.is_active,
-          }));
+        const { data, error } = await (supabase as any)
+          .from("profiles")
+          .select("id, full_name, email, is_active, deleted_at")
+          .eq("company_id", user.company_id)
+          .eq("role", "driver");
+        if (error) throw error;
+        const drivers: DriverRow[] = (data || []).map((d: any) => ({
+          id: d.id,
+          full_name: d.full_name || d.email || "Unnamed",
+          email: d.email || "",
+          is_active: !!d.is_active,
+          is_removed: !!d.deleted_at,
+        }));
         if (!cancelled) {
           setRows(drivers.map((d) => ({ driver: d, summary: null, loading: true })));
         }
@@ -316,19 +329,31 @@ function DriverSettlementPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((r) => {
-                        const t = r.summary?.totals;
-                        const isOpen = expanded.has(r.driver.id);
-                        return (
-                          <FragmentRows
-                            key={r.driver.id}
-                            row={r}
-                            t={t}
-                            isOpen={isOpen}
-                            onToggle={() => toggleExpand(r.driver.id)}
-                          />
-                        );
-                      })}
+                      {rows
+                        // Hide removed drivers when they have nothing
+                        // to pay out in the selected period -- noise
+                        // the operator doesn't need. Active drivers
+                        // always show even with zero totals so their
+                        // empty rows still surface.
+                        .filter((r) => {
+                          if (!r.driver.is_removed) return true;
+                          if (r.loading) return true;
+                          const t = r.summary?.totals;
+                          return !!t && t.grand_total > 0;
+                        })
+                        .map((r) => {
+                          const t = r.summary?.totals;
+                          const isOpen = expanded.has(r.driver.id);
+                          return (
+                            <FragmentRows
+                              key={r.driver.id}
+                              row={r}
+                              t={t}
+                              isOpen={isOpen}
+                              onToggle={() => toggleExpand(r.driver.id)}
+                            />
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -362,9 +387,13 @@ function FragmentRows({
               <p className="font-medium text-slate-900">{row.driver.full_name}</p>
               <p className="text-xs text-slate-500">{row.driver.email}</p>
             </div>
-            {!row.driver.is_active && (
+            {row.driver.is_removed ? (
+              <Badge variant="outline" className="ml-2 text-xs bg-rose-50 text-rose-700 border-rose-200">
+                Removed
+              </Badge>
+            ) : !row.driver.is_active ? (
               <Badge variant="outline" className="ml-2 text-xs">Inactive</Badge>
-            )}
+            ) : null}
           </div>
         </td>
         {row.loading ? (

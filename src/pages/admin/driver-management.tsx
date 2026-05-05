@@ -1409,7 +1409,16 @@ function DriverManagementPage() {
                                   {driver.is_active ? "Deactivate driver" : "Activate driver"}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => setRemoveTarget(driver)}
+                                  // setTimeout(0) defers the dialog open
+                                  // until after the dropdown's close
+                                  // animation finishes -- without this,
+                                  // Radix's focus trap on the menu can
+                                  // swallow the AlertDialog's open
+                                  // event and the dialog never appears.
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    setTimeout(() => setRemoveTarget(driver), 0);
+                                  }}
                                   className="text-red-700 focus:text-red-700 focus:bg-red-50"
                                 >
                                   Remove driver
@@ -1628,10 +1637,20 @@ function DriverManagementPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removeTarget?.full_name || removeTarget?.email}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              They'll disappear from the driver list and won't be able to log in to the driver portal.
-              Their order history and shift records stay intact for reporting. You can restore them
-              later by un-archiving the profile in Users.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-slate-600">
+                <p>
+                  They'll disappear from the driver list and won't be able to log in to the driver portal.
+                </p>
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-xs">
+                  <strong>Pay history is preserved.</strong> All shifts, deliveries and the costs
+                  you paid this driver remain on file -- they'll show in Driver Settlement under
+                  a "Removed" badge so you can still pay out anything outstanding.
+                </div>
+                <p className="text-xs">
+                  Restore them later by un-archiving the profile in Users.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
