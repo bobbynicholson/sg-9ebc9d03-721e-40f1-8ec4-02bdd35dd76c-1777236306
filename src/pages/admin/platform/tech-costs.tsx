@@ -141,13 +141,21 @@ interface Assumptions {
   egress_gb_per_tenant: number;
 }
 
+/**
+ * Hard cap from src/lib/receiptScanQuota.ts -- a tenant cannot exceed
+ * this no matter what (the API blocks the call). Keep in sync if
+ * MONTHLY_SCAN_CAP changes there. Used here to (a) seed the default
+ * input and (b) flag projections that exceed it as unrealistic.
+ */
+const RECEIPT_SCAN_QUOTA_CAP = 60;
+
 const DEFAULTS: Assumptions = {
   tenants: 50,
   // Matches the per-tenant cap enforced in src/lib/receiptScanQuota.ts.
   // Use the cap as the calculator's default so projections show worst-
   // case (every tenant hits the ceiling), giving a defensible upper
   // bound on AI spend rather than an optimistic mid-point.
-  receipt_scans_per_tenant: 60,
+  receipt_scans_per_tenant: RECEIPT_SCAN_QUOTA_CAP,
   csv_imports_per_tenant: 1,
   emails_per_tenant: 200,
   places_autocompletes_per_tenant: 100,
@@ -592,6 +600,21 @@ function TechCostsDashboard() {
                     min={0}
                     tooltip="Slips run through the AI receipt scanner per tenant per month. CAPPED at 60 server-side (src/lib/receiptScanQuota.ts). Default scenario uses the cap as a defensible upper bound. Each call ≈ 4k input + 1.5k output tokens on Haiku 4-5 primary, with a Sonnet fallback for the ~12% of slips Haiku can't crack."
                   />
+                  {/* Loud warning when the input exceeds what the
+                      quota will actually allow. Without this it's easy
+                      to type a stress-test number, see R250k AI spend,
+                      and panic -- the real number is bounded by the
+                      server-side cap, not by what's in this field. */}
+                  {assumptions.receipt_scans_per_tenant > RECEIPT_SCAN_QUOTA_CAP && (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 -mt-2">
+                      <strong>Above the quota cap.</strong> The server hard-caps each tenant at
+                       {" "}{RECEIPT_SCAN_QUOTA_CAP} receipt scans / month
+                       {" "}(src/lib/receiptScanQuota.ts). A tenant typing more than that gets a
+                       {" "}<em>quota exceeded</em> response -- the AI call never happens. Real-
+                      world spend is bounded by the cap × tenants, regardless of what's in
+                      this field. Drop to {RECEIPT_SCAN_QUOTA_CAP} for a defensible projection.
+                    </div>
+                  )}
                   <NumField
                     label="CSV imports / month"
                     value={assumptions.csv_imports_per_tenant}
