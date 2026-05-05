@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Pull this single row. Using the existing listImportRows + filter
     // keeps the RLS / company scope checks consistent with the rest of
     // the wizard.
-    const rows = await listImportRows(jobId, { limit: 5000 });
+    const rows = await listImportRows(jobId, { limit: 11000 });
     const row = rows.find((r) => r.id === rowId);
     if (!row) return res.status(404).json({ error: "Row not found on this job" });
 

@@ -17,6 +17,10 @@ import {
 } from "@/services/importService";
 import { normaliseFieldValue } from "@/lib/importNormalise";
 
+// Preview also iterates every row -- bump the per-route timeout for
+// the same reason as commit.ts.
+export const maxDuration = 300;
+
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 interface PreviewSummary {
@@ -98,7 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: "Mapping has not been generated yet, run the map step first" });
     }
 
-    const rows = await listImportRows(jobId, { limit: 5000 });
+    // Pull every row in the job. Cap at 11k to give a small margin
+     // above the 10k operator-facing limit set in app_config.import_row_cap.
+    const rows = await listImportRows(jobId, { limit: 11000 });
     if (rows.length === 0) {
       return res.status(400).json({ error: "Import has no rows to preview" });
     }

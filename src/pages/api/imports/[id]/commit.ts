@@ -24,6 +24,13 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 
+// Vercel default per-route timeout is 60s (Hobby) / 60s (Pro). At ~50ms
+// per row of work (lookup + insert + update_import_rows), a 10k import
+// needs ~8-10 minutes. Bump to the Pro-plan max of 300s. If the cap
+// climbs above ~5k rows, the commit really needs to move to a
+// background job (queue + poll).
+export const maxDuration = 300;
+
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 interface CommitSummary {
@@ -167,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // yet -- without it TS chases the union forever ("Type
     // instantiation is excessively deep").
     const supabase = getServiceSupabase() as any;
-    const rows = await listImportRows(jobId, { limit: 5000 });
+    const rows = await listImportRows(jobId, { limit: 11000 });
 
     const summary: CommitSummary = {
       clients: { inserted: 0, updated: 0, skipped: 0, errored: 0 },

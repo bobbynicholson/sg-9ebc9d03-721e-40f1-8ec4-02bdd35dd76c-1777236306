@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Pull every source row -- we'll group by sheet and pass a slice
     // to the model.
-    const rows = await listImportRows(jobId, { limit: 5000 });
+    const rows = await listImportRows(jobId, { limit: 11000 });
     if (rows.length === 0) {
       return res.status(400).json({ error: "Import has no rows to map" });
     }
