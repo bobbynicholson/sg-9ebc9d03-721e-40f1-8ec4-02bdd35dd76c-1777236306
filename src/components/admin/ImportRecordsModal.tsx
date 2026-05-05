@@ -51,12 +51,18 @@ interface PreviewRow {
   status: "pending" | "skipped" | "error";
   error_message: string | null;
   preview_warnings: string[] | null;
+  dedup_match_id: string | null;
+  dedup_match_table: string | null;
+  dedup_decision: "skip" | "update" | "create_new" | null;
 }
 
+type RowCounts = { inserted: number; updated: number; skipped: number; errored: number };
+
 interface CommitSummary {
-  clients?: { inserted: number; skipped: number; errored: number };
-  leads?: { inserted: number; skipped: number; errored: number };
-  orders?: { inserted: number; skipped: number; errored: number };
+  clients?: RowCounts;
+  leads?: RowCounts;
+  orders?: RowCounts;
+  dry_run?: boolean;
 }
 
 interface Props {
@@ -90,8 +96,10 @@ export function ImportRecordsModal({
     ok: number;
     warnings: number;
     errors: number;
+    duplicates?: number;
   } | null>(null);
   const [commitSummary, setCommitSummary] = useState<CommitSummary | null>(null);
+  const [dryRunSummary, setDryRunSummary] = useState<CommitSummary | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const reset = () => {
@@ -102,6 +110,7 @@ export function ImportRecordsModal({
     setPreviewRows([]);
     setPreviewSummary(null);
     setCommitSummary(null);
+    setDryRunSummary(null);
   };
 
   const close = () => {
@@ -154,30 +163,71 @@ export function ImportRecordsModal({
     }
   };
 
-  const commit = async () => {
+  const setRowDecision = async (
+    rowId: string,
+    decision: "skip" | "update" | "create_new",
+  ) => {
+    if (!jobId) return;
+    // Optimistic update so the picker feels snappy.
+    setPreviewRows((prev) =>
+      prev.map((r) => (r.id === rowId ? { ...r, dedup_decision: decision } : r)),
+    );
+    try {
+      const r = await fetch(`/api/imports/${jobId}/rows/${rowId}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j?.error || "Failed to set decision");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to set decision");
+    }
+  };
+
+  const runCommit = async (dryRun: boolean) => {
     if (!jobId) return;
     setBusy(true);
     setError(null);
-    setStep("committing");
+    if (!dryRun) setStep("committing");
     try {
-      const r = await fetch(`/api/imports/${jobId}/commit`, { method: "POST" });
+      const r = await fetch(`/api/imports/${jobId}/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dry_run: dryRun }),
+      });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || `Commit failed (${r.status})`);
-      setCommitSummary((j.summary || null) as CommitSummary);
-      setStep("done");
-      if (onComplete) onComplete();
+      const summary = (j.summary || null) as CommitSummary;
+      if (dryRun) {
+        setDryRunSummary(summary);
+      } else {
+        setCommitSummary(summary);
+        setStep("done");
+        if (onComplete) onComplete();
+      }
     } catch (e: any) {
       setError(e?.message || "Commit failed");
-      setStep("preview");
+      if (!dryRun) setStep("preview");
     } finally {
       setBusy(false);
     }
   };
 
+  const commit = () => runCommit(false);
+  const testRun = () => runCommit(true);
+
   const okCount = previewSummary
     ? previewSummary.ok + previewSummary.warnings
     : 0;
   const errorCount = previewSummary?.errors ?? 0;
+  const duplicateCount = previewSummary?.duplicates ?? 0;
+  const skipDecisionCount = previewRows.filter(
+    (r) => r.dedup_match_id && (r.dedup_decision || "skip") === "skip",
+  ).length;
+  const willImportCount = okCount - skipDecisionCount;
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
@@ -250,11 +300,34 @@ export function ImportRecordsModal({
 
         {step === "preview" && previewSummary && (
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-3 gap-2">
-              <SummaryStat label="Will import" value={okCount} tone="success" />
+            <div className="grid grid-cols-4 gap-2">
+              <SummaryStat label="Will import" value={willImportCount} tone="success" />
+              <SummaryStat label="Duplicates" value={duplicateCount} tone={duplicateCount > 0 ? "warn" : "muted"} />
               <SummaryStat label="Errors" value={errorCount} tone={errorCount > 0 ? "danger" : "muted"} />
               <SummaryStat label="Total rows" value={previewSummary.total} tone="muted" />
             </div>
+
+            {duplicateCount > 0 && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-xs leading-relaxed">
+                  {duplicateCount} {duplicateCount === 1 ? "row matches an existing record" : "rows match existing records"}.
+                  Default is "skip". Switch any row to "update" to overwrite the existing record's fields, or "create new" to keep both.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {dryRunSummary && (
+              <Alert className="border-sky-200 bg-sky-50">
+                <Check className="h-4 w-4 text-sky-600" />
+                <AlertDescription className="text-sky-800 text-xs">
+                  Test run: would insert <strong>{(dryRunSummary[template]?.inserted ?? 0).toLocaleString("en-ZA")}</strong>,
+                  update <strong>{(dryRunSummary[template]?.updated ?? 0).toLocaleString("en-ZA")}</strong>,
+                  skip <strong>{(dryRunSummary[template]?.skipped ?? 0).toLocaleString("en-ZA")}</strong>.
+                  Nothing was saved.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
               <table className="w-full text-xs">
@@ -274,13 +347,20 @@ export function ImportRecordsModal({
                       m.email ||
                       m.client_email ||
                       "(empty)";
+                    const isMatch = !!r.dedup_match_id;
+                    const decision = (r.dedup_decision || "skip") as
+                      | "skip" | "update" | "create_new";
                     return (
                       <tr key={r.id} className="border-t border-slate-100">
                         <td className="px-3 py-1.5 font-mono text-slate-500">
                           {r.source_row_index ?? "?"}
                         </td>
                         <td className="px-3 py-1.5">
-                          <RowStatusBadge status={r.status} warnings={r.preview_warnings || []} />
+                          <RowStatusBadge
+                            status={r.status}
+                            warnings={r.preview_warnings || []}
+                            isDuplicate={isMatch}
+                          />
                         </td>
                         <td className="px-3 py-1.5 text-slate-700">
                           <div className="truncate">{summary}</div>
@@ -292,6 +372,25 @@ export function ImportRecordsModal({
                           {r.preview_warnings && r.preview_warnings.length > 0 && (
                             <div className="text-amber-700 text-[11px] mt-0.5">
                               {r.preview_warnings.slice(0, 2).join("; ")}
+                            </div>
+                          )}
+                          {isMatch && (
+                            <div className="mt-1 flex items-center gap-1 text-[11px]">
+                              <span className="text-amber-700">On file:</span>
+                              <select
+                                value={decision}
+                                onChange={(e) =>
+                                  setRowDecision(
+                                    r.id,
+                                    e.target.value as "skip" | "update" | "create_new",
+                                  )
+                                }
+                                className="border border-slate-300 rounded px-1 py-0.5 bg-white text-[11px]"
+                              >
+                                <option value="skip">Skip</option>
+                                <option value="update">Update existing</option>
+                                <option value="create_new">Create new</option>
+                              </select>
                             </div>
                           )}
                         </td>
@@ -329,12 +428,15 @@ export function ImportRecordsModal({
                   Import complete
                 </p>
                 <p className="text-xs text-emerald-800 mt-1">
-                  {commitSummary[template === "clients" ? "clients" : "leads"]?.inserted ?? 0} new {recordLabelPlural} added.
-                  {(commitSummary[template === "clients" ? "clients" : "leads"]?.skipped ?? 0) > 0 && (
-                    <> {commitSummary[template === "clients" ? "clients" : "leads"]?.skipped} skipped (already on file).</>
+                  {commitSummary[template]?.inserted ?? 0} new {recordLabelPlural} added.
+                  {(commitSummary[template]?.updated ?? 0) > 0 && (
+                    <> {commitSummary[template]?.updated} updated.</>
                   )}
-                  {(commitSummary[template === "clients" ? "clients" : "leads"]?.errored ?? 0) > 0 && (
-                    <> {commitSummary[template === "clients" ? "clients" : "leads"]?.errored} errored.</>
+                  {(commitSummary[template]?.skipped ?? 0) > 0 && (
+                    <> {commitSummary[template]?.skipped} skipped (already on file).</>
+                  )}
+                  {(commitSummary[template]?.errored ?? 0) > 0 && (
+                    <> {commitSummary[template]?.errored} errored.</>
                   )}
                 </p>
               </div>
@@ -350,12 +452,21 @@ export function ImportRecordsModal({
                 Pick a different file
               </Button>
               <Button
-                onClick={commit}
+                variant="outline"
+                onClick={testRun}
                 disabled={busy || okCount === 0}
+                title="Run all the checks without saving anything"
+              >
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Test run
+              </Button>
+              <Button
+                onClick={commit}
+                disabled={busy || willImportCount + previewRows.filter(r => r.dedup_match_id && r.dedup_decision === "update").length === 0}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                Import {okCount} {okCount === 1 ? recordLabel : recordLabelPlural}
+                Import {recordLabelPlural}
               </Button>
             </>
           )}
@@ -380,12 +491,13 @@ function SummaryStat({
 }: {
   label: string;
   value: number;
-  tone: "success" | "danger" | "muted";
+  tone: "success" | "danger" | "muted" | "warn";
 }) {
   const map = {
     success: "bg-emerald-50 text-emerald-700 border-emerald-200",
     danger: "bg-rose-50 text-rose-700 border-rose-200",
     muted: "bg-slate-50 text-slate-700 border-slate-200",
+    warn: "bg-amber-50 text-amber-800 border-amber-200",
   };
   return (
     <div className={`rounded-md border px-3 py-2 ${map[tone]}`}>
@@ -395,12 +507,27 @@ function SummaryStat({
   );
 }
 
-function RowStatusBadge({ status, warnings }: { status: string; warnings: string[] }) {
+function RowStatusBadge({
+  status,
+  warnings,
+  isDuplicate,
+}: {
+  status: string;
+  warnings: string[];
+  isDuplicate?: boolean;
+}) {
   if (status === "error") {
     return <Badge variant="destructive" className="text-[10px]">Error</Badge>;
   }
   if (status === "skipped") {
     return <Badge variant="secondary" className="text-[10px]">Skip</Badge>;
+  }
+  if (isDuplicate) {
+    return (
+      <Badge className="text-[10px] bg-amber-100 text-amber-800 border border-amber-200">
+        Dupe
+      </Badge>
+    );
   }
   if (warnings.length > 0) {
     return (

@@ -66,9 +66,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "GET") {
-      // Browser-safe list: RLS keeps it scoped, credentials sibling
-      // table is never selected here.
-      const configs = await paymentGatewayService.list(companyId, ssr);
+      // Use the enriched server-only method so each gateway returns
+      // last-4 hints for its credentials. Real values stay on the
+      // server -- the hints field is a display string only.
+      const sb = getServiceSupabase();
+      const configs = await paymentGatewayService.listWithCredentialHints(companyId, sb);
       return res.status(200).json({ gateways: configs });
     }
 

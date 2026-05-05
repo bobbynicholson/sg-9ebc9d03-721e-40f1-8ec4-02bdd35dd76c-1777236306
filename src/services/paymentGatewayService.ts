@@ -33,7 +33,14 @@ export const PAYMENT_GATEWAY_PROVIDERS: ReadonlyArray<PaymentGatewayProvider> =
 export type PaymentGatewayMetadata =
   Database["public"]["Tables"]["payment_gateways"]["Row"];
 
-/** What we send back to browser callers -- credentials never appear here. */
+/**
+ * What we send back to browser callers. Real credentials never appear
+ * here -- credential_hints carries only a last-4 string per field key
+ * so the operator can confirm the correct keys are saved without ever
+ * exposing the secret. Empty record when the gateway hasn't been
+ * configured yet, or when the caller used the browser-safe `list()`
+ * (which doesn't read the credentials sibling).
+ */
 export interface PaymentGatewayConfigDTO {
   id: string;
   company_id: string;
@@ -46,6 +53,21 @@ export interface PaymentGatewayConfigDTO {
   last_verified_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Per-field display hint, never the real secret. e.g. {merchantKey: "····3287"}. */
+  credential_hints: Record<string, string>;
+}
+
+/**
+ * Build a display-only hint for a credential value. Last 4 chars for
+ * anything 6+ chars (typical of merchant IDs and secret keys), a
+ * generic "set" badge for shorter values so we never leak meaningful
+ * portions of e.g. a 5-char passphrase.
+ */
+function buildHint(value: string): string {
+  const trimmed = (value ?? "").toString().trim();
+  if (!trimmed) return "";
+  if (trimmed.length < 6) return "set";
+  return "····" + trimmed.slice(-4);
 }
 
 export interface PaymentGatewayUpsertInput {
@@ -63,7 +85,10 @@ type SbAny = SupabaseClient<Database> | any;
 const TABLE = "payment_gateways";
 const CREDS_TABLE = "payment_gateway_credentials";
 
-function toDTO(row: PaymentGatewayMetadata): PaymentGatewayConfigDTO {
+function toDTO(
+  row: PaymentGatewayMetadata,
+  credentialHints: Record<string, string> = {},
+): PaymentGatewayConfigDTO {
   return {
     id: row.id,
     company_id: row.company_id,
@@ -76,6 +101,7 @@ function toDTO(row: PaymentGatewayMetadata): PaymentGatewayConfigDTO {
     last_verified_at: row.last_verified_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    credential_hints: credentialHints,
   };
 }
 
@@ -97,6 +123,60 @@ export const paymentGatewayService = {
       return [];
     }
     return (data || []).map((r: PaymentGatewayMetadata) => toDTO(r));
+  },
+
+  /**
+   * Server-only variant of list() that also reads the credentials
+   * sibling (using the supplied service-role client) and attaches a
+   * last-4 hint per field so the configure dialog can show "Merchant
+   * Key ····3287" without ever letting the real value leave the server.
+   *
+   * The browser-safe list() never reads the credentials table -- this
+   * method exists specifically for the API endpoint to enrich the
+   * response, since RLS denies authenticated reads on credentials.
+   */
+  async listWithCredentialHints(
+    companyId: string,
+    serviceClient: SbAny,
+  ): Promise<PaymentGatewayConfigDTO[]> {
+    const { data: gateways, error } = await serviceClient
+      .from(TABLE)
+      .select("*")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("provider", { ascending: true });
+    if (error) {
+      console.error("[paymentGatewayService.listWithCredentialHints]", error);
+      return [];
+    }
+    const rows = (gateways || []) as PaymentGatewayMetadata[];
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const { data: creds, error: credErr } = await serviceClient
+      .from(CREDS_TABLE)
+      .select("gateway_id, credentials")
+      .in("gateway_id", ids);
+    if (credErr) {
+      console.error("[paymentGatewayService.listWithCredentialHints] creds:", credErr);
+      // Soft-fail: still return the metadata, just without hints.
+      return rows.map((r) => toDTO(r));
+    }
+
+    const hintsByGateway = new Map<string, Record<string, string>>();
+    for (const row of (creds || []) as Array<{
+      gateway_id: string;
+      credentials: Record<string, string> | null;
+    }>) {
+      const hints: Record<string, string> = {};
+      for (const [k, v] of Object.entries(row.credentials || {})) {
+        const hint = buildHint(String(v ?? ""));
+        if (hint) hints[k] = hint;
+      }
+      hintsByGateway.set(row.gateway_id, hints);
+    }
+
+    return rows.map((r) => toDTO(r, hintsByGateway.get(r.id) || {}));
   },
 
   /**

@@ -24,7 +24,49 @@ interface PreviewSummary {
   ok: number;
   warnings: number;
   errors: number;
+  duplicates: number;
   by_target_table: Record<string, number>;
+}
+
+/**
+ * Look up an existing clients / leads row that this import row would
+ * collide with at commit time. Email is the canonical key. Returns
+ * null when there's no match (fresh row).
+ */
+async function findDuplicate(
+  supabase: any,
+  companyId: string,
+  targetTable: "clients" | "leads",
+  mapped: Record<string, any>,
+): Promise<{ id: string; table: "clients" | "leads" } | null> {
+  const email = (mapped.email || mapped.client_email || "").toString().trim();
+  if (!email) return null;
+
+  if (targetTable === "clients") {
+    const { data } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("company_id", companyId)
+      .ilike("email", email)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    return data ? { id: (data as any).id, table: "clients" } : null;
+  }
+
+  if (targetTable === "leads") {
+    const { data } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("company_id", companyId)
+      .or(`email.ilike.${email},client_email.ilike.${email}`)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    return data ? { id: (data as any).id, table: "leads" } : null;
+  }
+
+  return null;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -64,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Cast: import_rows isn't in the auto-generated Database types yet.
     const supabase = getServiceSupabase() as any;
     const summary: PreviewSummary = {
-      total: rows.length, ok: 0, warnings: 0, errors: 0, by_target_table: {},
+      total: rows.length, ok: 0, warnings: 0, errors: 0, duplicates: 0, by_target_table: {},
     };
 
     // Update each import_rows row in place with mapped_data + status +
@@ -133,6 +175,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
+      // Inline dedup. Only relevant for clients + leads (orders dedup
+      // by client + date and is decided at commit time). When a match
+      // exists we stamp it on the row with a default decision of
+      // 'skip' -- the wizard then exposes the choice to the operator.
+      let dedupMatchId: string | null = null;
+      let dedupMatchTable: "clients" | "leads" | null = null;
+      let dedupDecision: "skip" | "update" | "create_new" | null = null;
+      if (status !== "error" && (targetTable === "clients" || targetTable === "leads")) {
+        const match = await findDuplicate(supabase, companyId, targetTable, mapped);
+        if (match) {
+          dedupMatchId = match.id;
+          dedupMatchTable = match.table;
+          dedupDecision = "skip";
+          summary.duplicates += 1;
+        }
+      }
+
       if (status === "error") summary.errors += 1;
       else if (warnings.length > 0) summary.warnings += 1;
       else summary.ok += 1;
@@ -146,6 +205,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status,
           error_message: errorMessage,
           preview_warnings: warnings,
+          dedup_match_id: dedupMatchId,
+          dedup_match_table: dedupMatchTable,
+          dedup_decision: dedupDecision,
         } as any)
         .eq("id", r.id);
     }

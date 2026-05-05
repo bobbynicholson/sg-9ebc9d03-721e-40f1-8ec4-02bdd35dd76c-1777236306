@@ -27,9 +27,10 @@ import {
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 interface CommitSummary {
-  clients: { inserted: number; skipped: number; errored: number };
-  orders:  { inserted: number; skipped: number; errored: number };
-  leads:   { inserted: number; skipped: number; errored: number };
+  clients: { inserted: number; updated: number; skipped: number; errored: number };
+  orders:  { inserted: number; updated: number; skipped: number; errored: number };
+  leads:   { inserted: number; updated: number; skipped: number; errored: number };
+  dry_run: boolean;
 }
 
 async function findExistingLead(
@@ -122,6 +123,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const jobId = String(req.query.id || "");
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
 
+    // Test-run mode (phase 3b). When set, the commit pass runs all the
+    // resolution + dedup logic but skips the actual INSERT / UPDATE
+    // statements and the job-status flip. The summary returned reflects
+    // what would have happened. Used by the "Test run" button on the
+    // preview screen so an operator can sanity-check a big import
+    // without touching production tables.
+    const dryRun = (req.body && typeof req.body === "object")
+      ? Boolean((req.body as any).dry_run)
+      : (String(req.query.dry_run || "") === "1");
+
     // Optional target region. The importer page lets the operator
     // pick which branch the imported clients / orders belong to.
     // Validated against regions for this tenant -- a poisoned id
@@ -148,7 +159,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    await setJobStatus(jobId, "committing");
+    if (!dryRun) {
+      await setJobStatus(jobId, "committing");
+    }
 
     // Cast: import_rows isn't in the auto-generated Database types
     // yet -- without it TS chases the union forever ("Type
@@ -157,9 +170,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rows = await listImportRows(jobId, { limit: 5000 });
 
     const summary: CommitSummary = {
-      clients: { inserted: 0, skipped: 0, errored: 0 },
-      orders:  { inserted: 0, skipped: 0, errored: 0 },
-      leads:   { inserted: 0, skipped: 0, errored: 0 },
+      clients: { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      orders:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      leads:   { inserted: 0, updated: 0, skipped: 0, errored: 0 },
+      dry_run: dryRun,
     };
 
     // Three passes: clients first so orders can resolve client_id;
@@ -176,22 +190,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const r of clientRows) {
       try {
         const mapped = r.mapped_data || {};
-        const existing = await findExistingClient(supabase, companyId, mapped);
-        if (existing) {
-          summary.clients.skipped += 1;
-          await supabase.from("import_rows").update({
-            status: "skipped",
-            target_id: existing,
-            error_message: "Already on file",
-          } as any).eq("id", r.id);
-          continue;
+        // Honour the per-row dedup decision set during preview review.
+        // 'skip' (default) -> bail when a match exists.
+        // 'update'         -> apply mapped_data to the matched row.
+        // 'create_new'     -> insert anyway, no match check.
+        const decision = (r as any).dedup_decision as
+          | "skip" | "update" | "create_new" | null;
+        const stampedMatchId = (r as any).dedup_match_id as string | null;
+
+        let existing: string | null = stampedMatchId;
+        if (decision !== "create_new" && !existing) {
+          existing = await findExistingClient(supabase, companyId, mapped);
         }
 
         // clients schema: client_name, email, phone, notes, is_active.
-        // No `company_name` or `status` columns -- the AI mapper's
-        // schema includes them but they're collapsed into client_name
-        // and is_active here.
-        const insertPayload: any = {
+        const payload: any = {
           company_id: companyId,
           region_id: targetRegionId,
           client_name: mapped.client_name || mapped.company_name || "Imported client",
@@ -202,9 +215,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           import_job_id: jobId,
         };
 
+        if (existing && decision === "update") {
+          if (!dryRun) {
+            const { error } = await supabase
+              .from("clients")
+              .update(payload)
+              .eq("id", existing)
+              .eq("company_id", companyId);
+            if (error) throw new Error(error.message);
+          }
+          summary.clients.updated += 1;
+          if (mapped.email) newClientByEmail.set(String(mapped.email).toLowerCase().trim(), existing);
+          if (mapped.client_name) newClientByName.set(String(mapped.client_name).toLowerCase().trim(), existing);
+          if (!dryRun) {
+            await supabase.from("import_rows").update({
+              status: "updated",
+              target_id: existing,
+            } as any).eq("id", r.id);
+          }
+          continue;
+        }
+
+        if (existing && decision !== "create_new") {
+          summary.clients.skipped += 1;
+          if (!dryRun) {
+            await supabase.from("import_rows").update({
+              status: "skipped",
+              target_id: existing,
+              error_message: "Already on file",
+            } as any).eq("id", r.id);
+          }
+          continue;
+        }
+
+        if (dryRun) {
+          summary.clients.inserted += 1;
+          // Still seed the in-batch maps with a placeholder so downstream
+          // order rows simulate resolution correctly. Use the row's own
+          // id as a stand-in -- never persisted.
+          if (mapped.email) newClientByEmail.set(String(mapped.email).toLowerCase().trim(), r.id);
+          if (mapped.client_name) newClientByName.set(String(mapped.client_name).toLowerCase().trim(), r.id);
+          continue;
+        }
+
         const { data: inserted, error } = await supabase
           .from("clients")
-          .insert(insertPayload)
+          .insert(payload)
           .select("id, email, client_name")
           .single();
         if (error) throw new Error(error.message);
@@ -220,10 +276,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } as any).eq("id", r.id);
       } catch (e: any) {
         summary.clients.errored += 1;
-        await supabase.from("import_rows").update({
-          status: "error",
-          error_message: e?.message || "insert failed",
-        } as any).eq("id", r.id);
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "insert failed",
+          } as any).eq("id", r.id);
+        }
       }
     }
 
@@ -266,11 +324,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const existingOrder = await findExistingOrder(supabase, companyId, mapped);
         if (existingOrder) {
           summary.orders.skipped += 1;
-          await supabase.from("import_rows").update({
-            status: "skipped",
-            target_id: existingOrder,
-            error_message: "Order already on file (same client + date)",
-          } as any).eq("id", r.id);
+          if (!dryRun) {
+            await supabase.from("import_rows").update({
+              status: "skipped",
+              target_id: existingOrder,
+              error_message: "Order already on file (same client + date)",
+            } as any).eq("id", r.id);
+          }
           continue;
         }
 
@@ -297,6 +357,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           import_job_id: jobId,
         };
 
+        if (dryRun) {
+          summary.orders.inserted += 1;
+          continue;
+        }
+
         const { data: inserted, error } = await supabase
           .from("orders")
           .insert(orderPayload)
@@ -311,10 +376,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } as any).eq("id", r.id);
       } catch (e: any) {
         summary.orders.errored += 1;
-        await supabase.from("import_rows").update({
-          status: "error",
-          error_message: e?.message || "insert failed",
-        } as any).eq("id", r.id);
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "insert failed",
+          } as any).eq("id", r.id);
+        }
       }
     }
 
@@ -322,15 +389,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const r of leadRows) {
       try {
         const mapped = r.mapped_data || {};
-        const existing = await findExistingLead(supabase, companyId, mapped);
-        if (existing) {
-          summary.leads.skipped += 1;
-          await supabase.from("import_rows").update({
-            status: "skipped",
-            target_id: existing,
-            error_message: "Already on file (matching email)",
-          } as any).eq("id", r.id);
-          continue;
+        const decision = (r as any).dedup_decision as
+          | "skip" | "update" | "create_new" | null;
+        const stampedMatchId = (r as any).dedup_match_id as string | null;
+
+        let existing: string | null = stampedMatchId;
+        if (decision !== "create_new" && !existing) {
+          existing = await findExistingLead(supabase, companyId, mapped);
         }
 
         // leads requires email + client_email + contact_name. Preview
@@ -338,7 +403,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // client_name; defensive: do it again.
         const email = mapped.email || mapped.client_email;
         const contact = mapped.contact_name || mapped.client_name;
-        const insertPayload: any = {
+        const payload: any = {
           company_id: companyId,
           region_id: targetRegionId,
           contact_name: contact,
@@ -360,9 +425,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           import_job_id: jobId,
         };
 
+        if (existing && decision === "update") {
+          if (!dryRun) {
+            const { error } = await supabase
+              .from("leads")
+              .update(payload)
+              .eq("id", existing)
+              .eq("company_id", companyId);
+            if (error) throw new Error(error.message);
+            await supabase.from("import_rows").update({
+              status: "updated",
+              target_id: existing,
+            } as any).eq("id", r.id);
+          }
+          summary.leads.updated += 1;
+          continue;
+        }
+
+        if (existing && decision !== "create_new") {
+          summary.leads.skipped += 1;
+          if (!dryRun) {
+            await supabase.from("import_rows").update({
+              status: "skipped",
+              target_id: existing,
+              error_message: "Already on file (matching email)",
+            } as any).eq("id", r.id);
+          }
+          continue;
+        }
+
+        if (dryRun) {
+          summary.leads.inserted += 1;
+          continue;
+        }
+
         const { data: inserted, error } = await supabase
           .from("leads")
-          .insert(insertPayload)
+          .insert(payload)
           .select("id")
           .single();
         if (error) throw new Error(error.message);
@@ -374,20 +473,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } as any).eq("id", r.id);
       } catch (e: any) {
         summary.leads.errored += 1;
-        await supabase.from("import_rows").update({
-          status: "error",
-          error_message: e?.message || "insert failed",
-        } as any).eq("id", r.id);
+        if (!dryRun) {
+          await supabase.from("import_rows").update({
+            status: "error",
+            error_message: e?.message || "insert failed",
+          } as any).eq("id", r.id);
+        }
       }
     }
 
-    await setJobStatus(jobId, "completed", {
-      summary: {
-        ...(job.summary || {}),
-        commit: summary,
-      },
-    });
-    await logEvent(jobId, "committed", summary);
+    if (!dryRun) {
+      await setJobStatus(jobId, "completed", {
+        summary: {
+          ...(job.summary || {}),
+          commit: summary,
+        },
+      });
+      await logEvent(jobId, "committed", summary);
+    } else {
+      await logEvent(jobId, "dry_run", summary);
+    }
 
     return res.status(200).json({ ok: true, summary });
   } catch (outer: any) {

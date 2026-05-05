@@ -367,6 +367,20 @@ function PaymentGatewaysPage() {
                     <CardDescription>{entry.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
+                    {config && config.credential_hints && Object.keys(config.credential_hints).length > 0 && (
+                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+                        {entry.fields.map((f) => {
+                          const hint = config.credential_hints?.[f.key];
+                          if (!hint) return null;
+                          return (
+                            <div key={f.key} className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-slate-500">{f.label}</span>
+                              <span className="font-mono text-slate-700 tabular-nums">{hint === "set" ? "saved" : hint}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <Button
                       variant={config ? "outline" : "default"}
                       className="w-full"
