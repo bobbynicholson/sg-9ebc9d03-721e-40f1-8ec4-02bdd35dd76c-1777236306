@@ -55,7 +55,8 @@ import {
   Palette,
   Code2,
   Sparkles,
-  Receipt
+  Receipt,
+  Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
@@ -287,6 +288,12 @@ export function AdminNav({ className }: AdminNavProps) {
           href: "/admin/driver-management",
           icon: Truck,
           description: "Manage delivery drivers"
+        },
+        {
+          title: "Driver Settlement",
+          href: "/admin/driver-settlement",
+          icon: Wallet,
+          description: "Per-driver pay summary -- hourly + distance + callout"
         },
         {
           title: "Staff & rates",

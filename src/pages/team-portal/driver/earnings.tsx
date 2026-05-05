@@ -1,77 +1,112 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * /team-portal/driver/earnings -- driver-side pay dashboard.
+ *
+ * Replaces the old read of staff_work_sessions (table never existed)
+ * with the live driver_shifts + delivered-orders model we ship in
+ * Stages 1-2. Calculation goes through driverPayService.getPaySummary
+ * so this page sees exactly the same numbers the admin settlement
+ * view uses.
+ *
+ * Default range is the last 30 days; the period picker swaps it for
+ * "this week" / "last week" / "this month" / custom. Three pay
+ * components: hourly (shift hours x effective hourly rate), distance
+ * (delivered km x effective per-km rate), callout (flat per-delivery).
+ */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  DollarSign, Clock, TrendingUp, Calendar, Wallet, CheckCircle2, Truck, Loader2,
+  Clock, TrendingUp, Calendar, Wallet, Truck, Loader2, Route, MapPin,
 } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-
-interface WorkSession {
-  id: string;
-  clock_in: string;
-  clock_out: string | null;
-  total_hours: number | null;
-  total_earnings: number | null;
-  payment_status: string | null;
-  session_date: string | null;
-}
+import {
+  driverPayService,
+  type DriverPaySummary,
+} from "@/services/driverPayService";
 
 const formatR = (n: number) =>
-  new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 }).format(n);
+  new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+type Preset = "last_7" | "last_30" | "month_to_date" | "last_month" | "custom";
+
+function todayIso() { return new Date().toISOString().slice(0, 10); }
+function daysAgoIso(d: number) {
+  const dt = new Date();
+  dt.setDate(dt.getDate() - d);
+  return dt.toISOString().slice(0, 10);
+}
+function startOfMonthIso() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+function lastMonthRange(): { from: string; to: string } {
+  const d = new Date();
+  const firstOfThisMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  const lastOfPrev = new Date(firstOfThisMonth.getTime() - 86400000);
+  const firstOfPrev = new Date(lastOfPrev.getFullYear(), lastOfPrev.getMonth(), 1);
+  return {
+    from: firstOfPrev.toISOString().slice(0, 10),
+    to: lastOfPrev.toISOString().slice(0, 10),
+  };
+}
 
 export default function DriverEarningsPage() {
-  const { user } = useAuth();
-  const [sessions, setSessions] = useState<WorkSession[]>([]);
+  const { user, profile } = useAuth() as any;
+  const companyId: string | null = profile?.company_id ?? user?.company_id ?? null;
+
+  const [preset, setPreset] = useState<Preset>("last_30");
+  const [from, setFrom] = useState(daysAgoIso(30));
+  const [to, setTo] = useState(todayIso());
+  const [summary, setSummary] = useState<DriverPaySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Apply preset -> from/to. Custom keeps whatever the user typed.
   useEffect(() => {
-    if (!user?.id) return;
+    if (preset === "last_7") { setFrom(daysAgoIso(7)); setTo(todayIso()); }
+    else if (preset === "last_30") { setFrom(daysAgoIso(30)); setTo(todayIso()); }
+    else if (preset === "month_to_date") { setFrom(startOfMonthIso()); setTo(todayIso()); }
+    else if (preset === "last_month") { const r = lastMonthRange(); setFrom(r.from); setTo(r.to); }
+  }, [preset]);
+
+  useEffect(() => {
+    if (!user?.id || !companyId) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("staff_work_sessions")
-        .select("id, clock_in, clock_out, total_hours, total_earnings, payment_status, session_date")
-        .eq("staff_id", user.id)
-        .order("clock_in", { ascending: false });
+      const result = await driverPayService.getPaySummary({
+        companyId,
+        driverId: user.id,
+        range: { from, to },
+      });
       if (!cancelled) {
-        if (error) console.error("Error loading earnings:", error);
-        setSessions((data || []) as WorkSession[]);
+        setSummary(result);
         setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, companyId, from, to]);
 
   const stats = useMemo(() => {
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 86400000);
-    const monthAgo = new Date(now.getTime() - 30 * 86400000);
-    const sum = (rows: WorkSession[], picker: (r: WorkSession) => number = (r) => Number(r.total_earnings || 0)) =>
-      rows.reduce((s, r) => s + picker(r), 0);
-    const paid = sessions.filter((r) => r.payment_status === "paid");
-    const unpaid = sessions.filter((r) => r.payment_status !== "paid");
+    if (!summary) return null;
     return {
-      total: sum(sessions),
-      paid: sum(paid),
-      unpaid: sum(unpaid),
-      thisWeek: sum(sessions.filter((r) => new Date(r.clock_in) > weekAgo)),
-      thisMonth: sum(sessions.filter((r) => new Date(r.clock_in) > monthAgo)),
-      totalHours: sum(sessions, (r) => Number(r.total_hours || 0)),
-      sessionCount: sessions.length,
-      paidCount: paid.length,
-      unpaidCount: unpaid.length,
+      hoursTotal: summary.totals.hours_total,
+      hourlyPay: summary.totals.hourly_pay,
+      distanceKm: summary.totals.distance_total_km,
+      distancePay: summary.totals.distance_pay,
+      calloutPay: summary.totals.callout_pay,
+      grandTotal: summary.totals.grand_total,
+      shiftCount: summary.shifts.length,
+      deliveryCount: summary.deliveries.length,
+      rates: summary.rates,
     };
-  }, [sessions]);
+  }, [summary]);
 
   return (
     <>
@@ -81,19 +116,59 @@ export default function DriverEarningsPage() {
 
       <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-50 to-blue-50 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <div className="px-4 py-8 max-w-screen-2xl">
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                 <Wallet className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-3xl lg:text-4xl font-bold text-slate-900">My Earnings</h1>
-                <p className="text-slate-600 mt-1">Track your hours and pay across every shift</p>
+                <p className="text-slate-600 mt-1">
+                  Hours, distance and callout pay for the period below.
+                </p>
               </div>
             </div>
           </div>
 
-          {loading ? (
+          {/* Period picker */}
+          <Card className="border-0 shadow mb-6">
+            <CardContent className="p-4 flex flex-wrap items-end gap-3">
+              <div>
+                <Label className="text-xs text-slate-500">Period</Label>
+                <select
+                  value={preset}
+                  onChange={(e) => setPreset(e.target.value as Preset)}
+                  className="mt-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white"
+                >
+                  <option value="last_7">Last 7 days</option>
+                  <option value="last_30">Last 30 days</option>
+                  <option value="month_to_date">This month</option>
+                  <option value="last_month">Last month</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">From</Label>
+                <Input
+                  type="date"
+                  value={from}
+                  onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }}
+                  className="mt-1 w-44"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">To</Label>
+                <Input
+                  type="date"
+                  value={to}
+                  onChange={(e) => { setTo(e.target.value); setPreset("custom"); }}
+                  className="mt-1 w-44"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {loading || !stats ? (
             <Card className="border-0 shadow">
               <CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -105,35 +180,31 @@ export default function DriverEarningsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <StatCard
                   label="Total earned"
-                  value={formatR(stats.total)}
-                  icon={DollarSign}
-                  accent="from-emerald-500 to-green-600"
-                  sublabel={`${stats.totalHours.toFixed(1)} hours over ${stats.sessionCount} shifts`}
-                  tooltip="Everything you've earned across every shift you've worked."
-                />
-                <StatCard
-                  label="Already paid"
-                  value={formatR(stats.paid)}
-                  icon={CheckCircle2}
-                  accent="from-blue-500 to-indigo-600"
-                  sublabel={`${stats.paidCount} paid shift${stats.paidCount === 1 ? "" : "s"}`}
-                  tooltip="Earnings from shifts that have already been paid out to you."
-                />
-                <StatCard
-                  label="Pending payout"
-                  value={formatR(stats.unpaid)}
-                  icon={Clock}
-                  accent="from-amber-500 to-orange-600"
-                  sublabel={`${stats.unpaidCount} shift${stats.unpaidCount === 1 ? "" : "s"} awaiting payment`}
-                  tooltip="Earnings still waiting to be paid out on the next payroll run."
-                />
-                <StatCard
-                  label="Last 30 days"
-                  value={formatR(stats.thisMonth)}
+                  value={formatR(stats.grandTotal)}
                   icon={TrendingUp}
+                  accent="from-emerald-500 to-green-600"
+                  sublabel={`${stats.hoursTotal.toFixed(1)}h + ${stats.distanceKm.toFixed(1)}km + ${stats.deliveryCount} callouts`}
+                />
+                <StatCard
+                  label="Hourly pay"
+                  value={formatR(stats.hourlyPay)}
+                  icon={Clock}
+                  accent="from-blue-500 to-indigo-600"
+                  sublabel={`${stats.shiftCount} shift${stats.shiftCount === 1 ? "" : "s"} @ ${formatR(stats.rates.hourly_rate)}/hr`}
+                />
+                <StatCard
+                  label="Distance pay"
+                  value={formatR(stats.distancePay)}
+                  icon={Route}
+                  accent="from-amber-500 to-orange-600"
+                  sublabel={`${stats.distanceKm.toFixed(1)} km @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
+                />
+                <StatCard
+                  label="Callout pay"
+                  value={formatR(stats.calloutPay)}
+                  icon={MapPin}
                   accent="from-purple-500 to-pink-600"
-                  sublabel={`${formatR(stats.thisWeek)} this week`}
-                  tooltip="What you've earned over the past 30 days."
+                  sublabel={`${stats.deliveryCount} dispatch${stats.deliveryCount === 1 ? "" : "es"} @ ${formatR(stats.rates.base_callout_fee)} flat`}
                 />
               </div>
 
@@ -141,25 +212,21 @@ export default function DriverEarningsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-blue-600" />
-                    Shift History
+                    Pay breakdown
                   </CardTitle>
-                  <CardDescription>Every shift you've clocked in for, newest first</CardDescription>
+                  <CardDescription>Every shift and delivery in this period</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Tabs defaultValue="all">
+                  <Tabs defaultValue="shifts">
                     <TabsList className="mb-4">
-                      <TabsTrigger value="all">All ({stats.sessionCount})</TabsTrigger>
-                      <TabsTrigger value="unpaid">Awaiting payment ({stats.unpaidCount})</TabsTrigger>
-                      <TabsTrigger value="paid">Paid ({stats.paidCount})</TabsTrigger>
+                      <TabsTrigger value="shifts">Shifts ({stats.shiftCount})</TabsTrigger>
+                      <TabsTrigger value="deliveries">Deliveries ({stats.deliveryCount})</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="all">
-                      <ShiftTable sessions={sessions} />
+                    <TabsContent value="shifts">
+                      <ShiftTable summary={summary} />
                     </TabsContent>
-                    <TabsContent value="unpaid">
-                      <ShiftTable sessions={sessions.filter((r) => r.payment_status !== "paid")} />
-                    </TabsContent>
-                    <TabsContent value="paid">
-                      <ShiftTable sessions={sessions.filter((r) => r.payment_status === "paid")} />
+                    <TabsContent value="deliveries">
+                      <DeliveryTable summary={summary} />
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -174,23 +241,19 @@ export default function DriverEarningsPage() {
 }
 
 function StatCard({
-  label, value, sublabel, icon: Icon, accent, tooltip,
+  label, value, sublabel, icon: Icon, accent,
 }: {
   label: string;
   value: string;
   sublabel?: string;
   icon: React.ComponentType<{ className?: string }>;
   accent: string;
-  tooltip?: string;
 }) {
   return (
     <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 flex items-center gap-1">
-            {label}
-            {tooltip && <InfoTooltip content={tooltip} />}
-          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
           <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${accent} flex items-center justify-center`}>
             <Icon className="w-4 h-4 text-white" />
           </div>
@@ -202,12 +265,12 @@ function StatCard({
   );
 }
 
-function ShiftTable({ sessions }: { sessions: WorkSession[] }) {
-  if (sessions.length === 0) {
+function ShiftTable({ summary }: { summary: DriverPaySummary | null }) {
+  if (!summary || summary.shifts.length === 0) {
     return (
       <div className="py-12 text-center text-slate-500">
-        <Truck className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-        No shifts in this view.
+        <Clock className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+        No shifts in this period.
       </div>
     );
   }
@@ -216,51 +279,56 @@ function ShiftTable({ sessions }: { sessions: WorkSession[] }) {
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-slate-500">
           <tr>
-            <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Date<InfoTooltip content="The day this shift was worked." /></span>
-            </th>
-            <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Clock in<InfoTooltip content="The time you started this shift." /></span>
-            </th>
-            <th className="text-left px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Clock out<InfoTooltip content="The time you ended this shift.\n\n'Active' means you're still on the clock." /></span>
-            </th>
-            <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Hours<InfoTooltip content="How long you worked on this shift." /></span>
-            </th>
-            <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Earnings<InfoTooltip content="What you earned for this shift.\n\nHours worked times your rate, plus any bonuses." /></span>
-            </th>
-            <th className="text-right px-4 py-2 font-medium">
-              <span className="inline-flex items-center gap-1">Status<InfoTooltip content="Whether this shift has been paid out yet." /></span>
-            </th>
+            <th className="text-left px-4 py-2 font-medium">Hours</th>
+            <th className="text-left px-4 py-2 font-medium">Multiplier</th>
+            <th className="text-right px-4 py-2 font-medium">Rate</th>
+            <th className="text-right px-4 py-2 font-medium">Pay</th>
           </tr>
         </thead>
         <tbody>
-          {sessions.map((s) => (
-            <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
-              <td className="px-4 py-3 text-slate-700">
-                {s.session_date ? new Date(s.session_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" }) : "—"}
-              </td>
-              <td className="px-4 py-3 text-slate-600">
-                {s.clock_in ? new Date(s.clock_in).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "—"}
-              </td>
-              <td className="px-4 py-3 text-slate-600">
-                {s.clock_out ? new Date(s.clock_out).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : <span className="text-emerald-600 font-medium">Active</span>}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                {Number(s.total_hours || 0).toFixed(1)}h
-              </td>
-              <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
-                {formatR(Number(s.total_earnings || 0))}
-              </td>
-              <td className="px-4 py-3 text-right">
-                {s.payment_status === "paid" ? (
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Paid</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">Pending</Badge>
-                )}
-              </td>
+          {summary.shifts.map((s) => (
+            <tr key={s.shift_id} className="border-t border-slate-100">
+              <td className="px-4 py-2 text-slate-700">{s.hours.toFixed(2)}h</td>
+              <td className="px-4 py-2 text-slate-600">{s.multiplier === 1 ? "Standard" : `${s.multiplier}x`}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(s.hourly_rate)}/hr</td>
+              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(s.pay)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DeliveryTable({ summary }: { summary: DriverPaySummary | null }) {
+  if (!summary || summary.deliveries.length === 0) {
+    return (
+      <div className="py-12 text-center text-slate-500">
+        <Truck className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+        No completed deliveries in this period.
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-slate-500">
+          <tr>
+            <th className="text-left px-4 py-2 font-medium">Order</th>
+            <th className="text-right px-4 py-2 font-medium">Distance</th>
+            <th className="text-right px-4 py-2 font-medium">Distance pay</th>
+            <th className="text-right px-4 py-2 font-medium">Callout</th>
+            <th className="text-right px-4 py-2 font-medium">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.deliveries.map((d) => (
+            <tr key={d.order_id} className="border-t border-slate-100">
+              <td className="px-4 py-2 font-mono text-xs text-slate-600 truncate max-w-[140px]">{d.order_id.slice(0, 8)}...</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{d.distance_km.toFixed(1)} km</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.distance_pay)}</td>
+              <td className="px-4 py-2 text-right tabular-nums text-slate-700">{formatR(d.callout_fee)}</td>
+              <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums">{formatR(d.total)}</td>
             </tr>
           ))}
         </tbody>
