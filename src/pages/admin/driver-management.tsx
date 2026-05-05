@@ -46,6 +46,17 @@ interface Driver {
   home_postcode: string | null;
   regions_covered: string[] | null;
   vehicle_id: string | null;
+  // Pay rates -- per-driver overrides. NULL = fall back to the company
+  // default on companies.default_*.
+  hourly_rate: number | null;
+  distance_rate_per_km: number | null;
+  base_callout_fee: number | null;
+}
+
+interface CompanyPayDefaults {
+  default_driver_hourly_rate: number | null;
+  default_distance_rate_per_km: number | null;
+  default_base_callout_fee: number | null;
 }
 
 function relativeTime(iso: string): string {
@@ -90,6 +101,10 @@ function DriverManagementPage() {
     home_postcode: "",
     drive_time_to_kitchen_minutes: "",
     max_jobs_per_shift: "",
+    // Section 2b -- pay rates (optional, falls back to company defaults)
+    hourly_rate: "",
+    distance_rate_per_km: "",
+    base_callout_fee: "",
     // Section 3 -- vehicle
     has_vehicle: false,
     vehicle_mode: "new_driver_owned" as "new_driver_owned" | "existing_company",
@@ -115,6 +130,7 @@ function DriverManagementPage() {
   const resetNewDriver = () => setNewDriver({
     name: "", email: "", phone: "", password: "",
     home_postcode: "", drive_time_to_kitchen_minutes: "", max_jobs_per_shift: "",
+    hourly_rate: "", distance_rate_per_km: "", base_callout_fee: "",
     has_vehicle: false,
     vehicle_mode: "new_driver_owned",
     existing_vehicle_id: "",
@@ -141,7 +157,20 @@ function DriverManagementPage() {
   const [editMaxJobs, setEditMaxJobs] = useState("");
   const [editHomePostcode, setEditHomePostcode] = useState("");
   const [editVehicleId, setEditVehicleId] = useState<string>("");
+  const [editHourlyRate, setEditHourlyRate] = useState("");
+  const [editDistanceRate, setEditDistanceRate] = useState("");
+  const [editCalloutFee, setEditCalloutFee] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // Company-level pay rate defaults. Drivers fall back to these when
+  // their own rate columns are NULL. Loaded once on mount + used as
+  // placeholder copy in the dialogs so the operator sees what would
+  // apply if they leave the field blank.
+  const [companyPayDefaults, setCompanyPayDefaults] = useState<CompanyPayDefaults>({
+    default_driver_hourly_rate: null,
+    default_distance_rate_per_km: null,
+    default_base_callout_fee: null,
+  });
 
   // Remove driver confirm dialog
   const [removeTarget, setRemoveTarget] = useState<Driver | null>(null);
@@ -248,11 +277,34 @@ function DriverManagementPage() {
     vehicleService.getVehiclesForCompany(user.company_id).then(setVehicles);
   }, [user?.company_id]);
 
+  // Load company-level pay rate defaults so the dialogs can show them
+  // as placeholder copy when the driver-specific override is blank.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("default_driver_hourly_rate, default_distance_rate_per_km, default_base_callout_fee")
+        .eq("id", user.company_id)
+        .maybeSingle();
+      if (data) {
+        setCompanyPayDefaults({
+          default_driver_hourly_rate: data.default_driver_hourly_rate ?? null,
+          default_distance_rate_per_km: data.default_distance_rate_per_km ?? null,
+          default_base_callout_fee: data.default_base_callout_fee ?? null,
+        });
+      }
+    })();
+  }, [user?.company_id]);
+
   const openEditDriver = (driver: Driver) => {
     setEditTarget(driver);
     setEditMaxJobs(driver.max_jobs_per_shift != null ? String(driver.max_jobs_per_shift) : "");
     setEditHomePostcode(driver.home_postcode ?? "");
     setEditVehicleId(driver.vehicle_id ?? "");
+    setEditHourlyRate(driver.hourly_rate != null ? String(driver.hourly_rate) : "");
+    setEditDistanceRate(driver.distance_rate_per_km != null ? String(driver.distance_rate_per_km) : "");
+    setEditCalloutFee(driver.base_callout_fee != null ? String(driver.base_callout_fee) : "");
   };
 
   const handleEditDriverSave = async () => {
@@ -264,12 +316,28 @@ function DriverManagementPage() {
         toast({ title: "Invalid capacity", description: "Max jobs per shift must be a positive number.", variant: "destructive" });
         return;
       }
-      const { error } = await supabase
+      const parseRate = (raw: string, label: string): { ok: true; value: number | null } | { ok: false; msg: string } => {
+        const trimmed = raw.trim();
+        if (trimmed === "") return { ok: true, value: null };
+        const n = Number(trimmed);
+        if (isNaN(n) || n < 0) return { ok: false, msg: `${label} must be a positive number.` };
+        return { ok: true, value: n };
+      };
+      const hourly = parseRate(editHourlyRate, "Hourly rate");
+      if (!hourly.ok) { toast({ title: "Invalid rate", description: hourly.msg, variant: "destructive" }); return; }
+      const distance = parseRate(editDistanceRate, "Per-km rate");
+      if (!distance.ok) { toast({ title: "Invalid rate", description: distance.msg, variant: "destructive" }); return; }
+      const callout = parseRate(editCalloutFee, "Callout fee");
+      if (!callout.ok) { toast({ title: "Invalid rate", description: callout.msg, variant: "destructive" }); return; }
+      const { error } = await (supabase as any)
         .from("profiles")
         .update({
           max_jobs_per_shift: max,
           home_postcode: editHomePostcode.trim() || null,
           vehicle_id: editVehicleId || null,
+          hourly_rate: hourly.value,
+          distance_rate_per_km: distance.value,
+          base_callout_fee: callout.value,
         })
         .eq("id", editTarget.id);
       if (error) throw error;
@@ -384,17 +452,30 @@ function DriverManagementPage() {
       newDriverId = payload?.user?.id || null;
 
       // Stamp the optional ops fields the API doesn't write (postcode,
-      // max jobs per shift). Done as a separate update so the create-user
-      // contract stays narrow.
-      if (newDriverId && (newDriver.home_postcode || newDriver.max_jobs_per_shift)) {
-        await supabase
+      // max jobs per shift, pay-rate overrides). Done as a separate
+      // update so the create-user contract stays narrow.
+      const hasOpsExtras =
+        newDriver.home_postcode || newDriver.max_jobs_per_shift ||
+        newDriver.hourly_rate || newDriver.distance_rate_per_km ||
+        newDriver.base_callout_fee;
+      if (newDriverId && hasOpsExtras) {
+        const numOrNull = (raw: string): number | null => {
+          const t = raw.trim();
+          if (!t) return null;
+          const n = Number(t);
+          return isNaN(n) || n < 0 ? null : n;
+        };
+        await (supabase as any)
           .from("profiles")
           .update({
             home_postcode: newDriver.home_postcode.trim() || null,
             max_jobs_per_shift: newDriver.max_jobs_per_shift
               ? Number(newDriver.max_jobs_per_shift)
               : null,
-          } as any)
+            hourly_rate: numOrNull(newDriver.hourly_rate),
+            distance_rate_per_km: numOrNull(newDriver.distance_rate_per_km),
+            base_callout_fee: numOrNull(newDriver.base_callout_fee),
+          })
           .eq("id", newDriverId);
       }
 
@@ -749,6 +830,75 @@ function DriverManagementPage() {
                               className="mt-1"
                             />
                             <p className="text-[11px] text-slate-500 mt-1">Caps the load picker won't exceed.</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* ── Section 2b: pay rates ── */}
+                    <Card className="border-slate-200 shadow-none">
+                      <CardContent className="py-4 px-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                            <Activity className="w-3.5 h-3.5 text-orange-600" />
+                            Pay rates
+                          </Label>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, falls back to company defaults</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <Label htmlFor="hourly_rate">Hourly rate (R / hr)</Label>
+                            <Input
+                              id="hourly_rate"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={newDriver.hourly_rate}
+                              onChange={(e) => setNewDriver({ ...newDriver, hourly_rate: e.target.value })}
+                              placeholder={
+                                companyPayDefaults.default_driver_hourly_rate != null
+                                  ? `Default: R ${companyPayDefaults.default_driver_hourly_rate.toFixed(2)}`
+                                  : "e.g. 75.00"
+                              }
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Paid per hour on-shift.</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="distance_rate_per_km">Per-km rate (R / km)</Label>
+                            <Input
+                              id="distance_rate_per_km"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={newDriver.distance_rate_per_km}
+                              onChange={(e) => setNewDriver({ ...newDriver, distance_rate_per_km: e.target.value })}
+                              placeholder={
+                                companyPayDefaults.default_distance_rate_per_km != null
+                                  ? `Default: R ${companyPayDefaults.default_distance_rate_per_km.toFixed(2)}`
+                                  : "e.g. 5.50"
+                              }
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Paid per km driven on a job.</p>
+                          </div>
+                          <div>
+                            <Label htmlFor="base_callout_fee">Callout fee (R)</Label>
+                            <Input
+                              id="base_callout_fee"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={newDriver.base_callout_fee}
+                              onChange={(e) => setNewDriver({ ...newDriver, base_callout_fee: e.target.value })}
+                              placeholder={
+                                companyPayDefaults.default_base_callout_fee != null
+                                  ? `Default: R ${companyPayDefaults.default_base_callout_fee.toFixed(2)}`
+                                  : "e.g. 100.00"
+                              }
+                              className="mt-1"
+                            />
+                            <p className="text-[11px] text-slate-500 mt-1">Flat fee per dispatch.</p>
                           </div>
                         </div>
                       </CardContent>
@@ -1354,6 +1504,68 @@ function DriverManagementPage() {
               <p className="text-xs text-slate-500 mt-1">
                 Refrigerated vehicles unlock cold-chain orders for this driver.
               </p>
+            </div>
+
+            <div className="border-t border-slate-200 pt-4">
+              <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                Pay rates
+              </Label>
+              <p className="text-[11px] text-slate-500 mt-0.5 mb-3">
+                Per-driver overrides. Leave blank to use the company defaults.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label htmlFor="edit_hourly_rate">Hourly (R / hr)</Label>
+                  <Input
+                    id="edit_hourly_rate"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editHourlyRate}
+                    onChange={(e) => setEditHourlyRate(e.target.value)}
+                    placeholder={
+                      companyPayDefaults.default_driver_hourly_rate != null
+                        ? `Default R ${companyPayDefaults.default_driver_hourly_rate.toFixed(2)}`
+                        : "e.g. 75.00"
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_distance_rate">Per-km (R / km)</Label>
+                  <Input
+                    id="edit_distance_rate"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editDistanceRate}
+                    onChange={(e) => setEditDistanceRate(e.target.value)}
+                    placeholder={
+                      companyPayDefaults.default_distance_rate_per_km != null
+                        ? `Default R ${companyPayDefaults.default_distance_rate_per_km.toFixed(2)}`
+                        : "e.g. 5.50"
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit_callout_fee">Callout (R)</Label>
+                  <Input
+                    id="edit_callout_fee"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editCalloutFee}
+                    onChange={(e) => setEditCalloutFee(e.target.value)}
+                    placeholder={
+                      companyPayDefaults.default_base_callout_fee != null
+                        ? `Default R ${companyPayDefaults.default_base_callout_fee.toFixed(2)}`
+                        : "e.g. 100.00"
+                    }
+                    className="mt-1"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
