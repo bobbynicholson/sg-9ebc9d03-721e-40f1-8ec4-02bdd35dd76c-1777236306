@@ -26,5 +26,5 @@ ALTER TABLE public.import_rows
 -- Quick lookup when the wizard fetches all rows with a match for the
 -- "review duplicates" panel.
 CREATE INDEX IF NOT EXISTS import_rows_dedup_match_idx
-  ON public.import_rows (import_job_id, dedup_match_table)
+  ON public.import_rows (job_id, dedup_match_table)
   WHERE dedup_match_id IS NOT NULL;
