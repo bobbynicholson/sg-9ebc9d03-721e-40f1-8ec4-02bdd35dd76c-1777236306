@@ -132,6 +132,15 @@ const DEFAULT_ONBOARDING_STEPS: OnboardingStep[] = [
     icon: "💳"
   },
   {
+    id: "setup_email",
+    label: "Sending Email",
+    completed: false,
+    required: false,
+    estimatedMinutes: 5,
+    description: "Verify your own domain or use the shared CateringMS sender",
+    icon: "✉️"
+  },
+  {
     id: "final_review",
     label: "Review & Launch",
     completed: false,

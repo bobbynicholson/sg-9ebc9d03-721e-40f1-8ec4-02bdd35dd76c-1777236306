@@ -2059,6 +2059,12 @@ export type Database = {
           oauth_account_email: string | null
           oauth_refresh_token_encrypted: string | null
           provider: string
+          resend_dns_records: Json | null
+          resend_domain_id: string | null
+          resend_domain_status: string | null
+          resend_domain_verified_at: string | null
+          resend_last_checked_at: string | null
+          resend_sending_domain: string | null
           revoke_old_links_on_new: boolean | null
           smtp_host: string | null
           smtp_pass_encrypted: string | null
@@ -2087,6 +2093,12 @@ export type Database = {
           oauth_account_email?: string | null
           oauth_refresh_token_encrypted?: string | null
           provider: string
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
+          resend_domain_status?: string | null
+          resend_domain_verified_at?: string | null
+          resend_last_checked_at?: string | null
+          resend_sending_domain?: string | null
           revoke_old_links_on_new?: boolean | null
           smtp_host?: string | null
           smtp_pass_encrypted?: string | null
@@ -2115,6 +2127,12 @@ export type Database = {
           oauth_account_email?: string | null
           oauth_refresh_token_encrypted?: string | null
           provider?: string
+          resend_dns_records?: Json | null
+          resend_domain_id?: string | null
+          resend_domain_status?: string | null
+          resend_domain_verified_at?: string | null
+          resend_last_checked_at?: string | null
+          resend_sending_domain?: string | null
           revoke_old_links_on_new?: boolean | null
           smtp_host?: string | null
           smtp_pass_encrypted?: string | null

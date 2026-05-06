@@ -15,9 +15,25 @@ export interface EmailSettings {
   smtp_password: string | null;
   smtp_secure: boolean | null;
   is_verified?: boolean | null;
+  // Per-tenant Resend domain verification fields. When the tenant has
+  // verified their own domain, sends come from `you@yourdomain.com`.
+  // Otherwise we fall back to the shared CateringMS sender.
+  resend_domain_id?: string | null;
+  resend_sending_domain?: string | null;
+  resend_domain_status?: string | null;
+  resend_domain_verified_at?: string | null;
+  resend_dns_records?: any;
   created_at?: string;
   updated_at?: string;
 }
+
+/**
+ * Shared CateringMS transactional sender. Used as the Tier-1 fallback
+ * for tenants who haven't verified their own domain yet (or while
+ * their DNS is propagating). Skylight verifies send.cateringms.com
+ * once at the platform level inside Resend.
+ */
+export const SHARED_FROM_EMAIL = "noreply@send.cateringms.com";
 
 /**
  * Attachment shape accepted by sendEmail. We normalise to Resend's
@@ -96,7 +112,7 @@ export const emailService = {
     const sb = client || supabase;
     const { data, error } = await sb
       .from("email_provider_settings")
-      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, created_at, updated_at")
+      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, created_at, updated_at")
       .eq("company_id", companyId)
       .neq("provider", "mailchimp")
       .order("is_verified", { ascending: false })
@@ -133,9 +149,57 @@ export const emailService = {
       smtp_password: (data as any).smtp_pass_encrypted || null,
       smtp_secure: (data as any).smtp_secure,
       is_verified: (data as any).is_verified,
+      resend_domain_id: (data as any).resend_domain_id || null,
+      resend_sending_domain: (data as any).resend_sending_domain || null,
+      resend_domain_status: (data as any).resend_domain_status || null,
+      resend_domain_verified_at: (data as any).resend_domain_verified_at || null,
+      resend_dns_records: (data as any).resend_dns_records || null,
       created_at: (data as any).created_at,
       updated_at: (data as any).updated_at,
     };
+  },
+
+  /**
+   * Decide what `From` and `Reply-To` to use for a given tenant.
+   *
+   * Tier 0 -- tenant verified their own domain in Resend AND their
+   * from_email lives at that domain: send as `${from_name} <${from_email}>`.
+   *
+   * Tier 1 -- everything else (no domain, pending, failed, or
+   * mismatched apex): send from the shared `noreply@send.cateringms.com`
+   * sender with reply_to set to the tenant's from_email so client
+   * replies still land in the operator's inbox. Skylight verifies the
+   * shared subdomain in Resend at the platform level.
+   *
+   * SMTP and OAuth providers ignore this -- they always send as the
+   * tenant's own address (the SMTP server gates it).
+   */
+  resolveFromAddress(config: EmailSettings): { from: string; replyTo?: string } {
+    const name = (config.from_name || "").trim() || "CateringMS";
+    const email = (config.from_email || "").trim().toLowerCase();
+
+    if (config.provider !== "resend") {
+      // SMTP / OAuth path: pass through whatever the tenant configured.
+      return { from: `${name} <${config.from_email || SHARED_FROM_EMAIL}>` };
+    }
+
+    const verified = !!config.resend_domain_verified_at;
+    const sendingDomain = (config.resend_sending_domain || "").toLowerCase();
+    const matchesDomain =
+      sendingDomain && email && email.endsWith(`@${sendingDomain}`);
+
+    if (verified && matchesDomain) {
+      return { from: `${name} <${email}>` };
+    }
+
+    // Fallback: shared sender, replies routed back to the operator's
+    // own inbox. If the operator hasn't even set a from_email yet, omit
+    // reply_to so Resend doesn't choke on an empty header.
+    const fallback: { from: string; replyTo?: string } = {
+      from: `${name} <${SHARED_FROM_EMAIL}>`,
+    };
+    if (email) fallback.replyTo = email;
+    return fallback;
   },
 
   replaceVariables(template: string, variables: Record<string, any> = {}): string {
@@ -311,16 +375,19 @@ export const emailService = {
       let emailSent = false;
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
+        const { from, replyTo } = this.resolveFromAddress(config);
         emailSent = await this.sendViaResend({
-          from: `${config.from_name} <${config.from_email}>`,
+          from,
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
           attachments: payload.attachments,
+          replyTo,
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
+        const { from } = this.resolveFromAddress(config);
         emailSent = await this.sendViaSMTP(config, {
-          from: `${config.from_name} <${config.from_email}>`,
+          from,
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
@@ -414,6 +481,7 @@ export const emailService = {
     subject: string;
     html: string;
     attachments?: EmailAttachment[];
+    replyTo?: string;
   }): Promise<boolean> {
     try {
       // Resend wants attachments as { filename, content } where content
@@ -425,6 +493,11 @@ export const emailService = {
         subject: emailData.subject,
         html: emailData.html,
       };
+      if (emailData.replyTo) {
+        // Resend accepts either reply_to or replyTo; reply_to is the
+        // documented snake_case form.
+        resendBody.reply_to = emailData.replyTo;
+      }
       if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
         resendBody.attachments = emailData.attachments.map((a) => ({
           filename: a.filename,

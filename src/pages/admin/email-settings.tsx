@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
   Mail, Shield, Key, Server, CheckCircle2, AlertTriangle, Send, Loader2,
-  ExternalLink, Inbox, BarChart3, ArrowRight, Sparkles,
+  ExternalLink, Inbox, BarChart3, ArrowRight, Sparkles, Globe, ShieldCheck,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -38,8 +38,9 @@ import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 
-type Provider = "none" | "gmail_oauth" | "ms365_oauth" | "smtp";
+type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
 
 interface ProviderRow {
   id?: string;
@@ -84,7 +85,7 @@ function EmailSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [todayCount, setTodayCount] = useState(0);
   const [row, setRow] = useState<ProviderRow>({
-    provider: "none",
+    provider: "resend",
     from_email: null,
     from_name: null,
     smtp_host: null,
@@ -276,27 +277,74 @@ function EmailSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Provider selector */}
+          {/* Resend domain verification -- primary path */}
+          <Card className="border-0 shadow-lg mb-6 bg-gradient-to-br from-white to-purple-50/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-purple-600" />
+                Use your own sending domain
+                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">Recommended</span>
+              </CardTitle>
+              <CardDescription>
+                Verify your domain once -- after that, every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {companyId && (
+                <ResendDomainCard
+                  companyId={companyId}
+                  onVerified={(d) => {
+                    // Auto-set provider=resend after verification so the
+                    // first save persists the new state.
+                    setRow((r) => ({ ...r, provider: "resend" }));
+                    if (!row.from_email || !row.from_email.toLowerCase().endsWith(`@${d}`)) {
+                      // Suggest a sensible default if their from_email
+                      // doesn't already live at the verified domain.
+                      setRow((r) => ({
+                        ...r,
+                        from_email: `hello@${d}`,
+                      }));
+                    }
+                  }}
+                />
+              )}
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                <p className="font-semibold mb-1">While your DNS is propagating</p>
+                <p>
+                  Your emails come from <code>noreply@send.cateringms.com</code> with replies routed back to your inbox. Once the DNS records are live (usually within an hour), your emails switch to your own domain automatically.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced: alternative providers */}
           <Card className="border-0 shadow-lg mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-purple-600" />
-                Outgoing mail provider
+                Advanced -- alternative providers
               </CardTitle>
               <CardDescription>
-                Pick how the platform sends mail on your behalf. Personal one-off messages always look like they came from your address.
+                Most caterers should use the verified-domain option above. These options exist for operators who already have a Gmail / Microsoft / SMTP setup they'd rather route through.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <ProviderTile
+                  active={row.provider === "resend"}
+                  onClick={() => setRow({ ...row, provider: "resend" })}
+                  icon={Globe}
+                  title="Verified domain"
+                  sub="Through CateringMS (Resend)"
+                  badge="Default"
+                  badgeTone="bg-purple-100 text-purple-700"
+                />
                 <ProviderTile
                   active={row.provider === "gmail_oauth"}
                   onClick={() => setRow({ ...row, provider: "gmail_oauth" })}
                   icon={Mail}
                   title="Gmail"
                   sub="Sign in once with Google"
-                  badge="Recommended"
-                  badgeTone="bg-emerald-100 text-emerald-700"
                 />
                 <ProviderTile
                   active={row.provider === "ms365_oauth"}

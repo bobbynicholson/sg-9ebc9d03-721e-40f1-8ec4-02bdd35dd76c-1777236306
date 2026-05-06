@@ -47,6 +47,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
+import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 
 interface CompanyForm {
   // Basics
@@ -108,6 +109,7 @@ const STEPS = [
   { id: "branding", label: "Branding",  icon: Palette },
   { id: "banking",  label: "Banking",   icon: Landmark },
   { id: "vat",      label: "VAT",       icon: Receipt },
+  { id: "email",    label: "Email",     icon: ShieldCheck },
   { id: "clients",  label: "Clients",   icon: Users },
   { id: "done",     label: "Finish",    icon: Check },
 ] as const;
@@ -411,6 +413,14 @@ function OnboardingWizard() {
                     });
                     if (ok) goNext();
                   }}
+                />
+              )}
+
+              {step === "email" && (
+                <EmailStep
+                  companyId={companyId}
+                  onBack={goBack}
+                  onNext={goNext}
                 />
               )}
 
@@ -828,6 +838,135 @@ function VatStep({
         </Field>
       </div>
       <NavRow onBack={onBack} onNext={onNext} saving={saving} />
+    </StepShell>
+  );
+}
+
+function EmailStep({
+  companyId, onBack, onNext,
+}: { companyId: string; onBack: () => void; onNext: () => void }) {
+  // Two-card pattern: verified domain (recommended) vs shared sender.
+  // Picking shared just stamps provider='resend' with no domain so the
+  // smart-routing in emailService falls back to noreply@send.cateringms.com.
+  const { toast } = useToast();
+  const [mode, setMode] = useState<"choose" | "domain" | "shared">("choose");
+  const [pickingShared, setPickingShared] = useState(false);
+
+  const useSharedSender = async () => {
+    if (!companyId) return;
+    setPickingShared(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("email_provider_settings")
+        .upsert({
+          company_id: companyId,
+          provider: "resend",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "company_id,provider" });
+      if (error) throw error;
+      toast({
+        title: "Shared sender ready",
+        description: "Emails will go out from noreply@send.cateringms.com until you verify your own domain.",
+      });
+      onNext();
+    } catch (e: any) {
+      toast({
+        title: "Couldn't save",
+        description: e?.message || "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setPickingShared(false);
+    }
+  };
+
+  return (
+    <StepShell
+      icon={ShieldCheck}
+      title="Where do your invoice and quote emails come from?"
+      description="Pick how CateringMS sends mail on your behalf. You can change this later under Settings."
+    >
+      {mode === "choose" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setMode("domain")}
+            className="text-left p-5 rounded-xl border-2 border-purple-200 bg-purple-50/30 hover:border-purple-400 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-5 h-5 text-purple-600" />
+              <p className="font-semibold text-slate-900">Use my own domain</p>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-700">
+                Recommended
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              Your clients see emails from <code>you@yourdomain.com</code>. Takes 5 minutes to set up. We give you 3 DNS records to add at your domain host (cPanel / Cloudflare / wherever) and verify automatically once they're live.
+            </p>
+            <p className="mt-3 text-xs font-semibold text-purple-700 inline-flex items-center gap-1">
+              Set up my domain <ArrowRight className="w-3 h-3" />
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMode("shared")}
+            className="text-left p-5 rounded-xl border-2 border-slate-200 bg-white hover:border-slate-400 hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-slate-600" />
+              <p className="font-semibold text-slate-900">Use the CateringMS sender for now</p>
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              Emails go out from <code>noreply@send.cateringms.com</code> with replies coming back to your inbox. Zero setup, but slightly less branded. You can switch to your own domain anytime in Settings.
+            </p>
+            <p className="mt-3 text-xs font-semibold text-slate-700 inline-flex items-center gap-1">
+              Use shared sender <ArrowRight className="w-3 h-3" />
+            </p>
+          </button>
+        </div>
+      )}
+
+      {mode === "domain" && (
+        <div className="space-y-3">
+          <div className="rounded-md border border-purple-200 bg-purple-50/40 p-3">
+            <p className="text-xs text-slate-700">
+              Enter your sending domain below. We'll create the entry in Resend and show you the DNS records to add at your domain host. Verification usually completes within an hour of the records going live.
+            </p>
+          </div>
+          <ResendDomainCard companyId={companyId} compact />
+          <div className="text-xs text-slate-500">
+            Or, <button type="button" onClick={() => setMode("shared")} className="underline hover:text-purple-600">use the shared CateringMS sender</button> while DNS propagates.
+          </div>
+        </div>
+      )}
+
+      {mode === "shared" && (
+        <div className="space-y-3">
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+            <p className="font-semibold mb-1">Shared sender</p>
+            <p>
+              Outgoing emails will come from <code>noreply@send.cateringms.com</code>. When clients hit reply, the message lands in <strong>{(""+(companyId)).slice(0,0) || "your inbox"}</strong> via the contact email on your company profile.
+            </p>
+          </div>
+          <div className="text-xs text-slate-500">
+            Or, <button type="button" onClick={() => setMode("domain")} className="underline hover:text-purple-600">verify your own domain instead</button> -- 5 minutes, much more branded.
+          </div>
+          <Button onClick={useSharedSender} disabled={pickingShared} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700">
+            {pickingShared ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+            Use shared sender and continue
+          </Button>
+        </div>
+      )}
+
+      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button variant="ghost" onClick={onNext} className="ml-auto">
+          Skip for now <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
     </StepShell>
   );
 }
