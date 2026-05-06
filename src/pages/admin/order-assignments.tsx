@@ -19,9 +19,10 @@ import { Label } from "@/components/ui/label";
 import {
   AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles,
   ChevronDown, ChevronRight, X, CheckCircle2, Building2, MapPin, Filter,
-  ArrowUpRight, MoreHorizontal,
+  ArrowUpRight, MoreHorizontal, ExternalLink, User as UserIcon,
   Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon,
 } from "lucide-react";
+import Link from "next/link";
 import Head from "next/head";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDi
 
 interface OrderRow {
   id: string;
+  client_id: string | null;
   client_name: string;
   event_date: string;
   event_time: string | null;
@@ -136,7 +138,7 @@ function DispatchQueuePage() {
       const { data: rows, error } = await supabase
         .from("orders")
         .select(`
-          id, client_name, event_date, event_time, status, total_amount,
+          id, client_id, client_name, event_date, event_time, status, total_amount,
           venue_lat, venue_lng, venue_name, venue_address,
           confirmed_at, assigned_driver_id, assigned_at, assignment_score,
           assigned_chef_id,
@@ -161,6 +163,7 @@ function DispatchQueuePage() {
       }
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
         id: r.id,
+        client_id: r.client_id ?? null,
         client_name: r.client_name ?? "Unnamed",
         event_date: r.event_date,
         event_time: r.event_time ?? null,
@@ -319,13 +322,24 @@ function DispatchQueuePage() {
         reason: reason ?? "Assigned from dispatch queue",
       });
       if (!r.ok) {
-        toast({ title: "Could not assign", description: r.reason, variant: "destructive" });
+        const reason = r.reason || "";
+        const lower = reason.toLowerCase();
+        let hint = reason || "Capacity, vehicle or feasibility check rejected this driver.";
+        if (lower.includes("shift")) {
+          hint = `${reason} -- check the driver's shift on the Drivers page or pick someone still on shift.`;
+        } else if (lower.includes("capacity") || lower.includes("load")) {
+          hint = `${reason} -- the driver is at their max for this slot. Try another suggestion.`;
+        } else if (lower.includes("vehicle")) {
+          hint = `${reason} -- assign or override the vehicle, then retry.`;
+        }
+        toast({ title: "Could not assign driver", description: hint, variant: "destructive" });
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
+      const eventLabel = assignTarget.event_date + (assignTarget.event_time ? ` at ${assignTarget.event_time}` : "");
       toast({
-        title: "Driver assigned",
-        description: `${driverName} on ${assignTarget.client_name}`,
+        title: `${driverName} assigned to ${assignTarget.client_name}`,
+        description: `Event ${eventLabel}. Driver app updated.`,
         action: (
           <ToastAction
             altText="Undo this assignment"
@@ -367,9 +381,13 @@ function DispatchQueuePage() {
         companyId, orderIds: ids, driverId: bulkDriverId, performedBy: userId,
       });
       const driverName = bulkDrivers.find(d => d.id === bulkDriverId)?.full_name ?? "Driver";
+      const errSuffix = r.errors.length > 0
+        ? ` · ${r.errors.length} skipped (capacity, vehicle or feasibility) -- expand a row to see why`
+        : "";
       toast({
-        title: `${r.assigned} of ${ids.length} assigned`,
-        description: `${driverName}${r.errors.length > 0 ? ` · ${r.errors.length} error${r.errors.length === 1 ? "" : "s"}` : ""}`,
+        title: `${driverName} assigned on ${r.assigned} of ${ids.length} order${ids.length === 1 ? "" : "s"}`,
+        description: `Driver app updated.${errSuffix}`,
+        variant: r.errors.length > 0 && r.assigned === 0 ? "destructive" : undefined,
       });
       setSelected(new Set());
       setBulkOpen(false);
@@ -381,12 +399,30 @@ function DispatchQueuePage() {
 
   // ── Unassign ──────────────────────────────────────────────────────────────
 
+  const [unassignBusy, setUnassignBusy] = useState<string | null>(null);
+
   const handleUnassign = async (order: OrderRow) => {
-    await dispatchService.unassignDriver({
-      companyId, orderId: order.id, performedBy: userId, reason: "Unassigned from queue",
-    });
-    toast({ title: "Driver removed", description: order.client_name });
-    loadAll();
+    setUnassignBusy(order.id);
+    try {
+      await dispatchService.unassignDriver({
+        companyId, orderId: order.id, performedBy: userId, reason: "Unassigned from queue",
+      });
+      toast({
+        title: `Driver removed from ${order.client_name}`,
+        description: order.assigned_driver_name
+          ? `${order.assigned_driver_name} no longer on this run. Order is back in the unassigned queue.`
+          : "Order is back in the unassigned queue.",
+      });
+      loadAll();
+    } catch (e: any) {
+      toast({
+        title: "Could not remove driver",
+        description: e?.message || "Server rejected the change. Refresh and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUnassignBusy(null);
+    }
   };
 
   // ── Row expand: lazy load audit ───────────────────────────────────────────
@@ -695,6 +731,26 @@ function DispatchQueuePage() {
                         <p className="text-xs text-slate-500 truncate">
                           {order.id.slice(0, 8)} · {order.venue}
                         </p>
+                        {/* Quick drilldowns -- jump to the underlying order
+                            or client without leaving the queue. */}
+                        <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            href={`/admin/orders?orderId=${order.id}`}
+                            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Order
+                          </Link>
+                          {order.client_id ? (
+                            <Link
+                              href={`/admin/contacts?clientId=${order.client_id}`}
+                              className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                            >
+                              <UserIcon className="w-3 h-3" />
+                              Client
+                            </Link>
+                          ) : null}
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs text-slate-700 tabular-nums">{order.event_date}</p>
@@ -802,9 +858,12 @@ function DispatchQueuePage() {
                                 Pick vehicle / add second
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleUnassign(order)}>
+                              <DropdownMenuItem
+                                onClick={() => handleUnassign(order)}
+                                disabled={unassignBusy === order.id}
+                              >
                                 <X className="w-4 h-4 mr-2 text-red-600" />
-                                Unassign
+                                {unassignBusy === order.id ? "Unassigning..." : "Unassign"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -837,6 +896,24 @@ function DispatchQueuePage() {
                             {" · "}
                             {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}
                           </p>
+                          <div className="flex items-center gap-3 mt-1" onClick={(e) => e.stopPropagation()}>
+                            <Link
+                              href={`/admin/orders?orderId=${order.id}`}
+                              className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Order
+                            </Link>
+                            {order.client_id ? (
+                              <Link
+                                href={`/admin/contacts?clientId=${order.client_id}`}
+                                className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                              >
+                                <UserIcon className="w-3 h-3" />
+                                Client
+                              </Link>
+                            ) : null}
+                          </div>
                         </div>
                         {isAtRisk && (
                           <Badge className="text-[10px] font-semibold bg-red-100 text-red-800 border-0 shrink-0">

@@ -26,7 +26,10 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types/app";
-import { Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap } from "lucide-react";
+import {
+  Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap,
+  ExternalLink, User as UserIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 interface RefundRow {
@@ -43,7 +46,9 @@ interface RefundRow {
   // Joined order
   order_number?: string | null;
   client_name?: string | null;
+  client_id?: string | null;
   event_date?: string | null;
+  invoice_id?: string | null;
   // Derived from the parent payment(s) for this order.
   parent_gateway: string | null;
   parent_method: string | null;
@@ -124,7 +129,7 @@ function RefundsPage() {
       const { data: refundRows, error } = await supabase
         .from("payments")
         .select(
-          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, order:orders!payments_order_id_fkey(order_number, client_name, event_date)" as any,
+          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
         )
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
@@ -182,7 +187,9 @@ function RefundsPage() {
           refund_gateway: r.gateway || r.gateway_provider || null,
           order_number: r.order?.order_number || null,
           client_name: r.order?.client_name || null,
+          client_id: r.order?.client_id || null,
           event_date: r.order?.event_date || null,
+          invoice_id: r.invoice_id || null,
           parent_gateway: cls.gateway,
           parent_method: cls.method,
         };
@@ -201,55 +208,89 @@ function RefundsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const markPaid = async (refundId: string) => {
-    setBusy(refundId);
+  const markPaid = async (r: RefundRow) => {
+    setBusy(r.id);
     try {
-      const res = await fetch(`/api/refunds/${refundId}/mark-paid`, {
+      const res = await fetch(`/api/refunds/${r.id}/mark-paid`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        toast({ title: "Could not mark refund paid", description: json.error, variant: "destructive" });
+        toast({
+          title: "Could not mark refund paid",
+          description:
+            json.error ||
+            (res.status === 409
+              ? "Refund is already settled or rejected -- refresh the list to see the current state."
+              : `Server returned ${res.status}. Check the audit log or try again.`),
+          variant: "destructive",
+        });
       } else {
-        toast({ title: "Refund marked paid", description: "Audit log entry created." });
+        const who = r.client_name ? ` for ${r.client_name}` : "";
+        toast({
+          title: `Refund of ${fmt.format(r.amount)} marked paid`,
+          description: `Recorded against order #${r.order_number || r.order_id?.slice(0, 8) || "?"}${who}. Audit log updated.`,
+        });
         await load();
       }
     } catch (e: any) {
-      toast({ title: "Could not mark refund paid", description: e?.message || "Network error", variant: "destructive" });
+      toast({
+        title: "Could not mark refund paid",
+        description: e?.message || "Network error -- check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
       setBusy(null);
     }
   };
 
-  const retryAuto = async (refundId: string) => {
-    setBusy(refundId);
+  const retryAuto = async (r: RefundRow) => {
+    setBusy(r.id);
     try {
-      const res = await fetch(`/api/refunds/${refundId}/retry`, {
+      const res = await fetch(`/api/refunds/${r.id}/retry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        toast({ title: "Retry failed", description: json.error, variant: "destructive" });
+        toast({
+          title: "Retry failed",
+          description:
+            json.error ||
+            "PayFast did not accept the retry. The original payment may not have synced through yet -- give it a minute, or fall back to manual EFT.",
+          variant: "destructive",
+        });
       } else if (json.status === "auto_processed") {
-        toast({ title: "Refund auto-processed", description: "PayFast accepted the refund." });
+        toast({
+          title: `Refund of ${fmt.format(r.amount)} auto-processed`,
+          description: `PayFast accepted the refund${r.client_name ? ` for ${r.client_name}` : ""}.`,
+        });
         await load();
       } else if (json.status === "auto_failed") {
         toast({
           title: "PayFast still rejecting",
-          description: json.message || "Try again later, or fall back to manual EFT.",
+          description:
+            json.message ||
+            "PayFast rejected the retry. Common cause: the original payment hasn't fully settled. Try again later or mark this refund for manual EFT.",
           variant: "destructive",
         });
         await load();
       } else {
-        toast({ title: "Refund stays pending", description: json.message || "Manual EFT needed." });
+        toast({
+          title: "Refund stays pending",
+          description: json.message || "PayFast did not auto-process. Send a manual EFT and use Mark refund paid.",
+        });
         await load();
       }
     } catch (e: any) {
-      toast({ title: "Retry failed", description: e?.message || "Network error", variant: "destructive" });
+      toast({
+        title: "Retry failed",
+        description: e?.message || "Network error -- check your connection and try again.",
+        variant: "destructive",
+      });
     } finally {
       setBusy(null);
     }
@@ -331,13 +372,45 @@ function RefundsPage() {
             {r.processed_at ? `, paid ${new Date(r.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
           </div>
           {r.reason ? <p className="text-xs text-slate-600 mt-1">{r.reason}</p> : null}
+          {/* Quick drilldowns -- so an operator working a refund row can
+              jump to the source order, the client's contact record, or
+              the original invoice without backing out and searching. */}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs">
+            {r.order_id ? (
+              <Link
+                href={`/admin/orders?orderId=${r.order_id}`}
+                className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                View order
+              </Link>
+            ) : null}
+            {r.client_id ? (
+              <Link
+                href={`/admin/contacts?clientId=${r.client_id}`}
+                className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
+              >
+                <UserIcon className="w-3 h-3" />
+                View client
+              </Link>
+            ) : null}
+            {r.invoice_id ? (
+              <Link
+                href={`/admin/invoices?invoiceId=${r.invoice_id}`}
+                className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-900 hover:underline"
+              >
+                <Receipt className="w-3 h-3" />
+                View original payment
+              </Link>
+            ) : null}
+          </div>
         </div>
         {showMarkPaid ? (
           <Button
             size="sm"
             variant="outline"
             className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-            onClick={() => markPaid(r.id)}
+            onClick={() => markPaid(r)}
             disabled={busy === r.id}
           >
             {busy === r.id ? "Marking..." : "Mark refund paid"}
@@ -348,7 +421,7 @@ function RefundsPage() {
             size="sm"
             variant="outline"
             className="border-indigo-300 text-indigo-800 hover:bg-indigo-50"
-            onClick={() => retryAuto(r.id)}
+            onClick={() => retryAuto(r)}
             disabled={busy === r.id}
           >
             {busy === r.id ? "Retrying..." : "Retry refund"}
