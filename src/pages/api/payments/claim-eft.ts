@@ -165,7 +165,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             `${fmtMoney.format(amount)} for ${invoice.invoice_number}. ` +
             `Reference: ${invoice.invoice_number}. Check your bank account.${summary}`,
           priority: "high",
-          link: `/admin/invoices?invoiceId=${encodeURIComponent(invoice.id)}`,
+          // Include both invoiceId and claimId so the PendingClaimsBanner
+          // on /admin/invoices can scroll to and pulse the specific
+          // claim that fired this notification, not just any pending one.
+          link: `/admin/invoices?invoiceId=${encodeURIComponent(invoice.id)}&claimId=${encodeURIComponent(payment.id)}`,
           related_entity_type: "invoice",
           related_entity_id: invoice.id,
           channels: ["in_app"],

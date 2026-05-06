@@ -15,7 +15,8 @@
  *   3. Reject → admin enters a reason, client gets notified to fix +
  *      retry.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,13 @@ const fmt = new Intl.NumberFormat("en-ZA", {
 export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps) {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  const router = useRouter();
+  // Notification deep-link: ?claimId={paymentId} from the
+  // payment_claimed bell row. Once claims load, scroll to the
+  // matching row and pulse it so the operator's eye lands there
+  // instead of having to scan the whole list.
+  const targetClaimId = String(router.query.claimId || "");
+  const targetRowRef = useRef<HTMLDivElement | null>(null);
   const [claims, setClaims] = useState<PendingClaim[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -65,6 +73,23 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
   const [rejectReason, setRejectReason] = useState("");
 
   const companyId = user?.company_id;
+
+  // Scroll-into-view + pulse when arriving from a notification deep
+  // link. Run after claims load so the row exists in the DOM. Bail if
+  // the targeted claim isn't in the pending list (already actioned).
+  useEffect(() => {
+    if (!targetClaimId) return;
+    if (claims.length === 0) return;
+    const exists = claims.some((c) => c.id === targetClaimId);
+    if (!exists) return;
+    const t = setTimeout(() => {
+      targetRowRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [targetClaimId, claims]);
 
   const load = async () => {
     if (!companyId) return;
@@ -144,15 +169,20 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           </p>
 
           <div className="space-y-2">
-            {claims.map((c) => (
-              <ClaimRow
-                key={c.id}
-                claim={c}
-                acting={actingId === c.id}
-                onConfirm={() => act(c, "confirm")}
-                onReject={() => setRejectingClaim(c)}
-              />
-            ))}
+            {claims.map((c) => {
+              const isTarget = !!targetClaimId && c.id === targetClaimId;
+              return (
+                <ClaimRow
+                  key={c.id}
+                  claim={c}
+                  acting={actingId === c.id}
+                  onConfirm={() => act(c, "confirm")}
+                  onReject={() => setRejectingClaim(c)}
+                  highlight={isTarget}
+                  rowRef={isTarget ? targetRowRef : undefined}
+                />
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -222,12 +252,14 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
 }
 
 function ClaimRow({
-  claim, acting, onConfirm, onReject,
+  claim, acting, onConfirm, onReject, highlight, rowRef,
 }: {
   claim: PendingClaim;
   acting: boolean;
   onConfirm: () => void;
   onReject: () => void;
+  highlight?: boolean;
+  rowRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const clientLabel =
     claim.clients?.client_name ||
@@ -240,7 +272,14 @@ function ClaimRow({
   const balance = claim.invoices?.balance_due ?? null;
 
   return (
-    <div className="rounded-lg border border-blue-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+    <div
+      ref={rowRef}
+      className={`rounded-lg border bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-3 transition-shadow ${
+        highlight
+          ? "border-amber-400 ring-2 ring-amber-300 shadow-md animate-pulse"
+          : "border-blue-200"
+      }`}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold text-slate-900 truncate">{clientLabel}</span>

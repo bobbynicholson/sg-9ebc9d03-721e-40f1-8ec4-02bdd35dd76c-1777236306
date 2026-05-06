@@ -54,16 +54,18 @@ export const gamificationService = {
     // Check for achievement unlocks
     await this.checkAchievements(userId);
 
-    // Send notification. There's no dedicated gamification page yet,
-    // so leave link null -- the bell falls back to the inbox view
-    // rather than pointing somewhere wrong.
+    // Send notification. Lands on /account/achievements with a
+    // ?highlight=points flag so the most recent point row pulses on
+    // arrival. Universal page so it works for any role.
     await notificationService.createNotification({
       title: `🎉 +${points} Points!`,
       message: actionDescription || `You earned ${points} points!`,
       notification_type: 'gamification_points',
       recipient_id: userId,
       user_id: userId,
-      link: null,
+      link: '/account/achievements?highlight=points',
+      related_entity_type: 'user',
+      related_entity_id: userId,
       metadata: { points, actionType }
     });
 
@@ -130,15 +132,17 @@ export const gamificationService = {
 
     if (error) throw error;
 
-    // Send celebratory notification. No dedicated achievements page
-    // -- link null falls the bell back to the inbox view.
+    // Send celebratory notification. Lands on /account/achievements
+    // with the most recent badge highlighted.
     await notificationService.createNotification({
       title: `🏆 Achievement Unlocked!`,
       message: `You unlocked: ${achievementName}`,
       notification_type: 'gamification_achievement',
       recipient_id: userId,
       user_id: userId,
-      link: null,
+      link: '/account/achievements?highlight=achievement',
+      related_entity_type: 'user',
+      related_entity_id: userId,
       metadata: { achievementKey, achievementName }
     });
 

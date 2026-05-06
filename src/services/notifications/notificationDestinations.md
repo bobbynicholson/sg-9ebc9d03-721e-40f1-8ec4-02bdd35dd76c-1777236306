@@ -94,7 +94,7 @@ scrolls into view.
 | `payment_received`               | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
 | `payment_reminder`               | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
 | `modification_deadline`          | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
-| `payment_claimed`                | admin           | `/admin/payment-claims` (out of scope this pass)               | payment_claim / id       |
+| `payment_claimed`                | admin           | `/admin/invoices?invoiceId={invoiceId}&claimId={paymentId}`     | invoice / id             |
 | `invoice_issued`                 | client          | `/client-portal/billing?invoiceId={id}`                        | invoice / invoiceId      |
 | `equipment_damage`               | admin           | `/admin/equipment?tab=shortages&equipmentId={id}`              | equipment / equipmentId  |
 | `cleaning_completed`             | admin           | `/admin/orders?orderId={id}`                                   | order / orderId          |
@@ -119,8 +119,8 @@ scrolls into view.
 | `cancellation_rejected`          | client          | `/client-portal/my-orders?orderId={id}`                        | order / orderId          |
 | `postponement_approved`          | client          | `/client-portal/my-orders?orderId={id}`                        | order / orderId          |
 | `postponement_rejected`          | client          | `/client-portal/my-orders?orderId={id}`                        | order / orderId          |
-| `gamification_points`            | any user        | `link: null` (no dedicated page yet)                            | (none)                   |
-| `gamification_achievement`       | any user        | `link: null` (no dedicated page yet)                            | (none)                   |
+| `gamification_points`            | any user        | `/account/achievements?highlight=points`                        | user / id                |
+| `gamification_achievement`       | any user        | `/account/achievements?highlight=achievement`                   | user / id                |
 
 ## Antipatterns to avoid
 
