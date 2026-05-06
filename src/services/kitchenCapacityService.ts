@@ -80,13 +80,13 @@ export async function suggestKitchenForDate(
       .select("region_id")
       .eq("company_id", companyId)
       .eq("event_date", eventDate)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery", "in_transit"]),
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"]),
     supabase
       .from("quotes")
       .select("region_id")
       .eq("company_id", companyId)
       .eq("event_date", eventDate)
-      .in("status", ["draft", "sent", "revised"]),
+      .in("status", ["draft", "sent"]),
   ]);
 
   const orderCounts = new Map<string, number>();

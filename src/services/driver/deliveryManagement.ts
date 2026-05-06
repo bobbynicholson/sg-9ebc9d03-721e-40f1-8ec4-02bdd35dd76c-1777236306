@@ -29,7 +29,7 @@ async function companyIdForOrder(orderId: string): Promise<string | null> {
 
 export interface DeliveryUpdate {
   orderId: string;
-  status: "pending" | "confirmed" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "completed";
+  status: "pending" | "confirmed" | "preparing" | "ready" | "in_transit" | "delivered" | "completed";
   notes?: string;
   proofOfDelivery?: string;
   clientSignature?: string;
@@ -40,7 +40,7 @@ export interface DeliveryUpdate {
  */
 export async function updateDeliveryStatus(
   orderId: string,
-  status: "pending" | "confirmed" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "completed",
+  status: "pending" | "confirmed" | "preparing" | "ready" | "in_transit" | "delivered" | "completed",
   driverId: string,
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -65,10 +65,10 @@ export async function updateDeliveryStatus(
     });
 
     // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
-    // out_for_delivery -> open shift. delivered/completed -> close it.
+    // in_transit -> open shift. delivered/completed -> close it.
     // Failures here don't block the status change -- the shift is
     // bookkeeping, not the truth of the delivery.
-    if (status === "out_for_delivery") {
+    if (status === "in_transit") {
       const companyId = await companyIdForOrder(orderId);
       if (companyId) {
         await driverPayService.autoClockIn({ companyId, driverId, orderId });
@@ -142,7 +142,7 @@ export async function getDriverDeliveries(
         )
       `)
       .eq("assigned_driver_id", driverId)
-      .in("status", ["confirmed", "preparing", "ready", "out_for_delivery"])
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
       .order("event_date");
 
     if (date) {
@@ -171,7 +171,7 @@ export async function markOrderPickedUp(
     const { error } = await supabase
       .from("orders")
       .update({
-        status: "out_for_delivery",
+        status: "in_transit",
         picked_up_at: new Date().toISOString(),
       })
       .eq("id", orderId)

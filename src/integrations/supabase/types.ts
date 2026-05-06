@@ -5850,7 +5850,6 @@ export type Database = {
           processed_at: string | null
           reason: string | null
           refunded_at: string | null
-          status: string | null
           transaction_id: string | null
           updated_at: string | null
           user_id: string | null
@@ -5880,7 +5879,6 @@ export type Database = {
           processed_at?: string | null
           reason?: string | null
           refunded_at?: string | null
-          status?: string | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -5910,7 +5908,6 @@ export type Database = {
           processed_at?: string | null
           reason?: string | null
           refunded_at?: string | null
-          status?: string | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -9574,14 +9571,12 @@ export type Database = {
       order_status:
         | "pending"
         | "confirmed"
-        | "prep"
+        | "preparing"
         | "ready"
-        | "out_for_delivery"
+        | "in_transit"
         | "delivered"
         | "completed"
         | "cancelled"
-        | "preparing"
-        | "in_transit"
         | "paused"
       payment_method: "cash" | "eft" | "card" | "credit_account"
       payment_status:
@@ -9597,12 +9592,9 @@ export type Database = {
       quote_status:
         | "draft"
         | "sent"
-        | "viewed"
         | "accepted"
         | "rejected"
         | "expired"
-        | "revised"
-        | "pending"
       subscription_status:
         | "trial"
         | "active"
@@ -9821,14 +9813,12 @@ export const Constants = {
       order_status: [
         "pending",
         "confirmed",
-        "prep",
+        "preparing",
         "ready",
-        "out_for_delivery",
+        "in_transit",
         "delivered",
         "completed",
         "cancelled",
-        "preparing",
-        "in_transit",
         "paused",
       ],
       payment_method: ["cash", "eft", "card", "credit_account"],
@@ -9846,12 +9836,9 @@ export const Constants = {
       quote_status: [
         "draft",
         "sent",
-        "viewed",
         "accepted",
         "rejected",
         "expired",
-        "revised",
-        "pending",
       ],
       subscription_status: [
         "trial",

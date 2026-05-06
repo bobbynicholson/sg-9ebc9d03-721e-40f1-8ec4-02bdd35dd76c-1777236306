@@ -178,7 +178,7 @@ export default function FinancialDashboardPage() {
 
   const calculateInventoryCosts = (orders: Order[]) => {
     return orders
-      .filter(o => o.status === "confirmed" || o.status === "prep" || o.status === "ready")
+      .filter(o => o.status === "confirmed" || o.status === "preparing" || o.status === "ready")
       .reduce((sum, o) => sum + ((Number(o.total_amount) || 0) * 0.35), 0);
   };
 

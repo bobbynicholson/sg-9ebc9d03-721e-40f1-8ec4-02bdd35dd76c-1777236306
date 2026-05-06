@@ -250,18 +250,23 @@ export const emailService = {
     let finalBody = payload.body || "";
 
     if (payload.template) {
+      // Phase 4: schema uses (template_type, company_id) -- the older
+      // (slug, user_id) pair never existed. Every client-facing path
+      // now goes through resolveEmailTemplate so this branch is dead
+      // weight, but fixing the columns means it'll work if anything
+      // ever calls sendEmail with a template name directly.
       const { data: templateData, error: templateError } = await (supabase
         .from("email_templates") as any)
-        .select("body")
-        .eq("user_id", payload.companyId)
-        .eq("slug", payload.template)
-        .single();
+        .select("body, body_html, body_text")
+        .eq("company_id", payload.companyId)
+        .eq("template_type", payload.template)
+        .maybeSingle();
 
       if (templateError || !templateData) {
         console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);
         return false;
       }
-      finalBody = templateData.body;
+      finalBody = templateData.body_html || templateData.body || templateData.body_text || "";
     }
 
     const finalSubject = this.replaceVariables(payload.subject, payload.variables || {});

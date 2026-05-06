@@ -89,7 +89,7 @@ const startJob = async (orderId: string, driverId?: string) => {
     const { data } = await supabase.auth.getUser();
     resolvedDriverId = data.user?.id ?? '';
   }
-  return deliveryOps.updateDeliveryStatus(orderId, 'out_for_delivery', resolvedDriverId);
+  return deliveryOps.updateDeliveryStatus(orderId, 'in_transit', resolvedDriverId);
 };
 
 const completeJob = async (orderId: string, driverId?: string) => {
