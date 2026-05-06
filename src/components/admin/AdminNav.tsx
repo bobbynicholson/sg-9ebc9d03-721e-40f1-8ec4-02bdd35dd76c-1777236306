@@ -438,10 +438,16 @@ export function AdminNav({ className }: AdminNavProps) {
     const { path: hrefPath, query: hrefQuery } = splitHref(href);
     const slugHrefPath = splitHref(withSlug(href)).path;
     const stripQuery = (p: string) => p.split("?")[0];
+    // Candidates are the *current* location -- the user's actual URL.
+    // slugHrefPath is the link being tested, NOT a current-location
+    // value, so it must never appear here. (Older code had it in this
+    // list, which made the third comparison `c === slugHrefPath`
+    // trivially true on the link's own iteration -- every nav item
+    // ended up "matching", and the longest-match resolver lit up the
+    // longest href on every page.)
     const candidates = [
       stripQuery(router.pathname),
       stripQuery(router.asPath),
-      slugHrefPath,
     ];
     let pathMatched = false;
     for (const c of candidates) {
