@@ -320,6 +320,62 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             Add these DNS records at your domain host (cPanel, Cloudflare, Domains.co.za, etc.)
             then click <strong>Verify now</strong>.
           </div>
+
+          {/* Per-host setup walkthrough. Folded by default so the records
+              table stays the focus. Expanded copy walks the operator
+              through the most common hosts plus the cPanel gotcha
+              (the simple "+ MX Record" button only does apex MX -- you
+              have to use Manage for subdomain records). */}
+          <details className="px-3 py-2 border-b border-slate-200 bg-blue-50/40">
+            <summary className="cursor-pointer text-xs font-semibold text-blue-900 select-none">
+              How do I add these in my DNS host?
+            </summary>
+            <div className="mt-3 space-y-3 text-xs text-slate-700">
+
+              <div>
+                <p className="font-semibold text-slate-900">cPanel (most shared hosts)</p>
+                <ol className="list-decimal list-inside space-y-0.5 mt-1">
+                  <li>Open <strong>Zone Editor</strong>, find your domain, click <strong>Manage</strong>.
+                    <span className="block text-[11px] text-slate-500 ml-4">
+                      Don't use the blue "+ MX Record" / "+ A Record" buttons -- those only add records for the apex domain and won't give you a hostname field.
+                    </span>
+                  </li>
+                  <li>Click <strong>Add Record</strong> in the full editor.</li>
+                  <li>For each row in the table below: pick the Type, paste the <em>Name / Host</em> as shown (cPanel auto-appends your domain, that's correct), paste the <em>Value</em>, and for MX records put <strong>10</strong> in the Priority field.</li>
+                  <li>Save each record. Three rows total.</li>
+                </ol>
+              </div>
+
+              <div>
+                <p className="font-semibold text-slate-900">Cloudflare</p>
+                <ol className="list-decimal list-inside space-y-0.5 mt-1">
+                  <li>Open your domain, go to <strong>DNS</strong> &rarr; <strong>Records</strong>.</li>
+                  <li>Click <strong>Add record</strong>, pick the Type.</li>
+                  <li>Paste the <em>Name</em> (Cloudflare auto-appends your domain).</li>
+                  <li>Paste the <em>Content</em> exactly as shown. For MX records, set <strong>Priority: 10</strong>.</li>
+                  <li><strong>Proxy status: DNS only</strong> (the orange cloud must be OFF for DKIM and SPF -- proxying breaks email auth).</li>
+                </ol>
+              </div>
+
+              <div>
+                <p className="font-semibold text-slate-900">Domains.co.za / GoDaddy / generic</p>
+                <ol className="list-decimal list-inside space-y-0.5 mt-1">
+                  <li>Find the DNS Manager / Zone Editor for your domain.</li>
+                  <li>Add a record per row below. The Type, Name, and Value go in the matching fields. For MX, Priority is <strong>10</strong>.</li>
+                  <li>Most hosts auto-append your domain to the Name field -- don't type it in twice.</li>
+                </ol>
+              </div>
+
+              <div className="rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900">
+                <strong>If your host says the TXT value is too long:</strong> some older DNS panels cap TXT at 255 characters per chunk. The DKIM value is longer than that. Modern hosts (cPanel 134+, Cloudflare, Route 53) handle it fine. If yours doesn't, contact their support -- "I need to add a long DKIM TXT record" is a known case.
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                DNS usually propagates within a few minutes but can take up to an hour. If <strong>Verify now</strong> says still pending, wait 10-20 minutes and try again.
+              </p>
+            </div>
+          </details>
+
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-white border-b border-slate-200">
@@ -349,11 +405,29 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                       </div>
                     </td>
                     <td className="px-3 py-2 font-mono break-all max-w-md">
+                      {r.priority != null && (
+                        <div className="flex items-start gap-1 mb-1">
+                          <span className="text-[11px] text-slate-500 font-sans">
+                            Priority:
+                          </span>
+                          <span className="flex-1">{r.priority}</span>
+                          <button
+                            type="button"
+                            onClick={() => copy(String(r.priority), "Priority copied")}
+                            className="text-slate-400 hover:text-purple-600 p-0.5"
+                            title="Copy priority"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                       <div className="flex items-start gap-1">
-                        <span className="flex-1">
-                          {r.priority != null ? `${r.priority} ` : ""}
-                          {r.value}
-                        </span>
+                        {r.priority != null && (
+                          <span className="text-[11px] text-slate-500 font-sans">
+                            Destination:
+                          </span>
+                        )}
+                        <span className="flex-1">{r.value}</span>
                         <button
                           type="button"
                           onClick={() => copy(r.value, "Value copied")}
