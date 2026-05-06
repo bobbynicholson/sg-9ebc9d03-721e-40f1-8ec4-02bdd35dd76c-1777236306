@@ -57,6 +57,7 @@ const COMMON_CLIENT_VARS: TemplateVariable[] = [
   { name: "first_name",    description: "Client's first name",                   example: "Bobby" },
   { name: "client_name",   description: "Full client name",                      example: "Bobby Nicholson" },
   { name: "company_name",  description: "Your catering company name",            example: "Spit Braai Delivery" },
+  { name: "tenant_name",   description: "Tenant / catering brand name",          example: "Spit Braai Delivery" },
   { name: "from_name",     description: "Sender's name (the operator)",          example: "Bobby" },
   { name: "event_name",    description: "Event description",                     example: "30th birthday braai" },
   { name: "event_date",    description: "Formatted event date",                  example: "5 May 2026" },
@@ -67,6 +68,7 @@ const QUOTE_VARS: TemplateVariable[] = [
   ...COMMON_CLIENT_VARS,
   { name: "quote_ref",     description: "Quote reference number",                example: "Q-001" },
   { name: "total",         description: "Quote total (formatted as R12,345)",    example: "R12,345" },
+  { name: "total_zar",     description: "Quote total in ZAR, no decimals",       example: "R 12 345" },
 ];
 
 const STAFF_VARS: TemplateVariable[] = [
@@ -90,7 +92,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Lead follow-up",
     label: "Hot lead, fresh enquiry",
     description: "Reply to a brand-new enquiry quickly so they don't shop around.",
-    defaultSubject: "Quick check-in on your catering enquiry",
+    defaultSubject: "{{first_name}}, quick check-in on your {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thanks for reaching out about your event. Wanted to make sure your enquiry didn't slip through the cracks. Happy to put a quick quote together if you can share final guest numbers and your venue.\n\n` +
@@ -104,7 +106,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Following up on a quote",
     description: "Quote sent, waiting for a reply. Soft chase.",
-    defaultSubject: "Following up on your quote",
+    defaultSubject: "Following up on your {{event_name}} quote",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Just circling back on the quote we sent across. Anything you'd like changed, or shall we lock the date in for you?\n\n` +
@@ -118,7 +120,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Quiet client, soft check-in",
     description: "Hasn't booked in a while. Door-open note, no pressure.",
-    defaultSubject: "Anything coming up we can help with?",
+    defaultSubject: "{{first_name}}, anything coming up we can help with?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `It's been a while since your last event with us. Hope all is well.\n\n` +
@@ -132,7 +134,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Lost lead, door-open",
     description: "Quote didn't land. Stay-in-touch note for the next event.",
-    defaultSubject: "Following up",
+    defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Understand the quote did not land this time. No hard feelings. Happy to be kept in mind for the next event. If anything comes up where we can help, drop me a line and I will put a fresh quote together quickly.\n\nBest,\n{{from_name}}`,
@@ -146,7 +148,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote just sent",
     description: "First send of a fresh quote.",
-    defaultSubject: "Your catering quote {{quote_ref}}",
+    defaultSubject: "{{event_name}} quote from {{tenant_name}} -- {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Quote for your {{event_name}} on {{event_date}} is across. The total sits at {{total}} including VAT.\n\n` +
@@ -160,7 +162,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Revised quote",
     description: "After a quote is updated.",
-    defaultSubject: "Revised quote for your event",
+    defaultSubject: "Revised {{event_name}} quote -- {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `I have revised the quote based on what we last spoke about. Total is now {{total}}.\n\n` +
@@ -174,7 +176,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote accepted, next steps",
     description: "Right after the client accepts.",
-    defaultSubject: "Thanks for confirming, next steps",
+    defaultSubject: "{{first_name}}, you're booked in for {{event_name}} with {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thanks for confirming the quote{{quote_ref}}. Now that we are locked in for {{event_date}}, here is what happens next:\n\n` +
@@ -191,7 +193,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote expired",
     description: "Old quote that's lapsed. Offer a fresh one.",
-    defaultSubject: "Your quote has expired, want me to refresh it?",
+    defaultSubject: "Your {{event_name}} quote has expired -- want a fresh one?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `The quote we sent for your {{event_name}} on {{event_date}} has lapsed. Pricing on a few items may have shifted since.\n\n` +
@@ -205,7 +207,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Quote in draft",
     description: "Heads-up that the quote is being prepared.",
-    defaultSubject: "Quick note about your quote{{quote_ref}}",
+    defaultSubject: "Quick note on your {{event_name}} quote",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Just a heads up that I am polishing your quote for {{event_name}} on {{event_date}}. I will have it across to you shortly. If anything has changed on your side (guest count, venue, dietary), let me know now so I can fold it in.\n\nBest,\n{{from_name}}`,
@@ -218,7 +220,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Quote rejected, soft win-back",
     description: "Client passed on the quote. Door-open response.",
-    defaultSubject: "Following up",
+    defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Understand the quote did not land this time. No hard feelings. Happy to be kept in mind for the next event. If anything comes up where we can help, drop me a line and I will put a fresh quote together quickly.\n\nBest,\n{{from_name}}`,
@@ -232,7 +234,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Active client",
     label: "Final details for upcoming event",
     description: "Active client, event coming up. Confirm last details.",
-    defaultSubject: "Final details for {{event_date}}",
+    defaultSubject: "Final details for {{event_name}} on {{event_date}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Quick check-in. Everything's on track for your upcoming event. Would you like to confirm guest numbers and any last menu tweaks this week?\n\n` +
@@ -246,7 +248,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Active client",
     label: "Returning client check-in",
     description: "Booked with us before. Warm follow-up.",
-    defaultSubject: "Good to have you back",
+    defaultSubject: "{{first_name}}, good to have you back at {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Always nice to see your name in the inbox. Let's lock in the next one when you have the details. Same flow as before, anything you want to tweak this time around just shout.\n\nBest,\n{{from_name}}`,
@@ -259,7 +261,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Active client",
     label: "VIP, no agenda check-in",
     description: "Top client, friendly note with no pitch.",
-    defaultSubject: "It's been a while, how are things?",
+    defaultSubject: "{{first_name}}, it's been a while -- how are things?",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `No agenda here. Just wanted to drop a note and say hi.\n\n` +
@@ -273,7 +275,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Cold lead, gentle re-engage",
     description: "Long pause since the last booking.",
-    defaultSubject: "Hello again",
+    defaultSubject: "{{first_name}}, hello from {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Reaching out after a long pause. We've added a few things to the menu since you last booked. Worth a look if you have anything coming up.\n\n` +
@@ -287,7 +289,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Active client",
     label: "Confirmed booking, generic check-in",
     description: "Default catch-all for confirmed clients.",
-    defaultSubject: "Quick check-in",
+    defaultSubject: "Quick check-in on {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Hope all is well. Let me know if there's anything we can help with on the catering side.\n\nBest,\n{{from_name}}`,
@@ -301,7 +303,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Lead follow-up",
     label: "Lead reply (fresh enquiry)",
     description: "First reply when a fresh lead lands.",
-    defaultSubject: "Thanks for reaching out about {{event_name}}",
+    defaultSubject: "{{first_name}}, thanks for the {{event_name}} enquiry -- {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thanks for getting in touch about your {{event_name}} on {{event_date}}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\n` +
@@ -315,7 +317,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Lead follow-up",
     label: "Touch base on a warm lead",
     description: "A few days after the initial enquiry, no quote yet.",
-    defaultSubject: "Quick check-in on your {{event_name}}",
+    defaultSubject: "{{first_name}}, circling back on your {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Just circling back on your {{event_name}}. Did anything come up that I can help with on the catering side? Happy to share menu ideas before you commit to anything.\n\nBest,\n{{from_name}}`,
@@ -328,7 +330,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Lead follow-up",
     label: "Follow up on a quiet lead",
     description: "Last nudge before the lead goes cold.",
-    defaultSubject: "Following up",
+    defaultSubject: "Following up on your {{event_name}} enquiry",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `It has been a few days since we last touched on your {{event_name}}. Wanted to make sure your enquiry has not slipped through. Reply here and I can have a quote across to you the same day.\n\nBest,\n{{from_name}}`,
@@ -341,7 +343,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Quote",
     label: "Chase a sent quote (lead-side)",
     description: "Lead has a quote but has gone quiet.",
-    defaultSubject: "Following up on your quote",
+    defaultSubject: "Following up on your {{event_name}} quote -- {{total_zar}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Just circling back on the quote we sent for your {{event_name}}. Anything you would like changed, or shall we lock the date in?\n\nBest,\n{{from_name}}`,
@@ -354,7 +356,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Lead win-back",
     description: "Quote did not land. Soft door-open note.",
-    defaultSubject: "Door is still open",
+    defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Understand the last quote did not land for your {{event_name}}. No hard feelings. Happy to be considered for the next one. If anything comes up, drop me a line and I will put a fresh quote across quickly.\n\nBest,\n{{from_name}}`,
@@ -367,7 +369,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Win-back",
     label: "Reopen a lost lead",
     description: "Lead was marked lost. No agenda nudge.",
-    defaultSubject: "Hello again",
+    defaultSubject: "{{first_name}}, hello from {{tenant_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `No agenda here, just keeping the door open. If anything comes up where we can help on the catering side, I am happy to put together a quick quote.\n\nBest,\n{{from_name}}`,

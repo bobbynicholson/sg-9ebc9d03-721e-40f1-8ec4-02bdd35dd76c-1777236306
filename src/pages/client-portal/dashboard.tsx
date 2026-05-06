@@ -724,6 +724,60 @@ export default function ClientPortalDashboard() {
             );
           })()}
 
+          {/* ── Rebook hero ──────────────────────────────────────────
+              When there's at least one completed event, surface a
+              warm "do it again" prompt above the next-event card.
+              Hidden when the client already has a live upcoming
+              booking -- the hero card will be more useful there. */}
+          {(() => {
+            const lastCompleted = orders.find((o) => o.status === "completed");
+            if (!lastCompleted) return null;
+            return (
+              <Card
+                className="border-0 shadow-lg overflow-hidden cursor-pointer hover:shadow-xl transition"
+                onClick={() => setRebookOrder(lastCompleted)}
+              >
+                <CardContent className="p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ background: brandSoftBg }}>
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: brandPrimary, color: "white" }}
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wide font-semibold" style={{ color: brandPrimary }}>
+                        Liked your last event?
+                      </p>
+                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                        Book your next one with {companyName}
+                      </h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                        We'll prefill from{" "}
+                        {lastCompleted.event_name || "your last booking"}
+                        {lastCompleted.event_date
+                          ? ` on ${new Date(lastCompleted.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`
+                          : ""}
+                        .
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    className="text-white hover:opacity-90 flex-shrink-0"
+                    style={{ background: brandPrimary }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRebookOrder(lastCompleted);
+                    }}
+                  >
+                    Book again
+                    <ArrowRight className="w-4 h-4 ml-1.5" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* ── Hero: next event ─────────────────────────────────────── */}
           {loading ? (
             <Card className="border-0 shadow-lg">

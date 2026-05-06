@@ -386,6 +386,45 @@ export default function AdminQuotes() {
     };
   }, [user?.company_id]);
 
+  // Realtime toast on client quote acceptance. The
+  // /api/public/quotes/[token]/accept route inserts a 'quote_accepted'
+  // notification on the operator's company; this listener turns that
+  // insert into a toast + a quotes-list reload so the row visually
+  // flips to accepted without the operator hitting refresh.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const ch = supabase
+      .channel(`admin-quote-accepts:${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `company_id=eq.${companyId}`,
+        },
+        async (payload) => {
+          const row = (payload as any).new;
+          if (!row || row.notification_type !== "quote_accepted") return;
+          toast({
+            title: "Quote accepted",
+            description: row.message || "A client just accepted a quote.",
+          });
+          try {
+            const fresh = await quoteService.getQuotes(companyId);
+            setQuotes(fresh);
+          } catch (err) {
+            console.warn("[quotes] realtime accept reload failed", err);
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [user?.company_id, toast]);
+
   // Pull the catering company's display name once so the email signature
   // reads as "Best, Spit Braai Delivery" rather than "Best, the team".
   useEffect(() => {

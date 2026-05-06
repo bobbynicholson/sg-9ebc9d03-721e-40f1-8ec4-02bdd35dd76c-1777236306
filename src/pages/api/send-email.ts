@@ -15,7 +15,20 @@ export default async function handler(
   }
 
   try {
-    const { companyId, to, subject, template, body, variables, orderId, quoteId, emailType, bypassQuarantine } = req.body;
+    const {
+      companyId, to, subject, template, body, variables, orderId, quoteId, emailType, bypassQuarantine,
+      // Optional, server-rendered Quote PDF attachment. When the
+      // caller sets attachQuotePdf=true the route hydrates the
+      // QuotePdfData from the quotes + companies tables (using the
+      // SSR client so RLS still scopes correctly) and renders a
+      // Buffer that gets handed to emailService.sendEmail. Older
+      // quote-recipient clients expect the document inline so they
+      // can save / forward without clicking through.
+      attachQuotePdf,
+      // Optional, pre-rendered attachments. content is base64 over
+      // the wire; emailService converts back to Buffer for nodemailer.
+      attachments: attachmentsRaw,
+    } = req.body;
 
     if (!companyId || !to) {
       return res.status(400).json({
@@ -142,6 +155,92 @@ export default async function handler(
         return res.status(400).json({ error: "Missing required field: subject is required for generic emails." });
       }
 
+      // Normalise wire-format attachments (base64 strings) back into
+      // Buffers for the email provider. Caller may also pass raw
+      // strings -- we leave those alone.
+      const attachments: any[] = [];
+      if (Array.isArray(attachmentsRaw)) {
+        for (const a of attachmentsRaw) {
+          if (!a || !a.filename || !a.content) continue;
+          attachments.push({
+            filename: String(a.filename),
+            content: typeof a.content === "string"
+              ? Buffer.from(a.content, "base64")
+              : a.content,
+            ...(a.contentType ? { contentType: String(a.contentType) } : {}),
+          });
+        }
+      }
+
+      // Server-side Quote PDF render. Kept inside the route (rather
+      // than the browser) because @react-pdf/renderer relies on
+      // Node-only streams. The fetch caller in quoteService just
+      // sets attachQuotePdf=true and we do the rest.
+      if (attachQuotePdf && quoteId) {
+        try {
+          const ssr = createPagesServerClient({ req, res });
+          const { data: q } = await ssr
+            .from("quotes")
+            .select(`
+              id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              venue_address, menu_items, equipment_items, notes, terms_and_conditions,
+              subtotal, tax_amount, discount_amount, total, total_amount, status,
+              delivery_fee, delivery_distance_km,
+              valid_until, accepted_at,
+              company:company_id (
+                company_name, logo_url, email, phone,
+                address_line1, address_line2, city,
+                primary_color, vat_registered, vat_number, vat_rate
+              )
+            `)
+            .eq("id", quoteId)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (q) {
+            const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
+            const pdfBuffer = await renderQuotePdf({
+              quote_number: (q as any).quote_number,
+              quote_name: (q as any).quote_name,
+              client_name: (q as any).client_name,
+              event_date: (q as any).event_date,
+              event_time: (q as any).event_time,
+              setup_time: (q as any).setup_time,
+              guest_count: (q as any).guest_count,
+              venue_address: (q as any).venue_address,
+              menu_items: (q as any).menu_items,
+              equipment_items: (q as any).equipment_items,
+              subtotal: (q as any).subtotal,
+              delivery_fee: (q as any).delivery_fee,
+              delivery_distance_km: (q as any).delivery_distance_km,
+              discount_amount: (q as any).discount_amount,
+              tax_amount: (q as any).tax_amount,
+              total: Number((q as any).total ?? (q as any).total_amount ?? 0),
+              valid_until: (q as any).valid_until,
+              terms_and_conditions: (q as any).terms_and_conditions,
+              notes: (q as any).notes,
+              status: (q as any).status,
+              accepted_at: (q as any).accepted_at,
+              company: (q as any).company || {},
+            });
+            const filename = `Quote-${sanitiseFilename((q as any).quote_number || quoteId)}.pdf`;
+            attachments.push({
+              filename,
+              content: pdfBuffer,
+              contentType: "application/pdf",
+            });
+          } else {
+            console.warn(`[send-email] attachQuotePdf=true but quote ${quoteId} not readable`);
+          }
+        } catch (pdfErr: any) {
+          // PDF render failure must not block the email send. The
+          // recipient still gets the link to the public quote page;
+          // ops sees the warning and can investigate the
+          // @react-pdf/renderer install / data shape.
+          console.warn("[send-email] quote PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
+        }
+      }
+
       result = await emailService.sendEmail({
         companyId,
         to,
@@ -151,6 +250,7 @@ export default async function handler(
         variables,
         orderId,
         quoteId,
+        ...(attachments.length > 0 ? { attachments } : {}),
       });
     }
 

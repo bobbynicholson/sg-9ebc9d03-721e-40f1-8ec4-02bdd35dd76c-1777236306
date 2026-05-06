@@ -6,6 +6,7 @@ import { notificationService } from "./notificationService";
 import { AppOrder, Quote } from "@/types/app";
 import { regionService } from "./regionService";
 import { lifecycleService } from "./lifecycleService";
+import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
 
 export const quoteService = {
   async getQuotes(companyId: string): Promise<Quote[]> {
@@ -271,14 +272,28 @@ export const quoteService = {
     const companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
 
+    const subject = formatQuoteSubject({
+      eventName: (quote as any).event_name ?? (quote as any).quote_name ?? null,
+      tenantName: companyName,
+      total: typeof quote.total === "number" ? quote.total : null,
+      quoteNumber: (quote as any).quote_number ?? quoteId,
+    });
+
     await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         companyId: quote.user_id,
         to: quote.client_email,
-        subject: `Your Quote from ${companyName} is Ready!`,
+        subject,
         template: "custom-quote-ready",
+        quoteId,
+        // Server-render + attach Quote-{quote_number}.pdf. Older
+        // recipients want a saveable document, not just a link to
+        // /q/[token]. The link still ships in the email body for the
+        // click-through accept flow. PDF render failure is logged and
+        // non-blocking on the API side -- the email still goes out.
+        attachQuotePdf: true,
         variables: {
           clientName: quote.client_name,
           companyName: companyName,

@@ -17,6 +17,19 @@ export interface EmailSettings {
   updated_at?: string;
 }
 
+/**
+ * Attachment shape accepted by sendEmail. We normalise to Resend's
+ * field names (`filename` + `content`) since Resend is the primary
+ * provider; the SMTP path translates to nodemailer's matching shape
+ * at send time. `content` accepts a Buffer or a base64 string -- the
+ * latter is how we ferry binaries across the JSON API boundary.
+ */
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+}
+
 export interface SendEmailPayload {
   companyId: string;
   to: string;
@@ -33,6 +46,14 @@ export interface SendEmailPayload {
    * deliberately silenced them) but comms_paused_until is bypassed.
    */
   bypassQuarantine?: boolean;
+  /**
+   * Optional file attachments. Used initially for the Quote PDF on
+   * quote-send; older clients expect the document inline so they can
+   * save / forward without clicking through. Both Resend and
+   * nodemailer accept the same shape -- filename + content. content
+   * may be a Buffer (preferred) or a base64-encoded string.
+   */
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailLog {
@@ -255,6 +276,7 @@ export const emailService = {
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
+          attachments: payload.attachments,
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
         emailSent = await this.sendViaSMTP(config, {
@@ -262,6 +284,7 @@ export const emailService = {
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
+          attachments: payload.attachments,
         });
       } else {
         // No provider configured -- this is a real failure, not a
@@ -350,15 +373,35 @@ export const emailService = {
     to: string;
     subject: string;
     html: string;
+    attachments?: EmailAttachment[];
   }): Promise<boolean> {
     try {
+      // Resend wants attachments as { filename, content } where content
+      // is base64 OR a Buffer. JSON-over-HTTP can't carry a raw Buffer,
+      // so any Buffer we got handed gets converted to base64 here.
+      const resendBody: any = {
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        html: emailData.html,
+      };
+      if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
+        resendBody.attachments = emailData.attachments.map((a) => ({
+          filename: a.filename,
+          content: Buffer.isBuffer(a.content)
+            ? a.content.toString("base64")
+            : String(a.content),
+          ...(a.contentType ? { content_type: a.contentType } : {}),
+        }));
+      }
+
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(emailData),
+        body: JSON.stringify(resendBody),
       });
 
       if (!response.ok) {
@@ -380,6 +423,7 @@ export const emailService = {
     to: string;
     subject: string;
     html: string;
+    attachments?: EmailAttachment[];
   }): Promise<boolean> {
     try {
       if (typeof window !== 'undefined') {
@@ -407,7 +451,27 @@ export const emailService = {
         },
       });
 
-      await transporter.sendMail(emailData);
+      // nodemailer attachments share Resend's `filename` + `content`
+      // shape -- content can be Buffer or base64 string. We pass
+      // through unchanged. Don't include `attachments` on the payload
+      // when empty so we don't surprise legacy SMTP servers with an
+      // empty multipart boundary.
+      const sendPayload: any = {
+        from: emailData.from,
+        to: emailData.to,
+        subject: emailData.subject,
+        html: emailData.html,
+      };
+      if (Array.isArray(emailData.attachments) && emailData.attachments.length > 0) {
+        sendPayload.attachments = emailData.attachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          ...(a.contentType ? { contentType: a.contentType } : {}),
+          ...(typeof a.content === "string" ? { encoding: "base64" } : {}),
+        }));
+      }
+
+      await transporter.sendMail(sendPayload);
       console.log('✅ Email sent successfully via SMTP');
       return true;
     } catch (error) {

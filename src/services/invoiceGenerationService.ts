@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PayFastService } from "@/lib/payfastService";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { notificationService } from "@/services/notificationService";
+import { emailService } from "@/services/emailService";
 
 /**
  * Invoice Generation Service
@@ -386,9 +389,127 @@ export async function ensureInvoiceForOrder(
       }
     }
 
+    // Client-facing comms. Today an invoice row is inserted but the
+    // client only sees it if they proactively open the portal -- the
+    // audit flagged this as a silent moment. Push an email + in-app
+    // notification with a deep-link to the billing page. Fire-and-
+    // forget: a bad email config must never undo the invoice.
+    if (created.invoiceId) {
+      void notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data);
+    }
+
     return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
   } catch (e: any) {
     return { success: false, error: e?.message || "ensureInvoiceForOrder crashed" };
+  }
+}
+
+/**
+ * Email + in-app push to the client when a deposit invoice is issued.
+ *
+ * Idempotency: skips if a notifications row with notification_type=
+ * 'invoice_issued' and related_entity_id=<invoice_id> already exists,
+ * so a retry on ensureInvoiceForOrder can't double-notify.
+ *
+ * Subject line is intentionally generic; Agent C personalises subjects
+ * via the central messageTemplates registry separately.
+ */
+async function notifyClientOfInvoiceIssued(
+  orderId: string,
+  companyId: string,
+  invoiceId: string,
+  invoiceData: InvoiceData,
+): Promise<void> {
+  try {
+    // Idempotency gate. One client notification per invoice.
+    const { data: existing } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("related_entity_id", invoiceId)
+      .eq("notification_type", "invoice_issued")
+      .limit(1);
+    if (existing && existing.length > 0) return;
+
+    // Pull order + tenant once for the message body.
+    const { data: order } = await supabase
+      .from("orders")
+      .select("id, client_id, client_email, event_name")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("company_name")
+      .eq("id", companyId)
+      .maybeSingle();
+
+    const tenantName = (company as any)?.company_name || "Your catering team";
+    const eventName =
+      (order as any)?.event_name ||
+      invoiceData.orderNumber ||
+      "your event";
+    const amountLabel = `R ${Number(invoiceData.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
+    const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
+
+    // 1. In-app notification. resolveClientUserId returns null for
+    // un-linked portal-token clients -- skip the in-app push in that
+    // case so we don't insert a row no auth user can read.
+    try {
+      const clientAuthUid = await resolveClientUserId(supabase, (order as any)?.client_id || null);
+      if (clientAuthUid) {
+        await notificationService.createNotification({
+          company_id: companyId,
+          recipient_id: clientAuthUid,
+          user_id: clientAuthUid,
+          notification_type: "invoice_issued",
+          title: "Invoice ready",
+          message: summary,
+          priority: "normal",
+          link: portalLink,
+          related_entity_type: "invoice",
+          related_entity_id: invoiceId,
+        });
+      }
+    } catch (e) {
+      console.warn("[notifyClientOfInvoiceIssued] in-app push failed:", e);
+    }
+
+    // 2. Email. Mirrors the in-app body so a client who reads either
+    // channel gets the same single-line summary + the same deep link.
+    try {
+      const recipient = invoiceData.clientEmail || (order as any)?.client_email || null;
+      if (recipient) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+        const origin = baseUrl.startsWith("http") ? baseUrl : (baseUrl ? `https://${baseUrl}` : "");
+        const fullLink = origin ? `${origin}${portalLink}` : portalLink;
+        await emailService.sendEmail({
+          companyId,
+          to: recipient,
+          subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventName}`,
+          // Template slug intentionally omitted -- email_templates is
+          // empty for this tenant + body falls back to the inline copy
+          // below. Agent C will personalise via the registry once seeded.
+          body:
+            `Hi ${String(invoiceData.clientName || "there").split(" ")[0] || "there"},\n\n` +
+            `${summary}\n\n` +
+            `Open the invoice: ${fullLink}\n\n` +
+            `Thanks,\n${tenantName}`,
+          variables: {
+            clientName: invoiceData.clientName,
+            tenantName,
+            eventName,
+            invoiceNumber: invoiceData.invoiceNumber,
+            amount: amountLabel,
+            invoiceLink: fullLink,
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("[notifyClientOfInvoiceIssued] email failed:", e);
+    }
+  } catch (e) {
+    console.warn("[notifyClientOfInvoiceIssued] crashed (non-blocking):", e);
   }
 }
 

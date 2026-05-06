@@ -16,15 +16,24 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { emailService } from "@/services/emailService";
+import {
+  formatCancellationSubject,
+  formatPostponementSubject,
+  formatRefundPaidSubject,
+} from "@/lib/email/subjectFormatters";
 
 interface TemplateRow {
   subject: string;
   body: string;
 }
 
+// Subject defaults are produced by the centralised formatters at send
+// time so that event name, tenant and amount line the inbox cleanly. The
+// body defaults stay here -- those are still copy the operator can
+// override per tenant via email_templates.
 const DEFAULT_TEMPLATES = {
   cancellation: {
-    subject: "Order cancelled -- {{order_number}}",
+    subject: "",
     body:
       "Hi {{client_first_name}},\n\n" +
       "This confirms that order {{order_number}}{{event_date_label}} has been cancelled.\n\n" +
@@ -44,7 +53,7 @@ const DEFAULT_TEMPLATES = {
       "Per our cancellation policy (sent on quote acceptance), no refund is due for this cancellation.\n\n",
   },
   refund_paid: {
-    subject: "Refund paid -- {{order_number}}",
+    subject: "",
     body:
       "Hi {{client_first_name}},\n\n" +
       "Confirming that the refund of {{refund_amount}} for the cancelled order {{order_number}} has been processed. " +
@@ -53,7 +62,7 @@ const DEFAULT_TEMPLATES = {
       "Thanks,\n{{company_name}}",
   },
   postponement_approved: {
-    subject: "Postponement confirmed -- {{order_number}}",
+    subject: "",
     body:
       "Hi {{client_first_name}},\n\n" +
       "Your booking has been postponed. New event date: {{new_event_date}}.\n\n" +
@@ -63,6 +72,10 @@ const DEFAULT_TEMPLATES = {
 } as const;
 
 type TemplateType = keyof typeof DEFAULT_TEMPLATES;
+
+function clean(value: string | null | undefined): string {
+  return (value ?? "").trim();
+}
 
 function substitute(template: string, vars: Record<string, string | number | null | undefined>): string {
   let out = template;
@@ -100,6 +113,7 @@ interface OrderForEmail {
   client_name: string | null;
   order_number: string | null;
   event_date: string | null;
+  event_name: string | null;
 }
 
 interface CompanyForEmail {
@@ -110,7 +124,7 @@ interface CompanyForEmail {
 async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmail | null }> {
   const { data: order } = await supabase
     .from("orders")
-    .select("id, company_id, client_email, client_name, order_number, event_date")
+    .select("id, company_id, client_email, client_name, order_number, event_date, event_name")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) return { order: null, company: null };
@@ -151,7 +165,13 @@ export async function sendCancellationEmail(orderId: string, refundAmount: numbe
         })
       : DEFAULT_TEMPLATES.cancellation_no_refund_paragraph.body;
 
-    const subject = substitute(tpl.subject, vars);
+    const subject = clean(tpl.subject)
+      ? substitute(tpl.subject, vars)
+      : formatCancellationSubject({
+          eventName: order.event_name,
+          tenantName: company?.company_name ?? null,
+          refundAmount,
+        });
     const body = substitute(tpl.body, {
       ...vars,
       refund_paragraph: refundParagraph,
@@ -180,10 +200,16 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       ...commonVars(order, company),
       refund_amount: fmtZAR(refundAmount),
     };
+    const subject = clean(tpl.subject)
+      ? substitute(tpl.subject, vars)
+      : formatRefundPaidSubject({
+          amount: refundAmount,
+          eventName: order.event_name,
+        });
     await emailService.sendEmail({
       companyId: order.company_id,
       to: order.client_email,
-      subject: substitute(tpl.subject, vars),
+      subject,
       body: substitute(tpl.body, vars),
       bypassQuarantine: true,
     });
@@ -204,10 +230,16 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
         ? new Date(newEventDate).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
         : "to be confirmed",
     };
+    const subject = clean(tpl.subject)
+      ? substitute(tpl.subject, vars)
+      : formatPostponementSubject({
+          eventName: order.event_name,
+          newDate: newEventDate,
+        });
     await emailService.sendEmail({
       companyId: order.company_id,
       to: order.client_email,
-      subject: substitute(tpl.subject, vars),
+      subject,
       body: substitute(tpl.body, vars),
       bypassQuarantine: true,
     });

@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceDetailModal } from "@/components/billing/InvoiceDetailModal";
 import { PaymentModal } from "@/components/billing/PaymentModal";
+import { ReceiptDialog } from "@/components/client-portal/ReceiptDialog";
 import { ChatBot } from "@/components/ChatBot";
 
 interface Invoice {
@@ -45,6 +46,10 @@ interface Invoice {
   paid_at?: string;
   event_date: string;
   event_location: string;
+  /** Set when the invoice has at least one completed payment, regardless
+   *  of whether the balance is fully cleared. Drives the row-level
+   *  "Download receipt" affordance. */
+  has_completed_payment: boolean;
 }
 
 export default function ClientBillingPage() {
@@ -58,6 +63,10 @@ export default function ClientBillingPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showInvoiceDetail, setShowInvoiceDetail] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // Receipt dialog state. Lives at the page level (not the row) so the
+  // dialog stays mounted across row reorders + the PaymentModal success
+  // hand-off can target the same instance.
+  const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -147,6 +156,26 @@ export default function ClientBillingPage() {
 
       if (error) throw error;
 
+      // Pull the set of invoice ids that have at least one completed
+      // payment. We do this in a single follow-up query rather than
+      // an embed because PostgREST doesn't expose a clean "has any
+      // child where status=X" predicate, and amount_paid is a stale
+      // aggregate on partially_paid invoices that can drift if a
+      // refund races the balance update. Receipt visibility is a UI
+      // concern, so a dedicated lookup keeps the truth crisp.
+      const invoiceIds = ((rows as any[]) || []).map((r) => r.id);
+      const paidInvoiceIds = new Set<string>();
+      if (invoiceIds.length > 0) {
+        const { data: payRows } = await supabase
+          .from("payments")
+          .select("invoice_id")
+          .in("invoice_id", invoiceIds)
+          .eq("payment_status", "completed");
+        for (const p of (payRows as any[]) || []) {
+          if (p?.invoice_id) paidInvoiceIds.add(p.invoice_id as string);
+        }
+      }
+
       // Map the canonical invoice_status enum to the portal's four-bucket
       // display state. partially_paid still rolls up as "pending" because
       // the client experience is the same -- something is still owed.
@@ -196,6 +225,8 @@ export default function ClientBillingPage() {
           event_date: orderEmbed.event_date || r.invoice_date,
           event_location:
             orderEmbed.venue_name || orderEmbed.venue_address || "",
+          has_completed_payment:
+            paidInvoiceIds.has(r.id) || (Number(r.amount_paid || 0) > 0 && r.status === "paid"),
         };
       });
 
@@ -271,6 +302,25 @@ export default function ClientBillingPage() {
           subtitle="Pay outstanding invoices, view payment history, and download receipts."
         />
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8 lg:py-10">
+          {/* Tenant identity strip --
+              SARS rule: VAT-registered businesses must show their VAT
+              registration number on every invoice the client sees. We
+              keep this terse -- company name + VAT line -- because it's
+              a header, not a letterhead. Hidden entirely when the
+              tenant isn't VAT-registered or the number isn't on file. */}
+          {company?.company_name && (
+            <div className="mb-4 md:mb-6 px-4 py-3 rounded-lg bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <p className="text-sm font-semibold text-slate-900">
+                {company.company_name}
+              </p>
+              {company?.vat_registered && company?.vat_number && (
+                <p className="text-xs text-slate-600">
+                  VAT Reg No:{" "}
+                  <span className="font-mono">{company.vat_number}</span>
+                </p>
+              )}
+            </div>
+          )}
           {/* Stats */}
           <div className="mb-6 md:mb-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -422,7 +472,7 @@ export default function ClientBillingPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap gap-2 justify-end">
                             <Button
                               size="sm"
                               variant="outline"
@@ -431,6 +481,16 @@ export default function ClientBillingPage() {
                               <FileText className="w-4 h-4 mr-2" />
                               View
                             </Button>
+                            {invoice.has_completed_payment && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setReceiptInvoiceId(invoice.id)}
+                              >
+                                <Download className="w-4 h-4 mr-2" />
+                                Receipt
+                              </Button>
+                            )}
                             {(invoice.status === "pending" || invoice.status === "overdue") && (
                               <Button
                                 size="sm"
@@ -475,9 +535,19 @@ export default function ClientBillingPage() {
               setShowPaymentModal(false);
               setSelectedInvoice(null);
             }}
+            onShowReceipt={(id) => setReceiptInvoiceId(id)}
           />
         </>
       )}
+
+      <ReceiptDialog
+        open={!!receiptInvoiceId}
+        onOpenChange={(o) => {
+          if (!o) setReceiptInvoiceId(null);
+        }}
+        invoiceId={receiptInvoiceId}
+        companyId={company?.id || null}
+      />
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
     </>

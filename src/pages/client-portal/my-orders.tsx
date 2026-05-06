@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, DollarSign, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle } from "lucide-react";
+import { Calendar, MapPin, Users, DollarSign, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,11 +17,14 @@ import { ClientPageHeader } from "@/components/client-portal/ClientPageHeader";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
+import { RebookDialog } from "@/components/client-portal/RebookDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Order {
   id: string;
   event_date: string;
+  event_name?: string | null;
+  venue_name?: string | null;
   venue_address: string;
   guest_count: number;
   status: string;
@@ -30,7 +33,7 @@ interface Order {
 }
 
 export default function MyOrders() {
-  const { user, company } = useAuth() as any;
+  const { user, company, profile } = useAuth() as any;
   const router = useRouter();
   // Slug-aware navigation prefix -- keeps tenant URL space (/{slug}/...)
   // intact when the page is reached via the slug-form rewrite.
@@ -57,6 +60,10 @@ export default function MyOrders() {
   const [cancelReason, setCancelReason] = useState<string>("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelPreview, setCancelPreview] = useState<any | null>(null);
+  // Rebook dialog state. Same component as the dashboard surfaces -- a
+  // single instance reused across rows. Setting the source order opens
+  // it; clearing it on close.
+  const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
   const { toast } = useToast();
 
   // Pull a refund preview when the cancel/postpone dialog opens so the
@@ -101,7 +108,7 @@ export default function MyOrders() {
 
         let ordersQuery = supabase
           .from("orders")
-          .select("id, event_date, venue_address, guest_count, status, total_amount, payment_status")
+          .select("id, event_date, event_name, venue_name, venue_address, guest_count, status, total_amount, payment_status")
           .eq("company_id", tenantCompanyId)
           .order("event_date", { ascending: false });
 
@@ -298,6 +305,19 @@ export default function MyOrders() {
                           <Button size="sm" variant="outline">
                             View Details
                           </Button>
+                          {/* Book again -- only on completed orders. Opens
+                              the same RebookDialog the dashboard uses;
+                              prefills via sourceOrder on the dialog side. */}
+                          {order.status === "completed" && (
+                            <Button
+                              size="sm"
+                              className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => setRebookOrder(order)}
+                            >
+                              <RotateCcw className="w-4 h-4 mr-2" />
+                              Book again
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -308,6 +328,30 @@ export default function MyOrders() {
           </Card>
         </div>
       </div>
+
+      <RebookDialog
+        open={!!rebookOrder}
+        onOpenChange={(o) => { if (!o) setRebookOrder(null); }}
+        sourceOrder={
+          rebookOrder
+            ? {
+                id: rebookOrder.id,
+                event_name: rebookOrder.event_name ?? null,
+                event_date: rebookOrder.event_date,
+                guest_count: rebookOrder.guest_count ?? null,
+                venue_name: rebookOrder.venue_name ?? null,
+                venue_address: rebookOrder.venue_address ?? null,
+              }
+            : null
+        }
+        companyId={company?.id}
+        companyName={company?.company_name || "Your caterer"}
+        brandPrimary={company?.primary_color || "#059669"}
+        brandSecondary={company?.secondary_color || "#10b981"}
+        user={user ? { id: user.id, email: user.email } : null}
+        profileFullName={profile?.full_name || (user as any)?.full_name || null}
+        profilePhone={(profile as any)?.phone_number || null}
+      />
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
 

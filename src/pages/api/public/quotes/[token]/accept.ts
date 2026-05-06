@@ -8,6 +8,7 @@ import {
   hashIp,
   isUuid,
 } from "@/lib/embedFormApi";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 /**
  * POST /api/public/quotes/[token]/accept
@@ -74,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .update({ accepted_at: nowIso, status: "accepted" })
     .eq("public_token", token)
     .is("deleted_at", null)
-    .select("id, company_id, user_id, client_name, client_email, total, currency, event_date, guest_count")
+    .select("id, company_id, user_id, client_id, client_name, client_email, total, currency, event_date, guest_count, quote_name")
     .maybeSingle();
 
   if (error) return res.status(500).json({ ok: false, error: error.message });
@@ -98,8 +99,96 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Fire notifications fully async so the client gets a fast response.
   // Each channel is best-effort, wrapped in its own try/catch.
   void notifyAdminOfAcceptance(supabase, updated, acceptorName);
+  void notifyClientOfAcceptance(supabase, updated, acceptorName);
 
   return res.status(200).json({ ok: true });
+}
+
+/**
+ * Client-facing confirmation: email + in-app notification mirroring
+ * the timeline copy on /q/[token].tsx (confirmation email -> deposit
+ * invoice -> event day) so the page and the email tell the same
+ * story. Subject text is intentionally generic for now -- Agent C
+ * personalises subject lines centrally. Best-effort, wrapped per
+ * channel so a failed send never rolls back the acceptance.
+ */
+async function notifyClientOfAcceptance(supabase: any, quote: any, acceptorName: string) {
+  // Resolve the catering company's display name -- the email signs
+  // off as "{tenant_name} will send your deposit invoice shortly"
+  // rather than "your catering company".
+  let tenantName = "Your catering team";
+  try {
+    const { data: company } = await supabase
+      .from("companies")
+      .select("company_name")
+      .eq("id", quote.company_id)
+      .maybeSingle();
+    if (company?.company_name) tenantName = company.company_name;
+  } catch (err) {
+    console.warn("[public/quotes/accept] tenant lookup failed", err);
+  }
+
+  const eventName = quote.quote_name || "your event";
+  const firstName = String(acceptorName || quote.client_name || "")
+    .trim()
+    .split(" ")[0] || "there";
+  const eventLabel = quote.event_date
+    ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    : "your event date";
+
+  // 1. In-app notification to the client. Resolve clients.id ->
+  // auth.users.id; if the client isn't linked yet (portal-token only)
+  // we skip silently rather than insert a row no auth user can read.
+  try {
+    const clientAuthUid = await resolveClientUserId(supabase, quote.client_id || null);
+    if (clientAuthUid) {
+      await supabase.from("notifications").insert([{
+        company_id: quote.company_id,
+        user_id: clientAuthUid,
+        recipient_id: clientAuthUid,
+        notification_type: "quote_accepted_client",
+        title: "You're booked in",
+        message: `Thanks for accepting your ${eventName} quote. ${tenantName} will send your deposit invoice shortly.`,
+        priority: "normal",
+        link: `/client-portal/quotes/${quote.id}`,
+        related_entity_type: "quote",
+        related_entity_id: quote.id,
+      }]);
+    }
+  } catch (err) {
+    console.warn("[public/quotes/accept] client in-app notif failed", err);
+  }
+
+  // 2. Confirmation email. Mirrors the on-page timeline copy so the
+  // story stays consistent across channels.
+  try {
+    if (quote.client_email) {
+      const { emailService } = await import("@/services/emailService");
+      await (emailService as any).sendEmail({
+        companyId: quote.company_id,
+        to: quote.client_email,
+        subject: `Quote accepted -- thanks ${firstName}`,
+        body:
+          `Hi ${firstName},\n\n` +
+          `Thanks for accepting your ${eventName} quote -- you're booked in.\n\n` +
+          `Here's what happens from here:\n\n` +
+          `1. Confirmation email: this email is your record. A copy of the quote is on your client portal.\n` +
+          `2. Deposit invoice: ${tenantName} will send the deposit invoice shortly to lock in your event date.\n` +
+          `3. Event day${quote.event_date ? ` (${eventLabel})` : ""}: we'll be in touch the week before with final headcount and any last tweaks.\n\n` +
+          `If anything has changed on your side, just reply to this email and we'll sort it.\n\n` +
+          `Looking forward to it,\n${tenantName}`,
+        variables: {
+          clientName: quote.client_name,
+          firstName,
+          tenantName,
+          eventName,
+          eventDate: eventLabel,
+        },
+      });
+    }
+  } catch (err) {
+    console.warn("[public/quotes/accept] client confirmation email failed", err);
+  }
 }
 
 async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: string) {

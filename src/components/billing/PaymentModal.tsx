@@ -51,11 +51,16 @@ interface PaymentModalProps {
   open: boolean;
   onClose: () => void;
   onPaymentSuccess: () => void;
+  /** Optional handler -- when set, the success state shows an inline
+   *  "Download receipt" button that asks the parent to open a
+   *  ReceiptDialog scoped to this invoice. We hand off rather than
+   *  embedding so there's never two dialogs stacked. */
+  onShowReceipt?: (invoiceId: string) => void;
 }
 
 type Method = "online" | "eft";
 
-export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: PaymentModalProps) {
+export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowReceipt }: PaymentModalProps) {
   const { toast } = useToast();
   const { company } = useAuth() as any;
 
@@ -199,8 +204,29 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
             <p className="text-slate-600 mb-4">
               Your payment of {invoice.currency}{invoice.amount.toLocaleString()} has been processed.
             </p>
-            <p className="text-sm text-slate-500 mb-6">A receipt has been sent to your email.</p>
-            <Button onClick={onClose} className="w-full">Done</Button>
+            <p className="text-sm text-slate-500 mb-6">
+              We've also emailed a copy. Tap below to download a SARS-friendly receipt right now.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {onShowReceipt && (
+                <Button
+                  onClick={() => {
+                    onShowReceipt(invoice.id);
+                    onClose();
+                  }}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                >
+                  Download receipt
+                </Button>
+              )}
+              <Button
+                onClick={onClose}
+                variant={onShowReceipt ? "outline" : "default"}
+                className="flex-1"
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

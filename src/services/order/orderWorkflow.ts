@@ -657,6 +657,24 @@ async function sendStatusNotifications(order: any) {
   const venueShort = order.venue_address
     ? String(order.venue_address).split(",")[0]
     : "";
+  // Tenant display name for the new preparing/ready client comms.
+  // Lifted out so we look it up once per status change instead of
+  // per-channel. Best-effort -- a missing row falls back to a
+  // neutral phrase in the email body.
+  let tenantName = "Your catering team";
+  if (order.company_id) {
+    try {
+      const { data: company } = await supabase
+        .from("companies")
+        .select("company_name")
+        .eq("id", order.company_id)
+        .maybeSingle();
+      if ((company as any)?.company_name) tenantName = (company as any).company_name;
+    } catch (e) {
+      console.warn("[sendStatusNotifications] tenant lookup failed:", e);
+    }
+  }
+  const eventName = order.event_name || `your ${orderNumber} order`;
 
   // Quarantine: an imported order with paused comms gets in-app
   // visibility but no customer-facing email/WhatsApp until the owner
@@ -705,6 +723,17 @@ async function sendStatusNotifications(order: any) {
           type: "order",
         });
       }
+      // Client-facing reassurance push. Audit gap: today the client
+      // hears nothing between confirmed and in_transit, so they
+      // don't know the kitchen is on the case.
+      if (clientAuthUid) {
+        inApp.push({
+          userId: clientAuthUid,
+          title: `We're prepping your ${eventName} order`,
+          message: `${tenantName} has started prep${eventDateLabel ? ` for your ${eventDateLabel} event` : ""}. We'll let you know when it's on the way.`,
+          type: "order",
+        });
+      }
       break;
     case "ready":
       if (order.assigned_driver_id) {
@@ -721,6 +750,16 @@ async function sendStatusNotifications(order: any) {
           userId: order.user_id,
           title: "Order ready -- driver alerted",
           message: `Order ${orderNumber} ready, driver has been pinged.`,
+          type: "order",
+        });
+      }
+      // Client-facing push so they know prep is done and dispatch is
+      // next -- closes the second silent moment before in_transit.
+      if (clientAuthUid) {
+        inApp.push({
+          userId: clientAuthUid,
+          title: `Your ${eventName} order is ready`,
+          message: `${tenantName} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.`,
           type: "order",
         });
       }
@@ -832,8 +871,24 @@ async function sendStatusNotifications(order: any) {
           `We'll be in touch closer to the day with the final headcount and any last tweaks.\n\n` +
           `Thanks for booking with us.`,
       },
-      preparing: null,
-      ready: null,
+      // Audit gap closure: prepping + ready used to be silent for the
+      // client. Short, reassuring copy so the inbox doesn't get noisy
+      // but the client knows the kitchen is moving.
+      preparing: {
+        subject: `We're prepping your ${eventName} order`,
+        body:
+          `Hi ${clientFirstName},\n\n` +
+          `${tenantName} has started prep${eventDateLabel ? ` for your ${eventDateLabel} event` : ""}. ` +
+          `We'll let you know when it's on the way.\n\n` +
+          `Thanks,\n${tenantName}`,
+      },
+      ready: {
+        subject: `Your ${eventName} order is ready`,
+        body:
+          `Hi ${clientFirstName},\n\n` +
+          `${tenantName} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.\n\n` +
+          `Thanks,\n${tenantName}`,
+      },
       in_transit: {
         subject: `On the way -- ${orderNumber}`,
         body:
