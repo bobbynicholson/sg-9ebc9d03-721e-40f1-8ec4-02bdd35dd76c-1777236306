@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock, Users, Truck, Loader2, AlertCircle } from "lucide-react";
+import { Calendar, MapPin, Clock, Users, Truck, Loader2, AlertCircle, Navigation } from "lucide-react";
 import { DriverNav } from "@/components/navigation/DriverNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -147,6 +147,23 @@ export default function DriverSchedulePage() {
                                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{o.event_time || "TBD"}</span>
                                 <span className="flex items-center gap-1"><Users className="w-3 h-3" />{o.guest_count} pax</span>
                               </div>
+                              {/* Schedule rows are read-only previews so we keep
+                                  the action surface narrow: a single Maps tap
+                                  so a driver scanning Tomorrow's jobs can
+                                  pre-check the route. 44px-tall hit area for
+                                  thumbs on a phone. */}
+                              {o.venue_address && (
+                                <a
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`Open ${o.venue_address} in Google Maps`}
+                                  className="inline-flex items-center gap-1 mt-2 text-xs px-2.5 py-2 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[44px]"
+                                >
+                                  <Navigation className="w-3.5 h-3.5" />
+                                  Open in Maps
+                                </a>
+                              )}
                             </div>
                           </div>
                           <div className="md:text-right">

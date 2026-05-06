@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ClipboardList, ChefHat, Loader2, Calendar, Users, MapPin, Clock,
-  AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package,
+  AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info,
 } from "lucide-react";
 import { KitchenNav } from "@/components/navigation/KitchenNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -48,6 +48,12 @@ interface OrderRow {
   /** From orders.equipment_items jsonb -- shape:
    *  [{ equipment_id, name, category, quantity, unit_price, ... }] */
   equipment_items?: any[] | null;
+  /** Allergen + dietary text the chef must see before they start prepping.
+   *  Surfaced inline on each prep card so the kitchen doesn't have to back
+   *  out to the order detail. */
+  dietary_requirements?: string | null;
+  kitchen_instructions?: string | null;
+  special_instructions?: string | null;
 }
 
 const dayBucket = (d: string, today: Date) => {
@@ -120,7 +126,7 @@ export default function KitchenPrepListPage() {
         // array of { equipment_id, name, category, quantity, ... }.
         const { data: orders } = await supabase
           .from("orders")
-          .select("id, venue_address, event_time, client_name, equipment_items")
+          .select("id, venue_address, event_time, client_name, equipment_items, dietary_requirements, kitchen_instructions, special_instructions")
           .in("id", orderIds);
         const map: Record<string, OrderRow> = {};
         (orders || []).forEach((o: any) => { map[o.id] = o; });
@@ -494,6 +500,35 @@ export default function KitchenPrepListPage() {
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-3">
+                            {/* Dietary + kitchen + special notes pulled from
+                                orders.* and shown inline so the chef sees
+                                allergens / no-pork / vegan etc. without
+                                opening the order detail. Kept compact and
+                                only renders when there's something to say.
+                                Closes the audit gap "kitchen prep card has
+                                no allergen visibility on the row itself". */}
+                            {(meta?.dietary_requirements || meta?.kitchen_instructions || meta?.special_instructions) && (
+                              <div className="space-y-1.5">
+                                {meta?.dietary_requirements && (
+                                  <p className="text-[11px] text-red-800 bg-red-50 border border-red-200 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0 text-red-600" />
+                                    <span><span className="font-semibold">Allergens / dietary:</span> {meta.dietary_requirements}</span>
+                                  </p>
+                                )}
+                                {meta?.kitchen_instructions && (
+                                  <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <ChefHat className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-600" />
+                                    <span><span className="font-semibold">Kitchen note:</span> {meta.kitchen_instructions}</span>
+                                  </p>
+                                )}
+                                {meta?.special_instructions && (
+                                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 flex items-start gap-1.5">
+                                    <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-600" />
+                                    <span><span className="font-semibold">Note:</span> {meta.special_instructions}</span>
+                                  </p>
+                                )}
+                              </div>
+                            )}
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
                                 Menu ({menuItems.length})

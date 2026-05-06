@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt } from "lucide-react";
+import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -37,6 +37,11 @@ interface Order {
   event_time: string | null;
   guest_count: number | null;
   status: string | null;
+  /** Venue address gives the shopper a sense of how far the kitchen is
+   *  from the event, useful when the same shopping list might be split
+   *  between branches. Surfaced inline on each upcoming-event card. */
+  venue_address?: string | null;
+  client_name?: string | null;
 }
 
 const listStatusTone: Record<string, string> = {
@@ -88,7 +93,7 @@ export default function ShoppingOrdersPage() {
           .returns<ShoppingList[]>(),
         supabase
           .from("orders")
-          .select("id, order_number, event_name, event_date, event_time, guest_count, status")
+          .select("id, order_number, event_name, event_date, event_time, guest_count, status, venue_address, client_name")
           .eq("company_id", user.company_id)
           .gte("event_date", new Date().toISOString().slice(0, 10))
           .in("status", ["pending", "confirmed", "preparing"])
@@ -275,11 +280,23 @@ export default function ShoppingOrdersPage() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-slate-900 truncate">{o.event_name ?? o.order_number ?? "Event"}</div>
+                          {o.client_name && (
+                            <div className="text-xs text-slate-600 truncate">{o.client_name}</div>
+                          )}
                           <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap gap-x-3">
                             <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{o.event_date}</span>
                             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                             {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count}</span>}
                           </div>
+                          {/* Venue inline so the shopper knows where this
+                              event lands -- useful when the kitchen is
+                              splitting purchases between branches. */}
+                          {o.venue_address && (
+                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{o.venue_address}</span>
+                            </p>
+                          )}
                         </div>
                         {o.status && (
                           <Badge variant="outline" className={`${orderStatusTone[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-xs capitalize flex-shrink-0`}>

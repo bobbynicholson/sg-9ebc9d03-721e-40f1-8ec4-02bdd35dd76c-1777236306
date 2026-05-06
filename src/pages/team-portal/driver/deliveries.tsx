@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search,
+  Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search, Navigation,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DriverNav } from "@/components/navigation/DriverNav";
@@ -223,6 +223,24 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   <span className="truncate">{o.venue_address}</span>
                 </p>
+                {/* Open the venue in Google Maps in one tap. The driver's
+                    deliveries history page is mobile-first and the row
+                    already reads as "what + where + who", so a single
+                    icon button keeps the action close to the address
+                    without crowding the layout. Closes the audit gap
+                    "row shows venue, driver still has to copy/paste". */}
+                {o.venue_address && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Open ${o.venue_address} in Google Maps`}
+                    className="inline-flex items-center gap-1 mt-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 min-h-[32px]"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Open in Maps
+                  </a>
+                )}
                 {/* Driver -> client comms bridge. Tap-to-call + open
                     WhatsApp / email so the driver can reach the
                     client without copying numbers off another screen.

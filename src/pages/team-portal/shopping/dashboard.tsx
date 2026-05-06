@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
+import { ShoppingCart, CheckCircle, Clock, AlertTriangle, Package, Calendar, Users } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ShoppingNav } from "@/components/navigation/ShoppingNav";
@@ -26,6 +26,12 @@ interface ShoppingItem {
   orderId: string;
   orderName: string;
   eventDate: string;
+  /** Event time + guest count surfaced on the row so the shopper can judge
+   *  urgency (early-morning event vs. dinner) and scale (2 pax vs. 200)
+   *  without opening another tab. */
+  eventTime?: string | null;
+  guestCount?: number | null;
+  orderStatus?: string | null;
   purchased: boolean;
   notes?: string;
 }
@@ -53,7 +59,7 @@ export default function ShoppingDashboard() {
       // company in the system -- multi-tenant leak.
       const { data: orders, error } = await supabase
         .from("orders")
-        .select("id, order_number, client_name, event_date, status, order_items(item_name, quantity, special_instructions)")
+        .select("id, order_number, client_name, event_date, event_time, guest_count, status, order_items(item_name, quantity, special_instructions)")
         .eq("company_id", user.company_id)
         .gte("event_date", startStr)
         .lte("event_date", endStr)
@@ -107,6 +113,9 @@ export default function ShoppingDashboard() {
             orderId: order.order_number || order.id,
             orderName: order.client_name || `Order ${order.order_number || order.id}`,
             eventDate: order.event_date,
+            eventTime: order.event_time ?? null,
+            guestCount: order.guest_count ?? null,
+            orderStatus: order.status ?? null,
             purchased: false,
             notes: mi?.special_instructions,
           });
@@ -349,9 +358,40 @@ export default function ShoppingDashboard() {
                                 </span>
                                 <span className="hidden sm:inline">•</span>
                                 <span className="truncate">{item.orderName}</span>
+                                {item.orderStatus && (
+                                  <Badge variant="outline" className="text-[10px] capitalize bg-slate-50 text-slate-600 border-slate-200">
+                                    {item.orderStatus}
+                                  </Badge>
+                                )}
                               </div>
+                              {/* Event date + time + guest count gives the
+                                  shopper enough context to prioritise this
+                                  buy without opening the order. 200pax at
+                                  09:00 tomorrow needs to jump the queue
+                                  ahead of 12pax at 18:00 next week. */}
                               <div className="flex flex-wrap items-center gap-2">
-                                <span>Event: {new Date(item.eventDate).toLocaleDateString()}</span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {new Date(item.eventDate).toLocaleDateString()}
+                                </span>
+                                {item.eventTime && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1 tabular-nums">
+                                      <Clock className="w-3 h-3" />
+                                      {item.eventTime.slice(0, 5)}
+                                    </span>
+                                  </>
+                                )}
+                                {item.guestCount != null && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="flex items-center gap-1">
+                                      <Users className="w-3 h-3" />
+                                      {item.guestCount} pax
+                                    </span>
+                                  </>
+                                )}
                                 <span>•</span>
                                 <span className="whitespace-nowrap">
                                   {daysUntil > 0 ? `in ${daysUntil} days` : "today"}
