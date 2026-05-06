@@ -39,6 +39,7 @@ import {
   AlertCircle,
   Clock,
   Eye,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -67,6 +68,13 @@ export default function InvoicesPage() {
   // edits, then clicks Send inside the dialog.
   const [sendDialogInvoice, setSendDialogInvoice] = useState<any | null>(null);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  // Client filter -- when /admin/invoices?clientId=<uuid> lands here
+  // from Client Search, narrow the invoice list to invoices for that
+  // client (resolved via the order's client_id) and surface a
+  // clearable pill. Lives alongside the existing ?invoiceId / ?claimId
+  // consumers so deep links keep working.
+  const [clientFilterId, setClientFilterId] = useState<string | null>(null);
+  const [clientFilterName, setClientFilterName] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.company_id) {
@@ -74,6 +82,39 @@ export default function InvoicesPage() {
       loadOrders();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const clientId = typeof router.query.clientId === "string" ? router.query.clientId : null;
+    setClientFilterId(clientId);
+  }, [router.isReady, router.query.clientId]);
+
+  // Resolve a friendly name for the pill once the invoices have
+  // loaded. Walks the joined orders -> clients chain so we don't have
+  // to fire an extra query.
+  useEffect(() => {
+    if (!clientFilterId) {
+      setClientFilterName(null);
+      return;
+    }
+    const match = invoices.find((inv: any) => inv.orders?.client_id === clientFilterId);
+    if (match) {
+      setClientFilterName(match.orders?.clients?.client_name || null);
+    }
+  }, [clientFilterId, invoices]);
+
+  const clearClientFilter = () => {
+    setClientFilterId(null);
+    setClientFilterName(null);
+    if (router.isReady) {
+      const { clientId: _drop, ...rest } = router.query;
+      router.replace(
+        { pathname: router.pathname, query: rest },
+        undefined,
+        { shallow: true },
+      );
+    }
+  };
 
   const loadInvoices = async () => {
     if (!user?.company_id) return;
@@ -87,6 +128,7 @@ export default function InvoicesPage() {
           orders (
             order_number,
             event_date,
+            client_id,
             clients (
               client_name,
               email
@@ -410,10 +452,15 @@ export default function InvoicesPage() {
   };
 
   const statusFilteredInvoices = useMemo(() => {
-    return statusFilter === "all"
-      ? invoices
-      : invoices.filter((inv: any) => inv.status === statusFilter);
-  }, [invoices, statusFilter]);
+    let rows: any[] = invoices;
+    if (statusFilter !== "all") {
+      rows = rows.filter((inv: any) => inv.status === statusFilter);
+    }
+    if (clientFilterId) {
+      rows = rows.filter((inv: any) => inv.orders?.client_id === clientFilterId);
+    }
+    return rows;
+  }, [invoices, statusFilter, clientFilterId]);
 
   const filteredInvoices = useFuzzyItems(
     statusFilteredInvoices,
@@ -465,6 +512,27 @@ export default function InvoicesPage() {
             Generate, manage, and send invoices to clients
           </p>
         </div>
+
+        {/* Client filter pill -- shows when /admin/invoices was opened
+            with ?clientId. Click X to clear back to the unfiltered
+            view (also strips the param from the URL). */}
+        {clientFilterId && (
+          <div className="mb-4 flex items-center gap-2">
+            <Badge className="bg-purple-100 text-purple-800 border border-purple-200 gap-1.5 py-1.5 px-3 text-sm">
+              <FileText className="w-3.5 h-3.5" />
+              Filtered to {clientFilterName || "selected client"}
+              <button
+                type="button"
+                onClick={clearClientFilter}
+                className="ml-1 rounded-full hover:bg-purple-200 p-0.5"
+                aria-label="Clear client filter"
+                title="Clear client filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </Badge>
+          </div>
+        )}
 
         {/* Pending EFT claims (clients who tapped "I've made the EFT payment") */}
         <PendingClaimsBanner onAfterAction={loadInvoices} />

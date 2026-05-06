@@ -163,6 +163,11 @@ function ClientsCRM() {
   // button. Stops a careless click from wiping a paying customer.
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  // Deep-link focus. When the page loads with ?clientId=... (typically
+  // from Client Search), we find the matching contact row, scroll it
+  // into view, and ring it for a few seconds so the operator lands on
+  // the right person instead of scanning the full list.
+  const [focusedContactKey, setFocusedContactKey] = useState<string | null>(null);
 
   // Load contactedKeys from localStorage
   useEffect(() => {
@@ -464,6 +469,46 @@ function ClientsCRM() {
     loadContacts();
   }, [loadContacts]);
 
+  // Deep-link handler -- when /admin/contacts?clientId=<uuid> is in
+  // the URL (typically from Client Search), find the contact whose
+  // backing client row matches, drop any active filter so the row is
+  // reachable, scroll it into view and amber-ring it for a few
+  // seconds. Strip the param afterwards so a refresh doesn't re-fire.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const target = typeof router.query.clientId === "string" ? router.query.clientId : null;
+    if (!target) return;
+    if (loading || contacts.length === 0) return;
+    const match = contacts.find((c) => c.clientId === target);
+    if (!match) return;
+
+    setFilter("all");
+    setSearch("");
+    setFocusedContactKey(match.key);
+    // Auto-open the compose drawer so operators get the same "see
+    // everything about this contact" landing they expect from a
+    // profile-view button.
+    setActive(match);
+
+    const t = setTimeout(() => {
+      const el = typeof document !== "undefined"
+        ? document.getElementById(`contact-row-${match.key}`)
+        : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    const clearT = setTimeout(() => setFocusedContactKey(null), 4000);
+
+    const { clientId: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+
+    return () => { clearTimeout(t); clearTimeout(clearT); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.clientId, loading, contacts]);
+
   // "/" or Cmd+F focuses the search box -- a tiny SV touch
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -695,7 +740,15 @@ function ClientsCRM() {
                         const Icon = meta.icon;
                         const lastContacted = contactedKeys[c.key];
                         return (
-                          <tr key={c.key} className="border-b border-slate-100 hover:bg-slate-50">
+                          <tr
+                            key={c.key}
+                            id={`contact-row-${c.key}`}
+                            className={`border-b border-slate-100 hover:bg-slate-50 scroll-mt-24 transition-shadow ${
+                              focusedContactKey === c.key
+                                ? "ring-2 ring-amber-400 ring-inset bg-amber-50 animate-pulse"
+                                : ""
+                            }`}
+                          >
                             <td className="py-3 pl-4 pr-2">
                               <button
                                 onClick={() => setActive(c)}

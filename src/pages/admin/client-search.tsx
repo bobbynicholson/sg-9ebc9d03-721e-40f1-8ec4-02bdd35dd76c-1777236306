@@ -149,16 +149,19 @@ function ClientSearchPage() {
   };
 
   const handleCreateQuote = (clientId: string) => {
-    router.push(`/quotes/new?clientId=${clientId}`);
+    router.push(`/admin/quotes/new?clientId=${clientId}`);
   };
 
-  const handleCreateInvoice = (clientId: string) => {
-    // Navigate to invoice creation with pre-filled client
-    router.push(`/admin/invoices/new?clientId=${clientId}`);
+  // Standalone invoice creation doesn't exist -- invoices flow from
+  // confirmed orders. The button now drops the operator on the
+  // invoices list filtered to this client so they can review what's
+  // outstanding / paid for them.
+  const handleViewInvoices = (clientId: string) => {
+    router.push(`/admin/invoices?clientId=${clientId}`);
   };
 
   const handleViewOrders = (clientId: string) => {
-    router.push(`/orders?clientId=${clientId}`);
+    router.push(`/admin/orders?clientId=${clientId}`);
   };
 
   const handleViewProfile = (clientId: string) => {
@@ -345,11 +348,11 @@ function ClientSearchPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleCreateInvoice(client.id)}
+                          onClick={() => handleViewInvoices(client.id)}
                           className="hover:bg-green-50 hover:border-green-300"
                         >
                           <Receipt className="w-4 h-4 mr-2" />
-                          Invoice
+                          Invoices
                         </Button>
                         <Button
                           size="sm"

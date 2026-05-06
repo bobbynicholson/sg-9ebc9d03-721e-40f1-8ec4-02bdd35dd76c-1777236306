@@ -211,6 +211,13 @@ function OrderProcessDashboard() {
     requestId: string | null;
     orderId: string | null;
   }>({ kind: null, requestId: null, orderId: null });
+  // Client filter -- when /admin/orders?clientId=<uuid> lands here from
+  // Client Search, narrow the kanban / timeline to orders for that
+  // client and surface a clearable pill so the operator sees what
+  // they're filtered to. Lives alongside the existing review-drawer
+  // params, doesn't replace them.
+  const [clientFilterId, setClientFilterId] = useState<string | null>(null);
+  const [clientFilterName, setClientFilterName] = useState<string | null>(null);
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -242,6 +249,43 @@ function OrderProcessDashboard() {
       setReviewDrawer({ kind: null, requestId: null, orderId: null });
     }
   }, [router.isReady, router.query.orderId, router.query.amendment, router.query.cancellation]);
+
+  // Adopt ?clientId from the URL as a filter. Kept separate from the
+  // review-drawer effect so they don't fight each other when both
+  // params are present. We resolve the client name from the loaded
+  // orders so the pill can read "Filtered to <name>" rather than a uuid.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const clientId = typeof router.query.clientId === "string" ? router.query.clientId : null;
+    setClientFilterId(clientId);
+  }, [router.isReady, router.query.clientId]);
+
+  useEffect(() => {
+    if (!clientFilterId) {
+      setClientFilterName(null);
+      return;
+    }
+    const match = orders.find((o: any) => o.client_id === clientFilterId);
+    if (match) {
+      const nm = (match as any).client?.client_name
+        || (match as any).client_name
+        || null;
+      setClientFilterName(nm);
+    }
+  }, [clientFilterId, orders]);
+
+  const clearClientFilter = () => {
+    setClientFilterId(null);
+    setClientFilterName(null);
+    if (router.isReady) {
+      const { clientId: _drop, ...rest } = router.query;
+      router.replace(
+        { pathname: router.pathname, query: rest },
+        undefined,
+        { shallow: true },
+      );
+    }
+  };
 
   const closeReviewDrawer = () => {
     setReviewDrawer({ kind: null, requestId: null, orderId: null });
@@ -382,6 +426,11 @@ function OrderProcessDashboard() {
   // fuzzy hook doesn't get a fresh array on every render.
   const statusDateFilteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // Client filter -- when the operator landed here via Client
+      // Search ("View orders"), narrow to orders for that client only.
+      if (clientFilterId && (order as any).client_id !== clientFilterId) {
+        return false;
+      }
       // Global region filter -- when an operator scopes to one branch
       // in the top-bar dropdown, hide rows from other branches.
       // region_id IS NULL rows (legacy / company-wide) stay visible
@@ -448,7 +497,7 @@ function OrderProcessDashboard() {
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId]);
+  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -2161,6 +2210,27 @@ function OrderProcessDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Client filter pill -- shows when /admin/orders was opened
+                with ?clientId. Click X to clear back to the unfiltered
+                view (also strips the param from the URL). */}
+            {clientFilterId && (
+              <div className="mb-4 flex items-center gap-2">
+                <Badge className="bg-purple-100 text-purple-800 border border-purple-200 gap-1.5 py-1.5 px-3 text-sm">
+                  <Users className="w-3.5 h-3.5" />
+                  Filtered to {clientFilterName || "selected client"}
+                  <button
+                    type="button"
+                    onClick={clearClientFilter}
+                    className="ml-1 rounded-full hover:bg-purple-200 p-0.5"
+                    aria-label="Clear client filter"
+                    title="Clear client filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </Badge>
+              </div>
+            )}
 
             {/* Filters */}
             <Card className="border-0 shadow-lg">
