@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
@@ -45,6 +46,7 @@ import {
   Eye,
   AlertCircle,
   CheckCircle,
+  X,
 } from "lucide-react";
 import { companyService } from "@/services/companyService";
 import { userManagementService } from "@/services/userManagementService";
@@ -75,10 +77,16 @@ interface Company {
 export default function CompanyDatabasePage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  // Deep-link target row. Subscription management's "View company"
+  // button (and any future caller) lands us here with ?company=<id>.
+  // We scroll the row into view, pulse an amber ring, and surface a
+  // filter pill so the operator can drop the focus and see the rest.
+  const [focusedCompanyId, setFocusedCompanyId] = useState<string | null>(null);
   
   // Add/Edit company modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -110,6 +118,48 @@ export default function CompanyDatabasePage() {
       loadCompanies();
     }
   }, [profile]);
+
+  // Honour ?company=<id> from subscription-management's "View company"
+  // CTA. Wait until the rows are loaded, then scroll the matching
+  // TableRow into view and flash an amber ring for a few seconds.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const target = router.query.company;
+    if (!target || typeof target !== "string") return;
+    if (loading || companies.length === 0) return;
+    if (!companies.some((c) => c.id === target)) return;
+
+    setFocusedCompanyId(target);
+
+    const t = setTimeout(() => {
+      const el = typeof document !== "undefined"
+        ? document.getElementById(`company-row-${target}`)
+        : null;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+
+    const clearT = setTimeout(() => setFocusedCompanyId(null), 4000);
+
+    return () => {
+      clearTimeout(t);
+      clearTimeout(clearT);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.company, loading, companies]);
+
+  const clearCompanyFilter = () => {
+    setFocusedCompanyId(null);
+    const { company: _drop, ...rest } = router.query;
+    router.replace(
+      { pathname: router.pathname, query: rest },
+      undefined,
+      { shallow: true },
+    );
+  };
+
+  const focusedCompany = focusedCompanyId
+    ? companies.find((c) => c.id === focusedCompanyId)
+    : null;
 
   // Status filter applied first; the fuzzy hook ranks the remainder.
   // Super-admin tool, so no company_id scoping (sees every tenant).
@@ -790,6 +840,25 @@ export default function CompanyDatabasePage() {
           </CardContent>
         </Card>
 
+        {/* Deep-link focus pill. Visible whenever ?company=<id> arrives
+            from another platform tool (e.g. subscription-management). */}
+        {focusedCompany && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span className="font-medium">
+              Filtered to {focusedCompany.company_name}
+            </span>
+            <button
+              type="button"
+              onClick={clearCompanyFilter}
+              className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium hover:bg-amber-100"
+              title="Clear focus and show every company"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          </div>
+        )}
+
         {/* Companies Table */}
         <Card>
           <CardHeader>
@@ -842,7 +911,15 @@ export default function CompanyDatabasePage() {
                     </TableRow>
                   ) : (
                     filteredCompanies.map((company) => (
-                      <TableRow key={company.id}>
+                      <TableRow
+                        key={company.id}
+                        id={`company-row-${company.id}`}
+                        className={
+                          focusedCompanyId === company.id
+                            ? "ring-2 ring-amber-400 ring-offset-1 transition-shadow"
+                            : ""
+                        }
+                      >
                         <TableCell>
                           <div>
                             <p className="font-semibold text-slate-900">
