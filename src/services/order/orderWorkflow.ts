@@ -3,6 +3,7 @@ import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 /**
  * Order Workflow Management
@@ -98,6 +99,49 @@ export async function updateOrderStatus(
         await ensureScheduledPreEventReminders(order);
       } catch (e) {
         console.warn("[orderWorkflow] pre-event reminders crashed (non-blocking):", e);
+      }
+    }
+
+    // Queue the 24h post-delivery review prompt. Replaces the old
+    // setTimeout(callback, 24h) in notificationService -- serverless
+    // functions don't survive that long so the timer never fired.
+    // We write a pending_reviews row here and a Vercel cron worker
+    // (process-pending-reviews) drains it once due_at has passed.
+    // Idempotent on order_id via the unique index, so a retry on the
+    // delivered transition just no-ops. Wrapped so a failure here
+    // never blocks the order delivery.
+    if (newStatus === "delivered" && order.company_id) {
+      try {
+        const deliveredAt = new Date();
+        const dueAt = new Date(deliveredAt.getTime() + 24 * 60 * 60 * 1000);
+
+        // Resolve the auth uid for the in-app notification target. Null
+        // is fine -- the cron handler will skip the in-app push and
+        // still send the email if we have an address.
+        let clientUserId: string | null = null;
+        try {
+          clientUserId = await resolveClientUserId(supabase, order.client_id || null);
+        } catch (e) {
+          console.warn("[orderWorkflow] resolveClientUserId failed (non-blocking):", e);
+        }
+
+        await (supabase as any)
+          .from("pending_reviews")
+          .upsert(
+            {
+              company_id: order.company_id,
+              order_id: order.id,
+              client_id: order.client_id || null,
+              client_user_id: clientUserId,
+              client_email: order.client_email || null,
+              client_name: order.client_name || null,
+              delivered_at: deliveredAt.toISOString(),
+              due_at: dueAt.toISOString(),
+            },
+            { onConflict: "order_id", ignoreDuplicates: true },
+          );
+      } catch (e) {
+        console.warn("[orderWorkflow] pending_reviews insert crashed (non-blocking):", e);
       }
     }
 
@@ -619,14 +663,33 @@ async function sendStatusNotifications(order: any) {
   // green-lights the batch.
   const isCommsPaused = !!order.comms_paused_until && new Date(order.comms_paused_until) > new Date();
 
+  // Resolve the client's auth uid ONCE up front. orders.client_id is a FK
+  // to clients.id, NOT auth.users.id -- pushing it as recipient_id silently
+  // drops the notification (no auth user reads it). If this returns null
+  // we skip every client-facing in-app push below; the email + WhatsApp
+  // paths are unaffected because they use clientEmail / clientPhone.
+  let clientAuthUid: string | null = null;
+  if (order.client_id) {
+    try {
+      clientAuthUid = await resolveClientUserId(supabase, order.client_id);
+      if (!clientAuthUid) {
+        console.warn(
+          `[sendStatusNotifications] no auth uid for client_id=${order.client_id} on order ${orderNumber}; skipping in-app client pushes`,
+        );
+      }
+    } catch (e) {
+      console.warn("[sendStatusNotifications] resolveClientUserId failed:", e);
+    }
+  }
+
   // 1. In-app notifications -- always fire (admin + driver + client).
   const inApp: Array<{ userId: string; title: string; message: string; type: string; priority?: string }> = [];
 
   switch (status) {
     case "confirmed":
-      if (order.client_id) {
+      if (clientAuthUid) {
         inApp.push({
-          userId: order.client_id,
+          userId: clientAuthUid,
           title: "Order confirmed",
           message: `Your order ${orderNumber} is locked in${eventDateLabel ? ` for ${eventDateLabel}` : ""}.`,
           type: "order",
@@ -692,9 +755,9 @@ async function sendStatusNotifications(order: any) {
       }
       break;
     case "in_transit":
-      if (order.client_id) {
+      if (clientAuthUid) {
         inApp.push({
-          userId: order.client_id,
+          userId: clientAuthUid,
           title: "Driver on the way",
           message: `Your order ${orderNumber} is on its way${venueShort ? ` to ${venueShort}` : ""}.`,
           type: "order",
@@ -703,9 +766,9 @@ async function sendStatusNotifications(order: any) {
       }
       break;
     case "delivered":
-      if (order.client_id) {
+      if (clientAuthUid) {
         inApp.push({
-          userId: order.client_id,
+          userId: clientAuthUid,
           title: "Order delivered",
           message: `Your order ${orderNumber} has been delivered. Enjoy!`,
           type: "order",
@@ -731,9 +794,9 @@ async function sendStatusNotifications(order: any) {
       }
       break;
     case "cancelled":
-      if (order.client_id) {
+      if (clientAuthUid) {
         inApp.push({
-          userId: order.client_id,
+          userId: clientAuthUid,
           title: "Order cancelled",
           message: `Your order ${orderNumber} has been cancelled. Please get in touch with us if this is unexpected.`,
           type: "order",

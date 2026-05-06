@@ -520,44 +520,62 @@ export const notificationService = {
     }
   },
 
+  /**
+   * Queue the 24h post-delivery review prompt on pending_reviews.
+   *
+   * Previously this method created the in-app notification immediately
+   * and triggerAutomatedEmailSequence wrapped it in a setTimeout(24h).
+   * Vercel serverless functions don't survive 24 hours, so the timer
+   * never fired and the prompt was never sent.
+   *
+   * The actual send now happens via the cron worker at
+   * /api/cron/process-pending-reviews -- this method just inserts a
+   * pending_reviews row that the worker picks up once due_at passes.
+   *
+   * Idempotent on order_id via a unique index, so safe to call on
+   * retry / manual override.
+   */
   async sendReviewRequest(
     orderId: string,
     clientEmail: string,
     clientName: string,
     recipientId: string
   ): Promise<void> {
-    // Idempotency guard. The order workflow re-fires "completed" on
-    // retry / manual override, which previously sent a fresh review
-    // request every time -- spammy at best, harassing at worst. Look
-    // for an existing review_request notification on this order and
-    // skip if one already landed (regardless of recipient, since the
-    // intent of the message is one-per-order, not one-per-user).
     try {
-      const { data: existing } = await supabase
-        .from("notifications")
-        .select("id")
-        .eq("notification_type", "review_request")
-        .filter("metadata->>orderId", "eq", orderId)
-        .limit(1)
+      // Resolve company_id + delivered_at off the order so the cron
+      // worker has everything it needs without a re-resolve.
+      const { data: order } = await supabase
+        .from("orders")
+        .select("id, company_id, client_id, client_email, client_name")
+        .eq("id", orderId)
         .maybeSingle();
-      if (existing) {
+
+      if (!order || !(order as any).company_id) {
+        console.warn("[sendReviewRequest] order not found or missing company_id, skipping queue");
         return;
       }
+
+      const deliveredAt = new Date();
+      const dueAt = new Date(deliveredAt.getTime() + 24 * 60 * 60 * 1000);
+
+      await (supabase as any)
+        .from("pending_reviews")
+        .upsert(
+          {
+            company_id: (order as any).company_id,
+            order_id: orderId,
+            client_id: (order as any).client_id || null,
+            client_user_id: recipientId || null,
+            client_email: clientEmail || (order as any).client_email || null,
+            client_name: clientName || (order as any).client_name || null,
+            delivered_at: deliveredAt.toISOString(),
+            due_at: dueAt.toISOString(),
+          },
+          { onConflict: "order_id", ignoreDuplicates: true },
+        );
     } catch (e) {
-      console.warn("[sendReviewRequest] idempotency check failed (proceeding):", e);
+      console.warn("[sendReviewRequest] queue insert failed:", e);
     }
-
-    const message = `Thank you for using our catering service! We'd love to hear your feedback about order #${orderId}. Please take a moment to rate your experience.`;
-
-    await this.createNotification({
-      recipient_id: recipientId,
-      type: "review_request",
-      title: "How was your experience?",
-      message: message,
-      priority: "normal",
-      link: `/client-portal/feedback?orderId=${orderId}`,
-      metadata: { orderId, clientEmail, clientName }
-    });
   },
 
   // ==================== EMAIL TEMPLATE GENERATION ====================
@@ -618,11 +636,10 @@ export const notificationService = {
     clientName: string,
     recipientId: string
   ): Promise<void> {
-    // Schedule review request for 24 hours after delivery
-    setTimeout(async () => {
-      await this.sendReviewRequest(orderId, clientEmail, clientName, recipientId);
-    }, 1000);
-
-    console.log(`Automated email sequence triggered for order ${orderId}`);
+    // Queue the review request on pending_reviews. The cron worker at
+    // /api/cron/process-pending-reviews drains it once due_at passes.
+    // Replaces the old setTimeout(24h) which never fired on Vercel.
+    await this.sendReviewRequest(orderId, clientEmail, clientName, recipientId);
+    console.log(`Automated email sequence queued for order ${orderId}`);
   }
 };

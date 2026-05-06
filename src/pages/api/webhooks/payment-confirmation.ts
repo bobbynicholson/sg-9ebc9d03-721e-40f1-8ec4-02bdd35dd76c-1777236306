@@ -2,11 +2,19 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { orderService } from "@/services/orderService";
 import { emailService } from "@/services/emailService";
+import { paymentProcessingService } from "@/services/paymentProcessingService";
 import crypto from "crypto";
 
 /**
  * Payment Webhook Handler
- * Receives payment confirmations from PayFast and other gateways
+ * Receives payment confirmations from PayFast and other gateways.
+ *
+ * Idempotency: PayFast retries IPN aggressively (network blips, slow
+ * response, 5xx). Every retry would otherwise double-insert payments
+ * rows, double `amount_paid`, and flip status to paid prematurely.
+ * We dedupe on `pf_payment_id` (PayFast's canonical id) by checking
+ * the payments table BEFORE any DB write -- if the row already exists
+ * we return 200 immediately so PayFast stops retrying.
  */
 export default async function handler(
   req: NextApiRequest,
@@ -18,11 +26,11 @@ export default async function handler(
 
   try {
     const paymentData = req.body;
-    
+
     // Validate PayFast signature
     const { signature, ...dataToValidate } = paymentData;
     const isValid = validatePayFastSignature(dataToValidate, signature);
-    
+
     if (!isValid) {
       return res.status(400).json({ error: "Invalid signature" });
     }
@@ -42,10 +50,19 @@ export default async function handler(
       merchant_id
     } = paymentData;
 
-    // ✅ NEW: Handle invoice payments
+    // Handle invoice payments (post-event final invoice flow).
+    // Idempotency for this branch is handled inline below.
     if (custom_str4 === "invoice" || custom_str2 === "invoice") {
       const invoiceId = custom_str1;
       const companyId = custom_str3;
+
+      // Idempotency guard -- if we have already recorded this PayFast
+      // transaction against ANY payment row, skip the rest of the
+      // pipeline so retries are no-ops.
+      const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
+      if (alreadyRecorded) {
+        return res.status(200).json({ message: "Already processed", invoiceId });
+      }
 
       // Update invoice status
       const { error: invoiceError } = await supabase
@@ -74,7 +91,8 @@ export default async function handler(
         const invoiceData = invoice as any;
         const companyData = invoiceData.companies;
 
-        // Create payment record
+        // Two columns until Phase 2 consolidation: write `payment_status`
+        // (canonical enum) and mirror `status` as the same string.
         await supabase.from("payments").insert([{
           company_id: companyId,
           client_id: invoiceData.client_id,
@@ -84,7 +102,10 @@ export default async function handler(
           payment_method: "payfast",
           payment_reference: pf_payment_id,
           gateway_provider: "payfast",
+          gateway: "payfast",
           gateway_transaction_id: pf_payment_id,
+          transaction_id: pf_payment_id,
+          payment_status: "completed",
           status: "completed",
           completed_at: new Date().toISOString()
         }]);
@@ -170,31 +191,47 @@ export default async function handler(
         console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
       }
 
-      return res.status(200).json({ 
+      return res.status(200).json({
         message: "Invoice payment processed successfully",
         invoiceId,
         amount: amount_gross
       });
     }
 
-    // ✅ EXISTING: Handle order payments (deposit/balance)
+    // Handle order payments (deposit / balance)
     const orderId = custom_str1;
-    const paymentType = custom_str2; // "deposit" or "balance"
+    const paymentType = (custom_str2 || "").toLowerCase(); // "deposit" or "balance"
+
+    // Idempotency guard FIRST -- before any DB write. If PayFast
+    // retries (which it does aggressively when the response is slow),
+    // we want the second / third / nth call to be a 200 no-op.
+    const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
+    if (alreadyRecorded) {
+      return res.status(200).json({
+        success: true,
+        message: "Already processed",
+        orderId,
+      });
+    }
 
     // Get order details
     const orderResult = await orderService.getOrderById(orderId);
-    
+
     if (!orderResult.success || !orderResult.data) {
       console.error("Order not found:", orderId);
       return res.status(404).json({ error: "Order not found" });
     }
 
-    const order = orderResult.data;
+    const order: any = orderResult.data;
 
-    // Determine if this is deposit or balance payment
-    const isDepositPayment = !order.deposit_paid;
-    const expectedAmount = isDepositPayment 
-      ? order.deposit_amount 
+    // Determine if this is deposit or balance payment. Prefer the
+    // explicit custom_str2 the checkout sends; fall back to the order
+    // state for old links.
+    const isDepositPayment = paymentType
+      ? paymentType === "deposit"
+      : !order.deposit_paid;
+    const expectedAmount = isDepositPayment
+      ? order.deposit_amount
       : order.balance_amount;
 
     // Verify amount matches
@@ -203,79 +240,92 @@ export default async function handler(
       return res.status(400).json({ error: "Amount mismatch" });
     }
 
-    // Record the payment
-    if (isDepositPayment) {
-      await orderService.recordPayment(
-        order.id,
-        parseFloat(amount_gross),
-        "payfast",
-        pf_payment_id
-      );
-
-      // Create payment record
-      await supabase.from("payments").insert([{
-        user_id: order.user_id,
-        order_id: order.id,
-        payment_type: "deposit",
-        amount: expectedAmount,
+    // Single insert via the canonical recordPayment helper. This also
+    // calls updateOrderPaymentStatus() so orders.payment_status is
+    // recomputed from the sum of completed payments.
+    const recordResult = await orderService.recordPayment(
+      order.id,
+      parseFloat(amount_gross),
+      "payfast",
+      pf_payment_id,
+      {
+        userId: order.user_id,
+        companyId: order.company_id || order.user_id,
+        clientId: order.client_id || undefined,
         currency: order.currency,
-        status: "completed",
-        gateway: "payfast",
-        transaction_id: pf_payment_id,
-        processed_at: new Date().toISOString(),
-      }]);
+        paymentType: isDepositPayment ? "deposit" : "balance",
+        gatewayProvider: "payfast",
+      }
+    );
 
-      // Trigger deposit confirmation email
-      await triggerEmail(order, "deposit_confirmation");
-
-      // Send notification
-      await supabase.from("notifications").insert([{
-        user_id: order.user_id,
-        recipient_id: order.user_id,
-        notification_type: "payment_received",
-        title: "Deposit Payment Received",
-        message: `Deposit payment received for order ${order.order_number}`,
-        priority: "high",
-      }]);
-
-    } else {
-      await orderService.recordPayment(
-        order.id,
-        parseFloat(amount_gross),
-        "payfast",
-        pf_payment_id
-      );
-
-      // Create payment record
-      await supabase.from("payments").insert([{
-        user_id: order.user_id,
-        order_id: order.id,
-        payment_type: "balance",
-        amount: expectedAmount,
-        currency: order.currency,
-        status: "completed",
-        gateway: "payfast",
-        transaction_id: pf_payment_id,
-        processed_at: new Date().toISOString(),
-      }]);
-
-      // Trigger balance confirmation email
-      await triggerEmail(order, "balance_confirmation");
-
-      // Send notification
-      await supabase.from("notifications").insert([{
-        user_id: order.user_id,
-        recipient_id: order.user_id,
-        notification_type: "payment_received",
-        title: "Balance Payment Received",
-        message: `Full payment received for order ${order.order_number}. Your booking is confirmed!`,
-        priority: "high",
-      }]);
+    if (!recordResult.success) {
+      console.error("Failed to record payment:", recordResult.error);
+      return res.status(500).json({ error: "Failed to record payment" });
     }
 
-    return res.status(200).json({ 
+    // Cascade: payment_schedules + orders flags + reminders. The helpers
+    // in paymentProcessingService own the right cascade; the webhook
+    // simply wasn't calling them before.
+    if (isDepositPayment) {
+      await paymentProcessingService.processDepositPayment(
+        order.id,
+        pf_payment_id,
+        "payfast",
+        order.user_id
+      );
+
+      // If the order was still pending, mark it confirmed now that the
+      // deposit is in. processDepositPayment sets status='confirmed'
+      // unconditionally; we additionally stamp confirmed_at when null.
+      if (!order.confirmed_at) {
+        await supabase
+          .from("orders")
+          .update({ confirmed_at: new Date().toISOString() })
+          .eq("id", order.id);
+      }
+
+      await sendClientPaymentConfirmation(order, "deposit", amount_gross);
+    } else {
+      await paymentProcessingService.processBalancePayment(
+        order.id,
+        pf_payment_id,
+        "payfast",
+        order.user_id
+      );
+
+      // If the invoice is now fully paid, close the order out.
+      const { data: refreshed } = await supabase
+        .from("orders")
+        .select("payment_status, status")
+        .eq("id", order.id)
+        .maybeSingle();
+      if (refreshed && (refreshed as any).payment_status === "paid"
+          && (refreshed as any).status !== "completed") {
+        await supabase
+          .from("orders")
+          .update({ status: "completed" })
+          .eq("id", order.id);
+      }
+
+      await sendClientPaymentConfirmation(order, "balance", amount_gross);
+    }
+
+    // Owner / admin in-app notification (kept legacy shape for the
+    // notifications inbox the owner already uses).
+    await supabase.from("notifications").insert([{
+      user_id: order.user_id,
+      recipient_id: order.user_id,
+      notification_type: "payment_received",
+      title: isDepositPayment ? "Deposit Payment Received" : "Balance Payment Received",
+      message: isDepositPayment
+        ? `Deposit payment received for order ${order.order_number}`
+        : `Full payment received for order ${order.order_number}. Booking is confirmed.`,
+      priority: "high",
+    }]);
+
+    return res.status(200).json({
       success: true,
-      message: "Payment processed successfully" 
+      message: "Payment processed successfully"
     });
 
   } catch (error) {
@@ -285,11 +335,139 @@ export default async function handler(
 }
 
 /**
+ * Look up an existing payments row by PayFast's canonical id. We check
+ * both `gateway_transaction_id` (the field recordPayment writes) and
+ * the legacy `transaction_id` mirror so retries are deduped regardless
+ * of which column variant a previous run used.
+ */
+async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null): Promise<boolean> {
+  if (!pfPaymentId) return false;
+  const { data, error } = await supabase
+    .from("payments")
+    .select("id")
+    .or(`gateway_transaction_id.eq.${pfPaymentId},transaction_id.eq.${pfPaymentId}`)
+    .limit(1);
+  if (error) {
+    // Fail open -- if the dedup query itself errors we'd rather process
+    // and risk a later cleanup than silently drop a real payment. The
+    // amount-mismatch + downstream FK constraints provide a second line
+    // of defence.
+    console.warn("Idempotency check failed, proceeding:", error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * Resolve the auth.users.id of the client behind an order. orders.client_id
+ * is a FK to clients.id (NOT auth.users.id), so we go through the clients
+ * table -- prefer the explicit user_id link, fall back to the email match
+ * on profiles. Pattern mirrored from amendment-review.ts.
+ */
+async function resolveClientUserId(orderClientId: string | null | undefined): Promise<string | null> {
+  if (!orderClientId) return null;
+  const { data: clientRow } = await supabase
+    .from("clients")
+    .select("user_id, email")
+    .eq("id", orderClientId)
+    .maybeSingle();
+  if (!clientRow) return null;
+  if ((clientRow as any).user_id) return (clientRow as any).user_id as string;
+  const email = ((clientRow as any).email || "").toLowerCase().trim();
+  if (!email) return null;
+  const { data: profileMatch } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  return (profileMatch as any)?.id || null;
+}
+
+/**
+ * Send the client (not just the owner) a confirmation -- in-app
+ * notification AND email. Non-blocking on individual failures so a
+ * dead inbox doesn't undo a successful webhook.
+ */
+async function sendClientPaymentConfirmation(
+  order: any,
+  kind: "deposit" | "balance",
+  amountGross: string | number
+): Promise<void> {
+  const clientUserId = await resolveClientUserId(order.client_id);
+  const amountFmt = `R${Number(amountGross).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  const isDeposit = kind === "deposit";
+  const title = isDeposit
+    ? `Deposit received for order ${order.order_number}`
+    : `Final payment received for order ${order.order_number}`;
+  const message = isDeposit
+    ? `We received your deposit of ${amountFmt}. Your booking is now confirmed.`
+    : `We received your final payment of ${amountFmt}. Your booking is fully paid.`;
+
+  // In-app notification to the client (only if we resolved an auth uid).
+  if (clientUserId) {
+    try {
+      await supabase.from("notifications").insert([{
+        company_id: order.company_id || order.user_id,
+        user_id: clientUserId,
+        recipient_id: clientUserId,
+        notification_type: "payment_received",
+        title,
+        message,
+        priority: "high",
+        link: `/client-portal?orderId=${order.id}`,
+      }]);
+    } catch (e) {
+      console.warn("Client in-app notification failed:", e);
+    }
+  }
+
+  // Email to the client. Use whichever address we have on file.
+  let recipientEmail: string | null = order.client_email || null;
+  let recipientName: string | null = order.client_name || null;
+  if (!recipientEmail && order.client_id) {
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("email, client_name")
+      .eq("id", order.client_id)
+      .maybeSingle();
+    if (clientRow) {
+      recipientEmail = (clientRow as any).email || null;
+      recipientName = recipientName || (clientRow as any).client_name || null;
+    }
+  }
+
+  if (!recipientEmail) return;
+
+  try {
+    await emailService.sendEmail({
+      companyId: order.company_id || order.user_id,
+      to: recipientEmail,
+      subject: isDeposit
+        ? `Deposit received -- order ${order.order_number}`
+        : `Final payment received -- order ${order.order_number}`,
+      template: isDeposit ? "deposit_confirmation" : "balance_confirmation",
+      variables: {
+        clientName: recipientName || "there",
+        orderNumber: order.order_number,
+        amount: amountFmt,
+        eventDate: order.event_date
+          ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+          : "TBD",
+        venue: order.venue_address || "TBD",
+      },
+      orderId: order.id,
+    });
+  } catch (e) {
+    console.warn("Client payment confirmation email failed:", e);
+  }
+}
+
+/**
  * Verify PayFast webhook signature
  */
 function validatePayFastSignature(data: any, signature: string): boolean {
   const passphrase = process.env.PAYFAST_PASSPHRASE || "";
-  
+
   // Create parameter string
   const pfParamString = Object.keys(data)
     .filter(key => key !== "signature")
@@ -304,76 +482,4 @@ function validatePayFastSignature(data: any, signature: string): boolean {
     .digest("hex");
 
   return generatedSignature === signature;
-}
-
-/**
- * Trigger email notification
- */
-async function triggerEmail(order: any, emailType: string) {
-  try {
-    // Get email template
-    const { data: template } = await supabase
-      .from("email_templates")
-      .select("*")
-      .eq("user_id", order.user_id)
-      .eq("template_type", emailType)
-      .eq("is_active", true)
-      .single();
-
-    if (!template) {
-      console.log("No email template found for:", emailType);
-      return;
-    }
-
-    // Replace variables in template
-    const subject = template.subject
-      .replace("{order_number}", order.order_number)
-      .replace("{client_name}", order.client_name);
-
-    const body = template.body
-      .replace("{client_name}", order.client_name)
-      .replace("{order_number}", order.order_number)
-      .replace("{event_date}", new Date(order.event_date).toLocaleDateString())
-      .replace("{venue}", order.venue_address || "TBD");
-
-    // Actually send through emailService -- this honours the company's
-    // Resend / SMTP config and runs the block-list + quarantine guards.
-    // Log first so we have a row even if the send fails (the failure
-    // dashboard reads this table).
-    await supabase.from("email_automation_log").insert([{
-      user_id: order.user_id,
-      order_id: order.id,
-      template_type: emailType,
-      recipient_email: order.client_email,
-      recipient_name: order.client_name,
-      subject: subject,
-      status: "queued",
-    }]);
-
-    if (order.client_email) {
-      const sent = await emailService.sendEmail({
-        companyId: order.user_id,
-        to: order.client_email,
-        subject,
-        body,
-        variables: {
-          clientName: order.client_name,
-          orderNumber: order.order_number,
-          eventDate: order.event_date
-            ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
-            : "TBD",
-          venue: order.venue_address || "TBD",
-        },
-      });
-      // Update the log row to reflect the real outcome.
-      await supabase.from("email_automation_log")
-        .update({ status: sent ? "sent" : "failed" })
-        .eq("user_id", order.user_id)
-        .eq("order_id", order.id)
-        .eq("template_type", emailType)
-        .eq("status", "queued");
-    }
-  } catch (error) {
-    console.error("Error triggering email:", error);
-  }
 }

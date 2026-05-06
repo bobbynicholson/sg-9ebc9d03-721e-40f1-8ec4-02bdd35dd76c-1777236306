@@ -20,6 +20,7 @@ import { DashboardDateRange, resolvePreset, DateRange } from "@/components/dashb
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
+import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 
 interface Stats {
   bookedRevenue: number;
@@ -311,6 +312,12 @@ function AdminDashboardPage() {
               </Button>
             </div>
           </div>
+
+          {/* Operator safety net: if no email provider is wired up,
+              every send silently fails. Show the banner directly under
+              the header so it cannot be missed. Self-hides once
+              email_settings is configured. */}
+          {companyId ? <EmailProviderBanner companyId={companyId} /> : null}
 
           {error && (
             <div className="mb-6 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">

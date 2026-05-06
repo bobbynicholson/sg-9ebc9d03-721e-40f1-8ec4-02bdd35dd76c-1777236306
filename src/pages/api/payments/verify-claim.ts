@@ -23,6 +23,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 const ADMIN_ROLES = new Set([
   "company_admin", "admin", "sales_admin", "region_admin", "super_admin",
@@ -119,12 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Notify the client so they can fix the reference and try again.
       try {
-        const { data: clientProfile } = await admin
-          .from("clients")
-          .select("user_id")
-          .eq("id", payment.client_id)
-          .maybeSingle();
-        const clientUserId = (clientProfile as any)?.user_id;
+        const clientUserId = await resolveClientUserId(admin, payment.client_id);
         if (clientUserId) {
           await admin.from("notifications").insert({
             company_id: payment.company_id,

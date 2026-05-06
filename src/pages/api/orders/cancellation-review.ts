@@ -17,28 +17,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services/email/cancellationEmails";
-
-// Resolve the auth.users.id of the client behind an order. orders.client_id
-// is a FK to clients.id, not auth.users.id, so we go through the clients
-// table -- prefer the explicit user_id link, fall back to the email match.
-async function resolveClientUserId(ssr: any, orderClientId: string | null): Promise<string | null> {
-  if (!orderClientId) return null;
-  const { data: clientRow } = await ssr
-    .from("clients")
-    .select("user_id, email")
-    .eq("id", orderClientId)
-    .maybeSingle();
-  if (!clientRow) return null;
-  if (clientRow.user_id) return clientRow.user_id as string;
-  const email = (clientRow.email || "").toLowerCase().trim();
-  if (!email) return null;
-  const { data: profileMatch } = await ssr
-    .from("profiles")
-    .select("id")
-    .ilike("email", email)
-    .maybeSingle();
-  return (profileMatch as any)?.id || null;
-}
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 // Send a client-portal notification. Best-effort -- failures are
 // logged but never block the review action that called us.

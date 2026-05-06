@@ -2,10 +2,8 @@
 /**
  * PaymentModal -- the client picks a method and pays.
  *
- * Three branches:
+ * Two live branches:
  *   - PayFast: redirects to gateway form / URL.
- *   - Card: mock today (kept for the placeholder UX); routes through
- *     paymentProcessingService.processBalancePayment.
  *   - EFT: the smart flow Bobby asked for. Shows the catering
  *     company's bank details, hammers home the reference (the
  *     invoice number) with a copy button, then offers an "I've made
@@ -15,6 +13,13 @@
  *       - notifies the company's admins so they reconcile against
  *         the bank statement,
  *       - shows the client a "we're checking" confirmation.
+ *
+ * Card path is mocked; hidden until real gateway integration ships in
+ * Phase 2. Leaving the mock visible was a real fraud risk -- a 1.5s
+ * setTimeout marked the invoice paid without any money moving. The
+ * implementation function below is kept (deprecated) so Phase 2 can
+ * swap its body for a per-tenant gateway picker (PayFast / Yoco /
+ * Stripe) without rewriting the call site.
  *
  * Wrong references are the #1 reconciliation problem in catering
  * EFTs. The whole point of this modal is to make using the right one
@@ -87,50 +92,38 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
   const [eftNotes, setEftNotes] = useState("");
   const [confirmingClaim, setConfirmingClaim] = useState(false);
 
+  const startPayFast = async () => {
+    const paymentLink = await paymentProcessingService.generatePaymentLink(
+      invoice.order_id,
+      "balance",
+    );
+    if (paymentLink) {
+      if (paymentLink.includes("<form")) {
+        const div = document.createElement("div");
+        div.innerHTML = paymentLink;
+        document.body.appendChild(div);
+        const form = div.querySelector("form") as HTMLFormElement;
+        if (form) form.submit();
+      } else {
+        window.location.href = paymentLink;
+      }
+    } else {
+      throw new Error("Failed to generate payment link");
+    }
+  };
+
   const handlePayment = async () => {
     try {
       setProcessing(true);
 
-      if (paymentMethod === "payfast") {
-        const paymentLink = await paymentProcessingService.generatePaymentLink(
-          invoice.order_id,
-          "balance",
-        );
-        if (paymentLink) {
-          if (paymentLink.includes("<form")) {
-            const div = document.createElement("div");
-            div.innerHTML = paymentLink;
-            document.body.appendChild(div);
-            const form = div.querySelector("form") as HTMLFormElement;
-            if (form) form.submit();
-          } else {
-            window.location.href = paymentLink;
-          }
-        } else {
-          throw new Error("Failed to generate payment link");
-        }
+      // Card option is hidden in the UI (see method picker below)
+      // because the implementation is mocked. Defensive fallback: if
+      // some tenant config still routes "card" here, reroute through
+      // PayFast rather than firing the mock and marking the invoice
+      // paid for free.
+      if (paymentMethod === "payfast" || paymentMethod === "card") {
+        await startPayFast();
         return;
-      }
-
-      if (paymentMethod === "card") {
-        // Card is still mocked end-to-end pending a real gateway. We
-        // route through the existing balance-payment service so the
-        // happy path mirrors PayFast's webhook completion.
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const { data: userData } = await supabase.auth.getUser();
-        const transactionId = `TXN-${Date.now()}`;
-        await paymentProcessingService.processBalancePayment(
-          invoice.order_id,
-          transactionId,
-          "card",
-          userData?.user?.id || "",
-        );
-        setPaymentComplete(true);
-        toast({
-          title: "Payment Successful",
-          description: `Your payment of ${invoice.currency}${invoice.amount.toLocaleString()} has been processed.`,
-        });
-        setTimeout(onPaymentSuccess, 1500);
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -142,6 +135,32 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
     } finally {
       setProcessing(false);
     }
+  };
+
+  /**
+   * @deprecated -- mock card flow. Marked the invoice paid after a
+   * 1.5s setTimeout with no gateway integration. Disabled until Phase
+   * 2 ships the real per-tenant gateway picker (PayFast / Yoco /
+   * Stripe). Body retained on purpose: Phase 2 will replace it in
+   * place rather than re-introducing a dead reference.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _processMockCardPayment = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const { data: userData } = await supabase.auth.getUser();
+    const transactionId = `TXN-${Date.now()}`;
+    await paymentProcessingService.processBalancePayment(
+      invoice.order_id,
+      transactionId,
+      "card",
+      userData?.user?.id || "",
+    );
+    setPaymentComplete(true);
+    toast({
+      title: "Payment Successful",
+      description: `Your payment of ${invoice.currency}${invoice.amount.toLocaleString()} has been processed.`,
+    });
+    setTimeout(onPaymentSuccess, 1500);
   };
 
   const submitEftClaim = async () => {
@@ -333,14 +352,22 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
                   title="PayFast"
                   subtitle="Card or instant EFT, reflects right away"
                 />
-                <MethodCard
+                {/*
+                  Card path is mocked; hidden until real gateway
+                  integration ships in Phase 2. Leaving this visible
+                  was a real fraud risk -- the handler waited 1.5s
+                  then marked the invoice paid without any money
+                  moving. Clients who want to pay by card route
+                  through PayFast in the meantime.
+                */}
+                {/* <MethodCard
                   active={paymentMethod === "card"}
                   value="card"
                   onSelect={() => setPaymentMethod("card")}
                   icon={<CreditCard className="w-5 h-5 text-slate-600" />}
                   title="Credit / debit card"
                   subtitle="Visa, Mastercard, Amex"
-                />
+                /> */}
                 {eftAvailable ? (
                   <MethodCard
                     active={paymentMethod === "eft"}

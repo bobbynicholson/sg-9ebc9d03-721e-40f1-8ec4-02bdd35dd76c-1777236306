@@ -20,30 +20,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
-
-// Resolve the auth.users.id of the client behind an order. orders.client_id
-// is a FK to clients.id (NOT auth.users.id), so we go through the clients
-// table -- prefer the explicit user_id link, fall back to the email match
-// (for clients who own the order via portal token but haven't been linked
-// to an auth user yet). Returns null when neither is available.
-async function resolveClientUserId(ssr: any, orderClientId: string | null): Promise<string | null> {
-  if (!orderClientId) return null;
-  const { data: clientRow } = await ssr
-    .from("clients")
-    .select("user_id, email")
-    .eq("id", orderClientId)
-    .maybeSingle();
-  if (!clientRow) return null;
-  if (clientRow.user_id) return clientRow.user_id as string;
-  const email = (clientRow.email || "").toLowerCase().trim();
-  if (!email) return null;
-  const { data: profileMatch } = await ssr
-    .from("profiles")
-    .select("id")
-    .ilike("email", email)
-    .maybeSingle();
-  return (profileMatch as any)?.id || null;
-}
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 const ALLOWED_FIELDS = new Set([

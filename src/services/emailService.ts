@@ -264,14 +264,20 @@ export const emailService = {
           html: finalBody,
         });
       } else {
-        console.log("----- EMAIL SIMULATION (No Provider Configured) -----");
-        console.log(`From: "${config.from_name}" <${config.from_email}>`);
-        console.log(`To: ${payload.to}`);
-        console.log(`Subject: ${finalSubject}`);
-        console.log(`Body Preview: ${finalBody.substring(0, 100)}...`);
-        console.log(`Provider: ${config.provider || 'none'}`);
-        console.log("----------------------------------------------------");
-        
+        // No provider configured -- this is a real failure, not a
+        // success. Returning true here previously marked the row
+        // status='sent' in email_automation_log, so operator dashboards
+        // showed deliveries that never happened. Clients only noticed
+        // when they said "I never got the quote". Now we log the
+        // attempt as failed with a clear reason and return false so
+        // upstream callers can react. EmailProviderBanner surfaces the
+        // missing-provider state on the admin dashboard so this isn't
+        // discovered the hard way.
+        console.warn("[emailService] refused -- no email provider configured");
+        console.warn(`  Tenant: ${payload.companyId}`);
+        console.warn(`  Would-be recipient: ${payload.to}`);
+        console.warn(`  Subject: ${finalSubject}`);
+
         await this.logEmailSent(
           payload.companyId,
           payload.template || 'custom',
@@ -281,9 +287,11 @@ export const emailService = {
           payload.orderId,
           payload.quoteId,
           (payload as any)._client,
+          "failed",
+          "No email provider configured",
         );
-        
-        return true;
+
+        return false;
       }
 
       if (emailSent) {

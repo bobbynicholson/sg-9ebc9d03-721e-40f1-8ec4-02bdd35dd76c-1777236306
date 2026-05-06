@@ -34,23 +34,57 @@ export async function calculateOrderTotal(orderItems: any[], taxRate: number = 0
   };
 }
 
+export interface RecordPaymentExtra {
+  userId?: string;
+  companyId?: string;
+  clientId?: string;
+  currency?: string;
+  paymentType?: "deposit" | "balance" | "invoice" | "refund" | string;
+  gatewayProvider?: string;
+}
+
 export async function recordPayment(
   orderId: string,
   amount: number,
   paymentMethod: string,
-  transactionId?: string
+  transactionId?: string,
+  extra: RecordPaymentExtra = {}
 ) {
   try {
+    const nowIso = new Date().toISOString();
+
+    // Two columns until Phase 2 consolidation: `payment_status` is the
+    // canonical enum (matches verify-claim, EFT and refund flows);
+    // `status` is a legacy text mirror still read by older webhooks and
+    // the order-finance summaries. Mirror status = payment_status::text
+    // so both sides agree until the column is dropped.
+    const insertRow: Record<string, any> = {
+      order_id: orderId,
+      amount,
+      payment_method: paymentMethod,
+      gateway_transaction_id: transactionId,
+      transaction_id: transactionId,
+      payment_status: "completed",
+      status: "completed",
+      processed_at: nowIso,
+      completed_at: nowIso,
+      created_at: nowIso,
+    };
+
+    if (extra.userId) insertRow.user_id = extra.userId;
+    if (extra.companyId) insertRow.company_id = extra.companyId;
+    if (extra.clientId) insertRow.client_id = extra.clientId;
+    if (extra.currency) insertRow.currency = extra.currency;
+    if (extra.paymentType) insertRow.payment_type = extra.paymentType;
+    if (extra.gatewayProvider) {
+      insertRow.gateway = extra.gatewayProvider;
+      insertRow.gateway_provider = extra.gatewayProvider;
+      insertRow.payment_reference = transactionId;
+    }
+
     const { data, error } = await supabase
       .from("payments")
-      .insert({
-        order_id: orderId,
-        amount,
-        payment_method: paymentMethod as any,
-        gateway_transaction_id: transactionId,
-        status: "completed" as any,
-        created_at: new Date().toISOString(),
-      } as any)
+      .insert(insertRow as any)
       .select()
       .single();
 
