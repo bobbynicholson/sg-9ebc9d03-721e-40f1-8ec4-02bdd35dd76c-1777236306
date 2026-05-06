@@ -10,18 +10,21 @@
  *
  * State machine:
  *   no domain saved   -> "Add domain" form
- *   pending            -> show DNS records + "Verify now" button
- *   verified           -> green tick + reset link
+ *   pending            -> calm waiting card + auto-poll + live diagnostic
+ *   verified           -> green success card
  *   failed             -> red banner with retry
+ *
+ * Auto-poll: while pending, fetch /api/admin/resend/verify-domain every
+ * 60s and refresh the live DNS diagnostic from /api/admin/resend/dns-check.
+ * Caps at 60 minutes total elapsed.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   CheckCircle2, Loader2, RefreshCw, Globe, Copy, AlertTriangle,
-  ShieldCheck, RotateCcw,
+  ShieldCheck, RotateCcw, Clock, ExternalLink, Info, HelpCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,10 +41,29 @@ interface DnsRecord {
 interface DomainState {
   id?: string;
   domain?: string | null;
-  status?: string | null;       // 'pending' | 'verified' | 'failed'
+  status?: string | null;       // 'pending' | 'verified' | 'failed' | 'not_started'
   verifiedAt?: string | null;
   lastCheckedAt?: string | null;
   records: DnsRecord[];
+}
+
+interface DnsCheckRecord {
+  name: string;
+  type: string;
+  expected_value?: string;
+  found_values?: string[];
+  match?: boolean;
+  diagnosis?: string;
+}
+
+interface DnsCheckResponse {
+  domain?: string;
+  summary?: {
+    all_match?: boolean;
+    propagation_likely?: boolean;
+    next_action?: string;
+  };
+  records?: DnsCheckRecord[];
 }
 
 interface Props {
@@ -53,6 +75,14 @@ interface Props {
   compact?: boolean;
 }
 
+const POLL_INTERVAL_MS = 60_000;
+const MAX_POLL_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+const PENDING_STATES = new Set(["pending", "not_started", null, undefined, ""]);
+
+function isPending(status: string | null | undefined): boolean {
+  return PENDING_STATES.has(status as any);
+}
+
 export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -62,6 +92,20 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [domainInput, setDomainInput] = useState("");
   const [state, setState] = useState<DomainState>({ records: [] });
+
+  // Auto-poll state.
+  const [diagnostic, setDiagnostic] = useState<DnsCheckResponse | null>(null);
+  const [diagnosticLoading, setDiagnosticLoading] = useState(false);
+  const [diagnosticUnavailable, setDiagnosticUnavailable] = useState(false);
+  const [secondsToNextCheck, setSecondsToNextCheck] = useState<number>(POLL_INTERVAL_MS / 1000);
+  const [lastCheckedClient, setLastCheckedClient] = useState<Date | null>(null);
+  const [pollStartedAt, setPollStartedAt] = useState<Date | null>(null);
+  const [pollExhausted, setPollExhausted] = useState(false);
+  const [justVerified, setJustVerified] = useState(false);
+
+  const pollTimerRef = useRef<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
+  const previousStatusRef = useRef<string | null | undefined>(undefined);
 
   const reload = async () => {
     if (!companyId) return;
@@ -92,6 +136,148 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
+  // Fetch the live DNS diagnostic. Gracefully degrades if the endpoint
+  // 404s (sibling agent may not have shipped yet).
+  const refreshDiagnostic = async () => {
+    if (!state.domain) return;
+    if (diagnosticUnavailable) return;
+    setDiagnosticLoading(true);
+    try {
+      const res = await fetch("/api/admin/resend/dns-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.status === 404) {
+        setDiagnosticUnavailable(true);
+        return;
+      }
+      if (!res.ok) {
+        // Soft fail -- don't surface this to the operator, the auto-poll
+        // verify call is the source of truth.
+        return;
+      }
+      const body: DnsCheckResponse = await res.json();
+      setDiagnostic(body);
+    } catch {
+      // Network blip -- next tick will retry.
+    } finally {
+      setDiagnosticLoading(false);
+    }
+  };
+
+  // Core verify call. Used by the auto-poll tick AND the manual button.
+  const runVerify = async (manual: boolean): Promise<void> => {
+    if (manual) setVerifying(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/resend/verify-domain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const body = await res.json();
+      setLastCheckedClient(new Date());
+      if (!res.ok) {
+        if (manual) {
+          setError(body.error || `Verify failed (HTTP ${res.status}).`);
+        }
+        return;
+      }
+      await reload();
+      if (body.status === "verified") {
+        setJustVerified(true);
+        toast({
+          title: "Verified",
+          description: `Emails will now go out from ${body.domain}.`,
+        });
+        if (body.newly_verified && onVerified) onVerified(body.domain);
+      } else if (manual && body.status === "pending") {
+        // Calmer manual-retry toast -- no destructive variant.
+        toast({
+          title: "Still propagating",
+          description:
+            "DNS hasn't fully published yet. We'll keep checking automatically.",
+        });
+      } else if (manual && body.status === "failed") {
+        toast({
+          title: "Verification failed",
+          description: "See the diagnostic below for which record is wrong.",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      if (manual) setError(e?.message || "Network error");
+    } finally {
+      if (manual) setVerifying(false);
+    }
+  };
+
+  // Stop any running timers.
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+  };
+
+  // Auto-poll while pending. Re-runs whenever status / domain / pollExhausted change.
+  useEffect(() => {
+    stopPolling();
+
+    if (!state.domain) return;
+    if (!isPending(state.status)) return;
+    if (pollExhausted) return;
+
+    // Mark when the polling session started (used for the 60-min cap).
+    if (!pollStartedAt) setPollStartedAt(new Date());
+
+    // Kick off an immediate diagnostic refresh on mount of pending state.
+    void refreshDiagnostic();
+
+    setSecondsToNextCheck(POLL_INTERVAL_MS / 1000);
+
+    // Countdown (UI tick).
+    countdownTimerRef.current = window.setInterval(() => {
+      setSecondsToNextCheck((s) => (s <= 1 ? POLL_INTERVAL_MS / 1000 : s - 1));
+    }, 1000);
+
+    // Verify + diagnostic poll.
+    pollTimerRef.current = window.setInterval(() => {
+      const startedAt = pollStartedAt ?? new Date();
+      if (Date.now() - startedAt.getTime() > MAX_POLL_DURATION_MS) {
+        setPollExhausted(true);
+        stopPolling();
+        return;
+      }
+      void runVerify(false);
+      void refreshDiagnostic();
+    }, POLL_INTERVAL_MS);
+
+    return () => stopPolling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.domain, state.status, pollExhausted]);
+
+  // Reset poll session when domain changes.
+  useEffect(() => {
+    setPollStartedAt(null);
+    setPollExhausted(false);
+    setDiagnostic(null);
+    setDiagnosticUnavailable(false);
+    setLastCheckedClient(null);
+  }, [state.domain]);
+
+  // Track verified flip for the celebration animation.
+  useEffect(() => {
+    const prev = previousStatusRef.current;
+    if (prev && prev !== "verified" && state.status === "verified") {
+      setJustVerified(true);
+    }
+    previousStatusRef.current = state.status;
+  }, [state.status]);
+
   const submitDomain = async (force: boolean = false) => {
     setSubmitting(true);
     setError(null);
@@ -104,7 +290,6 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       const body = await res.json();
       if (!res.ok) {
         if (res.status === 409 && body.existing) {
-          // Surface a confirm-style retry option in the UI.
           setError(
             `${body.error} Click "Replace existing" to overwrite ${body.existing.domain}.`,
           );
@@ -126,44 +311,10 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     }
   };
 
-  const verify = async () => {
-    setVerifying(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/admin/resend/verify-domain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body.error || `Verify failed (HTTP ${res.status}).`);
-        return;
-      }
-      await reload();
-      if (body.status === "verified") {
-        toast({
-          title: "Verified",
-          description: `Emails will now go out from ${body.domain}.`,
-        });
-        if (body.newly_verified && onVerified) onVerified(body.domain);
-      } else if (body.status === "pending") {
-        toast({
-          title: "Still pending",
-          description:
-            "DNS records can take a while to propagate. Re-check in a few minutes.",
-        });
-      } else {
-        toast({
-          title: `Status: ${body.status}`,
-          description: "Check the DNS records and retry.",
-          variant: "destructive",
-        });
-      }
-    } catch (e: any) {
-      setError(e?.message || "Network error");
-    } finally {
-      setVerifying(false);
-    }
+  const verifyManual = async () => {
+    // Trigger an immediate poll instead of waiting for the timer.
+    setSecondsToNextCheck(POLL_INTERVAL_MS / 1000);
+    await Promise.all([runVerify(true), refreshDiagnostic()]);
   };
 
   const reset = async () => {
@@ -220,17 +371,17 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </span>
       );
     }
-    if (s === "pending") {
+    if (isPending(s)) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-          <Loader2 className="w-3 h-3 animate-spin" /> Pending
+          <Loader2 className="w-3 h-3 animate-spin" /> Propagating
         </span>
       );
     }
     if (s === "failed") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
-          <AlertTriangle className="w-3 h-3" /> Failed
+          <AlertTriangle className="w-3 h-3" /> Action needed
         </span>
       );
     }
@@ -291,9 +442,13 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
     );
   }
 
-  // Domain registered -- show status + records.
+  const pending = isPending(state.status);
+  const verified = state.status === "verified";
+  const failed = state.status === "failed";
+
   return (
     <div className="space-y-3">
+      {/* Header row -- domain + status chip. */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Globe className="w-5 h-5 text-purple-600" />
@@ -306,7 +461,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             )}
             {!state.verifiedAt && state.lastCheckedAt && (
               <p className="text-[11px] text-slate-500">
-                Last checked {new Date(state.lastCheckedAt).toLocaleString("en-ZA")}
+                Last server check {new Date(state.lastCheckedAt).toLocaleString("en-ZA")}
               </p>
             )}
           </div>
@@ -314,83 +469,249 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         {statusBadge}
       </div>
 
-      {state.status !== "verified" && state.records.length > 0 && (
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            Add these DNS records at your domain host (cPanel, Cloudflare, Domains.co.za, etc.)
-            then click <strong>Verify now</strong>.
-          </div>
-
-          {/* Per-host setup walkthrough. Folded by default so the records
-              table stays the focus. Expanded copy walks the operator
-              through the most common hosts plus the cPanel gotcha
-              (the simple "+ MX Record" button only does apex MX -- you
-              have to use Manage for subdomain records). */}
-          <details className="px-3 py-2 border-b border-slate-200 bg-blue-50/40">
-            <summary className="cursor-pointer text-xs font-semibold text-blue-900 select-none">
-              How do I add these in my DNS host?
-            </summary>
-            <div className="mt-3 space-y-3 text-xs text-slate-700">
-
-              <div>
-                <p className="font-semibold text-slate-900">cPanel (most shared hosts)</p>
-                <ol className="list-decimal list-inside space-y-0.5 mt-1">
-                  <li>Open <strong>Zone Editor</strong>, find your domain, click <strong>Manage</strong>.
-                    <span className="block text-[11px] text-slate-500 ml-4">
-                      Don't use the blue "+ MX Record" / "+ A Record" buttons -- those only add records for the apex domain and won't give you a hostname field.
-                    </span>
-                  </li>
-                  <li>Click <strong>Add Record</strong> in the full editor.</li>
-                  <li>For each row in the table below: pick the Type, paste the <em>Name / Host</em> as shown (cPanel auto-appends your domain, that's correct), paste the <em>Value</em>, and for MX records put <strong>10</strong> in the Priority field.</li>
-                  <li>Save each record. Three rows total.</li>
-                </ol>
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">Cloudflare</p>
-                <ol className="list-decimal list-inside space-y-0.5 mt-1">
-                  <li>Open your domain, go to <strong>DNS</strong> &rarr; <strong>Records</strong>.</li>
-                  <li>Click <strong>Add record</strong>, pick the Type.</li>
-                  <li>Paste the <em>Name</em> (Cloudflare auto-appends your domain).</li>
-                  <li>Paste the <em>Content</em> exactly as shown. For MX records, set <strong>Priority: 10</strong>.</li>
-                  <li><strong>Proxy status: DNS only</strong> (the orange cloud must be OFF for DKIM and SPF -- proxying breaks email auth).</li>
-                </ol>
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">Domains.co.za / GoDaddy / generic</p>
-                <ol className="list-decimal list-inside space-y-0.5 mt-1">
-                  <li>Find the DNS Manager / Zone Editor for your domain.</li>
-                  <li>Add a record per row below. The Type, Name, and Value go in the matching fields. For MX, Priority is <strong>10</strong>.</li>
-                  <li>Most hosts auto-append your domain to the Name field -- don't type it in twice.</li>
-                </ol>
-              </div>
-
-              <div className="rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900">
-                <strong>If your host says the TXT value is too long:</strong> some older DNS panels cap TXT at 255 characters per chunk. The DKIM value is longer than that. Modern hosts (cPanel 134+, Cloudflare, Route 53) handle it fine. If yours doesn't, contact their support -- "I need to add a long DKIM TXT record" is a known case.
-              </div>
-
-              <p className="text-[11px] text-slate-500">
-                DNS usually propagates within a few minutes but can take up to an hour. If <strong>Verify now</strong> says still pending, wait 10-20 minutes and try again.
+      {/* VERIFIED CELEBRATION */}
+      {verified && (
+        <div
+          className={`rounded-lg border border-emerald-300 bg-emerald-50 p-4 ${
+            justVerified ? "animate-in fade-in duration-700" : ""
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-emerald-900">
+                Verified -- you're ready to send
+              </p>
+              <p className="text-sm text-emerald-800">
+                Outgoing emails for this company will now arrive at your clients showing
+                <strong className="ml-1">@{state.domain}</strong> as the sender.
+                Send a test from <code>/admin/invoices</code> or <code>/admin/quotes</code> to confirm.
               </p>
             </div>
-          </details>
+          </div>
+        </div>
+      )}
 
-          <div className="overflow-x-auto">
+      {/* PENDING / PROPAGATING -- calm amber waiting card. */}
+      {pending && !verified && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="font-semibold text-amber-900">DNS propagation in progress</p>
+              <p className="text-sm text-amber-900/90">
+                Your DNS host has the records. They're now propagating across the internet's name servers,
+                which typically takes 5-30 minutes but can take up to an hour.
+                <strong> This is on your DNS host's side, not ours -- we'll keep checking automatically every minute.</strong>
+              </p>
+              <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
+                <li>Most common timing: 5-15 minutes.</li>
+                <li>Worst case: 60 minutes.</li>
+                <li>If it's been over 2 hours, see "Still stuck?" below.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FAILED -- distinct from pending, this is operator-actionable. */}
+      {failed && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-600" />
+          <div>
+            <p className="font-semibold">Verification failed</p>
+            <p className="text-xs mt-0.5">
+              Resend rejected the records. See the diagnostic below for which entry is wrong, fix it at your DNS host, then click <strong>Verify now</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* LIVE DNS DIAGNOSTIC PANEL */}
+      {!verified && (
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-3 py-2 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+              <Info className="w-3.5 h-3.5" />
+              Live DNS diagnostic
+              {diagnosticLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+            </div>
+            {pending && !pollExhausted && (
+              <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                {lastCheckedClient && (
+                  <span>
+                    Last checked at {lastCheckedClient.toLocaleTimeString("en-ZA")}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Next check in {secondsToNextCheck}s
+                </span>
+              </div>
+            )}
+            {pollExhausted && (
+              <span className="text-[11px] text-amber-700">
+                Auto-check stopped after 60 minutes. Use Verify now manually.
+              </span>
+            )}
+          </div>
+
+          {/* next_action banner */}
+          {diagnostic?.summary?.next_action && (
+            <div className="px-3 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-900">
+              <strong>Next:</strong> {diagnostic.summary.next_action}
+            </div>
+          )}
+
+          {diagnosticUnavailable && (
+            <div className="px-3 py-2 text-[11px] text-slate-500 border-b border-slate-100">
+              Live diagnostic temporarily unavailable. Falling back to the records table below.
+            </div>
+          )}
+
+          {/* If we have live diagnostic results, render them. Otherwise
+              fall back to the raw records table. */}
+          {diagnostic?.records && diagnostic.records.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-white border-b border-slate-200">
+                  <tr className="text-left text-slate-500">
+                    <th className="px-3 py-2 font-semibold w-10"></th>
+                    <th className="px-3 py-2 font-semibold">Type</th>
+                    <th className="px-3 py-2 font-semibold">Name</th>
+                    <th className="px-3 py-2 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diagnostic.records.map((r, idx) => {
+                    const matched = !!r.match;
+                    const found = Array.isArray(r.found_values) ? r.found_values : [];
+                    const wrongValue = !matched && found.length > 0;
+                    const stillPropagating = !matched && found.length === 0;
+                    return (
+                      <tr key={idx} className="border-b border-slate-100 last:border-0 align-top">
+                        <td className="px-3 py-2">
+                          {matched && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                          {wrongValue && <AlertTriangle className="w-4 h-4 text-red-600" />}
+                          {stillPropagating && <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-slate-700">{r.type}</td>
+                        <td className="px-3 py-2 font-mono break-all">{r.name}</td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {matched && <span className="text-emerald-700 font-semibold">Match</span>}
+                          {wrongValue && <span className="text-red-700 font-semibold">Wrong value published</span>}
+                          {stillPropagating && <span className="text-amber-700">Still propagating</span>}
+                          {r.diagnosis && (
+                            <p className="text-[11px] text-slate-500 mt-0.5">{r.diagnosis}</p>
+                          )}
+                          {wrongValue && found.length > 0 && (
+                            <p className="text-[11px] text-red-600 mt-0.5 break-all">
+                              Found: <code>{found.join(", ")}</code>
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            // Fallback -- the original records table for copy-paste.
+            state.records.length > 0 && (
+              <>
+                <div className="px-3 py-2 text-xs text-slate-600 bg-white border-b border-slate-200">
+                  Add these DNS records at your domain host (cPanel, Cloudflare, Domains.co.za, etc.) then click <strong>Verify now</strong>.
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-white border-b border-slate-200">
+                      <tr className="text-left text-slate-500">
+                        <th className="px-3 py-2 font-semibold">Type</th>
+                        <th className="px-3 py-2 font-semibold">Name / Host</th>
+                        <th className="px-3 py-2 font-semibold">Value</th>
+                        <th className="px-3 py-2 font-semibold">TTL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {state.records.map((r, idx) => (
+                        <tr key={idx} className="border-b border-slate-100 last:border-0 align-top">
+                          <td className="px-3 py-2 font-mono text-slate-700">{r.type}</td>
+                          <td className="px-3 py-2 font-mono break-all">
+                            <div className="flex items-start gap-1">
+                              <span className="flex-1">{r.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => copy(r.name, "Name copied")}
+                                className="text-slate-400 hover:text-purple-600 p-0.5"
+                                title="Copy name"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 font-mono break-all max-w-md">
+                            {r.priority != null && (
+                              <div className="flex items-start gap-1 mb-1">
+                                <span className="text-[11px] text-slate-500 font-sans">Priority:</span>
+                                <span className="flex-1">{r.priority}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => copy(String(r.priority), "Priority copied")}
+                                  className="text-slate-400 hover:text-purple-600 p-0.5"
+                                  title="Copy priority"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                            <div className="flex items-start gap-1">
+                              {r.priority != null && (
+                                <span className="text-[11px] text-slate-500 font-sans">Destination:</span>
+                              )}
+                              <span className="flex-1">{r.value}</span>
+                              <button
+                                type="button"
+                                onClick={() => copy(r.value, "Value copied")}
+                                className="text-slate-400 hover:text-purple-600 p-0.5"
+                                title="Copy value"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-slate-600">{r.ttl ?? "Auto"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )
+          )}
+        </div>
+      )}
+
+      {/* RAW RECORDS REFERENCE -- collapsible when diagnostic is present so
+          the operator can still copy values if they need to fix something. */}
+      {!verified && diagnostic?.records && diagnostic.records.length > 0 && state.records.length > 0 && (
+        <details className="rounded-lg border border-slate-200 bg-white">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700 select-none">
+            View / copy the records you should be publishing
+          </summary>
+          <div className="overflow-x-auto border-t border-slate-100">
             <table className="w-full text-xs">
-              <thead className="bg-white border-b border-slate-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr className="text-left text-slate-500">
                   <th className="px-3 py-2 font-semibold">Type</th>
-                  <th className="px-3 py-2 font-semibold">Name / Host</th>
+                  <th className="px-3 py-2 font-semibold">Name</th>
                   <th className="px-3 py-2 font-semibold">Value</th>
-                  <th className="px-3 py-2 font-semibold">TTL</th>
-                  <th className="px-3 py-2 font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {state.records.map((r, idx) => (
                   <tr key={idx} className="border-b border-slate-100 last:border-0 align-top">
-                    <td className="px-3 py-2 font-mono text-slate-700">{r.type}</td>
+                    <td className="px-3 py-2 font-mono">{r.type}</td>
                     <td className="px-3 py-2 font-mono break-all">
                       <div className="flex items-start gap-1">
                         <span className="flex-1">{r.name}</span>
@@ -405,28 +726,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                       </div>
                     </td>
                     <td className="px-3 py-2 font-mono break-all max-w-md">
-                      {r.priority != null && (
-                        <div className="flex items-start gap-1 mb-1">
-                          <span className="text-[11px] text-slate-500 font-sans">
-                            Priority:
-                          </span>
-                          <span className="flex-1">{r.priority}</span>
-                          <button
-                            type="button"
-                            onClick={() => copy(String(r.priority), "Priority copied")}
-                            className="text-slate-400 hover:text-purple-600 p-0.5"
-                            title="Copy priority"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
                       <div className="flex items-start gap-1">
-                        {r.priority != null && (
-                          <span className="text-[11px] text-slate-500 font-sans">
-                            Destination:
-                          </span>
-                        )}
                         <span className="flex-1">{r.value}</span>
                         <button
                           type="button"
@@ -438,24 +738,93 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                         </button>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{r.ttl ?? "Auto"}</td>
-                    <td className="px-3 py-2 text-slate-600">{r.status || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </details>
       )}
 
-      {state.status === "verified" && (
-        <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800 flex items-start gap-2">
-          <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span>
-            DNS verified. Outgoing emails for this company will be sent from
-            <strong className="ml-1">@{state.domain}</strong> with proper DKIM + SPF.
-          </span>
-        </div>
+      {/* COMMON MISTAKES CHECKLIST */}
+      {!verified && (
+        <details className="rounded-lg border border-slate-200 bg-white">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700 select-none flex items-center gap-2">
+            <HelpCircle className="w-3.5 h-3.5" />
+            Still stuck after 30 minutes?
+          </summary>
+          <div className="px-3 py-3 border-t border-slate-100 space-y-2 text-xs text-slate-700">
+            <div>
+              <p className="font-semibold text-slate-900">1. Did you accidentally type the full domain in the Name field?</p>
+              <p className="mt-0.5">
+                Most DNS hosts auto-append your domain. If you typed
+                <code className="mx-1">resend._domainkey.{state.domain}</code>
+                it'll save as
+                <code className="mx-1">resend._domainkey.{state.domain}.{state.domain}</code> -- wrong.
+                Should be just <code>resend._domainkey</code>.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">2. Did the long DKIM value paste in full?</p>
+              <p className="mt-0.5">
+                Some DNS hosts truncate at 255 characters. Open the saved record and check it ends with <code>IDAQAB</code>.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">3. Cloudflare users -- is the proxy (orange cloud) OFF?</p>
+              <p className="mt-0.5">
+                DNS-only mode is required for email auth. The orange cloud must be grey for these records.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">4. Did you save each record individually?</p>
+              <p className="mt-0.5">
+                Some hosts have an "add" button that doesn't actually persist until you click "save zone" / "apply changes".
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">5. Are there extra quotes or whitespace?</p>
+              <p className="mt-0.5">
+                Some hosts wrap TXT values in quotes that break the record. Compare the saved value character-for-character against the source.
+              </p>
+            </div>
+            <div className="pt-2 border-t border-slate-100">
+              <a
+                href={`https://dnschecker.org/?type=TXT&query=resend._domainkey.${encodeURIComponent(state.domain)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 underline-offset-2 hover:underline"
+              >
+                Independently verify the DKIM record on dnschecker.org
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        </details>
+      )}
+
+      {/* WHAT'S HAPPENING BEHIND THE SCENES */}
+      {!verified && (
+        <details className="rounded-lg border border-slate-200 bg-white">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700 select-none flex items-center gap-2">
+            <Info className="w-3.5 h-3.5" />
+            What's actually happening
+          </summary>
+          <div className="px-3 py-3 border-t border-slate-100 space-y-2 text-xs text-slate-700">
+            <p>
+              When you save a DNS record at your domain host, your host pushes that change to its name servers.
+              Other name servers (Resend's, your client's email provider, etc.) cache DNS records for performance,
+              so they don't see your change immediately -- they have to wait until their cached copy expires (the TTL).
+            </p>
+            <p>
+              Most DNS hosts default to a 1-hour TTL. Some use shorter values like 5 minutes.
+              Resend checks every minute or so once it sees activity on a domain.
+            </p>
+            <p>
+              Once Resend confirms your records, this status flips to Verified and you're live.
+            </p>
+          </div>
+        </details>
       )}
 
       {error && (
@@ -465,6 +834,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </div>
       )}
 
+      {/* ACTIONS ROW */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <button
           type="button"
@@ -475,10 +845,10 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
           {resetting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
           Reset domain
         </button>
-        {state.status !== "verified" && (
-          <Button onClick={verify} disabled={verifying} size="sm" className="gap-2">
+        {!verified && (
+          <Button onClick={verifyManual} disabled={verifying} size="sm" className="gap-2">
             {verifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            I've added them, verify now
+            Verify now
           </Button>
         )}
       </div>
