@@ -251,3 +251,15 @@
     padding-left: 5rem !important;
   }
 }
+
+/* One-shot ring pulse used by the change-request panel when the
+   operator deep-links to a specific request. Fades after ~2s so it
+   doesn't compete with other UI; the surrounding ring class stays
+   on the element so the highlight is preserved on re-render. */
+@keyframes pulse-once {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+.animate-pulse-once {
+  animation: pulse-once 1.6s ease-out 1;
+}

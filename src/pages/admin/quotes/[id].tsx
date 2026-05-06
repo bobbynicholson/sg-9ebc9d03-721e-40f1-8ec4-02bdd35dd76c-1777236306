@@ -26,8 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Calendar, Mail, Users, DollarSign, MapPin, FileText,
-  Save, Send, Loader2, Sparkles, AlertTriangle,
-  MessageSquare, CheckCircle2, X as XIcon, Reply,
+  Save, Send, Loader2, Sparkles, AlertTriangle, ArrowRight,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -38,6 +37,7 @@ import { Quote } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
+import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
@@ -102,18 +102,18 @@ export default function AdminQuoteDetail() {
   // Client change-requests against this quote. Loaded after the quote
   // resolves so we can scope by quote_id. Inserts come from the public
   // /q/[token] view via the service-role API route; this page handles
-  // mark-as-addressed / dismiss / reply.
-  type ChangeReq = {
-    id: string;
-    message: string;
-    requested_changes: any;
-    status: string;
-    submitter_name: string | null;
-    addressed_at: string | null;
-    created_at: string;
-  };
+  // mark-as-addressed / dismiss / reply. Type is exported from the
+  // sticky panel component so we share one shape between page + panel.
   const [changeRequests, setChangeRequests] = useState<ChangeReq[]>([]);
   const [changeReqUpdatingId, setChangeReqUpdatingId] = useState<string | null>(null);
+
+  // Deep-link state. The bell-notification href looks like
+  // `/admin/quotes/{id}#change-requests` and may also carry a
+  // ?change_request_id={id} so the operator's eye lands on the
+  // specific request that fired the alert. We capture both on first
+  // mount so they survive subsequent re-renders without flickering.
+  const [highlightChangeReqId, setHighlightChangeReqId] = useState<string | null>(null);
+  const [forcePanelOpen, setForcePanelOpen] = useState<boolean>(false);
 
   const isDraft = quote?.status === "draft";
 
@@ -183,19 +183,32 @@ export default function AdminQuoteDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Deep-link: when the URL has #change-requests (e.g. opened from a
-  // change-request notification in the bell), scroll the Card into
-  // view once the data lands. Browser default scroll-to-anchor fires
-  // before the Card mounts since it depends on the async fetch above,
-  // so we re-scroll after changeRequests resolves.
+  // Deep-link capture. Runs once on mount so a subsequent setState or
+  // route swap doesn't blank the highlight. We read the raw URL (not
+  // router.query) because the hash isn't part of router.query and the
+  // query string is also accessible synchronously here.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.hash !== "#change-requests") return;
+    const url = new URL(window.location.href);
+    const wantsAnchor = url.hash === "#change-requests";
+    const reqId = url.searchParams.get("change_request_id");
+    if (wantsAnchor || reqId) {
+      setForcePanelOpen(true);
+    }
+    if (reqId) setHighlightChangeReqId(reqId);
+  }, []);
+
+  // Once the data lands, scroll the panel into view if the URL asked
+  // us to. The browser's default scroll-to-anchor fires before the
+  // panel is in the DOM since it depends on the async fetch above.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!forcePanelOpen) return;
     if (changeRequests.length === 0) return;
     const el = document.getElementById("change-requests");
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [changeRequests]);
+  }, [changeRequests, forcePanelOpen]);
 
   const updateChangeRequestStatus = async (
     reqId: string,
@@ -387,7 +400,7 @@ export default function AdminQuoteDetail() {
       <div className="min-h-screen bg-slate-50">
         <AdminNav />
 
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-6">
             <Link href="/admin/quotes">
               <Button variant="ghost" size="sm">
@@ -416,7 +429,8 @@ export default function AdminQuoteDetail() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6 items-start">
+              <div className="space-y-6 min-w-0">
               {/* Header card, client + status + provenance */}
               <Card className="border-0 shadow-lg">
                 <CardHeader>
@@ -511,6 +525,13 @@ export default function AdminQuoteDetail() {
                       </p>
                     )}
                   </div>
+                  {isDraft
+                    && changeRequests.some((r) => r.status === "pending") && (
+                    <p className="mt-2 text-xs text-blue-700 flex items-center gap-1.5">
+                      Editing in response to client request -- see panel
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {items.length === 0 ? (
@@ -711,128 +732,6 @@ export default function AdminQuoteDetail() {
                 </CardContent>
               </Card>
 
-              {/* Client change requests. Empty state -> card not
-                  rendered, keeps the page tidy when there's nothing to
-                  see. Pending requests sit at the top; addressed /
-                  dismissed are dimmed so the active queue is obvious. */}
-              {changeRequests.length > 0 && (
-                <Card id="change-requests" className="border-0 shadow-lg">
-                  <CardHeader className="flex flex-row items-center justify-between gap-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-blue-600" />
-                      Client messages
-                      {(() => {
-                        const pending = changeRequests.filter((r) => r.status === "pending").length;
-                        if (pending === 0) return null;
-                        return (
-                          <Badge className="bg-blue-600 text-white border-0">
-                            {pending} new
-                          </Badge>
-                        );
-                      })()}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {changeRequests.map((req) => {
-                      const isPending = req.status === "pending";
-                      const rc = req.requested_changes || {};
-                      return (
-                        <div
-                          key={req.id}
-                          className={`rounded-lg border p-4 ${
-                            isPending
-                              ? "border-blue-200 bg-blue-50/40"
-                              : "border-slate-200 bg-slate-50/60 opacity-80"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-semibold text-slate-900">
-                                {req.submitter_name || (quote as any).client_name || "Client"}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {new Date(req.created_at).toLocaleString("en-ZA", {
-                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                                })}
-                              </span>
-                              <Badge
-                                className={
-                                  req.status === "pending" ? "bg-blue-100 text-blue-700"
-                                  : req.status === "addressed" ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-slate-200 text-slate-600"
-                                }
-                              >
-                                {req.status}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <p className="text-sm text-slate-800 whitespace-pre-wrap mb-3">
-                            {req.message}
-                          </p>
-
-                          {(rc.event_date || rc.guest_count != null || rc.menu_changes) && (
-                            <div className="bg-white border border-slate-200 rounded-md p-3 mb-3 text-xs text-slate-700 space-y-1">
-                              {rc.event_date && (
-                                <div><span className="font-medium text-slate-500">New event date:</span> {rc.event_date}</div>
-                              )}
-                              {rc.guest_count != null && (
-                                <div><span className="font-medium text-slate-500">New guest count:</span> {rc.guest_count}</div>
-                              )}
-                              {rc.menu_changes && (
-                                <div><span className="font-medium text-slate-500">Menu tweak:</span> {rc.menu_changes}</div>
-                              )}
-                            </div>
-                          )}
-
-                          {isPending && (
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReplyToChangeRequest(req)}
-                                className="gap-1.5"
-                              >
-                                <Reply className="w-3.5 h-3.5" />
-                                Reply via email
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => updateChangeRequestStatus(req.id, "addressed")}
-                                disabled={changeReqUpdatingId === req.id}
-                                className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
-                              >
-                                {changeReqUpdatingId === req.id
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <CheckCircle2 className="w-3.5 h-3.5" />}
-                                Mark addressed
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => updateChangeRequestStatus(req.id, "dismissed")}
-                                disabled={changeReqUpdatingId === req.id}
-                                className="text-slate-600 gap-1.5"
-                              >
-                                <XIcon className="w-3.5 h-3.5" />
-                                Dismiss
-                              </Button>
-                            </div>
-                          )}
-                          {req.status === "addressed" && req.addressed_at && (
-                            <p className="text-[11px] text-emerald-700">
-                              Addressed {new Date(req.addressed_at).toLocaleString("en-ZA", {
-                                day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                              })}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Action bar */}
               <div className="flex flex-wrap gap-3">
                 <Link href="/admin/quotes" className="flex-1 min-w-[120px]">
@@ -973,6 +872,23 @@ export default function AdminQuoteDetail() {
                   <span>This quote is no longer in draft. Editing is disabled to preserve history.</span>
                 </div>
               )}
+              </div>
+
+              {/* Sticky change-request panel. Only renders if there's
+                  something to show; on narrower viewports it stacks
+                  beneath the main column instead of docking. */}
+              <div className="lg:col-start-2">
+                <ChangeRequestPanel
+                  requests={changeRequests}
+                  clientNameFallback={(quote as any).client_name ?? null}
+                  highlightId={highlightChangeReqId}
+                  onMarkAddressed={(id) => updateChangeRequestStatus(id, "addressed")}
+                  onDismiss={(id) => updateChangeRequestStatus(id, "dismissed")}
+                  onReply={handleReplyToChangeRequest}
+                  updatingId={changeReqUpdatingId}
+                  forceOpen={forcePanelOpen}
+                />
+              </div>
             </div>
           )}
         </div>
