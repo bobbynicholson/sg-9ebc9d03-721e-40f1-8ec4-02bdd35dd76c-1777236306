@@ -18,6 +18,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { cancelOrder } from "@/services/order/orderWorkflow";
 import { sendCancellationEmail, sendPostponementApprovedEmail } from "@/services/email/cancellationEmails";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { refundService } from "@/services/refundService";
 
 // Send a client-portal notification. Best-effort -- failures are
 // logged but never block the review action that called us.
@@ -223,6 +224,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } as any).eq("id", request_id);
 
     let refundPaymentId: string | null = null;
+    let refundStatus: "auto_processed" | "pending_manual" | "auto_failed" | null = null;
     if (refund_final > 0) {
       const { data: payRow } = await ssr.from("payments").insert({
         company_id: (request as any).company_id,
@@ -241,6 +243,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? "refunded"
           : "partially_refunded",
       } as any).eq("id", (request as any).order_id);
+
+      // Auto-route through PayFast when the parent capture was via
+      // PayFast. EFT / cash / manual stay pending for the existing
+      // /admin/refunds mark-paid flow. Awaited so the operator's
+      // response reflects what actually happened.
+      if (refundPaymentId) {
+        try {
+          const refundResult = await refundService.processRefund(refundPaymentId, user.id);
+          if (refundResult.status === "auto_processed") {
+            refundStatus = "auto_processed";
+          } else if (refundResult.status === "auto_failed") {
+            refundStatus = "auto_failed";
+          } else {
+            // pending_manual / already_completed / error -> all surface
+            // to the operator as pending so finance can decide.
+            refundStatus = "pending_manual";
+          }
+        } catch (e) {
+          console.warn("[cancellation-review] refundService threw:", e);
+          refundStatus = "pending_manual";
+        }
+      }
     }
 
     void sendCancellationEmail((request as any).order_id, refund_final);
@@ -262,6 +286,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       action: "cancelled",
       refund_amount: refund_final,
       refund_payment_id: refundPaymentId,
+      refund_status: refundStatus,
     });
   } catch (err: any) {
     console.error("[cancellation-review] crashed:", err);

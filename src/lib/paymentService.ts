@@ -1,234 +1,250 @@
+/**
+ * Provider-agnostic payment dispatcher (server-only).
+ *
+ * Tenants pick PayFast / Yoco / Stripe in /admin/payment-gateways.
+ * Whatever they pick is what `createPaymentSession` dispatches to here:
+ * the function looks up the company's active gateway, reads its
+ * credentials via service-role Supabase, and hands off to the right
+ * provider lib.
+ *
+ * The PayFast SaaS-subscription path (used to bill tenants for the
+ * platform itself) is a SEPARATE concern and lives in
+ * paymentProcessingService.generatePaymentLink + lib/payfastService.
+ * Don't confuse the two: this file is exclusively about tenants taking
+ * money FROM their event clients.
+ *
+ * Each provider returns the canonical { paymentUrl, sessionId } shape so
+ * the call site never branches on provider.
+ */
+import { getServiceSupabase } from "@/lib/supabase/service";
+import {
+  paymentGatewayService,
+  type PaymentGatewayProvider,
+} from "@/services/paymentGatewayService";
+import { generatePayFastPaymentForm } from "@/lib/payfastService";
+import { createYocoCheckout } from "@/lib/yocoService";
+import { createStripeCheckout } from "@/lib/stripeService";
 
-import { PaymentGateway, PaymentGatewayConfig, PaymentIntent, PaymentResult, PaymentTransaction } from "@/types/payments";
+export type PaymentSessionType = "deposit" | "balance" | "invoice";
 
-export class PaymentService {
-  private static getActiveGateway(): PaymentGatewayConfig | null {
-    const stored = localStorage.getItem("payment_gateway_config");
-    if (!stored) return null;
-    
-    const configs: PaymentGatewayConfig[] = JSON.parse(stored);
-    return configs.find(c => c.enabled) || null;
-  }
+export interface PaymentSessionInput {
+  /** The catering company taking payment (NOT the platform). */
+  companyId: string;
+  orderId: string;
+  type: PaymentSessionType;
+  amount: number;
+  currency?: string;
+  description: string;
+  successUrl: string;
+  cancelUrl: string;
+  notifyUrl: string;
+  /** Buyer details for pre-fill / receipts. */
+  customer: {
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  /** Extra metadata to round-trip on the webhook (e.g. invoice_id). */
+  extraMetadata?: Record<string, string>;
+}
 
-  static async initiatePayment(intent: PaymentIntent): Promise<PaymentResult> {
-    const gateway = this.getActiveGateway();
-    
-    if (!gateway) {
-      return {
-        success: false,
-        errorMessage: "No payment gateway configured. Please contact support."
-      };
+export interface PaymentSessionResult {
+  ok: boolean;
+  /** Active provider that handled the session. */
+  provider?: PaymentGatewayProvider;
+  /**
+   * Either a redirect URL the client navigates to, OR an HTML form
+   * snippet that the client auto-submits (PayFast self-posts).
+   */
+  paymentUrl?: string;
+  /** Provider-specific session id (cs_..., ch_..., or PayFast's m_payment_id). */
+  sessionId?: string;
+  /** True if paymentUrl is HTML rather than a URL. */
+  isHtmlForm?: boolean;
+  error?: string;
+}
+
+/**
+ * Resolve and dispatch to the company's active payment provider. If no
+ * gateway has been configured, falls back to PayFast with env-var
+ * credentials -- preserves the legacy single-tenant behaviour so
+ * existing deployments don't break the moment this code lands.
+ */
+export async function createPaymentSession(
+  input: PaymentSessionInput,
+): Promise<PaymentSessionResult> {
+  try {
+    const sb = getServiceSupabase();
+    const active = await paymentGatewayService.getActiveWithCredentials(
+      input.companyId,
+      sb,
+    );
+
+    // No tenant config -- fall back to legacy env-var PayFast so
+    // existing single-tenant deployments keep working without forcing
+    // a reconfigure on the day of release.
+    if (!active) {
+      return await dispatchLegacyPayFast(input);
     }
 
-    try {
-      switch (gateway.gateway) {
-        case "payfast":
-          return await this.processPayFast(intent, gateway);
-        case "yoco":
-          return await this.processYoco(intent, gateway);
-        case "peach":
-          return await this.processPeach(intent, gateway);
-        case "stripe":
-          return await this.processStripe(intent, gateway);
-        case "paypal":
-          return await this.processPayPal(intent, gateway);
-        case "square":
-          return await this.processSquare(intent, gateway);
-        default:
-          return {
-            success: false,
-            errorMessage: "Unsupported payment gateway"
-          };
-      }
-    } catch (error) {
-      return {
-        success: false,
-        errorMessage: error instanceof Error ? error.message : "Payment processing failed"
-      };
+    const provider = active.gateway.provider as PaymentGatewayProvider;
+    const credentials = active.credentials;
+
+    if (provider === "payfast") {
+      return await dispatchPayFast(input, credentials, active.gateway.is_test);
     }
-  }
-
-  private static async processPayFast(
-    intent: PaymentIntent, 
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    const paymentData = {
-      merchant_id: config.credentials.merchantId,
-      merchant_key: config.credentials.merchantKey,
-      return_url: config.successUrl,
-      cancel_url: config.cancelUrl,
-      notify_url: config.notifyUrl,
-      name_first: intent.customerName.split(" ")[0],
-      name_last: intent.customerName.split(" ").slice(1).join(" "),
-      email_address: intent.customerEmail,
-      m_payment_id: intent.orderId,
-      amount: intent.amount.toFixed(2),
-      item_name: intent.description,
-      custom_str1: intent.orderId,
-    };
-
-    const paymentUrl = config.isTest 
-      ? "https://sandbox.payfast.co.za/eng/process"
-      : "https://www.payfast.co.za/eng/process";
-
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `${paymentUrl}?${new URLSearchParams(paymentData as Record<string, string>).toString()}`,
-      transaction
-    };
-  }
-
-  private static async processYoco(
-    intent: PaymentIntent,
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `/payment/yoco?orderId=${intent.orderId}&amount=${intent.amount}`,
-      transaction
-    };
-  }
-
-  private static async processPeach(
-    intent: PaymentIntent,
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `/payment/peach?orderId=${intent.orderId}&amount=${intent.amount}`,
-      transaction
-    };
-  }
-
-  private static async processStripe(
-    intent: PaymentIntent,
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `/payment/stripe?orderId=${intent.orderId}&amount=${intent.amount}`,
-      transaction
-    };
-  }
-
-  private static async processPayPal(
-    intent: PaymentIntent,
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `/payment/paypal?orderId=${intent.orderId}&amount=${intent.amount}`,
-      transaction
-    };
-  }
-
-  private static async processSquare(
-    intent: PaymentIntent,
-    config: PaymentGatewayConfig
-  ): Promise<PaymentResult> {
-    const transaction = this.createTransaction(intent, config.gateway);
-    
-    this.saveTransaction(transaction);
-
-    return {
-      success: true,
-      transactionId: transaction.id,
-      paymentUrl: `/payment/square?orderId=${intent.orderId}&amount=${intent.amount}`,
-      transaction
-    };
-  }
-
-  private static createTransaction(
-    intent: PaymentIntent,
-    gateway: PaymentGateway
-  ): PaymentTransaction {
-    return {
-      id: `TXN-${Date.now()}`,
-      orderId: intent.orderId,
-      quoteId: intent.metadata?.quoteId as string || "",
-      amount: intent.amount,
-      currency: intent.currency,
-      gateway,
-      status: "pending",
-      customerEmail: intent.customerEmail,
-      customerName: intent.customerName,
-      metadata: intent.metadata,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  private static saveTransaction(transaction: PaymentTransaction): void {
-    const stored = localStorage.getItem("payment_transactions");
-    const transactions: PaymentTransaction[] = stored ? JSON.parse(stored) : [];
-    transactions.push(transaction);
-    localStorage.setItem("payment_transactions", JSON.stringify(transactions));
-  }
-
-  static getTransactions(): PaymentTransaction[] {
-    const stored = localStorage.getItem("payment_transactions");
-    return stored ? JSON.parse(stored) : [];
-  }
-
-  static getTransactionById(id: string): PaymentTransaction | null {
-    const transactions = this.getTransactions();
-    return transactions.find(t => t.id === id) || null;
-  }
-
-  static updateTransactionStatus(
-    id: string, 
-    status: PaymentTransaction["status"],
-    transactionId?: string,
-    errorMessage?: string
-  ): void {
-    const stored = localStorage.getItem("payment_transactions");
-    if (!stored) return;
-
-    const transactions: PaymentTransaction[] = JSON.parse(stored);
-    const index = transactions.findIndex(t => t.id === id);
-    
-    if (index !== -1) {
-      transactions[index].status = status;
-      transactions[index].updatedAt = new Date().toISOString();
-      
-      if (transactionId) {
-        transactions[index].transactionId = transactionId;
-      }
-      
-      if (errorMessage) {
-        transactions[index].errorMessage = errorMessage;
-      }
-      
-      if (status === "completed") {
-        transactions[index].completedAt = new Date().toISOString();
-      }
-      
-      localStorage.setItem("payment_transactions", JSON.stringify(transactions));
+    if (provider === "yoco") {
+      return await dispatchYoco(input, credentials);
     }
+    if (provider === "stripe") {
+      return await dispatchStripe(input, credentials);
+    }
+
+    return { ok: false, error: `Unsupported active provider: ${provider}` };
+  } catch (e: any) {
+    console.error("[createPaymentSession]", e);
+    return { ok: false, error: e?.message || "Payment session failed" };
   }
+}
+
+// -- PayFast -----------------------------------------------------------
+
+async function dispatchPayFast(
+  input: PaymentSessionInput,
+  credentials: Record<string, string>,
+  isTest: boolean,
+): Promise<PaymentSessionResult> {
+  const merchantId = credentials.merchantId;
+  const merchantKey = credentials.merchantKey;
+  const passphrase = credentials.passphrase || "";
+  if (!merchantId || !merchantKey) {
+    return { ok: false, error: "PayFast credentials incomplete for tenant" };
+  }
+  const html = generatePayFastPaymentForm({
+    merchantId,
+    merchantKey,
+    passphrase,
+    testMode: isTest,
+    amount: input.amount,
+    itemName: input.description,
+    returnUrl: input.successUrl,
+    cancelUrl: input.cancelUrl,
+    notifyUrl: input.notifyUrl,
+    nameFirst: input.customer.firstName || "Customer",
+    nameLast: input.customer.lastName || "",
+    emailAddress: input.customer.email,
+    customStr1: input.orderId,
+    customStr2: input.type,
+    customStr3: input.companyId,
+  });
+  return {
+    ok: true,
+    provider: "payfast",
+    paymentUrl: html,
+    sessionId: input.orderId,
+    isHtmlForm: true,
+  };
+}
+
+async function dispatchLegacyPayFast(
+  input: PaymentSessionInput,
+): Promise<PaymentSessionResult> {
+  const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+  const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
+  const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
+  const testMode = process.env.NODE_ENV !== "production";
+  if (!merchantId || !merchantKey) {
+    return {
+      ok: false,
+      error:
+        "No payment gateway configured for this company. Ask the operator to set one up in Admin -> Payment Gateways.",
+    };
+  }
+  const html = generatePayFastPaymentForm({
+    merchantId,
+    merchantKey,
+    passphrase,
+    testMode,
+    amount: input.amount,
+    itemName: input.description,
+    returnUrl: input.successUrl,
+    cancelUrl: input.cancelUrl,
+    notifyUrl: input.notifyUrl,
+    nameFirst: input.customer.firstName || "Customer",
+    nameLast: input.customer.lastName || "",
+    emailAddress: input.customer.email,
+    customStr1: input.orderId,
+    customStr2: input.type,
+    customStr3: input.companyId,
+  });
+  return {
+    ok: true,
+    provider: "payfast",
+    paymentUrl: html,
+    sessionId: input.orderId,
+    isHtmlForm: true,
+  };
+}
+
+// -- Yoco --------------------------------------------------------------
+
+async function dispatchYoco(
+  input: PaymentSessionInput,
+  credentials: Record<string, string>,
+): Promise<PaymentSessionResult> {
+  const secretKey = credentials.secretKey;
+  if (!secretKey) {
+    return { ok: false, error: "Yoco secret key not configured for tenant" };
+  }
+  const result = await createYocoCheckout({
+    secretKey,
+    amount: input.amount,
+    successUrl: input.successUrl,
+    cancelUrl: input.cancelUrl,
+    metadata: {
+      orderId: input.orderId,
+      paymentType: input.type,
+      companyId: input.companyId,
+      ...(input.extraMetadata || {}),
+    },
+  });
+  return {
+    ok: true,
+    provider: "yoco",
+    paymentUrl: result.redirectUrl,
+    sessionId: result.id,
+  };
+}
+
+// -- Stripe ------------------------------------------------------------
+
+async function dispatchStripe(
+  input: PaymentSessionInput,
+  credentials: Record<string, string>,
+): Promise<PaymentSessionResult> {
+  const secretKey = credentials.secretKey;
+  if (!secretKey) {
+    return { ok: false, error: "Stripe secret key not configured for tenant" };
+  }
+  const result = await createStripeCheckout({
+    secretKey,
+    amount: input.amount,
+    currency: input.currency || "zar",
+    description: input.description,
+    successUrl: input.successUrl,
+    cancelUrl: input.cancelUrl,
+    customerEmail: input.customer.email,
+    metadata: {
+      orderId: input.orderId,
+      paymentType: input.type,
+      companyId: input.companyId,
+      ...(input.extraMetadata || {}),
+    },
+  });
+  return {
+    ok: true,
+    provider: "stripe",
+    paymentUrl: result.url,
+    sessionId: result.id,
+  };
 }

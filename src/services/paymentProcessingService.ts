@@ -83,21 +83,26 @@ class PaymentProcessingService {
         eventDate,
       };
 
-      // Store in database
-      const { error } = await supabase.from("payment_schedules").insert([{
-        order_id: orderId,
-        total_amount: totalAmount,
-        currency,
-        deposit_amount: depositAmount,
-        deposit_percentage: depositPercentage,
-        balance_amount: balanceAmount,
-        balance_due_date: balanceDueDate,
-        final_order_change_date: finalOrderChangeDate,
-        event_date: eventDate,
-      }]);
+      // Phase 2: write the schedule fields straight onto orders. The
+      // payment_schedules table was a parallel materialisation with no
+      // FK trigger keeping it aligned -- we now treat orders as the
+      // single source of truth for deposit/balance state.
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          total_amount: totalAmount,
+          currency,
+          deposit_amount: depositAmount,
+          deposit_percentage: depositPercentage,
+          balance_amount: balanceAmount,
+          balance_due_date: balanceDueDate,
+          final_order_change_date: finalOrderChangeDate,
+          event_date: eventDate,
+        })
+        .eq("id", orderId);
 
       if (error) {
-        console.error("Error creating payment schedule:", error);
+        console.error("Error initialising order payment schedule:", error);
         return null;
       }
 
@@ -118,27 +123,15 @@ class PaymentProcessingService {
     userId: string
   ): Promise<boolean> {
     try {
-      // Update payment schedule
-      const { error: scheduleError } = await supabase
-        .from("payment_schedules")
-        .update({
-          deposit_paid: true,
-          deposit_paid_at: new Date().toISOString(),
-          deposit_transaction_id: transactionId,
-        })
-        .eq("order_id", orderId);
-
-      if (scheduleError) {
-        console.error("Error updating payment schedule:", scheduleError);
-        return false;
-      }
-
-      // Update order status
+      // Phase 2: single update on orders. deposit_transaction_id now
+      // lives on orders directly so we no longer need the parallel
+      // payment_schedules write.
       const { error: orderError } = await supabase
         .from("orders")
         .update({
           deposit_paid: true,
           deposit_paid_at: new Date().toISOString(),
+          deposit_transaction_id: transactionId,
           status: "confirmed",
         })
         .eq("id", orderId);
@@ -148,15 +141,16 @@ class PaymentProcessingService {
         return false;
       }
 
-      // Get order details for notification
+      // Get order details for notification. Schedule fields are now on
+      // orders so a single select covers everything.
       const { data: order } = await supabase
         .from("orders")
-        .select("*, payment_schedules!inner(*)")
+        .select("*")
         .eq("id", orderId)
         .single();
 
-      if (order && order.payment_schedules) {
-        const schedule = order.payment_schedules as any;
+      if (order) {
+        const schedule = order as any;
 
         // Send in-portal payment received notification
         await notificationService.createNotification({
@@ -214,27 +208,15 @@ class PaymentProcessingService {
     userId: string
   ): Promise<boolean> {
     try {
-      // Update payment schedule
-      const { error: scheduleError } = await supabase
-        .from("payment_schedules")
-        .update({
-          balance_paid: true,
-          balance_paid_at: new Date().toISOString(),
-          balance_transaction_id: transactionId,
-        })
-        .eq("order_id", orderId);
-
-      if (scheduleError) {
-        console.error("Error updating payment schedule:", scheduleError);
-        return false;
-      }
-
-      // Update order status to fully paid
+      // Phase 2: single update on orders. balance_transaction_id now
+      // lives on orders directly so we no longer write to the
+      // payment_schedules mirror.
       const { error: orderError } = await supabase
         .from("orders")
         .update({
           balance_paid: true,
           balance_paid_at: new Date().toISOString(),
+          balance_transaction_id: transactionId,
           payment_status: "completed",
           status: "confirmed",
         })
@@ -245,15 +227,15 @@ class PaymentProcessingService {
         return false;
       }
 
-      // Get order details
+      // Get order details. Schedule fields live on orders now.
       const { data: order } = await supabase
         .from("orders")
-        .select("*, payment_schedules!inner(*)")
+        .select("*")
         .eq("id", orderId)
         .single();
 
-      if (order && order.payment_schedules) {
-        const schedule = order.payment_schedules as any;
+      if (order) {
+        const schedule = order as any;
 
         // Send in-portal payment received notification
         await notificationService.createNotification({
@@ -307,10 +289,11 @@ class PaymentProcessingService {
     config: PaymentReminderConfig = DEFAULT_REMINDER_CONFIG
   ): Promise<void> {
     try {
+      // Phase 2: read schedule fields from orders directly.
       const { data: schedule } = await supabase
-        .from("payment_schedules")
-        .select("*")
-        .eq("order_id", orderId)
+        .from("orders")
+        .select("balance_due_date, balance_paid")
+        .eq("id", orderId)
         .single();
 
       if (!schedule || schedule.balance_paid) {
@@ -368,10 +351,11 @@ class PaymentProcessingService {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // Get all unsent reminders due today, joining through orders to get payment_schedules
+      // Phase 2: schedule fields are now on orders, no inner join through
+      // payment_schedules required.
       const { data: reminders, error } = await supabase
         .from("payment_reminders")
-        .select("*, order:orders!inner(*, payment_schedules!inner(*))")
+        .select("*, order:orders!inner(*)")
         .eq("sent", false)
         .lte("reminder_date", today);
 
@@ -384,10 +368,10 @@ class PaymentProcessingService {
 
       for (const reminder of reminders) {
         const orderData = reminder.order as any;
-        if (!orderData || !orderData.payment_schedules) continue;
+        if (!orderData) continue;
 
         // Skip if already paid
-        if (orderData.payment_schedules.balance_paid) {
+        if (orderData.balance_paid) {
           await supabase
             .from("payment_reminders")
             .update({ sent: true, sent_at: new Date().toISOString() })
@@ -414,7 +398,7 @@ class PaymentProcessingService {
         if (orderData.client_email) {
           try {
             const daysUntilDue = Math.ceil(
-              (new Date(orderData.payment_schedules.balance_due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+              (new Date(orderData.balance_due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
             );
             const urgency = daysUntilDue <= 1 ? "⚠️ URGENT: " : "";
             const subject = `${urgency}Payment Reminder - Balance Due ${daysUntilDue === 1 ? "Tomorrow" : `in ${daysUntilDue} Days`}`;
@@ -426,8 +410,8 @@ ${urgency}Payment Reminder
 Order Number: ${orderData.order_number}
 Event Date: ${new Date(orderData.event_date).toLocaleDateString()}
 
-Balance Due: ${orderData.payment_schedules.currency} ${orderData.payment_schedules.balance_amount.toFixed(2)}
-Due Date: ${new Date(orderData.payment_schedules.balance_due_date).toLocaleDateString()}
+Balance Due: ${orderData.currency} ${Number(orderData.balance_amount || 0).toFixed(2)}
+Due Date: ${new Date(orderData.balance_due_date).toLocaleDateString()}
 ${daysUntilDue <= 1 ? "\n⚠️ THIS PAYMENT IS DUE TOMORROW!\n" : ""}
 To ensure your event proceeds smoothly, please complete your payment by the due date.
 
@@ -480,24 +464,29 @@ Your Catering Company`;
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
 
-      // Get orders with upcoming modification deadlines
+      // Phase 2: read modification deadlines from orders directly. The
+      // schedule fields (final_order_change_date, balance_paid) are now
+      // canonical on orders.
       const { data: schedules, error } = await supabase
-        .from("payment_schedules")
-        .select("*, order:orders!inner(*)")
+        .from("orders")
+        .select("*")
         .gte("final_order_change_date", today.toISOString())
         .lte("final_order_change_date", threeDaysFromNow.toISOString())
         .eq("balance_paid", false);
 
       if (error || !schedules) {
-        console.error("Error fetching schedules for modification deadlines:", error);
+        console.error("Error fetching orders for modification deadlines:", error);
         return 0;
       }
 
       let notifiedCount = 0;
 
-      for (const schedule of schedules) {
-        const orderData = schedule.order as any;
+      for (const orderData of schedules as any[]) {
         if (!orderData) continue;
+
+        // Local alias keeps the rest of the loop body readable. The
+        // schedule and order are now the same row.
+        const schedule = orderData;
 
         const status = getOrderModificationStatus(schedule.final_order_change_date);
 
@@ -506,7 +495,7 @@ Your Catering Company`;
           const { data: existingReminder } = await supabase
             .from("payment_reminders")
             .select("*")
-            .eq("order_id", schedule.order_id)
+            .eq("order_id", orderData.id)
             .eq("reminder_type", "modification_deadline")
             .gte("sent_at", today.toISOString().split('T')[0])
             .single();
@@ -523,7 +512,7 @@ Your Catering Company`;
               message: `A modification deadline reminder for order ${orderData.order_number} was sent to ${orderData.client_email}.`,
               notification_type: "info",
               priority: "medium",
-              link: `/orders/${schedule.order_id}`,
+              link: `/orders/${orderData.id}`,
             });
 
             // ✅ FIX BUG #21.4: Send modification deadline warning email
@@ -552,7 +541,7 @@ ${status.daysRemaining <= 1 ? "\n⚠️ THIS IS YOUR FINAL NOTICE - Changes MUST
 Why the deadline? 
 We begin preparations ${status.daysRemaining + 2} days before your event to ensure everything is perfect.
 
-Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${schedule.order_id}
+Make Changes Now: ${typeof window !== "undefined" ? window.location.origin : "https://cateringms.com"}/client-portal?orderId=${orderData.id}
 
 Questions? Contact us immediately.
 
@@ -578,7 +567,7 @@ Your Catering Company`;
 
             // Log the reminder
             await supabase.from("payment_reminders").insert([{
-              order_id: schedule.order_id,
+              order_id: orderData.id,
               user_id: orderData.user_id,
               reminder_date: new Date().toISOString(),
               reminder_type: "modification_deadline",
@@ -604,19 +593,22 @@ Your Catering Company`;
    */
   async getPaymentSchedule(orderId: string): Promise<PaymentSchedule | null> {
     try {
+      // Phase 2: schedule fields are canonical on orders.
       const { data, error } = await supabase
-        .from("payment_schedules")
-        .select("*")
-        .eq("order_id", orderId)
+        .from("orders")
+        .select(
+          "id, total_amount, currency, deposit_amount, deposit_percentage, deposit_paid, deposit_paid_at, deposit_transaction_id, balance_amount, balance_due_date, balance_paid, balance_paid_at, balance_transaction_id, final_order_change_date, event_date"
+        )
+        .eq("id", orderId)
         .single();
 
       if (error || !data) {
-        console.error("Error fetching payment schedule:", error);
+        console.error("Error fetching order schedule fields:", error);
         return null;
       }
 
       return {
-        orderId: data.order_id,
+        orderId: data.id,
         totalAmount: data.total_amount,
         currency: data.currency,
         depositAmount: data.deposit_amount,

@@ -3,7 +3,12 @@
  * PaymentModal -- the client picks a method and pays.
  *
  * Two live branches:
- *   - PayFast: redirects to gateway form / URL.
+ *   - "Pay online": dispatches via /api/payments/create-session, which
+ *     resolves whichever gateway the catering company set as active in
+ *     /admin/payment-gateways (PayFast / Yoco / Stripe) and returns a
+ *     redirect URL or self-posting form snippet. We deliberately don't
+ *     label the button with the provider name -- the tenant's choice
+ *     should be invisible to their clients.
  *   - EFT: the smart flow Bobby asked for. Shows the catering
  *     company's bank details, hammers home the reference (the
  *     invoice number) with a copy button, then offers an "I've made
@@ -13,13 +18,6 @@
  *       - notifies the company's admins so they reconcile against
  *         the bank statement,
  *       - shows the client a "we're checking" confirmation.
- *
- * Card path is mocked; hidden until real gateway integration ships in
- * Phase 2. Leaving the mock visible was a real fraud risk -- a 1.5s
- * setTimeout marked the invoice paid without any money moving. The
- * implementation function below is kept (deprecated) so Phase 2 can
- * swap its body for a per-tenant gateway picker (PayFast / Yoco /
- * Stripe) without rewriting the call site.
  *
  * Wrong references are the #1 reconciliation problem in catering
  * EFTs. The whole point of this modal is to make using the right one
@@ -36,8 +34,6 @@ import {
   Copy, ClipboardCheck, AlertCircle, Landmark, Calendar,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { paymentProcessingService } from "@/services/paymentProcessingService";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Invoice {
@@ -57,7 +53,7 @@ interface PaymentModalProps {
   onPaymentSuccess: () => void;
 }
 
-type Method = "payfast" | "card" | "eft";
+type Method = "online" | "eft";
 
 export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: PaymentModalProps) {
   const { toast } = useToast();
@@ -77,7 +73,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
   const eftAvailable = Boolean(bank.name && bank.account);
 
   const [paymentMethod, setPaymentMethod] = useState<Method>(
-    eftAvailable ? "eft" : "payfast",
+    eftAvailable ? "eft" : "online",
   );
   const [processing, setProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
@@ -92,75 +88,54 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
   const [eftNotes, setEftNotes] = useState("");
   const [confirmingClaim, setConfirmingClaim] = useState(false);
 
-  const startPayFast = async () => {
-    const paymentLink = await paymentProcessingService.generatePaymentLink(
-      invoice.order_id,
-      "balance",
-    );
-    if (paymentLink) {
-      if (paymentLink.includes("<form")) {
-        const div = document.createElement("div");
-        div.innerHTML = paymentLink;
-        document.body.appendChild(div);
-        const form = div.querySelector("form") as HTMLFormElement;
-        if (form) form.submit();
+  const startOnlinePayment = async () => {
+    const r = await fetch("/api/payments/create-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invoice_id: invoice.id }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j?.ok) {
+      throw new Error(j?.error || "Could not start the payment");
+    }
+    const paymentUrl: string = j.paymentUrl;
+    const isHtmlForm: boolean = !!j.isHtmlForm;
+    if (!paymentUrl) {
+      throw new Error("Payment provider returned no redirect URL");
+    }
+    if (isHtmlForm) {
+      // PayFast self-submitting form -- inject and post.
+      const div = document.createElement("div");
+      div.innerHTML = paymentUrl;
+      document.body.appendChild(div);
+      const form = div.querySelector("form") as HTMLFormElement | null;
+      if (form) {
+        form.submit();
       } else {
-        window.location.href = paymentLink;
+        throw new Error("Provider form failed to render");
       }
     } else {
-      throw new Error("Failed to generate payment link");
+      window.location.href = paymentUrl;
     }
   };
 
   const handlePayment = async () => {
     try {
       setProcessing(true);
-
-      // Card option is hidden in the UI (see method picker below)
-      // because the implementation is mocked. Defensive fallback: if
-      // some tenant config still routes "card" here, reroute through
-      // PayFast rather than firing the mock and marking the invoice
-      // paid for free.
-      if (paymentMethod === "payfast" || paymentMethod === "card") {
-        await startPayFast();
+      if (paymentMethod === "online") {
+        await startOnlinePayment();
         return;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Payment error:", error);
       toast({
-        title: "Payment Failed",
-        description: "There was an error processing your payment. Please try again.",
+        title: "Payment failed",
+        description: error?.message || "There was an error starting your payment. Please try again.",
         variant: "destructive",
       });
     } finally {
       setProcessing(false);
     }
-  };
-
-  /**
-   * @deprecated -- mock card flow. Marked the invoice paid after a
-   * 1.5s setTimeout with no gateway integration. Disabled until Phase
-   * 2 ships the real per-tenant gateway picker (PayFast / Yoco /
-   * Stripe). Body retained on purpose: Phase 2 will replace it in
-   * place rather than re-introducing a dead reference.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _processMockCardPayment = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const { data: userData } = await supabase.auth.getUser();
-    const transactionId = `TXN-${Date.now()}`;
-    await paymentProcessingService.processBalancePayment(
-      invoice.order_id,
-      transactionId,
-      "card",
-      userData?.user?.id || "",
-    );
-    setPaymentComplete(true);
-    toast({
-      title: "Payment Successful",
-      description: `Your payment of ${invoice.currency}${invoice.amount.toLocaleString()} has been processed.`,
-    });
-    setTimeout(onPaymentSuccess, 1500);
   };
 
   const submitEftClaim = async () => {
@@ -345,29 +320,13 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess }: Payme
             <RadioGroup value={paymentMethod} onValueChange={(val) => setPaymentMethod(val as Method)}>
               <div className="space-y-3">
                 <MethodCard
-                  active={paymentMethod === "payfast"}
-                  value="payfast"
-                  onSelect={() => setPaymentMethod("payfast")}
+                  active={paymentMethod === "online"}
+                  value="online"
+                  onSelect={() => setPaymentMethod("online")}
                   icon={<CreditCard className="w-5 h-5 text-blue-600" />}
-                  title="PayFast"
-                  subtitle="Card or instant EFT, reflects right away"
+                  title="Pay online"
+                  subtitle="Card payment, reflects straight away"
                 />
-                {/*
-                  Card path is mocked; hidden until real gateway
-                  integration ships in Phase 2. Leaving this visible
-                  was a real fraud risk -- the handler waited 1.5s
-                  then marked the invoice paid without any money
-                  moving. Clients who want to pay by card route
-                  through PayFast in the meantime.
-                */}
-                {/* <MethodCard
-                  active={paymentMethod === "card"}
-                  value="card"
-                  onSelect={() => setPaymentMethod("card")}
-                  icon={<CreditCard className="w-5 h-5 text-slate-600" />}
-                  title="Credit / debit card"
-                  subtitle="Visa, Mastercard, Amex"
-                /> */}
                 {eftAvailable ? (
                   <MethodCard
                     active={paymentMethod === "eft"}

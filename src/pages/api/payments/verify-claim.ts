@@ -184,6 +184,111 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("verify-claim: invoice update failed", invErr);
     }
 
+    // Audit gap close: until now the EFT verify path mirrored the
+    // PayFast invoice webhook for invoice totals but never flipped the
+    // order to `completed`. So a fully-paid EFT order would sit at
+    // `confirmed` forever. Mirror the close logic from
+    // payment-confirmation.ts: when this verify makes the linked
+    // invoice fully paid, close the order out -- but only if the order
+    // is currently `confirmed`. Skip if it's already `completed` or
+    // `cancelled` so we don't undo a cancellation that hit between
+    // claim and verify.
+    let orderClosed = false;
+    let closedOrderId: string | null = null;
+    if (isFullyPaid) {
+      try {
+        // Resolve the order via the invoice (invoice.order_id is the
+        // canonical link; payment.order_id is the same value when set,
+        // but we trust the invoice as the source of truth here).
+        const { data: invForOrder } = await admin
+          .from("invoices")
+          .select("order_id")
+          .eq("id", invoice.id)
+          .maybeSingle();
+        const invoiceOrderId = (invForOrder as any)?.order_id || null;
+        if (invoiceOrderId) {
+          const { data: orderRow } = await admin
+            .from("orders")
+            .select("id, status, company_id, client_id, order_number")
+            .eq("id", invoiceOrderId)
+            .maybeSingle();
+          if (orderRow && orderRow.status === "confirmed") {
+            const closedAt = new Date().toISOString();
+            const { error: closeErr } = await admin
+              .from("orders")
+              .update({
+                status: "completed",
+                payment_status: "paid",
+                completed_at: closedAt,
+                updated_at: closedAt,
+              })
+              .eq("id", orderRow.id);
+            if (closeErr) {
+              // Log but never unwind the verify -- the admin can flip
+              // the order to completed manually if this rare branch hits.
+              console.error("verify-claim: order close failed", closeErr);
+            } else {
+              orderClosed = true;
+              closedOrderId = orderRow.id;
+
+              // Client in-app: "your order is wrapped, payment confirmed".
+              try {
+                const clientUserId = await resolveClientUserId(admin, orderRow.client_id);
+                if (clientUserId) {
+                  await admin.from("notifications").insert({
+                    company_id: orderRow.company_id,
+                    recipient_id: clientUserId,
+                    user_id: clientUserId,
+                    notification_type: "order_completed",
+                    title: "Order completed",
+                    message: `Order ${orderRow.order_number} is fully paid and wrapped up. Thanks for booking with us.`,
+                    priority: "normal",
+                    link: `/client-portal?orderId=${orderRow.id}`,
+                    related_entity_type: "order",
+                    related_entity_id: orderRow.id,
+                    channels: ["in_app"],
+                  });
+                }
+              } catch (e) {
+                console.warn("verify-claim: client order-completed notify failed", e);
+              }
+
+              // Owner in-app inbox row so the dashboard reflects the close.
+              try {
+                const { data: companyRow } = await admin
+                  .from("companies")
+                  .select("owner_id")
+                  .eq("id", orderRow.company_id)
+                  .maybeSingle();
+                const ownerId = (companyRow as any)?.owner_id || null;
+                if (ownerId) {
+                  await admin.from("notifications").insert({
+                    company_id: orderRow.company_id,
+                    recipient_id: ownerId,
+                    user_id: ownerId,
+                    notification_type: "order_completed",
+                    title: `Order ${orderRow.order_number} closed out`,
+                    message: `EFT verification cleared the final balance. Order is now completed.`,
+                    priority: "normal",
+                    link: `/admin/orders?orderId=${orderRow.id}`,
+                    related_entity_type: "order",
+                    related_entity_id: orderRow.id,
+                    channels: ["in_app"],
+                  });
+                }
+              } catch (e) {
+                console.warn("verify-claim: owner order-completed notify failed", e);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Outer guard -- closing the order must never roll back a
+        // successful verification.
+        console.error("verify-claim: order close branch threw", e);
+      }
+    }
+
     // Notify the client so they see "Paid" on the portal and don't
     // panic-pay again.
     try {
@@ -221,6 +326,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       action: "confirmed",
       invoice_status: newInvoiceStatus,
       balance_due: newBalance,
+      order_closed: orderClosed,
+      order_id: closedOrderId,
     });
   } catch (e: any) {
     console.error("verify-claim crashed:", e);

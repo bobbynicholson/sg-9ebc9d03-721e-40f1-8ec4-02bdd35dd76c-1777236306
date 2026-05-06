@@ -25,10 +25,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-export type PaymentGatewayProvider = "payfast" | "yoco" | "peach";
+export type PaymentGatewayProvider = "payfast" | "yoco" | "stripe";
 
 export const PAYMENT_GATEWAY_PROVIDERS: ReadonlyArray<PaymentGatewayProvider> =
-  Object.freeze(["payfast", "yoco", "peach"] as const);
+  Object.freeze(["payfast", "yoco", "stripe"] as const);
 
 export type PaymentGatewayMetadata =
   Database["public"]["Tables"]["payment_gateways"]["Row"];
@@ -380,21 +380,117 @@ export const paymentGatewayService = {
       {
         provider: "yoco",
         name: "Yoco",
-        description: "Simple, affordable payments for South African businesses",
+        description: "Simple, affordable card payments for South African businesses",
         fields: [
           { key: "secretKey", label: "Secret Key", type: "password", required: true },
           { key: "publicKey", label: "Public Key", type: "text", required: true },
+          { key: "webhookSecret", label: "Webhook Secret (optional)", type: "password", required: false },
         ],
       },
       {
-        provider: "peach",
-        name: "Peach Payments",
-        description: "Enterprise payment solutions for Africa",
+        provider: "stripe",
+        name: "Stripe",
+        description: "International card payments via Stripe Checkout",
         fields: [
-          { key: "apiKey", label: "API Key", type: "password", required: true },
-          { key: "merchantId", label: "Entity ID", type: "text", required: true },
+          { key: "secretKey", label: "Secret Key (sk_...)", type: "password", required: true },
+          { key: "publishableKey", label: "Publishable Key (pk_...)", type: "text", required: true },
+          { key: "webhookSigningSecret", label: "Webhook Signing Secret (whsec_...)", type: "password", required: true },
         ],
       },
     ];
+  },
+
+  /**
+   * Server-only. Resolve the active gateway for a company AND read its
+   * raw credentials. Used by the runtime payment dispatcher and by
+   * webhook handlers that need the per-tenant signing secret. Caller
+   * MUST pass a service-role client -- RLS denies authenticated reads
+   * on payment_gateway_credentials by design.
+   */
+  async getActiveWithCredentials(
+    companyId: string,
+    serviceClient: SbAny,
+  ): Promise<{
+    gateway: PaymentGatewayMetadata;
+    credentials: Record<string, string>;
+  } | null> {
+    const { data: gateway, error } = await serviceClient
+      .from(TABLE)
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) {
+      console.error("[paymentGatewayService.getActiveWithCredentials] gw:", error);
+      return null;
+    }
+    if (!gateway) return null;
+
+    const { data: cred, error: credErr } = await serviceClient
+      .from(CREDS_TABLE)
+      .select("credentials")
+      .eq("gateway_id", (gateway as PaymentGatewayMetadata).id)
+      .maybeSingle();
+    if (credErr) {
+      console.error("[paymentGatewayService.getActiveWithCredentials] creds:", credErr);
+      return null;
+    }
+    return {
+      gateway: gateway as PaymentGatewayMetadata,
+      credentials: ((cred as any)?.credentials as Record<string, string>) || {},
+    };
+  },
+
+  /**
+   * Server-only. Read raw credentials for a specific gateway id (any
+   * provider, regardless of active flag). Used by webhook handlers that
+   * already know which gateway received the callback (e.g. Stripe
+   * dispatches via the per-account webhook signing secret -- the route
+   * looks the gateway up by metadata.gatewayId).
+   */
+  async getByIdWithCredentials(
+    gatewayId: string,
+    serviceClient: SbAny,
+  ): Promise<{
+    gateway: PaymentGatewayMetadata;
+    credentials: Record<string, string>;
+  } | null> {
+    const { data: gateway, error } = await serviceClient
+      .from(TABLE)
+      .select("*")
+      .eq("id", gatewayId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error || !gateway) return null;
+
+    const { data: cred } = await serviceClient
+      .from(CREDS_TABLE)
+      .select("credentials")
+      .eq("gateway_id", gatewayId)
+      .maybeSingle();
+
+    return {
+      gateway: gateway as PaymentGatewayMetadata,
+      credentials: ((cred as any)?.credentials as Record<string, string>) || {},
+    };
+  },
+
+  /**
+   * Server-only. Stamp last_verified_at after a successful provider
+   * "Test connection" ping so the admin UI can show the operator when
+   * they last confirmed the credentials work.
+   */
+  async markVerified(
+    gatewayId: string,
+    serviceClient: SbAny,
+  ): Promise<{ ok: boolean; verified_at?: string; error?: string }> {
+    const nowIso = new Date().toISOString();
+    const { error } = await serviceClient
+      .from(TABLE)
+      .update({ last_verified_at: nowIso })
+      .eq("id", gatewayId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, verified_at: nowIso };
   },
 };

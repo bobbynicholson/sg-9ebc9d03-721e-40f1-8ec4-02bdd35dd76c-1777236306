@@ -1,19 +1,21 @@
 /**
  * Tenant payment gateways admin page.
  *
- * Each catering company configures a South African gateway here to
- * receive payments from their event clients. Three providers --
- * PayFast, Yoco, Peach. One can be active at a time (DB-enforced).
+ * Each catering company configures a payment gateway here to receive
+ * payments from their event clients. Three providers -- PayFast, Yoco,
+ * Stripe. One can be active at a time (DB-enforced via partial unique
+ * index payment_gateways_one_active_per_company).
  *
  * Reads + writes go through /api/payment-gateways. The credentials
- * blob is write-once: the configure dialog blanks credential inputs
- * on every open, the GET response never includes secrets, and the
+ * blob is write-once: the configure dialog blanks credential inputs on
+ * every open, the GET response never includes secrets, and the
  * payment_gateway_credentials table is RLS-locked to service_role.
  *
- * Out of scope here (deferred phase 2): test-connection button,
- * credential rotation with last-4 display, wiring the active
- * gateway into invoice Pay Now buttons. Platform PayFast for SaaS
- * subscription sign-ups lives in a separate page (follow-up PR).
+ * "Test connection" pings the provider with the saved credentials and
+ * stamps last_verified_at on success so the operator sees when the keys
+ * were last confirmed working. PayFast for SaaS subscriptions (used to
+ * bill tenants for the platform itself) is a separate flow and is not
+ * touched here.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -36,7 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CreditCard, Check, AlertCircle, Settings, Trash2, Power } from "lucide-react";
+import { CreditCard, Check, AlertCircle, Settings, Trash2, Power, Activity, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -230,6 +232,36 @@ function PaymentGatewaysPage() {
     }
   };
 
+  // Test-connection state -- which gateway is being pinged right now,
+  // plus the most recent result we got back per gateway.
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message?: string }>>({});
+
+  const handleTest = async (gatewayId: string, providerName: string) => {
+    setTestingId(gatewayId);
+    try {
+      const r = await fetch(`/api/payment-gateways/${gatewayId}/test${companyQuery()}`, { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      setTestResults((prev) => ({
+        ...prev,
+        [gatewayId]: { ok: !!j.ok, message: j.message },
+      }));
+      if (j.ok) {
+        setSavedToast(`${providerName} credentials verified.`);
+        setTimeout(() => setSavedToast(null), 3000);
+        await load();
+      }
+    } catch (e: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [gatewayId]: { ok: false, message: e?.message || "Test failed" },
+      }));
+    } finally {
+      setTestingId(null);
+    }
+  };
+
   const handleDelete = async (gatewayId: string, providerName: string) => {
     if (!confirm(`Remove the ${providerName} configuration? You'll need to re-enter credentials to use it again.`)) return;
     try {
@@ -389,6 +421,32 @@ function PaymentGatewaysPage() {
                       <Settings className="h-4 w-4 mr-2" />
                       {config ? "Edit credentials" : "Configure"}
                     </Button>
+                    {config && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => handleTest(config.id, entry.name)}
+                        disabled={testingId === config.id}
+                      >
+                        {testingId === config.id ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Testing</>
+                        ) : (
+                          <><Activity className="h-4 w-4 mr-2" /> Test connection</>
+                        )}
+                      </Button>
+                    )}
+                    {config && testResults[config.id] && (
+                      <p className={`text-xs ${testResults[config.id].ok ? "text-emerald-700" : "text-rose-700"}`}>
+                        {testResults[config.id].ok
+                          ? "Credentials verified."
+                          : `Test failed: ${testResults[config.id].message || "see logs"}`}
+                      </p>
+                    )}
+                    {config?.last_verified_at && (
+                      <p className="text-xs text-slate-500">
+                        Last verified {new Date(config.last_verified_at).toLocaleString("en-ZA")}
+                      </p>
+                    )}
                     {config && !config.is_active && (
                       <Button
                         variant="default"
@@ -430,7 +488,7 @@ function PaymentGatewaysPage() {
                   <div>
                     <p className="font-medium">Sign up with the provider</p>
                     <p className="text-sm text-muted-foreground">
-                      Create a merchant account with PayFast, Yoco or Peach and grab the API credentials from their dashboard.
+                      Create a merchant account with PayFast, Yoco or Stripe and grab the API credentials from their dashboard.
                     </p>
                   </div>
                 </div>

@@ -1,16 +1,24 @@
 /**
  * /admin/refunds
  *
- * Pending + completed refunds list. Each pending row has a
- * "Mark refund paid" action that calls /api/refunds/[id]/mark-paid.
- * The completed view is a read-only audit of refunds already issued.
+ * Pending + completed refunds list. Each row shows the original
+ * payment method so finance knows whether the refund was auto-routed
+ * through PayFast or whether they still owe an EFT.
+ *
+ * Actions:
+ *   - "Mark refund paid" -- only on EFT/cash/manual pending rows.
+ *     Calls /api/refunds/[id]/mark-paid.
+ *   - "Retry refund" -- only on PayFast pending rows that auto-failed
+ *     the first time. Calls /api/refunds/[id]/retry.
+ *
+ * Filter chips: All / Auto-processed (PayFast) / Pending (manual EFT)
+ * / Rejected.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +26,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { UserRole } from "@/types/app";
-import { Receipt, CheckCircle2, Clock, Search, RefreshCw } from "lucide-react";
+import { Receipt, CheckCircle2, Clock, RefreshCw, XCircle, Zap } from "lucide-react";
 import Link from "next/link";
 
 interface RefundRow {
@@ -30,11 +38,18 @@ interface RefundRow {
   processed_at: string | null;
   order_id: string | null;
   cancellation_request_id: string | null;
-  // Joined
+  // The refund row's own gateway -- set to 'payfast' once auto-processed.
+  refund_gateway: string | null;
+  // Joined order
   order_number?: string | null;
   client_name?: string | null;
   event_date?: string | null;
+  // Derived from the parent payment(s) for this order.
+  parent_gateway: string | null;
+  parent_method: string | null;
 }
+
+type FilterKey = "all" | "auto" | "pending" | "rejected";
 
 const fmt = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
 
@@ -46,44 +61,134 @@ function ProtectedRefundsPage() {
   );
 }
 
+/**
+ * The refund row was raised against an order. To know what the
+ * original payment method was we need to look at the order's other
+ * (non-refund) payments. We classify using the same rule the
+ * refundService uses on the server.
+ */
+function classifyParent(
+  parents: Array<{
+    gateway: string | null;
+    gateway_provider: string | null;
+    payment_method: string | null;
+    // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
+    payment_status: string | null;
+  }>,
+): { gateway: string | null; method: string | null } {
+  const settled = parents.filter((p) => {
+    const s = String(p.payment_status || "").toLowerCase();
+    return s === "completed" || s === "succeeded" || s === "paid";
+  });
+  if (settled.length === 0) return { gateway: null, method: null };
+  const pf = settled.find((p) => {
+    const g = String(p.gateway || "").toLowerCase();
+    const gp = String(p.gateway_provider || "").toLowerCase();
+    const pm = String(p.payment_method || "").toLowerCase();
+    return g === "payfast" || gp === "payfast" || pm === "payfast";
+  });
+  if (pf) return { gateway: "payfast", method: pf.payment_method || "payfast" };
+  const first = settled[0];
+  return {
+    gateway: first.gateway || first.gateway_provider || null,
+    method: first.payment_method || null,
+  };
+}
+
+function methodLabel(gateway: string | null, method: string | null): string {
+  if ((gateway || "").toLowerCase() === "payfast") return "PayFast";
+  const m = (method || "").toLowerCase();
+  if (m === "eft" || m === "bank_transfer") return "EFT";
+  if (m === "cash") return "Cash";
+  if (m === "card") return "Card";
+  if (gateway) return gateway;
+  if (method) return method;
+  return "Manual";
+}
+
 function RefundsPage() {
   const { toast } = useToast();
   const { user } = useAuth() as any;
   const companyId = user?.company_id || null;
 
-  const [pending, setPending] = useState<RefundRow[]>([]);
-  const [completed, setCompleted] = useState<RefundRow[]>([]);
+  const [rows, setRows] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [marking, setMarking] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const { data: rows, error } = await supabase
+      // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
+      const { data: refundRows, error } = await supabase
         .from("payments")
-        .select("id, amount, status, reason, created_at, processed_at, order_id, cancellation_request_id, order:orders!payments_order_id_fkey(order_number, client_name, event_date)" as any)
+        .select(
+          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, order:orders!payments_order_id_fkey(order_number, client_name, event_date)" as any,
+        )
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      const flat: RefundRow[] = (rows || []).map((r: any) => ({
-        id: r.id,
-        amount: Number(r.amount) || 0,
-        status: String(r.status || "pending"),
-        reason: r.reason || null,
-        created_at: r.created_at,
-        processed_at: r.processed_at,
-        order_id: r.order_id,
-        cancellation_request_id: r.cancellation_request_id,
-        order_number: r.order?.order_number || null,
-        client_name: r.order?.client_name || null,
-        event_date: r.order?.event_date || null,
-      }));
+      const refunds = (refundRows || []) as any[];
 
-      setPending(flat.filter((r) => r.status !== "completed"));
-      setCompleted(flat.filter((r) => r.status === "completed"));
+      // Pull every parent payment for the orders we care about so we
+      // can label the original payment method on each refund row.
+      const orderIds = Array.from(
+        new Set(refunds.map((r) => r.order_id).filter(Boolean)),
+      ) as string[];
+
+      const parentsByOrder = new Map<
+        string,
+        Array<{
+          gateway: string | null;
+          gateway_provider: string | null;
+          payment_method: string | null;
+          status: string | null;
+          payment_status: string | null;
+        }>
+      >();
+
+      if (orderIds.length > 0) {
+        // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
+        const { data: parents } = await supabase
+          .from("payments")
+          .select(
+            "order_id, gateway, gateway_provider, payment_method, payment_status, payment_type",
+          )
+          .in("order_id", orderIds)
+          .neq("payment_type", "refund");
+        for (const p of (parents || []) as any[]) {
+          const list = parentsByOrder.get(p.order_id) || [];
+          list.push(p);
+          parentsByOrder.set(p.order_id, list);
+        }
+      }
+
+      const flat: RefundRow[] = refunds.map((r) => {
+        const parents = (r.order_id && parentsByOrder.get(r.order_id)) || [];
+        const cls = classifyParent(parents as any);
+        return {
+          id: r.id,
+          amount: Number(r.amount) || 0,
+          // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
+          status: String(r.payment_status || "pending"),
+          reason: r.reason || null,
+          created_at: r.created_at,
+          processed_at: r.processed_at,
+          order_id: r.order_id,
+          cancellation_request_id: r.cancellation_request_id,
+          refund_gateway: r.gateway || r.gateway_provider || null,
+          order_number: r.order?.order_number || null,
+          client_name: r.order?.client_name || null,
+          event_date: r.order?.event_date || null,
+          parent_gateway: cls.gateway,
+          parent_method: cls.method,
+        };
+      });
+
+      setRows(flat);
     } catch (e: any) {
       console.error("[refunds] load failed", e);
     } finally {
@@ -97,7 +202,7 @@ function RefundsPage() {
   }, [user]);
 
   const markPaid = async (refundId: string) => {
-    setMarking(refundId);
+    setBusy(refundId);
     try {
       const res = await fetch(`/api/refunds/${refundId}/mark-paid`, {
         method: "POST",
@@ -114,48 +219,160 @@ function RefundsPage() {
     } catch (e: any) {
       toast({ title: "Could not mark refund paid", description: e?.message || "Network error", variant: "destructive" });
     } finally {
-      setMarking(null);
+      setBusy(null);
     }
   };
 
-  const Row = ({ r, mode }: { r: RefundRow; mode: "pending" | "completed" }) => (
-    <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
-      <div className={`p-2 rounded-full ${mode === "pending" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
-        {mode === "pending" ? <Clock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <strong className="text-rose-700">{fmt.format(r.amount)}</strong>
-          <span className="text-sm text-slate-700">refund</span>
-          {r.order_number ? (
-            <Link
-              href={`/admin/orders?orderId=${r.order_id || ""}`}
-              className="text-xs text-blue-700 hover:underline"
+  const retryAuto = async (refundId: string) => {
+    setBusy(refundId);
+    try {
+      const res = await fetch(`/api/refunds/${refundId}/retry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast({ title: "Retry failed", description: json.error, variant: "destructive" });
+      } else if (json.status === "auto_processed") {
+        toast({ title: "Refund auto-processed", description: "PayFast accepted the refund." });
+        await load();
+      } else if (json.status === "auto_failed") {
+        toast({
+          title: "PayFast still rejecting",
+          description: json.message || "Try again later, or fall back to manual EFT.",
+          variant: "destructive",
+        });
+        await load();
+      } else {
+        toast({ title: "Refund stays pending", description: json.message || "Manual EFT needed." });
+        await load();
+      }
+    } catch (e: any) {
+      toast({ title: "Retry failed", description: e?.message || "Network error", variant: "destructive" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    if (filter === "all") return rows;
+    if (filter === "rejected") return rows.filter((r) => r.status === "failed" || r.status === "rejected");
+    if (filter === "auto") {
+      return rows.filter(
+        (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
+      );
+    }
+    // pending = anything not completed and not failed/rejected
+    return rows.filter(
+      (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
+    );
+  }, [rows, filter]);
+
+  const counts = useMemo(() => {
+    const auto = rows.filter(
+      (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
+    ).length;
+    const pending = rows.filter(
+      (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
+    ).length;
+    const rejected = rows.filter((r) => r.status === "failed" || r.status === "rejected").length;
+    return { all: rows.length, auto, pending, rejected };
+  }, [rows]);
+
+  const Row = ({ r }: { r: RefundRow }) => {
+    const isCompleted = r.status === "completed";
+    const isRejected = r.status === "failed" || r.status === "rejected";
+    const parentIsPayFast = (r.parent_gateway || "").toLowerCase() === "payfast";
+    const showMarkPaid = !isCompleted && !isRejected && !parentIsPayFast;
+    const showRetry = !isCompleted && !isRejected && parentIsPayFast;
+
+    const iconBg = isCompleted
+      ? "bg-emerald-100 text-emerald-700"
+      : isRejected
+        ? "bg-rose-100 text-rose-700"
+        : "bg-amber-100 text-amber-700";
+    const Icon = isCompleted ? CheckCircle2 : isRejected ? XCircle : Clock;
+
+    return (
+      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <div className={`p-2 rounded-full ${iconBg}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <strong className="text-rose-700">{fmt.format(r.amount)}</strong>
+            <span className="text-sm text-slate-700">refund</span>
+            {r.order_number ? (
+              <Link
+                href={`/admin/orders?orderId=${r.order_id || ""}`}
+                className="text-xs text-blue-700 hover:underline"
+              >
+                #{r.order_number}
+              </Link>
+            ) : null}
+            {r.client_name ? <span className="text-xs text-slate-500">- {r.client_name}</span> : null}
+            <Badge
+              variant="outline"
+              className={`text-xs ${parentIsPayFast ? "border-indigo-300 text-indigo-800 bg-indigo-50" : "border-slate-300 text-slate-700 bg-slate-50"}`}
             >
-              #{r.order_number}
-            </Link>
-          ) : null}
-          {r.client_name ? <span className="text-xs text-slate-500">- {r.client_name}</span> : null}
+              {parentIsPayFast ? <Zap className="w-3 h-3 mr-1" /> : null}
+              Paid by {methodLabel(r.parent_gateway, r.parent_method)}
+            </Badge>
+            {isCompleted && (r.refund_gateway || "").toLowerCase() === "payfast" ? (
+              <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">
+                Auto-processed
+              </Badge>
+            ) : null}
+          </div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            Raised {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+            {r.event_date ? `, event was ${new Date(r.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+            {r.processed_at ? `, paid ${new Date(r.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+          </div>
+          {r.reason ? <p className="text-xs text-slate-600 mt-1">{r.reason}</p> : null}
         </div>
-        <div className="text-xs text-slate-500 mt-0.5">
-          Raised {new Date(r.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
-          {r.event_date ? `, event was ${new Date(r.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
-          {r.processed_at ? `, paid ${new Date(r.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-        </div>
-        {r.reason ? <p className="text-xs text-slate-600 mt-1">{r.reason}</p> : null}
+        {showMarkPaid ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+            onClick={() => markPaid(r.id)}
+            disabled={busy === r.id}
+          >
+            {busy === r.id ? "Marking..." : "Mark refund paid"}
+          </Button>
+        ) : null}
+        {showRetry ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-indigo-300 text-indigo-800 hover:bg-indigo-50"
+            onClick={() => retryAuto(r.id)}
+            disabled={busy === r.id}
+          >
+            {busy === r.id ? "Retrying..." : "Retry refund"}
+          </Button>
+        ) : null}
       </div>
-      {mode === "pending" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-          onClick={() => markPaid(r.id)}
-          disabled={marking === r.id}
-        >
-          {marking === r.id ? "Marking..." : "Mark refund paid"}
-        </Button>
-      ) : null}
-    </div>
+    );
+  };
+
+  const FilterChip = ({ k, label, count }: { k: FilterKey; label: string; count: number }) => (
+    <button
+      type="button"
+      onClick={() => setFilter(k)}
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colours ${
+        filter === k
+          ? "bg-slate-900 text-white border-slate-900"
+          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+      }`}
+    >
+      {label}
+      <span className={`ml-2 ${filter === k ? "text-slate-300" : "text-slate-500"}`}>
+        {count}
+      </span>
+    </button>
   );
 
   return (
@@ -174,7 +391,7 @@ function RefundsPage() {
                 Refunds
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                Refunds raised by cancellations. Mark each one paid once you've sent the EFT or processed the gateway refund.
+                PayFast refunds are pushed automatically. EFT and cash refunds need a manual mark-paid once you've sent the money.
               </p>
             </div>
             <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
@@ -183,50 +400,35 @@ function RefundsPage() {
             </Button>
           </div>
 
-          <Tabs defaultValue="pending">
-            <TabsList>
-              <TabsTrigger value="pending" className="gap-2">
-                <Clock className="w-4 h-4" />
-                Pending {pending.length > 0 ? <Badge variant="secondary">{pending.length}</Badge> : null}
-              </TabsTrigger>
-              <TabsTrigger value="completed" className="gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                Completed {completed.length > 0 ? <Badge variant="secondary">{completed.length}</Badge> : null}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="pending">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Pending refunds</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {loading ? (
-                    <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
-                  ) : pending.length === 0 ? (
-                    <div className="text-sm text-slate-500 text-center py-8">No refunds outstanding.</div>
-                  ) : (
-                    pending.map((r) => <Row key={r.id} r={r} mode="pending" />)
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value="completed">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Completed refunds</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {loading ? (
-                    <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
-                  ) : completed.length === 0 ? (
-                    <div className="text-sm text-slate-500 text-center py-8">No refunds processed yet.</div>
-                  ) : (
-                    completed.map((r) => <Row key={r.id} r={r} mode="completed" />)
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FilterChip k="all" label="All" count={counts.all} />
+            <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} />
+            <FilterChip k="pending" label="Pending (manual EFT)" count={counts.pending} />
+            <FilterChip k="rejected" label="Rejected" count={counts.rejected} />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {filter === "all"
+                  ? "All refunds"
+                  : filter === "auto"
+                    ? "Auto-processed (PayFast)"
+                    : filter === "pending"
+                      ? "Pending refunds"
+                      : "Rejected refunds"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {loading ? (
+                <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
+              ) : filtered.length === 0 ? (
+                <div className="text-sm text-slate-500 text-center py-8">Nothing here.</div>
+              ) : (
+                filtered.map((r) => <Row key={r.id} r={r} />)
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

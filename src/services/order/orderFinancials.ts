@@ -109,11 +109,12 @@ export async function updateOrderPaymentStatus(orderId: string) {
       .eq("id", orderId)
       .single();
 
+    // reads payment_status (canonical enum); status text column kept as a write mirror for rollback safety until Phase 3 drop
     const { data: payments } = await supabase
       .from("payments")
       .select("amount")
       .eq("order_id", orderId)
-      .eq("status", "completed" as any);
+      .eq("payment_status", "completed" as any);
 
     const totalPaid = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
     const totalAmount = order?.total_amount || 0;

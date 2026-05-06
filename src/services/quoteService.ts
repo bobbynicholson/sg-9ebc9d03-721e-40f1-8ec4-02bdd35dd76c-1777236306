@@ -460,32 +460,43 @@ export const quoteService = {
       orderData.balance_amount = Math.max(0, totalAmt - paid);
     }
 
-    const { data: newOrder, error: orderError } = await supabase
-      .from("orders")
-      .insert(orderData)
-      .select()
-      .single();
+    // Atomic INSERT orders + UPDATE quotes via a Postgres function so
+    // the pair shares one transaction. Previously these were two
+    // separate round-trips and a network blip between them left orphan
+    // orders with no quote linkage. The RPC locks the quote row,
+    // validates it isn't already converted, inserts the order, and
+    // back-links the quote -- all or nothing. See migration
+    // 20260506110000_convert_quote_to_order_function.sql.
+    //
+    // resolveQuoteClientId stays OUTSIDE the transaction on purpose:
+    // it may INSERT a clients row, and we want that committed
+    // independently so a later cascade failure doesn't roll back a
+    // legitimate new client. The resolved id is folded into the
+    // payload below.
+    const { data: rpcOrder, error: rpcError } = await (supabase as any).rpc("convert_quote_to_order", {
+      p_quote_id:      quoteId,
+      p_company_id:    q.company_id,
+      p_actor_user_id: quote.user_id ?? null,
+      p_order_payload: orderData,
+    });
 
-    if (orderError) {
-      console.error("Error converting quote to order:", orderError);
+    if (rpcError || !rpcOrder) {
+      console.error("Error converting quote to order:", rpcError);
+      const msg = rpcError?.message || "Could not convert the quote (transaction rolled back).";
       return {
         order: null,
-        invoice: { ok: false, error: orderError.message },
-        email: { sent: false, skipped: true, reason: "order_insert_failed" },
-        kitchen: { ok: false, tasksCreated: 0, reason: "order_insert_failed" },
+        invoice: { ok: false, error: msg },
+        email: { sent: false, skipped: true, reason: "conversion_failed" },
+        kitchen: { ok: false, tasksCreated: 0, reason: "conversion_failed" },
         deposit: { recorded: false },
-        error: orderError.message || "Could not insert the order row.",
+        error: msg,
       };
     }
 
-    // Mark quote accepted + back-link to the order so future audits can
-    // trace forwards (quote -> order) as well as backwards
-    // (orders.quote_id -> quote).
-    await this.updateQuote(quoteId, {
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
-      converted_to_order_id: newOrder.id,
-    } as any);
+    // The function returns a single orders row. Supabase wraps
+    // single-row function returns as either an object or a one-element
+    // array depending on the PostgREST version -- normalise here.
+    const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
 
     // ── Step 2: Auto-invoice ────────────────────────────────────────
     // The order was just inserted with status='confirmed' so

@@ -263,9 +263,10 @@ export default async function handler(
       return res.status(500).json({ error: "Failed to record payment" });
     }
 
-    // Cascade: payment_schedules + orders flags + reminders. The helpers
-    // in paymentProcessingService own the right cascade; the webhook
-    // simply wasn't calling them before.
+    // Cascade: orders flags + reminders. The helpers in
+    // paymentProcessingService own the right cascade. Phase 2 collapsed
+    // the parallel payment_schedules table -- everything now writes
+    // straight to orders.
     if (isDepositPayment) {
       await paymentProcessingService.processDepositPayment(
         order.id,
