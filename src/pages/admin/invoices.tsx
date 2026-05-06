@@ -24,9 +24,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   generateInvoiceData,
   createInvoiceRecord,
-  sendInvoiceEmail,
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
+import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import {
   FileText,
   Send,
@@ -62,6 +62,11 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  // Send-dialog state. Opens the review-before-send composer rather
+  // than firing /api/send-email immediately. The operator reviews,
+  // edits, then clicks Send inside the dialog.
+  const [sendDialogInvoice, setSendDialogInvoice] = useState<any | null>(null);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user?.company_id) {
@@ -259,8 +264,13 @@ export default function InvoicesPage() {
     setPreviewOpen(true);
   };
 
-  const handleSendInvoice = async (invoiceId: string) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId);
+  // First click of the paper-plane icon opens the review-before-send
+  // composer. The operator edits To / Subject / Body and clicks Send
+  // inside the dialog -- the actual /api/send-email POST happens in
+  // InvoiceSendDialog. We only stamp invoices.sent_at after a
+  // confirmed successful send (handled in handleInvoiceSent below).
+  const handleSendInvoice = (invoiceId: string) => {
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
     if (!invoice || !invoice.invoice_data) return;
 
     if (!user?.company_id) {
@@ -272,35 +282,19 @@ export default function InvoicesPage() {
       return;
     }
 
+    setSendDialogInvoice(invoice);
+    setSendDialogOpen(true);
+  };
+
+  const handleInvoiceSent = async (invoice: any) => {
     try {
-      const { success, error } = await sendInvoiceEmail(
-        invoice.invoice_data,
-        invoice.invoice_data.clientEmail,
-        { invoiceId: invoice.id, companyId: user.company_id },
-      );
-
-      if (!success) {
-        throw new Error(error || "Failed to send email");
-      }
-
-      // Update invoice status
       await supabase
         .from("invoices")
         .update({ sent_at: new Date().toISOString() })
-        .eq("id", invoiceId);
-
-      toast({
-        title: "Success",
-        description: `Invoice sent to ${invoice.invoice_data.clientEmail}`,
-      });
-
+        .eq("id", invoice.id);
       loadInvoices();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+    } catch (e) {
+      console.warn("[invoices] failed to stamp sent_at after manual send:", e);
     }
   };
 
@@ -717,6 +711,20 @@ export default function InvoicesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Review-before-send composer. Opens on the paper-plane click;
+          actual /api/send-email POST happens inside the dialog. On
+          success we close + stamp invoices.sent_at. */}
+      <InvoiceSendDialog
+        open={sendDialogOpen}
+        onOpenChange={(o) => {
+          setSendDialogOpen(o);
+          if (!o) setSendDialogInvoice(null);
+        }}
+        companyId={user?.company_id || ""}
+        invoice={sendDialogInvoice}
+        onSent={handleInvoiceSent}
+      />
     </div>
   );
 }

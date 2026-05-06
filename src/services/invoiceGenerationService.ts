@@ -1121,17 +1121,34 @@ export function generateInvoiceHTML(data: InvoiceData): string {
  * Old path went to /api/send-invoice-email which was a console.log
  * stub -- the success toast lied. This path actually delivers.
  */
+export interface SendInvoiceEmailResult {
+  success: boolean;
+  error?: string;
+  error_code?: string;
+  fix_link?: string;
+  context?: Record<string, any>;
+}
+
 export async function sendInvoiceEmail(
   invoiceData: InvoiceData,
   recipientEmail: string,
-  options: { invoiceId: string; companyId: string },
-): Promise<{ success: boolean; error?: string }> {
+  options: {
+    invoiceId: string;
+    companyId: string;
+    /** Optional caller-supplied overrides for review-before-send. */
+    subject?: string;
+    body?: string;
+    cc?: string;
+    bcc?: string;
+    attachInvoicePdf?: boolean;
+  },
+): Promise<SendInvoiceEmailResult> {
   try {
     if (!options?.invoiceId || !options?.companyId) {
-      return { success: false, error: "invoiceId and companyId are required" };
+      return { success: false, error: "invoiceId and companyId are required", error_code: "missing_fields" };
     }
     if (!recipientEmail) {
-      return { success: false, error: "Recipient email is missing" };
+      return { success: false, error: "Recipient email is missing", error_code: "missing_fields" };
     }
 
     const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
@@ -1143,10 +1160,17 @@ export async function sendInvoiceEmail(
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
 
     const fallbackBody =
+      options.body ||
       `Hi {{first_name}},\n\n` +
       `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
       `Open the invoice in your portal to download or pay.\n\n` +
       `Thanks,\n{{tenant_name}}`;
+
+    // When the operator has reviewed + edited the body in the send
+    // dialog we DON'T re-resolve the template -- they're sending the
+    // exact text they saw. Drop the template so the server uses the
+    // body verbatim. Same for the subject.
+    const useTemplateLookup = !options.body;
 
     const response = await fetch("/api/send-email", {
       method: "POST",
@@ -1154,9 +1178,9 @@ export async function sendInvoiceEmail(
       body: JSON.stringify({
         companyId: options.companyId,
         to: recipientEmail,
-        subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventLabel}`,
+        subject: options.subject || `Invoice ${invoiceData.invoiceNumber} ready -- ${eventLabel}`,
         body: fallbackBody,
-        template: templateType,
+        ...(useTemplateLookup ? { template: templateType } : {}),
         variables: {
           first_name: firstName,
           client_name: invoiceData.clientName,
@@ -1168,21 +1192,24 @@ export async function sendInvoiceEmail(
           balance_amount: isBalance ? amountLabel : "",
         },
         emailType: templateType,
-        attachInvoicePdf: true,
+        attachInvoicePdf: options.attachInvoicePdf !== false,
         invoiceId: options.invoiceId,
       }),
     });
 
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return { success: false, error: payload?.error || "Failed to send email" };
-    }
-    if (payload?.success === false) {
-      return { success: false, error: payload?.error || "Email provider refused the send" };
+    if (!response.ok || payload?.success === false) {
+      return {
+        success: false,
+        error: payload?.error || "Failed to send email",
+        error_code: payload?.error_code,
+        fix_link: payload?.fix_link,
+        context: payload?.context,
+      };
     }
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Send failed" };
+    return { success: false, error: error?.message || "Send failed", error_code: "unknown" };
   }
 }
 

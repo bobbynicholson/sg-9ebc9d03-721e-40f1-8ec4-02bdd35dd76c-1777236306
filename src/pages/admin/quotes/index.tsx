@@ -65,6 +65,7 @@ import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
 import { quoteService } from "@/services/quoteService";
+import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing/QuoteSendDialog";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
@@ -502,24 +503,27 @@ export default function AdminQuotes() {
     }
   };
 
-  const handleSend = async (quoteId: string) => {
-    setSendingId(quoteId);
-    try {
-      const ok = await quoteService.sendQuoteToClient(quoteId);
-      if (ok) {
-        toast({ title: "Quote sent", description: "Email queued and status updated to Sent." });
-        setQuotes((prev) => prev.map((q) =>
-          q.id === quoteId ? { ...q, status: "sent", sent_at: new Date().toISOString() } as Quote : q
-        ));
-      } else {
-        toast({ title: "Send failed", description: "Could not send the quote. Check the client email.", variant: "destructive" });
-      }
-    } catch (err) {
-      console.error("Send quote failed:", err);
-      toast({ title: "Send failed", description: "Something went wrong sending this quote.", variant: "destructive" });
-    } finally {
-      setSendingId(null);
-    }
+  // Open the review-before-send composer rather than firing the email
+  // immediately. The dialog handles the actual /api/send-email POST and
+  // calls onSent on success; that's where we update local state.
+  const handleSend = (quoteId: string) => {
+    const q = quotes.find((row) => row.id === quoteId);
+    if (!q) return;
+    setSendDialogQuote(q);
+    setSendDialogOpen(true);
+  };
+
+  const [sendDialogQuote, setSendDialogQuote] = useState<Quote | null>(null);
+  const [sendDialogOpen, setSendDialogOpen] = useState<boolean>(false);
+
+  const handleQuoteSent = (q: QuoteSendDialogQuote) => {
+    setQuotes((prev) =>
+      prev.map((row) =>
+        row.id === q.id
+          ? ({ ...row, status: "sent", sent_at: new Date().toISOString() } as Quote)
+          : row,
+      ),
+    );
   };
 
   /** Open the compose drawer in follow-up mode. We re-use the
@@ -1664,6 +1668,21 @@ export default function AdminQuotes() {
       </AlertDialog>
 
       <ChatBot userRole="admin" companyId={user?.user_metadata?.company_id} />
+
+      {/* Review-before-send composer for the draft Send button. The
+          dialog handles the /api/send-email POST itself; we only react
+          on success via onSent so the row flips to status='sent'. */}
+      <QuoteSendDialog
+        open={sendDialogOpen}
+        onOpenChange={(o) => {
+          setSendDialogOpen(o);
+          if (!o) setSendDialogQuote(null);
+        }}
+        companyId={(user as any)?.company_id || ""}
+        tenantName={(user as any)?.user_metadata?.company_name || null}
+        quote={sendDialogQuote as QuoteSendDialogQuote | null}
+        onSent={handleQuoteSent}
+      />
     </>
   );
 }

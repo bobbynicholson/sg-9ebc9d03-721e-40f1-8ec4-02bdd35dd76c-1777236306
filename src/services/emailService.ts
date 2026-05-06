@@ -87,6 +87,39 @@ export interface EmailLog {
   created_at?: string;
 }
 
+/**
+ * Structured failure shape returned by sendEmailDetailed. Adds a
+ * machine-readable error_code (so the UI can map to the right "Fix this"
+ * link) plus a human-friendly message and an optional fix_link.
+ *
+ * sendEmail (legacy) keeps returning a plain boolean so existing
+ * fire-and-forget callers stay untouched. sendEmailDetailed is the new
+ * verb for callers that want the diagnosis.
+ */
+export type EmailErrorCode =
+  | "no_provider"
+  | "domain_unverified"
+  | "from_email_domain_mismatch"
+  | "resend_auth"
+  | "resend_other"
+  | "smtp_connection"
+  | "smtp_auth"
+  | "smtp_other"
+  | "blocked_recipient"
+  | "quarantined_recipient"
+  | "missing_fields"
+  | "unknown";
+
+export interface EmailSendDetailed {
+  success: boolean;
+  error?: string;
+  error_code?: EmailErrorCode;
+  fix_link?: string;
+  /** Extra context for the toast / inline error block, e.g. the
+   *  unverified domain name. */
+  context?: Record<string, string | null | undefined>;
+}
+
 export const emailService = {
   /**
    * Fetch the active provider config for a company.
@@ -265,6 +298,18 @@ export const emailService = {
   },
 
   async sendEmail(payload: SendEmailPayload & { _client?: any }): Promise<boolean> {
+    const result = await this.sendEmailDetailed(payload);
+    return !!result.success;
+  },
+
+  /**
+   * Same shape as sendEmail but returns a structured diagnosis instead
+   * of a plain boolean. Used by /api/send-email so the response carries
+   * a machine-readable error_code + a fix_link the UI can render as a
+   * "Fix this" button. Existing callers stay on sendEmail (legacy
+   * boolean) so this is purely additive.
+   */
+  async sendEmailDetailed(payload: SendEmailPayload & { _client?: any }): Promise<EmailSendDetailed> {
     // Server-side callers (e.g. unauthenticated magic-link sign-in)
     // pass a service-role client via _client so the email_settings
     // lookup isn't blocked by RLS.
@@ -272,7 +317,27 @@ export const emailService = {
 
     if (!config || !config.enabled) {
       console.warn(`Email automation is disabled or not configured for company ${payload.companyId}`);
-      return false;
+      // Log the failure so the operator sees it in the dashboard.
+      try {
+        await this.logEmailSent(
+          payload.companyId,
+          payload.template || "custom",
+          payload.to,
+          payload.variables?.clientName || "N/A",
+          payload.subject,
+          payload.orderId,
+          payload.quoteId,
+          (payload as any)._client,
+          "failed",
+          "No email provider configured",
+        );
+      } catch { /* logging failure must not crash the send path */ }
+      return {
+        success: false,
+        error: "You haven't set up an email sender yet.",
+        error_code: "no_provider",
+        fix_link: "/admin/email-settings",
+      };
     }
 
     // Negative gates -- these run for every send path, including
@@ -308,7 +373,13 @@ export const emailService = {
             "blocked",
             "Recipient is on the company block list",
           );
-          return false;
+          return {
+            success: false,
+            error: `${payload.to} is on your blocked-contacts list. Unblock them in Contacts.`,
+            error_code: "blocked_recipient",
+            fix_link: "/admin/contacts",
+            context: { recipient: payload.to },
+          };
         }
 
         // Critical-comm carve-out: cancellation, refund-paid and
@@ -335,7 +406,13 @@ export const emailService = {
             "quarantined",
             "Recipient is in import quarantine",
           );
-          return false;
+          return {
+            success: false,
+            error: `Comms to ${payload.to} are paused (bulk-import quarantine). Review the import to unblock.`,
+            error_code: "quarantined_recipient",
+            fix_link: "/admin/contacts",
+            context: { recipient: payload.to },
+          };
         }
       } catch (guardErr) {
         // Don't let a guard failure silently allow sends. Log loudly
@@ -363,7 +440,11 @@ export const emailService = {
 
       if (templateError || !templateData) {
         console.error(`Email template "${payload.template}" not found for company ${payload.companyId}`);
-        return false;
+        return {
+          success: false,
+          error: `Email template "${payload.template}" wasn't found for this company.`,
+          error_code: "unknown",
+        };
       }
       finalBody = templateData.body_html || templateData.body || templateData.body_text || "";
     }
@@ -372,11 +453,65 @@ export const emailService = {
     finalBody = this.replaceVariables(finalBody, payload.variables || {});
 
     try {
-      let emailSent = false;
+      // Pre-flight gates for Resend that don't require burning an API
+      // call: domain not verified yet, or from_email apex doesn't match
+      // the verified sending domain. Both produce a friendly diagnosis.
+      // We only run these when the tenant's own from_email is set --
+      // empty from_email is fine because the resolver falls back to the
+      // shared CateringMS sender.
+      if (config.provider === "resend" && (config.from_email || "").trim()) {
+        const fromEmail = (config.from_email || "").trim().toLowerCase();
+        const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
+        const verified = !!config.resend_domain_verified_at;
+        if (sendingDomain && !verified) {
+          await this.logEmailSent(
+            payload.companyId,
+            payload.template || "custom",
+            payload.to,
+            payload.variables?.clientName || "N/A",
+            finalSubject,
+            payload.orderId,
+            payload.quoteId,
+            (payload as any)._client,
+            "failed",
+            `Resend domain ${sendingDomain} not yet verified`,
+          );
+          return {
+            success: false,
+            error: `Your sending domain ${sendingDomain} isn't verified yet. Add the DNS records and click Verify.`,
+            error_code: "domain_unverified",
+            fix_link: "/admin/email-settings#resend",
+            context: { domain: sendingDomain },
+          };
+        }
+        if (verified && sendingDomain && fromEmail && !fromEmail.endsWith(`@${sendingDomain}`)) {
+          await this.logEmailSent(
+            payload.companyId,
+            payload.template || "custom",
+            payload.to,
+            payload.variables?.clientName || "N/A",
+            finalSubject,
+            payload.orderId,
+            payload.quoteId,
+            (payload as any)._client,
+            "failed",
+            `from_email ${fromEmail} doesn't match verified domain ${sendingDomain}`,
+          );
+          return {
+            success: false,
+            error: `Your From email needs to end in @${sendingDomain}.`,
+            error_code: "from_email_domain_mismatch",
+            fix_link: "/admin/email-settings#resend",
+            context: { domain: sendingDomain, from_email: fromEmail },
+          };
+        }
+      }
+
+      let providerResult: { ok: true } | { ok: false; status?: number; body?: any; message: string; code?: string } | null = null;
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         const { from, replyTo } = this.resolveFromAddress(config);
-        emailSent = await this.sendViaResend({
+        providerResult = await this.sendViaResend({
           from,
           to: payload.to,
           subject: finalSubject,
@@ -386,13 +521,33 @@ export const emailService = {
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {
         const { from } = this.resolveFromAddress(config);
-        emailSent = await this.sendViaSMTP(config, {
+        providerResult = await this.sendViaSMTP(config, {
           from,
           to: payload.to,
           subject: finalSubject,
           html: finalBody,
           attachments: payload.attachments,
         });
+      } else if (config.provider === 'resend' && !process.env.RESEND_API_KEY) {
+        // Resend selected but the platform-level API key is missing.
+        // This is a Skylight ops issue, not a tenant fix -- no fix_link.
+        await this.logEmailSent(
+          payload.companyId,
+          payload.template || "custom",
+          payload.to,
+          payload.variables?.clientName || "N/A",
+          finalSubject,
+          payload.orderId,
+          payload.quoteId,
+          (payload as any)._client,
+          "failed",
+          "RESEND_API_KEY missing on the server",
+        );
+        return {
+          success: false,
+          error: "The Resend API key is missing or invalid. Ask your platform admin.",
+          error_code: "resend_auth",
+        };
       } else {
         // No provider configured -- this is a real failure, not a
         // success. Returning true here previously marked the row
@@ -421,10 +576,15 @@ export const emailService = {
           "No email provider configured",
         );
 
-        return false;
+        return {
+          success: false,
+          error: "You haven't set up an email sender yet.",
+          error_code: "no_provider",
+          fix_link: "/admin/email-settings",
+        };
       }
 
-      if (emailSent) {
+      if (providerResult && (providerResult as any).ok) {
         await this.logEmailSent(
           payload.companyId,
           payload.template || 'custom',
@@ -436,11 +596,12 @@ export const emailService = {
           (payload as any)._client,
           "sent",
         );
-        return true;
+        return { success: true };
       }
 
-      // Provider returned !ok. Log the failure so admin sees it in
-      // the dashboard.
+      // Provider returned !ok. Log + map to a friendly diagnosis.
+      const failure = providerResult as any;
+      const reason = failure?.message || `Provider ${config.provider || "?"} returned not-ok`;
       await this.logEmailSent(
         payload.companyId,
         payload.template || 'custom',
@@ -451,9 +612,87 @@ export const emailService = {
         payload.quoteId,
         (payload as any)._client,
         "failed",
-        `Provider ${config.provider || "?"} returned not-ok`,
+        reason,
       );
-      return false;
+
+      // Map Resend error shapes -> structured codes.
+      if (config.provider === "resend") {
+        const status: number | undefined = failure?.status;
+        const body = failure?.body;
+        const bodyName = String(body?.name || "").toLowerCase();
+        const bodyMessage = String(body?.message || "").toLowerCase();
+        if (status === 401 || status === 403 || bodyName.includes("api_key")) {
+          return {
+            success: false,
+            error: "The Resend API key is missing or invalid. Ask your platform admin.",
+            error_code: "resend_auth",
+          };
+        }
+        if (
+          status === 422 ||
+          bodyName.includes("domain") ||
+          bodyMessage.includes("not verified") ||
+          bodyMessage.includes("domain")
+        ) {
+          const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
+          return {
+            success: false,
+            error: sendingDomain
+              ? `Your sending domain ${sendingDomain} isn't verified yet. Add the DNS records and click Verify.`
+              : "Your sending domain isn't verified yet in Resend. Add the DNS records and click Verify.",
+            error_code: "domain_unverified",
+            fix_link: "/admin/email-settings#resend",
+            context: { domain: sendingDomain || null },
+          };
+        }
+        return {
+          success: false,
+          error: `Email delivery failed. ${reason}`,
+          error_code: "resend_other",
+        };
+      }
+
+      if (config.provider === "smtp") {
+        const code = String(failure?.code || "").toUpperCase();
+        const lowered = String(failure?.message || "").toLowerCase();
+        if (code === "EAUTH" || lowered.includes("auth")) {
+          return {
+            success: false,
+            error: `Couldn't authenticate with your SMTP server (${config.smtp_host}:${config.smtp_port}). Check the username and password.`,
+            error_code: "smtp_auth",
+            fix_link: "/admin/email-settings",
+            context: { host: config.smtp_host || null, port: String(config.smtp_port || "") },
+          };
+        }
+        if (
+          code === "ECONNECTION" ||
+          code === "ETIMEDOUT" ||
+          code === "ENOTFOUND" ||
+          lowered.includes("connect") ||
+          lowered.includes("timeout") ||
+          lowered.includes("refused")
+        ) {
+          return {
+            success: false,
+            error: `Couldn't reach your SMTP server (${config.smtp_host}:${config.smtp_port}). Check the host, port and credentials.`,
+            error_code: "smtp_connection",
+            fix_link: "/admin/email-settings",
+            context: { host: config.smtp_host || null, port: String(config.smtp_port || "") },
+          };
+        }
+        return {
+          success: false,
+          error: `SMTP send failed. ${reason}`,
+          error_code: "smtp_other",
+          fix_link: "/admin/email-settings",
+        };
+      }
+
+      return {
+        success: false,
+        error: `Email delivery failed. ${reason}`,
+        error_code: "unknown",
+      };
     } catch (error: any) {
       console.error("Error sending email:", error);
       // Crash path -- still log so ops can find it.
@@ -471,10 +710,20 @@ export const emailService = {
           String(error?.message || error || "Unknown crash"),
         );
       } catch { /* logging the failure itself failed -- nothing to do */ }
-      return false;
+      return {
+        success: false,
+        error: `Email delivery failed. ${String(error?.message || error || "Unknown crash")}`,
+        error_code: "unknown",
+      };
     }
   },
 
+  /**
+   * Result wrapper for the provider-level send. We surface the HTTP
+   * status and the raw error body so sendEmailDetailed can map the
+   * Resend error shape to a friendly diagnosis (auth vs domain
+   * unverified vs other).
+   */
   async sendViaResend(emailData: {
     from: string;
     to: string;
@@ -482,7 +731,7 @@ export const emailService = {
     html: string;
     attachments?: EmailAttachment[];
     replyTo?: string;
-  }): Promise<boolean> {
+  }): Promise<{ ok: true } | { ok: false; status: number; body: any; message: string }> {
     try {
       // Resend wants attachments as { filename, content } where content
       // is base64 OR a Buffer. JSON-over-HTTP can't carry a raw Buffer,
@@ -508,6 +757,15 @@ export const emailService = {
         }));
       }
 
+      if (!process.env.RESEND_API_KEY) {
+        return {
+          ok: false,
+          status: 0,
+          body: { name: "missing_api_key" },
+          message: "RESEND_API_KEY is not set",
+        };
+      }
+
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -518,16 +776,23 @@ export const emailService = {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        console.error('Resend API error:', error);
-        return false;
+        let errorBody: any = null;
+        try { errorBody = await response.json(); } catch { errorBody = null; }
+        console.error('Resend API error:', response.status, errorBody);
+        const message = (errorBody && (errorBody.message || errorBody.error)) || `HTTP ${response.status}`;
+        return { ok: false, status: response.status, body: errorBody, message };
       }
 
-      console.log('✅ Email sent successfully via Resend');
-      return true;
-    } catch (error) {
+      console.log('Email sent successfully via Resend');
+      return { ok: true };
+    } catch (error: any) {
       console.error('Error sending via Resend:', error);
-      return false;
+      return {
+        ok: false,
+        status: 0,
+        body: null,
+        message: error?.message || "Resend network error",
+      };
     }
   },
 
@@ -537,16 +802,20 @@ export const emailService = {
     subject: string;
     html: string;
     attachments?: EmailAttachment[];
-  }): Promise<boolean> {
+  }): Promise<{ ok: true } | { ok: false; code?: string; message: string }> {
     try {
       if (typeof window !== 'undefined') {
         console.warn("SMTP emails cannot be sent directly from the browser. Simulating success for client-side execution.");
-        return true;
+        return { ok: true };
       }
 
       if (!config.smtp_host || !config.smtp_port || !config.smtp_user || !config.smtp_password) {
         console.error('SMTP configuration incomplete');
-        return false;
+        return {
+          ok: false,
+          code: "incomplete",
+          message: "SMTP configuration is incomplete (missing host, port, user, or password).",
+        };
       }
 
       // Hide require from Webpack to prevent client-side build errors
@@ -592,11 +861,15 @@ export const emailService = {
       }
 
       await transporter.sendMail(sendPayload);
-      console.log('✅ Email sent successfully via SMTP');
-      return true;
-    } catch (error) {
+      console.log('Email sent successfully via SMTP');
+      return { ok: true };
+    } catch (error: any) {
       console.error('Error sending via SMTP:', error);
-      return false;
+      return {
+        ok: false,
+        code: String(error?.code || error?.responseCode || ""),
+        message: error?.message || "SMTP send failed",
+      };
     }
   },
 };

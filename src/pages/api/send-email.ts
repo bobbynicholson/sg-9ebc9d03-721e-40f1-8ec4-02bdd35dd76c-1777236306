@@ -41,6 +41,7 @@ export default async function handler(
     if (!companyId || !to) {
       return res.status(400).json({
         error: "Missing required fields: companyId and to are required.",
+        error_code: "missing_fields",
       });
     }
 
@@ -91,8 +92,12 @@ export default async function handler(
           .eq("company_id", companyId)
           .in("email_lower", recipientLower);
         if (blocks && blocks.length > 0) {
+          const firstBlocked = blocks.map((b) => b.email_lower).filter(Boolean)[0] as string | undefined;
           return res.status(409).json({
-            error: "Recipient is on this company's block list",
+            success: false,
+            error: `${firstBlocked || "Recipient"} is on your blocked-contacts list. Unblock them in Contacts.`,
+            error_code: "blocked_recipient",
+            fix_link: "/admin/contacts",
             blocked: blocks.map((b) => b.email_lower).filter(Boolean) as string[],
             reason: blocks[0]?.reason ?? null,
           });
@@ -120,7 +125,10 @@ export default async function handler(
             });
             if (paused === true) {
               return res.status(409).json({
-                error: "Recipient is in import quarantine -- comms paused until the owner reviews the batch",
+                success: false,
+                error: `Comms to ${recip} are paused (bulk-import quarantine). Review the import to unblock.`,
+                error_code: "quarantined_recipient",
+                fix_link: "/admin/contacts",
                 quarantined: recip,
               });
             }
@@ -129,7 +137,7 @@ export default async function handler(
       }
     }
 
-    let result = false;
+    let result: { success: boolean; error?: string; error_code?: string; fix_link?: string; context?: any } = { success: false };
 
     // Handle specific email types with server-side templates
     if (emailType === 'companyWelcome' && variables) {
@@ -150,7 +158,7 @@ export default async function handler(
         <p>The CateringMS Team</p>
       `;
 
-      result = await emailService.sendEmail({
+      result = await emailService.sendEmailDetailed({
         companyId,
         to,
         subject: welcomeSubject,
@@ -390,7 +398,7 @@ export default async function handler(
         }
       }
 
-      result = await emailService.sendEmail({
+      result = await emailService.sendEmailDetailed({
         companyId,
         to,
         subject,
@@ -403,15 +411,21 @@ export default async function handler(
       });
     }
 
-    if (result) {
+    if (result?.success) {
       return res.status(200).json({
         success: true,
         message: "Email processed successfully",
       });
     } else {
+      // Forward the structured diagnosis to the client. error_code is
+      // the contract the UI maps to a "Fix this" link. Fall back to a
+      // generic message if the service didn't supply one.
       return res.status(500).json({
         success: false,
-        error: "Failed to send email",
+        error: result?.error || "Failed to send email",
+        error_code: result?.error_code || "unknown",
+        ...(result?.fix_link ? { fix_link: result.fix_link } : {}),
+        ...(result?.context ? { context: result.context } : {}),
       });
     }
   } catch (error) {
@@ -419,6 +433,7 @@ export default async function handler(
     return res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : "Unknown error",
+      error_code: "unknown",
     });
   }
 }
