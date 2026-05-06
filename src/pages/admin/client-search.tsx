@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { profileService, Profile } from "@/services/profileService";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute"; // Assumed import for ProtectedRoute
 import {  UserRole  } from "@/types/app"; // Assumed import for UserRole
@@ -38,25 +38,73 @@ export default function ProtectedClientSearchPage() {
   );
 }
 
+// View shape the rest of the page reads. Powered by the `clients`
+// table -- the source of truth for catering customers regardless of
+// whether they've created an auth account. (The previous
+// implementation queried `profiles` filtered by role='client', which
+// only returns auth-signed-up users, so a tenant with 906 imported
+// contacts saw 1 row.)
+interface ClientView {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  company_name: string | null;
+  region: string | null;
+  role?: string | null;
+}
+
 function ClientSearchPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useAuth() as any;
   const [searchTerm, setSearchTerm] = useState("");
-  const [clients, setClients] = useState<Profile[]>([]);
+  const [clients, setClients] = useState<ClientView[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("all");
 
   useEffect(() => {
-    if (user) {
+    if (user?.company_id) {
       loadClients();
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
 
   const loadClients = async () => {
+    if (!user?.company_id) return;
     try {
       setLoading(true);
-      const data = await profileService.getAllClients(user?.company_id);
-      setClients(data);
+      // Query the clients table -- not profiles. Companies have
+      // hundreds of imported contacts that never sign up, so they
+      // don't get a profiles row. clients holds the canonical record
+      // regardless of auth state. Soft-deleted rows excluded.
+      const { data, error } = await (supabase as any)
+        .from("clients")
+        .select(
+          "id, client_name, client_type, email, phone, is_active, created_at, region_id, regions:region_id(name)",
+        )
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const mapped: ClientView[] = ((data as any[]) || []).map((c) => ({
+        id: c.id,
+        full_name: c.client_name,
+        email: c.email,
+        phone: c.phone,
+        // client_type covers "individual" / "company" / "venue" etc.
+        // Surface it in the company-name slot only when it's
+        // genuinely a non-individual classification, otherwise it's
+        // noise.
+        company_name:
+          c.client_type &&
+          c.client_type !== "person" &&
+          c.client_type !== "individual"
+            ? c.client_type
+            : null,
+        region: c.regions?.name ?? null,
+        role: "client",
+      }));
+      setClients(mapped);
     } catch (error) {
       console.error("Error loading clients:", error);
     } finally {
