@@ -107,25 +107,45 @@ export default function InvoicesPage() {
   const loadOrders = async () => {
     if (!user?.company_id) return;
 
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
-        *,
-        clients (
-          client_name,
-          email
-        )
-      `)
-      .eq("company_id", user.company_id)
-      .is("deleted_at", null)
-      .in("status", ["confirmed", "completed"])
-      .order("event_date", { ascending: false });
+    // Pull orders + the company's invoices in parallel. We can't rely
+    // on the `invoices` state here -- this function is bound to the
+    // first render and would close over the empty initial value, so
+    // newly-created drafts wouldn't show as already-invoiced and the
+    // user could click Generate Invoice twice and trip the
+    // uniq_invoices_active_order_id constraint.
+    const [ordersRes, invoicesRes] = await Promise.all([
+      supabase
+        .from("orders")
+        .select(`
+          *,
+          clients (
+            client_name,
+            email
+          )
+        `)
+        .eq("company_id", user.company_id)
+        .is("deleted_at", null)
+        .in("status", ["confirmed", "completed"])
+        .order("event_date", { ascending: false }),
+      supabase
+        .from("invoices")
+        .select("order_id, status")
+        .eq("company_id", user.company_id),
+    ]);
 
-    if (!error) {
-      // Filter out orders that already have invoices
-      const invoicedOrderIds = invoices.map(inv => inv.order_id);
-      const uninvoicedOrders = (data || []).filter(
-        order => !invoicedOrderIds.includes(order.id)
+    if (!ordersRes.error) {
+      // Any existing invoice counts -- a draft is still an active
+      // invoice for that order. The DB's uniq_invoices_active_order_id
+      // is the source of truth; this filter just keeps the list clean
+      // and stops the user from clicking Generate Invoice on something
+      // that would hit the constraint.
+      const invoicedOrderIds = new Set(
+        ((invoicesRes.data || []) as any[])
+          .map(inv => inv.order_id)
+          .filter(Boolean),
+      );
+      const uninvoicedOrders = (ordersRes.data || []).filter(
+        order => !invoicedOrderIds.has(order.id)
       );
       setOrders(uninvoicedOrders);
     }
@@ -136,8 +156,29 @@ export default function InvoicesPage() {
 
     setGeneratingInvoice(true);
     try {
+      // Defensive pre-check. The DB has uniq_invoices_active_order_id
+      // which throws a raw constraint error if a non-cancelled invoice
+      // already exists. We filter the uninvoiced list on load but a
+      // double-click or stale list still gets through. Surface a clean
+      // message instead of the Postgres error.
+      const { data: existing } = await supabase
+        .from("invoices")
+        .select("id, invoice_number, status")
+        .eq("order_id", orderId)
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        toast({
+          title: "Invoice already exists",
+          description: `${(existing as any).invoice_number} is already on this order. Refreshing the list.`,
+        });
+        await loadInvoices();
+        await loadOrders();
+        return;
+      }
+
       // 1. Generate invoice data
-      const { success: dataSuccess, data: invoiceData, error: dataError } = 
+      const { success: dataSuccess, data: invoiceData, error: dataError } =
         await generateInvoiceData(orderId, user.company_id);
 
       if (!dataSuccess || !invoiceData) {
@@ -145,11 +186,17 @@ export default function InvoicesPage() {
       }
 
       // 2. Create invoice record
-      const { success: recordSuccess, invoiceId, error: recordError } = 
+      const { success: recordSuccess, invoiceId, error: recordError } =
         await createInvoiceRecord(invoiceData, orderId, user.company_id);
 
       if (!recordSuccess) {
-        throw new Error(recordError || "Failed to save invoice");
+        // Friendlier message for the unique-constraint case in case the
+        // pre-check raced.
+        const msg = recordError || "Failed to save invoice";
+        if (/uniq_invoices_active_order_id/i.test(msg)) {
+          throw new Error("This order already has an active invoice.");
+        }
+        throw new Error(msg);
       }
 
       toast({
