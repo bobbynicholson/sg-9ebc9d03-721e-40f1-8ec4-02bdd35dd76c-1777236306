@@ -222,7 +222,40 @@ export default function InvoicesPage() {
     const invoice = invoices.find(inv => inv.id === invoiceId);
     if (!invoice) return;
 
-    setSelectedInvoice(invoice.invoice_data);
+    // Older invoices were created with an empty items array because
+    // the generator read orders.menu_items (a column that doesn't
+    // exist) instead of pulling from order_items. Re-hydrate the
+    // items + totals on demand so preview always shows the real
+    // line breakdown without a separate backfill migration.
+    let invoiceData = invoice.invoice_data || {};
+    const itemsMissing =
+      !Array.isArray(invoiceData.items) || invoiceData.items.length === 0;
+    if (itemsMissing && invoice.order_id && user?.company_id) {
+      try {
+        const { success, data } = await generateInvoiceData(
+          invoice.order_id,
+          user.company_id,
+        );
+        if (success && data) {
+          // Keep the existing invoice_number / dates so the preview
+          // still matches the saved invoice; only refresh the parts
+          // that depend on order_items.
+          invoiceData = {
+            ...data,
+            invoiceNumber: invoice.invoice_number || data.invoiceNumber,
+            invoiceDate: invoice.invoice_date || data.invoiceDate,
+            dueDate: invoice.due_date || data.dueDate,
+          };
+        }
+      } catch (err) {
+        console.warn(
+          "[invoices] preview rehydrate failed, falling back to stored invoice_data:",
+          err,
+        );
+      }
+    }
+
+    setSelectedInvoice(invoiceData);
     setPreviewOpen(true);
   };
 

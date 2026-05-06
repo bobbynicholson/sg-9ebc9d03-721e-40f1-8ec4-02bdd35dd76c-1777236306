@@ -130,16 +130,104 @@ export async function generateInvoiceData(
     // 4. Calculate financial details
     const orderData = order as any;
     const companyData = company as any;
-    
-    const menuItems = (orderData.menu_items || []) as any[];
-    const items = menuItems.map((item: any) => ({
-      description: item.name || "Item",
-      quantity: item.quantity || 1,
-      unitPrice: item.price || 0,
-      total: (item.quantity || 1) * (item.price || 0),
-    }));
 
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    // Line items live in order_items, not on the orders row. The
+    // earlier path read orderData.menu_items (a column that only
+    // exists on quotes) and always produced an empty array, leaving
+    // the invoice preview blank with R 0.00 totals. Pull the
+    // canonical rows here, falling back to a legacy menu_items JSONB
+    // column on the off-chance an old order pre-dates the migration.
+    const { data: orderItemsRows, error: orderItemsError } = await supabase
+      .from("order_items")
+      .select("item_name, description, quantity, unit_price, line_total")
+      .eq("order_id", orderId);
+    if (orderItemsError) {
+      console.warn(
+        "[invoiceGenerationService] order_items lookup failed, will fall back:",
+        orderItemsError,
+      );
+    }
+    const orderItems = (orderItemsRows || []) as any[];
+    let items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }> = orderItems.map((row: any) => {
+      const quantity = Number(row.quantity ?? 1) || 1;
+      const unitPrice = Number(row.unit_price ?? 0) || 0;
+      const lineTotal =
+        row.line_total != null
+          ? Number(row.line_total)
+          : quantity * unitPrice;
+      const description =
+        [row.item_name, row.description].filter(Boolean).join(" -- ") ||
+        row.item_name ||
+        "Item";
+      return {
+        description,
+        quantity,
+        unitPrice,
+        total: lineTotal,
+      };
+    });
+
+    if (items.length === 0) {
+      // Legacy fallback. A handful of imported orders carried their
+      // line items in a JSONB menu_items column before the
+      // order_items table was the source of truth. Use them only
+      // when there's nothing in order_items to avoid double-counting.
+      const legacyMenuItems = (orderData.menu_items || []) as any[];
+      items = legacyMenuItems.map((item: any) => {
+        const quantity = Number(item.quantity ?? 1) || 1;
+        const unitPrice = Number(item.unit_price ?? item.price ?? 0) || 0;
+        const lineTotal =
+          item.total != null ? Number(item.total) : quantity * unitPrice;
+        return {
+          description: item.name || item.description || "Item",
+          quantity,
+          unitPrice,
+          total: lineTotal,
+        };
+      });
+    }
+
+    // Surface delivery + waiter charges as their own line items so
+    // the client can see the breakdown that built the total. They're
+    // already rolled into orders.subtotal at confirmation time, so we
+    // skip adding them again to the maths -- this is a presentation
+    // step, not a totals adjustment.
+    const deliveryFee = Number(orderData.delivery_fee || 0);
+    if (deliveryFee > 0) {
+      items.push({
+        description: orderData.delivery_distance_km
+          ? `Delivery (${Number(orderData.delivery_distance_km).toFixed(1)} km)`
+          : "Delivery",
+        quantity: 1,
+        unitPrice: deliveryFee,
+        total: deliveryFee,
+      });
+    }
+    const waiterFee = Number(orderData.waiter_total_fee || 0);
+    if (waiterFee > 0) {
+      items.push({
+        description: orderData.waiter_duration_hours
+          ? `Waiter service (${Number(orderData.waiter_duration_hours).toFixed(1)} hrs)`
+          : "Waiter service",
+        quantity: 1,
+        unitPrice: waiterFee,
+        total: waiterFee,
+      });
+    }
+
+    // Prefer the order's stored subtotal so the invoice agrees with
+    // the figure the client signed off on the quote. Fall back to
+    // summing the line items if the order row has no subtotal yet
+    // (legacy / partial data).
+    const computedSubtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const storedSubtotal = Number(orderData.subtotal || 0);
+    const subtotal =
+      storedSubtotal > 0 ? storedSubtotal : computedSubtotal;
     // Resolve VAT through the branch settings resolver so a JHB order
     // honours JHB's vat_rate override instead of falling back to head
     // office. Async fetch happens up front so the rest of the function

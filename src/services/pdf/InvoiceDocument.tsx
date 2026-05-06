@@ -241,60 +241,47 @@ const buildStyles = (primary: string) =>
       lineHeight: 1.4,
     },
 
-    table: {
-      borderWidth: 1,
-      borderColor: "#e7e5e4",
-      borderRadius: 6,
-      marginBottom: 10,
-      overflow: "hidden",
-    },
-    tableHeader: {
+    // Line rows mirror QuoteDocument so a quote and the matching
+    // invoice read like the same family of documents. Wrapped in the
+    // shared card style with a brand-primary section label.
+    lineRow: {
       flexDirection: "row",
-      backgroundColor: `${primary}1A`,
-      paddingVertical: 6,
-      paddingHorizontal: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: "#e7e5e4",
-    },
-    tableHeaderCell: {
-      fontSize: 8,
-      letterSpacing: 1,
-      color: primary,
-      fontFamily: "Helvetica-Bold",
-      textTransform: "uppercase",
-    },
-    tableRow: {
-      flexDirection: "row",
-      paddingVertical: 6,
-      paddingHorizontal: 10,
+      justifyContent: "space-between",
+      paddingVertical: 5,
       borderBottomWidth: 1,
       borderBottomColor: "#f5f5f4",
     },
-    tableRowLast: {
+    lineRowLast: {
       borderBottomWidth: 0,
     },
-    colDescription: {
-      flex: 3,
-      paddingRight: 6,
+    lineLeft: {
+      flex: 1,
+      paddingRight: 8,
     },
-    colQty: {
-      flex: 0.7,
-      textAlign: "right",
-      paddingRight: 6,
+    lineName: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: "#1c1917",
     },
-    colUnit: {
-      flex: 1.2,
-      textAlign: "right",
-      paddingRight: 6,
+    lineDescription: {
+      fontSize: 8,
+      color: "#78716c",
+      marginTop: 1,
     },
-    colTotal: {
-      flex: 1.2,
-      textAlign: "right",
+    lineSub: {
+      fontSize: 8,
+      color: "#78716c",
+      marginTop: 1,
+    },
+    lineTotal: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: "#1c1917",
     },
 
+    // Full-width totals card matches QuoteDocument so the totals
+    // section shares the same visual weight across both documents.
     totalsBlock: {
-      marginLeft: "auto",
-      width: "55%",
       borderWidth: 1,
       borderColor: "#e7e5e4",
       borderRadius: 6,
@@ -497,48 +484,42 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* LINE ITEMS TABLE */}
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.colDescription]}>
-              Description
-            </Text>
-            <Text style={[styles.tableHeaderCell, styles.colQty]}>Qty</Text>
-            <Text style={[styles.tableHeaderCell, styles.colUnit]}>Unit</Text>
-            <Text style={[styles.tableHeaderCell, styles.colTotal]}>Total</Text>
-          </View>
-          {lineItems.map((row, i) => {
-            const qty = Number(row?.quantity || 1);
-            const unit = Number(row?.unit_price || 0);
-            const lineTotal = Number(
-              row?.total != null ? row.total : qty * unit,
-            );
-            const isLast = i === lineItems.length - 1;
-            return (
-              <View
-                key={`row-${i}`}
-                style={[styles.tableRow, isLast ? styles.tableRowLast : {}]}
-                wrap={false}
-              >
-                <View style={styles.colDescription}>
-                  <Text style={styles.bodyText}>
-                    {row?.name || `Item ${i + 1}`}
-                  </Text>
-                  {row?.description ? (
-                    <Text style={styles.smallText}>{row.description}</Text>
-                  ) : null}
+        {/* LINE ITEMS -- mirrors QuoteDocument's "From the kitchen" block */}
+        {lineItems.length > 0 ? (
+          <View style={[styles.column, { marginBottom: 10 }]}>
+            <Text style={styles.sectionLabel}>From the kitchen</Text>
+            {lineItems.map((row, i) => {
+              const qty = Number(row?.quantity || 1);
+              const unit = Number(row?.unit_price || 0);
+              const lineTotal = Number(
+                row?.total != null ? row.total : qty * unit,
+              );
+              const isLast = i === lineItems.length - 1;
+              return (
+                <View
+                  key={`row-${i}`}
+                  style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
+                  wrap={false}
+                >
+                  <View style={styles.lineLeft}>
+                    <Text style={styles.lineName}>
+                      {row?.name || `Item ${i + 1}`}
+                    </Text>
+                    {row?.description ? (
+                      <Text style={styles.lineDescription}>{row.description}</Text>
+                    ) : null}
+                    {qty > 1 ? (
+                      <Text style={styles.lineSub}>
+                        {qty} x {fmtZAR(unit)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
                 </View>
-                <Text style={[styles.bodyText, styles.colQty]}>{qty}</Text>
-                <Text style={[styles.bodyText, styles.colUnit]}>
-                  {fmtZAR(unit)}
-                </Text>
-                <Text style={[styles.bodyText, styles.colTotal]}>
-                  {fmtZAR(lineTotal)}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        ) : null}
 
         {/* TOTALS */}
         <View style={styles.totalsBlock} wrap={false}>
