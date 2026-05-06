@@ -354,7 +354,11 @@ export const kitchenPrepService = {
    * so a re-run after an event time change doesn't double up. Done /
    * skipped tasks are preserved (history is sacred).
    */
-  async ensurePrepTasksForOrder(companyId: string, orderId: string, performedBy?: string): Promise<{ created: number }> {
+  async ensurePrepTasksForOrder(companyId: string, orderId: string, performedBy?: string, client?: typeof supabase): Promise<{ created: number }> {
+    // Server-safe injection. Browser callers pass nothing and get the
+    // global anon client (RLS-gated). Server callers (post-order
+    // cascade, leads route) inject a service-role client.
+    const sb: any = client || supabase;
     const settings = await this.getKitchenSettings(companyId);
     if (!settings.autoGeneratePrepTasks) return { created: 0 };
 
@@ -362,7 +366,7 @@ export const kitchenPrepService = {
     // system at onboarding time) must not spin up kitchen prep tasks
     // -- the events already happened. We check the order row itself
     // for imported_at / comms_paused_until before planning anything.
-    const { data: orderMeta } = await (supabase as any)
+    const { data: orderMeta } = await sb
       .from("orders")
       .select("imported_at, comms_paused_until, event_date")
       .eq("id", orderId)
@@ -383,16 +387,27 @@ export const kitchenPrepService = {
       }
     }
 
-    const planned = await this.planTasksForOrder(companyId, orderId);
-    if (planned.length === 0) return { created: 0 };
-
-    // Soft-delete pending / in_progress tasks for this order before inserting fresh ones
-    await supabase
+    // Idempotency gate. The audit found that re-running this helper
+    // would soft-delete + re-insert prep tasks, so a retry on a
+    // partially-failed cascade would double-fire. Smallest fix: bail
+    // when there are already pending/in_progress tasks for this order.
+    // The original "regen on event-time change" path is now an
+    // explicit caller responsibility -- callers that need a fresh
+    // plan should soft-delete first, then call this method.
+    const { data: existing } = await sb
       .from("kitchen_prep_tasks")
-      .update({ deleted_at: new Date().toISOString() })
+      .select("id")
       .eq("order_id", orderId)
       .in("status", ["pending", "in_progress"])
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      console.log(`[kitchenPrep] order ${orderId} already has pending tasks -- skipping regen`);
+      return { created: 0 };
+    }
+
+    const planned = await this.planTasksForOrder(companyId, orderId);
+    if (planned.length === 0) return { created: 0 };
 
     // Phase 2: load stations once and auto-assign each task to the right one.
     // Defaults from the migration mean every tenant has Prep / Cook / Cold /
@@ -413,7 +428,7 @@ export const kitchenPrepService = {
       station_id: this.pickStationForTask(stations, t.task_type),
     }));
 
-    const { error } = await supabase.from("kitchen_prep_tasks").insert(rows);
+    const { error } = await sb.from("kitchen_prep_tasks").insert(rows);
     if (error) {
       console.error("Error inserting prep tasks:", error);
       return { created: 0 };

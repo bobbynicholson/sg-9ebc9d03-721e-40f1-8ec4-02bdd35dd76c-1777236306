@@ -541,122 +541,73 @@ export const quoteService = {
     // array depending on the PostgREST version -- normalise here.
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
 
-    // ── Step 2: Auto-invoice ────────────────────────────────────────
-    // The order was just inserted with status='confirmed' so
-    // updateOrderStatus's hook never fired -- trigger explicitly here.
-    // Non-blocking: a failure here doesn't undo the acceptance, but
-    // the receipt tells the operator what happened so they can
-    // generate the invoice manually.
-    let invoiceReceipt: { ok: boolean; number?: string | null; amount?: number | null; error?: string } =
-      { ok: false, error: "Invoice step did not run" };
-    try {
-      const { ensureInvoiceForOrder } = await import("./invoiceGenerationService");
-      const inv = await ensureInvoiceForOrder(newOrder.id, newOrder.company_id);
-      if (inv.success && (inv as any).invoiceId) {
-        // Fetch the friendly invoice number + amount so the toast can
-        // surface them. ensureInvoiceForOrder only returns the id.
-        const { data: row } = await supabase
+    // ── Steps 2-4: Server-safe cascade ─────────────────────────────
+    // The audit consolidated invoice / email / kitchen-prep into one
+    // helper so server callers (leads convert-to-order, future
+    // webhooks) get the same side effects without re-implementing
+    // each branch. Browser callers pass the existing supabase client
+    // through; the helper internally falls back to the global anon
+    // client when nothing is injected.
+    const { postOrderCreationCascade } = await import("./order/postCreationCascade");
+    const cascade = await postOrderCreationCascade(
+      supabase as any,
+      newOrder.id,
+      newOrder.company_id,
+      quote.user_id ?? null,
+      {},
+    );
+
+    // Map the cascade receipt onto the legacy shape that callers
+    // (admin/quotes/[id], rebook flows) already read.
+    let invoiceReceipt: { ok: boolean; number?: string | null; amount?: number | null; error?: string };
+    if (cascade.invoice.ok && cascade.invoice.invoiceId) {
+      // Fetch the friendly invoice number + amount so the toast can
+      // surface them. ensureInvoiceForOrder only returns the id.
+      const { data: row } = await supabase
+        .from("invoices")
+        .select("invoice_number, total_amount")
+        .eq("id", cascade.invoice.invoiceId)
+        .maybeSingle();
+      // If the operator captured a deposit, stamp the invoice paid
+      // (or partially paid) so the invoice record matches the order
+      // and the public payment page doesn't ask the client to pay
+      // what they already paid.
+      if (options?.depositPaid && options.depositPaid.amount > 0 && row) {
+        const total = Number((row as any).total_amount) || 0;
+        const paid = Number(options.depositPaid.amount);
+        const balance = Math.max(0, total - paid);
+        await (supabase as any)
           .from("invoices")
-          .select("invoice_number, total_amount")
-          .eq("id", (inv as any).invoiceId)
-          .maybeSingle();
-        // If the operator captured a deposit, stamp the invoice paid
-        // (or partially paid) so the invoice record matches the order
-        // and the public payment page doesn't ask the client to pay
-        // what they already paid.
-        if (options?.depositPaid && options.depositPaid.amount > 0 && row) {
-          const total = Number((row as any).total_amount) || 0;
-          const paid = Number(options.depositPaid.amount);
-          const balance = Math.max(0, total - paid);
-          await (supabase as any)
-            .from("invoices")
-            .update({
-              amount_paid: paid,
-              balance_due: balance,
-              paid_at: balance < 0.01 ? new Date().toISOString() : null,
-              status: balance < 0.01 ? "paid" : "sent",
-            })
-            .eq("id", (inv as any).invoiceId);
-        }
-        invoiceReceipt = {
-          ok: true,
-          number: (row as any)?.invoice_number || null,
-          amount: (row as any)?.total_amount ?? null,
-        };
-      } else if (inv.success && (inv as any).skipped) {
-        // Imported / quarantined orders intentionally skip invoicing.
-        invoiceReceipt = { ok: true, error: `Skipped: ${(inv as any).skipped}` };
-      } else {
-        invoiceReceipt = { ok: false, error: (inv as any).error || "Invoice generation returned failure" };
-        console.warn("[quoteService] auto-invoice on convert failed:", invoiceReceipt.error);
-      }
-    } catch (e: any) {
-      invoiceReceipt = { ok: false, error: e?.message || "Invoice generation crashed" };
-      console.warn("[quoteService] auto-invoice on convert crashed (non-blocking):", e);
-    }
-
-    // ── Step 3: Confirmation email ─────────────────────────────────
-    let emailReceipt: { sent: boolean; skipped: boolean; reason?: string } =
-      { sent: false, skipped: true, reason: "not_attempted" };
-    if (!quote.client_email) {
-      emailReceipt = { sent: false, skipped: true, reason: "no_client_email" };
-    } else {
-      try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, company_name")
-          .eq("id", quote.user_id)
-          .single();
-        const companyName = profile?.company_name || profile?.full_name || "Your Catering Company";
-
-        const res = await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            // Bug fix: was passing quote.user_id which is the
-            // operator's auth user id, not the tenant id. The
-            // /api/send-email guard then refused with "Cannot
-            // send email for another company" because the
-            // caller's profile.company_id never matches a user_id.
-            companyId: (quote as any).company_id,
-            to: quote.client_email,
-            subject: `Order Confirmed - #${newOrder.order_number}`,
-            template: 'order-confirmation',
-            variables: {
-              clientName: quote.client_name,
-              orderNumber: newOrder.order_number || newOrder.id,
-              eventDate: quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "TBD",
-              totalAmount: `${quote.currency || "ZAR"} ${(quote.total ?? 0).toFixed(2)}`,
-              companyName,
-            }
+          .update({
+            amount_paid: paid,
+            balance_due: balance,
+            paid_at: balance < 0.01 ? new Date().toISOString() : null,
+            status: balance < 0.01 ? "paid" : "sent",
           })
-        });
-        if (res.ok) {
-          emailReceipt = { sent: true, skipped: false };
-        } else {
-          const errBody = await res.json().catch(() => ({}));
-          emailReceipt = { sent: false, skipped: false, reason: errBody?.error || `HTTP ${res.status}` };
-        }
-      } catch (emailError: any) {
-        emailReceipt = { sent: false, skipped: false, reason: emailError?.message || "send-email crashed" };
-        console.error("⚠️ Failed to send order confirmation email (non-blocking):", emailError);
+          .eq("id", cascade.invoice.invoiceId);
       }
+      invoiceReceipt = {
+        ok: true,
+        number: (row as any)?.invoice_number || null,
+        amount: (row as any)?.total_amount ?? null,
+      };
+    } else if (cascade.invoice.ok && (cascade.invoice as any).skipped) {
+      invoiceReceipt = { ok: true, error: `Skipped: ${(cascade.invoice as any).skipped}` };
+    } else {
+      invoiceReceipt = { ok: false, error: cascade.invoice.reason || "Invoice generation returned failure" };
     }
 
-    // ── Step 4: Kitchen prep tasks ─────────────────────────────────
-    // The kitchen flywheel auto-plans prep + cook tasks for the new
-    // order based on its recipes. Skipped automatically for past-date
-    // or imported orders (handled inside ensurePrepTasksForOrder).
-    let kitchenReceipt: { ok: boolean; tasksCreated: number; reason?: string } =
-      { ok: false, tasksCreated: 0, reason: "not_attempted" };
-    try {
-      const { kitchenPrepService } = await import("./kitchenPrepService");
-      const result = await kitchenPrepService.ensurePrepTasksForOrder(newOrder.company_id, newOrder.id);
-      kitchenReceipt = { ok: true, tasksCreated: result.created };
-    } catch (kpErr: any) {
-      kitchenReceipt = { ok: false, tasksCreated: 0, reason: kpErr?.message || "kitchen prep crashed" };
-      console.warn("[quoteService] kitchen prep regen on convert failed (non-blocking):", kpErr);
-    }
+    const emailReceipt: { sent: boolean; skipped: boolean; reason?: string } = {
+      sent: !!cascade.email.ok && !cascade.email.skipped,
+      skipped: !!cascade.email.skipped,
+      reason: cascade.email.reason,
+    };
+
+    const kitchenReceipt: { ok: boolean; tasksCreated: number; reason?: string } = {
+      ok: cascade.kitchen.ok,
+      tasksCreated: cascade.kitchen.tasksCreated ?? 0,
+      reason: cascade.kitchen.reason,
+    };
 
     // Transform to fix type issues before returning
     const finalOrder = {

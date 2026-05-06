@@ -30,6 +30,25 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { lifecycleService } from "@/services/lifecycleService";
+import { postOrderCreationCascade } from "@/services/order/postCreationCascade";
+
+/**
+ * Build an absolute origin from an incoming Next.js API request.
+ * Vercel sets x-forwarded-proto + host on every request; in local
+ * dev we fall back to req.headers.host with http://. Used as the
+ * cascade origin so confirmation emails resolve links against the
+ * environment that actually fielded the request, not whatever
+ * NEXT_PUBLIC_SITE_URL was at build time.
+ */
+function getOrigin(req: NextApiRequest): string {
+  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL || "";
+  if (fromEnv) return fromEnv.startsWith("http") ? fromEnv : `https://${fromEnv}`;
+  const host = (req.headers["x-forwarded-host"] || req.headers.host || "") as string;
+  const proto = (req.headers["x-forwarded-proto"] || "https") as string;
+  if (!host) return "";
+  return `${proto}://${host}`;
+}
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -127,11 +146,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq("id", (alreadyConverted as any).converted_to_order_id)
         .maybeSingle();
       if (existingOrder) {
+        // Re-run the cascade on already-converted leads. Each step is
+        // idempotent (invoice short-circuits on existing row; email
+        // logs to email_automation_log; kitchen prep bails when
+        // pending tasks already exist) so this is safe and recovers
+        // any partial failure from the original conversion.
+        const retryCascade = await postOrderCreationCascade(
+          svc as any,
+          (existingOrder as any).id,
+          (lead as any).company_id,
+          user.id,
+          { origin: getOrigin(req) },
+        );
         return res.status(200).json({
           ok: true,
           already_converted: true,
           order_id: (existingOrder as any).id,
           order_number: (existingOrder as any).order_number || null,
+          cascade: retryCascade,
         });
       }
     }
@@ -162,55 +194,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const q = fullQuote as any;
 
-    // 4. Resolve the client. Three branches:
-    //    a) Quote already has client_id -- use it.
-    //    b) Lead has converted_to_client_id -- use it (and stamp it
-    //       onto the quote so future flows are clean).
-    //    c) Neither -- promote the lead to a client now.
+    // 4. Resolve the client. Delegated to lifecycleService so the
+    // promotion path matches what quoteService.convertQuoteToOrder
+    // does -- the audit flagged that this route was re-implementing
+    // the same logic inline. The service also stamps
+    // leads.converted_to_client_id + audit-logs the promotion, so
+    // the explicit lead stamp at the end of this route is now a
+    // no-op safety net rather than the only stamp path.
     let resolvedClientId: string | null = q.client_id || (lead as any).converted_to_client_id || null;
-
     if (!resolvedClientId) {
-      // Try to match an existing client on (company_id, email).
-      const leadEmail = (lead as any).email || (lead as any).client_email;
-      const leadName =
-        (lead as any).contact_name || (lead as any).client_name || leadEmail || "Client";
-      let clientRowId: string | null = null;
-      if (leadEmail) {
-        const { data: existing } = await svc
-          .from("clients")
-          .select("id")
-          .eq("company_id", (lead as any).company_id)
-          .eq("email", leadEmail)
-          .is("deleted_at", null)
-          .maybeSingle();
-        if ((existing as any)?.id) {
-          clientRowId = (existing as any).id as string;
-        }
+      try {
+        resolvedClientId = await lifecycleService.resolveQuoteClientId(
+          { id: q.id, client_id: q.client_id || null, lead_id: leadId },
+          { client: svc as any },
+        );
+      } catch (resolveErr: any) {
+        console.error("[leads/convert-to-order] client resolution failed:", resolveErr);
+        return res.status(500).json({
+          error: resolveErr?.message || "Could not resolve a client for this lead",
+        });
       }
-      if (!clientRowId) {
-        const { data: newClient, error: clientErr } = await svc
-          .from("clients")
-          .insert({
-            company_id: (lead as any).company_id,
-            region_id: (lead as any).region_id ?? null,
-            client_name: leadName,
-            email: leadEmail,
-            phone: (lead as any).phone || (lead as any).client_phone || "",
-            tags: (lead as any).tags ?? null,
-            notes: (lead as any).notes ?? null,
-            is_active: true,
-          } as any)
-          .select("id")
-          .single();
-        if (clientErr || !newClient) {
-          console.error("[leads/convert-to-order] client create failed:", clientErr);
-          return res.status(500).json({
-            error: clientErr?.message || "Could not create client for lead",
-          });
-        }
-        clientRowId = (newClient as any).id;
-      }
-      resolvedClientId = clientRowId;
     }
 
     // 5. Build the orders payload. Mirrors quoteService.convertQuoteToOrder
@@ -305,8 +308,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.warn("[leads/convert-to-order] audit insert failed:", e);
     }
 
+    // 9. Post-creation cascade. Mirrors what quoteService.convertQuoteToOrder
+    // runs in the browser path: auto-invoice, confirmation email,
+    // kitchen prep tasks. Service-role client + req-derived origin so
+    // the email links resolve and RLS doesn't block any of the side-
+    // effect writes. Cascade never throws -- the receipt records each
+    // step's outcome and is forwarded to the caller.
+    const cascade = await postOrderCreationCascade(
+      svc as any,
+      newOrder.id,
+      (lead as any).company_id,
+      user.id,
+      { origin: getOrigin(req) },
+    );
+
     return res.status(200).json({
       ok: true,
+      cascade,
       order_id: newOrder.id,
       order_number: newOrder.order_number || null,
     });

@@ -1,10 +1,24 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PayFastService } from "@/lib/payfastService";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+
+// Server-safe client injection. Browser callers pass nothing and get
+// the global anon-key client (RLS-gated). Server callers (the
+// post-order cascade, leads route, future webhooks) inject a
+// service-role client so the same code can run without a user
+// session. Every supabase call inside this module reads from the
+// resolved client below.
+type SupabaseLike = typeof defaultSupabase;
+const resolveClient = (c?: SupabaseLike): SupabaseLike => (c || defaultSupabase);
+
+// Module-scope alias for the original `supabase` symbol so functions
+// that haven't been refactored to accept an injected client (e.g.
+// generateInvoicePaymentLink) keep working unchanged.
+const supabase = defaultSupabase;
 
 /**
  * Invoice Generation Service
@@ -88,8 +102,10 @@ interface AccountingSyncOptions {
  */
 export async function generateInvoiceData(
   orderId: string,
-  companyId: string
+  companyId: string,
+  client?: SupabaseLike,
 ): Promise<{ success: boolean; data?: InvoiceData; error?: string }> {
+  const supabase = resolveClient(client);
   try {
     // 1. Fetch order details
     const { data: order, error: orderError } = await supabase
@@ -125,7 +141,7 @@ export async function generateInvoiceData(
     }
 
     // 3. Get or create invoice number
-    const invoiceNumber = await getNextInvoiceNumber(companyId);
+    const invoiceNumber = await getNextInvoiceNumber(companyId, supabase);
 
     // 4. Calculate financial details
     const orderData = order as any;
@@ -344,7 +360,8 @@ export async function generateInvoiceData(
  * defaults on first call. Falls back to a timestamp-based number
  * only if the RPC fails outright -- never blocks invoice creation.
  */
-async function getNextInvoiceNumber(companyId: string): Promise<string> {
+async function getNextInvoiceNumber(companyId: string, client?: SupabaseLike): Promise<string> {
+  const supabase = resolveClient(client);
   const { data, error } = await (supabase as any).rpc("consume_next_document_number", {
     p_company_id: companyId,
     p_document_type: "invoice",
@@ -362,8 +379,10 @@ async function getNextInvoiceNumber(companyId: string): Promise<string> {
 export async function createInvoiceRecord(
   invoiceData: InvoiceData,
   orderId: string,
-  companyId: string
+  companyId: string,
+  client?: SupabaseLike,
 ): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
+  const supabase = resolveClient(client);
   try {
     const { data: order } = await supabase.from("orders").select("client_id").eq("id", orderId).single();
 
@@ -411,7 +430,10 @@ export async function createInvoiceRecord(
 export async function ensureInvoiceForOrder(
   orderId: string,
   companyId: string,
+  client?: SupabaseLike,
+  opts?: { origin?: string },
 ): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
+  const supabase = resolveClient(client);
   try {
     // 1. Skip if there's already a live invoice for this order.
     const { data: existing } = await supabase
@@ -441,11 +463,11 @@ export async function ensureInvoiceForOrder(
     }
 
     // 3. Build + persist.
-    const built = await generateInvoiceData(orderId, companyId);
+    const built = await generateInvoiceData(orderId, companyId, supabase);
     if (!built.success || !built.data) {
       return { success: false, error: built.error || "Could not build invoice data" };
     }
-    const created = await createInvoiceRecord(built.data, orderId, companyId);
+    const created = await createInvoiceRecord(built.data, orderId, companyId, supabase);
     if (!created.success) {
       return { success: false, error: created.error };
     }
@@ -486,7 +508,7 @@ export async function ensureInvoiceForOrder(
     // notification with a deep-link to the billing page. Fire-and-
     // forget: a bad email config must never undo the invoice.
     if (created.invoiceId) {
-      void notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data);
+      void notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data, supabase, opts?.origin);
     }
 
     return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
@@ -510,7 +532,10 @@ async function notifyClientOfInvoiceIssued(
   companyId: string,
   invoiceId: string,
   invoiceData: InvoiceData,
+  client?: SupabaseLike,
+  originOverride?: string,
 ): Promise<void> {
+  const supabase = resolveClient(client);
   try {
     // Idempotency gate. One client notification per invoice.
     const { data: existing } = await supabase
@@ -571,7 +596,15 @@ async function notifyClientOfInvoiceIssued(
     try {
       const recipient = invoiceData.clientEmail || (order as any)?.client_email || null;
       if (recipient) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+        // Origin priority: explicit caller override (server context can
+        // pass req-derived host) -> NEXT_PUBLIC_APP_URL -> NEXT_PUBLIC_SITE_URL
+        // -> empty (relative link). Browser callers leave originOverride
+        // unset so existing behaviour is unchanged.
+        const baseUrl =
+          originOverride ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          "";
         const origin = baseUrl.startsWith("http") ? baseUrl : (baseUrl ? `https://${baseUrl}` : "");
         const fullLink = origin ? `${origin}${portalLink}` : portalLink;
 
@@ -582,7 +615,7 @@ async function notifyClientOfInvoiceIssued(
         // email; the recipient still gets the link to the billing page.
         const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
         try {
-          const pdfAttachment = await renderInvoicePdfAttachment(invoiceId, companyId, invoiceData);
+          const pdfAttachment = await renderInvoicePdfAttachment(invoiceId, companyId, invoiceData, supabase);
           if (pdfAttachment) {
             attachments.push(pdfAttachment);
           }
@@ -633,7 +666,12 @@ async function notifyClientOfInvoiceIssued(
           subject: resolved.subject,
           body: resolved.bodyHtml,
           ...(attachments.length > 0 ? { attachments } : {}),
-        });
+          // Forward the injected client so emailService can read
+          // email_settings + write email_automation_log under the
+          // same auth context (service-role from server callers,
+          // anon from browser callers).
+          _client: supabase,
+        } as any);
       }
     } catch (e) {
       console.warn("[notifyClientOfInvoiceIssued] email failed:", e);
@@ -661,7 +699,9 @@ async function renderInvoicePdfAttachment(
   invoiceId: string,
   companyId: string,
   fallbackData: InvoiceData,
+  injectedClient?: SupabaseLike,
 ): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
+  const supabase = resolveClient(injectedClient);
   const { data: invRow } = await supabase
     .from("invoices")
     .select(`
