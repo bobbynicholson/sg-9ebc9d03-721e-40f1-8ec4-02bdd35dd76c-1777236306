@@ -37,6 +37,7 @@ import { quoteService } from "@/services/quoteService";
 import { Quote } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
@@ -77,6 +78,20 @@ export default function AdminQuoteDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Send-dialog state. Mirrors the list-page pattern: clicking "Save &
+  // Send" no longer fires the email immediately. We save the latest
+  // pricing as a draft, then open the review-before-send composer so
+  // the operator can read + edit the resolved template, then click
+  // Send inside the dialog. Avoids the legacy save-and-fire coupling
+  // where a status flip to 'sent' through quoteService.updateQuote
+  // triggered _fireQuoteSentEmail behind the scenes with no preview.
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [tenantName, setTenantName] = useState<string | null>(null);
+  const companyId =
+    ((user as any)?.user_metadata?.company_id as string | undefined) ||
+    ((user as any)?.company_id as string | undefined) ||
+    null;
 
   // Pricing editor state -- only used when the quote is in 'draft'.
   const [items, setItems] = useState<MenuItemRow[]>([]);
@@ -132,6 +147,23 @@ export default function AdminQuoteDetail() {
     })();
     return () => { cancelled = true; };
   }, [id]);
+
+  // Lazy-load tenant company name for the send dialog so the resolved
+  // email body says "Spit Braai Delivery" rather than the generic
+  // fallback. One read per page visit, cancellable.
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("company_name")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled && data?.company_name) setTenantName(data.company_name);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   // Load change requests once the quote id is known. Fetches everything
   // (pending + addressed + dismissed) so the operator has the full
@@ -296,6 +328,14 @@ export default function AdminQuoteDetail() {
     }
   };
 
+  // "Save & Send" -- two-stage. Stage 1: persist the latest pricing as
+  // a draft (no status change, so quoteService.updateQuote does NOT
+  // fire _fireQuoteSentEmail). Stage 2: open QuoteSendDialog. The
+  // dialog hits /api/send-email with the resolved template + the
+  // operator's edits, then stamps sent_at + status='sent' itself on
+  // a confirmed successful delivery. Old behaviour fired the email
+  // the moment the operator clicked Save & Send, with no preview and
+  // no chance to fix a typo.
   const handleSend = async () => {
     if (!quote || !id || typeof id !== "string") return;
     if (!quote.client_email) {
@@ -316,25 +356,17 @@ export default function AdminQuoteDetail() {
     }
     setSending(true);
     try {
-      // Persist the latest pricing AND flip status -> sent in one shot
-      // through quoteService.updateQuote so the draft->sent transition
-      // fires the client email automatically. Bypassing the service
-      // here used to skip the email send -- the audit caught that.
-      const updated = await quoteService.updateQuote(id, {
-        ...(buildPayload() as Partial<Quote>),
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      });
+      // Save the latest pricing as a draft. NO status change -- the
+      // dialog flips status='sent' after the email actually goes out.
+      const updated = await quoteService.updateQuote(id, buildPayload() as Partial<Quote>);
       if (!updated) throw new Error("Quote update returned no row");
       const refreshed = await quoteService.getQuote(id);
       setQuote(refreshed);
-      toast({
-        title: "Quote sent",
-        description: `Email queued to ${quote.client_email}.`,
-      });
+      // Hand off to the review-before-send composer.
+      setSendDialogOpen(true);
     } catch (e: any) {
       toast({
-        title: "Could not send",
+        title: "Could not save",
         description: e?.message || "Try again, or save the draft and retry.",
         variant: "destructive",
       });
@@ -947,6 +979,36 @@ export default function AdminQuoteDetail() {
 
         <Footer />
       </div>
+
+      {/* Review-before-send composer. Same dialog the list-page Send
+          button uses. onSent refreshes the local quote so the UI
+          immediately reflects status='sent' + the new sent_at. */}
+      {companyId && quote && (
+        <QuoteSendDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          companyId={companyId}
+          tenantName={tenantName}
+          quote={{
+            id: quote.id,
+            quote_number: (quote as any).quote_number ?? null,
+            client_name: quote.client_name ?? null,
+            client_email: quote.client_email ?? null,
+            total: computed.total,
+            total_amount: computed.total,
+            currency: (quote as any).currency ?? "ZAR",
+            event_name: (quote as any).event_name ?? null,
+            quote_name: (quote as any).quote_name ?? null,
+            user_id: (quote as any).user_id ?? null,
+          }}
+          onSent={async () => {
+            if (typeof id === "string") {
+              const refreshed = await quoteService.getQuote(id);
+              setQuote(refreshed);
+            }
+          }}
+        />
+      )}
     </>
   );
 }
