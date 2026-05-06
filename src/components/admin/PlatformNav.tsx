@@ -50,6 +50,7 @@ import { signOutAndRedirect } from "@/lib/signOut";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
+import { buildIsActive } from "@/lib/navActiveMatcher";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -357,8 +358,21 @@ export function PlatformNav({ className }: PlatformNavProps) {
     await signOutAndRedirect(profile);
   };
 
-  const isActive = (href: string) =>
-    router.pathname === href || router.asPath === href;
+  // Path-vs-href matcher with sub-path matching ("/" boundary so
+  // /admin/platform/cms-pages doesn't match /admin/platform/cms-blog),
+  // query-param disambiguation, and longest-match resolution.
+  // PlatformNav links are global super-admin paths -- never tenant-
+  // slug-prefixed -- so withSlug is identity. The list includes
+  // "/admin/dashboard" because the switch-to-tenant button uses
+  // isActive on that path. See navActiveMatcher.ts.
+  const allHrefs = [
+    ...NAV.flatMap((s) => s.items.map((i) => i.href)),
+    "/admin/dashboard",
+  ];
+  const isActive = buildIsActive(allHrefs, {
+    router,
+    withSlug: (h: string) => h,
+  });
 
   // -------------------------------------------------------------------------
   // Sign-out button

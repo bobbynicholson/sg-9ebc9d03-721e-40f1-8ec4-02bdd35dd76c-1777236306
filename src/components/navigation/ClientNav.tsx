@@ -22,6 +22,7 @@ import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/Mob
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
+import { buildIsActive } from "@/lib/navActiveMatcher";
 
 interface ClientNavItem {
   name: string;
@@ -121,11 +122,14 @@ export function ClientNav() {
     }
   ];
 
-  // Active-state check has to compare the slug-prefixed form too --
-  // router.pathname is the underlying file path (/client-portal/*) but
-  // router.asPath is the URL the user sees (/{slug}/client-portal/*).
-  const isActive = (path: string) =>
-    router.pathname === path || router.asPath.startsWith(withSlug(path));
+  // Active-state check with sub-path matching ("/" boundary so
+  // /client-portal/quotes does not light up /client-portal/quotes-archive),
+  // query-param disambiguation, and longest-match resolution. The
+  // earlier `asPath.startsWith(withSlug(path))` matcher was prone to
+  // partial-prefix collisions and didn't pick the most-specific entry
+  // when a sub-route was open. See navActiveMatcher.ts.
+  const allHrefs = clientNavSections.flatMap((s) => s.items.map((i) => i.href));
+  const isActive = buildIsActive(allHrefs, { router, withSlug });
 
   const handleSignOut = async () => {
     await signOutAndRedirect(profile);

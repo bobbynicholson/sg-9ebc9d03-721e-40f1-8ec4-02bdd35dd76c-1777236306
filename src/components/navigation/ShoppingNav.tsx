@@ -29,6 +29,7 @@ import { SignOutButton } from "@/components/navigation/SignOutButton";
 import { useCloseOnDesktop, useSyncSidebarCollapsed } from "@/lib/useCloseOnDesktop";
 import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/MobileDrawerExtras";
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
+import { buildIsActive } from "@/lib/navActiveMatcher";
 
 interface NavItem {
   title: string;
@@ -164,12 +165,11 @@ export function ShoppingNav({ className, companySlug }: ShoppingNavProps) {
     }
   ];
 
-  const isActive = (href: string) => {
-    if (router.pathname === href) return true;
-    if (router.asPath === href) return true;
-    if (router.asPath === withSlug(href)) return true;
-    return false;
-  };
+  // Path-vs-href matcher with slug-prefix awareness, sub-path
+  // matching ("/" boundary), query-param disambiguation, and
+  // longest-match resolution. See navActiveMatcher.ts.
+  const allHrefs = shoppingNavSections.flatMap((s) => s.items.map((i) => i.href));
+  const isActive = buildIsActive(allHrefs, { router, withSlug });
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("shopping-nav");
 

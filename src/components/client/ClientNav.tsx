@@ -18,6 +18,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildIsActive } from "@/lib/navActiveMatcher";
 
 interface NavItem {
   title: string;
@@ -100,9 +101,15 @@ export function ClientNav({ className }: ClientNavProps) {
   const [open, setOpen] = useState(false);
   useCloseOnDesktop(open, setOpen);
 
-  const isActive = (href: string) => {
-    return router.pathname === href;
-  };
+  // Path-vs-href matcher with sub-path matching ("/" boundary),
+  // query-param disambiguation, and longest-match resolution. This
+  // older client nav has no tenant slug awareness (paths are global)
+  // so withSlug is identity. See navActiveMatcher.ts.
+  const allHrefs = clientNavSections.flatMap((s) => s.items.map((i) => i.href));
+  const isActive = buildIsActive(allHrefs, {
+    router,
+    withSlug: (h: string) => h,
+  });
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>("client-nav");
 
