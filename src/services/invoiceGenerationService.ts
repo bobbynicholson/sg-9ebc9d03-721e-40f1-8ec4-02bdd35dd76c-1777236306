@@ -574,6 +574,11 @@ async function notifyClientOfInvoiceIssued(
     try {
       const clientAuthUid = await resolveClientUserId(supabase, (order as any)?.client_id || null);
       if (clientAuthUid) {
+        // Pass `supabase` (the resolved client -- could be browser anon
+        // or service-role depending on caller context) so the bell row
+        // inserts under the right auth surface. Without this, server-
+        // context cascades silently dropped the in-app push because the
+        // global anon client had no session.
         await notificationService.createNotification({
           company_id: companyId,
           recipient_id: clientAuthUid,
@@ -585,7 +590,7 @@ async function notifyClientOfInvoiceIssued(
           link: portalLink,
           related_entity_type: "invoice",
           related_entity_id: invoiceId,
-        });
+        }, supabase);
       }
     } catch (e) {
       console.warn("[notifyClientOfInvoiceIssued] in-app push failed:", e);

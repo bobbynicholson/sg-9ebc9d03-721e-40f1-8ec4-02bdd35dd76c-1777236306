@@ -223,7 +223,25 @@ export const notificationService = {
     return true;
   },
 
-  async createNotification(notification: CreateNotificationParams): Promise<Notification | null> {
+  /**
+   * Insert a notification row.
+   *
+   * Accepts an optional `client` so server-side callers can pass a
+   * service-role client. Without this, the function used the global
+   * browser anon supabase, which fails silently from a Node API
+   * route (no authenticated session => RLS blocks the insert).
+   *
+   * Browser callers omit the client and get the existing behaviour.
+   * Server callers (post-order cascade, webhook handlers, RPC-after
+   * hooks) pass the service-role instance and the in-app push lands
+   * regardless of session state.
+   */
+  async createNotification(
+    notification: CreateNotificationParams,
+    client?: any,
+  ): Promise<Notification | null> {
+    const sb = client || supabase;
+
     // Backfill company_id from the recipient's profile when the caller
     // didn't supply it. The notifications INSERT RLS policy requires
     // company_id to match the caller's tenant (or the row to be
@@ -234,7 +252,7 @@ export const notificationService = {
     let companyId = notification.company_id || null;
     if (!companyId && notification.recipient_id) {
       try {
-        const { data: profile } = await supabase
+        const { data: profile } = await sb
           .from("profiles")
           .select("company_id")
           .eq("id", notification.recipient_id)
@@ -272,7 +290,7 @@ export const notificationService = {
     if (notification.related_entity_id) {
       insertRow.related_entity_id = notification.related_entity_id;
     }
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("notifications")
       .insert(insertRow as any)
       .select()
@@ -361,9 +379,21 @@ export const notificationService = {
 
   // ==================== BROADCAST & BULK OPERATIONS ====================
 
-  async broadcastNotification(params: BroadcastNotificationParams): Promise<number> {
+  /**
+   * Fan a notification out to every profile in a company that matches
+   * the role + region filters.
+   *
+   * Same client-injection pattern as createNotification: server-side
+   * callers pass the service-role client so the broadcast lands even
+   * without an authenticated session.
+   */
+  async broadcastNotification(
+    params: BroadcastNotificationParams,
+    client?: any,
+  ): Promise<number> {
+    const sb = client || supabase;
     try {
-      const { data: profiles, error: profileError } = await supabase
+      const { data: profiles, error: profileError } = await sb
         .from("profiles")
         .select("id, role, region_id, regions_covered")
         .eq("company_id", params.companyId);
@@ -432,7 +462,7 @@ export const notificationService = {
         return 0;
       }
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await sb
         .from("notifications")
         .insert(notifications);
 
