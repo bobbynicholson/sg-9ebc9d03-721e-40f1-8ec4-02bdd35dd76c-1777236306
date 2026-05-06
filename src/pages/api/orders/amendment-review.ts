@@ -106,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               ? `We couldn't apply your change request. Reason from the team: ${review_notes}`
               : "We couldn't apply your change request. Please get in touch and we'll work it out.",
             priority: "high",
-            link: `/client-portal/my-orders`,
+            link: `/client-portal/my-orders?orderId=${(request as any).order_id}`,
             related_entity_type: "order",
             related_entity_id: (request as any).order_id,
           });
@@ -247,7 +247,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ? `We applied part of your change request: ${appliedList}. Open your order to see the latest details.`
             : `Your change request was applied: ${appliedList}. Open your order to see the latest details.`,
           priority: "normal",
-          link: `/client-portal/my-orders`,
+          link: `/client-portal/my-orders?orderId=${(request as any).order_id}`,
           related_entity_type: "order",
           related_entity_id: (request as any).order_id,
         });

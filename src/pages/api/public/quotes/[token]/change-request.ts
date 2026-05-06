@@ -170,7 +170,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ ok: false, error: "Could not send your message, please try again." });
   }
 
-  // Notify admin (best-effort).
+  // Notify admin (best-effort). Fan out to every operator who can
+  // act on the change request -- the previous single-row insert only
+  // hit quote.user_id, which often doesn't match the actual sales
+  // owner. related_entity powers the contextual CTA on the
+  // notifications page; #change-requests anchor lands the operator on
+  // the right card on /admin/quotes/{id}.
   void (async () => {
     try {
       const totalLabel = `${quote.currency || "ZAR"} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}`;
@@ -178,19 +183,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
         : "TBD";
       const summary = message.length > 140 ? message.slice(0, 137) + "..." : message;
-      await supabase.from("notifications").insert([{
+
+      const { data: recipients } = await (supabase as any)
+        .from("profiles")
+        .select("id, role")
+        .eq("company_id", quote.company_id)
+        .in("role", ["company_admin", "admin", "sales_admin", "region_admin", "owner"]);
+
+      const recipientIds = ((recipients as any[]) || []).map((r) => r.id);
+      // Fall back to the quote's user_id if we found no admins -- this
+      // matches the previous behaviour and avoids losing the alert.
+      if (recipientIds.length === 0 && quote.user_id) {
+        recipientIds.push(quote.user_id);
+      }
+      if (recipientIds.length === 0) return;
+
+      const rows = recipientIds.map((rid: string) => ({
         company_id: quote.company_id,
-        user_id: quote.user_id,
-        recipient_id: quote.user_id,
+        user_id: rid,
+        recipient_id: rid,
         notification_type: "quote_change_request",
         title: "✏️ Client wants changes to a quote",
         message: `${submitterName || quote.client_name || "Client"} requested changes (${totalLabel}, ${eventLabel}): "${summary}"`,
         priority: "high",
-        // #change-requests anchor lands the operator on the Card
-        // directly -- the page's deep-link useEffect scrolls it
-        // into view once the data resolves.
         link: `/admin/quotes/${quote.id}#change-requests`,
-      }]);
+        related_entity_type: "quote",
+        related_entity_id: quote.id,
+      }));
+      await (supabase as any).from("notifications").insert(rows);
     } catch (err) {
       console.warn("[public/quotes/change-request] notification failed", err);
     }

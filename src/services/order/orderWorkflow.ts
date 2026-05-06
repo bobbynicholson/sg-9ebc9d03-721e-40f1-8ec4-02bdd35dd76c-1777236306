@@ -164,14 +164,19 @@ export async function assignDriver(orderId: string, driverId: string) {
 
     if (error) throw error;
 
-    // In-app notification (existing behaviour).
+    // In-app notification (existing behaviour). Deep-links to the
+    // driver's deliveries list so they can tap straight through.
     await notificationService.createNotification({
+      company_id: (data as any).company_id,
       user_id: driverId,
       recipient_id: driverId,
       title: "New Delivery Assignment",
       message: `You have been assigned to order ${data.order_number}`,
-      type: "order",
+      notification_type: "driver_assigned",
       priority: "high",
+      link: `/team-portal/driver/deliveries`,
+      related_entity_type: "order",
+      related_entity_id: orderId,
     });
 
     // WhatsApp the driver too. Closes the audit gap "kitchen ready ->
@@ -237,14 +242,20 @@ export async function assignChef(orderId: string, chefId: string) {
 
     if (error) throw error;
 
-    // Notify chef
+    // Notify chef. Lands them on the kitchen team page so they see
+    // their prep tasks for this order alongside the rest of the
+    // kitchen workload.
     await notificationService.createNotification({
+      company_id: (data as any).company_id,
       user_id: chefId,
       recipient_id: chefId,
       title: "New Order Assignment",
       message: `You have been assigned to prepare order ${data.order_number}`,
-      type: "order",
+      notification_type: "chef_assigned",
       priority: "high",
+      link: `/team-portal/kitchen/prep-list`,
+      related_entity_type: "order",
+      related_entity_id: orderId,
     });
 
     return { success: true, data };
@@ -702,26 +713,45 @@ async function sendStatusNotifications(order: any) {
   }
 
   // 1. In-app notifications -- always fire (admin + driver + client).
-  const inApp: Array<{ userId: string; title: string; message: string; type: string; priority?: string }> = [];
+  // Each row gets a deep-link (`link`) AND a related_entity pointer so
+  // the bell + notifications page can render contextual CTAs that jump
+  // straight to the order. Admin pushes go to /admin/orders?orderId=...
+  // (the dashboard responds to the query param), drivers go to their
+  // delivery list, clients go to /client-portal/my-orders. No more
+  // generic dashboards on click.
+  type InAppPush = {
+    recipient_id: string;
+    title: string;
+    message: string;
+    notification_type: string;
+    notification_kind: "admin" | "driver" | "client";
+    priority?: string;
+  };
+  const inApp: InAppPush[] = [];
+  const adminLink = `/admin/orders?orderId=${order.id}`;
+  const driverLink = `/team-portal/driver/deliveries?orderId=${order.id}`;
+  const clientLink = `/client-portal/my-orders?orderId=${order.id}`;
 
   switch (status) {
     case "confirmed":
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: "Order confirmed",
           message: `Your order ${orderNumber} is locked in${eventDateLabel ? ` for ${eventDateLabel}` : ""}.`,
-          type: "order",
+          notification_type: "order_confirmed",
+          notification_kind: "client",
         });
       }
       break;
     case "preparing":
       if (order.user_id) {
         inApp.push({
-          userId: order.user_id,
+          recipient_id: order.user_id,
           title: "Kitchen prep started",
           message: `Order ${orderNumber} is now in prep.`,
-          type: "order",
+          notification_type: "order_preparing",
+          notification_kind: "admin",
         });
       }
       // Client-facing reassurance push. Audit gap: today the client
@@ -729,39 +759,43 @@ async function sendStatusNotifications(order: any) {
       // don't know the kitchen is on the case.
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: `We're prepping your ${eventName} order`,
           message: `${tenantName} has started prep${eventDateLabel ? ` for your ${eventDateLabel} event` : ""}. We'll let you know when it's on the way.`,
-          type: "order",
+          notification_type: "order_preparing",
+          notification_kind: "client",
         });
       }
       break;
     case "ready":
       if (order.assigned_driver_id) {
         inApp.push({
-          userId: order.assigned_driver_id,
+          recipient_id: order.assigned_driver_id,
           title: "Pickup ready",
           message: `Order ${orderNumber} is ready for collection from the kitchen.`,
-          type: "order",
+          notification_type: "order_ready",
+          notification_kind: "driver",
           priority: "high",
         });
       }
       if (order.user_id) {
         inApp.push({
-          userId: order.user_id,
+          recipient_id: order.user_id,
           title: "Order ready -- driver alerted",
           message: `Order ${orderNumber} ready, driver has been pinged.`,
-          type: "order",
+          notification_type: "order_ready",
+          notification_kind: "admin",
         });
       }
       // Client-facing push so they know prep is done and dispatch is
       // next -- closes the second silent moment before in_transit.
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: `Your ${eventName} order is ready`,
           message: `${tenantName} has finished prep. Driver will pick up shortly and we'll send tracking details once they're rolling.`,
-          type: "order",
+          notification_type: "order_ready",
+          notification_kind: "client",
         });
       }
       // Multi-ready cluster alert. When 2+ orders hit ready inside
@@ -782,12 +816,13 @@ async function sendStatusNotifications(order: any) {
             .is("deleted_at", null);
           if (typeof readyCount === "number" && readyCount >= 2) {
             inApp.push({
-              userId: order.user_id,
+              recipient_id: order.user_id,
               title: `🔥 ${readyCount} orders ready -- coordinate dispatch`,
               message: `Multiple orders are sitting ready in the last 30 min. Open the dispatch queue to assign drivers before food cools.`,
-              type: "dispatch_cluster",
+              notification_type: "dispatch_cluster",
+              notification_kind: "admin",
               priority: "urgent",
-            } as any);
+            });
           }
         } catch (e) {
           console.warn("[sendStatusNotifications] cluster check failed:", e);
@@ -797,10 +832,11 @@ async function sendStatusNotifications(order: any) {
     case "in_transit":
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: "Driver on the way",
           message: `Your order ${orderNumber} is on its way${venueShort ? ` to ${venueShort}` : ""}.`,
-          type: "order",
+          notification_type: "out_for_delivery",
+          notification_kind: "client",
           priority: "high",
         });
       }
@@ -808,54 +844,76 @@ async function sendStatusNotifications(order: any) {
     case "delivered":
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: "Order delivered",
           message: `Your order ${orderNumber} has been delivered. Enjoy!`,
-          type: "order",
+          notification_type: "delivered",
+          notification_kind: "client",
         });
       }
       if (order.user_id) {
         inApp.push({
-          userId: order.user_id,
+          recipient_id: order.user_id,
           title: "Delivered",
           message: `Order ${orderNumber} delivered.`,
-          type: "order",
+          notification_type: "delivered",
+          notification_kind: "admin",
         });
       }
       break;
     case "completed":
       if (order.user_id) {
         inApp.push({
-          userId: order.user_id,
+          recipient_id: order.user_id,
           title: "Order closed out",
           message: `Order ${orderNumber} is fully paid and complete.`,
-          type: "order",
+          notification_type: "order_completed",
+          notification_kind: "admin",
         });
       }
       break;
     case "cancelled":
       if (clientAuthUid) {
         inApp.push({
-          userId: clientAuthUid,
+          recipient_id: clientAuthUid,
           title: "Order cancelled",
           message: `Your order ${orderNumber} has been cancelled. Please get in touch with us if this is unexpected.`,
-          type: "order",
+          notification_type: "order_cancelled",
+          notification_kind: "client",
           priority: "high",
         });
       }
       if (order.user_id) {
         inApp.push({
-          userId: order.user_id,
+          recipient_id: order.user_id,
           title: "Order cancelled",
           message: `Order ${orderNumber} cancelled.`,
-          type: "order",
+          notification_type: "order_cancelled",
+          notification_kind: "admin",
         });
       }
       break;
   }
   for (const n of inApp) {
     try {
-      await notificationService.createNotification(n as any);
+      const link =
+        n.notification_kind === "driver"
+          ? driverLink
+          : n.notification_kind === "client"
+          ? clientLink
+          : adminLink;
+      await notificationService.createNotification({
+        company_id: order.company_id,
+        recipient_id: n.recipient_id,
+        user_id: n.recipient_id,
+        notification_type: n.notification_type,
+        title: n.title,
+        message: n.message,
+        priority: n.priority || "normal",
+        link,
+        related_entity_type: "order",
+        related_entity_id: order.id,
+      });
     } catch (e) {
       console.warn("[sendStatusNotifications] in-app push failed:", e);
     }

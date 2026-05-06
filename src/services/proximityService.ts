@@ -69,6 +69,9 @@ async function markArrived(assignmentId: string): Promise<any | null> {
         .single();
 
       if (orderDetails) {
+        // Driver-facing acknowledgement that they've hit the venue.
+        // Deep-links to their delivery list so they can mark the
+        // drop-off confirmed without hunting for the order.
         await notificationService.createNotification({
           company_id: orderDetails.company_id,
           user_id: orderDetails.user_id,
@@ -77,6 +80,9 @@ async function markArrived(assignmentId: string): Promise<any | null> {
           title: "Arrived at Venue",
           message: "You have arrived at the delivery location",
           priority: "medium",
+          link: `/team-portal/driver/deliveries?orderId=${assignment.order_id}`,
+          related_entity_type: "order",
+          related_entity_id: assignment.order_id,
         });
       }
     }
@@ -149,6 +155,8 @@ async function checkProximityAndNotify(
       await markArrived(assignmentId);
 
       if (order.user_id && order.company_id) {
+        // Client-facing arrival ping. Deep-links to the client portal
+        // tracking page where they can see the live driver position.
         await notificationService.createNotification({
           company_id: order.company_id,
           user_id: order.user_id,
@@ -157,7 +165,9 @@ async function checkProximityAndNotify(
           title: "Driver Has Arrived! 🎉",
           message: `Your driver has arrived at ${order.venue_address}. Food delivery in progress!`,
           priority: "high",
-          link: `/orders/${order.id}`,
+          link: `/client-portal/tracking?orderId=${order.id}`,
+          related_entity_type: "order",
+          related_entity_id: order.id,
         });
       }
     }
@@ -179,6 +189,9 @@ async function checkProximityAndNotify(
 
       if (count === 0) {
           if(order.user_id && order.company_id){
+             // Client-facing ETA ping. Same deep-link target as the
+             // arrival notification -- the tracking page is where they
+             // can watch the driver come in.
              await notificationService.createNotification({
                 company_id: order.company_id,
                 user_id: order.user_id,
@@ -187,7 +200,9 @@ async function checkProximityAndNotify(
                 title: "Driver 10 Minutes Away ⏰",
                 message: `Your driver is approximately 10 minutes from ${order.venue_address}. Please be ready to receive your delivery!`,
                 priority: "high",
-                link: `/orders/${order.id}`,
+                link: `/client-portal/tracking?orderId=${order.id}`,
+                related_entity_type: "order",
+                related_entity_id: order.id,
             });
           }
       }

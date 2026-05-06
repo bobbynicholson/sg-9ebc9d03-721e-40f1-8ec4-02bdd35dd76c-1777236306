@@ -184,16 +184,20 @@ export const driverConfirmationService = {
     // Notify the admin (recipient_id) that the driver has confirmed.
     // user_id is the originator; "system" was a stub that broke the
     // UUID column. Use the driver's id as the originator since they
-    // triggered the notification by confirming.
+    // triggered the notification by confirming. Deep-link to the order
+    // on the admin dashboard so dispatch sees the confirmation in the
+    // order's row.
     await notificationService.createNotification({
       company_id: order.company_id,
       user_id: driverId,
       recipient_id: order.user_id,
       title: `Driver Confirmed: ${order.order_number}`,
       message: `${driver.full_name} confirmed the job.`,
-      notification_type: "success",
+      notification_type: "driver_confirmed",
       priority: "high",
-      link: `/admin/order-assignments`,
+      link: `/admin/orders?orderId=${orderId}`,
+      related_entity_type: "order",
+      related_entity_id: orderId,
     });
   },
 
@@ -252,9 +256,13 @@ export const driverConfirmationService = {
       .eq('id', driverId)
       .single();
 
+    // Pull company_id + user_id from the order so we hit a real
+    // recipient. Previously this used 'admin' / 'system-id' which are
+    // not UUIDs -- the insert failed silently and dispatch never got
+    // the ping.
     const { data: order } = await supabase
       .from('orders')
-      .select('order_number')
+      .select('order_number, company_id, user_id')
       .eq('id', orderId)
       .single();
 
@@ -268,15 +276,19 @@ export const driverConfirmationService = {
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
+    if (!order.user_id) return;
+
     await notificationService.createNotification({
-      company_id: 'system-id', // Placeholder, should be retrieved from order
+      company_id: order.company_id,
       user_id: driverId,
-      recipient_id: 'admin',
-      notification_type: 'delivery_started', // Using a relevant type
+      recipient_id: order.user_id,
+      notification_type: 'driver_status_update',
       title: 'Driver Status Update',
       message: messages[confirmationType as keyof typeof messages],
       priority: 'medium',
-      link: `/admin/order-assignments?orderId=${orderId}`,
+      link: `/admin/orders?orderId=${orderId}`,
+      related_entity_type: 'order',
+      related_entity_id: orderId,
       metadata: { driverId, orderNumber: order.order_number, confirmationType }
     });
   },

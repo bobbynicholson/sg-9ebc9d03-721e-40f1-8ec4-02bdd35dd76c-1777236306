@@ -84,9 +84,11 @@ export const kitchenDutyService = {
                 recipient_id: data.user_id, // Admin
                 title: "Kitchen Staff Clocked In",
                 message: `A staff member has clocked in for kitchen duty.`,
-                notification_type: "info",
+                notification_type: "kitchen_clock_in",
                 priority: "low",
-                link: `/admin/kitchen-duty-tracking`,
+                link: `/admin/kitchen-duty-tracking?shiftId=${data.id}`,
+                related_entity_type: "kitchen_shift",
+                related_entity_id: data.id,
             });
         }
     }
@@ -120,9 +122,11 @@ export const kitchenDutyService = {
                 recipient_id: data.user_id, // Admin
                 title: "Kitchen Staff Clocked Out",
                 message: `A staff member has clocked out from kitchen duty.`,
-                notification_type: "info",
+                notification_type: "kitchen_clock_out",
                 priority: "low",
-                link: `/admin/kitchen-duty-tracking`,
+                link: `/admin/kitchen-duty-tracking?shiftId=${shiftId}`,
+                related_entity_type: "kitchen_shift",
+                related_entity_id: shiftId,
             });
         }
     }
@@ -226,9 +230,11 @@ export const kitchenDutyService = {
                 recipient_id: data.user_id, // Admin
                 title: "Kitchen Task Completed",
                 message: `Task "${data.task_type}" for order ${data.order_id} has been completed.`,
-                notification_type: "success",
+                notification_type: "kitchen_task_completed",
                 priority: "medium",
-                link: `/orders/${data.order_id}`,
+                link: `/admin/orders?orderId=${data.order_id}`,
+                related_entity_type: "order",
+                related_entity_id: data.order_id,
             });
         }
     }
@@ -243,9 +249,11 @@ export const kitchenDutyService = {
                 recipient_id: order.assigned_driver_id,
                 title: `Order ${data.order_id} Ready for Pickup`,
                 message: `Kitchen tasks for order ${data.order_id} are complete.`,
-                notification_type: "info",
+                notification_type: "order_ready",
                 priority: "high",
-                link: `/drivers/deliveries`,
+                link: `/team-portal/driver/deliveries?orderId=${data.order_id}`,
+                related_entity_type: "order",
+                related_entity_id: data.order_id,
             });
         }
     }
@@ -396,16 +404,20 @@ export const kitchenDutyService = {
     emergencyType: string,
     description: string
   ): Promise<void> {
-    // NOTIFICATION: Kitchen emergency/issue → Urgent notification to admin
+    // NOTIFICATION: Kitchen emergency/issue → Urgent notification to admin.
+    // Deep-links to the order on the admin dashboard so dispatch can
+    // see the run and the kitchen state side by side.
     await notificationService.createNotification({
         company_id: companyId,
         user_id: staffId,
         recipient_id: userId, // Admin
         title: `🚨 KITCHEN EMERGENCY: ${emergencyType}`,
         message: `Emergency reported for order ${orderId}: ${description}`,
-        notification_type: "error",
+        notification_type: "kitchen_emergency",
         priority: "urgent",
-        link: `/orders/${orderId}`,
+        link: `/admin/orders?orderId=${orderId}`,
+        related_entity_type: "order",
+        related_entity_id: orderId,
     });
   },
 };

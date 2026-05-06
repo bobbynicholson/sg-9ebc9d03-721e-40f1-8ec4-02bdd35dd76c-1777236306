@@ -84,16 +84,21 @@ export const leadService = {
 
         const companyName = adminProfile?.company_name || adminProfile?.full_name || "Your Catering Company";
 
-        // 1. In-portal URGENT notification
+        // 1. In-portal URGENT notification. Deep-links to the admin
+        // leads page with the leadId surfaced so the parallel work to
+        // open the lead detail inline can pick it up. related_entity
+        // powers the "Open lead" CTA on the notifications page.
         await notificationService.createNotification({
           company_id: lead.company_id,
           user_id: lead.user_id,
           recipient_id: lead.user_id,
-          notification_type: "quote_sent", // Use existing type for lead-related activity
+          notification_type: "lead_new",
           title: "🎉 New Lead Request!",
           message: `New inquiry from ${lead.client_name || lead.client_email} - ${lead.guest_count || "N/A"} guests${lead.event_date ? ` on ${new Date(lead.event_date).toLocaleDateString()}` : ""}`,
           priority: "urgent",
-          link: `/leads?leadId=${data.id}`,
+          link: `/admin/leads?leadId=${data.id}`,
+          related_entity_type: "lead",
+          related_entity_id: data.id,
         });
 
         // 1b. If the lead is region-scoped and the branch has its own
@@ -116,11 +121,13 @@ export const leadService = {
                 company_id: lead.company_id,
                 user_id: lead.user_id,
                 recipient_id: managerId,
-                notification_type: "quote_sent",
+                notification_type: "lead_new",
                 title: `🎉 New ${(region as any)?.name || "branch"} lead`,
                 message: `New inquiry from ${lead.client_name || lead.client_email} for your branch.`,
                 priority: "urgent",
-                link: `/leads?leadId=${data.id}`,
+                link: `/admin/leads?leadId=${data.id}`,
+                related_entity_type: "lead",
+                related_entity_id: data.id,
               });
             }
           } catch (e) {
@@ -240,16 +247,19 @@ Guests: ${lead.guest_count}`;
 
         const statusMessage = statusMessages[updates.status] || `Status updated to ${updates.status}`;
 
-        // In-portal notification
+        // In-portal notification. Deep-links to the lead so the
+        // operator can pick up where the status change left off.
         await notificationService.createNotification({
           company_id: data.company_id,
           user_id: data.user_id,
           recipient_id: data.user_id,
-          notification_type: "system_alert",
+          notification_type: "lead_status_updated",
           title: "Lead Status Updated",
           message: `${data.client_name || data.client_email}: ${statusMessage}`,
           priority: updates.status === "converted" ? "high" : "medium",
-          link: `/leads?leadId=${id}`,
+          link: `/admin/leads?leadId=${id}`,
+          related_entity_type: "lead",
+          related_entity_id: id,
         });
 
         console.log(`✅ Status change notification sent: ${originalLead.status} → ${updates.status}`);
@@ -279,15 +289,20 @@ Guests: ${lead.guest_count}`;
 
     // ✅ FIX BUG #19.3: Send notification when lead converts to quote
     try {
+      // Lead-to-quote conversion. Deep-links to the lead so the
+      // operator can find the new quote on the lead row -- there is
+      // no quote id yet at the point of conversion.
       await notificationService.createNotification({
         company_id: lead.company_id,
         user_id: lead.user_id,
         recipient_id: lead.user_id,
-        notification_type: "quote_sent",
+        notification_type: "lead_converted",
         title: "Lead Converted to Quote",
         message: `${lead.client_name || lead.client_email} has been converted to a quote`,
         priority: "medium",
-        link: `/quotes`,
+        link: `/admin/leads?leadId=${leadId}`,
+        related_entity_type: "lead",
+        related_entity_id: leadId,
       });
 
       console.log("✅ Lead conversion notification sent");

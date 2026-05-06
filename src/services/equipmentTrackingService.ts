@@ -181,7 +181,10 @@ export const equipmentTrackingService = {
     const equipmentName = equipment?.name || "Unknown Equipment";
 
     if (order) {
-      // 1. In-portal notification (existing - keep it)
+      // 1. In-portal notification. Deep-links to the equipment page's
+      // shortages tab with the specific equipment id surfaced, plus
+      // related_entity for the contextual CTA on the notifications
+      // page.
       await notificationService.createNotification({
         company_id: order.company_id,
         user_id: order.user_id,
@@ -190,8 +193,10 @@ export const equipmentTrackingService = {
         title: "🔧 Equipment Damage Reported",
         message: `${params.quantityDamaged}x ${params.damageType} at ${params.damageStage} stage. Order: ${order.order_number}. Cost: R${totalCost.toFixed(2)}`,
         priority: "high",
-        link: `/admin/equipment?tab=shortages`,
+        link: `/admin/equipment?tab=shortages&equipmentId=${params.equipmentId}`,
         order_id: params.orderId,
+        related_entity_type: "equipment",
+        related_entity_id: params.equipmentId,
       });
 
       // ✅ FIX BUG #7.1: Send email notification to admin
@@ -602,7 +607,9 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
         if (order) {
           const equipmentName = (statusData as any).equipment?.name || "Equipment";
           
-          // 1. In-portal notification (existing - keep it)
+          // 1. In-portal notification. Deep-links to the equipment
+          // page so the operator can verify the item is ready for the
+          // next booking.
           await notificationService.createNotification({
             company_id: order.company_id,
             user_id: order.user_id,
@@ -611,7 +618,9 @@ ${adminProfile.company_name || "CateringMS Platform"}`;
             title: "✨ Equipment Ready for Use",
             message: `${equipmentName} from Order ${order.order_number} has been cleaned, dried, and is ready for next function.`,
             priority: "low",
-            link: `/orders/${statusData.order_id}`,
+            link: `/admin/orders?orderId=${statusData.order_id}`,
+            related_entity_type: "order",
+            related_entity_id: statusData.order_id,
           });
 
           // ✅ FIX BUG #8: Send email notification to admin

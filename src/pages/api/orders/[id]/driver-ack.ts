@@ -92,6 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         message: `Driver acked order ${(order as any).order_number || orderId.slice(0, 8)}${isAdminOverride ? " (marked by admin)" : ""}.`,
         priority: "normal",
         link: `/admin/orders?orderId=${orderId}`,
+        related_entity_type: "order",
+        related_entity_id: orderId,
       } as any);
     } catch (e) {
       console.warn("[driver-ack] admin notify failed:", e);

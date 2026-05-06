@@ -173,11 +173,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { notificationService } = await import("@/services/notificationService");
       const { UserRole } = await import("@/types/app");
+      // Build a more useful summary so the bell row is actionable
+      // without opening the dashboard. List the keys the client wants
+      // changed plus a short notes snippet if they included one.
+      const keysList = Object.keys(sanitized);
+      const keysLabel = keysList.length > 0
+        ? keysList.map((k) => k.replace(/_/g, " ")).join(", ")
+        : "details";
+      const notesSnippet = client_notes && typeof client_notes === "string"
+        ? ` "${client_notes.trim().slice(0, 120)}${client_notes.trim().length > 120 ? "..." : ""}"`
+        : "";
       await notificationService.broadcastNotification({
         companyId: (order as any).company_id,
         type: "amendment_requested",
         title: "Amendment requested",
-        message: `A client wants to change their confirmed order. Review and approve.`,
+        message: `A client wants to change ${keysLabel} on their confirmed order.${notesSnippet} Review and approve.`,
         priority: "high",
         link: `/admin/orders?orderId=${order_id}&amendment=${(inserted as any).id}`,
         // Source pointer powers the contextual CTA on the

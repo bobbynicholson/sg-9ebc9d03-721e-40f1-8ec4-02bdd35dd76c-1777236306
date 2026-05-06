@@ -189,12 +189,19 @@ export const deliveryService = {
         message = `Delivery status updated: ${newStatus} for ${order.client_name}`;
       }
 
-      // Send notification to order owner
+      // Send notification to order owner. Deep-link to the order on
+      // the admin dashboard so the operator can see delivery status
+      // in context.
       await notificationService.createNotification({
         recipient_id: order.user_id,
-        type: notificationType,
+        user_id: order.user_id,
+        notification_type: `delivery_${newStatus}`,
         title: "Delivery Status Update",
         message,
+        priority: notificationType === "error" ? "high" : "normal",
+        link: `/admin/orders?orderId=${orderId}`,
+        related_entity_type: "order",
+        related_entity_id: orderId,
         metadata: {
           related_id: deliveryId,
           related_type: "delivery"

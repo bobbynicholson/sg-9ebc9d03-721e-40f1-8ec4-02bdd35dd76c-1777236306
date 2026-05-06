@@ -71,7 +71,9 @@ export const shoppingService = {
         message: `A new shopping list for ${new Date(data.list_date).toLocaleDateString()} has been created.`,
         notification_type: "info",
         priority: "low",
-        link: `/shopping?list_id=${data.id}`,
+        link: `/admin/shopping?listId=${data.id}`,
+        related_entity_type: "shopping_list",
+        related_entity_id: data.id,
       });
     }
 
@@ -119,7 +121,9 @@ export const shoppingService = {
             message: `You have been assigned the shopping list for ${new Date(data.list_date).toLocaleDateString()}`,
             notification_type: "info",
             priority: "medium",
-            link: `/shopping?list_id=${listId}`,
+            link: `/team-portal/shopping/orders?listId=${listId}`,
+            related_entity_type: "shopping_list",
+            related_entity_id: listId,
         });
     }
 
@@ -144,15 +148,19 @@ export const shoppingService = {
     }
 
     if (data) {
+       // Admin-facing notification -- deep-link to the admin shopping
+       // page filtered to this list.
        await notificationService.createNotification({
         company_id: data.company_id,
         user_id: data.user_id,
         recipient_id: data.user_id, // Admin
         title: "Shopping Has Started",
         message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} has begun.`,
-        notification_type: "info",
+        notification_type: "shopping_started",
         priority: "low",
-        link: `/shopping?list_id=${listId}`,
+        link: `/admin/shopping?listId=${listId}`,
+        related_entity_type: "shopping_list",
+        related_entity_id: listId,
       });
     }
 
@@ -178,15 +186,20 @@ export const shoppingService = {
     }
 
     if (data) {
+        // Admin-facing completion ping -- deep-link to the admin
+        // shopping page so they can verify receipts + close out the
+        // list.
         await notificationService.createNotification({
             company_id: data.company_id,
             user_id: data.user_id,
             recipient_id: data.user_id, // Admin
             title: "Shopping Completed",
             message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} is complete.`,
-            notification_type: "success",
+            notification_type: "shopping_completed",
             priority: "medium",
-            link: `/shopping?list_id=${listId}`,
+            link: `/admin/shopping?listId=${listId}`,
+            related_entity_type: "shopping_list",
+            related_entity_id: listId,
         });
     }
 

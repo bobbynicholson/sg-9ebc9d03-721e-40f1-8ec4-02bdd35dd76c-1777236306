@@ -54,12 +54,16 @@ export const gamificationService = {
     // Check for achievement unlocks
     await this.checkAchievements(userId);
 
-    // Send notification
+    // Send notification. There's no dedicated gamification page yet,
+    // so leave link null -- the bell falls back to the inbox view
+    // rather than pointing somewhere wrong.
     await notificationService.createNotification({
       title: `🎉 +${points} Points!`,
       message: actionDescription || `You earned ${points} points!`,
-      type: 'success',
+      notification_type: 'gamification_points',
       recipient_id: userId,
+      user_id: userId,
+      link: null,
       metadata: { points, actionType }
     });
 
@@ -126,12 +130,15 @@ export const gamificationService = {
 
     if (error) throw error;
 
-    // Send celebratory notification
+    // Send celebratory notification. No dedicated achievements page
+    // -- link null falls the bell back to the inbox view.
     await notificationService.createNotification({
       title: `🏆 Achievement Unlocked!`,
       message: `You unlocked: ${achievementName}`,
-      type: 'success',
+      notification_type: 'gamification_achievement',
       recipient_id: userId,
+      user_id: userId,
+      link: null,
       metadata: { achievementKey, achievementName }
     });
 

@@ -152,16 +152,21 @@ class PaymentProcessingService {
       if (order) {
         const schedule = order as any;
 
-        // Send in-portal payment received notification
+        // Send in-portal payment received notification. Deep-links to
+        // the order on the admin dashboard so finance can see the
+        // payment row in context, not a generic /orders/{id} that
+        // doesn't exist.
         await notificationService.createNotification({
           company_id: order.company_id,
           user_id: userId,
           recipient_id: order.user_id, // Should go to company admin
           title: `Payment Received: ${schedule.currency} ${schedule.deposit_amount.toFixed(2)}`,
           message: `A payment was successfully processed for order ${order.order_number}.`,
-          notification_type: "success",
+          notification_type: "payment_received",
           priority: "high",
-          link: `/orders/${orderId}`,
+          link: `/admin/orders?orderId=${orderId}`,
+          related_entity_type: "order",
+          related_entity_id: orderId,
         });
 
         // ✅ FIX BUG #21.1: Send deposit receipt email
@@ -237,16 +242,20 @@ class PaymentProcessingService {
       if (order) {
         const schedule = order as any;
 
-        // Send in-portal payment received notification
+        // Send in-portal payment received notification. Same deep-link
+        // pattern as the deposit confirmation -- admin dashboard with
+        // the orderId surfaced.
         await notificationService.createNotification({
           company_id: order.company_id,
           user_id: userId,
           recipient_id: order.user_id, // Admin
           title: "Final Payment Received",
           message: `The final balance for order ${order.order_number} has been paid.`,
-          notification_type: "success",
+          notification_type: "payment_received",
           priority: "high",
-          link: `/orders/${orderId}`,
+          link: `/admin/orders?orderId=${orderId}`,
+          related_entity_type: "order",
+          related_entity_id: orderId,
         });
 
         // ✅ FIX BUG #21.2: Send balance payment receipt email
@@ -389,9 +398,11 @@ class PaymentProcessingService {
           recipient_id: orderData.user_id,
           title: `Payment Reminder Sent for Order ${orderData.order_number}`,
           message: `A payment reminder was sent to ${orderData.client_email}.`,
-          notification_type: "info",
+          notification_type: "payment_reminder",
           priority: "medium",
-          link: `/orders/${reminder.order_id}`,
+          link: `/admin/orders?orderId=${reminder.order_id}`,
+          related_entity_type: "order",
+          related_entity_id: reminder.order_id,
         });
 
         // ✅ FIX BUG #21.3: Send balance reminder email
@@ -510,9 +521,11 @@ Your Catering Company`;
               recipient_id: orderData.user_id,
               title: "Modification Deadline Reminder Sent",
               message: `A modification deadline reminder for order ${orderData.order_number} was sent to ${orderData.client_email}.`,
-              notification_type: "info",
+              notification_type: "modification_deadline",
               priority: "medium",
-              link: `/orders/${orderData.id}`,
+              link: `/admin/orders?orderId=${orderData.id}`,
+              related_entity_type: "order",
+              related_entity_id: orderData.id,
             });
 
             // ✅ FIX BUG #21.4: Send modification deadline warning email

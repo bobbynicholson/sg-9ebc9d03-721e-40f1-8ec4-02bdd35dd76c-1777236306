@@ -182,17 +182,32 @@ export const driverReplacementService = {
 
     if (!request) return;
 
-    await notificationService.createNotification({
-      company_id: (request.profiles as any)?.company_id,
-      user_id: request.original_driver_id,
-      recipient_id: 'admin',
-      notification_type: 'system_alert',
-      title: '🚨 Driver Replacement Requested',
-      message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
-      priority: 'urgent',
-      link: '/admin/order-assignments',
-      metadata: { requestId, orderId: request.order_id }
-    });
+    // Broadcast to admin/owner roles -- previous code used the literal
+    // string 'admin' as recipient_id which is not a valid UUID, so the
+    // insert silently failed and dispatch never got the alert. Switch
+    // to broadcastNotification so every operator who can act sees the
+    // request in their bell. Deep-link includes the orderId + the
+    // request id so the dashboard can surface the right context.
+    const companyId = (request.profiles as any)?.company_id;
+    if (companyId) {
+      const { UserRole } = await import("@/types/app");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: 'driver_replacement_needed',
+        title: '🚨 Driver Replacement Requested',
+        message: `${request.profiles?.full_name} needs replacement for Order #${request.orders?.order_number}. Reason: ${request.reason}`,
+        priority: 'urgent',
+        link: `/admin/orders?orderId=${request.order_id}&replacementRequest=${requestId}`,
+        relatedEntityType: 'order',
+        relatedEntityId: request.order_id,
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          "owner" as any,
+        ],
+      });
+    }
   },
 
   /**
@@ -254,17 +269,24 @@ export const driverReplacementService = {
 
     // Send notifications to each available driver
     for (const driver of drivers) {
-      // 1. In-portal notification
+      // 1. In-portal notification. Deep-links to the driver's
+      // deliveries page filtered to this order so the driver who
+      // accepts first can confirm immediately.
       await supabase.from("notifications").insert({
+        company_id: (request.profiles as any)?.company_id,
         user_id: request.original_driver_id,
         recipient_id: driver.id,
-        notification_type: "driver_assignment",
+        notification_type: "driver_replacement_offer",
         title: "🚗 Emergency Delivery Available",
         message: `Replacement driver needed for Order #${request.orders?.order_number} on ${request.orders?.event_date}. First to accept gets the job!`,
         priority: "urgent",
         order_id: request.order_id,
-        metadata: { 
-          requestId, 
+        link: `/team-portal/driver/deliveries?orderId=${request.order_id}&replacementRequest=${requestId}`,
+        related_entity_type: "order",
+        related_entity_id: request.order_id,
+        target_role: "driver",
+        metadata: {
+          requestId,
           orderId: request.order_id,
           originalDriver: request.profiles?.full_name
         }
@@ -368,14 +390,34 @@ ${companyName}`;
 
     if (!request || !newDriver) return;
 
-    await notificationService.createNotification({
-      title: '✅ Driver Replacement Accepted',
-      message: `${newDriver.full_name} has accepted Order #${request.orders?.order_number}`,
-      type: 'success',
-      link: `/orders`,
-      recipient_id: 'admin', // Or specific admin ID
-      metadata: { requestId, orderId: request.order_id }
-    });
+    // Same broadcast pattern as notifyAdminOfReplacementRequest -- the
+    // literal 'admin' recipient never matched a real user. Pull the
+    // company_id off the original driver's profile so we can fan out.
+    const { data: originalDriverProfile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', request.original_driver_id)
+      .single();
+    const companyId = (originalDriverProfile as any)?.company_id;
+    if (companyId) {
+      const { UserRole } = await import("@/types/app");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: 'driver_replacement_accepted',
+        title: '✅ Driver Replacement Accepted',
+        message: `${newDriver.full_name} has accepted Order #${request.orders?.order_number}`,
+        priority: 'normal',
+        link: `/admin/orders?orderId=${request.order_id}`,
+        relatedEntityType: 'order',
+        relatedEntityId: request.order_id,
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.COMPANY_ADMIN,
+          UserRole.ADMIN,
+          "owner" as any,
+        ],
+      });
+    }
   },
 
   /**
@@ -401,12 +443,19 @@ ${companyName}`;
 
     if (!request || !newDriver) return;
 
+    // Driver-facing: their replacement was accepted. Deep-link to
+    // their deliveries so they can confirm the swap landed and they
+    // no longer need to cover the run.
     await notificationService.createNotification({
+      recipient_id: request.original_driver_id,
+      user_id: request.original_driver_id,
+      notification_type: 'driver_replacement_accepted',
       title: '✅ Replacement Found',
       message: `${newDriver.full_name} has accepted your replacement request for Order #${request.orders?.order_number}`,
-      type: 'success',
-      link: `/drivers`,
-      recipient_id: request.original_driver_id,
+      priority: 'normal',
+      link: `/team-portal/driver/deliveries?orderId=${request.order_id}`,
+      related_entity_type: 'order',
+      related_entity_id: request.order_id,
       metadata: { requestId, orderId: request.order_id }
     });
   },

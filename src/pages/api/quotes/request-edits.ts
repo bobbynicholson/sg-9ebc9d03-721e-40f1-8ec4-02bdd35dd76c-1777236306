@@ -135,11 +135,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           company_id: quote.company_id,
           recipient_id: rid,
           user_id: rid,
-          notification_type: "quote_changes_requested",
+          notification_type: "quote_change_request",
           title: "✏ Client wants changes on a quote",
           message: `${quote.quote_number}: "${text}"`,
           priority: "high",
-          link: `/admin/quotes?quoteId=${encodeURIComponent(quote.id)}`,
+          // Land the operator on the quote's detail page where the
+          // parallel agent is wiring the inline change-request panel.
+          // #change-requests anchor scrolls the card into view.
+          link: `/admin/quotes/${quote.id}#change-requests`,
           related_entity_type: "quote",
           related_entity_id: quote.id,
           channels: ["in_app"],

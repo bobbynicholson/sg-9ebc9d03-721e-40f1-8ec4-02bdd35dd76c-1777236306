@@ -53,7 +53,7 @@ async function notifyClient(
       title: params.title,
       message: params.message,
       priority: params.priority || "normal",
-      link: `/client-portal/my-orders`,
+      link: `/client-portal/my-orders?orderId=${params.orderId}`,
       related_entity_type: "order",
       related_entity_id: params.orderId,
     });

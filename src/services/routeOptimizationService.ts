@@ -394,10 +394,14 @@ export const routeOptimizationService = {
           .eq("id", stop.order_id);
       }
 
-      // Trigger automated real-time notification to the driver
+      // Trigger automated real-time notification to the driver. The
+      // routes page surfaces all stops; we don't have a single
+      // related_entity_id since a route covers many orders -- leave
+      // it null and let the bell render the generic "Open" button
+      // pointed at /team-portal/driver/routes.
       await notificationService.createNotification({
         recipient_id: route.driver_id,
-        type: "route_assigned",
+        notification_type: "route_assigned",
         title: "New Route Assigned 🗺️",
         message: `You have a new optimized route with ${route.stops.length} stops (${route.total_distance.toFixed(1)} km). Tap here to view.`,
         link: "/team-portal/driver/routes",
