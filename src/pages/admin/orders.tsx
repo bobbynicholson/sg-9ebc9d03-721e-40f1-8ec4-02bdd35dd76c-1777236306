@@ -41,11 +41,13 @@ import {
 } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { CancelOrderDialog } from "@/components/admin/orders/CancelOrderDialog";
 import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
+import { AmendmentReviewDrawer, CancellationReviewDrawer } from "@/components/admin/orders/AmendmentReviewDrawer";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
@@ -178,6 +180,7 @@ function OrderProcessDashboard() {
   const { user } = useAuth();
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
+  const router = useRouter();
   const [orders, setOrders] = useState<AppOrder[]>([]);
   // Per-order summary of email_automation_log entries: count of sent
   // automations, latest event, and a "post-event review automation
@@ -198,6 +201,16 @@ function OrderProcessDashboard() {
   const [editMode, setEditMode] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
+  // Amendment / cancellation review drawer state. Driven entirely off
+  // the URL: when /admin/orders is loaded with ?amendment=... (or
+  // ?cancellation=...) plus an ?orderId=..., the matching drawer opens
+  // and stays in sync with the query string. Closing the drawer strips
+  // both params so a refresh doesn't re-open it.
+  const [reviewDrawer, setReviewDrawer] = useState<{
+    kind: "amendment" | "cancellation" | null;
+    requestId: string | null;
+    orderId: string | null;
+  }>({ kind: null, requestId: null, orderId: null });
   const [stats, setStats] = useState<OrderStats>({
     total: 0,
     byStatus: {},
@@ -211,6 +224,52 @@ function OrderProcessDashboard() {
       loadOrders();
     }
   }, [user]);
+
+  // Sync drawer state with the URL query params. Notification links
+  // land here as /admin/orders?orderId=...&amendment=... (or
+  // &cancellation=...) so the operator sees the request inline rather
+  // than a generic kanban with no context.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const orderId = typeof router.query.orderId === "string" ? router.query.orderId : null;
+    const amendment = typeof router.query.amendment === "string" ? router.query.amendment : null;
+    const cancellation = typeof router.query.cancellation === "string" ? router.query.cancellation : null;
+    if (amendment) {
+      setReviewDrawer({ kind: "amendment", requestId: amendment, orderId });
+    } else if (cancellation) {
+      setReviewDrawer({ kind: "cancellation", requestId: cancellation, orderId });
+    } else {
+      setReviewDrawer({ kind: null, requestId: null, orderId: null });
+    }
+  }, [router.isReady, router.query.orderId, router.query.amendment, router.query.cancellation]);
+
+  const closeReviewDrawer = () => {
+    setReviewDrawer({ kind: null, requestId: null, orderId: null });
+    // Strip the review params from the URL so a refresh doesn't
+    // re-open the drawer, but keep any unrelated params intact.
+    if (router.isReady) {
+      const { orderId: _o, amendment: _a, cancellation: _c, ...rest } = router.query;
+      router.replace(
+        { pathname: router.pathname, query: rest },
+        undefined,
+        { shallow: true },
+      );
+    }
+  };
+
+  const openOrderDetail = (orderId: string) => {
+    const found = orders.find((o) => o.id === orderId);
+    if (found) {
+      setSelectedOrder(found);
+      setIsModalOpen(true);
+      closeReviewDrawer();
+    } else {
+      toast({
+        title: "Order not in current view",
+        description: "Adjust your filters and try again.",
+      });
+    }
+  };
 
   // Stats follow the filters -- revenue / counts always reflect what's
   // visible on the page so "This Month" actually means this month.
@@ -2255,6 +2314,29 @@ function OrderProcessDashboard() {
                 setIsModalOpen(false);
                 loadOrders();
               }}
+            />
+
+            {/* Amendment review drawer -- opens when a notification
+                link routes here with ?amendment=...&orderId=...
+                Stays in sync with the URL so the operator can refresh
+                without losing context. */}
+            <AmendmentReviewDrawer
+              open={reviewDrawer.kind === "amendment"}
+              amendmentId={reviewDrawer.kind === "amendment" ? reviewDrawer.requestId : null}
+              orderId={reviewDrawer.kind === "amendment" ? reviewDrawer.orderId : null}
+              onClose={closeReviewDrawer}
+              onActioned={() => loadOrders()}
+              onEditOrder={openOrderDetail}
+            />
+
+            {/* Cancellation / postpone review drawer. */}
+            <CancellationReviewDrawer
+              open={reviewDrawer.kind === "cancellation"}
+              cancellationId={reviewDrawer.kind === "cancellation" ? reviewDrawer.requestId : null}
+              orderId={reviewDrawer.kind === "cancellation" ? reviewDrawer.orderId : null}
+              onClose={closeReviewDrawer}
+              onActioned={() => loadOrders()}
+              onEditOrder={openOrderDetail}
             />
           </div>
         </div>
