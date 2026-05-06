@@ -66,12 +66,17 @@ interface ProviderRow {
   revoke_old_links_on_new: boolean;
 }
 
+// Daily send caps per subscription plan. Numbers chosen to align with
+// Resend's free-tier ceiling (100/day per verified domain) and scale up
+// from there. Pro / scale tiers run on Resend's paid plan so the daily
+// limit goes well above the free-tier cap. Super_admin can override
+// per-row through direct DB edit for one-off cases.
 const PRICING_TIER_CAPS: Record<string, number> = {
-  trial:   10,
-  starter: 30,
-  growth:  75,
-  pro:     200,
-  scale:   500,
+  trial:   100,
+  starter: 200,
+  growth:  500,
+  pro:     1500,
+  scale:   5000,
 };
 
 function EmailSettingsPage() {
