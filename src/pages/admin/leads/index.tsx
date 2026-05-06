@@ -20,6 +20,7 @@ import {
   Send, MailQuestion, RefreshCw, ChevronDown, Upload,
 } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
+import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -386,6 +387,12 @@ export default function AdminLeads() {
   const [composeLead, setComposeLead] = useState<any | null>(null);
   const [composeKind, setComposeKind] = useState<LeadActionKind>("reply_email");
 
+  // Convert-to-order confirmation modal. Replaces the legacy
+  // "/admin/quotes/new?fromQuoteId=..." redirect (which only cloned
+  // the quote rather than booking the order). Pre-flight checks the
+  // lead's quote state and routes to the right next step.
+  const [convertLead, setConvertLead] = useState<any | null>(null);
+
   const fromName = profile?.full_name || profile?.company_name || "the team";
 
   const runSuggestionAction = (lead: any, links: LeadLinks, kind: LeadActionKind) => {
@@ -393,8 +400,15 @@ export default function AdminLeads() {
       router.push(`/admin/orders?orderId=${links.orderId}`);
       return;
     }
-    if (kind === "convert_to_order" && links.latestQuoteId) {
-      router.push(`/admin/quotes/new?fromQuoteId=${links.latestQuoteId}`);
+    if (kind === "convert_to_order") {
+      // Open the proper confirmation dialog. The dialog re-checks the
+      // lead's quote state on open and either offers a Confirm button
+      // (accepted quote ready), a "go accept the quote first" CTA
+      // (draft / sent quotes only), or a "create a quote" CTA
+      // (no quotes yet). On success the dialog hits
+      // POST /api/admin/leads/:id/convert-to-order which atomically
+      // books the order and stamps the lead.
+      setConvertLead(lead);
       return;
     }
     if (kind === "open_quote_draft" && links.latestQuoteId) {
@@ -1435,6 +1449,31 @@ export default function AdminLeads() {
         recordLabel="lead"
         recordLabelPlural="leads"
         onComplete={() => loadLeads()}
+      />
+
+      {/* Lead -> order conversion dialog. Pre-flight checks the
+          lead's quote state and routes to the right next step
+          (confirm, accept-quote-first, or create-quote-first). */}
+      <ConvertLeadDialog
+        open={!!convertLead}
+        onOpenChange={(o) => {
+          if (!o) setConvertLead(null);
+        }}
+        lead={convertLead}
+        onConverted={({ orderId, orderNumber }) => {
+          toast({
+            title: "Order created",
+            description: orderNumber
+              ? `Booked as ${orderNumber}.`
+              : "Lead converted to a confirmed order.",
+          });
+          setConvertLead(null);
+          // Refresh the leads page in the background so the row picks
+          // up the new "booked" pill on return, and deep-link straight
+          // into the new orders dashboard with the order pre-selected.
+          void loadLeads();
+          router.push(`/admin/orders?orderId=${orderId}`);
+        }}
       />
     </>
   );
