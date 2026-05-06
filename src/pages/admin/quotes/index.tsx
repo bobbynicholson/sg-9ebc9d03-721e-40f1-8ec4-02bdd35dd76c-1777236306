@@ -131,6 +131,21 @@ export default function AdminQuotes() {
   const [companyName, setCompanyName] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [bucket, setBucket] = useState<QuoteBucket>("all");
+  // Authoritative event details, sourced from the linked order whenever
+  // a quote has converted (quote.converted_to_order_id is set). Without
+  // this, a quote row's event_date / guest_count / total continue to
+  // show the original enquiry numbers even after the order was edited
+  // (postponed dates, guest count revisions, equipment add-ons), so the
+  // operator looks at stale values and second-guesses the diary.
+  const [resolvedByQuoteId, setResolvedByQuoteId] = useState<Map<string, {
+    sourceOrderId: string;
+    orderNumber: string | null;
+    eventDate: string | null;
+    eventName: string | null;
+    guestCount: number | null;
+    totalAmount: number | null;
+    venueName: string | null;
+  }>>(new Map());
 
   // Deep-link target from notifications + email links: clicking a
   // "Client wants changes on a quote" notification lands here with
@@ -220,6 +235,11 @@ export default function AdminQuotes() {
       const fetched = await quoteService.getQuotes(user.company_id!);
       if (cancelled) return;
       setQuotes(fetched);
+
+      // Order hydration runs in its own effect (see below) so the
+      // realtime quote refresh and any local mutation that flips a
+      // quote into "converted" stays in sync without rewiring this
+      // load path.
 
       // Pull every auto-email row associated with this company's
       // quotes. trigger_event names start with 'quote.' for the
@@ -313,6 +333,62 @@ export default function AdminQuotes() {
     })();
     return () => { cancelled = true; };
   }, [user?.company_id]);
+
+  // Hydrate authoritative event details from linked orders. When a
+  // quote has converted_to_order_id set, the order is the source of
+  // truth -- the team may have postponed the date, revised guests,
+  // bolted on extra equipment. Runs whenever the quotes list changes
+  // (initial load, realtime refresh, manual accept) so a quote that
+  // just flipped to "accepted + converted" picks up its order numbers
+  // on the next render rather than continuing to show stale enquiry
+  // values.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orderIds = Array.from(new Set(
+          quotes
+            .map((q: any) => q.converted_to_order_id)
+            .filter((id: string | null | undefined): id is string => !!id),
+        ));
+        if (orderIds.length === 0) {
+          if (!cancelled) setResolvedByQuoteId(new Map());
+          return;
+        }
+        const { data: orderRows } = await supabase
+          .from("orders")
+          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name")
+          .eq("company_id", companyId)
+          .in("id", orderIds);
+        const byOrderId = new Map<string, any>();
+        for (const o of orderRows || []) byOrderId.set((o as any).id, o);
+        const next = new Map<string, any>();
+        for (const q of quotes as any[]) {
+          const oid = q.converted_to_order_id;
+          if (!oid) continue;
+          const o = byOrderId.get(oid);
+          if (!o) continue;
+          next.set(q.id, {
+            sourceOrderId: o.id,
+            orderNumber: o.order_number ?? null,
+            eventDate: o.event_date ?? null,
+            eventName: o.event_name ?? null,
+            guestCount: o.guest_count ?? null,
+            totalAmount: o.total_amount ?? null,
+            venueName: o.venue_name ?? null,
+          });
+        }
+        if (!cancelled) setResolvedByQuoteId(next);
+      } catch (err) {
+        // Non-fatal -- the row falls back to the quote's own values,
+        // which is the original behaviour.
+        console.warn("[quotes] order hydration failed", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [quotes, user?.company_id]);
 
   // Deep-link handler: when ?quoteId=<uuid> is in the URL (typically
   // from a notification click), find the quote in our loaded list,
@@ -885,7 +961,12 @@ export default function AdminQuotes() {
                   : quote.status === "draft"
                     ? "Send the quote first, then you can follow up"
                     : "Open a follow-up draft in Gmail / Outlook / mail app";
-                const diary = computeDiarySignal(quote.event_date, diaryIndex, quote.id);
+                // Resolve the diary signal off the authoritative event
+                // date when the quote has converted -- a postponed
+                // order should land on the new date, not the original
+                // enquiry date.
+                const resolved = resolvedByQuoteId.get(quote.id) || null;
+                const diary = computeDiarySignal(resolved?.eventDate ?? quote.event_date, diaryIndex, quote.id);
                 const diaryTone = DIARY_TONE[diary.status];
                 // We only nudge the team to send a sweetener on quotes that
                 // are still in play. There's no point offering a discount
@@ -897,6 +978,14 @@ export default function AdminQuotes() {
                   intel.bucket !== "won" &&
                   intel.bucket !== "lost";
                 const followup = followupByQuote[quote.id];
+                // Authoritative event details for the row. When the
+                // quote has converted to an order, those numbers are
+                // the source of truth; otherwise we fall back to the
+                // quote row itself. `resolved` was set above for the
+                // diary signal -- reuse it here.
+                const displayEventDate = resolved?.eventDate ?? quote.event_date ?? null;
+                const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
+                const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
                 return (
                   <Card
                     key={quote.id}
@@ -1032,26 +1121,38 @@ export default function AdminQuotes() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
                             <div className="flex items-center gap-2 text-slate-600">
                               <Mail className="w-4 h-4" />
                               <span className="text-sm">{quote.client_email}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Calendar className="w-4 h-4" />
-                              <span className="text-sm">{quote.event_date ? new Date(quote.event_date).toLocaleDateString() : "—"}</span>
+                              <span className="text-sm">{displayEventDate ? new Date(displayEventDate).toLocaleDateString() : "—"}</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Users className="w-4 h-4" />
-                              <span className="text-sm">{quote.guest_count} guests</span>
+                              <span className="text-sm">{displayGuestCount ?? "—"} guests</span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <DollarSign className="w-4 h-4" />
                               <span className="text-sm font-semibold text-green-600">
-                                R{(quote.total ?? 0).toFixed(2)}
+                                R{Number(displayTotal).toFixed(2)}
                               </span>
                             </div>
                           </div>
+                          {/* Provenance caption -- only shows when a
+                              linked order overrode the headline event
+                              details. Stops the operator second-guessing
+                              the numbers when the order has drifted from
+                              the original quote. */}
+                          {resolved && (
+                            <div className="mb-4 text-[11px] text-emerald-700">
+                              Pulled from booked order
+                              {resolved.orderNumber ? ` ${resolved.orderNumber}` : ""}
+                              {resolved.venueName ? ` -- ${resolved.venueName}` : ""}
+                            </div>
+                          )}
 
                           {/*
                             Diary signal, "do we have a gap that day?"
