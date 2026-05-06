@@ -32,6 +32,41 @@ const nextConfig = {
   //   support, team-portal, terms, uk, us, _next, account,
   //   subscription, company-signup
   // The slug picker on sign-up rejects these.
+  // Stage-3 URL canonicalisation. Legacy admin paths now redirect into
+  // their hub-with-tabs canonical URLs. We cover both the bare path
+  // (browsers / API clients hitting the page directly) and the
+  // tenant-slug-prefixed form (the URL operators actually see in their
+  // address bar). Redirects run BEFORE rewrites in Next, so a user
+  // visiting /spit-braai-delivery/admin/equipment-shortages gets a 308
+  // to /spit-braai-delivery/admin/equipment?tab=shortages, then the
+  // rewrite layer strips the slug into ?company_slug=... as usual.
+  //
+  // `permanent: true` issues 308 (preserves method, signals SEO move).
+  // Old notification deep-links and bookmarks keep working forever.
+  async redirects() {
+    return [
+      // ── Equipment hub-with-tabs ─────────────────────────────────
+      { source: "/admin/equipment-shortages",                 destination: "/admin/equipment?tab=shortages",           permanent: true },
+      { source: "/admin/equipment-shortages/:flag",           destination: "/admin/equipment?tab=shortages&flag=:flag", permanent: true },
+      { source: "/admin/equipment/hire-orders",               destination: "/admin/equipment?tab=hire-in",             permanent: true },
+      { source: "/admin/equipment/hire-orders/:rest*",        destination: "/admin/equipment?tab=hire-in",             permanent: true },
+      { source: "/:companySlug/admin/equipment-shortages",          destination: "/:companySlug/admin/equipment?tab=shortages",           permanent: true },
+      { source: "/:companySlug/admin/equipment-shortages/:flag",    destination: "/:companySlug/admin/equipment?tab=shortages&flag=:flag", permanent: true },
+      { source: "/:companySlug/admin/equipment/hire-orders",        destination: "/:companySlug/admin/equipment?tab=hire-in",             permanent: true },
+      { source: "/:companySlug/admin/equipment/hire-orders/:rest*", destination: "/:companySlug/admin/equipment?tab=hire-in",             permanent: true },
+
+      // ── Lifecycle Emails hub-with-tabs ──────────────────────────
+      // The hub itself lives at /admin/email-templates. Three sub-pages
+      // collapse into tabs there.
+      { source: "/admin/after-sales-emails",                  destination: "/admin/email-templates?tab=sent-log",   permanent: true },
+      { source: "/admin/email-automation-dashboard",          destination: "/admin/email-templates?tab=automation", permanent: true },
+      { source: "/admin/email-automation-settings",           destination: "/admin/email-templates?tab=settings",   permanent: true },
+      { source: "/:companySlug/admin/after-sales-emails",         destination: "/:companySlug/admin/email-templates?tab=sent-log",   permanent: true },
+      { source: "/:companySlug/admin/email-automation-dashboard", destination: "/:companySlug/admin/email-templates?tab=automation", permanent: true },
+      { source: "/:companySlug/admin/email-automation-settings",  destination: "/:companySlug/admin/email-templates?tab=settings",   permanent: true },
+    ];
+  },
+
   async rewrites() {
     return [
       // ── Client portal (clients) ────────────────────────────────

@@ -75,8 +75,14 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/staff-hours",
     "/admin/tracking",
     "/admin/route-planning",
+    // Equipment hub (Catalog / Availability / Shortages / Hire-in tabs).
+    // Legacy /admin/equipment-shortages still listed below so the
+    // pre-redirect bookmark check passes; new traffic lands here.
+    "/admin/equipment",
     "/admin/equipment-shortages",
+    "/admin/equipment/hire-orders",
     "/admin/regions",
+    // Lifecycle Emails hub. Legacy paths kept for redirect-safety.
     "/admin/email-templates",
     "/admin/after-sales-emails",
     "/admin/email-automation-dashboard",

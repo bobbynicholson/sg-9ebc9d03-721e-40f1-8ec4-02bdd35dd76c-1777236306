@@ -2236,7 +2236,7 @@ function InventoryEquipmentStrip() {
                 Manage catalog
               </Button>
             </Link>
-            <Link href={`${slugPrefix}/admin/equipment/hire-orders`}>
+            <Link href={`${slugPrefix}/admin/equipment?tab=hire-in`}>
               <Button
                 variant="outline"
                 size="sm"

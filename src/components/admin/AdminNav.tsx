@@ -276,7 +276,7 @@ export function AdminNav({ className }: AdminNavProps) {
         { title: "Plan Routes",         href: "/admin/route-planning",        icon: Route,         description: "Auto-assign + optimise tomorrow" },
         { title: "Vehicles",            href: "/admin/vehicles",              icon: Truck,         description: "Fleet roster + cold-chain" },
         { title: "Regions",             href: "/admin/regions",               icon: MapPin,        description: "Manage service regions" },
-        { title: "Equipment Shortages", href: "/admin/equipment-shortages",   icon: Bell,          description: "Track inventory issues" },
+        { title: "Equipment Shortages", href: "/admin/equipment?tab=shortages", icon: Bell,        description: "Track inventory issues" },
         { title: "Job Progress",        href: "/admin/job-progress-overview", icon: BarChart3,     description: "Cross-team progress on today's jobs" },
         { title: "Public Holidays",     href: "/admin/public-holidays",       icon: Calendar,      description: "SA gazetted dates + company customs. Drives the 2x BCEA rate." },
       ],
@@ -417,25 +417,47 @@ export function AdminNav({ className }: AdminNavProps) {
     }
   ];
 
-  // Pure path-vs-href matcher used by both the highlight logic and the
-  // section-auto-expand logic below. Matches sub-paths so
-  // /admin/onboarding/imports highlights the Onboarding entry; boundary
-  // check on the trailing "/" keeps /admin/orders from matching
-  // /admin/order-assignments.
+  // Path-vs-href matcher used by both highlight logic and section
+  // auto-expand. Matches sub-paths so /admin/onboarding/imports lights
+  // up the Onboarding entry; the trailing "/" boundary check keeps
+  // /admin/orders from matching /admin/order-assignments.
+  //
+  // Query-param awareness: when an href specifies query params (e.g.
+  // /admin/equipment?tab=shortages), every key in the href's query
+  // must match the current URL's query for the entry to count as
+  // active. Plain hrefs (no query) match path-only as before. This
+  // lets two nav items share a path but disambiguate by tab -- the
+  // longest-match resolver below then picks the more specific one.
+  const splitHref = (h: string): { path: string; query: URLSearchParams | null } => {
+    const i = h.indexOf("?");
+    if (i < 0) return { path: h, query: null };
+    return { path: h.slice(0, i), query: new URLSearchParams(h.slice(i + 1)) };
+  };
+
   const matchesHref = (href: string) => {
-    const bare = (path: string) => path.split("?")[0];
-    const slugHref = withSlug(href);
+    const { path: hrefPath, query: hrefQuery } = splitHref(href);
+    const slugHrefPath = splitHref(withSlug(href)).path;
+    const stripQuery = (p: string) => p.split("?")[0];
     const candidates = [
-      bare(router.pathname),
-      bare(router.asPath),
-      bare(slugHref),
+      stripQuery(router.pathname),
+      stripQuery(router.asPath),
+      slugHrefPath,
     ];
+    let pathMatched = false;
     for (const c of candidates) {
-      if (c === href || c === slugHref) return true;
-      if (c.startsWith(href + "/")) return true;
-      if (c.startsWith(slugHref + "/")) return true;
+      if (c === hrefPath || c === slugHrefPath) { pathMatched = true; break; }
+      if (c.startsWith(hrefPath + "/") || c.startsWith(slugHrefPath + "/")) { pathMatched = true; break; }
     }
-    return false;
+    if (!pathMatched) return false;
+    // No query in the href: pure path match wins.
+    if (!hrefQuery) return true;
+    // Href specifies query keys: every one of them must match the
+    // current URL's query value to count as active.
+    const currentQ = new URLSearchParams(router.asPath.split("?")[1] || "");
+    for (const [k, v] of hrefQuery.entries()) {
+      if (currentQ.get(k) !== v) return false;
+    }
+    return true;
   };
 
   // Longest-match resolution. When the active route is /admin/equipment/

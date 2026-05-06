@@ -496,7 +496,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
               <span className="text-slate-500"> item{equipmentCount === 1 ? "" : "s"} on this order</span>
             </p>
             {equipmentFlagged > 0 && (
-              <Link href="/admin/equipment-shortages" legacyBehavior>
+              <Link href="/admin/equipment?tab=shortages" legacyBehavior>
                 <a className="text-xs text-amber-700 hover:underline flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   {equipmentFlagged} flagged, open in Equipment Shortages

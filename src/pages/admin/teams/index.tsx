@@ -95,6 +95,25 @@ function TeamsIndexPage() {
       //     reports for the same period.
       const stale = Date.now() - 16 * 3600 * 1000;
 
+      // Region filter narrows kitchen_staff_shifts via the parent
+      // kitchen_staff_members.region_id (added in the
+      // kitchen_staff_members_add_region_id migration). When no region
+      // is active we skip the join. Active duty shifts (the live board)
+      // stay company-wide -- "is anyone clocked-in past 16h" doesn't
+      // segment by region.
+      const staffShiftsSelect = regionFilterId
+        ? "standard_min, overtime_min, sunday_holiday_min, shift_start, kitchen_staff_members!inner(region_id)"
+        : "standard_min, overtime_min, sunday_holiday_min, shift_start";
+      let staffShiftsQ = supabase
+        .from("kitchen_staff_shifts")
+        .select(staffShiftsSelect)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("shift_start", weekStartISO);
+      if (regionFilterId) {
+        staffShiftsQ = staffShiftsQ.eq("kitchen_staff_members.region_id", regionFilterId);
+      }
+
       const [activeDuty, staffShiftsThisWeek] = await Promise.all([
         supabase
           .from("kitchen_duty_shifts")
@@ -102,12 +121,7 @@ function TeamsIndexPage() {
           .eq("company_id", companyId)
           .eq("is_active", true)
           .gte("shift_start", weekStartISO),
-        supabase
-          .from("kitchen_staff_shifts")
-          .select("standard_min, overtime_min, sunday_holiday_min, shift_start")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .gte("shift_start", weekStartISO),
+        staffShiftsQ,
       ]);
 
       let kitchenMissingClockOut = 0;

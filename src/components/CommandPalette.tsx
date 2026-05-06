@@ -307,7 +307,7 @@ export function CommandPalette() {
     { id: "go-suppliers",   label: "Suppliers",           icon: Building2,    href: "/admin/suppliers",           group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["vendor","supplier"] },
     { id: "go-shopping",    label: "Shopping Dashboard",  icon: ShoppingCart, href: "/admin/shopping",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["buy","procurement","shopping"] },
     { id: "go-vehicles",    label: "Vehicles",            icon: Truck,        href: "/admin/vehicles",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["fleet","cold-chain"] },
-    { id: "go-shortages",   label: "Equipment Shortages", icon: Package,      href: "/admin/equipment-shortages", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["short","missing"] },
+    { id: "go-shortages",   label: "Equipment Shortages", icon: Package,      href: "/admin/equipment?tab=shortages", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["short","missing"] },
     { id: "go-job-prog",    label: "Job Progress",        icon: TrendingUp,   href: "/admin/job-progress-overview", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["progress","status"] },
     { id: "go-tax",         label: "Tax Overview",        icon: FileText,     href: "/admin/tax-purchases",       group: "Navigate", roles: ["company_admin","owner","super_admin"], keywords: ["tax","sars","deductible"] },
     { id: "go-wages",       label: "All Wages Dashboard", icon: DollarSign,   href: "/admin/wages",               group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["pay","wage","payroll"] },
