@@ -1109,34 +1109,80 @@ export function generateInvoiceHTML(data: InvoiceData): string {
 }
 
 /**
- * Send invoice via email
+ * Send invoice via email.
+ *
+ * Routes through /api/send-email (the canonical send pipeline -- auth
+ * gates, blocked-contact + paused-comms checks, Resend/SMTP via
+ * email_settings, audit row in email_automation_log) and asks the
+ * server to attach the rendered Invoice PDF. Subject + body resolve
+ * through the central template resolver so a tenant override beats
+ * the inline fallback.
+ *
+ * Old path went to /api/send-invoice-email which was a console.log
+ * stub -- the success toast lied. This path actually delivers.
  */
 export async function sendInvoiceEmail(
   invoiceData: InvoiceData,
-  recipientEmail: string
+  recipientEmail: string,
+  options: { invoiceId: string; companyId: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const htmlContent = generateInvoiceHTML(invoiceData);
+    if (!options?.invoiceId || !options?.companyId) {
+      return { success: false, error: "invoiceId and companyId are required" };
+    }
+    if (!recipientEmail) {
+      return { success: false, error: "Recipient email is missing" };
+    }
 
-    const response = await fetch("/api/send-invoice-email", {
+    const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
+    const isBalance = Number(invoiceData.depositPaid || 0) > 0;
+    // Mirror the auto-issuance flow's template selection so manual
+    // sends and auto sends look identical to the client.
+    const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
+    const amountLabel = `R${Number(invoiceData.balanceDue || invoiceData.total || 0).toFixed(2)}`;
+    const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
+
+    const fallbackBody =
+      `Hi {{first_name}},\n\n` +
+      `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
+      `Open the invoice in your portal to download or pay.\n\n` +
+      `Thanks,\n{{tenant_name}}`;
+
+    const response = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        companyId: options.companyId,
         to: recipientEmail,
-        subject: `Invoice ${invoiceData.invoiceNumber} - ${invoiceData.companyName}`,
-        html: htmlContent,
-        invoiceNumber: invoiceData.invoiceNumber,
+        subject: `Invoice ${invoiceData.invoiceNumber} ready -- ${eventLabel}`,
+        body: fallbackBody,
+        template: templateType,
+        variables: {
+          first_name: firstName,
+          client_name: invoiceData.clientName,
+          tenant_name: invoiceData.companyName,
+          event_name: eventLabel,
+          invoice_number: invoiceData.invoiceNumber,
+          amount: amountLabel,
+          deposit_amount: isBalance ? "" : amountLabel,
+          balance_amount: isBalance ? amountLabel : "",
+        },
+        emailType: templateType,
+        attachInvoicePdf: true,
+        invoiceId: options.invoiceId,
       }),
     });
 
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = await response.json();
-      return { success: false, error: error.message || "Failed to send email" };
+      return { success: false, error: payload?.error || "Failed to send email" };
     }
-
+    if (payload?.success === false) {
+      return { success: false, error: payload?.error || "Email provider refused the send" };
+    }
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || "Send failed" };
   }
 }
 

@@ -263,10 +263,20 @@ export default function InvoicesPage() {
     const invoice = invoices.find(inv => inv.id === invoiceId);
     if (!invoice || !invoice.invoice_data) return;
 
+    if (!user?.company_id) {
+      toast({
+        title: "Error",
+        description: "Missing company context -- please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { success, error } = await sendInvoiceEmail(
         invoice.invoice_data,
-        invoice.invoice_data.clientEmail
+        invoice.invoice_data.clientEmail,
+        { invoiceId: invoice.id, companyId: user.company_id },
       );
 
       if (!success) {
