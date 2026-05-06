@@ -120,6 +120,8 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "amendment_approved", "amendment_partial_approved", "amendment_rejected",
   "cancellation_approved", "cancellation_rejected",
   "postponement_approved", "postponement_rejected",
+  // Added in 20260506170000_notification_type_enum_domain_verified.
+  "domain_verified",
 ]);
 
 export const notificationService = {
